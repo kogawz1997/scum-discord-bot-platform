@@ -381,6 +381,49 @@
       gap: 10px;
     }
 
+    .section-map {
+      margin-top: 14px;
+      margin-bottom: 14px;
+    }
+
+    .ops-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .ops-chip {
+      text-align: left;
+      display: grid;
+      gap: 3px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(155deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+      color: var(--text);
+      padding: 12px;
+      min-height: 72px;
+      box-shadow: inset 0 0 0 1px rgba(145, 179, 236, 0.08);
+      transition: transform 120ms ease, border-color 150ms ease, box-shadow 160ms ease;
+    }
+
+    .ops-chip:hover {
+      transform: translateY(-1px);
+      border-color: rgba(145, 197, 255, 0.46);
+      box-shadow: inset 0 0 0 1px rgba(145, 179, 236, 0.15), 0 10px 20px rgba(10, 26, 51, 0.35);
+    }
+
+    .ops-chip strong {
+      font-family: "Chakra Petch", sans-serif;
+      letter-spacing: 0.25px;
+      font-size: 14px;
+    }
+
+    .ops-chip span {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
     .metric {
       border-radius: 12px;
       border: 1px solid var(--line);
@@ -457,17 +500,73 @@
 
     .action-layout {
       display: grid;
-      grid-template-columns: 220px 1fr;
+      grid-template-columns: 280px 1fr;
       gap: 12px;
       min-height: 68vh;
     }
 
-    .tab-menu {
-      display: grid;
-      gap: 8px;
-      align-content: start;
+    .tab-menu-shell {
       position: sticky;
       top: 10px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 0 0 1px rgba(145, 179, 236, 0.08);
+    }
+
+    .tab-menu-header {
+      display: grid;
+      gap: 6px;
+      border-bottom: 1px dashed var(--line);
+      padding-bottom: 8px;
+    }
+
+    .tab-menu-header h3 {
+      margin: 0;
+      font-size: 15px;
+      font-family: "Chakra Petch", sans-serif;
+      letter-spacing: 0.25px;
+    }
+
+    .tab-menu-header p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .tab-search {
+      padding: 10px 11px;
+      font-size: 13px;
+      border-radius: 10px;
+    }
+
+    .tab-menu {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .tab-group {
+      display: grid;
+      gap: 7px;
+    }
+
+    .tab-group-title {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      padding-left: 4px;
+    }
+
+    .tab-group-body {
+      display: grid;
+      gap: 7px;
     }
 
     .tab-btn {
@@ -482,6 +581,17 @@
       line-height: 1.25;
       box-shadow: inset 0 0 0 1px rgba(141, 176, 231, 0.08);
       transition: transform 120ms ease, border-color 160ms ease, box-shadow 180ms ease;
+      position: relative;
+    }
+
+    .tab-btn::before {
+      content: "";
+      position: absolute;
+      inset: 8px auto 8px 0;
+      width: 3px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      opacity: 0.65;
     }
 
     .tab-btn:hover {
@@ -506,7 +616,11 @@
     }
 
     .tab-btn.active .desc { color: rgba(15, 18, 12, 0.72); }
+    .tab-btn.active::before { background: rgba(10, 16, 8, 0.35); }
+    .tab-btn.danger::before { background: linear-gradient(180deg, #ff8772, #ffb06a); }
     .tab-btn.danger.active { background: linear-gradient(135deg, var(--danger), #ff9a5b); color: #2a100f; }
+    .tab-btn.hidden-by-filter { display: none !important; }
+    .tab-group[hidden] { display: none !important; }
 
     .tab-content {
       border-radius: 12px;
@@ -878,7 +992,8 @@
     @media (max-width: 1180px) {
       .workspace { grid-template-columns: 1fr; }
       .action-layout { grid-template-columns: 1fr; }
-      .tab-menu { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tab-menu-shell { position: static; }
+      .tab-menu { grid-template-columns: 1fr; align-items: start; }
     }
 
     @media (max-width: 760px) {
@@ -888,6 +1003,7 @@
       .quick-grid { grid-template-columns: 1fr; }
       .form-grid { grid-template-columns: 1fr; }
       .tab-menu { grid-template-columns: 1fr; }
+      .ops-strip { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -897,8 +1013,8 @@
       <div class="brand">
         <div class="badge">SC</div>
         <div>
-          <h1>ศูนย์ควบคุมแอดมิน</h1>
-          <div class="subtitle">จัดการระบบบอททั้งหมดจากจุดเดียว: เศรษฐกิจ ร้านค้า ตั๋ว กิจกรรม RCON และคอนฟิก</div>
+          <h1>ศูนย์บัญชาการ SCUM</h1>
+          <div class="subtitle">จัดการระบบบอทแบบภาคสนามจากจุดเดียว: เศรษฐกิจ ร้านค้า ตั๋ว กิจกรรม RCON และคอนฟิก</div>
         </div>
       </div>
       <div class="auth">
@@ -929,8 +1045,39 @@
       <div id="summary" class="summary"></div>
     </section>
 
+    <section class="panel section-map">
+      <h2 class="title">แผนที่หมวดระบบ</h2>
+      <p class="help" style="margin-bottom:10px;">เลือกหมวดหลักเพื่อเลื่อนไปยังฟอร์มที่เกี่ยวข้องทันที</p>
+      <div class="ops-strip">
+        <button type="button" class="ops-chip" data-open-tab="economy">
+          <strong>เศรษฐกิจ + ร้านค้า</strong>
+          <span>กระเป๋าเหรียญ, สินค้า, สถานะคำสั่งซื้อ</span>
+        </button>
+        <button type="button" class="ops-chip" data-open-tab="community">
+          <strong>คอมมูนิตี้</strong>
+          <span>ทิคเก็ต, กิจกรรม, ค่าหัว</span>
+        </button>
+        <button type="button" class="ops-chip" data-open-tab="players">
+          <strong>ผู้เล่น + VIP</strong>
+          <span>ลิงก์ Steam, VIP, โค้ดแลกรางวัล</span>
+        </button>
+        <button type="button" class="ops-chip" data-open-tab="delivery">
+          <strong>RCON + เช่ามอไซ</strong>
+          <span>คิวส่งของ, รีลอง, รีเซ็ตระบบเช่า</span>
+        </button>
+        <button type="button" class="ops-chip" data-open-tab="config">
+          <strong>คอนฟิกบอท</strong>
+          <span>ตั้งค่าง่าย + แก้ JSON ทั้งระบบ</span>
+        </button>
+        <button type="button" class="ops-chip" data-open-tab="danger">
+          <strong>Danger Zone</strong>
+          <span>ลบ/ล้าง/รีเซ็ตที่มีผลกระทบสูง</span>
+        </button>
+      </div>
+    </section>
+
     <section class="panel quick">
-      <h2 class="title">การทำงานด่วน</h2>
+      <h2 class="title">ภารกิจด่วน</h2>
       <div class="quick-grid">
         <form data-endpoint="/admin/api/wallet/add">
           <h3>เพิ่มเหรียญทันที</h3>
@@ -990,14 +1137,45 @@
       <section class="panel">
         <h2 class="title">ศูนย์จัดการระบบ</h2>
         <div class="action-layout">
-          <aside class="tab-menu">
-            <button class="tab-btn active" data-tab="economy" type="button">เศรษฐกิจ + ร้านค้า<span class="desc">กระเป๋า, ร้านค้า, คำสั่งซื้อ</span></button>
-            <button class="tab-btn" data-tab="community" type="button">ตั๋ว + กิจกรรม + ค่าหัว<span class="desc">ทิคเก็ต, กิจกรรม, ค่าหัว</span></button>
-            <button class="tab-btn" data-tab="players" type="button">ผู้เล่น + VIP + ระบบแลกรางวัล<span class="desc">ลิงก์, VIP, โค้ด</span></button>
-            <button class="tab-btn" data-tab="moderation" type="button">ลงโทษ + สถิติ + ต้อนรับ<span class="desc">ดูแล, สถิติ, ต้อนรับ</span></button>
-            <button class="tab-btn" data-tab="delivery" type="button">ส่งของ RCON + เช่ามอไซ<span class="desc">คิว, ลองใหม่, รีเซ็ต</span></button>
-            <button class="tab-btn" data-tab="config" type="button">แก้ไขคอนฟิก<span class="desc">แก้บางส่วน / ตั้งค่าทั้งหมด</span></button>
-            <button class="tab-btn danger" data-tab="danger" type="button">โซนอันตราย<span class="desc">ลบ / ล้าง / รีเซ็ต</span></button>
+          <aside class="tab-menu-shell">
+            <div class="tab-menu-header">
+              <h3>หมวดการจัดการ</h3>
+              <p>เลือกหมวดเพื่อแสดงฟอร์มเฉพาะงาน และค้นหาชื่อหมวดได้ทันที</p>
+              <input id="tabSearchInput" class="tab-search" type="search" placeholder="ค้นหาหมวด เช่น ร้านค้า, RCON, ทิคเก็ต">
+            </div>
+
+            <div class="tab-menu">
+              <div class="tab-group" data-group="economy">
+                <div class="tab-group-title">ระบบเศรษฐกิจ</div>
+                <div class="tab-group-body">
+                  <button class="tab-btn active" data-tab="economy" data-tab-label="เศรษฐกิจ ร้านค้า wallet purchase coins shop" type="button">เศรษฐกิจ + ร้านค้า<span class="desc">กระเป๋า, ร้านค้า, คำสั่งซื้อ</span></button>
+                </div>
+              </div>
+
+              <div class="tab-group" data-group="community">
+                <div class="tab-group-title">คอมมูนิตี้และผู้เล่น</div>
+                <div class="tab-group-body">
+                  <button class="tab-btn" data-tab="community" data-tab-label="ทิคเก็ต ticket กิจกรรม event ค่าหัว bounty" type="button">ตั๋ว + กิจกรรม + ค่าหัว<span class="desc">ทิคเก็ต, กิจกรรม, ค่าหัว</span></button>
+                  <button class="tab-btn" data-tab="players" data-tab-label="ผู้เล่น player vip redeem link steam code" type="button">ผู้เล่น + VIP + ระบบแลกรางวัล<span class="desc">ลิงก์, VIP, โค้ด</span></button>
+                  <button class="tab-btn" data-tab="moderation" data-tab-label="ลงโทษ moderation สถิติ stats ต้อนรับ welcome" type="button">ลงโทษ + สถิติ + ต้อนรับ<span class="desc">ดูแล, สถิติ, ต้อนรับ</span></button>
+                </div>
+              </div>
+
+              <div class="tab-group" data-group="operations">
+                <div class="tab-group-title">ปฏิบัติการเซิร์ฟเวอร์</div>
+                <div class="tab-group-body">
+                  <button class="tab-btn" data-tab="delivery" data-tab-label="ส่งของ delivery rcon queue เช่ามอไซ rentbike" type="button">ส่งของ RCON + เช่ามอไซ<span class="desc">คิว, ลองใหม่, รีเซ็ต</span></button>
+                  <button class="tab-btn" data-tab="config" data-tab-label="คอนฟิก config setting patch" type="button">แก้ไขคอนฟิก<span class="desc">แก้บางส่วน / ตั้งค่าทั้งหมด</span></button>
+                </div>
+              </div>
+
+              <div class="tab-group" data-group="danger">
+                <div class="tab-group-title">คำสั่งเสี่ยงสูง</div>
+                <div class="tab-group-body">
+                  <button class="tab-btn danger" data-tab="danger" data-tab-label="danger โซนอันตราย ลบ รีเซ็ต clear reset" type="button">โซนอันตราย<span class="desc">ลบ / ล้าง / รีเซ็ต</span></button>
+                </div>
+              </div>
+            </div>
           </aside>
 
           <div class="tab-content">
@@ -1698,30 +1876,38 @@
         <p class="help" style="margin-bottom: 10px;">เลือกชุดข้อมูลเพื่อตรวจสอบตารางและ JSON ดิบ</p>
         <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
           <select id="datasetSelect" style="min-width:240px;">
-            <option value="wallets">กระเป๋าเหรียญ</option>
-            <option value="shopItems">รายการสินค้า</option>
-            <option value="purchases">ประวัติซื้อ</option>
-            <option value="tickets">ทิคเก็ต</option>
-            <option value="events">กิจกรรม</option>
-            <option value="bounties">ค่าหัว</option>
-            <option value="links">ลิงก์ Steam/Discord</option>
-            <option value="memberships">สมาชิก VIP</option>
-            <option value="redeemCodes">โค้ดแลกรางวัล</option>
-            <option value="welcomeClaims">เคลมต้อนรับ</option>
-            <option value="stats">สถิติรวม</option>
-            <option value="weaponStats">สถิติอาวุธ</option>
-            <option value="punishments">บันทึกลงโทษ</option>
-            <option value="dailyRents">โควต้าเช่ารายวัน</option>
-            <option value="rentalVehicles">รถเช่า</option>
-            <option value="rentBikeRuntime">สถานะระบบเช่า</option>
-            <option value="deliveryQueue">คิวส่งของ</option>
-            <option value="deliveryAudit">บันทึกส่งของ</option>
-            <option value="observability">metrics & alerts</option>
-            <option value="topPanels">ข้อความอันดับอัตโนมัติ</option>
-            <option value="giveaways">แจกของ</option>
-            <option value="status">สถานะ SCUM</option>
-            <option value="guilds">กิลด์ Discord</option>
-            <option value="config">คอนฟิกทั้งหมด</option>
+            <optgroup label="เศรษฐกิจ / ร้านค้า">
+              <option value="wallets">กระเป๋าเหรียญ</option>
+              <option value="shopItems">รายการสินค้า</option>
+              <option value="purchases">ประวัติซื้อ</option>
+              <option value="deliveryQueue">คิวส่งของ</option>
+              <option value="deliveryAudit">บันทึกส่งของ</option>
+            </optgroup>
+            <optgroup label="ผู้เล่น / คอมมูนิตี้">
+              <option value="tickets">ทิคเก็ต</option>
+              <option value="events">กิจกรรม</option>
+              <option value="bounties">ค่าหัว</option>
+              <option value="links">ลิงก์ Steam/Discord</option>
+              <option value="memberships">สมาชิก VIP</option>
+              <option value="redeemCodes">โค้ดแลกรางวัล</option>
+              <option value="welcomeClaims">เคลมต้อนรับ</option>
+              <option value="punishments">บันทึกลงโทษ</option>
+              <option value="giveaways">แจกของ</option>
+            </optgroup>
+            <optgroup label="สถิติ / ระบบเกม">
+              <option value="stats">สถิติรวม</option>
+              <option value="weaponStats">สถิติอาวุธ</option>
+              <option value="dailyRents">โควต้าเช่ารายวัน</option>
+              <option value="rentalVehicles">รถเช่า</option>
+              <option value="rentBikeRuntime">สถานะระบบเช่า</option>
+              <option value="status">สถานะ SCUM</option>
+              <option value="topPanels">ข้อความอันดับอัตโนมัติ</option>
+            </optgroup>
+            <optgroup label="เซิร์ฟเวอร์ / วิเคราะห์">
+              <option value="observability">metrics & alerts</option>
+              <option value="guilds">กิลด์ Discord</option>
+              <option value="config">คอนฟิกทั้งหมด</option>
+            </optgroup>
           </select>
           <button id="copyJsonBtn" class="ghost">คัดลอก JSON</button>
         </div>
@@ -1782,8 +1968,12 @@
     const shopSelectedItemSub = document.getElementById('shopSelectedItemSub');
     const shopAddIdInput = document.getElementById('shopAddIdInput');
     const shopAddNameInput = document.getElementById('shopAddNameInput');
+    const tabSearchInput = document.getElementById('tabSearchInput');
+    const openTabButtons = Array.from(document.querySelectorAll('[data-open-tab]'));
     const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+    const tabGroups = Array.from(document.querySelectorAll('.tab-group'));
     const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+    const actionCenterSection = document.querySelector('.workspace .panel');
     const protectedControls = Array.from(
       document.querySelectorAll(
         '.quick input, .quick select, .quick textarea, .quick button, .workspace input, .workspace select, .workspace textarea, .workspace button',
@@ -2073,6 +2263,22 @@
       }
       for (const panel of tabPanels) {
         panel.classList.toggle('active', panel.dataset.tabPanel === tabKey);
+      }
+    }
+
+    function applyTabFilter(queryText) {
+      const query = String(queryText || '').trim().toLowerCase();
+      for (const btn of tabButtons) {
+        const label = String(btn.dataset.tabLabel || '').toLowerCase();
+        const text = String(btn.textContent || '').toLowerCase();
+        const visible = !query || label.includes(query) || text.includes(query);
+        btn.classList.toggle('hidden-by-filter', !visible);
+      }
+
+      for (const group of tabGroups) {
+        const hasVisibleButton = Array.from(group.querySelectorAll('.tab-btn'))
+          .some((btn) => !btn.classList.contains('hidden-by-filter'));
+        group.hidden = !hasVisibleButton;
       }
     }
 
@@ -2861,8 +3067,26 @@
       });
     }
 
+    if (tabSearchInput) {
+      tabSearchInput.addEventListener('input', () => {
+        applyTabFilter(tabSearchInput.value);
+      });
+    }
+
+    for (const btn of openTabButtons) {
+      btn.addEventListener('click', () => {
+        const tab = String(btn.dataset.openTab || '').trim();
+        if (!tab) return;
+        activateTab(tab);
+        if (actionCenterSection) {
+          actionCenterSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+
     applyTheme(loadPreferredTheme(), false);
     activateTab('economy');
+    applyTabFilter('');
     updateLiveToggleUi();
     updateShopKindUi();
     setAuthState(false);
