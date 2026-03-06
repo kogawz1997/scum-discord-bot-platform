@@ -134,6 +134,19 @@
 3. วาง reverse proxy + WAF + fail2ban ที่ชั้น network
 4. เพิ่ม external secret manager + key rotation automation
 
+### G) Security operations baseline (env + dependency)
+สถานะ: เสร็จแล้ว  
+- ปรับค่า `.env` ฝั่ง production-hardening ให้ครบ:
+  - หมุนค่า `SCUM_WEBHOOK_SECRET`, `ADMIN_WEB_TOKEN`, `ADMIN_WEB_PASSWORD` เป็นค่าใหม่แบบสุ่ม
+  - เพิ่มคีย์ hardening ที่จำเป็น (`ADMIN_WEB_ALLOW_TOKEN_QUERY=false`, `ADMIN_WEB_ENFORCE_ORIGIN_CHECK=true`, body limits, webhook timeout/size, ฯลฯ)
+  - ล้างค่าซ้ำ `DATABASE_URL` ให้เหลือจุดเดียว
+- ปิดช่องโหว่ dependency จาก `npm audit`:
+  - เพิ่ม `overrides.undici` ใน `package.json`
+  - `npm audit --omit=dev` ปัจจุบันเหลือ `0 vulnerabilities`
+- เพิ่มสคริปต์ตรวจความปลอดภัยก่อน deploy:
+  - `npm run security:check`
+  - ตรวจ secret สำคัญ, flag เสี่ยง, และ guard สำคัญของ admin/webhook
+
 ## งานที่ควรทำต่อรอบถัดไป
 
 1. RBAC ใน admin web (owner/admin/moderator)

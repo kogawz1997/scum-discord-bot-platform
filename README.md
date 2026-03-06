@@ -446,3 +446,13 @@ Use this baseline before exposing the bot/admin services to public networks:
   - keep dependencies updated and patch CVEs quickly
 
 Note: no software can guarantee "unhackable". This checklist and current hardening significantly reduce common attack paths (CSRF, brute-force pressure, oversized payload abuse, weak auth usage).
+
+## Security Validation Command
+
+Before deploying, run:
+
+```bash
+npm run security:check
+```
+
+This checks critical security env settings (secrets, admin flags, webhook limits, and risky token/query options).

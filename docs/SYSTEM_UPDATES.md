@@ -141,3 +141,49 @@
 - `.env.example`
 - `README.md`
 - `PROJECT_REVIEW.md`
+
+---
+
+## 2026-03-06 (Security ops completion)
+
+### เป้าหมาย
+- ปิดงานความปลอดภัยเชิงปฏิบัติการที่ต้องทำก่อนใช้งานจริง
+
+### สิ่งที่เปลี่ยน
+- หมุนค่า secret สำคัญใน `.env` (local runtime):
+  - `SCUM_WEBHOOK_SECRET`
+  - `ADMIN_WEB_TOKEN`
+  - `ADMIN_WEB_PASSWORD`
+- เติม/ยืนยันค่า hardening ใน `.env`:
+  - webhook body limit + timeout
+  - admin body limit
+  - origin enforcement
+  - token query disabled
+  - trust proxy disabled by default
+  - remove duplicated `DATABASE_URL`
+- เพิ่ม dependency hardening:
+  - `package.json` -> `overrides.undici` (แก้ผลกระทบจาก advisory ของ undici)
+- เพิ่ม automation:
+  - `scripts/security-check.js`
+  - `npm run security:check`
+
+### ผลกระทบ
+- ลดความเสี่ยงจาก weak secret/unsafe env drift ก่อน deploy
+- ลดความเสี่ยงจากช่องโหว่ dependency ที่ audit รายงาน
+- เพิ่มจุดตรวจความปลอดภัยก่อนปล่อยระบบแบบอัตโนมัติ
+
+### วิธีทดสอบ
+- `npm run security:check`
+- `npm run check`
+- `npm audit --omit=dev`
+
+### ผลทดสอบล่าสุด
+- `security:check` ผ่าน
+- `check` ผ่าน
+- `audit --omit=dev` = `0 vulnerabilities`
+
+### ไฟล์หลักที่อัปเดต
+- `package.json`
+- `package-lock.json`
+- `scripts/security-check.js`
+- `PROJECT_REVIEW.md`
