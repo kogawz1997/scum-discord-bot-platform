@@ -4,6 +4,7 @@ const path = require('node:path');
 const {
   normalizeItemIconKey,
   resolveItemIconUrl,
+  resolveCanonicalItemId,
 } = require('./itemIconService');
 
 const DEFAULT_WIKI_PATH = path.resolve(
@@ -137,17 +138,24 @@ function loadCatalog() {
     const spawnId = text(row.spawn_id);
     const name = text(row.name);
     if (!spawnId) continue;
+    const gameItemId =
+      resolveCanonicalItemId({
+        gameItemId: spawnId,
+        id: spawnId,
+        name,
+      }) || spawnId;
 
     const item = {
       category: text(row.category) || 'unknown',
       name: name || spawnId,
       spawnId,
+      gameItemId,
       spawnCommandExample: text(row.spawn_command_example) || null,
       commandTemplate: parseSpawnCommandTemplate(row.spawn_command_example, spawnId),
       iconUrl:
         resolveItemIconUrl({
-          gameItemId: spawnId,
-          id: spawnId,
+          gameItemId,
+          id: gameItemId,
           name,
         }) || null,
       attachments: {
@@ -162,6 +170,7 @@ function loadCatalog() {
 
     const keyCandidates = withUnique([
       ...buildLookupKeys(spawnId),
+      ...buildLookupKeys(gameItemId),
       ...buildLookupKeys(name),
     ]);
     for (const key of keyCandidates) {

@@ -8,8 +8,15 @@
   MessageFlags,
 } = require('discord.js');
 const { serverInfo } = require('../config');
-const { getShopItemById, listShopItems } = require('../store/memoryStore');
 const { resolveItemIconUrl } = require('../services/itemIconService');
+const {
+  getShopItemViewById,
+  listShopItemViews,
+} = require('../services/playerQueryService');
+const {
+  buildBundleSummary,
+  normalizeShopKind,
+} = require('../services/shopService');
 const {
   buildTopKillerEmbed,
   buildTopGunKillEmbed,
@@ -19,52 +26,14 @@ const {
   registerLeaderboardPanelMessage,
 } = require('../services/leaderboardPanels');
 
-function normalizeDeliveryItems(item) {
-  const direct = Array.isArray(item?.deliveryItems) ? item.deliveryItems : [];
-  const normalized = direct
-    .map((entry) => {
-      const gameItemId = String(entry?.gameItemId || '').trim();
-      if (!gameItemId) return null;
-      const quantity = Math.max(1, Math.trunc(Number(entry?.quantity || 1)));
-      return { gameItemId, quantity };
-    })
-    .filter(Boolean);
-  if (normalized.length > 0) return normalized;
-
-  const fallbackId = String(item?.gameItemId || '').trim();
-  if (!fallbackId) return [];
-  return [
-    {
-      gameItemId: fallbackId,
-      quantity: Math.max(1, Math.trunc(Number(item?.quantity || 1))),
-    },
-  ];
-}
-
 function buildDeliverySummaryLines(item, maxRows = 4) {
-  const entries = normalizeDeliveryItems(item);
-  if (entries.length === 0) {
-    return ['**ไอเทมในเกม:** `-`'];
-  }
-
-  const totalQty = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-  const lines = [
-    `**ไอเทมในชุด:** **${entries.length}** รายการ (รวม **${totalQty}** ชิ้น)`,
-  ];
-  for (const entry of entries.slice(0, maxRows)) {
-    lines.push(`- \`${entry.gameItemId}\` x**${entry.quantity}**`);
-  }
-  if (entries.length > maxRows) {
-    lines.push(`- และอีก **${entries.length - maxRows}** รายการ`);
-  }
-  return lines;
+  const summary = buildBundleSummary(item, maxRows);
+  return summary.lines;
 }
 
 function buildShopEmbed(item, imageUrl) {
   const resolvedImageUrl = imageUrl || resolveItemIconUrl(item);
-  const kind = String(item.kind || 'item').trim().toLowerCase() === 'vip'
-    ? 'vip'
-    : 'item';
+  const kind = normalizeShopKind(item.kind);
   const metaLines = kind === 'item'
     ? [
         `**ประเภท:** ITEM`,
@@ -394,7 +363,7 @@ async function postShopCard(interaction) {
   const itemId = interaction.options.getString('item_id', true);
   const imageUrl = interaction.options.getString('image_url');
 
-  const item = await getShopItemById(itemId);
+  const item = await getShopItemViewById(itemId);
   if (!item) {
     return replyOrEdit(interaction, {
       content: `ไม่พบรหัสสินค้า: ${itemId}`,
@@ -415,7 +384,7 @@ async function postShopFeed(interaction) {
   const limit = interaction.options.getInteger('limit') || 10;
   const imageUrl = interaction.options.getString('image_url');
 
-  const allItems = await listShopItems();
+  const allItems = await listShopItemViews();
   const matched = allItems
     .filter((item) =>
       [item.id, item.name, item.description || '']

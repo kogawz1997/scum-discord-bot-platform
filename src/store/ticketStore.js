@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const tickets = new Map(); // channelId -> ticket
@@ -7,18 +6,6 @@ let ticketCounter = 1;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('tickets.json', () => ({
-  ticketCounter,
-  tickets: Array.from(tickets.entries()).map(([channelId, t]) => [
-    channelId,
-    {
-      ...t,
-      createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : null,
-      closedAt: t.closedAt ? new Date(t.closedAt).toISOString() : null,
-    },
-  ]),
-}));
 
 function normalizeDate(value, fallback = null) {
   if (!value) return fallback;
@@ -115,7 +102,6 @@ async function hydrateFromPrisma() {
       }
       const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
       ticketCounter = Math.max(1, maxId + 1);
-      scheduleSave();
       return;
     }
 
@@ -126,28 +112,13 @@ async function hydrateFromPrisma() {
     }
     const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
     ticketCounter = Math.max(ticketCounter, maxId + 1);
-    scheduleSave();
   } catch (error) {
     console.error('[ticketStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('tickets.json', null);
-  if (!persisted) return;
-  if (typeof persisted.ticketCounter === 'number') ticketCounter = persisted.ticketCounter;
-  for (const [channelId, raw] of persisted.tickets || []) {
-    const parsed = normalizeTicket({ ...raw, channelId });
-    if (!parsed) continue;
-    tickets.set(parsed.channelId, parsed);
-  }
-  const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
-  ticketCounter = Math.max(ticketCounter, maxId + 1);
-}
-
 function initTicketStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -173,7 +144,6 @@ function createTicket({ guildId, userId, channelId, category, reason }) {
   });
   tickets.set(t.channelId, t);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -219,7 +189,6 @@ function claimTicket(channelId, staffId) {
   t.status = 'claimed';
   t.claimedBy = String(staffId || '');
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -242,7 +211,6 @@ function closeTicket(channelId) {
   t.status = 'closed';
   t.closedAt = new Date();
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -274,7 +242,6 @@ function replaceTickets(nextTickets = [], nextCounter = null) {
     const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
     ticketCounter = maxId + 1;
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

@@ -1,19 +1,18 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { listTopWallets } = require('../store/memoryStore');
-const { listAllStats } = require('../store/statsStore');
 const { economy } = require('../config');
+const {
+  listTopWalletSnapshots,
+  listStatsSnapshots,
+} = require('../services/playerQueryService');
 
-function medal(index) {
-  if (index === 0) return '🥇';
-  if (index === 1) return '🥈';
-  if (index === 2) return '🥉';
+function rankLabel(index) {
   return `#${index + 1}`;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('board')
-    .setDescription('ดูบอร์ดจัดอันดับแบบลูกเล่น')
+    .setDescription('ดูบอร์ดจัดอันดับผู้เล่น')
     .addStringOption((option) =>
       option
         .setName('type')
@@ -34,70 +33,75 @@ module.exports = {
         .setMaxValue(15)
         .setRequired(false),
     ),
+
   async execute(interaction) {
     const type = interaction.options.getString('type', true);
     const limit = interaction.options.getInteger('limit') || 10;
 
     let rows = [];
-    let title = '🏆 ตารางคะแนน';
+    let title = 'ตารางคะแนน';
 
     if (type === 'economy') {
-      const wallets = await listTopWallets(limit);
+      const wallets = await listTopWalletSnapshots(limit);
       if (wallets.length === 0) {
         return interaction.reply('ยังไม่มีข้อมูลเศรษฐกิจในระบบ');
       }
 
       rows = await Promise.all(
-        wallets.map(async (w, i) => {
-          const user = await interaction.client.users.fetch(w.userId).catch(() => null);
-          const name = user ? user.tag : `<@${w.userId}>`;
-          return `${medal(i)} **${name}** — ${economy.currencySymbol} ${Number(w.balance || 0).toLocaleString()}`;
+        wallets.map(async (wallet, index) => {
+          const user = await interaction.client.users.fetch(wallet.userId).catch(() => null);
+          const name = user ? user.tag : `<@${wallet.userId}>`;
+          return `${rankLabel(index)} **${name}** — ${economy.currencySymbol} ${Number(wallet.balance || 0).toLocaleString()}`;
         }),
       );
-      title = '💰 กระดานเศรษฐกิจ';
+      title = 'กระดานเศรษฐกิจ';
     } else {
-      const all = listAllStats();
-      if (all.length === 0) {
+      const stats = listStatsSnapshots();
+      if (stats.length === 0) {
         return interaction.reply('ยังไม่มีข้อมูลสถิติในระบบ');
       }
 
       if (type === 'kills') {
-        all.sort((a, b) => b.kills - a.kills);
-        title = '⚔️ กระดานสังหาร';
+        stats.sort((a, b) => Number(b.kills || 0) - Number(a.kills || 0));
+        title = 'กระดานสังหาร';
         rows = await Promise.all(
-          all.slice(0, limit).map(async (s, i) => {
-            const user = await interaction.client.users.fetch(s.userId).catch(() => null);
-            const name = user ? user.tag : `<@${s.userId}>`;
-            return `${medal(i)} **${name}** — ${s.kills} คิล`;
+          stats.slice(0, limit).map(async (entry, index) => {
+            const user = await interaction.client.users.fetch(entry.userId).catch(() => null);
+            const name = user ? user.tag : `<@${entry.userId}>`;
+            return `${rankLabel(index)} **${name}** — ${Number(entry.kills || 0)} คิล`;
           }),
         );
-      }
-
-      if (type === 'playtime') {
-        all.sort((a, b) => b.playtimeMinutes - a.playtimeMinutes);
-        title = '🕒 กระดานเวลาเล่น';
+      } else if (type === 'playtime') {
+        stats.sort(
+          (a, b) => Number(b.playtimeMinutes || 0) - Number(a.playtimeMinutes || 0),
+        );
+        title = 'กระดานเวลาเล่น';
         rows = await Promise.all(
-          all.slice(0, limit).map(async (s, i) => {
-            const user = await interaction.client.users.fetch(s.userId).catch(() => null);
-            const name = user ? user.tag : `<@${s.userId}>`;
-            return `${medal(i)} **${name}** — ${Math.floor((s.playtimeMinutes || 0) / 60)} ชม.`;
+          stats.slice(0, limit).map(async (entry, index) => {
+            const user = await interaction.client.users.fetch(entry.userId).catch(() => null);
+            const name = user ? user.tag : `<@${entry.userId}>`;
+            return `${rankLabel(index)} **${name}** — ${Math.floor(Number(entry.playtimeMinutes || 0) / 60)} ชม.`;
           }),
         );
-      }
-
-      if (type === 'kd') {
-        all.sort((a, b) => {
-          const kdA = a.deaths === 0 ? a.kills : a.kills / a.deaths;
-          const kdB = b.deaths === 0 ? b.kills : b.kills / b.deaths;
+      } else {
+        stats.sort((a, b) => {
+          const kdA = Number(a.deaths || 0) === 0
+            ? Number(a.kills || 0)
+            : Number(a.kills || 0) / Number(a.deaths || 1);
+          const kdB = Number(b.deaths || 0) === 0
+            ? Number(b.kills || 0)
+            : Number(b.kills || 0) / Number(b.deaths || 1);
           return kdB - kdA;
         });
-        title = '🎯 กระดาน K/D';
+        title = 'กระดาน K/D';
         rows = await Promise.all(
-          all.slice(0, limit).map(async (s, i) => {
-            const user = await interaction.client.users.fetch(s.userId).catch(() => null);
-            const name = user ? user.tag : `<@${s.userId}>`;
-            const kd = s.deaths === 0 ? s.kills : s.kills / s.deaths;
-            return `${medal(i)} **${name}** — K/D ${kd.toFixed(2)} (${s.kills}/${s.deaths})`;
+          stats.slice(0, limit).map(async (entry, index) => {
+            const user = await interaction.client.users.fetch(entry.userId).catch(() => null);
+            const name = user ? user.tag : `<@${entry.userId}>`;
+            const kd = Number(entry.deaths || 0) === 0
+              ? Number(entry.kills || 0)
+              : Number(entry.kills || 0) / Number(entry.deaths || 1);
+            return `${rankLabel(index)} **${name}** — K/D ${kd.toFixed(2)} (${Number(entry.kills || 0)}/${Number(entry.deaths || 0)})`;
           }),
         );
       }

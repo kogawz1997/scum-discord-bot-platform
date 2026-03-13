@@ -11,12 +11,9 @@ const { addKill, addDeath } = require('../store/statsStore');
 const { recordWeaponKill } = require('../store/weaponStatsStore');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 const { queueLeaderboardRefreshForGuild } = require('./leaderboardPanels');
+const { looksLikeMojibake } = require('../utils/mojibake');
 
 const killStreak = new Map();
-
-function looksLikeMojibake(value) {
-  return /(?:Ã|Â|à¸|âœ|ðŸ)/.test(String(value || ''));
-}
 
 function sanitizeLabel(value, fallback) {
   const text = String(value || '').trim();

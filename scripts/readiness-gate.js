@@ -40,8 +40,15 @@ function runNpm(commandArgs) {
 }
 
 function main() {
-  const scripts = ['check', 'security:check', 'doctor', 'doctor:web-standalone'];
+  const scripts = [
+    'check',
+    'security:check',
+    'doctor',
+    'doctor:topology',
+    'doctor:web-standalone',
+  ];
   if (isProduction) {
+    scripts.push('doctor:topology:prod');
     scripts.push('doctor:web-standalone:prod');
   }
 

@@ -1,10 +1,12 @@
 ﻿'use strict';
 
 const path = require('node:path');
-const dotenv = require('dotenv');
+const { loadMergedEnvFiles } = require('../../../src/utils/loadEnvFiles');
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-dotenv.config();
+loadMergedEnvFiles({
+  basePath: path.resolve(process.cwd(), '.env'),
+  overlayPath: path.join(__dirname, '..', '.env'),
+});
 
 const NODE_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const IS_PRODUCTION = NODE_ENV === 'production' || process.argv.includes('--production');
@@ -55,6 +57,11 @@ const DISCORD_CLIENT_SECRET = String(
     || process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
     || '',
 ).trim();
+const ADMIN_SSO_ENABLED = envBool('ADMIN_WEB_SSO_DISCORD_ENABLED', false);
+const ADMIN_SSO_REDIRECT_URI = String(
+  process.env.ADMIN_WEB_SSO_DISCORD_REDIRECT_URI || '',
+).trim();
+const ADMIN_ALLOWED_ORIGINS = String(process.env.ADMIN_WEB_ALLOWED_ORIGINS || '').trim();
 
 const PLAYER_OPEN_ACCESS = envBool('WEB_PORTAL_PLAYER_OPEN_ACCESS', true);
 const DISCORD_GUILD_ID = String(
@@ -67,6 +74,10 @@ const ALLOWED_DISCORD_IDS = parseCsvSet(process.env.WEB_PORTAL_ALLOWED_DISCORD_I
 
 const SECURE_COOKIE = envBool('WEB_PORTAL_SECURE_COOKIE', IS_PRODUCTION);
 const ENFORCE_ORIGIN_CHECK = envBool('WEB_PORTAL_ENFORCE_ORIGIN_CHECK', true);
+
+function parseCsvSetAsArray(value) {
+  return Array.from(parseCsvSet(value));
+}
 
 function validate() {
   const errors = [];
@@ -127,6 +138,47 @@ function validate() {
     warnings.push('WEB_PORTAL_LEGACY_ADMIN_URL ไม่ใช่ HTTPS บน host ภายนอก');
   }
 
+  if (base) {
+    const redirectUrl = new URL(DISCORD_REDIRECT_PATH || '/admin/auth/discord/callback', base);
+    if (
+      redirectUrl.pathname !== '/admin/auth/discord/callback'
+      && redirectUrl.pathname !== '/auth/discord/callback'
+    ) {
+      warnings.push(
+        `Discord redirect path แบบ custom (${redirectUrl.pathname}) ต้องลงทะเบียน URI เดียวกันใน Discord Developer Portal`,
+      );
+    }
+    if (IS_PRODUCTION && redirectUrl.protocol !== 'https:') {
+      errors.push('production ต้องใช้ Discord redirect ของ player portal เป็น https');
+    }
+  }
+
+  if (ADMIN_SSO_ENABLED) {
+    if (!ADMIN_SSO_REDIRECT_URI) {
+      errors.push('เปิด ADMIN_WEB_SSO_DISCORD_ENABLED แล้วต้องตั้ง ADMIN_WEB_SSO_DISCORD_REDIRECT_URI');
+    } else {
+      try {
+        const adminRedirect = new URL(ADMIN_SSO_REDIRECT_URI);
+        if (adminRedirect.pathname !== '/admin/auth/discord/callback') {
+          errors.push(
+            'ADMIN_WEB_SSO_DISCORD_REDIRECT_URI ต้องลงท้ายด้วย /admin/auth/discord/callback',
+          );
+        }
+        if (IS_PRODUCTION && adminRedirect.protocol !== 'https:') {
+          errors.push('production ต้องใช้ ADMIN_WEB_SSO_DISCORD_REDIRECT_URI เป็น https');
+        }
+        const adminOrigins = parseCsvSetAsArray(ADMIN_ALLOWED_ORIGINS);
+        if (adminOrigins.length > 0 && !adminOrigins.includes(adminRedirect.origin)) {
+          errors.push(
+            'origin ของ ADMIN_WEB_SSO_DISCORD_REDIRECT_URI ไม่อยู่ใน ADMIN_WEB_ALLOWED_ORIGINS',
+          );
+        }
+      } catch {
+        errors.push('ADMIN_WEB_SSO_DISCORD_REDIRECT_URI ไม่ถูกต้อง (ต้องเป็น URL เต็ม)');
+      }
+    }
+  }
+
   if (IS_PRODUCTION) {
     if (!SECURE_COOKIE) {
       errors.push('production ต้องตั้ง WEB_PORTAL_SECURE_COOKIE=true');
@@ -149,6 +201,14 @@ function printReport(report) {
   console.log('[web-portal doctor] portal mode:', PORTAL_MODE);
   console.log('[web-portal doctor] base:', BASE_URL);
   console.log('[web-portal doctor] legacy admin:', LEGACY_ADMIN_URL);
+  if (BASE_URL && DISCORD_REDIRECT_PATH) {
+    try {
+      const redirectUrl = new URL(DISCORD_REDIRECT_PATH, BASE_URL);
+      console.log('[web-portal doctor] discord redirect:', redirectUrl.toString());
+    } catch {
+      // report via validation
+    }
+  }
   console.log('[web-portal doctor] player open access:', PLAYER_OPEN_ACCESS);
 
   if (report.warnings.length > 0) {

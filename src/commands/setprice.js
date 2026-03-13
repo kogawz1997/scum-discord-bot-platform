@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const { setShopItemPrice } = require('../store/memoryStore');
+﻿const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { setShopItemPriceForAdmin } = require('../services/shopService');
 const { economy } = require('../config');
 
 module.exports = {
@@ -24,8 +24,11 @@ module.exports = {
     const query = interaction.options.getString('item', true);
     const price = interaction.options.getInteger('price', true);
 
-    const item = await setShopItemPrice(query, price);
-    if (!item) {
+    const result = await setShopItemPriceForAdmin({
+      idOrName: query,
+      price,
+    });
+    if (!result.ok) {
       return interaction.reply({
         content: 'ไม่พบสินค้า กรุณาตรวจสอบชื่อ/รหัสอีกครั้ง',
         flags: MessageFlags.Ephemeral,
@@ -33,7 +36,7 @@ module.exports = {
     }
 
     await interaction.reply(
-      `ตั้งราคาของ **${item.name}** (รหัส: \`${item.id}\`) เป็น ${economy.currencySymbol} **${item.price.toLocaleString()}** แล้ว`,
+      `ตั้งราคาของ **${result.item.name}** (รหัส: \`${result.item.id}\`) เป็น ${economy.currencySymbol} **${result.item.price.toLocaleString()}** แล้ว`,
     );
   },
 };

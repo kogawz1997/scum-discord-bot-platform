@@ -3,7 +3,6 @@
 // - Prisma write-through for persistent source of truth
 // - legacy JSON snapshot retained as fallback/backup
 
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const codes = new Map(); // code -> { type, amount, itemId, usedBy, usedAt }
@@ -74,16 +73,6 @@ function toSerializableCode(code, value) {
   };
 }
 
-const scheduleSave = saveJsonDebounced('redeem.json', () => ({
-  codes: Array.from(codes.entries()).map(([code, value]) => [
-    code,
-    {
-      ...value,
-      usedAt: value.usedAt ? new Date(value.usedAt).toISOString() : null,
-    },
-  ]),
-}));
-
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
     .then(async () => {
@@ -146,7 +135,6 @@ async function hydrateFromPrisma() {
       for (const [code, value] of hydrated.entries()) {
         codes.set(code, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -155,28 +143,13 @@ async function hydrateFromPrisma() {
         codes.set(code, value);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[redeemStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('redeem.json', null);
-  if (!persisted) return;
-
-  codes.clear();
-  for (const [rawCode, rawValue] of persisted.codes || []) {
-    const code = normalizeCode(rawCode);
-    const value = normalizeRecord(rawValue || {});
-    if (!code || !value) continue;
-    codes.set(code, value);
-  }
-}
-
 function initRedeemStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     if (!codes.has('WELCOME1000')) {
       codes.set('WELCOME1000', {
         type: 'coins',
@@ -216,7 +189,6 @@ function markUsed(code, userId) {
   const usedAt = new Date();
   value.usedBy = String(userId || '');
   value.usedAt = usedAt;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -262,7 +234,6 @@ function setCode(code, payload) {
 
   mutationVersion += 1;
   codes.set(normalized, value);
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -299,7 +270,6 @@ function deleteCode(code) {
   if (!existed) return false;
 
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -321,7 +291,6 @@ function resetCodeUsage(code) {
   mutationVersion += 1;
   value.usedBy = null;
   value.usedAt = null;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -378,7 +347,6 @@ function replaceCodes(nextCodes = []) {
     });
   }
 
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.redeemCode.deleteMany({});

@@ -1,10 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const {
-  canClaimWeekly,
-  claimWeekly,
-  getWallet,
-} = require('../store/memoryStore');
 const { economy } = require('../config');
+const { getWalletSnapshot } = require('../services/playerQueryService');
+const { checkRewardClaimForUser, claimRewardForUser } = require('../services/rewardService');
 
 function msToDaysHours(ms) {
   const totalHours = Math.ceil(ms / (60 * 60 * 1000));
@@ -18,24 +15,29 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('weekly')
     .setDescription('รับเหรียญรายสัปดาห์'),
+
   async execute(interaction) {
     const userId = interaction.user.id;
-    const check = await canClaimWeekly(userId);
+    const check = await checkRewardClaimForUser({ userId, type: 'weekly' });
 
     if (!check.ok) {
-      const wallet = await getWallet(userId);
+      const wallet = await getWalletSnapshot(userId);
       return interaction.reply({
-        content: `คุณรับรายสัปดาห์ไปแล้ว ตอนนี้คุณมี ${economy.currencySymbol} **${wallet.balance.toLocaleString()}**\nโปรดลองใหม่อีกครั้งในอีก **${msToDaysHours(
-          check.remainingMs,
-        )}**`,
+        content: `คุณรับรายสัปดาห์ไปแล้ว ตอนนี้คุณมี ${economy.currencySymbol} **${Number(wallet.balance || 0).toLocaleString()}**\nโปรดลองใหม่อีกครั้งในอีก **${msToDaysHours(check.remainingMs)}**`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const newBalance = await claimWeekly(userId);
-    await interaction.reply(
-      `คุณได้รับรายสัปดาห์ ${economy.currencySymbol} **${economy.weeklyReward.toLocaleString()}**!\nยอดคงเหลือใหม่: ${economy.currencySymbol} **${newBalance.toLocaleString()}**`,
+    const result = await claimRewardForUser({ userId, type: 'weekly' });
+    if (!result.ok) {
+      return interaction.reply({
+        content: 'ไม่สามารถรับรายสัปดาห์ได้ กรุณาลองใหม่อีกครั้ง',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    return interaction.reply(
+      `คุณได้รับรายสัปดาห์ ${economy.currencySymbol} **${Number(result.reward || 0).toLocaleString()}**!\nยอดคงเหลือใหม่: ${economy.currencySymbol} **${Number(result.balance || 0).toLocaleString()}**`,
     );
   },
 };
-

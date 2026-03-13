@@ -8,52 +8,22 @@ const { URL } = require('node:url');
 const config = require('./config');
 const { prisma } = require('./prisma');
 const {
-  addCoins,
-  removeCoins,
-  setCoins,
   listShopItems,
   listUserPurchases,
-  addShopItem,
-  deleteShopItem,
-  setShopItemPrice,
-  setPurchaseStatusByCode,
-  findPurchaseByCode,
   listKnownPurchaseStatuses,
-  listPurchaseStatusHistory,
 } = require('./store/memoryStore');
 const {
   normalizePurchaseStatus,
   listAllowedPurchaseTransitions,
-  validatePurchaseStatusTransition,
 } = require('./services/purchaseStateMachine');
+const { listEvents, getParticipants } = require('./store/eventStore');
 const {
-  tickets,
-  claimTicket,
-  closeTicket,
-  replaceTickets,
-} = require('./store/ticketStore');
-const { listAllStats, addKill, addDeath, addPlaytimeMinutes, replaceStats } = require('./store/statsStore');
-const { listWeaponStats, replaceWeaponStats } = require('./store/weaponStatsStore');
-const { listBounties, createBounty, cancelBounty, replaceBounties } = require('./store/bountyStore');
-const { listEvents, createEvent, startEvent, endEvent, joinEvent, getParticipants, replaceEvents } = require('./store/eventStore');
-const { giveaways, replaceGiveaways } = require('./store/giveawayStore');
-const { listLinks, setLink, unlinkBySteamId, unlinkByUserId, replaceLinks } = require('./store/linkStore');
-const { getStatus, updateStatus, replaceStatus } = require('./store/scumStore');
-const { listMemberships, setMembership, removeMembership, replaceMemberships } = require('./store/vipStore');
-const { listAllPunishments, addPunishment, replacePunishments } = require('./store/moderationStore');
-const { listCodes, setCode, deleteCode, resetCodeUsage, replaceCodes } = require('./store/redeemStore');
-const { listClaimed, revokeClaim, clearClaims, replaceClaims } = require('./store/welcomePackStore');
-const { listDailyRents, listRentalVehicles } = require('./store/rentBikeStore');
-const {
-  listLuckyWheelStates,
-  replaceLuckyWheelStates,
-} = require('./store/luckyWheelStore');
-const {
-  listAllPartyMessages,
-  replacePartyMessages,
-} = require('./store/partyChatStore');
-const { listTopPanels, replaceTopPanels } = require('./store/topPanelStore');
-const { listAllCarts, replaceCarts } = require('./store/cartStore');
+  createServerEvent,
+  joinServerEvent,
+  startServerEvent,
+  finishServerEvent,
+} = require('./services/eventService');
+const { getStatus } = require('./store/scumStore');
 const {
   upsertPlayerAccount,
   bindPlayerSteamId,
@@ -65,20 +35,20 @@ const {
   getRentBikeRuntime,
   runRentBikeMidnightReset,
 } = require('./services/rentBikeService');
-const { replaceDeliveryAudit } = require('./store/deliveryAuditStore');
-const { replaceRentBikeData } = require('./store/rentBikeStore');
 const {
   enqueuePurchaseDeliveryByCode,
   listDeliveryQueue,
   listDeliveryDeadLetters,
-  replaceDeliveryQueue,
-  replaceDeliveryDeadLetters,
   retryDeliveryNow,
   retryDeliveryDeadLetter,
   removeDeliveryDeadLetter,
   cancelDeliveryJob,
   listDeliveryAudit,
   getDeliveryMetricsSnapshot,
+  getDeliveryRuntimeStatus,
+  previewDeliveryCommands,
+  sendTestDeliveryCommand,
+  getDeliveryDetailsByPurchaseCode,
 } = require('./services/rconDelivery');
 const {
   queueLeaderboardRefreshForAllGuilds,
@@ -104,8 +74,76 @@ const {
   requestRentBikeForUser,
   createBountyForUser,
   listActiveBountiesForUser,
+  cancelBountyForUser,
+  createRedeemCodeForAdmin,
+  deleteRedeemCodeForAdmin,
+  resetRedeemCodeUsageForAdmin,
 } = require('./services/playerOpsService');
-const { DATA_DIR, getPersistenceStatus } = require('./store/_persist');
+const {
+  updatePurchaseStatusForActor,
+} = require('./services/purchaseService');
+const {
+  addShopItemForAdmin,
+  setShopItemPriceForAdmin,
+  deleteShopItemForAdmin,
+} = require('./services/shopService');
+const {
+  creditCoins,
+  debitCoins,
+  setCoinsExact,
+} = require('./services/coinService');
+const {
+  grantVipForUser,
+  revokeVipForUser,
+} = require('./services/vipService');
+const {
+  buildAdminSnapshot,
+  createAdminBackup,
+  listAdminBackupFiles,
+  previewAdminBackupRestore,
+  restoreAdminBackup,
+} = require('./services/adminSnapshotService');
+const {
+  buildAuditDataset: buildAuditDatasetService,
+  buildAuditExportPayload: buildAuditExportPayloadService,
+  buildAuditCsv: buildAuditCsvService,
+  listAuditPresets: listAuditPresetsService,
+  saveAuditPreset: saveAuditPresetService,
+  deleteAuditPreset: deleteAuditPresetService,
+} = require('./services/adminAuditService');
+const {
+  createObservabilitySeriesState,
+  clampObservabilityWindowMs,
+  parseObservabilitySeriesKeys,
+  captureObservabilitySeries,
+  listObservabilitySeries,
+  buildAdminObservabilitySnapshot,
+  buildObservabilityExportPayload,
+  buildObservabilityCsv,
+} = require('./services/adminObservabilityService');
+const {
+  buildAdminDashboardCards,
+} = require('./services/adminDashboardService');
+const {
+  revokeWelcomePackClaimForAdmin,
+  clearWelcomePackClaimsForAdmin,
+} = require('./services/welcomePackService');
+const {
+  claimSupportTicket,
+  closeSupportTicket,
+} = require('./services/ticketService');
+const {
+  bindSteamLinkForUser,
+  removeSteamLink,
+} = require('./services/linkService');
+const { createPunishmentEntry } = require('./services/moderationService');
+const {
+  addKillsForUser,
+  addDeathsForUser,
+  addPlaytimeForUser,
+} = require('./services/statsService');
+const { updateScumStatusForAdmin } = require('./services/scumStatusService');
+const { getPersistenceStatus } = require('./store/_persist');
 const { getWebhookMetricsSnapshot } = require('./scumWebhookServer');
 
 const dashboardHtmlPath = path.join(__dirname, 'admin', 'dashboard.html');
@@ -172,12 +210,7 @@ const liveClients = new Set();
 let liveHeartbeatTimer = null;
 let liveBusBound = false;
 let metricsSeriesTimer = null;
-const metricsSeries = {
-  deliveryQueueLength: [],
-  deliveryFailRate: [],
-  loginFailures: [],
-  webhookErrorRate: [],
-};
+const metricsSeries = createObservabilitySeriesState();
 const METRICS_SERIES_KEYS = Object.freeze(Object.keys(metricsSeries));
 const loginAttemptsByIp = new Map();
 const loginFailureEvents = [];
@@ -249,9 +282,6 @@ const METRICS_SERIES_INTERVAL_MS = Math.max(
 const METRICS_SERIES_RETENTION_MS = Math.max(
   10 * 60 * 1000,
   Number(process.env.ADMIN_WEB_METRICS_SERIES_RETENTION_MS || 24 * 60 * 60 * 1000),
-);
-const BACKUP_DIR = path.resolve(
-  String(process.env.ADMIN_WEB_BACKUP_DIR || path.join(DATA_DIR, 'backups')),
 );
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 const STATIC_ICON_EXT = new Set(['.webp', '.png', '.jpg', '.jpeg']);
@@ -392,6 +422,22 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
+function sendDownload(res, statusCode, body, options = {}) {
+  const filename = String(options.filename || 'download.txt').trim() || 'download.txt';
+  const contentType = String(options.contentType || 'application/octet-stream').trim()
+    || 'application/octet-stream';
+  const cacheControl = String(options.cacheControl || 'no-store').trim() || 'no-store';
+  res.writeHead(
+    statusCode,
+    buildSecurityHeaders({
+      'Content-Type': contentType,
+      'Cache-Control': cacheControl,
+      'Content-Disposition': `attachment; filename=\"${filename.replace(/"/g, '')}\"`,
+    }),
+  );
+  res.end(body);
+}
+
 function getIconContentType(ext) {
   const normalized = String(ext || '').toLowerCase();
   if (normalized === '.png') return 'image/png';
@@ -523,69 +569,32 @@ function openLiveStream(req, res) {
   req.on('aborted', cleanup);
 }
 
-function compactSeries(series, now = Date.now()) {
-  const cutoff = now - METRICS_SERIES_RETENTION_MS;
-  while (series.length > 0 && series[0].at < cutoff) {
-    series.shift();
-  }
-}
-
-function recordSeriesPoint(key, value, now = Date.now()) {
-  const series = metricsSeries[key];
-  if (!Array.isArray(series)) return;
-  series.push({
-    at: now,
-    value: Number.isFinite(Number(value)) ? Number(value) : 0,
-  });
-  compactSeries(series, now);
-}
-
 function captureMetricsSeries(now = Date.now()) {
-  const delivery = typeof getDeliveryMetricsSnapshot === 'function'
-    ? getDeliveryMetricsSnapshot(now)
-    : { queueLength: 0, failRate: 0 };
-  const login = getLoginFailureMetrics(now);
-  const webhook = typeof getWebhookMetricsSnapshot === 'function'
-    ? getWebhookMetricsSnapshot(now)
-    : { errorRate: 0 };
-
-  recordSeriesPoint('deliveryQueueLength', Number(delivery.queueLength || 0), now);
-  recordSeriesPoint('deliveryFailRate', Number(delivery.failRate || 0), now);
-  recordSeriesPoint('loginFailures', Number(login.failures || 0), now);
-  recordSeriesPoint('webhookErrorRate', Number(webhook.errorRate || 0), now);
+  captureObservabilitySeries({
+    seriesState: metricsSeries,
+    retentionMs: METRICS_SERIES_RETENTION_MS,
+    now,
+    getDeliveryMetricsSnapshot,
+    getLoginFailureMetrics,
+    getWebhookMetricsSnapshot,
+  });
 }
 
 function clampMetricsWindowMs(value) {
-  const parsed = asInt(value, null);
-  if (parsed == null) return null;
-  return Math.max(60 * 1000, Math.min(parsed, METRICS_SERIES_RETENTION_MS));
+  return clampObservabilityWindowMs(value, METRICS_SERIES_RETENTION_MS);
 }
 
 function parseMetricsSeriesKeys(value) {
-  const requested = parseCsvSet(value);
-  if (requested.size === 0) return [];
-  return METRICS_SERIES_KEYS.filter((key) => requested.has(key));
+  return parseObservabilitySeriesKeys(value, METRICS_SERIES_KEYS);
 }
 
 function listMetricsSeries(options = {}) {
-  const seriesKeys = Array.isArray(options.keys) && options.keys.length > 0
-    ? options.keys
-    : METRICS_SERIES_KEYS;
-  const windowMs = clampMetricsWindowMs(options.windowMs);
-  const cutoff = windowMs == null ? null : Date.now() - windowMs;
-  const out = {};
-  for (const key of seriesKeys) {
-    if (!METRICS_SERIES_KEYS.includes(key)) continue;
-    const series = Array.isArray(metricsSeries[key]) ? metricsSeries[key] : [];
-    const filtered = cutoff == null
-      ? series
-      : series.filter((point) => Number(point?.at || 0) >= cutoff);
-    out[key] = filtered.map((point) => ({
-      at: new Date(point.at).toISOString(),
-      value: Number(point.value || 0),
-    }));
-  }
-  return out;
+  return listObservabilitySeries({
+    seriesState: metricsSeries,
+    retentionMs: METRICS_SERIES_RETENTION_MS,
+    keys: Array.isArray(options.keys) ? options.keys : [],
+    windowMs: options.windowMs,
+  });
 }
 
 function ensureMetricsSeriesTimer() {
@@ -1376,456 +1385,18 @@ function readJsonBody(req) {
   });
 }
 
-function normalizeTickets() {
-  return Array.from(tickets.values())
-    .map((t) => ({
-      ...t,
-      createdAt: t.createdAt ? new Date(t.createdAt) : null,
-      closedAt: t.closedAt ? new Date(t.closedAt) : null,
-    }))
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-}
-
-function normalizeEvents() {
-  return listEvents().map((ev) => ({
-    ...ev,
-    participants: getParticipants(ev.id),
-    participantsCount: getParticipants(ev.id).length,
-  }));
-}
-
-function normalizeGiveaways() {
-  return Array.from(giveaways.values()).map((g) => {
-    const entrants = Array.from(g.entrants || []);
-    return {
-      ...g,
-      entrants,
-      entrantsCount: entrants.length,
-    };
+function getCurrentObservabilitySnapshot(options = {}) {
+  return buildAdminObservabilitySnapshot({
+    windowMs: options.windowMs,
+    seriesKeys: Array.isArray(options.seriesKeys) ? options.seriesKeys : [],
+    retentionMs: METRICS_SERIES_RETENTION_MS,
+    captureSeries: () => captureMetricsSeries(),
+    getDeliveryMetricsSnapshot,
+    getLoginFailureMetrics,
+    getWebhookMetricsSnapshot,
+    listDeliveryQueue,
+    listSeries: ({ windowMs, keys }) => listMetricsSeries({ windowMs, keys }),
   });
-}
-
-function normalizeConfig() {
-  if (typeof config.getConfigSnapshot === 'function') {
-    return config.getConfigSnapshot();
-  }
-  return {
-    economy: config.economy,
-    channels: config.channels,
-    roles: config.roles,
-    restartSchedule: config.restartSchedule,
-    raidTimes: config.raidTimes,
-    vipPlans: config.vip?.plans || [],
-    killFeed: config.killFeed || {},
-  };
-}
-
-function normalizeWallet(wallet) {
-  return {
-    ...wallet,
-    lastDaily: wallet.lastDaily == null ? null : Number(wallet.lastDaily),
-    lastWeekly: wallet.lastWeekly == null ? null : Number(wallet.lastWeekly),
-  };
-}
-
-function ensureBackupDir() {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-}
-
-function makeBackupId() {
-  const datePart = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-  const randPart = crypto.randomBytes(3).toString('hex');
-  return `backup-${datePart}-${randPart}`;
-}
-
-function sanitizeBackupName(input) {
-  const value = String(input || '').trim();
-  if (!value) return null;
-  if (!/^[a-zA-Z0-9._-]+$/.test(value)) return null;
-  if (value.includes('..')) return null;
-  return value;
-}
-
-function listBackupFiles() {
-  ensureBackupDir();
-  const rows = fs
-    .readdirSync(BACKUP_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-    .map((entry) => {
-      const absolute = path.join(BACKUP_DIR, entry.name);
-      const stat = fs.statSync(absolute);
-      return {
-        id: entry.name.replace(/\.json$/i, ''),
-        file: entry.name,
-        sizeBytes: stat.size,
-        createdAt: stat.birthtime?.toISOString?.() || stat.ctime.toISOString(),
-        updatedAt: stat.mtime.toISOString(),
-      };
-    })
-    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  return rows;
-}
-
-function saveBackupPayload(payload, backupId = null) {
-  ensureBackupDir();
-  const id = backupId || makeBackupId();
-  const file = `${id}.json`;
-  const absolute = path.join(BACKUP_DIR, file);
-  fs.writeFileSync(absolute, JSON.stringify(payload, jsonReplacer, 2), 'utf8');
-  const stat = fs.statSync(absolute);
-  return {
-    id,
-    file,
-    absolutePath: absolute,
-    sizeBytes: stat.size,
-    createdAt: stat.birthtime?.toISOString?.() || stat.ctime.toISOString(),
-  };
-}
-
-function readBackupPayloadByName(inputName) {
-  const safeName = sanitizeBackupName(inputName);
-  if (!safeName) {
-    throw new Error('Invalid backup name');
-  }
-  const file = safeName.endsWith('.json') ? safeName : `${safeName}.json`;
-  const absolute = path.join(BACKUP_DIR, file);
-  if (!fs.existsSync(absolute)) {
-    throw new Error('Backup file not found');
-  }
-  const raw = fs.readFileSync(absolute, 'utf8');
-  const parsed = JSON.parse(raw);
-  return {
-    file,
-    absolutePath: absolute,
-    payload: parsed,
-  };
-}
-
-async function replacePrismaTablesFromSnapshot(snapshot = {}) {
-  const wallets = Array.isArray(snapshot.wallets) ? snapshot.wallets : [];
-  const shopItems = Array.isArray(snapshot.shopItems) ? snapshot.shopItems : [];
-  const purchases = Array.isArray(snapshot.purchases) ? snapshot.purchases : [];
-  const walletLedgers = Array.isArray(snapshot.walletLedgers)
-    ? snapshot.walletLedgers
-    : [];
-  const purchaseStatusHistory = Array.isArray(snapshot.purchaseStatusHistory)
-    ? snapshot.purchaseStatusHistory
-    : [];
-  const playerAccounts = Array.isArray(snapshot.playerAccounts)
-    ? snapshot.playerAccounts
-    : [];
-
-  await prisma.$transaction([
-    prisma.walletLedger.deleteMany({}),
-    prisma.purchaseStatusHistory.deleteMany({}),
-    prisma.playerAccount.deleteMany({}),
-    prisma.userWallet.deleteMany({}),
-    prisma.purchase.deleteMany({}),
-    prisma.shopItem.deleteMany({}),
-  ]);
-
-  for (const row of wallets) {
-    if (!row || typeof row !== 'object') continue;
-    const userId = String(row.userId || '').trim();
-    if (!userId) continue;
-    await prisma.userWallet.create({
-      data: {
-        userId,
-        balance: Number(row.balance || 0),
-        lastDaily:
-          row.lastDaily == null || row.lastDaily === ''
-            ? null
-            : BigInt(Math.trunc(Number(row.lastDaily))),
-        lastWeekly:
-          row.lastWeekly == null || row.lastWeekly === ''
-            ? null
-            : BigInt(Math.trunc(Number(row.lastWeekly))),
-      },
-    });
-  }
-
-  for (const row of shopItems) {
-    if (!row || typeof row !== 'object') continue;
-    const id = String(row.id || '').trim();
-    if (!id) continue;
-    const deliveryItems = Array.isArray(row.deliveryItems)
-      ? row.deliveryItems
-          .map((entry) => ({
-            gameItemId: String(entry?.gameItemId || '').trim(),
-            quantity: Math.max(1, Number(entry?.quantity || 1)),
-            iconUrl: entry?.iconUrl ? String(entry.iconUrl) : null,
-          }))
-          .filter((entry) => entry.gameItemId)
-      : [];
-    const primary = deliveryItems[0] || null;
-    const kind = String(row.kind || 'item').toLowerCase() === 'vip' ? 'vip' : 'item';
-    await prisma.shopItem.create({
-      data: {
-        id,
-        name: String(row.name || id),
-        price: Number(row.price || 0),
-        description: String(row.description || ''),
-        kind,
-        gameItemId: kind === 'item'
-          ? String(primary?.gameItemId || row.gameItemId || '').trim() || null
-          : null,
-        quantity: kind === 'item'
-          ? Math.max(1, Number(primary?.quantity || row.quantity || 1))
-          : 1,
-        iconUrl: kind === 'item'
-          ? (primary?.iconUrl || (row.iconUrl ? String(row.iconUrl) : null))
-          : null,
-        deliveryItemsJson:
-          kind === 'item' && deliveryItems.length > 0
-            ? JSON.stringify(deliveryItems)
-            : null,
-      },
-    });
-  }
-
-  for (const row of purchases) {
-    if (!row || typeof row !== 'object') continue;
-    const code = String(row.code || '').trim();
-    const userId = String(row.userId || '').trim();
-    const itemId = String(row.itemId || '').trim();
-    if (!code || !userId || !itemId) continue;
-    await prisma.purchase.create({
-      data: {
-        code,
-        userId,
-        itemId,
-        price: Number(row.price || 0),
-        status: String(row.status || 'pending'),
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-        statusUpdatedAt: row.statusUpdatedAt
-          ? new Date(row.statusUpdatedAt)
-          : row.createdAt
-            ? new Date(row.createdAt)
-            : new Date(),
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
-      },
-    });
-  }
-
-  for (const row of walletLedgers) {
-    if (!row || typeof row !== 'object') continue;
-    const userId = String(row.userId || '').trim();
-    if (!userId) continue;
-    await prisma.walletLedger.create({
-      data: {
-        userId,
-        delta: Number(row.delta || 0),
-        balanceBefore: Number(row.balanceBefore || 0),
-        balanceAfter: Number(row.balanceAfter || 0),
-        reason: String(row.reason || 'restore'),
-        reference: row.reference ? String(row.reference) : null,
-        actor: row.actor ? String(row.actor) : null,
-        metaJson: row.metaJson ? String(row.metaJson) : null,
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-      },
-    });
-  }
-
-  for (const row of purchaseStatusHistory) {
-    if (!row || typeof row !== 'object') continue;
-    const purchaseCode = String(row.purchaseCode || '').trim();
-    if (!purchaseCode) continue;
-    await prisma.purchaseStatusHistory.create({
-      data: {
-        purchaseCode,
-        fromStatus: row.fromStatus ? String(row.fromStatus) : null,
-        toStatus: String(row.toStatus || 'pending'),
-        reason: row.reason ? String(row.reason) : null,
-        actor: row.actor ? String(row.actor) : null,
-        metaJson: row.metaJson ? String(row.metaJson) : null,
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-      },
-    });
-  }
-
-  for (const row of playerAccounts) {
-    if (!row || typeof row !== 'object') continue;
-    const discordId = String(row.discordId || '').trim();
-    if (!discordId) continue;
-    await prisma.playerAccount.create({
-      data: {
-        discordId,
-        username: row.username ? String(row.username) : null,
-        displayName: row.displayName ? String(row.displayName) : null,
-        avatarUrl: row.avatarUrl ? String(row.avatarUrl) : null,
-        steamId: row.steamId ? String(row.steamId) : null,
-        isActive: row.isActive !== false,
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
-      },
-    });
-  }
-}
-
-async function restoreSnapshotData(snapshot = {}) {
-  await replacePrismaTablesFromSnapshot(snapshot);
-
-  replaceTickets(
-    Array.isArray(snapshot.tickets) ? snapshot.tickets : [],
-    Number(snapshot.ticketCounter || 0) || null,
-  );
-  replaceBounties(Array.isArray(snapshot.bounties) ? snapshot.bounties : []);
-  replaceEvents(
-    Array.isArray(snapshot.events) ? snapshot.events : [],
-    Array.isArray(snapshot.events)
-      ? snapshot.events.map((eventRow) => ({
-          eventId: eventRow?.id,
-          participants: Array.isArray(eventRow?.participants)
-            ? eventRow.participants
-            : [],
-        }))
-      : [],
-    Number(snapshot.eventCounter || 0) || null,
-  );
-  replaceLinks(Array.isArray(snapshot.links) ? snapshot.links : []);
-  replaceMemberships(Array.isArray(snapshot.memberships) ? snapshot.memberships : []);
-  replaceWeaponStats(Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats : []);
-  replaceStats(Array.isArray(snapshot.stats) ? snapshot.stats : []);
-  replaceGiveaways(Array.isArray(snapshot.giveaways) ? snapshot.giveaways : []);
-  replacePunishments(Array.isArray(snapshot.punishments) ? snapshot.punishments : []);
-  replaceCodes(Array.isArray(snapshot.redeemCodes) ? snapshot.redeemCodes : []);
-  replaceClaims(Array.isArray(snapshot.welcomeClaims) ? snapshot.welcomeClaims : []);
-  replaceTopPanels(Array.isArray(snapshot.topPanels) ? snapshot.topPanels : []);
-  replaceCarts(Array.isArray(snapshot.carts) ? snapshot.carts : []);
-  replaceStatus(snapshot.status || {});
-  replaceDeliveryAudit(Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : []);
-  replaceDeliveryQueue(Array.isArray(snapshot.deliveryQueue) ? snapshot.deliveryQueue : []);
-  replaceDeliveryDeadLetters(Array.isArray(snapshot.deliveryDeadLetters) ? snapshot.deliveryDeadLetters : []);
-  await replaceRentBikeData(
-    Array.isArray(snapshot.dailyRents) ? snapshot.dailyRents : [],
-    Array.isArray(snapshot.rentalVehicles) ? snapshot.rentalVehicles : [],
-  );
-  await replaceLuckyWheelStates(
-    Array.isArray(snapshot.luckyWheelStates) ? snapshot.luckyWheelStates : [],
-  );
-  await replacePartyMessages(
-    Array.isArray(snapshot.partyChatMessages) ? snapshot.partyChatMessages : [],
-  );
-
-  if (snapshot.config && typeof config.setFullConfig === 'function') {
-    config.setFullConfig(snapshot.config);
-  }
-}
-
-function buildObservabilitySnapshot(options = {}) {
-  captureMetricsSeries();
-  const windowMs = clampMetricsWindowMs(options.windowMs);
-  const seriesKeys = Array.isArray(options.seriesKeys) ? options.seriesKeys : [];
-  const deliveryMetrics = typeof getDeliveryMetricsSnapshot === 'function'
-    ? getDeliveryMetricsSnapshot()
-    : { queueLength: listDeliveryQueue(1000).length };
-  const loginMetrics = getLoginFailureMetrics();
-  const webhookMetrics = typeof getWebhookMetricsSnapshot === 'function'
-    ? getWebhookMetricsSnapshot()
-    : { attempts: 0, errors: 0, errorRate: 0 };
-
-  return {
-    generatedAt: new Date().toISOString(),
-    delivery: deliveryMetrics,
-    adminLogin: loginMetrics,
-    webhook: webhookMetrics,
-    timeSeriesWindowMs: windowMs || METRICS_SERIES_RETENTION_MS,
-    timeSeries: listMetricsSeries({
-      windowMs,
-      keys: seriesKeys,
-    }),
-  };
-}
-
-async function buildSnapshot(client) {
-  const [
-    shopItems,
-    wallets,
-    purchases,
-    walletLedgers,
-    purchaseStatusHistory,
-    playerAccounts,
-    dailyRents,
-    rentalVehicles,
-    luckyWheelStates,
-    partyChatMessages,
-  ] = await Promise.all([
-    listShopItems(),
-    prisma.userWallet.findMany({
-      orderBy: { balance: 'desc' },
-      take: 500,
-    }),
-    prisma.purchase.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-    }),
-    prisma.walletLedger.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    }),
-    prisma.purchaseStatusHistory.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    }),
-    prisma.playerAccount.findMany({
-      orderBy: { updatedAt: 'desc' },
-      take: 1000,
-    }),
-    listDailyRents(1000),
-    listRentalVehicles(1000),
-    listLuckyWheelStates(2000),
-    listAllPartyMessages(5000),
-  ]);
-
-  const shopItemsWithIcon = shopItems.map((item) => ({
-    ...item,
-    resolvedIconUrl: resolveItemIconUrl(item),
-  }));
-
-  const guilds = Array.from(client.guilds.cache.values()).map((g) => ({
-    id: g.id,
-    name: g.name,
-    memberCount: g.memberCount,
-    channelsCount: g.channels.cache.size,
-    rolesCount: g.roles.cache.size,
-  }));
-
-  return {
-    generatedAt: new Date().toISOString(),
-    guilds,
-    status: getStatus(),
-    persistence: getPersistenceStatus(),
-    wallets: wallets.map(normalizeWallet),
-    walletLedgers,
-    shopItems: shopItemsWithIcon,
-    purchases,
-    purchaseStatusHistory,
-    playerAccounts,
-    tickets: normalizeTickets(),
-    bounties: listBounties(),
-    events: normalizeEvents(),
-    links: listLinks(),
-    memberships: listMemberships(),
-    weaponStats: listWeaponStats(),
-    stats: listAllStats(),
-    giveaways: normalizeGiveaways(),
-    punishments: listAllPunishments(),
-    redeemCodes: listCodes(),
-    welcomeClaims: listClaimed(),
-    dailyRents,
-    rentalVehicles,
-    luckyWheelStates,
-    partyChatMessages,
-    rentBikeRuntime: getRentBikeRuntime(),
-    deliveryQueue: listDeliveryQueue(500),
-    deliveryDeadLetters: listDeliveryDeadLetters(1000),
-    deliveryAudit: listDeliveryAudit(1000),
-    observability: buildObservabilitySnapshot(),
-    backups: listBackupFiles().slice(0, 50),
-    topPanels: listTopPanels(),
-    carts: listAllCarts(),
-    config: normalizeConfig(),
-  };
 }
 
 async function tryNotifyTicket(client, ticket, action, staffId) {
@@ -1872,45 +1443,54 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const userId = requiredString(body, 'userId');
     const balance = asInt(body.balance);
     if (!userId || balance == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const newBalance = await setCoins(userId, balance, {
+    const result = await setCoinsExact({
+      userId,
+      amount: balance,
       reason: 'admin_wallet_set',
       actor: `admin-web:${auth?.user || 'unknown'}`,
       meta: {
         role: auth?.role || 'unknown',
       },
     });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-set');
-    return sendJson(res, 200, { ok: true, data: { userId, balance: newBalance } });
+    return sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
   }
 
   if (pathname === '/admin/api/wallet/add') {
     const userId = requiredString(body, 'userId');
     const amount = asInt(body.amount);
     if (!userId || amount == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const newBalance = await addCoins(userId, amount, {
+    const result = await creditCoins({
+      userId,
+      amount,
       reason: 'admin_wallet_add',
       actor: `admin-web:${auth?.user || 'unknown'}`,
       meta: {
         role: auth?.role || 'unknown',
       },
     });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-add');
-    return sendJson(res, 200, { ok: true, data: { userId, balance: newBalance } });
+    return sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
   }
 
   if (pathname === '/admin/api/wallet/remove') {
     const userId = requiredString(body, 'userId');
     const amount = asInt(body.amount);
     if (!userId || amount == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const newBalance = await removeCoins(userId, amount, {
+    const result = await debitCoins({
+      userId,
+      amount,
       reason: 'admin_wallet_remove',
       actor: `admin-web:${auth?.user || 'unknown'}`,
       meta: {
         role: auth?.role || 'unknown',
       },
     });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-remove');
-    return sendJson(res, 200, { ok: true, data: { userId, balance: newBalance } });
+    return sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
   }
 
   if (pathname === '/admin/api/shop/add') {
@@ -1923,6 +1503,12 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const gameItemId = requiredString(body, 'gameItemId');
     const quantity = asInt(body.quantity) ?? 1;
     const iconUrl = requiredString(body, 'iconUrl');
+    const deliveryProfile = requiredString(body, 'deliveryProfile');
+    const deliveryTeleportMode = requiredString(body, 'deliveryTeleportMode');
+    const deliveryTeleportTarget = requiredString(body, 'deliveryTeleportTarget');
+    const deliveryPreCommands = body.deliveryPreCommands;
+    const deliveryPostCommands = body.deliveryPostCommands;
+    const deliveryReturnTarget = requiredString(body, 'deliveryReturnTarget');
     const deliveryItems = parseDeliveryItemsBody(body.deliveryItems);
     const fallbackDeliveryItem = gameItemId
       ? [{ gameItemId, quantity: Math.max(1, Number(quantity || 1)), iconUrl }]
@@ -1942,7 +1528,11 @@ async function handlePostAction(client, pathname, body, res, auth) {
       });
     }
 
-    const item = await addShopItem(id, name, price, description, {
+    const result = await addShopItemForAdmin({
+      id,
+      name,
+      price,
+      description,
       kind,
       gameItemId: kind === 'item' ? primaryDeliveryItem?.gameItemId || gameItemId : null,
       quantity: kind === 'item'
@@ -1952,55 +1542,45 @@ async function handlePostAction(client, pathname, body, res, auth) {
         ? primaryDeliveryItem?.iconUrl || iconUrl
         : null,
       deliveryItems: resolvedDeliveryItems,
+      deliveryProfile: kind === 'item' ? deliveryProfile : null,
+      deliveryTeleportMode: kind === 'item' ? deliveryTeleportMode : null,
+      deliveryTeleportTarget: kind === 'item' ? deliveryTeleportTarget : null,
+      deliveryPreCommands: kind === 'item' ? deliveryPreCommands : [],
+      deliveryPostCommands: kind === 'item' ? deliveryPostCommands : [],
+      deliveryReturnTarget: kind === 'item' ? deliveryReturnTarget : null,
     });
-    return sendJson(res, 200, { ok: true, data: item });
+    if (!result.ok) {
+      return sendJson(res, 400, { ok: false, error: result.error || result.reason || 'Request failed' });
+    }
+    return sendJson(res, 200, { ok: true, data: result.item });
   }
 
   if (pathname === '/admin/api/shop/price') {
     const idOrName = requiredString(body, 'idOrName');
     const price = asInt(body.price);
     if (!idOrName || price == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const item = await setShopItemPrice(idOrName, price);
-    if (!item) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: item });
+    const result = await setShopItemPriceForAdmin({ idOrName, price });
+    if (!result.ok && result.reason === 'not-found') return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+    return sendJson(res, 200, { ok: true, data: result.item });
   }
 
   if (pathname === '/admin/api/shop/delete') {
     const idOrName = requiredString(body, 'idOrName');
     if (!idOrName) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const removed = await deleteShopItem(idOrName);
-    if (!removed) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: removed });
+    const result = await deleteShopItemForAdmin({ idOrName });
+    if (!result.ok && result.reason === 'not-found') return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+    return sendJson(res, 200, { ok: true, data: result.item });
   }
 
   if (pathname === '/admin/api/purchase/status') {
     const code = requiredString(body, 'code');
     const status = requiredString(body, 'status');
     if (!code || !status) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const purchase = await findPurchaseByCode(code);
-    if (!purchase) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-
-    const targetStatus = normalizePurchaseStatus(status);
-    const currentStatus = normalizePurchaseStatus(purchase.status);
-    const validation = validatePurchaseStatusTransition(currentStatus, targetStatus, {
-      force: body?.force === true,
-    });
-    if (!validation.ok) {
-      return sendJson(res, 400, {
-        ok: false,
-        error: 'Invalid purchase status transition',
-        data: {
-          code,
-          currentStatus,
-          targetStatus,
-          reason: validation.reason,
-          allowedTransitions: listAllowedPurchaseTransitions(currentStatus),
-          knownStatuses: listKnownPurchaseStatuses(),
-        },
-      });
-    }
-
-    const updated = await setPurchaseStatusByCode(code, targetStatus, {
+    const result = await updatePurchaseStatusForActor({
+      code,
+      status,
       force: body?.force === true,
       actor: `admin-web:${auth?.user || 'unknown'}`,
       reason: requiredString(body, 'reason') || 'admin-manual-status-update',
@@ -2008,15 +1588,34 @@ async function handlePostAction(client, pathname, body, res, auth) {
         role: auth?.role || 'unknown',
       },
       recordIfSame: body?.recordIfSame === true,
+      historyLimit: 20,
     });
-    if (!updated) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-
-    const history = await listPurchaseStatusHistory(updated.code, 20);
+    if (!result.ok && result.reason === 'not-found') {
+      return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    }
+    if (!result.ok) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: 'Invalid purchase status transition',
+        data: {
+          code,
+          currentStatus: result.currentStatus || '',
+          targetStatus: result.targetStatus || '',
+          reason: result.reason,
+          allowedTransitions: Array.isArray(result.allowedTransitions)
+            ? result.allowedTransitions
+            : [],
+          knownStatuses: Array.isArray(result.knownStatuses)
+            ? result.knownStatuses
+            : listKnownPurchaseStatuses(),
+        },
+      });
+    }
     return sendJson(res, 200, {
       ok: true,
       data: {
-        purchase: updated,
-        history,
+        purchase: result.purchase,
+        history: result.history,
       },
     });
   }
@@ -2025,19 +1624,21 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const channelId = requiredString(body, 'channelId');
     const staffId = requiredString(body, 'staffId') || auth?.user || 'admin-web';
     if (!channelId || !staffId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const ticket = claimTicket(channelId, staffId);
-    if (!ticket) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    await tryNotifyTicket(client, ticket, 'claim', staffId);
-    return sendJson(res, 200, { ok: true, data: ticket });
+    const result = claimSupportTicket({ channelId, staffId });
+    if (!result.ok && result.reason === 'not-found') return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+    await tryNotifyTicket(client, result.ticket, 'claim', staffId);
+    return sendJson(res, 200, { ok: true, data: result.ticket });
   }
 
   if (pathname === '/admin/api/ticket/close') {
     const channelId = requiredString(body, 'channelId');
     if (!channelId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const ticket = closeTicket(channelId);
-    if (!ticket) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    await tryNotifyTicket(client, ticket, 'close');
-    return sendJson(res, 200, { ok: true, data: ticket });
+    const result = closeSupportTicket({ channelId });
+    if (!result.ok && result.reason === 'not-found') return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+    await tryNotifyTicket(client, result.ticket, 'close');
+    return sendJson(res, 200, { ok: true, data: result.ticket });
   }
 
   if (pathname === '/admin/api/bounty/create') {
@@ -2045,14 +1646,19 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const amount = asInt(body.amount);
     const createdBy = requiredString(body, 'createdBy') || auth?.user || 'admin-web';
     if (!targetName || amount == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const bounty = createBounty({ targetName, amount, createdBy });
-    return sendJson(res, 200, { ok: true, data: bounty });
+    const result = createBountyForUser({ targetName, amount, createdBy });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: `ไม่สามารถสร้างค่าหัวได้ (${result.reason})` });
+    return sendJson(res, 200, { ok: true, data: result.bounty });
   }
 
   if (pathname === '/admin/api/bounty/cancel') {
     const id = asInt(body.id);
     if (id == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const result = cancelBounty(id, 'admin-web', true);
+    const result = cancelBountyForUser({
+      id,
+      requesterId: auth?.user || 'admin-web',
+      isStaff: true,
+    });
     if (!result.ok) return sendJson(res, 404, { ok: false, error: `ไม่สามารถยกเลิกค่าหัวได้ (${result.reason})` });
     return sendJson(res, 200, { ok: true, data: result.bounty });
   }
@@ -2062,37 +1668,51 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const time = requiredString(body, 'time');
     const reward = requiredString(body, 'reward');
     if (!name || !time || !reward) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const ev = createEvent({ name, time, reward });
-    return sendJson(res, 200, { ok: true, data: ev });
+    const result = await createServerEvent({ name, time, reward });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+    return sendJson(res, 200, { ok: true, data: result.event });
   }
 
   if (pathname === '/admin/api/event/start') {
     const id = asInt(body.id);
     if (id == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const ev = startEvent(id);
-    if (!ev) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: ev });
+    const result = await startServerEvent({ id });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, { ok: true, data: result.event });
   }
 
   if (pathname === '/admin/api/event/end') {
     const id = asInt(body.id);
     if (id == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const ev = endEvent(id);
-    if (!ev) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: ev });
+    const result = await finishServerEvent({
+      id,
+      winnerUserId: requiredString(body, 'winnerUserId') || null,
+      coins: asInt(body.coins) || 0,
+      actor: 'admin-web',
+    });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, {
+      ok: true,
+      data: {
+        ...result.event,
+        participantsCount: result.participants.length,
+        rewardGranted: result.rewardGranted,
+        rewardError: result.rewardError || null,
+      },
+    });
   }
 
   if (pathname === '/admin/api/event/join') {
     const id = asInt(body.id);
     const userId = requiredString(body, 'userId');
     if (id == null || !userId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const result = joinEvent(id, userId);
-    if (!result) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    const result = await joinServerEvent({ id, userId });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
     return sendJson(res, 200, {
       ok: true,
       data: {
-        event: result.ev,
-        participantsCount: result.participants.size,
+        event: result.event,
+        participantsCount: result.participantsCount,
       },
     });
   }
@@ -2102,7 +1722,13 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const userId = requiredString(body, 'userId');
     const inGameName = requiredString(body, 'inGameName');
     if (!steamId || !userId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const result = setLink({ steamId, userId, inGameName: inGameName || null });
+    const result = bindSteamLinkForUser({
+      steamId,
+      userId,
+      inGameName: inGameName || null,
+      allowReplace: true,
+      allowSteamReuse: true,
+    });
     if (!result.ok) return sendJson(res, 400, { ok: false, error: `ไม่สามารถบันทึกลิงก์ได้ (${result.reason})` });
     return sendJson(res, 200, { ok: true, data: result });
   }
@@ -2111,9 +1737,9 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const steamId = requiredString(body, 'steamId');
     const userId = requiredString(body, 'userId');
     if (!steamId && !userId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const removed = steamId ? unlinkBySteamId(steamId) : unlinkByUserId(userId);
-    if (!removed) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: removed });
+    const result = removeSteamLink({ steamId, userId });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, { ok: true, data: result.removed });
   }
 
   if (pathname === '/admin/api/player/account/upsert') {
@@ -2167,15 +1793,23 @@ async function handlePostAction(client, pathname, body, res, auth) {
     if (!userId || !planId || durationDays == null) {
       return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     }
-    const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
-    setMembership(userId, planId, expiresAt);
-    return sendJson(res, 200, { ok: true, data: { userId, planId, expiresAt } });
+    const result = await grantVipForUser({
+      userId,
+      planId,
+      durationDays,
+    });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
+    return sendJson(res, 200, {
+      ok: true,
+      data: { userId, planId: result.plan.id, expiresAt: result.expiresAt },
+    });
   }
 
   if (pathname === '/admin/api/vip/remove') {
     const userId = requiredString(body, 'userId');
     if (!userId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    removeMembership(userId);
+    const result = await revokeVipForUser({ userId });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: result.reason || 'Resource not found' });
     return sendJson(res, 200, { ok: true, data: { userId } });
   }
 
@@ -2185,7 +1819,7 @@ async function handlePostAction(client, pathname, body, res, auth) {
     if (!code || !type) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     const amount = body.amount == null || body.amount === '' ? null : asInt(body.amount, null);
     const itemId = requiredString(body, 'itemId');
-    const result = setCode(code, { type, amount, itemId });
+    const result = createRedeemCodeForAdmin({ code, type, amount, itemId });
     if (!result.ok) return sendJson(res, 400, { ok: false, error: `ไม่สามารถบันทึกโค้ดได้ (${result.reason})` });
     return sendJson(res, 200, { ok: true, data: result });
   }
@@ -2193,17 +1827,17 @@ async function handlePostAction(client, pathname, body, res, auth) {
   if (pathname === '/admin/api/redeem/delete') {
     const code = requiredString(body, 'code');
     if (!code) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const removed = deleteCode(code);
-    if (!removed) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: { code } });
+    const result = deleteRedeemCodeForAdmin({ code });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, { ok: true, data: { code: result.code } });
   }
 
   if (pathname === '/admin/api/redeem/reset-usage') {
     const code = requiredString(body, 'code');
     if (!code) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const item = resetCodeUsage(code);
-    if (!item) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: item });
+    const result = resetRedeemCodeUsageForAdmin({ code });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, { ok: true, data: result.data });
   }
 
   if (pathname === '/admin/api/moderation/add') {
@@ -2217,48 +1851,60 @@ async function handlePostAction(client, pathname, body, res, auth) {
     if (!userId || !type || !reason) {
       return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     }
-    const entry = addPunishment(userId, type, reason, staffId, durationMinutes);
-    return sendJson(res, 200, { ok: true, data: entry });
+    const result = createPunishmentEntry({
+      userId,
+      type,
+      reason,
+      staffId,
+      durationMinutes,
+    });
+    if (!result.ok) {
+      return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
+    }
+    return sendJson(res, 200, { ok: true, data: result.entry });
   }
 
   if (pathname === '/admin/api/welcome/revoke') {
     const userId = requiredString(body, 'userId');
     if (!userId) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const removed = revokeClaim(userId);
-    if (!removed) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
-    return sendJson(res, 200, { ok: true, data: { userId } });
+    const result = revokeWelcomePackClaimForAdmin({ userId });
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    return sendJson(res, 200, { ok: true, data: { userId: result.userId } });
   }
 
   if (pathname === '/admin/api/welcome/clear') {
-    clearClaims();
-    return sendJson(res, 200, { ok: true, data: { cleared: true } });
+    const result = clearWelcomePackClaimsForAdmin();
+    return sendJson(res, 200, { ok: true, data: result });
   }
 
   if (pathname === '/admin/api/stats/add-kill') {
     const userId = requiredString(body, 'userId');
     const amount = asInt(body.amount);
     if (!userId || amount == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const stat = addKill(userId, amount);
+    const result = addKillsForUser({ userId, amount });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-add-kill');
-    return sendJson(res, 200, { ok: true, data: stat });
+    return sendJson(res, 200, { ok: true, data: result.stat });
   }
 
   if (pathname === '/admin/api/stats/add-death') {
     const userId = requiredString(body, 'userId');
     const amount = asInt(body.amount);
     if (!userId || amount == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const stat = addDeath(userId, amount);
+    const result = addDeathsForUser({ userId, amount });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-add-death');
-    return sendJson(res, 200, { ok: true, data: stat });
+    return sendJson(res, 200, { ok: true, data: result.stat });
   }
 
   if (pathname === '/admin/api/stats/add-playtime') {
     const userId = requiredString(body, 'userId');
     const minutes = asInt(body.minutes);
     if (!userId || minutes == null) return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-    const stat = addPlaytimeMinutes(userId, minutes);
+    const result = addPlaytimeForUser({ userId, minutes });
+    if (!result.ok) return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
     queueLeaderboardRefreshForAllGuilds(client, 'admin-add-playtime');
-    return sendJson(res, 200, { ok: true, data: stat });
+    return sendJson(res, 200, { ok: true, data: result.stat });
   }
 
   if (pathname === '/admin/api/config/patch') {
@@ -2360,6 +2006,56 @@ async function handlePostAction(client, pathname, body, res, auth) {
     return sendJson(res, 200, { ok: true, data: result });
   }
 
+  if (pathname === '/admin/api/delivery/preview') {
+    const itemId = requiredString(body, 'itemId');
+    const gameItemId = requiredString(body, 'gameItemId');
+    if (!itemId && !gameItemId) {
+      return sendJson(res, 400, { ok: false, error: 'itemId or gameItemId is required' });
+    }
+    try {
+      const data = await previewDeliveryCommands({
+        itemId: itemId || undefined,
+        gameItemId: gameItemId || undefined,
+        itemName: requiredString(body, 'itemName') || undefined,
+        quantity: asInt(body.quantity, undefined) || undefined,
+        steamId: requiredString(body, 'steamId') || undefined,
+        userId: requiredString(body, 'userId') || undefined,
+        purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถพรีวิวคำสั่งส่งของได้'),
+      });
+    }
+  }
+
+  if (pathname === '/admin/api/delivery/test-send') {
+    const itemId = requiredString(body, 'itemId');
+    const gameItemId = requiredString(body, 'gameItemId');
+    if (!itemId && !gameItemId) {
+      return sendJson(res, 400, { ok: false, error: 'itemId or gameItemId is required' });
+    }
+    try {
+      const data = await sendTestDeliveryCommand({
+        itemId: itemId || undefined,
+        gameItemId: gameItemId || undefined,
+        itemName: requiredString(body, 'itemName') || undefined,
+        quantity: asInt(body.quantity, undefined) || undefined,
+        steamId: requiredString(body, 'steamId') || undefined,
+        userId: requiredString(body, 'userId') || undefined,
+        purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถส่ง test item ได้'),
+      });
+    }
+  }
+
   if (pathname === '/admin/api/rentbike/reset-now') {
     const reason = requiredString(body, 'reason') || `admin-web:${auth?.user || 'unknown'}`;
     await runRentBikeMidnightReset(reason);
@@ -2378,29 +2074,31 @@ async function handlePostAction(client, pathname, body, res, auth) {
     const maxPlayers = asInt(body.maxPlayers, undefined);
     const pingMs = asInt(body.pingMs, undefined);
     const uptimeMinutes = asInt(body.uptimeMinutes, undefined);
-    updateStatus({ onlinePlayers, maxPlayers, pingMs, uptimeMinutes });
+    const result = updateScumStatusForAdmin({
+      onlinePlayers,
+      maxPlayers,
+      pingMs,
+      uptimeMinutes,
+    });
+    if (!result.ok) {
+      return sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
+    }
     return sendJson(res, 200, { ok: true, data: getStatus() });
   }
 
   if (pathname === '/admin/api/backup/create') {
     const note = requiredString(body, 'note') || null;
-    const includeSnapshot = body?.includeSnapshot !== false;
-    const snapshot = includeSnapshot ? await buildSnapshot(client) : {};
-    const payload = {
-      schemaVersion: 1,
-      createdAt: new Date().toISOString(),
-      createdBy: auth?.user || 'unknown',
+    const saved = await createAdminBackup({
+      client,
+      actor: auth?.user || 'unknown',
       role: auth?.role || 'unknown',
       note,
-      snapshot,
-    };
-    const saved = saveBackupPayload(payload);
+      includeSnapshot: body?.includeSnapshot !== false,
+      observabilitySnapshot: getCurrentObservabilitySnapshot(),
+    });
     return sendJson(res, 200, {
       ok: true,
-      data: {
-        ...saved,
-        note,
-      },
+      data: saved,
     });
   }
 
@@ -2410,56 +2108,21 @@ async function handlePostAction(client, pathname, body, res, auth) {
     if (!backupName) {
       return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     }
-    const loaded = readBackupPayloadByName(backupName);
-    const snapshot = loaded?.payload?.snapshot;
-    if (!snapshot || typeof snapshot !== 'object') {
-      return sendJson(res, 400, { ok: false, error: 'Backup payload is invalid' });
-    }
     if (dryRun) {
       return sendJson(res, 200, {
         ok: true,
-        data: {
-          dryRun: true,
-          backup: loaded.file,
-          counts: {
-            wallets: Array.isArray(snapshot.wallets) ? snapshot.wallets.length : 0,
-            walletLedgers: Array.isArray(snapshot.walletLedgers)
-              ? snapshot.walletLedgers.length
-              : 0,
-            shopItems: Array.isArray(snapshot.shopItems) ? snapshot.shopItems.length : 0,
-            purchases: Array.isArray(snapshot.purchases) ? snapshot.purchases.length : 0,
-            purchaseStatusHistory: Array.isArray(snapshot.purchaseStatusHistory)
-              ? snapshot.purchaseStatusHistory.length
-              : 0,
-            playerAccounts: Array.isArray(snapshot.playerAccounts)
-              ? snapshot.playerAccounts.length
-              : 0,
-            tickets: Array.isArray(snapshot.tickets) ? snapshot.tickets.length : 0,
-            bounties: Array.isArray(snapshot.bounties) ? snapshot.bounties.length : 0,
-            events: Array.isArray(snapshot.events) ? snapshot.events.length : 0,
-            carts: Array.isArray(snapshot.carts) ? snapshot.carts.length : 0,
-            luckyWheelStates: Array.isArray(snapshot.luckyWheelStates)
-              ? snapshot.luckyWheelStates.length
-              : 0,
-            partyChatMessages: Array.isArray(snapshot.partyChatMessages)
-              ? snapshot.partyChatMessages.length
-              : 0,
-          },
-        },
+        data: previewAdminBackupRestore(backupName),
       });
     }
-    await restoreSnapshotData(snapshot);
+    const restoreData = await restoreAdminBackup(backupName);
     publishAdminLiveUpdate('backup-restore', {
-      backup: loaded.file,
+      backup: restoreData.backup,
       actor: auth?.user || 'unknown',
       role: auth?.role || 'unknown',
     });
     return sendJson(res, 200, {
       ok: true,
-      data: {
-        restored: true,
-        backup: loaded.file,
-      },
+      data: restoreData,
     });
   }
 
@@ -2813,11 +2476,48 @@ function startAdminWebServer(client) {
           );
           return sendJson(res, 200, {
             ok: true,
-            data: buildObservabilitySnapshot({
+            data: getCurrentObservabilitySnapshot({
               windowMs,
               seriesKeys,
             }),
           });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/observability/export') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const windowMs = clampMetricsWindowMs(
+            urlObj.searchParams.get('windowMs'),
+          );
+          const seriesKeys = parseMetricsSeriesKeys(
+            urlObj.searchParams.get('series'),
+          );
+          const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
+          const data = getCurrentObservabilitySnapshot({
+            windowMs,
+            seriesKeys,
+          });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          if (format === 'csv') {
+            return sendDownload(
+              res,
+              200,
+              buildObservabilityCsv(data),
+              {
+                filename: `observability-${timestamp}.csv`,
+                contentType: 'text/csv; charset=utf-8',
+              },
+            );
+          }
+          return sendDownload(
+            res,
+            200,
+            `${JSON.stringify(buildObservabilityExportPayload(data), jsonReplacer, 2)}\n`,
+            {
+              filename: `observability-${timestamp}.json`,
+              contentType: 'application/json; charset=utf-8',
+            },
+          );
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/live') {
@@ -3014,6 +2714,55 @@ function startAdminWebServer(client) {
           });
         }
 
+        if (req.method === 'GET' && pathname === '/admin/api/delivery/runtime') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const data = await getDeliveryRuntimeStatus();
+          return sendJson(res, 200, {
+            ok: true,
+            data,
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/delivery/detail') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const purchaseCode = String(urlObj.searchParams.get('code') || '').trim();
+          if (!purchaseCode) {
+            return sendJson(res, 400, {
+              ok: false,
+              error: 'code is required',
+            });
+          }
+          try {
+            const data = await getDeliveryDetailsByPurchaseCode(
+              purchaseCode,
+              asInt(urlObj.searchParams.get('limit'), 50) || 50,
+            );
+            const hasData = Boolean(
+              data?.purchase
+                || data?.queueJob
+                || data?.deadLetter
+                || (Array.isArray(data?.auditRows) && data.auditRows.length > 0),
+            );
+            if (!hasData) {
+              return sendJson(res, 404, {
+                ok: false,
+                error: 'Resource not found',
+              });
+            }
+            return sendJson(res, 200, {
+              ok: true,
+              data,
+            });
+          } catch (error) {
+            return sendJson(res, 400, {
+              ok: false,
+              error: String(error?.message || 'ไม่สามารถโหลดรายละเอียด delivery ได้'),
+            });
+          }
+        }
+
         if (req.method === 'GET' && pathname === '/admin/api/purchase/statuses') {
           const auth = ensureRole(req, urlObj, 'mod', res);
           if (!auth) return undefined;
@@ -3030,6 +2779,165 @@ function startAdminWebServer(client) {
                 : [],
             },
           });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/audit/query') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const data = await buildAuditDatasetService({
+            prisma,
+            listEvents,
+            getParticipants,
+            view: urlObj.searchParams.get('view'),
+            query: urlObj.searchParams.get('q'),
+            userId: urlObj.searchParams.get('userId'),
+            reason: urlObj.searchParams.get('reason'),
+            status: urlObj.searchParams.get('status'),
+            statusMode: urlObj.searchParams.get('statusMode'),
+            actor: urlObj.searchParams.get('actor'),
+            actorMode: urlObj.searchParams.get('actorMode'),
+            reference: urlObj.searchParams.get('reference'),
+            referenceMode: urlObj.searchParams.get('referenceMode'),
+            windowMs: urlObj.searchParams.get('windowMs'),
+            dateFrom: urlObj.searchParams.get('dateFrom'),
+            dateTo: urlObj.searchParams.get('dateTo'),
+            sortBy: urlObj.searchParams.get('sortBy'),
+            sortOrder: urlObj.searchParams.get('sortOrder'),
+            cursor: urlObj.searchParams.get('cursor'),
+            page: urlObj.searchParams.get('page'),
+            pageSize: urlObj.searchParams.get('pageSize') || urlObj.searchParams.get('limit'),
+          });
+          return sendJson(res, 200, {
+            ok: true,
+            data: {
+              ...data,
+              exportPayload: buildAuditExportPayloadService(data),
+            },
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/audit/presets') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const data = await listAuditPresetsService({
+            prisma,
+            authUser: auth.user,
+            authRole: auth.role,
+          });
+          return sendJson(res, 200, { ok: true, data });
+        }
+
+        if (req.method === 'POST' && pathname === '/admin/api/audit/presets') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const body = await readJsonBody(req);
+          try {
+            const data = await saveAuditPresetService({
+              prisma,
+              actor: `admin-web:${auth?.user || 'unknown'}`,
+              authUser: auth.user,
+              authRole: auth.role,
+              id: body?.id,
+              payload: body,
+            });
+            return sendJson(res, 200, { ok: true, data });
+          } catch (error) {
+            return sendJson(res, Number(error?.statusCode || 400), {
+              ok: false,
+              error: String(error?.message || 'Invalid request payload'),
+            });
+          }
+        }
+
+        if (req.method === 'POST' && pathname === '/admin/api/audit/presets/delete') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const body = await readJsonBody(req);
+          try {
+            const removed = await deleteAuditPresetService({
+              prisma,
+              id: body?.id,
+              authUser: auth.user,
+              authRole: auth.role,
+            });
+            if (!removed) {
+              return sendJson(res, 404, {
+                ok: false,
+                error: 'Resource not found',
+              });
+            }
+            return sendJson(res, 200, {
+              ok: true,
+              data: { id: String(body?.id || '').trim() },
+            });
+          } catch (error) {
+            return sendJson(res, Number(error?.statusCode || 400), {
+              ok: false,
+              error: String(error?.message || 'Invalid request payload'),
+            });
+          }
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/audit/export') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
+          const data = await buildAuditDatasetService({
+            prisma,
+            listEvents,
+            getParticipants,
+            view: urlObj.searchParams.get('view'),
+            query: urlObj.searchParams.get('q'),
+            userId: urlObj.searchParams.get('userId'),
+            reason: urlObj.searchParams.get('reason'),
+            status: urlObj.searchParams.get('status'),
+            statusMode: urlObj.searchParams.get('statusMode'),
+            actor: urlObj.searchParams.get('actor'),
+            actorMode: urlObj.searchParams.get('actorMode'),
+            reference: urlObj.searchParams.get('reference'),
+            referenceMode: urlObj.searchParams.get('referenceMode'),
+            windowMs: urlObj.searchParams.get('windowMs'),
+            dateFrom: urlObj.searchParams.get('dateFrom'),
+            dateTo: urlObj.searchParams.get('dateTo'),
+            sortBy: urlObj.searchParams.get('sortBy'),
+            sortOrder: urlObj.searchParams.get('sortOrder'),
+            exportAll: true,
+            pageSize: 5000,
+          });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          if (format === 'csv') {
+            return sendDownload(
+              res,
+              200,
+              buildAuditCsvService(data),
+              {
+                filename: `audit-${data.view}-${timestamp}.csv`,
+                contentType: 'text/csv; charset=utf-8',
+              },
+            );
+          }
+          return sendDownload(
+            res,
+            200,
+            `${JSON.stringify(buildAuditExportPayloadService(data), jsonReplacer, 2)}\n`,
+            {
+              filename: `audit-${data.view}-${timestamp}.json`,
+              contentType: 'application/json; charset=utf-8',
+            },
+          );
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/dashboard/cards') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const data = await buildAdminDashboardCards({
+            prisma,
+            client,
+            forceRefresh:
+              String(urlObj.searchParams.get('refresh') || '').trim() === '1'
+              || String(urlObj.searchParams.get('refresh') || '').trim().toLowerCase() === 'true',
+          });
+          return sendJson(res, 200, { ok: true, data });
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/player/accounts') {
@@ -3069,8 +2977,30 @@ function startAdminWebServer(client) {
         if (req.method === 'GET' && pathname === '/admin/api/snapshot') {
           const auth = ensureRole(req, urlObj, 'mod', res);
           if (!auth) return undefined;
-          const data = await buildSnapshot(client);
+          const data = await buildAdminSnapshot({
+            client,
+            observabilitySnapshot: getCurrentObservabilitySnapshot(),
+          });
           return sendJson(res, 200, { ok: true, data });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/snapshot/export') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const data = await buildAdminSnapshot({
+            client,
+            observabilitySnapshot: getCurrentObservabilitySnapshot(),
+          });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          return sendDownload(
+            res,
+            200,
+            `${JSON.stringify({ ok: true, data }, jsonReplacer, 2)}\n`,
+            {
+              filename: `snapshot-${timestamp}.json`,
+              contentType: 'application/json; charset=utf-8',
+            },
+          );
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/backup/list') {
@@ -3078,7 +3008,7 @@ function startAdminWebServer(client) {
           if (!auth) return undefined;
           return sendJson(res, 200, {
             ok: true,
-            data: listBackupFiles(),
+            data: listAdminBackupFiles(),
           });
         }
 

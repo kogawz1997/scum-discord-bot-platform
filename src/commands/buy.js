@@ -1,85 +1,24 @@
-﻿const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const {
-  getWallet,
-  getShopItemByName,
-  createPurchase,
-  removeCoins,
-} = require('../store/memoryStore');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { economy, channels } = require('../config');
-const { enqueuePurchaseDelivery } = require('../services/rconDelivery');
 const { resolveItemIconUrl } = require('../services/itemIconService');
+const { findShopItemView } = require('../services/playerQueryService');
+const {
+  purchaseShopItemForUser,
+  normalizeShopKind,
+  buildBundleSummary,
+} = require('../services/shopService');
 
 function getDeliveryText(result) {
   if (result?.queued) {
-    return '\nสถานะการส่งของ: ระบบอัตโนมัติกำลังดำเนินการ (คิว RCON)';
+    return '\nสถานะการส่งของ: ระบบอัตโนมัติกำลังดำเนินการ';
   }
   if (result?.reason === 'item-not-configured') {
-    return '\nสถานะการส่งของ: สินค้านี้ยังไม่ตั้งคำสั่ง RCON (ทำด้วยแอดมิน)';
+    return '\nสถานะการส่งของ: สินค้านี้ยังไม่ได้ตั้งค่าคำสั่งส่งของอัตโนมัติ';
   }
   if (result?.reason === 'delivery-disabled') {
-    return '\nสถานะการส่งของ: ปิดระบบส่งของอัตโนมัติอยู่ (ทำด้วยแอดมิน)';
+    return '\nสถานะการส่งของ: ปิดระบบส่งของอัตโนมัติอยู่';
   }
-  return '\nสถานะการส่งของ: รอทีมงานจัดการ (ทำด้วยแอดมิน)';
-}
-
-function normalizeKind(value) {
-  return String(value || 'item').trim().toLowerCase() === 'vip' ? 'vip' : 'item';
-}
-
-function normalizeQty(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 1;
-  return Math.max(1, Math.trunc(n));
-}
-
-function normalizeDeliveryItems(item) {
-  const direct = Array.isArray(item?.deliveryItems) ? item.deliveryItems : [];
-  const normalized = direct
-    .map((entry) => {
-      const gameItemId = String(entry?.gameItemId || '').trim();
-      if (!gameItemId) return null;
-      return {
-        gameItemId,
-        quantity: normalizeQty(entry?.quantity),
-      };
-    })
-    .filter(Boolean);
-
-  if (normalized.length > 0) return normalized;
-
-  const fallbackId = String(item?.gameItemId || '').trim();
-  if (!fallbackId) return [];
-  return [{ gameItemId: fallbackId, quantity: normalizeQty(item?.quantity) }];
-}
-
-function formatDeliveryLines(item, maxRows = 5) {
-  const entries = normalizeDeliveryItems(item);
-  if (entries.length === 0) {
-    return {
-      summary: 'ไอเทมในเกม: `-`',
-      short: '-',
-    };
-  }
-
-  const totalQty = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-  const lines = [`ไอเทมในชุด: **${entries.length}** รายการ (รวม **${totalQty}** ชิ้น)`];
-  for (const entry of entries.slice(0, maxRows)) {
-    lines.push(`- \`${entry.gameItemId}\` x**${entry.quantity}**`);
-  }
-  if (entries.length > maxRows) {
-    lines.push(`- และอีก **${entries.length - maxRows}** รายการ`);
-  }
-
-  const short = entries
-    .slice(0, 2)
-    .map((entry) => `${entry.gameItemId} x${entry.quantity}`)
-    .join(', ');
-  const suffix = entries.length > 2 ? ` (+${entries.length - 2})` : '';
-
-  return {
-    summary: lines.join('\n'),
-    short: `${short}${suffix}`,
-  };
+  return '\nสถานะการส่งของ: รอทีมงานจัดการ';
 }
 
 module.exports = {
@@ -92,53 +31,58 @@ module.exports = {
         .setDescription('ชื่อสินค้า หรือรหัสสินค้า')
         .setRequired(true),
     ),
+
   async execute(interaction) {
     const query = interaction.options.getString('item', true);
-    const item = await getShopItemByName(query);
+    const item = await findShopItemView(query);
 
     if (!item) {
       return interaction.reply({
-        content:
-          'ไม่พบสินค้าที่ต้องการ กรุณาตรวจสอบชื่อ/รหัสอีกครั้ง (`/shop` เพื่อดูรายการทั้งหมด)',
+        content: 'ไม่พบสินค้าที่ต้องการ กรุณาตรวจสอบชื่อหรือรหัสอีกครั้ง (`/shop` เพื่อดูรายการทั้งหมด)',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const userId = interaction.user.id;
-    const wallet = await getWallet(userId);
-
-    if (wallet.balance < item.price) {
-      return interaction.reply({
-        content: `ยอดเหรียญของคุณไม่พอ ต้องการ ${economy.currencySymbol} **${item.price.toLocaleString()}** แต่คุณมีเพียง ${economy.currencySymbol} **${wallet.balance.toLocaleString()}**`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    await removeCoins(userId, item.price, {
-      reason: 'purchase_debit',
-      actor: `discord:${interaction.user.id}`,
-      meta: {
-        source: 'slash-buy',
-        itemId: item.id,
-        itemName: item.name,
-      },
-    });
-    const purchase = await createPurchase(userId, item);
-    const delivery = await enqueuePurchaseDelivery(purchase, {
+    const result = await purchaseShopItemForUser({
+      userId: interaction.user.id,
+      item,
       guildId: interaction.guildId || null,
+      actor: `discord:${interaction.user.id}`,
+      source: 'slash-buy',
     });
-    const deliveryText = getDeliveryText(delivery);
-    const kind = normalizeKind(item.kind);
-    const bundle = formatDeliveryLines(item);
 
+    if (!result.ok) {
+      if (result.reason === 'steam-link-required') {
+        return interaction.reply({
+          content: 'ต้องผูก SteamID ก่อนซื้อสินค้าไอเทมในเกม ใช้ `/linksteam set` แล้วลองใหม่',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      if (result.reason === 'insufficient-balance') {
+        return interaction.reply({
+          content: `ยอดเหรียญของคุณไม่พอ ต้องการ ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}** แต่คุณมี ${economy.currencySymbol} **${Number(result.balance || 0).toLocaleString()}**`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      return interaction.reply({
+        content: 'ไม่สามารถสร้างคำสั่งซื้อได้ในตอนนี้ ระบบยกเลิกและคืนเหรียญให้อัตโนมัติแล้ว กรุณาลองใหม่อีกครั้ง',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const { purchase, delivery } = result;
+    const deliveryText = getDeliveryText(delivery);
+    const kind = normalizeShopKind(item.kind);
+    const bundle = buildBundleSummary(item, 5);
     const iconUrl = resolveItemIconUrl(item);
+
     const replyPayload = {
       content:
-        `ซื้อ **${item.name}** สำเร็จ!\n` +
-        `ประเภท: **${kind.toUpperCase()}**\n` +
-        `ราคา: ${economy.currencySymbol} **${item.price.toLocaleString()}**\n` +
-        `${kind === 'item' ? `${bundle.summary}\n` : ''}` +
-        `โค้ดอ้างอิง: \`${purchase.code}\`${deliveryText}`,
+        `ซื้อ **${item.name}** สำเร็จ\n`
+        + `ประเภท: **${kind.toUpperCase()}**\n`
+        + `ราคา: ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}**\n`
+        + `${kind === 'item' ? `${bundle.long}\n` : ''}`
+        + `โค้ดอ้างอิง: \`${purchase.code}\`${deliveryText}`,
     };
 
     if (iconUrl) {
@@ -150,7 +94,7 @@ module.exports = {
             [
               `รหัส: \`${item.id}\``,
               `ประเภท: **${kind.toUpperCase()}**`,
-              ...(kind === 'item' ? [bundle.summary] : []),
+              ...(kind === 'item' ? [bundle.long] : []),
             ].join('\n'),
           )
           .setThumbnail(iconUrl),
@@ -163,18 +107,16 @@ module.exports = {
       const guild = interaction.guild;
       if (guild) {
         const logChannel = guild.channels.cache.find(
-          (c) => c.name === channels.shopLog,
+          (channel) => channel.name === channels.shopLog,
         );
         if (logChannel && logChannel.isTextBased()) {
           await logChannel.send(
-            `🛒 **การซื้อ** | ผู้ใช้: ${interaction.user} | สินค้า: **${item.name}** (รหัส: \`${item.id}\`) | ประเภท: ${kind.toUpperCase()} | รายการ: ${kind === 'item' ? bundle.short : 'VIP'} | ราคา: ${economy.currencySymbol} **${item.price.toLocaleString()}** | โค้ด: \`${purchase.code}\` | สถานะส่งอัตโนมัติ: ${
-              delivery.queued ? 'เข้าคิวแล้ว' : delivery.reason || 'ทำด้วยแอดมิน'
-            }`,
+            `การซื้อ | ผู้ใช้: ${interaction.user} | สินค้า: **${item.name}** (\`${item.id}\`) | ประเภท: ${kind.toUpperCase()} | รายการ: ${kind === 'item' ? bundle.short : 'VIP'} | ราคา: ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}** | โค้ด: \`${purchase.code}\` | ส่งอัตโนมัติ: ${delivery.queued ? 'เข้าคิวแล้ว' : delivery.reason || 'แอดมินจัดการ'}`,
           );
         }
       }
-    } catch (err) {
-      console.error('ไม่สามารถส่ง log ไปยัง shop-log ได้', err);
+    } catch (error) {
+      console.error('ส่ง log ไปช่อง shop-log ไม่สำเร็จ:', error.message);
     }
   },
 };

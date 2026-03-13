@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const giveaways = new Map(); // messageId -> { prize, winnersCount, endsAt, channelId, guildId, entrants: Set<userId> }
@@ -6,17 +5,6 @@ const giveaways = new Map(); // messageId -> { prize, winnersCount, endsAt, chan
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('giveaways.json', () => ({
-  giveaways: Array.from(giveaways.entries()).map(([messageId, g]) => [
-    messageId,
-    {
-      ...g,
-      endsAt: g.endsAt ? new Date(g.endsAt).toISOString() : null,
-      entrants: Array.from(g.entrants || []),
-    },
-  ]),
-}));
 
 function normalizeDate(value) {
   const date = new Date(value);
@@ -126,7 +114,6 @@ async function hydrateFromPrisma() {
       for (const [messageId, value] of hydrated.entries()) {
         giveaways.set(messageId, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -135,28 +122,13 @@ async function hydrateFromPrisma() {
         giveaways.set(messageId, value);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[giveawayStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('giveaways.json', null);
-  if (!persisted) return;
-  for (const [messageIdRaw, row] of persisted.giveaways || []) {
-    const parsed = normalizeGiveaway({
-      ...row,
-      messageId: messageIdRaw,
-    });
-    if (!parsed) continue;
-    giveaways.set(parsed.messageId, parsed);
-  }
-}
-
 function initGiveawayStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -180,7 +152,6 @@ function createGiveaway({ messageId, channelId, guildId, prize, winnersCount, en
 
   giveaways.set(g.messageId, g);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -219,7 +190,6 @@ function addEntrant(messageId, userId) {
   if (!normalizedUserId) return null;
   g.entrants.add(normalizedUserId);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -245,7 +215,6 @@ function addEntrant(messageId, userId) {
 function removeGiveaway(messageId) {
   const removed = giveaways.delete(messageId);
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.giveaway.deleteMany({
@@ -265,7 +234,6 @@ function replaceGiveaways(nextGiveaways = []) {
     if (!parsed) continue;
     giveaways.set(parsed.messageId, parsed);
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

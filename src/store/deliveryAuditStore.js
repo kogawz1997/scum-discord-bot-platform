@@ -1,5 +1,4 @@
 const crypto = require('node:crypto');
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const MAX_AUDIT_ITEMS = 3000;
@@ -30,13 +29,6 @@ function normalizeAudit(entry) {
     meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null,
   };
 }
-
-const scheduleSave = saveJsonDebounced('delivery-audit.json', () => ({
-  audits: audits.map((a) => ({
-    ...a,
-    createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : null,
-  })),
-}));
 
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
@@ -143,7 +135,6 @@ async function hydrateFromPrisma() {
       if (audits.length > MAX_AUDIT_ITEMS) {
         audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
       }
-      scheduleSave();
       return;
     }
 
@@ -157,28 +148,13 @@ async function hydrateFromPrisma() {
     if (audits.length > MAX_AUDIT_ITEMS) {
       audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
     }
-    scheduleSave();
   } catch (error) {
     console.error('[deliveryAuditStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('delivery-audit.json', null);
-  if (!persisted?.audits || !Array.isArray(persisted.audits)) return;
-  for (const item of persisted.audits) {
-    const normalized = normalizeAudit(item);
-    if (!normalized) continue;
-    audits.push(normalized);
-  }
-  if (audits.length > MAX_AUDIT_ITEMS) {
-    audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
-  }
-}
-
 function initDeliveryAuditStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -196,7 +172,6 @@ function addDeliveryAudit(entry) {
     audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
   }
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -247,7 +222,6 @@ function listDeliveryAudit(limit = 500) {
 function clearDeliveryAudit() {
   audits.length = 0;
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.deliveryAudit.deleteMany({});
@@ -267,7 +241,6 @@ function replaceDeliveryAudit(nextAudits = []) {
   if (audits.length > MAX_AUDIT_ITEMS) {
     audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

@@ -12,6 +12,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PERSIST_REQUIRE_DB: 'true',
+        PERSIST_LEGACY_SNAPSHOTS: 'false',
         BOT_ENABLE_SCUM_WEBHOOK: 'true',
         BOT_ENABLE_RESTART_SCHEDULER: 'true',
         BOT_ENABLE_ADMIN_WEB: 'true',
@@ -34,6 +35,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PERSIST_REQUIRE_DB: 'true',
+        PERSIST_LEGACY_SNAPSHOTS: 'false',
         WORKER_ENABLE_RENTBIKE: 'true',
         WORKER_ENABLE_DELIVERY: 'true',
         WORKER_HEARTBEAT_MS: '60000',
@@ -52,8 +54,27 @@ module.exports = {
       restart_delay: 3000,
       env: {
         NODE_ENV: 'production',
+        PERSIST_REQUIRE_DB: 'true',
+        PERSIST_LEGACY_SNAPSHOTS: 'false',
         SCUM_WATCHER_HEALTH_HOST: '127.0.0.1',
         SCUM_WATCHER_HEALTH_PORT: '3212',
+      },
+    },
+    {
+      name: 'scum-console-agent',
+      script: 'src/scum-console-agent.js',
+      cwd: '.',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      env: {
+        NODE_ENV: 'production',
+        PERSIST_REQUIRE_DB: 'true',
+        PERSIST_LEGACY_SNAPSHOTS: 'false',
+        SCUM_CONSOLE_AGENT_HOST: '127.0.0.1',
+        SCUM_CONSOLE_AGENT_PORT: '3213',
       },
     },
     {
@@ -67,6 +88,8 @@ module.exports = {
       restart_delay: 3000,
       env: {
         NODE_ENV: 'production',
+        PERSIST_REQUIRE_DB: 'true',
+        PERSIST_LEGACY_SNAPSHOTS: 'false',
         WEB_PORTAL_SECURE_COOKIE: 'true',
         WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
       },

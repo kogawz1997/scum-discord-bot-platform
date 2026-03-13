@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const carts = new Map(); // userId -> { items: Map<itemId, quantity>, updatedAt }
@@ -58,12 +57,6 @@ function fromSerializableCart(row) {
     },
   };
 }
-
-const scheduleSave = saveJsonDebounced('carts.json', () => ({
-  carts: Array.from(carts.entries()).map(([userId, cart]) =>
-    toSerializableCart(userId, cart),
-  ),
-}));
 
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
@@ -144,7 +137,6 @@ async function hydrateFromPrisma() {
       for (const [userId, cart] of hydrated.entries()) {
         carts.set(userId, cart);
       }
-      scheduleSave();
       return;
     }
 
@@ -163,26 +155,13 @@ async function hydrateFromPrisma() {
         current.updatedAt = cart.updatedAt;
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[cartStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('carts.json', null);
-  if (!persisted?.carts || !Array.isArray(persisted.carts)) return;
-
-  for (const row of persisted.carts) {
-    const parsed = fromSerializableCart(row);
-    if (!parsed) continue;
-    carts.set(parsed.userId, parsed.cart);
-  }
-}
-
 function initCartStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -239,7 +218,6 @@ function addCartItem(userId, itemId, quantity = 1) {
   const updatedQty = Math.max(1, prev + nextQty);
   cart.items.set(itemKey, updatedQty);
   touchCart(cart);
-  scheduleSave();
 
   const updatedAt = normalizeIsoDate(cart.updatedAt);
   queueDbWrite(
@@ -296,7 +274,6 @@ function removeCartItem(userId, itemId, quantity = 1) {
   } else {
     touchCart(cart);
   }
-  scheduleSave();
 
   if (next <= 0) {
     queueDbWrite(
@@ -352,7 +329,6 @@ function clearCart(userId) {
   if (!existed) return false;
 
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.cartEntry.deleteMany({
@@ -380,7 +356,6 @@ function replaceCarts(nextCarts = []) {
     if (!parsed) continue;
     carts.set(parsed.userId, parsed.cart);
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

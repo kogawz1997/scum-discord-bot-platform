@@ -1,5 +1,4 @@
-﻿const { loadJson, saveJsonDebounced } = require('./_persist');
-const { prisma } = require('../prisma');
+﻿const { prisma } = require('../prisma');
 
 const bounties = new Map(); // id -> bounty
 
@@ -7,11 +6,6 @@ let bountyCounter = 1;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('bounties.json', () => ({
-  bountyCounter,
-  bounties: Array.from(bounties.entries()),
-}));
 
 function normalizeBountyRow(row) {
   const id = Number(row?.id || 0);
@@ -90,7 +84,6 @@ async function hydrateFromPrisma() {
       }
       const maxId = Math.max(0, ...Array.from(bounties.keys()));
       bountyCounter = maxId + 1;
-      scheduleSave();
       return;
     }
 
@@ -101,40 +94,14 @@ async function hydrateFromPrisma() {
     }
     const maxId = Math.max(0, ...Array.from(bounties.keys()));
     bountyCounter = Math.max(bountyCounter, maxId + 1);
-    scheduleSave();
   } catch (error) {
     console.error('[bountyStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('bounties.json', null);
-  if (!persisted) return;
-
-  if (typeof persisted.bountyCounter === 'number') {
-    bountyCounter = Math.max(1, Math.trunc(persisted.bountyCounter));
-  }
-
-  for (const [idRaw, bountyRaw] of persisted.bounties || []) {
-    const bounty = normalizeBountyRow({
-      id: bountyRaw?.id ?? idRaw,
-      targetName: bountyRaw?.targetName,
-      amount: bountyRaw?.amount,
-      createdBy: bountyRaw?.createdBy,
-      status: bountyRaw?.status,
-      claimedBy: bountyRaw?.claimedBy,
-    });
-    if (!bounty) continue;
-    bounties.set(bounty.id, bounty);
-  }
-
-  const maxId = Math.max(0, ...Array.from(bounties.keys()));
-  bountyCounter = Math.max(bountyCounter, maxId + 1);
-}
 
 function initBountyStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -158,7 +125,6 @@ function createBounty({ targetName, amount, createdBy }) {
   };
 
   bounties.set(id, bounty);
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -193,7 +159,6 @@ function cancelBounty(id, requesterId, isStaff) {
 
   mutationVersion += 1;
   bounty.status = 'cancelled';
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -218,7 +183,6 @@ function claimBounty(id, killerName) {
   mutationVersion += 1;
   bounty.status = 'claimed';
   bounty.claimedBy = killerName ? String(killerName) : null;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -253,7 +217,6 @@ function replaceBounties(nextBounties = [], nextCounter = null) {
     bountyCounter = maxId + 1;
   }
 
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.bounty.deleteMany();

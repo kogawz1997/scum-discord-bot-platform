@@ -1,19 +1,14 @@
 const {
   SlashCommandBuilder,
-  PermissionFlagsBits,
   EmbedBuilder,
   MessageFlags,
 } = require('discord.js');
-const { vip, roles } = require('../config');
-const { getWallet, removeCoins } = require('../store/memoryStore');
+const { roles } = require('../config');
 const {
-  setMembership,
+  buyVipForUser,
+  getVipPlan,
   getMembership,
-} = require('../store/vipStore');
-
-function getPlan(planId) {
-  return vip.plans.find((p) => p.id === planId) || null;
-}
+} = require('../services/vipService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -47,17 +42,22 @@ module.exports = {
     if (sub === 'buy') return handleBuy(interaction);
     if (sub === 'perks') return handlePerks(interaction);
     if (sub === 'status') return handleStatus(interaction);
+    return interaction.reply({
+      content: 'ไม่พบคำสั่งย่อย',
+      flags: MessageFlags.Ephemeral,
+    });
   },
 };
 
 async function handleList(interaction) {
-  const lines = vip.plans.map(
-    (p) =>
-      `รหัส: \`${p.id}\` | **${p.name}** | ${p.durationDays} วัน | ราคา: ${p.priceCoins.toLocaleString()} เหรียญ\n${p.description}`,
+  const plans = require('../config').vip.plans;
+  const lines = plans.map(
+    (plan) =>
+      `รหัส: \`${plan.id}\` | **${plan.name}** | ${plan.durationDays} วัน | ราคา: ${plan.priceCoins.toLocaleString()} เหรียญ\n${plan.description}`,
   );
 
   const embed = new EmbedBuilder()
-    .setTitle('⭐ แพ็กเกจ VIP')
+    .setTitle('แพ็กเกจ VIP')
     .setDescription(lines.join('\n\n'))
     .setColor(0xffd700);
 
@@ -66,74 +66,62 @@ async function handleList(interaction) {
 
 async function handleBuy(interaction) {
   const planId = interaction.options.getString('plan', true);
-  const plan = getPlan(planId);
+  const plan = getVipPlan(planId);
   if (!plan) {
     return interaction.reply({
-      content:
-        'ไม่พบแพ็กเกจ VIP นี้ กรุณาดูรายการด้วย `/vip list` ก่อน',
+      content: 'ไม่พบแพ็กเกจ VIP นี้ กรุณาดูรายการด้วย `/vip list` ก่อน',
       flags: MessageFlags.Ephemeral,
     });
   }
 
-  const wallet = await getWallet(interaction.user.id);
-  if (wallet.balance < plan.priceCoins) {
-    return interaction.reply({
-      content: `เหรียญไม่พอ ต้องการ ${plan.priceCoins.toLocaleString()} เหรียญ แต่คุณมีเพียง ${wallet.balance.toLocaleString()} เหรียญ`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  await removeCoins(interaction.user.id, plan.priceCoins, {
-    reason: 'vip_purchase',
+  const result = await buyVipForUser({
+    userId: interaction.user.id,
+    plan,
     actor: `discord:${interaction.user.id}`,
-    meta: {
-      planId: plan.id,
-      planName: plan.name,
-      durationDays: plan.durationDays,
-    },
+    source: '/vip buy',
   });
-
-  const now = new Date();
-  const expiresAt = new Date(
-    now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000,
-  );
-  setMembership(interaction.user.id, plan.id, expiresAt);
+  if (!result.ok) {
+    if (result.reason === 'insufficient-balance') {
+      return interaction.reply({
+        content: `เหรียญไม่พอ ต้องการ ${plan.priceCoins.toLocaleString()} เหรียญ แต่คุณมีเพียง ${Number(result.balance || 0).toLocaleString()} เหรียญ`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+    return interaction.reply({
+      content: 'ไม่สามารถเปิดใช้งาน VIP ได้ในตอนนี้ ระบบคืนเหรียญให้อัตโนมัติแล้ว กรุณาลองใหม่อีกครั้ง',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const guild = interaction.guild;
   if (guild) {
-    const member = await guild.members.fetch(interaction.user.id).catch(
-      () => null,
-    );
+    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
     if (member) {
-      const vipRole = guild.roles.cache.find((r) => r.name === roles.vip);
+      const vipRole = guild.roles.cache.find((role) => role.name === roles.vip);
       if (vipRole) {
-        await member.roles.add(
-          vipRole,
-          `ซื้อ VIP แพ็กเกจ ${plan.name} ผ่านบอท`,
-        );
+        await member.roles.add(vipRole, `ซื้อ VIP แพ็กเกจ ${plan.name} ผ่านบอท`).catch(() => null);
       }
     }
   }
 
-  const membership = getMembership(interaction.user.id);
   await interaction.reply(
-    `ขอบคุณที่สนับสนุนเซิร์ฟ! คุณได้ซื้อ **${plan.name}** แล้ว\nหมดอายุ: <t:${Math.floor(
-      membership.expiresAt.getTime() / 1000,
-    )}:F>`,
+    `เปิดใช้งาน **${plan.name}** สำเร็จแล้ว\nหมดอายุ: <t:${Math.floor(
+      result.membership.expiresAt.getTime() / 1000,
+    )}:F>\nยอดคงเหลือ: **${Number(result.balance || 0).toLocaleString()}** เหรียญ`,
   );
 }
 
 async function handlePerks(interaction) {
   const lines = [
-    '- คิวเข้าเซิร์ฟไวขึ้น (ช่องสำรองตามที่เซิร์ฟตั้งค่า)',
+    '- คิวเข้าเซิร์ฟไวขึ้น (ตามที่เซิร์ฟเวอร์ตั้งค่า)',
     '- ยศ VIP พร้อมสีชื่อพิเศษ',
     '- ห้องคุยเฉพาะ VIP',
-    '- โบนัสเหรียญรายวันเล็กน้อย (สามารถทำเพิ่มโดยผูกกับระบบเศรษฐกิจ)',
-    '- ของตกแต่ง / ตำแหน่งพิเศษ (ถ้าทำในเกม)',
+    '- โบนัสเหรียญรายวัน/รายสัปดาห์ตามนโยบายเซิร์ฟเวอร์',
+    '- สิทธิ์หรือของตกแต่งพิเศษอื่น ๆ ตามที่ทีมงานประกาศ',
   ];
 
   const embed = new EmbedBuilder()
-    .setTitle('สิทธิ์ของ VIP (แนะนำ)')
+    .setTitle('สิทธิ์ของ VIP')
     .setDescription(lines.join('\n'))
     .setColor(0xffa500);
 
@@ -141,19 +129,19 @@ async function handlePerks(interaction) {
 }
 
 async function handleStatus(interaction) {
-  const m = getMembership(interaction.user.id);
-  if (!m) {
+  const membership = getMembership(interaction.user.id);
+  if (!membership) {
     return interaction.reply({
       content: 'คุณยังไม่มี VIP ที่ใช้งานอยู่',
       flags: MessageFlags.Ephemeral,
     });
   }
 
-  const plan = getPlan(m.planId);
-  const name = plan ? plan.name : m.planId;
+  const plan = getVipPlan(membership.planId);
+  const name = plan ? plan.name : membership.planId;
   await interaction.reply({
     content: `คุณมี VIP: **${name}**\nหมดอายุ: <t:${Math.floor(
-      m.expiresAt.getTime() / 1000,
+      membership.expiresAt.getTime() / 1000,
     )}:F>`,
     flags: MessageFlags.Ephemeral,
   });

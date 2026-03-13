@@ -8,6 +8,9 @@ const {
   createBountyForUser,
   cancelBountyForUser,
   listActiveBountiesForUser,
+  createRedeemCodeForAdmin,
+  deleteRedeemCodeForAdmin,
+  resetRedeemCodeUsageForAdmin,
   requestRentBikeForUser,
 } = require('../src/services/playerOpsService');
 
@@ -79,6 +82,34 @@ test('playerOps service: redeem + bounty + rentbike input guard', async () => {
     });
     assert.equal(invalidRent.ok, false);
     assert.equal(invalidRent.reason, 'invalid-user-id');
+  } finally {
+    deleteCode(code);
+  }
+});
+
+test('playerOps admin helpers validate and mutate redeem codes', async () => {
+  const code = `ADMIN${Date.now()}${Math.floor(Math.random() * 1000)}`.toUpperCase();
+
+  try {
+    const created = createRedeemCodeForAdmin({
+      code,
+      type: 'coins',
+      amount: 123,
+    });
+    assert.equal(created.ok, true);
+    assert.equal(String(created.code || ''), code);
+
+    const reset = resetRedeemCodeUsageForAdmin({ code });
+    assert.equal(reset.ok, true);
+    assert.equal(String(reset.data?.usedBy || ''), '');
+
+    const removed = deleteRedeemCodeForAdmin({ code });
+    assert.equal(removed.ok, true);
+    assert.equal(String(removed.code || ''), code);
+
+    const removedAgain = deleteRedeemCodeForAdmin({ code });
+    assert.equal(removedAgain.ok, false);
+    assert.equal(removedAgain.reason, 'not-found');
   } finally {
     deleteCode(code);
   }

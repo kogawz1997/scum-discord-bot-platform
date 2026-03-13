@@ -29,6 +29,7 @@ services:
       BOT_ENABLE_RENTBIKE_SERVICE: "false"
       BOT_ENABLE_DELIVERY_WORKER: "false"
       PERSIST_REQUIRE_DB: "true"
+      PERSIST_LEGACY_SNAPSHOTS: "false"
     ports:
       - "3200:3200"
       - "3100:3100"
@@ -61,6 +62,7 @@ services:
       WORKER_ENABLE_RENTBIKE: "true"
       WORKER_ENABLE_DELIVERY: "true"
       PERSIST_REQUIRE_DB: "true"
+      PERSIST_LEGACY_SNAPSHOTS: "false"
     ports:
       - "3211:3211"
     volumes:
@@ -86,6 +88,8 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      PERSIST_REQUIRE_DB: "true"
+      PERSIST_LEGACY_SNAPSHOTS: "false"
       SCUM_WATCHER_HEALTH_HOST: 0.0.0.0
       SCUM_WATCHER_HEALTH_PORT: 3212
     ports:
@@ -114,6 +118,8 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      PERSIST_REQUIRE_DB: "true"
+      PERSIST_LEGACY_SNAPSHOTS: "false"
       WEB_PORTAL_HOST: 0.0.0.0
       WEB_PORTAL_PORT: 3300
       WEB_PORTAL_MODE: player

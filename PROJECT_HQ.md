@@ -3,14 +3,14 @@
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-43%2F43%20passing-15803d?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-79%2F79%20passing-15803d?style=for-the-badge)
 ![Security](https://img.shields.io/badge/security%20check-passed-0f766e?style=for-the-badge)
 
 เอกสารนี้คือศูนย์กลางข้อมูลของโปรเจกต์ (Single Source of Truth) ใช้แทน `PROJECT_REVIEW.md` และ `docs/SYSTEM_UPDATES.md`
 
-- อัปเดตล่าสุด: **2026-03-09**
+- อัปเดตล่าสุด: **2026-03-12**
 - สถานะระบบ: **พร้อมใช้งานจริง (พร้อม checklist production)**
-- สรุปผลตรวจล่าสุด: `npm run check` ผ่าน (43/43), `npm run security:check` ผ่าน
+- สรุปผลตรวจล่าสุด: `npm test` ผ่าน (79/79), `npm run lint` ผ่าน
 - ไฟล์อ้างอิงหลัก: `README.md`, `src/*`, `test/*`
 
 ---
@@ -59,7 +59,7 @@ flowchart LR
 
 | หมวด | สถานะ | หมายเหตุ |
 |---|---|---|
-| Economy / Shop / Purchase | พร้อม | รองรับสินค้าปกติ + bundle หลายไอเทม |
+| Economy / Shop / Purchase | พร้อม | รองรับ bundle หลายไอเทม + rollback-safe purchase + partial refund |
 | RCON Auto Delivery | พร้อม | queue + retry + audit + observability |
 | Rent Bike Daily | พร้อม | 1 ครั้ง/วัน, queue ป้องกันชนกัน, reset รายวัน |
 | Tickets / Events / Bounty | พร้อม | ปิด ticket แล้วลบห้องอัตโนมัติ |
@@ -78,6 +78,11 @@ flowchart LR
 - ระบบเศรษฐกิจครบ: wallet, daily, weekly, transfer/gift
 - ระบบร้านค้า: buy/inventory, purchase log, refund, mark-delivered
 - ระบบตะกร้าสินค้าใช้งานได้จริง (`/cart add|view|remove|clear|checkout`)
+- ซื้อสินค้าเดี่ยวและ VIP ผ่าน service กลาง (`shopService`, `vipService`)
+- ถ้าสร้าง purchase ล้มหลังตัดเหรียญ ระบบ rollback ให้อัตโนมัติ
+- `cart checkout` คืนเหรียญเฉพาะรายการที่สร้าง purchase ไม่สำเร็จ
+- welcome pack และวงล้อสุ่มรางวัลใช้ service กลางแบบ rollback-safe
+- daily/weekly และ event flow ใช้ service กลาง (`rewardService`, `eventService`) ร่วมกันแล้ว
 - ระบบสินค้าแบบ bundle: เพิ่มหลายไอเทมในสินค้าเดียว
 - ระบบ Ticket, Event, Bounty, VIP, Redeem
 - ระบบ panel command สำหรับโพสต์การ์ด/ปุ่มใช้งาน
@@ -121,7 +126,11 @@ flowchart LR
 - รองรับ RBAC แบบ `owner/admin/mod` แยกสิทธิ์ตาม endpoint
 - รองรับ 2FA (TOTP) และ Discord SSO (เปิดใช้ผ่าน env)
 - รองรับ backup/restore snapshot ผ่าน Admin API (owner only)
+- route backup/restore/snapshot ถูกแยกไป service layer `src/services/adminSnapshotService.js` แล้ว
 - ระบบล็อกอินใช้ฐานข้อมูล `admin_web_users` เป็นแหล่งข้อมูลหลัก (bootstrap จาก env ครั้งแรก)
+- มี Audit Center แยกดูย้อนหลัง `wallet / reward / event` พร้อม deep filters `search / user / actor / reason / reference / status / date-from / date-to / window`, exact-match mode (`actor/reference/status`), sort/order, pagination (`page + cursor`) และ saved presets แบบแชร์ผ่าน DB
+- export `audit / snapshot / observability` ฝั่ง server สำหรับข้อมูลก้อนใหญ่ ไม่ต้องพึ่ง browser export อย่างเดียว
+- dashboard summary cards ถูกแยกเป็น aggregate endpoint `GET /admin/api/dashboard/cards` แล้ว เพื่อลดการพึ่ง snapshot ก้อนใหญ่สำหรับตัวเลขสรุป
 
 ### 3.6 Observability + Metrics
 
@@ -195,7 +204,7 @@ ADMIN_WEB_ALLOWED_ORIGINS=https://admin.your-domain.com
 
 ## 5) ผลทดสอบล่าสุด
 
-วันที่ยืนยันผล: **2026-03-09**
+วันที่ยืนยันผล: **2026-03-12**
 
 ### คำสั่งที่รันจริง
 
@@ -206,10 +215,8 @@ npm run security:check
 
 ### ผลลัพธ์
 
-- `npm run check` ผ่าน
-  - lint ผ่าน
-  - test ผ่าน 43/43
-- `npm run security:check` ผ่าน (`SECURITY_CHECK: PASSED`)
+- `npm run lint` ผ่าน
+- `npm test` ผ่าน 79/79
 
 ### Integration tests ที่มีแล้ว
 
@@ -280,6 +287,9 @@ npm run register-commands
 - [x] Phase 2 (portal): player dashboard UI ฝั่งเว็บจริง + authz แยกจาก admin (`/player`)
 - [x] Phase 2 (portal): inventory/catalog query-filter สำหรับ player portal
 - [x] Phase 3: รวม `rentbike` + `bounty` + `redeem` ผ่าน service กลาง (`playerOpsService`)
+- [x] Phase 3: รวม admin bounty/redeem actions ให้ใช้ service layer เดียวกับ command/web
+- [x] Phase 3: รวม admin purchase/welcome actions ให้ใช้ service layer เดียวกับ runtime หลัก
+- [x] Phase 3: เพิ่ม Admin Audit Center สำหรับ `wallet / reward / event` พร้อม deep filters (`actor/reference/date-range`), exact-match mode, sort/order, pagination (`page + cursor`), saved presets และ server-side export
 
 ### 7.2 งานที่ยังค้าง (ต้องทำต่อ)
 
@@ -298,6 +308,7 @@ npm run register-commands
 - [x] เพิ่ม persistence status ใน `/healthz` และ admin snapshot
 - [x] เพิ่ม integration tests สำหรับ fallback/required-db mode
 - [x] ย้าย `linkStore`, `bountyStore`, `statsStore`, `cartStore`, `redeemStore`, `vipStore`, `scumStore`, `eventStore`, `ticketStore`, `weaponStatsStore`, `welcomePackStore`, `moderationStore`, `giveawayStore`, `topPanelStore`, `deliveryAuditStore` ไป Prisma (cache + startup hydration + write-through)
+- [x] ย้าย command/admin write-path เข้าชั้น service และถอด command read-path ออกจาก store direct import ทั้งชุดหลัก
 - [x] ย้าย store หลักที่ยังเป็น JSON ไป Prisma แบบ write-through ครบ
 - [x] ย้าย persistence นอก store (`config-overrides`, `delivery queue/dead-letter`) ไป Prisma (`BotConfig`, `DeliveryQueueJob`, `DeliveryDeadLetter`)
 - [x] ย้าย `luckyWheelStore` และ `partyChatStore` ไป Prisma
@@ -309,6 +320,8 @@ npm run register-commands
 - [x] แยก process bot/web/worker ระดับ runtime flags + worker entrypoint + PM2 manifest
 - [ ] แยก process bot/web/worker ใน production environment จริง (ปรับ env + deploy + smoke test)
 - [ ] รวม domain service กลางไปคำสั่ง/flow อื่นที่เหลือให้ครบทั้งระบบ
+- ความคืบหน้า: `/buy`, panel shop buy, player-portal buy, `/cart checkout`, `/vip buy` ถูกย้ายมาใช้ service กลางแล้ว
+  - ความคืบหน้าเพิ่ม: admin wallet set/add/remove, admin VIP set/remove, player-portal wheel spin, panel welcome claim ถูกย้ายมาใช้ service กลางแล้ว
 - [x] เพิ่ม deployment story ให้แน่น (PM2 + Docker + systemd + reverse proxy example + backup/restore step-by-step)
 - [x] เพิ่ม one-click deploy script สำหรับลูกค้า (Windows + PM2)
 - [x] เพิ่ม customer onboarding docs แบบ one-click / panel-based
@@ -324,6 +337,83 @@ npm run register-commands
 ---
 
 ## 8) Changelog รวม
+
+### 2026-03-12
+
+- เพิ่ม `src/services/shopService.js`
+  - รวม helper ของ shop/bundle summary ไว้จุดเดียว
+  - ซื้อสินค้าแบบ rollback-safe ถ้าสร้าง purchase ไม่สำเร็จหลังตัดเหรียญ
+- เพิ่ม `src/services/vipService.js`
+  - รวม flow ซื้อ VIP และ rollback เมื่อเปิดสิทธิ์ไม่สำเร็จ
+- เพิ่ม `src/services/wheelService.js`
+  - รวม flow มอบรางวัลวงล้อแบบ rollback-safe
+  - rollback `LuckyWheelState` ถ้าการมอบรางวัลเหรียญ/ไอเทมล้ม
+- เพิ่ม `src/services/welcomePackService.js`
+  - รวม flow รับ welcome pack และ rollback claim ถ้าเครดิตเหรียญล้ม
+- เพิ่ม `src/services/rewardService.js`
+  - รวม flow รับรางวัล `daily/weekly` ให้ command และ player portal ใช้กติกาเดียวกัน
+- เพิ่ม `src/services/eventService.js`
+  - รวม flow create/join/start/end event และ reward payout ให้ command กับ admin web ใช้ร่วมกัน
+- ปรับ `src/services/playerOpsService.js`
+  - เพิ่ม admin helpers สำหรับ `redeem add/delete/reset-usage`
+  - ให้ admin bounty/redeem actions ใช้ service layer เดียวกับ command/web
+- เพิ่ม `src/services/purchaseService.js`
+  - รวม manual purchase status transition ให้ admin web ใช้ state machine กลาง
+- ปรับ `src/services/welcomePackService.js`
+  - เพิ่ม admin helpers สำหรับ `welcome revoke/clear`
+- ปรับ `src/services/cartService.js`
+  - ตัดเหรียญครั้งเดียวต่อ checkout
+  - คืนเหรียญเฉพาะรายการที่สร้าง purchase ไม่สำเร็จ (`cart_checkout_partial_refund`)
+- ย้าย flow มาที่ service กลาง:
+  - `/buy`
+  - panel shop buy ใน `src/bot.js`
+  - player portal buy (`apps/web-portal-standalone/server.js`)
+  - `/vip buy`
+  - admin wallet set/add/remove
+  - admin VIP set/remove
+  - admin bounty create/cancel
+  - admin redeem add/delete/reset-usage
+  - admin purchase status update
+  - admin welcome revoke/clear
+  - player portal wheel spin
+  - panel welcome claim
+  - player portal daily/weekly claim
+  - admin event create/start/end/join
+- เพิ่ม Audit Center ใน `src/admin/dashboard.html`
+  - มุมมอง `Wallet Ledger`
+  - มุมมอง `Reward History`
+  - มุมมอง `Event History`
+  - filter คำค้น
+  - เลือกช่วงเวลา
+  - export `CSV/JSON`
+- rewrite command ข้อความไทยให้สะอาดใน:
+  - `src/commands/cart.js`
+  - `src/commands/vip.js`
+  - `src/commands/redeem.js`
+  - `src/commands/bounty.js`
+  - `src/commands/rentbike.js`
+  - `src/commands/gift.js`
+  - `src/commands/refund.js`
+  - `src/commands/daily.js`
+  - `src/commands/weekly.js`
+  - `src/commands/event.js`
+- เพิ่ม test ใหม่ `test/shop-vip-services.integration.test.js`
+- เพิ่ม test ใหม่ `test/reward-services.integration.test.js`
+- เพิ่ม test ใหม่ `test/reward-service.integration.test.js`
+- เพิ่ม test ใหม่ `test/event-services.integration.test.js`
+- เพิ่ม test ใหม่ `test/shop-vip-services.integration.test.js`
+  - purchase status service transition + history
+- เพิ่ม coverage ให้ `test/admin-api.integration.test.js`
+  - wallet add/remove
+  - VIP set/remove
+  - bounty create/cancel
+  - redeem add/reset/delete
+  - welcome revoke/clear
+- เพิ่ม test ใหม่ `test/player-ops-service.integration.test.js`
+  - admin redeem helpers
+- ยืนยันผลล่าสุด:
+  - `npm run lint` ผ่าน
+  - `npm test` ผ่าน `79/79`
 
 ### 2026-03-09
 
@@ -385,7 +475,7 @@ npm run register-commands
   - `docs/DEPLOYMENT_STORY.md` (PM2 + reverse proxy + backup/restore step-by-step)
   - `docs/REPO_PRESENTATION.md` (GitHub description/topics/media checklist)
 - ทำ readiness verification รอบล่าสุดครบชุด:
-  - `npm run check` ผ่าน (43/43)
+  - `npm run check` ผ่าน (57/57)
   - `npm run security:check` ผ่าน
   - `npm run doctor` ผ่าน
   - `npm run doctor:web-standalone` ผ่าน
@@ -399,7 +489,7 @@ npm run register-commands
   - ถ้าพอร์ตใช้งานอยู่ (`EADDRINUSE`) จะ `exit(1)` ทันที เพื่อไม่ให้ process ค้างเงียบ
   - กรณี server error อื่น ๆ จะ `exit(1)` เช่นกัน
 - ปรับเอกสารให้พร้อมใช้งานจริง:
-  - อัปเดต `README.md` เป็นสถานะทดสอบ `43/43`
+  - อัปเดต `README.md` เป็นสถานะทดสอบ `57/57`
   - เพิ่มคำสั่ง checklist readiness ก่อนปล่อยจริง
   - เพิ่ม troubleshooting พอร์ตชนใน `apps/web-portal-standalone/README.md`
   - เพิ่มวิธีรัน smoke test หลัง deploy แบบอัตโนมัติ

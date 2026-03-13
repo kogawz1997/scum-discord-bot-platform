@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const { deleteShopItem } = require('../store/memoryStore');
+﻿const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { deleteShopItemForAdmin } = require('../services/shopService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,18 +14,17 @@ module.exports = {
     ),
   async execute(interaction) {
     const query = interaction.options.getString('item', true);
-    const deleted = await deleteShopItem(query);
+    const result = await deleteShopItemForAdmin({ idOrName: query });
 
-    if (!deleted) {
+    if (!result.ok) {
       return interaction.reply({
-        content: 'ไม่พบสินค้าให้ลบ กรุณาตรวจสอบ ID/ชื่อ อีกครั้ง',
+        content: 'ไม่พบสินค้า กรุณาตรวจสอบ ID/ชื่อ อีกครั้ง',
         flags: MessageFlags.Ephemeral,
       });
     }
 
     await interaction.reply(
-      `ลบสินค้า **${deleted.name}** (ID: \`${deleted.id}\`) ออกจากร้านเรียบร้อยแล้ว`,
+      `ลบ **${result.item.name}** (ID: \`${result.item.id}\`) ออกจากร้านเรียบร้อยแล้ว`,
     );
   },
 };
-

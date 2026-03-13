@@ -1,7 +1,6 @@
 ﻿const { exec } = require('node:child_process');
 
 const config = require('../config');
-const { loadJson, saveJsonDebounced } = require('../store/_persist');
 const { prisma } = require('../prisma');
 const { getLinkByUserId } = require('../store/linkStore');
 const { addDeliveryAudit, listDeliveryAudit } = require('../store/deliveryAuditStore');
@@ -9,9 +8,15 @@ const {
   findPurchaseByCode,
   setPurchaseStatusByCode,
   getShopItemById,
+  getShopItemByName,
+  listPurchaseStatusHistory,
 } = require('../store/memoryStore');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
-const { resolveItemIconUrl, normalizeItemIconKey } = require('./itemIconService');
+const {
+  resolveItemIconUrl,
+  normalizeItemIconKey,
+  resolveCanonicalItemId,
+} = require('./itemIconService');
 const { resolveWikiWeaponCommandTemplate } = require('./wikiWeaponCatalog');
 const { resolveManifestItemCommandTemplate } = require('./wikiItemManifestCatalog');
 
@@ -30,6 +35,8 @@ let lastQueueStuckAlertAt = 0;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+let lastPersistenceSyncAt = 0;
+let persistenceSyncPromise = null;
 
 const METRICS_WINDOW_MS = Math.max(
   60 * 1000,
@@ -59,6 +66,10 @@ const IDEMPOTENCY_SUCCESS_WINDOW_MS = Math.max(
   30 * 1000,
   asNumber(process.env.DELIVERY_IDEMPOTENCY_SUCCESS_WINDOW_MS, 12 * 60 * 60 * 1000),
 );
+const PERSISTENCE_SYNC_INTERVAL_MS = Math.max(
+  500,
+  asNumber(process.env.DELIVERY_PERSISTENCE_SYNC_INTERVAL_MS, 2000),
+);
 
 function nowIso() {
   return new Date().toISOString();
@@ -69,16 +80,126 @@ function asNumber(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function envFlag(value, fallback = false) {
+  if (value == null || String(value).trim() === '') return fallback;
+  const text = String(value).trim().toLowerCase();
+  return text === '1' || text === 'true' || text === 'yes' || text === 'on';
+}
+
 function trimText(value, maxLen = 500) {
   const text = String(value || '').trim();
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}...`;
 }
 
+function sleep(ms) {
+  const delay = Math.max(0, Math.trunc(Number(ms) || 0));
+  if (delay <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+function summarizeCommandOutputs(outputs, maxLen = 500) {
+  const commands = (Array.isArray(outputs) ? outputs : [])
+    .map((entry) => String(entry?.command || '').trim())
+    .filter(Boolean);
+  if (commands.length === 0) return '';
+  return trimText(commands.join(' | '), maxLen);
+}
+
+function canonicalizeGameItemId(value, name = null) {
+  const requested = String(value || '').trim();
+  if (!requested) return '';
+  if (typeof resolveCanonicalItemId !== 'function') return requested;
+  return (
+    resolveCanonicalItemId({
+      gameItemId: requested,
+      id: requested,
+      name,
+    }) || requested
+  );
+}
+
+function parseCommandList(rawValue) {
+  if (rawValue == null) return [];
+  if (Array.isArray(rawValue)) {
+    return rawValue
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+  }
+  const text = String(rawValue || '').trim();
+  if (!text) return [];
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed)
+        ? parsed.map((entry) => String(entry || '').trim()).filter(Boolean)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return text
+    .split(/\r?\n/)
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function sanitizeCommandText(value) {
+  return String(value || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/"/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function quoteCommandText(value) {
+  const sanitized = sanitizeCommandText(value);
+  if (!sanitized) return '';
+  return `"${sanitized}"`;
+}
+
+function commandTemplatesNeedTeleportTarget(commandList) {
+  return (Array.isArray(commandList) ? commandList : []).some((template) =>
+    /\{(?:teleportTarget|teleportTargetRaw|teleportTargetQuoted|inGameName|playerName)\}/.test(
+      String(template || ''),
+    ),
+  );
+}
+
+function normalizeDeliveryProfileName(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'spawn_only') return 'spawn_only';
+  if (raw === 'teleport_spawn') return 'teleport_spawn';
+  if (raw === 'announce_teleport_spawn') return 'announce_teleport_spawn';
+  return null;
+}
+
+function normalizeDeliveryTeleportMode(value, fallback = null) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === 'player') return 'player';
+  if (raw === 'vehicle') return 'vehicle';
+  return fallback;
+}
+
+function pickCommandList(envKey, fallback) {
+  if (Object.prototype.hasOwnProperty.call(process.env, envKey)) {
+    return parseCommandList(process.env[envKey]);
+  }
+  return parseCommandList(fallback);
+}
+
 function getSettings() {
   const auto = config.delivery?.auto || {};
   return {
     enabled: auto.enabled === true,
+    executionMode:
+      String(
+        process.env.DELIVERY_EXECUTION_MODE || auto.executionMode || 'rcon',
+      )
+        .trim()
+        .toLowerCase() || 'rcon',
     queueIntervalMs: Math.max(250, asNumber(auto.queueIntervalMs, 1200)),
     maxRetries: Math.max(0, asNumber(auto.maxRetries, 3)),
     retryDelayMs: Math.max(500, asNumber(auto.retryDelayMs, 6000)),
@@ -92,6 +213,38 @@ function getSettings() {
       auto.wikiWeaponCommandFallbackEnabled !== false,
     itemManifestCommandFallbackEnabled:
       auto.itemManifestCommandFallbackEnabled !== false,
+    agentPreCommands: pickCommandList(
+      'DELIVERY_AGENT_PRE_COMMANDS_JSON',
+      auto.agentPreCommands,
+    ),
+    agentPostCommands: pickCommandList(
+      'DELIVERY_AGENT_POST_COMMANDS_JSON',
+      auto.agentPostCommands,
+    ),
+    agentCommandDelayMs: Math.max(
+      0,
+      asNumber(
+        process.env.DELIVERY_AGENT_COMMAND_DELAY_MS,
+        auto.agentCommandDelayMs || 0,
+      ),
+    ),
+    agentPostTeleportDelayMs: Math.max(
+      0,
+      asNumber(
+        process.env.DELIVERY_AGENT_POST_TELEPORT_DELAY_MS,
+        auto.agentPostTeleportDelayMs || 0,
+      ),
+    ),
+    agentTeleportMode: normalizeDeliveryTeleportMode(
+      process.env.DELIVERY_AGENT_TELEPORT_MODE || auto.agentTeleportMode || '',
+      'player',
+    ),
+    agentTeleportTarget: sanitizeCommandText(
+      process.env.DELIVERY_AGENT_TELEPORT_TARGET || auto.agentTeleportTarget || '',
+    ),
+    agentReturnTarget: sanitizeCommandText(
+      process.env.DELIVERY_AGENT_RETURN_TARGET || auto.agentReturnTarget || '',
+    ),
   };
 }
 
@@ -117,6 +270,193 @@ function normalizeCommands(rawValue) {
     }
   }
   return [];
+}
+
+function isTeleportCommand(command) {
+  const text = String(command || '').trim();
+  return /^#TeleportTo(?:Vehicle)?\b/i.test(text);
+}
+
+function buildDeliveryTemplateVars(context = {}, settings = getSettings()) {
+  const inGameName = sanitizeCommandText(context.inGameName || context.playerName || '');
+  const explicitTeleportTarget = sanitizeCommandText(context.teleportTarget || '');
+  const teleportMode = normalizeDeliveryTeleportMode(
+    context.teleportMode || settings.agentTeleportMode,
+    'player',
+  );
+  const teleportTarget = sanitizeCommandText(
+    explicitTeleportTarget || inGameName || '',
+  );
+  const returnTarget = sanitizeCommandText(
+    context.returnTarget || settings.agentReturnTarget || '',
+  );
+  return {
+    steamId: String(context.steamId || '').trim(),
+    itemId: String(context.itemId || '').trim(),
+    itemName: String(context.itemName || '').trim(),
+    gameItemId: String(context.gameItemId || '').trim(),
+    quantity: Math.max(1, Math.trunc(Number(context.quantity || 1))),
+    itemKind: String(context.itemKind || 'item').trim() || 'item',
+    userId: String(context.userId || '').trim(),
+    purchaseCode: String(context.purchaseCode || '').trim(),
+    inGameName,
+    playerName: inGameName,
+    teleportMode,
+    explicitTeleportTarget,
+    teleportTarget,
+    teleportTargetRaw: teleportTarget,
+    teleportTargetQuoted: quoteCommandText(teleportTarget),
+    returnTarget,
+    returnTargetQuoted: quoteCommandText(returnTarget),
+  };
+}
+
+function buildTeleportCommandTemplate(teleportMode) {
+  return teleportMode === 'vehicle'
+    ? '#TeleportToVehicle {teleportTargetRaw}'
+    : '#TeleportTo {teleportTargetQuoted}';
+}
+
+function getDeliveryProfileCommandTemplates(
+  profile,
+  hasReturnTarget = false,
+  teleportMode = 'player',
+) {
+  const normalized = normalizeDeliveryProfileName(profile);
+  if (!normalized || normalized === 'spawn_only') {
+    return { preCommands: [], postCommands: [] };
+  }
+  if (normalized === 'teleport_spawn') {
+    return {
+      preCommands: [buildTeleportCommandTemplate(teleportMode)],
+      postCommands: hasReturnTarget ? ['#TeleportTo {returnTargetQuoted}'] : [],
+    };
+  }
+  if (normalized === 'announce_teleport_spawn') {
+    return {
+      preCommands: [
+        '#Announce Delivering {itemName} to {teleportTarget}',
+        buildTeleportCommandTemplate(teleportMode),
+      ],
+      postCommands: hasReturnTarget ? ['#TeleportTo {returnTargetQuoted}'] : [],
+    };
+  }
+  return { preCommands: [], postCommands: [] };
+}
+
+function resolveAgentHookPlan(shopItem, vars, settings = getSettings()) {
+  const deliveryProfile = normalizeDeliveryProfileName(shopItem?.deliveryProfile);
+  const deliveryTeleportMode = normalizeDeliveryTeleportMode(
+    shopItem?.deliveryTeleportMode || vars.teleportMode || settings.agentTeleportMode,
+    'player',
+  );
+  const deliveryTeleportTarget = sanitizeCommandText(
+    shopItem?.deliveryTeleportTarget
+      || vars.explicitTeleportTarget
+      || (
+        deliveryTeleportMode === 'vehicle'
+          ? settings.agentTeleportTarget
+          : vars.teleportTarget || settings.agentTeleportTarget || ''
+      ),
+  );
+  const itemPreTemplates = normalizeCommands(
+    shopItem?.deliveryPreCommands || shopItem?.deliveryPreCommandsJson,
+  );
+  const itemPostTemplates = normalizeCommands(
+    shopItem?.deliveryPostCommands || shopItem?.deliveryPostCommandsJson,
+  );
+  const deliveryReturnTarget = sanitizeCommandText(
+    shopItem?.deliveryReturnTarget || vars.returnTarget || settings.agentReturnTarget || '',
+  );
+  const scopedVars = {
+    ...vars,
+    teleportMode: deliveryTeleportMode,
+    teleportTarget: deliveryTeleportTarget,
+    teleportTargetRaw: deliveryTeleportTarget,
+    teleportTargetQuoted: quoteCommandText(deliveryTeleportTarget),
+    returnTarget: deliveryReturnTarget,
+    returnTargetQuoted: quoteCommandText(deliveryReturnTarget),
+  };
+
+  let preTemplates = settings.agentPreCommands;
+  let postTemplates = settings.agentPostCommands;
+
+  if (deliveryProfile) {
+    const profileTemplates = getDeliveryProfileCommandTemplates(
+      deliveryProfile,
+      Boolean(deliveryReturnTarget),
+      deliveryTeleportMode,
+    );
+    preTemplates = profileTemplates.preCommands;
+    postTemplates = profileTemplates.postCommands;
+  }
+
+  if (itemPreTemplates.length > 0) {
+    preTemplates = itemPreTemplates;
+  }
+  if (itemPostTemplates.length > 0) {
+    postTemplates = itemPostTemplates;
+  }
+
+  return {
+    deliveryProfile,
+    deliveryTeleportMode,
+    deliveryTeleportTarget: deliveryTeleportTarget || null,
+    deliveryReturnTarget: deliveryReturnTarget || null,
+    requiresTeleportTarget: commandTemplatesNeedTeleportTarget([
+      ...preTemplates,
+      ...postTemplates,
+    ]),
+    preCommands:
+      settings.executionMode === 'agent'
+        ? preTemplates
+            .map((template) => substituteTemplate(template, scopedVars))
+            .filter(Boolean)
+        : [],
+    postCommands:
+      settings.executionMode === 'agent'
+        ? postTemplates
+            .map((template) => substituteTemplate(template, scopedVars))
+            .filter(Boolean)
+        : [],
+  };
+}
+
+function resolveExecutionPlan(preview, vars, settings = getSettings(), agentHooks = null) {
+  const serverCommands = Array.isArray(preview?.serverCommands)
+    ? preview.serverCommands.filter((entry) => String(entry || '').trim())
+    : [];
+  const singlePlayerCommands = Array.isArray(preview?.singlePlayerCommands)
+    ? preview.singlePlayerCommands.filter((entry) => String(entry || '').trim())
+    : [];
+  const agentPreCommands =
+    settings.executionMode === 'agent'
+      ? (
+          Array.isArray(agentHooks?.preCommands)
+            ? agentHooks.preCommands
+            : settings.agentPreCommands
+                .map((template) => substituteTemplate(template, vars))
+                .filter(Boolean)
+        )
+      : [];
+  const agentPostCommands =
+    settings.executionMode === 'agent'
+      ? (
+          Array.isArray(agentHooks?.postCommands)
+            ? agentHooks.postCommands
+            : settings.agentPostCommands
+                .map((template) => substituteTemplate(template, vars))
+                .filter(Boolean)
+        )
+      : [];
+  const itemCommands =
+    settings.executionMode === 'agent' ? singlePlayerCommands : serverCommands;
+  return {
+    agentPreCommands,
+    itemCommands,
+    agentPostCommands,
+    allCommands: [...agentPreCommands, ...itemCommands, ...agentPostCommands],
+  };
 }
 
 function findCommandOverride(commandMap, rawKey) {
@@ -216,6 +556,227 @@ function substituteTemplate(template, vars) {
   });
 }
 
+function adaptCommandTemplateForSinglePlayer(template) {
+  const raw = String(template || '').trim();
+  if (!raw) return raw;
+
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return raw;
+  if (!/^#spawnitem$/i.test(tokens[0])) {
+    return raw;
+  }
+
+  return tokens.filter((token) => token !== '{steamId}').join(' ').trim();
+}
+
+async function previewDeliveryCommands(options = {}) {
+  const requestedItemId = String(options.itemId || '').trim();
+  const requestedGameItemId = String(options.gameItemId || '').trim();
+  const requestedItemName = String(options.itemName || '').trim();
+  const requestedSteamId =
+    String(options.steamId || '').trim() || '76561198000000000';
+  const requestedUserId = String(options.userId || '').trim() || 'preview-user';
+  const requestedPurchaseCode =
+    String(options.purchaseCode || '').trim() || 'PREVIEW-CODE';
+
+  let shopItem = null;
+  if (requestedItemId) {
+    shopItem = await getShopItemById(requestedItemId).catch(() => null);
+    if (!shopItem) {
+      shopItem = await getShopItemByName(requestedItemId).catch(() => null);
+    }
+  }
+
+  const normalizedQuantity = Math.max(
+    1,
+    Math.trunc(Number(options.quantity || shopItem?.quantity || 1)),
+  );
+  const resolvedItemId =
+    String(shopItem?.id || requestedItemId || requestedGameItemId).trim();
+  const resolvedItemName =
+    String(shopItem?.name || requestedItemName || resolvedItemId).trim();
+  const deliveryItems = normalizeDeliveryItemsForJob(
+    Array.isArray(options.deliveryItems) ? options.deliveryItems : shopItem?.deliveryItems,
+    {
+      gameItemId:
+        requestedGameItemId || shopItem?.gameItemId || resolvedItemId || null,
+      quantity: normalizedQuantity,
+      iconUrl: String(options.iconUrl || shopItem?.iconUrl || '').trim() || null,
+    },
+  );
+  const primary = deliveryItems[0] || null;
+  const resolvedQuantity = Math.max(
+    1,
+    Math.trunc(Number(primary?.quantity || normalizedQuantity || 1)),
+  );
+  const resolvedGameItemId = String(
+    primary?.gameItemId || requestedGameItemId || shopItem?.gameItemId || resolvedItemId,
+  ).trim();
+
+  if (!resolvedItemId && !resolvedGameItemId) {
+    throw new Error('itemId or gameItemId is required');
+  }
+
+  const commands = resolveItemCommands(resolvedItemId, resolvedGameItemId);
+  const iconUrl =
+    String(primary?.iconUrl || options.iconUrl || shopItem?.iconUrl || '').trim()
+    || resolveItemIconUrl({
+      id: resolvedItemId || resolvedGameItemId,
+      gameItemId: resolvedGameItemId,
+      name: resolvedItemName,
+    })
+    || null;
+  const settings = getSettings();
+    const vars = buildDeliveryTemplateVars(
+      {
+        steamId: requestedSteamId,
+        itemId: resolvedItemId,
+        itemName: resolvedItemName,
+        gameItemId: resolvedGameItemId,
+      quantity: resolvedQuantity,
+      itemKind: String(options.itemKind || shopItem?.kind || 'item').trim() || 'item',
+        userId: requestedUserId,
+        purchaseCode: requestedPurchaseCode,
+        inGameName: options.inGameName || options.playerName || '',
+        teleportTarget:
+          options.teleportTarget
+          || shopItem?.deliveryTeleportTarget
+          || '',
+        teleportMode:
+          options.teleportMode
+          || shopItem?.deliveryTeleportMode
+          || '',
+        returnTarget: options.returnTarget || '',
+      },
+      settings,
+    );
+  const agentHooks = resolveAgentHookPlan(shopItem, vars, settings);
+  const serverCommands = commands.map((template) => substituteTemplate(template, vars));
+  const singlePlayerCommands = commands.map((template) =>
+    substituteTemplate(adaptCommandTemplateForSinglePlayer(template), vars),
+  );
+  const executionPlan = resolveExecutionPlan(
+    {
+      serverCommands,
+      singlePlayerCommands,
+    },
+    vars,
+    settings,
+    agentHooks,
+  );
+
+  return {
+    executionMode: settings.executionMode,
+    itemId: resolvedItemId || null,
+    itemName: resolvedItemName || null,
+    gameItemId: resolvedGameItemId || null,
+    quantity: resolvedQuantity,
+    itemKind: String(options.itemKind || shopItem?.kind || 'item').trim() || 'item',
+    iconUrl,
+    shopItem: shopItem
+      ? {
+          id: shopItem.id,
+          name: shopItem.name,
+          kind: shopItem.kind,
+          deliveryProfile: shopItem.deliveryProfile || null,
+          deliveryTeleportMode: shopItem.deliveryTeleportMode || null,
+          deliveryTeleportTarget: shopItem.deliveryTeleportTarget || null,
+          deliveryReturnTarget: shopItem.deliveryReturnTarget || null,
+        }
+      : null,
+    deliveryItems,
+    deliveryProfile: shopItem?.deliveryProfile || null,
+    deliveryTeleportMode:
+      agentHooks.deliveryTeleportMode || shopItem?.deliveryTeleportMode || null,
+    deliveryTeleportTarget:
+      agentHooks.deliveryTeleportTarget || shopItem?.deliveryTeleportTarget || null,
+    deliveryReturnTarget:
+      agentHooks.deliveryReturnTarget || shopItem?.deliveryReturnTarget || null,
+    commandTemplates: commands,
+    serverCommands,
+    singlePlayerCommands,
+    agentPreCommands: executionPlan.agentPreCommands,
+    agentPostCommands: executionPlan.agentPostCommands,
+    allCommands: executionPlan.allCommands,
+  };
+}
+
+async function sendTestDeliveryCommand(options = {}) {
+  const preview = await previewDeliveryCommands(options);
+  const settings = getSettings();
+  const commandTemplates = Array.isArray(preview.commandTemplates)
+    ? preview.commandTemplates.filter((entry) => String(entry || '').trim())
+    : [];
+  if (commandTemplates.length === 0) {
+    throw new Error('No delivery command template found for requested item');
+  }
+
+  const steamId = String(options.steamId || '').trim() || '76561198000000000';
+  const userId = String(options.userId || '').trim() || 'admin-test-send';
+  const purchaseCode = String(options.purchaseCode || '').trim() || null;
+  const outputs = [];
+
+  for (const deliveryItem of preview.deliveryItems || []) {
+    const vars = {
+      steamId,
+      itemId: preview.itemId || preview.gameItemId || null,
+      itemName: preview.itemName || preview.itemId || preview.gameItemId || null,
+      gameItemId: String(deliveryItem?.gameItemId || preview.gameItemId || '').trim(),
+      quantity: Math.max(1, Math.trunc(Number(deliveryItem?.quantity || preview.quantity || 1))),
+      itemKind: String(preview.itemKind || 'item').trim() || 'item',
+      userId,
+      purchaseCode: purchaseCode || 'TEST-SEND',
+    };
+
+    for (const template of commandTemplates) {
+      const runtimeTemplate =
+        settings.executionMode === 'agent'
+          ? adaptCommandTemplateForSinglePlayer(template)
+          : template;
+      const gameCommand = substituteTemplate(runtimeTemplate, vars);
+      const output = await runGameCommand(gameCommand, settings);
+      outputs.push({
+        mode: output.mode || settings.executionMode,
+        backend: output.backend || null,
+        gameItemId: vars.gameItemId,
+        quantity: vars.quantity,
+        command: output.command,
+        stdout: output.stdout,
+        stderr: output.stderr,
+      });
+    }
+  }
+
+  const commandSummary = summarizeCommandOutputs(outputs, 700);
+  addDeliveryAudit({
+    level: 'info',
+    action: 'manual-test-send',
+    purchaseCode,
+    itemId: preview.itemId || preview.gameItemId || null,
+    userId,
+    steamId,
+    message: commandSummary
+      ? `Manual test send complete | commands: ${commandSummary}`
+      : 'Manual test send complete',
+    meta: {
+      source: 'admin-web',
+      executionMode: settings.executionMode,
+      deliveryItems: preview.deliveryItems || [],
+      outputs,
+      commandSummary: commandSummary || null,
+    },
+  });
+
+  return {
+    ...preview,
+    purchaseCode,
+    steamId,
+    userId,
+    outputs,
+    commandSummary,
+  };
+}
+
 function runShell(command, timeoutMs) {
   return new Promise((resolve, reject) => {
     exec(
@@ -240,6 +801,113 @@ function getRconTemplate() {
   const configTemplate = String(config.delivery?.auto?.rconExecTemplate || '').trim();
   if (configTemplate) return configTemplate;
   return '';
+}
+
+function getAgentBaseUrl() {
+  const explicit = String(process.env.SCUM_CONSOLE_AGENT_BASE_URL || '').trim();
+  if (explicit) return explicit.replace(/\/+$/, '');
+  const host = String(process.env.SCUM_CONSOLE_AGENT_HOST || '127.0.0.1').trim() || '127.0.0.1';
+  const port = Math.max(
+    1,
+    Math.trunc(asNumber(process.env.SCUM_CONSOLE_AGENT_PORT, 3213)),
+  );
+  return `http://${host}:${port}`;
+}
+
+async function fetchAgentHealth(settings) {
+  const baseUrl = getAgentBaseUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(1000, Math.min(settings.commandTimeoutMs, 5000)),
+  );
+  try {
+    const res = await fetch(`${baseUrl}/healthz`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      return {
+        ok: false,
+        reachable: false,
+        baseUrl,
+        error:
+          trimText(payload?.error || payload?.message || `agent health failed (${res.status})`, 300),
+      };
+    }
+    return {
+      ok: true,
+      reachable: true,
+      baseUrl,
+      ...payload,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reachable: false,
+      baseUrl,
+      error: trimText(error?.message || 'agent health request failed', 300),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getWorkerHealthBaseUrl() {
+  const host = String(process.env.WORKER_HEALTH_HOST || '127.0.0.1').trim() || '127.0.0.1';
+  const port = Math.max(
+    0,
+    Math.trunc(asNumber(process.env.WORKER_HEALTH_PORT, 0)),
+  );
+  if (port <= 0) return null;
+  return `http://${host}:${port}`;
+}
+
+async function fetchWorkerHealth(settings) {
+  const baseUrl = getWorkerHealthBaseUrl();
+  if (!baseUrl) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(1000, Math.min(settings.commandTimeoutMs, 4000)),
+  );
+  try {
+    const res = await fetch(`${baseUrl}/healthz`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      return {
+        ok: false,
+        reachable: false,
+        baseUrl,
+        error: trimText(payload?.error || payload?.message || `worker health failed (${res.status})`, 300),
+      };
+    }
+    return {
+      ok: true,
+      reachable: true,
+      baseUrl,
+      ...payload,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reachable: false,
+      baseUrl,
+      error: trimText(error?.message || 'worker health request failed', 300),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function runRconCommand(gameCommand, settings) {
@@ -271,10 +939,220 @@ async function runRconCommand(gameCommand, settings) {
 
   const { stdout, stderr } = await runShell(shellCommand, settings.commandTimeoutMs);
   return {
+    mode: 'rcon',
     command: gameCommand,
     shellCommand,
     stdout: trimText(stdout, 1200),
     stderr: trimText(stderr, 1200),
+  };
+}
+
+async function runAgentCommand(gameCommand, settings) {
+  const baseUrl = getAgentBaseUrl();
+  const token = String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
+  if (!token) {
+    throw new Error('SCUM_CONSOLE_AGENT_TOKEN is not set');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(1000, settings.commandTimeoutMs + 1000),
+  );
+
+  let res;
+  try {
+    res = await fetch(`${baseUrl}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ command: gameCommand }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok || !payload?.ok || !payload?.result) {
+    throw new Error(
+      trimText(
+        payload?.error
+          || payload?.message
+          || `SCUM console agent error ${res.status}`,
+        500,
+      ),
+    );
+  }
+
+  return {
+    mode: 'agent',
+    command: gameCommand,
+    backend: payload.result.backend || null,
+    shellCommand: payload.result.shellCommand || null,
+    stdout: trimText(payload.result.stdout, 1200),
+    stderr: trimText(payload.result.stderr, 1200),
+    pid: payload.result.pid || null,
+  };
+}
+
+async function runGameCommand(gameCommand, settings) {
+  if (settings.executionMode === 'agent') {
+    return runAgentCommand(gameCommand, settings);
+  }
+  return runRconCommand(gameCommand, settings);
+}
+
+async function getDeliveryRuntimeStatus() {
+  const settings = getSettings();
+  const sortedJobs = [...jobs.values()].sort(
+    (a, b) => Number(a?.nextAttemptAt || 0) - Number(b?.nextAttemptAt || 0),
+  );
+  const headJob = sortedJobs[0] || null;
+  const latestAudit = listDeliveryAudit(10);
+  const runtime = {
+    enabled: settings.enabled,
+    executionMode: settings.executionMode,
+    workerStarted,
+    workerBusy,
+    queueLength: jobs.size,
+    deadLetterCount: deadLetters.size,
+    inFlightCount: inFlightPurchaseCodes.size,
+    recentSuccessCount: recentlyDeliveredCodes.size,
+    settings: {
+      queueIntervalMs: settings.queueIntervalMs,
+      maxRetries: settings.maxRetries,
+      retryDelayMs: settings.retryDelayMs,
+      retryBackoff: settings.retryBackoff,
+      commandTimeoutMs: settings.commandTimeoutMs,
+      failedStatus: settings.failedStatus,
+      wikiWeaponCommandFallbackEnabled:
+        settings.wikiWeaponCommandFallbackEnabled === true,
+      itemManifestCommandFallbackEnabled:
+        settings.itemManifestCommandFallbackEnabled === true,
+    },
+    headJob: headJob
+      ? {
+          purchaseCode: headJob.purchaseCode,
+          itemId: headJob.itemId,
+          itemName: headJob.itemName || null,
+          gameItemId: headJob.gameItemId || null,
+          quantity: headJob.quantity || 1,
+          attempts: headJob.attempts || 0,
+          nextAttemptAt: headJob.nextAttemptAt || null,
+          createdAt: headJob.createdAt || null,
+          updatedAt: headJob.updatedAt || null,
+          lastError: headJob.lastError || null,
+        }
+      : null,
+    metrics: getDeliveryMetricsSnapshot(),
+    latestAudit,
+  };
+
+  if (settings.executionMode === 'agent') {
+    runtime.agent = {
+      tokenConfigured: String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim().length > 0,
+      execTemplateConfigured:
+        String(process.env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE || '').trim().length > 0,
+      backend: String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec',
+      health: await fetchAgentHealth(settings),
+    };
+  } else {
+    const shellTemplate = getRconTemplate();
+    runtime.rcon = {
+      host: String(process.env.RCON_HOST || '').trim() || null,
+      port: String(process.env.RCON_PORT || '').trim() || null,
+      protocol: String(process.env.RCON_PROTOCOL || 'rcon').trim() || 'rcon',
+      templateConfigured: shellTemplate.length > 0,
+    };
+  }
+
+  const remoteWorkerEnabled = envFlag(process.env.WORKER_ENABLE_DELIVERY, false);
+  const localBotOwnsWorker = envFlag(process.env.BOT_ENABLE_DELIVERY_WORKER, false);
+  if (!workerStarted && remoteWorkerEnabled && !localBotOwnsWorker) {
+    const workerHealth = await fetchWorkerHealth(settings);
+    runtime.workerSource = 'remote-worker-health';
+    runtime.workerHealth = workerHealth;
+    if (workerHealth?.ok && workerHealth?.deliveryRuntime) {
+      const remoteRuntime = workerHealth.deliveryRuntime;
+      return {
+        ...runtime,
+        ...remoteRuntime,
+        workerSource: 'remote-worker-health',
+        workerHealth,
+      };
+    }
+    return runtime;
+  }
+
+  runtime.workerSource = workerStarted ? 'local-process' : 'current-process';
+
+  return runtime;
+}
+
+async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
+  const code = String(purchaseCode || '').trim();
+  if (!code) {
+    throw new Error('purchaseCode is required');
+  }
+
+  const [purchase, statusHistory] = await Promise.all([
+    findPurchaseByCode(code),
+    listPurchaseStatusHistory(code, Math.max(1, Math.min(200, Number(limit || 50)))).catch(() => []),
+  ]);
+  const queueJob = jobs.has(code) ? { ...jobs.get(code) } : null;
+  const deadLetter = deadLetters.has(code) ? { ...deadLetters.get(code) } : null;
+  const link = purchase?.userId ? getLinkByUserId(purchase.userId) : null;
+  const auditRows = listDeliveryAudit(1000)
+    .filter((row) => String(row?.purchaseCode || '').trim() === code)
+    .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
+    .slice(0, Math.max(1, Math.min(200, Number(limit || 50))));
+
+  let preview = null;
+  if (purchase?.itemId) {
+    const shopItem = await getShopItemById(purchase.itemId).catch(() => null);
+    preview = await previewDeliveryCommands({
+      itemId: purchase.itemId,
+      gameItemId: shopItem?.gameItemId || purchase.itemId,
+      itemName: shopItem?.name || purchase.itemId,
+      quantity: shopItem?.quantity || 1,
+      steamId: link?.steamId || undefined,
+      userId: purchase.userId,
+      purchaseCode: purchase.code,
+      deliveryItems: shopItem?.deliveryItems || undefined,
+      iconUrl: shopItem?.iconUrl || undefined,
+      itemKind: shopItem?.kind || undefined,
+    }).catch((error) => ({
+      error: String(error?.message || error),
+    }));
+  }
+
+  const latestCommandAudit = auditRows.find((row) => {
+    const outputs = row?.meta?.outputs;
+    return Array.isArray(outputs) && outputs.length > 0;
+  }) || null;
+
+  return {
+    purchaseCode: code,
+    purchase,
+    queueJob,
+    deadLetter,
+    link,
+    statusHistory,
+    auditRows,
+    latestCommandSummary: latestCommandAudit?.meta?.commandSummary || null,
+    latestOutputs: Array.isArray(latestCommandAudit?.meta?.outputs)
+      ? latestCommandAudit.meta.outputs
+      : [],
+    preview,
   };
 }
 
@@ -285,10 +1163,17 @@ function normalizeDeliveryItemsForJob(items, fallback = {}) {
 
   for (const raw of source) {
     if (!raw || typeof raw !== 'object') continue;
-    const gameItemId = String(raw.gameItemId || raw.id || '').trim();
+    const gameItemId = canonicalizeGameItemId(raw.gameItemId || raw.id, raw.name);
     if (!gameItemId) continue;
     const quantity = Math.max(1, Math.trunc(Number(raw.quantity || 1)));
-    const iconUrl = String(raw.iconUrl || '').trim() || null;
+    const iconUrl =
+      String(raw.iconUrl || '').trim()
+      || resolveItemIconUrl({
+        gameItemId,
+        id: gameItemId,
+        name: raw.name,
+      })
+      || null;
     const key = gameItemId.toLowerCase();
     const existing = byKey.get(key);
     if (!existing) {
@@ -305,13 +1190,19 @@ function normalizeDeliveryItemsForJob(items, fallback = {}) {
 
   if (out.length > 0) return out;
 
-  const fallbackGameItemId = String(fallback.gameItemId || '').trim();
+  const fallbackGameItemId = canonicalizeGameItemId(fallback.gameItemId);
   if (!fallbackGameItemId) return [];
   return [
     {
       gameItemId: fallbackGameItemId,
       quantity: Math.max(1, Math.trunc(Number(fallback.quantity || 1))),
-      iconUrl: String(fallback.iconUrl || '').trim() || null,
+      iconUrl:
+        String(fallback.iconUrl || '').trim()
+        || resolveItemIconUrl({
+          gameItemId: fallbackGameItemId,
+          id: fallbackGameItemId,
+        })
+        || null,
     },
   ];
 }
@@ -502,32 +1393,6 @@ function fromPrismaDeadLetterRow(row) {
   });
 }
 
-const persisted = loadJson('delivery-queue.json', null);
-if (persisted?.jobs && Array.isArray(persisted.jobs)) {
-  for (const rawJob of persisted.jobs) {
-    const job = normalizeJob(rawJob);
-    if (!job) continue;
-    jobs.set(job.purchaseCode, job);
-  }
-}
-
-const persistedDeadLetters = loadJson('delivery-dead-letter.json', null);
-if (persistedDeadLetters?.deadLetters && Array.isArray(persistedDeadLetters.deadLetters)) {
-  for (const row of persistedDeadLetters.deadLetters) {
-    const normalized = normalizeDeadLetter(row);
-    if (!normalized) continue;
-    deadLetters.set(normalized.purchaseCode, normalized);
-  }
-}
-
-const scheduleQueueSave = saveJsonDebounced('delivery-queue.json', () => ({
-  jobs: Array.from(jobs.values()).map((job) => ({ ...job })),
-}));
-
-const scheduleDeadLetterSave = saveJsonDebounced('delivery-dead-letter.json', () => ({
-  deadLetters: Array.from(deadLetters.values()).map((row) => ({ ...row })),
-}));
-
 async function hydrateDeliveryPersistenceFromPrisma() {
   const startVersion = mutationVersion;
   try {
@@ -569,7 +1434,6 @@ async function hydrateDeliveryPersistenceFromPrisma() {
         for (const [purchaseCode, job] of hydratedQueue.entries()) {
           jobs.set(purchaseCode, job);
         }
-        scheduleQueueSave();
       } else {
         for (const [purchaseCode, job] of hydratedQueue.entries()) {
           if (jobs.has(purchaseCode)) continue;
@@ -607,7 +1471,6 @@ async function hydrateDeliveryPersistenceFromPrisma() {
         for (const [purchaseCode, row] of hydratedDeadLetters.entries()) {
           deadLetters.set(purchaseCode, row);
         }
-        scheduleDeadLetterSave();
       } else {
         for (const [purchaseCode, row] of hydratedDeadLetters.entries()) {
           if (deadLetters.has(purchaseCode)) continue;
@@ -623,9 +1486,34 @@ async function hydrateDeliveryPersistenceFromPrisma() {
   }
 }
 
+async function syncDeliveryPersistenceStore(options = {}) {
+  const force = options.force === true;
+  const now = Date.now();
+  if (!force && now - lastPersistenceSyncAt < PERSISTENCE_SYNC_INTERVAL_MS) {
+    return false;
+  }
+
+  if (persistenceSyncPromise) {
+    await persistenceSyncPromise;
+    return true;
+  }
+
+  persistenceSyncPromise = (async () => {
+    await hydrateDeliveryPersistenceFromPrisma();
+    lastPersistenceSyncAt = Date.now();
+  })();
+
+  try {
+    await persistenceSyncPromise;
+    return true;
+  } finally {
+    persistenceSyncPromise = null;
+  }
+}
+
 function initDeliveryPersistenceStore() {
   if (!initPromise) {
-    initPromise = hydrateDeliveryPersistenceFromPrisma();
+    initPromise = syncDeliveryPersistenceStore({ force: true });
   }
   return initPromise;
 }
@@ -649,7 +1537,6 @@ function replaceDeliveryQueue(nextJobs = []) {
     if (!normalized) continue;
     jobs.set(normalized.purchaseCode, normalized);
   }
-  scheduleQueueSave();
   queueDbWrite(
     async () => {
       await prisma.deliveryQueueJob.deleteMany();
@@ -685,7 +1572,6 @@ function replaceDeliveryDeadLetters(nextRows = []) {
     if (!normalized) continue;
     deadLetters.set(normalized.purchaseCode, normalized);
   }
-  scheduleDeadLetterSave();
   queueDbWrite(
     async () => {
       await prisma.deliveryDeadLetter.deleteMany();
@@ -707,7 +1593,6 @@ function removeDeliveryDeadLetter(purchaseCode) {
   if (!existing) return null;
   mutationVersion += 1;
   deadLetters.delete(code);
-  scheduleDeadLetterSave();
   queueDbWrite(
     async () => {
       await prisma.deliveryDeadLetter.deleteMany({ where: { purchaseCode: code } });
@@ -737,7 +1622,6 @@ function addDeliveryDeadLetter(job, reason, meta = null) {
   if (!row) return null;
   mutationVersion += 1;
   deadLetters.set(row.purchaseCode, row);
-  scheduleDeadLetterSave();
   queueDbWrite(
     async () => {
       const data = toPrismaDeadLetterData(row);
@@ -923,7 +1807,6 @@ function setJob(job) {
   if (!normalized) return;
   mutationVersion += 1;
   jobs.set(normalized.purchaseCode, normalized);
-  scheduleQueueSave();
   queueDbWrite(
     async () => {
       const data = toPrismaQueueJobData(normalized);
@@ -945,7 +1828,6 @@ function removeJob(purchaseCode) {
   if (!code) return;
   mutationVersion += 1;
   jobs.delete(code);
-  scheduleQueueSave();
   queueDbWrite(
     async () => {
       await prisma.deliveryQueueJob.deleteMany({ where: { purchaseCode: code } });
@@ -1116,6 +1998,7 @@ async function processJob(job) {
       return;
     }
 
+    const settings = getSettings();
     const context = {
       purchaseCode: purchase.code,
       itemId: purchase.itemId,
@@ -1125,9 +2008,11 @@ async function processJob(job) {
       itemKind: String(shopItem?.kind || job?.itemKind || 'item'),
       userId: purchase.userId,
       steamId: link.steamId,
+      inGameName: link.inGameName || null,
+      teleportMode: shopItem?.deliveryTeleportMode || '',
+      teleportTarget: shopItem?.deliveryTeleportTarget || '',
     };
 
-    const settings = getSettings();
     const outputs = [];
     const needsItemPlaceholder = commandSupportsBundleItems(commands);
 
@@ -1137,24 +2022,95 @@ async function processJob(job) {
       );
     }
 
-    for (const deliveryItem of resolvedDeliveryItems) {
-      const itemContext = {
-        ...context,
-        gameItemId: deliveryItem.gameItemId,
-        quantity: deliveryItem.quantity,
-      };
-      for (const template of commands) {
-        const gameCommand = substituteTemplate(template, itemContext);
-        const output = await runRconCommand(gameCommand, settings);
+    const commonVars = buildDeliveryTemplateVars(context, settings);
+    const agentHooks = resolveAgentHookPlan(shopItem, commonVars, settings);
+
+    if (
+      settings.executionMode === 'agent'
+      && agentHooks.requiresTeleportTarget
+      && !agentHooks.deliveryTeleportTarget
+    ) {
+      await handleRetry(
+        job,
+        `Missing teleport target for purchaseCode=${purchase.code}`,
+      );
+      return;
+    }
+
+    const preCommands = agentHooks.preCommands;
+    const postCommands = agentHooks.postCommands;
+
+    const executePhaseCommands = async (
+      phase,
+      commandList,
+      deliveryItem = null,
+    ) => {
+      const normalizedCommands = (Array.isArray(commandList) ? commandList : [])
+        .map((entry) => String(entry || '').trim())
+        .filter(Boolean);
+      for (let i = 0; i < normalizedCommands.length; i += 1) {
+        const gameCommand = normalizedCommands[i];
+        const output = await runGameCommand(gameCommand, settings);
         outputs.push({
-          gameItemId: deliveryItem.gameItemId,
-          quantity: deliveryItem.quantity,
+          phase,
+          mode: output.mode || settings.executionMode,
+          backend: output.backend || null,
+          gameItemId: deliveryItem?.gameItemId || null,
+          quantity: deliveryItem?.quantity || null,
           command: output.command,
           stdout: output.stdout,
           stderr: output.stderr,
         });
+        if (
+          settings.executionMode === 'agent'
+          && settings.agentCommandDelayMs > 0
+          && i < normalizedCommands.length - 1
+        ) {
+          await sleep(settings.agentCommandDelayMs);
+        }
+      }
+    };
+
+    await executePhaseCommands('pre', preCommands);
+    if (preCommands.length > 0 && settings.executionMode === 'agent') {
+      const prePhaseDelayMs = preCommands.some(isTeleportCommand)
+        ? settings.agentPostTeleportDelayMs
+        : settings.agentCommandDelayMs;
+      if (prePhaseDelayMs > 0) {
+        await sleep(prePhaseDelayMs);
       }
     }
+
+    for (const deliveryItem of resolvedDeliveryItems) {
+      const itemVars = buildDeliveryTemplateVars(
+        {
+          ...context,
+          gameItemId: deliveryItem.gameItemId,
+          quantity: deliveryItem.quantity,
+        },
+        settings,
+      );
+      const itemCommands = commands.map((template) => {
+        const runtimeTemplate =
+          settings.executionMode === 'agent'
+            ? adaptCommandTemplateForSinglePlayer(template)
+            : template;
+        return substituteTemplate(runtimeTemplate, itemVars);
+      });
+      await executePhaseCommands('item', itemCommands, deliveryItem);
+      if (
+        settings.executionMode === 'agent'
+        && settings.agentCommandDelayMs > 0
+        && deliveryItem !== resolvedDeliveryItems[resolvedDeliveryItems.length - 1]
+      ) {
+        await sleep(settings.agentCommandDelayMs);
+      }
+    }
+
+    if (postCommands.length > 0 && settings.executionMode === 'agent') {
+      await sleep(settings.agentCommandDelayMs);
+    }
+    await executePhaseCommands('post', postCommands);
 
     await setPurchaseStatusByCode(purchaseCode, 'delivered', {
       actor: 'delivery-worker',
@@ -1167,11 +2123,21 @@ async function processJob(job) {
     markRecentlyDelivered(purchaseCode);
     removeDeliveryDeadLetter(purchaseCode);
     recordDeliveryOutcome(true, { purchaseCode: purchaseCode });
-    queueAudit('info', 'success', job, 'Auto delivery complete', {
+    const commandSummary = summarizeCommandOutputs(outputs, 700);
+    queueAudit(
+      'info',
+      'success',
+      job,
+      commandSummary
+        ? `Auto delivery complete | commands: ${commandSummary}`
+        : 'Auto delivery complete',
+      {
       steamId: link.steamId,
       deliveryItems: resolvedDeliveryItems,
       outputs,
-    });
+      commandSummary: commandSummary || null,
+    },
+    );
     const deliveredItemsText = trimText(
       resolvedDeliveryItems
         .map((entry) => `${entry.gameItemId} x${entry.quantity}`)
@@ -1220,6 +2186,7 @@ async function processDueJobOnce() {
 }
 
 async function processDeliveryQueueNow(limit = 1) {
+  await syncDeliveryPersistenceStore({ force: true });
   const max = Math.max(1, Math.trunc(Number(limit || 1)));
   let processed = 0;
   let lastResult = { processed: false, reason: 'empty-queue' };
@@ -1249,6 +2216,7 @@ function kickWorker(delayMs = 10) {
 async function workerTick() {
   const settings = getSettings();
   if (!workerStarted) return;
+  await syncDeliveryPersistenceStore();
   if (!settings.enabled) {
     kickWorker(settings.queueIntervalMs);
     return;
@@ -1495,7 +2463,11 @@ module.exports = {
   cancelDeliveryJob,
   listDeliveryAudit,
   getDeliveryMetricsSnapshot,
+  getDeliveryRuntimeStatus,
   processDeliveryQueueNow,
+  previewDeliveryCommands,
+  sendTestDeliveryCommand,
+  getDeliveryDetailsByPurchaseCode,
 };
 
 

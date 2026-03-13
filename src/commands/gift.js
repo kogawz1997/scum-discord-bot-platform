@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+﻿const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { economy } = require('../config');
 const { transferCoins } = require('../services/coinService');
 
@@ -9,7 +9,7 @@ module.exports = {
     .addUserOption((option) =>
       option
         .setName('target')
-        .setDescription('คนที่ต้องการโอนให้')
+        .setDescription('ผู้รับเหรียญ')
         .setRequired(true),
     )
     .addIntegerOption((option) =>
@@ -50,6 +50,7 @@ module.exports = {
         guildId: interaction.guildId || null,
       },
     });
+
     if (!result.ok) {
       if (result.reason === 'insufficient-balance') {
         return interaction.reply({
@@ -64,7 +65,7 @@ module.exports = {
     }
 
     await interaction.reply(
-      `${interaction.user} โอน ${economy.currencySymbol} **${amount.toLocaleString()}** ให้กับ ${target} แล้ว\nยอดคุณคงเหลือ: ${economy.currencySymbol} **${Number(result.fromBalance || 0).toLocaleString()}**`,
+      `${interaction.user} โอน ${economy.currencySymbol} **${amount.toLocaleString()}** ให้กับ ${target} แล้ว\nยอดคงเหลือของคุณ: ${economy.currencySymbol} **${Number(result.fromBalance || 0).toLocaleString()}**`,
     );
   },
 };

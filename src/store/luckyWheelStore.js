@@ -168,6 +168,59 @@ async function recordWheelSpin(userId, rewardEntry) {
   };
 }
 
+async function rollbackWheelSpin(userId, rewardEntry) {
+  const id = normalizeUserId(userId);
+  if (!id) return { ok: false, reason: 'invalid-user-id' };
+
+  const reward = normalizeRewardEntry(rewardEntry);
+  if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
+
+  const next = await prisma.$transaction(async (tx) => {
+    const existing = await tx.luckyWheelState.findUnique({
+      where: { userId: id },
+    });
+    if (!existing) return null;
+
+    const history = parseHistoryJson(existing.historyJson);
+    const index = history.findIndex((row) => row
+      && row.id === reward.id
+      && row.at === reward.at
+      && row.type === reward.type
+      && row.amount === reward.amount
+      && row.quantity === reward.quantity
+      && row.itemId === reward.itemId
+      && row.gameItemId === reward.gameItemId);
+
+    if (index < 0) {
+      return null;
+    }
+
+    history.splice(index, 1);
+    const nextLastSpinAt = history[0]?.at ? new Date(history[0].at) : null;
+    return tx.luckyWheelState.update({
+      where: { userId: id },
+      data: {
+        lastSpinAt: nextLastSpinAt,
+        totalSpins: Math.max(0, Number(existing.totalSpins || 0) - 1),
+        historyJson: toHistoryJson(history),
+      },
+    });
+  });
+
+  if (!next) {
+    return { ok: false, reason: 'reward-entry-not-found' };
+  }
+
+  return {
+    ok: true,
+    data: {
+      userId: id,
+      lastSpinAt: next.lastSpinAt ? new Date(next.lastSpinAt).toISOString() : null,
+      totalSpins: Number(next.totalSpins || 0),
+    },
+  };
+}
+
 async function listLuckyWheelStates(limit = 1000) {
   const rows = await prisma.luckyWheelState.findMany({
     orderBy: { updatedAt: 'desc' },
@@ -211,6 +264,7 @@ module.exports = {
   getUserWheelState,
   canSpinWheel,
   recordWheelSpin,
+  rollbackWheelSpin,
   listLuckyWheelStates,
   replaceLuckyWheelStates,
 };

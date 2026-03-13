@@ -1,4 +1,4 @@
-const {
+﻿const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
@@ -18,7 +18,7 @@ module.exports = {
     .addSubcommand((sub) =>
       sub
         .setName('add')
-        .setDescription('ตั้งค่าหัวให้ผู้เล่น (ใช้ชื่อในเกม)')
+        .setDescription('ตั้งค่าหัวให้ผู้เล่นโดยใช้ชื่อในเกม')
         .addStringOption((option) =>
           option
             .setName('target')
@@ -34,9 +34,7 @@ module.exports = {
         ),
     )
     .addSubcommand((sub) =>
-      sub
-        .setName('list')
-        .setDescription('ดูค่าหัวทั้งหมด'),
+      sub.setName('list').setDescription('ดูค่าหัวทั้งหมด'),
     )
     .addSubcommand((sub) =>
       sub
@@ -54,6 +52,10 @@ module.exports = {
     if (sub === 'add') return handleAdd(interaction);
     if (sub === 'list') return handleList(interaction);
     if (sub === 'cancel') return handleCancel(interaction);
+    return interaction.reply({
+      content: 'ไม่พบคำสั่งย่อย',
+      flags: MessageFlags.Ephemeral,
+    });
   },
 };
 
@@ -79,12 +81,12 @@ async function handleAdd(interaction) {
 }
 
 async function handleList(interaction) {
-  const list = listActiveBountiesForUser();
-  if (list.length === 0) {
+  const items = listActiveBountiesForUser();
+  if (items.length === 0) {
     return interaction.reply('ตอนนี้ยังไม่มีค่าหัวที่เปิดใช้งาน');
   }
 
-  const lines = list.map(
+  const lines = items.map(
     (bounty) =>
       `รหัส: **${bounty.id}** | เป้าหมาย: **${bounty.targetName}** | ค่าหัว: ${economy.currencySymbol} **${Number(bounty.amount || 0).toLocaleString()}**`,
   );
@@ -118,7 +120,7 @@ async function handleCancel(interaction) {
     }
     if (result.reason === 'forbidden') {
       return interaction.reply({
-        content: 'คุณไม่มีสิทธิ์ยกเลิกค่าหัวนี้ (ต้องเป็นคนตั้งหรือทีมงาน)',
+        content: 'คุณไม่มีสิทธิ์ยกเลิกค่าหัวนี้ ต้องเป็นคนตั้งหรือทีมงาน',
         flags: MessageFlags.Ephemeral,
       });
     }

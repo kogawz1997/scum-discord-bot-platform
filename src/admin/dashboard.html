@@ -870,6 +870,130 @@
       box-shadow: inset 0 0 0 1px rgba(136, 173, 228, 0.08);
     }
 
+    .audit-shell {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+      box-shadow: inset 0 0 0 1px rgba(136, 173, 228, 0.06);
+    }
+
+    .audit-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .audit-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .audit-filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .audit-field {
+      min-width: 180px;
+      flex: 1 1 220px;
+    }
+
+    .audit-field.compact {
+      min-width: 110px;
+      flex: 0 0 132px;
+    }
+
+    .audit-preset-name {
+      min-width: 180px;
+      flex: 0 1 220px;
+    }
+
+    .audit-btn {
+      min-height: 36px;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    .audit-btn.active {
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: var(--btn-text);
+      border-color: transparent;
+      box-shadow: 0 10px 22px var(--btn-shadow);
+    }
+
+    .audit-pagination {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .audit-page-meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .delivery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .section-head-inline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .section-head-inline h4,
+    .section-head-inline p {
+      margin: 0;
+    }
+
+    .inline-actions,
+    .row-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .row-actions button {
+      min-height: 32px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    .delivery-cell-main {
+      display: grid;
+      gap: 2px;
+    }
+
+    .delivery-cell-main strong {
+      font-size: 14px;
+      line-height: 1.1;
+    }
+
+    .delivery-cell-sub {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .live-controls {
       display: flex;
       align-items: center;
@@ -926,6 +1050,7 @@
       .action-layout { grid-template-columns: 1fr; }
       .tab-menu-shell { position: static; }
       .tab-menu { grid-template-columns: 1fr; align-items: start; }
+      .delivery-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 760px) {
@@ -1110,6 +1235,39 @@
                   <label class="field wide">
                     <span>รายละเอียดสินค้า</span>
                     <input name="description" placeholder="คำอธิบายสินค้า">
+                  </label>
+                  <label class="field shop-item-only">
+                    <span>Delivery Profile</span>
+                    <select id="shopDeliveryProfileSelect" name="deliveryProfile">
+                      <option value="">ใช้ค่ากลางของระบบ</option>
+                      <option value="spawn_only">Spawn Only</option>
+                      <option value="teleport_spawn">Teleport + Spawn</option>
+                      <option value="announce_teleport_spawn">Announce + Teleport + Spawn</option>
+                    </select>
+                  </label>
+                  <label class="field shop-item-only">
+                    <span>Teleport Mode</span>
+                    <select id="shopDeliveryTeleportModeSelect" name="deliveryTeleportMode">
+                      <option value="">ใช้ค่าเป้าหมายผู้เล่นตามระบบ</option>
+                      <option value="player">Player / ชื่อในเกม</option>
+                      <option value="vehicle">Vehicle / รถหรือ alias</option>
+                    </select>
+                  </label>
+                  <label class="field shop-item-only">
+                    <span>จุดวาร์ปก่อนส่งของ (ไม่บังคับ)</span>
+                    <input id="shopDeliveryTeleportTargetInput" name="deliveryTeleportTarget" placeholder="เช่น Coke TAMTHAI หรือ AdminBike">
+                  </label>
+                  <label class="field shop-item-only">
+                    <span>จุดวาร์ปกลับ (ไม่บังคับ)</span>
+                    <input id="shopDeliveryReturnTargetInput" name="deliveryReturnTarget" placeholder="เช่น AdminAnchor">
+                  </label>
+                  <label class="field wide shop-item-only">
+                    <span>Pre-commands เพิ่มเติม (ไม่บังคับ, 1 บรรทัดต่อ 1 คำสั่ง)</span>
+                    <textarea id="shopDeliveryPreCommandsInput" name="deliveryPreCommands" rows="3" placeholder="#Announce Delivering {itemName} to {teleportTarget}"></textarea>
+                  </label>
+                  <label class="field wide shop-item-only">
+                    <span>Post-commands เพิ่มเติม (ไม่บังคับ, 1 บรรทัดต่อ 1 คำสั่ง)</span>
+                    <textarea id="shopDeliveryPostCommandsInput" name="deliveryPostCommands" rows="3" placeholder="#TeleportTo {returnTargetQuoted}"></textarea>
                   </label>
                   <button type="submit">เพิ่มสินค้า</button>
                 </div>
@@ -1514,6 +1672,106 @@
                 <p>จัดการคิวส่งของอัตโนมัติและสั่งรีเซ็ตระบบเช่ารถ</p>
               </div>
 
+              <div class="form-card">
+                <h4>สถานะ runtime ส่งของ</h4>
+                <p class="help">ตรวจ queue, dead-letter, worker และสุขภาพของ agent/RCON แบบสรุป</p>
+                <div id="deliveryRuntimeSummary" class="summary"></div>
+                <pre id="deliveryRuntimeView" class="raw">ยังไม่มีข้อมูล runtime ส่งของ</pre>
+                <div class="form-grid">
+                  <button type="button" id="deliveryRuntimeRefreshBtn" class="ghost">รีเฟรชสถานะส่งของ</button>
+                </div>
+              </div>
+
+              <form id="deliveryPreviewForm" class="form-card">
+                <h4>พรีวิวคำสั่งส่งของ</h4>
+                <p class="help">เช็กว่า item หนึ่งชิ้นจะถูกแปลงเป็นคำสั่งอะไร ก่อนกดซื้อจริง</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Item ID ในร้าน (ถ้ามี)</span>
+                    <input name="itemId" placeholder="เช่น item-m1911">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>ชื่อ item (ถ้ามี)</span>
+                    <input name="itemName" placeholder="เช่น M1911">
+                  </label>
+                  <label class="field">
+                    <span>จำนวน</span>
+                    <input name="quantity" type="number" min="1" step="1" placeholder="1">
+                  </label>
+                  <label class="field">
+                    <span>SteamID64 (สำหรับแทนค่า preview)</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <button type="submit">พรีวิวคำสั่ง</button>
+                </div>
+                <pre id="deliveryPreviewView" class="raw">ยังไม่มีผลพรีวิวคำสั่ง</pre>
+              </form>
+
+              <form id="deliveryTestSendForm" class="form-card" data-min-role="admin">
+                <h4>ส่ง Test Item เข้าตัวแอดมิน</h4>
+                <p class="help">ใช้ตรวจ execution chain แบบสด ใน agent mode ของจะเสกใกล้ตัวแอดมินที่ล็อกอินค้างอยู่</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Item ID ในร้าน (ถ้ามี)</span>
+                    <input name="itemId" placeholder="เช่น item-m1911">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>จำนวน</span>
+                    <input name="quantity" type="number" min="1" step="1" placeholder="1">
+                  </label>
+                  <label class="field">
+                    <span>SteamID64 (ถ้าต้องแทนค่า)</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <label class="field">
+                    <span>Purchase Code อ้างอิง (ถ้ามี)</span>
+                    <input name="purchaseCode" placeholder="เช่น P-XXXXXX">
+                  </label>
+                  <button type="submit">ส่ง Test Item</button>
+                </div>
+                <pre id="deliveryTestSendView" class="raw">ยังไม่มีผล test send</pre>
+              </form>
+
+              <div class="delivery-grid">
+                <div class="form-card">
+                  <div class="section-head-inline">
+                    <div>
+                      <h4>คิวส่งของล่าสุด</h4>
+                      <p class="help">กด retry / cancel / ดู log ได้จากแถวโดยตรง</p>
+                    </div>
+                    <div class="inline-actions">
+                      <button type="button" id="deliveryOpsRefreshBtn" class="ghost">รีเฟรชตารางส่งของ</button>
+                    </div>
+                  </div>
+                  <div id="deliveryQueueTableWrap" class="table-wrap"></div>
+                </div>
+
+                <div class="form-card">
+                  <div class="section-head-inline">
+                    <div>
+                      <h4>Dead-Letter ล่าสุด</h4>
+                      <p class="help">กด retry / delete / ดู log ได้จากแถวโดยตรง</p>
+                    </div>
+                  </div>
+                  <div id="deliveryDeadLetterTableWrap" class="table-wrap"></div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <h4>Command Log / Purchase Code</h4>
+                <p class="help">เลือก purchase code จากคิวหรือ dead-letter เพื่อดูสถานะ, history และ command log ที่ยิงจริง</p>
+                <div id="deliveryDetailSummary" class="summary"></div>
+                <pre id="deliveryDetailView" class="raw">ยังไม่ได้เลือก purchase code</pre>
+              </div>
+
               <form class="form-card" data-endpoint="/admin/api/delivery/enqueue">
                 <h4>เพิ่มคิวส่งของ</h4>
                 <p class="help">เพิ่มคำสั่งซื้อเข้าคิวส่งของอีกครั้ง</p>
@@ -1619,6 +1877,8 @@
                     </select>
                   </label>
                   <button type="button" id="metricsApplyWindowBtn" class="ghost">อัปเดตกราฟ</button>
+                  <button type="button" id="metricsExportCsvBtn" class="ghost">Export CSV</button>
+                  <button type="button" id="metricsExportJsonBtn" class="ghost">Export JSON</button>
                 </div>
               </div>
 
@@ -1843,9 +2103,113 @@
             </optgroup>
           </select>
           <button id="copyJsonBtn" class="ghost">คัดลอก JSON</button>
+          <button id="snapshotExportBtn" class="ghost">ดาวน์โหลด Snapshot</button>
         </div>
         <div id="tableWrap" class="table-wrap"></div>
         <pre id="rawView" class="raw"></pre>
+        <section class="audit-shell">
+          <div class="audit-toolbar">
+            <div>
+              <h3 class="title" style="margin-bottom:4px;">Audit Center</h3>
+              <p class="help">ดูย้อนหลังแบบอ่านเร็วสำหรับ wallet, reward และ event โดยไม่ต้องไล่ JSON ดิบ</p>
+            </div>
+            <div class="audit-actions">
+              <button type="button" id="auditWalletBtn" class="ghost audit-btn active">Wallet Ledger</button>
+              <button type="button" id="auditRewardBtn" class="ghost audit-btn">Reward History</button>
+              <button type="button" id="auditEventBtn" class="ghost audit-btn">Event History</button>
+            </div>
+          </div>
+          <div class="audit-toolbar">
+            <div class="audit-filters">
+              <input id="auditSearchInput" class="audit-field" type="text" placeholder="ค้นหาด้วย user, reason, reference, event name" />
+              <input id="auditUserInput" class="audit-field" type="text" placeholder="กรอง user / participant" />
+              <input id="auditActorInput" class="audit-field" type="text" placeholder="กรอง actor / ผู้กระทำ" />
+              <select id="auditActorModeSelect" class="audit-field compact">
+                <option value="contains">actor: contains</option>
+                <option value="exact">actor: exact</option>
+              </select>
+              <input id="auditReasonInput" class="audit-field" type="text" placeholder="กรอง reason / reward" />
+              <input id="auditReferenceInput" class="audit-field" type="text" placeholder="กรอง reference / purchase / code / item" />
+              <select id="auditReferenceModeSelect" class="audit-field compact">
+                <option value="contains">reference: contains</option>
+                <option value="exact">reference: exact</option>
+              </select>
+              <input id="auditStatusInput" class="audit-field" type="text" placeholder="กรอง status (เช่น active, ended)" />
+              <select id="auditStatusModeSelect" class="audit-field compact">
+                <option value="contains">status: contains</option>
+                <option value="exact">status: exact</option>
+              </select>
+              <input id="auditDateFromInput" class="audit-field" type="date" />
+              <input id="auditDateToInput" class="audit-field" type="date" />
+              <select id="auditSortBySelect" class="audit-field compact">
+                <option value="timestamp">sort: เวลา</option>
+                <option value="userId">sort: user</option>
+                <option value="reason">sort: reason</option>
+                <option value="reference">sort: reference</option>
+                <option value="actor">sort: actor</option>
+                <option value="status">sort: status</option>
+                <option value="delta">sort: delta</option>
+                <option value="balanceAfter">sort: balance</option>
+                <option value="name">sort: event name</option>
+                <option value="participantsCount">sort: participants</option>
+                <option value="id">sort: id</option>
+                <option value="reward">sort: reward</option>
+              </select>
+              <select id="auditSortOrderSelect" class="audit-field compact">
+                <option value="desc">order: desc</option>
+                <option value="asc">order: asc</option>
+              </select>
+              <select id="auditWindowSelect" class="audit-field" style="max-width:220px;">
+                <option value="all">ทุกช่วงเวลา</option>
+                <option value="86400000">24 ชั่วโมงล่าสุด</option>
+                <option value="604800000">7 วันล่าสุด</option>
+                <option value="2592000000">30 วันล่าสุด</option>
+              </select>
+            </div>
+            <div class="audit-actions">
+              <button type="button" id="auditExportCsvBtn" class="ghost audit-btn">Export CSV</button>
+              <button type="button" id="auditExportJsonBtn" class="ghost audit-btn">Export JSON</button>
+            </div>
+          </div>
+          <div class="audit-toolbar">
+            <div class="audit-filters">
+              <select id="auditPresetSelect" class="audit-field compact">
+                <option value="">Saved presets</option>
+              </select>
+              <input id="auditPresetNameInput" class="audit-field audit-preset-name" type="text" placeholder="ชื่อ preset สำหรับบันทึกซ้ำ" />
+              <select id="auditPresetVisibilitySelect" class="audit-field compact">
+                <option value="public">แชร์ทุก role</option>
+                <option value="private">เฉพาะฉัน</option>
+                <option value="role">แชร์ตาม role</option>
+              </select>
+              <select id="auditPresetSharedRoleSelect" class="audit-field compact">
+                <option value="mod">role: mod+</option>
+                <option value="admin">role: admin+</option>
+                <option value="owner">role: owner</option>
+              </select>
+            </div>
+            <div class="audit-actions">
+              <button type="button" id="auditPresetApplyBtn" class="ghost audit-btn">ใช้ preset</button>
+              <button type="button" id="auditPresetSaveBtn" class="ghost audit-btn">บันทึก preset</button>
+              <button type="button" id="auditPresetDeleteBtn" class="ghost audit-btn">ลบ preset</button>
+            </div>
+          </div>
+          <div id="auditSummary" class="summary"></div>
+          <div class="audit-pagination">
+            <div id="auditPageMeta" class="audit-page-meta">หน้า 1 / 1</div>
+            <div class="audit-actions">
+              <select id="auditPageSizeSelect" class="audit-field compact">
+                <option value="25">25 แถว</option>
+                <option value="50" selected>50 แถว</option>
+                <option value="100">100 แถว</option>
+                <option value="200">200 แถว</option>
+              </select>
+              <button type="button" id="auditPrevBtn" class="ghost audit-btn">ก่อนหน้า</button>
+              <button type="button" id="auditNextBtn" class="ghost audit-btn">ถัดไป</button>
+            </div>
+          </div>
+          <div id="auditTableWrap" class="table-wrap"></div>
+        </section>
       </section>
     </main>
   </div>
@@ -1861,9 +2225,42 @@
     const summaryEl = document.getElementById('summary');
     const tableWrap = document.getElementById('tableWrap');
     const rawView = document.getElementById('rawView');
+    const auditSummaryEl = document.getElementById('auditSummary');
+    const auditTableWrap = document.getElementById('auditTableWrap');
+    const auditWalletBtn = document.getElementById('auditWalletBtn');
+    const auditRewardBtn = document.getElementById('auditRewardBtn');
+    const auditEventBtn = document.getElementById('auditEventBtn');
+    const auditSearchInput = document.getElementById('auditSearchInput');
+    const auditUserInput = document.getElementById('auditUserInput');
+    const auditActorInput = document.getElementById('auditActorInput');
+    const auditActorModeSelect = document.getElementById('auditActorModeSelect');
+    const auditReasonInput = document.getElementById('auditReasonInput');
+    const auditReferenceInput = document.getElementById('auditReferenceInput');
+    const auditReferenceModeSelect = document.getElementById('auditReferenceModeSelect');
+    const auditStatusInput = document.getElementById('auditStatusInput');
+    const auditStatusModeSelect = document.getElementById('auditStatusModeSelect');
+    const auditDateFromInput = document.getElementById('auditDateFromInput');
+    const auditDateToInput = document.getElementById('auditDateToInput');
+    const auditSortBySelect = document.getElementById('auditSortBySelect');
+    const auditSortOrderSelect = document.getElementById('auditSortOrderSelect');
+    const auditWindowSelect = document.getElementById('auditWindowSelect');
+    const auditExportCsvBtn = document.getElementById('auditExportCsvBtn');
+    const auditExportJsonBtn = document.getElementById('auditExportJsonBtn');
+    const auditPresetSelect = document.getElementById('auditPresetSelect');
+    const auditPresetNameInput = document.getElementById('auditPresetNameInput');
+    const auditPresetVisibilitySelect = document.getElementById('auditPresetVisibilitySelect');
+    const auditPresetSharedRoleSelect = document.getElementById('auditPresetSharedRoleSelect');
+    const auditPresetApplyBtn = document.getElementById('auditPresetApplyBtn');
+    const auditPresetSaveBtn = document.getElementById('auditPresetSaveBtn');
+    const auditPresetDeleteBtn = document.getElementById('auditPresetDeleteBtn');
+    const auditPageMeta = document.getElementById('auditPageMeta');
+    const auditPageSizeSelect = document.getElementById('auditPageSizeSelect');
+    const auditPrevBtn = document.getElementById('auditPrevBtn');
+    const auditNextBtn = document.getElementById('auditNextBtn');
     const datasetSelect = document.getElementById('datasetSelect');
     const toastEl = document.getElementById('toast');
     const copyJsonBtn = document.getElementById('copyJsonBtn');
+    const snapshotExportBtn = document.getElementById('snapshotExportBtn');
     const configEditorForm = document.getElementById('configEditorForm');
     const configJsonInput = document.getElementById('configJsonInput');
     const configLoadBtn = document.getElementById('configLoadBtn');
@@ -1899,6 +2296,12 @@
     const shopGameItemIconInput = document.getElementById('shopGameItemIconInput');
     const shopDeliveryItemsList = document.getElementById('shopDeliveryItemsList');
     const shopDeliveryItemsInput = document.getElementById('shopDeliveryItemsInput');
+    const shopDeliveryProfileSelect = document.getElementById('shopDeliveryProfileSelect');
+    const shopDeliveryTeleportModeSelect = document.getElementById('shopDeliveryTeleportModeSelect');
+    const shopDeliveryTeleportTargetInput = document.getElementById('shopDeliveryTeleportTargetInput');
+    const shopDeliveryReturnTargetInput = document.getElementById('shopDeliveryReturnTargetInput');
+    const shopDeliveryPreCommandsInput = document.getElementById('shopDeliveryPreCommandsInput');
+    const shopDeliveryPostCommandsInput = document.getElementById('shopDeliveryPostCommandsInput');
     const shopSelectedItem = document.getElementById('shopSelectedItem');
     const shopSelectedItemIcon = document.getElementById('shopSelectedItemIcon');
     const shopSelectedItemMain = document.getElementById('shopSelectedItemMain');
@@ -1914,6 +2317,20 @@
     const chartWebhookErrorRate = document.getElementById('chartWebhookErrorRate');
     const metricsWindowSelect = document.getElementById('metricsWindowSelect');
     const metricsApplyWindowBtn = document.getElementById('metricsApplyWindowBtn');
+    const metricsExportCsvBtn = document.getElementById('metricsExportCsvBtn');
+    const metricsExportJsonBtn = document.getElementById('metricsExportJsonBtn');
+    const deliveryRuntimeSummary = document.getElementById('deliveryRuntimeSummary');
+    const deliveryRuntimeView = document.getElementById('deliveryRuntimeView');
+    const deliveryRuntimeRefreshBtn = document.getElementById('deliveryRuntimeRefreshBtn');
+    const deliveryPreviewForm = document.getElementById('deliveryPreviewForm');
+    const deliveryPreviewView = document.getElementById('deliveryPreviewView');
+    const deliveryTestSendForm = document.getElementById('deliveryTestSendForm');
+    const deliveryTestSendView = document.getElementById('deliveryTestSendView');
+    const deliveryOpsRefreshBtn = document.getElementById('deliveryOpsRefreshBtn');
+    const deliveryQueueTableWrap = document.getElementById('deliveryQueueTableWrap');
+    const deliveryDeadLetterTableWrap = document.getElementById('deliveryDeadLetterTableWrap');
+    const deliveryDetailSummary = document.getElementById('deliveryDetailSummary');
+    const deliveryDetailView = document.getElementById('deliveryDetailView');
     const protectedControls = Array.from(
       document.querySelectorAll(
         '.workspace input, .workspace select, .workspace textarea, .workspace button',
@@ -1924,6 +2341,43 @@
     let isAuthed = false;
     let currentUserRole = 'mod';
     let currentUserName = '';
+    let currentAuditView = 'wallet';
+    let currentAuditQuery = '';
+    let currentAuditUser = '';
+    let currentAuditActor = '';
+    let currentAuditActorMode = 'contains';
+    let currentAuditReason = '';
+    let currentAuditReference = '';
+    let currentAuditReferenceMode = 'contains';
+    let currentAuditStatus = '';
+    let currentAuditStatusMode = 'contains';
+    let currentAuditDateFrom = '';
+    let currentAuditDateTo = '';
+    let currentAuditSortBy = 'timestamp';
+    let currentAuditSortOrder = 'desc';
+    let currentAuditWindowMs = null;
+    let currentAuditPage = 1;
+    let currentAuditPageSize = Math.max(
+      25,
+      Number(auditPageSizeSelect?.value || 50),
+    );
+    let currentAuditCursor = null;
+    let currentAuditPrevCursor = null;
+    let currentAuditNextCursor = null;
+    let currentAuditPaginationMode = 'page';
+    let currentAuditTotalPages = 1;
+    let currentAuditTotalRows = 0;
+    let currentAuditExportRows = [];
+    let currentAuditExportPayload = {};
+    let currentAuditRequestId = 0;
+    let currentAuditPresetId = '';
+    let currentAuditPresetVisibility = 'public';
+    let currentAuditPresetSharedRole = 'mod';
+    let auditPresets = [];
+    let currentDashboardCards = null;
+    let currentDeliveryRuntime = null;
+    let currentDeliveryDetailCode = '';
+    let currentDeliveryDetailData = null;
     let liveEnabled = true;
     let liveIntervalMs = Math.max(1000, Number(liveIntervalSelect.value || 2000));
     let liveTimer = null;
@@ -1988,6 +2442,196 @@
         return queryTheme;
       }
       return normalizeThemeName(fromStorage);
+    }
+
+    function normalizeAuditPresetRecord(entry) {
+      const name = String(entry?.name || '').trim();
+      if (!name) return null;
+      const visibility = ['private', 'public', 'role'].includes(String(entry?.visibility || '').trim().toLowerCase())
+        ? String(entry.visibility).trim().toLowerCase()
+        : 'public';
+      const sharedRole = ['mod', 'admin', 'owner'].includes(String(entry?.sharedRole || '').trim().toLowerCase())
+        ? String(entry.sharedRole).trim().toLowerCase()
+        : 'mod';
+      const createdByUser = String(entry?.createdByUser || '').trim();
+      const scopeLabel = visibility === 'private'
+        ? 'private'
+        : visibility === 'role'
+          ? `role:${sharedRole}`
+          : 'public';
+      return {
+        id: String(entry?.id || `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        name,
+        view: ['wallet', 'reward', 'event'].includes(String(entry?.view || '').trim())
+          ? String(entry.view).trim()
+          : 'wallet',
+        visibility,
+        sharedRole,
+        query: String(entry?.query || ''),
+        userId: String(entry?.userId || ''),
+        actor: String(entry?.actor || ''),
+        actorMode: String(entry?.actorMode || '').trim().toLowerCase() === 'exact' ? 'exact' : 'contains',
+        reason: String(entry?.reason || ''),
+        reference: String(entry?.reference || ''),
+        referenceMode: String(entry?.referenceMode || '').trim().toLowerCase() === 'exact' ? 'exact' : 'contains',
+        status: String(entry?.status || ''),
+        statusMode: String(entry?.statusMode || '').trim().toLowerCase() === 'exact' ? 'exact' : 'contains',
+        dateFrom: String(entry?.dateFrom || ''),
+        dateTo: String(entry?.dateTo || ''),
+        sortBy: String(entry?.sortBy || 'timestamp') || 'timestamp',
+        sortOrder: String(entry?.sortOrder || '').trim().toLowerCase() === 'asc' ? 'asc' : 'desc',
+        windowMs: entry?.windowMs == null || String(entry.windowMs).trim().toLowerCase() === 'all'
+          ? null
+          : Math.max(60 * 1000, Number(entry.windowMs) || 0),
+        pageSize: Math.max(10, Number(entry?.pageSize || 50)),
+        createdByUser,
+        updatedByUser: String(entry?.updatedByUser || '').trim(),
+        isOwner: Boolean(entry?.isOwner),
+        canEdit: entry?.canEdit !== false,
+        canDelete: entry?.canDelete !== false,
+        canView: entry?.canView !== false,
+        scopeLabel,
+        updatedAt: String(entry?.updatedAt || new Date().toISOString()),
+      };
+    }
+
+    function updateAuditPresetSharingControls() {
+      const visibility = String(currentAuditPresetVisibility || 'public').trim().toLowerCase();
+      if (auditPresetVisibilitySelect) {
+        auditPresetVisibilitySelect.value = visibility;
+      }
+      if (auditPresetSharedRoleSelect) {
+        auditPresetSharedRoleSelect.value = String(currentAuditPresetSharedRole || 'mod').trim().toLowerCase() || 'mod';
+        auditPresetSharedRoleSelect.style.display = visibility === 'role' ? '' : 'none';
+      }
+    }
+
+    async function refreshAuditPresetList(selectedId = '') {
+      if (!isAuthed) {
+        auditPresets = [];
+        currentAuditPresetId = '';
+        renderAuditPresetOptions('');
+        updateAuditPresetSharingControls();
+        return;
+      }
+      const res = await api('/admin/api/audit/presets');
+      auditPresets = (Array.isArray(res?.data) ? res.data : [])
+        .map(normalizeAuditPresetRecord)
+        .filter(Boolean)
+        .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
+      const targetId = String(selectedId || currentAuditPresetId || '').trim();
+      currentAuditPresetId = targetId && auditPresets.some((preset) => preset.id === targetId)
+        ? targetId
+        : '';
+      renderAuditPresetOptions(currentAuditPresetId);
+      updateAuditPresetSharingControls();
+    }
+
+    function renderAuditPresetOptions(selectedId = '') {
+      if (!auditPresetSelect) return;
+      const selected = String(selectedId || '').trim();
+      const currentValue = selected || currentAuditPresetId || '';
+      auditPresetSelect.innerHTML = '<option value=\"\">Saved presets</option>';
+      auditPresets.forEach((preset) => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        const ownerSuffix = preset.createdByUser ? ` • by ${preset.createdByUser}` : '';
+        option.textContent = `${preset.name} • ${preset.scopeLabel}${ownerSuffix}`;
+        auditPresetSelect.appendChild(option);
+      });
+      auditPresetSelect.value = currentValue && auditPresets.some((preset) => preset.id === currentValue)
+        ? currentValue
+        : '';
+      const selectedPreset = auditPresets.find((preset) => preset.id === auditPresetSelect.value);
+      if (auditPresetDeleteBtn) {
+        auditPresetDeleteBtn.disabled = !selectedPreset || selectedPreset.canDelete === false;
+      }
+      if (auditPresetApplyBtn) {
+        auditPresetApplyBtn.disabled = !selectedPreset;
+      }
+    }
+
+    function buildCurrentAuditPreset() {
+      return normalizeAuditPresetRecord({
+        id: currentAuditPresetId || undefined,
+        name: String(auditPresetNameInput?.value || '').trim(),
+        view: currentAuditView,
+        query: currentAuditQuery,
+        userId: currentAuditUser,
+        actor: currentAuditActor,
+        actorMode: currentAuditActorMode,
+        reason: currentAuditReason,
+        reference: currentAuditReference,
+        referenceMode: currentAuditReferenceMode,
+        status: currentAuditStatus,
+        statusMode: currentAuditStatusMode,
+        dateFrom: currentAuditDateFrom,
+        dateTo: currentAuditDateTo,
+        sortBy: currentAuditSortBy,
+        sortOrder: currentAuditSortOrder,
+        windowMs: currentAuditWindowMs,
+        pageSize: currentAuditPageSize,
+        visibility: currentAuditPresetVisibility,
+        sharedRole: currentAuditPresetSharedRole,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    function syncAuditControlsFromState() {
+      if (auditSearchInput) auditSearchInput.value = currentAuditQuery;
+      if (auditUserInput) auditUserInput.value = currentAuditUser;
+      if (auditActorInput) auditActorInput.value = currentAuditActor;
+      if (auditActorModeSelect) auditActorModeSelect.value = currentAuditActorMode;
+      if (auditReasonInput) auditReasonInput.value = currentAuditReason;
+      if (auditReferenceInput) auditReferenceInput.value = currentAuditReference;
+      if (auditReferenceModeSelect) auditReferenceModeSelect.value = currentAuditReferenceMode;
+      if (auditStatusInput) auditStatusInput.value = currentAuditStatus;
+      if (auditStatusModeSelect) auditStatusModeSelect.value = currentAuditStatusMode;
+      if (auditDateFromInput) auditDateFromInput.value = currentAuditDateFrom;
+      if (auditDateToInput) auditDateToInput.value = currentAuditDateTo;
+      if (auditSortBySelect) auditSortBySelect.value = currentAuditSortBy;
+      if (auditSortOrderSelect) auditSortOrderSelect.value = currentAuditSortOrder;
+      if (auditWindowSelect) auditWindowSelect.value = currentAuditWindowMs == null ? 'all' : String(currentAuditWindowMs);
+      if (auditPageSizeSelect) auditPageSizeSelect.value = String(currentAuditPageSize);
+      updateAuditPresetSharingControls();
+      const selectedPreset = auditPresets.find((entry) => entry.id === String(auditPresetSelect?.value || currentAuditPresetId || '').trim());
+      if (auditPresetDeleteBtn) auditPresetDeleteBtn.disabled = !selectedPreset || selectedPreset.canDelete === false;
+      if (auditPresetApplyBtn) auditPresetApplyBtn.disabled = !String(auditPresetSelect?.value || '').trim();
+    }
+
+    function applyAuditPresetById(presetId) {
+      const normalizedId = String(presetId || '').trim();
+      const preset = auditPresets.find((entry) => entry.id === normalizedId);
+      if (!preset) {
+        throw new Error('ไม่พบ preset ที่เลือก');
+      }
+      currentAuditPresetId = preset.id;
+      currentAuditView = preset.view;
+      currentAuditQuery = preset.query;
+      currentAuditUser = preset.userId;
+      currentAuditActor = preset.actor;
+      currentAuditActorMode = preset.actorMode;
+      currentAuditReason = preset.reason;
+      currentAuditReference = preset.reference;
+      currentAuditReferenceMode = preset.referenceMode;
+      currentAuditStatus = preset.status;
+      currentAuditStatusMode = preset.statusMode;
+      currentAuditDateFrom = preset.dateFrom;
+      currentAuditDateTo = preset.dateTo;
+      currentAuditSortBy = preset.sortBy;
+      currentAuditSortOrder = preset.sortOrder;
+      currentAuditWindowMs = preset.windowMs;
+      currentAuditPageSize = preset.pageSize;
+      currentAuditPresetVisibility = preset.visibility;
+      currentAuditPresetSharedRole = preset.sharedRole || 'mod';
+      if (auditPresetNameInput) {
+        auditPresetNameInput.value = preset.name;
+      }
+      resetAuditPaging();
+      renderAuditPresetOptions(currentAuditPresetId);
+      syncAuditControlsFromState();
+      renderAuditCenter();
+      toast(`ใช้ preset: ${preset.name}`);
     }
 
     function setStatus(text, color, detail = '', state = null) {
@@ -2418,6 +3062,14 @@
       return `/admin/api/observability?${params.toString()}`;
     }
 
+    function buildObservabilityExportPath(format = 'json') {
+      const params = new URLSearchParams();
+      params.set('windowMs', String(currentMetricsWindowMs));
+      params.set('series', METRICS_SERIES_NAMES.join(','));
+      params.set('format', format);
+      return `/admin/api/observability/export?${params.toString()}`;
+    }
+
     async function refreshObservabilitySnapshot(options = {}) {
       const { silent = true } = options;
       if (!isAuthed) return;
@@ -2453,11 +3105,37 @@
       if (!authed) {
         currentUserRole = 'mod';
         currentUserName = '';
+        currentDashboardCards = null;
+        currentDeliveryRuntime = null;
+        auditPresets = [];
+        currentAuditPresetId = '';
+        currentAuditPresetVisibility = 'public';
+        currentAuditPresetSharedRole = 'mod';
         stopLiveUpdates();
         setStatus('ยังไม่ยืนยันตัวตน', '#ffb84d', 'กรุณาเข้าสู่ระบบก่อนใช้งาน', 'warn');
         summaryEl.innerHTML = '<div class="metric"><div class="k">สถานะ</div><div class="v">ต้องเข้าสู่ระบบก่อน</div></div>';
         tableWrap.innerHTML = '<div style="padding:12px; color:#9eb0d9;">กำลังนำไปหน้าเข้าสู่ระบบ...</div>';
         rawView.textContent = '';
+        if (deliveryPreviewView) {
+          deliveryPreviewView.textContent = 'ยังไม่มีผลพรีวิวคำสั่ง';
+        }
+        if (deliveryTestSendView) {
+          deliveryTestSendView.textContent = 'ยังไม่มีผล test send';
+        }
+        if (deliveryQueueTableWrap) {
+          deliveryQueueTableWrap.innerHTML = '<div style="padding:12px; color:#9eb0d9;">กำลังนำไปหน้าเข้าสู่ระบบ...</div>';
+        }
+        if (deliveryDeadLetterTableWrap) {
+          deliveryDeadLetterTableWrap.innerHTML = '<div style="padding:12px; color:#9eb0d9;">กำลังนำไปหน้าเข้าสู่ระบบ...</div>';
+        }
+        currentDeliveryDetailCode = '';
+        currentDeliveryDetailData = null;
+        renderDeliveryRuntime(null);
+        renderDeliveryDetail(null);
+        renderAuditPresetOptions('');
+        if (auditPresetNameInput) auditPresetNameInput.value = '';
+        updateAuditPresetSharingControls();
+        renderAuditCenter();
       } else {
         updateShopKindUi();
         if (shopKindSelect && String(shopKindSelect.value || 'item') === 'item') {
@@ -2487,6 +3165,24 @@
         throw new Error(data.error || `คำขอล้มเหลว (${res.status})`);
       }
       return data;
+    }
+
+    async function apiBlob(path) {
+      const res = await fetch(path, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ ok: false, error: `คำขอล้มเหลว (${res.status})` }));
+        throw new Error(data.error || `คำขอล้มเหลว (${res.status})`);
+      }
+      const blob = await res.blob();
+      const disposition = String(res.headers.get('content-disposition') || '');
+      const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      return {
+        blob,
+        filename: match?.[1] || null,
+      };
     }
 
     function asRows(key, value) {
@@ -2904,11 +3600,23 @@
       shopGameItemIdInput.disabled = !isItem;
       shopGameItemIconInput.disabled = !isItem;
       shopDeliveryItemsInput.disabled = !isItem;
+      if (shopDeliveryProfileSelect) shopDeliveryProfileSelect.disabled = !isItem;
+      if (shopDeliveryTeleportModeSelect) shopDeliveryTeleportModeSelect.disabled = !isItem;
+      if (shopDeliveryTeleportTargetInput) shopDeliveryTeleportTargetInput.disabled = !isItem;
+      if (shopDeliveryReturnTargetInput) shopDeliveryReturnTargetInput.disabled = !isItem;
+      if (shopDeliveryPreCommandsInput) shopDeliveryPreCommandsInput.disabled = !isItem;
+      if (shopDeliveryPostCommandsInput) shopDeliveryPostCommandsInput.disabled = !isItem;
       if (!isItem) {
         shopDeliveryItems = [];
         shopGameItemIdInput.value = '';
         shopGameItemIconInput.value = '';
         shopDeliveryItemsInput.value = '';
+        if (shopDeliveryProfileSelect) shopDeliveryProfileSelect.value = '';
+        if (shopDeliveryTeleportModeSelect) shopDeliveryTeleportModeSelect.value = '';
+        if (shopDeliveryTeleportTargetInput) shopDeliveryTeleportTargetInput.value = '';
+        if (shopDeliveryReturnTargetInput) shopDeliveryReturnTargetInput.value = '';
+        if (shopDeliveryPreCommandsInput) shopDeliveryPreCommandsInput.value = '';
+        if (shopDeliveryPostCommandsInput) shopDeliveryPostCommandsInput.value = '';
         shopSelectedItem.hidden = true;
         renderShopDeliveryItems();
       } else if (!shopGameItemList.innerHTML.trim()) {
@@ -2919,9 +3627,10 @@
       }
     }
 
-    function renderTable(rows) {
+    function renderRowsToContainer(container, rows, emptyMessage = 'ไม่มีข้อมูล') {
+      if (!container) return;
       if (!rows.length) {
-        tableWrap.innerHTML = '<div style="padding:12px; color:#9eb0d9;">ไม่มีข้อมูล</div>';
+        container.innerHTML = `<div style="padding:12px; color:#9eb0d9;">${escapeHtml(emptyMessage)}</div>`;
         return;
       }
       const keys = Array.from(
@@ -2935,12 +3644,344 @@
         .slice(0, 300)
         .map((row) => '<tr>' + keys.map((k) => `<td>${toCell(row?.[k])}</td>`).join('') + '</tr>')
         .join('');
-      tableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+      container.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
     }
 
-    function renderSummary() {
-      if (!snapshot) return;
-      const metrics = [
+    function renderTable(rows) {
+      renderRowsToContainer(tableWrap, rows);
+    }
+
+    function normalizeAuditTimestamp(value) {
+      const time = Date.parse(value || '');
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    function stringifyAuditValue(value) {
+      if (Array.isArray(value)) {
+        return value.map((entry) => stringifyAuditValue(entry)).join(', ');
+      }
+      if (value && typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return String(value);
+        }
+      }
+      return String(value ?? '');
+    }
+
+    function matchesAuditQuery(row, query) {
+      const normalizedQuery = String(query || '').trim().toLowerCase();
+      if (!normalizedQuery) return true;
+      return Object.values(row || {}).some((value) =>
+        stringifyAuditValue(value).toLowerCase().includes(normalizedQuery),
+      );
+    }
+
+    function passesAuditWindow(row, windowMs, timestampKeys = ['createdAt', 'time', 'claimedAt', 'statusUpdatedAt']) {
+      if (!windowMs) return true;
+      const now = Date.now();
+      const keys = Array.isArray(timestampKeys) ? timestampKeys : ['createdAt'];
+      for (const key of keys) {
+        const timestamp = normalizeAuditTimestamp(row?.[key]);
+        if (timestamp > 0) {
+          return timestamp >= now - windowMs;
+        }
+      }
+      return true;
+    }
+
+    function sortByNewest(rows, key = 'createdAt') {
+      return [...(Array.isArray(rows) ? rows : [])].sort(
+        (a, b) => normalizeAuditTimestamp(b?.[key]) - normalizeAuditTimestamp(a?.[key]),
+      );
+    }
+
+    function formatAuditMetricValue(value) {
+      return typeof value === 'number' && Number.isFinite(value)
+        ? value.toLocaleString()
+        : String(value ?? '-');
+    }
+
+    function getAuditWindowLabel(windowMs) {
+      if (!windowMs) return 'ทุกช่วงเวลา';
+      if (windowMs === 24 * 60 * 60 * 1000) return '24 ชั่วโมงล่าสุด';
+      if (windowMs === 7 * 24 * 60 * 60 * 1000) return '7 วันล่าสุด';
+      if (windowMs === 30 * 24 * 60 * 60 * 1000) return '30 วันล่าสุด';
+      return `${Math.round(windowMs / (60 * 60 * 1000))} ชั่วโมงล่าสุด`;
+    }
+
+    function mapWalletAuditRow(row) {
+      return {
+        เวลา: row?.createdAt || '-',
+        ผู้ใช้: row?.userId || '-',
+        เปลี่ยนแปลง: Number(row?.delta || 0),
+        ก่อนหน้า: Number(row?.balanceBefore || 0),
+        หลังทำรายการ: Number(row?.balanceAfter || 0),
+        เหตุผล: row?.reason || '-',
+        อ้างอิง: row?.reference || '-',
+        ผู้กระทำ: row?.actor || '-',
+      };
+    }
+
+    function mapRewardAuditRow(row) {
+      return {
+        เวลา: row?.createdAt || '-',
+        ผู้ใช้: row?.userId || '-',
+        รางวัล: row?.reason || '-',
+        จำนวน: Number(row?.delta || 0),
+        ยอดหลังรับ: Number(row?.balanceAfter || 0),
+        อ้างอิง: row?.reference || '-',
+        ผู้กระทำ: row?.actor || '-',
+      };
+    }
+
+    function mapEventAuditRow(row) {
+      return {
+        ID: Number(row?.id || 0),
+        ชื่อกิจกรรม: row?.name || '-',
+        เวลา: row?.time || '-',
+        สถานะ: row?.status || '-',
+        ของรางวัล: row?.reward || '-',
+        ผู้เข้าร่วม: Number(row?.participantsCount || 0),
+        รายชื่อผู้เข้าร่วม: Array.isArray(row?.participants) ? row.participants.join(', ') || '-' : '-',
+      };
+    }
+
+    function buildAuditData(view) {
+      const rewardReasonPattern = /(daily|weekly|redeem|welcome|wheel|event_reward|reward|claim)/i;
+      const normalizedView = ['wallet', 'reward', 'event'].includes(view) ? view : 'wallet';
+      const walletSource = sortByNewest(snapshot?.walletLedgers || []);
+      const rewardSource = walletSource.filter((row) =>
+        rewardReasonPattern.test(String(row?.reason || '')),
+      );
+      const eventSource = sortByNewest(snapshot?.events || [], 'time');
+
+      const sourceRows = normalizedView === 'reward'
+        ? rewardSource
+        : normalizedView === 'event'
+          ? eventSource
+          : walletSource;
+      const filteredRawRows = sourceRows
+        .filter((row) => passesAuditWindow(row, currentAuditWindowMs))
+        .filter((row) => matchesAuditQuery(row, currentAuditQuery))
+        .slice(0, 500);
+
+      const filteredRewardRows = rewardSource
+        .filter((row) => passesAuditWindow(row, currentAuditWindowMs))
+        .filter((row) => matchesAuditQuery(row, currentAuditQuery));
+
+      const tableRows = normalizedView === 'reward'
+        ? filteredRawRows.map(mapRewardAuditRow)
+        : normalizedView === 'event'
+          ? filteredRawRows.map(mapEventAuditRow)
+          : filteredRawRows.map(mapWalletAuditRow);
+
+      const cardsByView = {
+        wallet: [
+          ['รายการที่ตรงเงื่อนไข', filteredRawRows.length],
+          ['เครดิตรวม', filteredRawRows.filter((row) => Number(row?.delta || 0) > 0).reduce((sum, row) => sum + Number(row?.delta || 0), 0)],
+          ['เดบิตรวม', filteredRawRows.filter((row) => Number(row?.delta || 0) < 0).reduce((sum, row) => sum + Math.abs(Number(row?.delta || 0)), 0)],
+          ['ช่วงเวลา', getAuditWindowLabel(currentAuditWindowMs)],
+        ],
+        reward: [
+          ['reward ledger ที่ตรงเงื่อนไข', filteredRawRows.length],
+          ['เครดิต reward รวม', filteredRawRows.reduce((sum, row) => sum + Math.max(0, Number(row?.delta || 0)), 0)],
+          ['ประเภทรางวัล', new Set(filteredRawRows.map((row) => String(row?.reason || '').trim()).filter(Boolean)).size],
+          ['ช่วงเวลา', getAuditWindowLabel(currentAuditWindowMs)],
+        ],
+        event: [
+          ['กิจกรรมที่ตรงเงื่อนไข', filteredRawRows.length],
+          ['กิจกรรมที่ยังเปิดอยู่', filteredRawRows.filter((row) => String(row?.status || '') !== 'ended').length],
+          ['event_reward ใน ledger', filteredRewardRows.filter((row) => String(row?.reason || '') === 'event_reward').length],
+          ['ช่วงเวลา', getAuditWindowLabel(currentAuditWindowMs)],
+        ],
+      };
+
+      return {
+        view: normalizedView,
+        cards: cardsByView[normalizedView] || cardsByView.wallet,
+        rawRows: filteredRawRows,
+        tableRows,
+      };
+    }
+
+    function toCsvValue(value) {
+      const text = stringifyAuditValue(value).replace(/"/g, '""');
+      return `"${text}"`;
+    }
+
+    function downloadTextFile(filename, text, mimeType = 'text/plain;charset=utf-8') {
+      const blob = new Blob([text], { type: mimeType });
+      downloadBlob(filename, blob);
+    }
+
+    function downloadBlob(filename, blob) {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function buildAuditRequestQuery(extra = {}) {
+      const params = new URLSearchParams();
+      params.set('view', extra.view || currentAuditView);
+      params.set('q', extra.query ?? currentAuditQuery ?? '');
+      params.set('userId', extra.userId ?? currentAuditUser ?? '');
+      params.set('actor', extra.actor ?? currentAuditActor ?? '');
+      params.set('actorMode', extra.actorMode ?? currentAuditActorMode ?? 'contains');
+      params.set('reason', extra.reason ?? currentAuditReason ?? '');
+      params.set('reference', extra.reference ?? currentAuditReference ?? '');
+      params.set('referenceMode', extra.referenceMode ?? currentAuditReferenceMode ?? 'contains');
+      params.set('status', extra.status ?? currentAuditStatus ?? '');
+      params.set('statusMode', extra.statusMode ?? currentAuditStatusMode ?? 'contains');
+      params.set('dateFrom', extra.dateFrom ?? currentAuditDateFrom ?? '');
+      params.set('dateTo', extra.dateTo ?? currentAuditDateTo ?? '');
+      params.set('sortBy', extra.sortBy ?? currentAuditSortBy ?? 'timestamp');
+      params.set('sortOrder', extra.sortOrder ?? currentAuditSortOrder ?? 'desc');
+      params.set('windowMs', extra.windowMs ?? (currentAuditWindowMs == null ? 'all' : String(currentAuditWindowMs)));
+      if (extra.cursor != null || currentAuditCursor != null) {
+        const cursor = extra.cursor ?? currentAuditCursor;
+        if (cursor) {
+          params.set('cursor', String(cursor));
+        }
+      }
+      params.set('page', String(extra.page || currentAuditPage || 1));
+      params.set('pageSize', String(extra.pageSize || currentAuditPageSize || 50));
+      return params.toString();
+    }
+
+    function resetAuditPaging() {
+      currentAuditPage = 1;
+      currentAuditCursor = null;
+      currentAuditPrevCursor = null;
+      currentAuditNextCursor = null;
+      currentAuditPaginationMode = 'page';
+    }
+
+    async function exportAuditRows(format = 'csv') {
+      const query = buildAuditRequestQuery({ page: 1, pageSize: 5000, cursor: '' });
+      const path = `/admin/api/audit/export?${query}&format=${encodeURIComponent(format)}`;
+      const { blob, filename } = await apiBlob(path);
+      const fallback = `audit-${currentAuditView}-${new Date().toISOString().replace(/[:.]/g, '-')}.${format === 'csv' ? 'csv' : 'json'}`;
+      downloadBlob(filename || fallback, blob);
+      toast(`ส่งออก ${format.toUpperCase()} แล้ว`);
+    }
+
+    async function exportObservability(format = 'json') {
+      const { blob, filename } = await apiBlob(buildObservabilityExportPath(format));
+      const fallback = `observability-${new Date().toISOString().replace(/[:.]/g, '-')}.${format === 'csv' ? 'csv' : 'json'}`;
+      downloadBlob(filename || fallback, blob);
+      toast(`ส่งออก metrics ${format.toUpperCase()} แล้ว`);
+    }
+
+    async function refreshAuditCenterData() {
+      if (!isAuthed || !snapshot) {
+        currentAuditExportRows = [];
+        currentAuditExportPayload = {};
+        currentAuditTotalPages = 1;
+        currentAuditTotalRows = 0;
+        return;
+      }
+      const requestId = ++currentAuditRequestId;
+      const res = await api(`/admin/api/audit/query?${buildAuditRequestQuery()}`);
+      if (requestId !== currentAuditRequestId) return;
+      const data = res?.data || {};
+      currentAuditPage = Math.max(1, Number(data.page || 1));
+      currentAuditPageSize = Math.max(1, Number(data.pageSize || currentAuditPageSize || 50));
+      currentAuditTotalPages = Math.max(1, Number(data.totalPages || 1));
+      currentAuditTotalRows = Math.max(0, Number(data.total || 0));
+      currentAuditPaginationMode = String(data.paginationMode || 'page');
+      currentAuditCursor = String(data.cursor || '').trim() || null;
+      currentAuditPrevCursor = String(data.prevCursor || '').trim() || null;
+      currentAuditNextCursor = String(data.nextCursor || '').trim() || null;
+      currentAuditSortBy = String(data.sortBy || data.filters?.sortBy || currentAuditSortBy || 'timestamp');
+      currentAuditSortOrder = String(data.sortOrder || data.filters?.sortOrder || currentAuditSortOrder || 'desc');
+
+      auditSummaryEl.innerHTML = (Array.isArray(data.cards) ? data.cards : [])
+        .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(formatAuditMetricValue(v))}</div></div>`)
+        .join('');
+      renderRowsToContainer(
+        auditTableWrap,
+        Array.isArray(data.tableRows) ? data.tableRows : [],
+        'ยังไม่มีข้อมูลในมุมมอง audit นี้',
+      );
+      currentAuditExportRows = Array.isArray(data.tableRows) ? data.tableRows : [];
+      currentAuditExportPayload = data.exportPayload || {
+        generatedAt: new Date().toISOString(),
+        view: data.view || currentAuditView,
+        rows: Array.isArray(data.rows) ? data.rows : [],
+      };
+      syncAuditControlsFromState();
+      renderAuditPresetOptions(currentAuditPresetId);
+      if (auditPageMeta) {
+        auditPageMeta.textContent = `หน้า ${currentAuditPage} / ${currentAuditTotalPages} • ${currentAuditTotalRows.toLocaleString()} รายการ`;
+      }
+      if (auditPrevBtn) {
+        auditPrevBtn.disabled = !Boolean(data.hasPrev);
+      }
+      if (auditNextBtn) {
+        auditNextBtn.disabled = !Boolean(data.hasNext);
+      }
+    }
+
+    function renderAuditCenter() {
+      if (!auditSummaryEl || !auditTableWrap) return;
+      const auditButtons = [
+        [auditWalletBtn, 'wallet'],
+        [auditRewardBtn, 'reward'],
+        [auditEventBtn, 'event'],
+      ];
+      auditButtons.forEach(([button, view]) => {
+        if (!button) return;
+        button.classList.toggle('active', currentAuditView === view);
+      });
+
+      if (!snapshot) {
+        auditSummaryEl.innerHTML = '<div class="metric"><div class="k">Audit</div><div class="v">ต้องเข้าสู่ระบบก่อน</div></div>';
+        renderRowsToContainer(auditTableWrap, [], 'ยังไม่มีข้อมูล audit');
+        currentAuditExportRows = [];
+        currentAuditExportPayload = {};
+        currentAuditTotalPages = 1;
+        currentAuditTotalRows = 0;
+        currentAuditCursor = null;
+        currentAuditPrevCursor = null;
+        currentAuditNextCursor = null;
+        syncAuditControlsFromState();
+        renderAuditPresetOptions(currentAuditPresetId);
+        if (auditPageMeta) {
+          auditPageMeta.textContent = 'หน้า 1 / 1 • 0 รายการ';
+        }
+        if (auditPrevBtn) auditPrevBtn.disabled = true;
+        if (auditNextBtn) auditNextBtn.disabled = true;
+        return;
+      }
+
+      const placeholders = {
+        wallet: 'ค้นหา user, reason, actor, reference, purchase code',
+        reward: 'ค้นหา user, reward reason, actor, reference',
+        event: 'ค้นหา event name, reward, status, participant, actor',
+      };
+      if (auditSearchInput) {
+        auditSearchInput.placeholder = placeholders[currentAuditView] || placeholders.wallet;
+      }
+      syncAuditControlsFromState();
+      renderAuditPresetOptions(currentAuditPresetId);
+      auditSummaryEl.innerHTML = '<div class="metric"><div class="k">Audit</div><div class="v">กำลังโหลด...</div></div>';
+      renderRowsToContainer(auditTableWrap, [], 'กำลังโหลดข้อมูล audit...');
+      void refreshAuditCenterData().catch((error) => {
+        auditSummaryEl.innerHTML = '<div class="metric"><div class="k">Audit</div><div class="v">โหลดไม่สำเร็จ</div></div>';
+        renderRowsToContainer(auditTableWrap, [], `โหลด audit ไม่สำเร็จ: ${String(error.message || error)}`);
+      });
+    }
+
+    function buildFallbackSummaryCards() {
+      if (!snapshot) return [];
+      return [
         ['จำนวนกิลด์', (snapshot.guilds || []).length],
         ['จำนวนกระเป๋าเหรียญ', (snapshot.wallets || []).length],
         ['จำนวนสินค้า', (snapshot.shopItems || []).length],
@@ -2959,9 +4000,472 @@
         ['จำนวน dead-letter ส่งของ', (snapshot.deliveryDeadLetters || []).length],
         ['จำนวนบันทึกส่งของ', (snapshot.deliveryAudit || []).length],
       ];
+    }
+
+    function renderSummary() {
+      const metrics = Array.isArray(currentDashboardCards?.cards) && currentDashboardCards.cards.length > 0
+        ? currentDashboardCards.cards
+        : buildFallbackSummaryCards();
+      if (!metrics.length) return;
       summaryEl.innerHTML = metrics
         .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
         .join('');
+    }
+
+    function renderDeliveryRuntime(data = null) {
+      if (!deliveryRuntimeSummary || !deliveryRuntimeView) return;
+      const runtime = data && typeof data === 'object'
+        ? data
+        : snapshot?.deliveryRuntime && typeof snapshot.deliveryRuntime === 'object'
+          ? snapshot.deliveryRuntime
+          : null;
+      currentDeliveryRuntime = runtime;
+      if (!runtime) {
+        deliveryRuntimeSummary.innerHTML = '<div class="metric"><div class="k">Delivery</div><div class="v">ไม่มีข้อมูล</div></div>';
+        deliveryRuntimeView.textContent = 'ยังไม่มีข้อมูล runtime ส่งของ';
+        return;
+      }
+
+      const metrics = [
+        ['โหมด', runtime.executionMode || '-'],
+        ['เปิดใช้งาน', runtime.enabled ? 'yes' : 'no'],
+        ['Queue', Number(runtime.queueLength || 0).toLocaleString()],
+        ['Dead-Letter', Number(runtime.deadLetterCount || 0).toLocaleString()],
+        ['กำลังส่ง', Number(runtime.inFlightCount || 0).toLocaleString()],
+        ['Worker', runtime.workerStarted ? (runtime.workerBusy ? 'busy' : 'running') : 'stopped'],
+      ];
+
+      if (runtime.executionMode === 'agent') {
+        metrics.push([
+          'Agent',
+          runtime.agent?.health?.reachable
+            ? `online (${runtime.agent?.backend || runtime.agent?.health?.backend || 'agent'})`
+            : `offline${runtime.agent?.health?.error ? `: ${runtime.agent.health.error}` : ''}`,
+        ]);
+      } else {
+        metrics.push([
+          'RCON',
+          runtime.rcon?.host && runtime.rcon?.port
+            ? `${runtime.rcon.host}:${runtime.rcon.port}`
+            : 'not-configured',
+        ]);
+      }
+
+      deliveryRuntimeSummary.innerHTML = metrics
+        .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+        .join('');
+
+      const detail = {
+        executionMode: runtime.executionMode || null,
+        enabled: Boolean(runtime.enabled),
+        workerStarted: Boolean(runtime.workerStarted),
+        workerBusy: Boolean(runtime.workerBusy),
+        queueLength: Number(runtime.queueLength || 0),
+        deadLetterCount: Number(runtime.deadLetterCount || 0),
+        inFlightCount: Number(runtime.inFlightCount || 0),
+        recentSuccessCount: Number(runtime.recentSuccessCount || 0),
+        settings: runtime.settings || {},
+        headJob: runtime.headJob || null,
+        metrics: runtime.metrics || {},
+        agent: runtime.agent || null,
+        rcon: runtime.rcon || null,
+        latestAudit: Array.isArray(runtime.latestAudit) ? runtime.latestAudit.slice(0, 5) : [],
+      };
+      deliveryRuntimeView.textContent = JSON.stringify(detail, null, 2);
+    }
+
+    async function refreshDeliveryRuntime() {
+      const res = await api('/admin/api/delivery/runtime');
+      currentDeliveryRuntime = res?.data || null;
+      renderDeliveryRuntime(currentDeliveryRuntime);
+      return currentDeliveryRuntime;
+    }
+
+    async function previewDeliveryCommand(payload) {
+      const res = await api('/admin/api/delivery/preview', 'POST', payload);
+      if (deliveryPreviewView) {
+        deliveryPreviewView.textContent = JSON.stringify(res?.data || {}, null, 2);
+      }
+      return res?.data || null;
+    }
+
+    function formatDeliveryTime(value) {
+      const text = String(value || '').trim();
+      if (!text) return '-';
+      const date = new Date(text);
+      if (Number.isNaN(date.getTime())) return text;
+      return date.toLocaleString('th-TH', {
+        dateStyle: 'short',
+        timeStyle: 'medium',
+      });
+    }
+
+    function summarizeDeliveryItems(row) {
+      const items = Array.isArray(row?.deliveryItems) ? row.deliveryItems : [];
+      if (items.length > 0) {
+        const joined = items
+          .slice(0, 3)
+          .map((entry) => {
+            const gameItemId = String(entry?.gameItemId || '').trim() || '-';
+            const quantity = Math.max(1, Number(entry?.quantity || 1));
+            return `${gameItemId} x${quantity}`;
+          })
+          .join(', ');
+        return items.length > 3 ? `${joined} +${items.length - 3}` : joined;
+      }
+      const gameItemId = String(row?.gameItemId || '').trim();
+      const quantity = Math.max(1, Number(row?.quantity || 1));
+      if (gameItemId) {
+        return `${gameItemId} x${quantity}`;
+      }
+      return String(row?.itemName || row?.itemId || '-').trim() || '-';
+    }
+
+    function prefillDeliveryFormsFromDetail(detail) {
+      const preview = detail?.preview && typeof detail.preview === 'object'
+        ? detail.preview
+        : null;
+      const purchase = detail?.purchase && typeof detail.purchase === 'object'
+        ? detail.purchase
+        : null;
+      const link = detail?.link && typeof detail.link === 'object'
+        ? detail.link
+        : null;
+      const itemId = String(preview?.itemId || purchase?.itemId || '').trim();
+      const gameItemId = String(preview?.gameItemId || purchase?.gameItemId || '').trim();
+      const itemName = String(preview?.itemName || purchase?.itemName || '').trim();
+      const quantity = Math.max(
+        1,
+        Number(
+          preview?.quantity
+            || purchase?.quantity
+            || preview?.deliveryItems?.[0]?.quantity
+            || 1,
+        ),
+      );
+      const steamId = String(link?.steamId || '').trim();
+      const purchaseCode = String(detail?.purchaseCode || purchase?.code || '').trim();
+
+      if (deliveryPreviewForm) {
+        const itemIdInput = deliveryPreviewForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliveryPreviewForm.elements.namedItem('gameItemId');
+        const itemNameInput = deliveryPreviewForm.elements.namedItem('itemName');
+        const quantityInput = deliveryPreviewForm.elements.namedItem('quantity');
+        const steamIdInput = deliveryPreviewForm.elements.namedItem('steamId');
+        if (itemIdInput) itemIdInput.value = itemId;
+        if (gameItemIdInput) gameItemIdInput.value = gameItemId;
+        if (itemNameInput) itemNameInput.value = itemName;
+        if (quantityInput) quantityInput.value = String(quantity);
+        if (steamIdInput) steamIdInput.value = steamId;
+      }
+
+      if (deliveryTestSendForm) {
+        const itemIdInput = deliveryTestSendForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliveryTestSendForm.elements.namedItem('gameItemId');
+        const quantityInput = deliveryTestSendForm.elements.namedItem('quantity');
+        const steamIdInput = deliveryTestSendForm.elements.namedItem('steamId');
+        const purchaseCodeInput = deliveryTestSendForm.elements.namedItem('purchaseCode');
+        if (itemIdInput) itemIdInput.value = itemId;
+        if (gameItemIdInput) gameItemIdInput.value = gameItemId;
+        if (quantityInput) quantityInput.value = String(quantity);
+        if (steamIdInput) steamIdInput.value = steamId;
+        if (purchaseCodeInput) purchaseCodeInput.value = purchaseCode;
+      }
+    }
+
+    function renderDeliveryDetail(detail = null) {
+      currentDeliveryDetailData = detail || null;
+      if (!deliveryDetailSummary || !deliveryDetailView) return;
+      if (!detail) {
+        deliveryDetailSummary.innerHTML =
+          '<div class="metric"><div class="k">Delivery Detail</div><div class="v">ยังไม่ได้เลือก purchase code</div></div>';
+        deliveryDetailView.textContent = 'ยังไม่ได้เลือก purchase code';
+        return;
+      }
+
+      if (detail?.error) {
+        deliveryDetailSummary.innerHTML =
+          `<div class="metric"><div class="k">Purchase Code</div><div class="v">${escapeHtml(String(detail.purchaseCode || '-'))}</div></div>` +
+          `<div class="metric"><div class="k">สถานะ</div><div class="v">โหลดไม่สำเร็จ</div></div>`;
+        deliveryDetailView.textContent = String(detail.error || 'โหลด delivery detail ไม่สำเร็จ');
+        return;
+      }
+
+      const purchase = detail.purchase || null;
+      const queueJob = detail.queueJob || null;
+      const deadLetter = detail.deadLetter || null;
+      const latestOutputs = Array.isArray(detail.latestOutputs) ? detail.latestOutputs : [];
+      const metrics = [
+        ['Purchase Code', detail.purchaseCode || '-'],
+        ['สถานะคำสั่งซื้อ', purchase?.status || '-'],
+        ['SteamID', detail.link?.steamId || '-'],
+        ['Queue', queueJob ? `attempt ${Number(queueJob.attempts || 0)}` : '-'],
+        ['Dead-Letter', deadLetter ? (deadLetter.reason || 'yes') : '-'],
+        ['Audit Rows', Number(detail.auditRows?.length || 0).toLocaleString()],
+        ['Command Outputs', Number(latestOutputs.length || 0).toLocaleString()],
+      ];
+      deliveryDetailSummary.innerHTML = metrics
+        .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+        .join('');
+
+      deliveryDetailView.textContent = JSON.stringify(
+        {
+          purchaseCode: detail.purchaseCode || null,
+          purchase,
+          queueJob,
+          deadLetter,
+          link: detail.link || null,
+          statusHistory: Array.isArray(detail.statusHistory) ? detail.statusHistory : [],
+          latestCommandSummary: detail.latestCommandSummary || null,
+          latestOutputs,
+          preview: detail.preview || null,
+          auditRows: Array.isArray(detail.auditRows) ? detail.auditRows : [],
+        },
+        null,
+        2,
+      );
+      prefillDeliveryFormsFromDetail(detail);
+    }
+
+    async function loadDeliveryDetail(code, options = {}) {
+      const normalizedCode = String(code || '').trim();
+      const { silent = false, preserveStatus = false } = options;
+      if (!normalizedCode) {
+        currentDeliveryDetailCode = '';
+        renderDeliveryDetail(null);
+        return null;
+      }
+      try {
+        const res = await api(
+          `/admin/api/delivery/detail?code=${encodeURIComponent(normalizedCode)}&limit=50`,
+          'GET',
+        );
+        currentDeliveryDetailCode = normalizedCode;
+        renderDeliveryDetail(res?.data || null);
+        if (!silent) {
+          toast(`โหลด command log: ${normalizedCode}`);
+        }
+        return res?.data || null;
+      } catch (error) {
+        currentDeliveryDetailCode = normalizedCode;
+        renderDeliveryDetail({
+          purchaseCode: normalizedCode,
+          error: String(error.message || error),
+        });
+        if (!preserveStatus) {
+          setStatus('โหลด command log ไม่สำเร็จ', '#ff6b7b', String(error.message || error), 'error');
+        }
+        if (!silent) {
+          toast(error.message || 'โหลด command log ไม่สำเร็จ');
+        }
+        return null;
+      }
+    }
+
+    async function performDeliveryRowAction(
+      button,
+      endpoint,
+      payload,
+      pendingText,
+      successText,
+      detailCode = '',
+    ) {
+      await runWithButtonState(button, pendingText, async () => {
+        await api(endpoint, 'POST', payload);
+      });
+      await refreshSnapshot({ silent: true, syncConfigInputs: false });
+      const code =
+        String(detailCode || payload?.code || payload?.purchaseCode || '').trim();
+      if (code) {
+        await loadDeliveryDetail(code, { silent: true, preserveStatus: true });
+      }
+      toast(successText);
+    }
+
+    function renderDeliveryQueueTable(rows = []) {
+      if (!deliveryQueueTableWrap) return;
+      const list = Array.isArray(rows) ? rows : [];
+      if (list.length === 0) {
+        deliveryQueueTableWrap.innerHTML =
+          '<div style="padding:12px; color:#9eb0d9;">ไม่มีงานคิวส่งของค้างอยู่</div>';
+        return;
+      }
+
+      const canAdmin = hasRoleAtLeast(currentUserRole, 'admin');
+      const body = list
+        .slice(0, 100)
+        .map((row) => {
+          const code = String(row?.purchaseCode || '').trim();
+          const itemText = summarizeDeliveryItems(row);
+          const nextAttempt = formatDeliveryTime(
+            row?.nextAttemptAt || row?.updatedAt || row?.createdAt,
+          );
+          const attemptText = `attempt ${Number(row?.attempts || 0)}`;
+          const lastError = String(row?.lastError || '').trim();
+          return [
+            '<tr>',
+            `<td><div class="delivery-cell-main"><strong>${escapeHtml(code || '-')}</strong></div><div class="delivery-cell-sub">${escapeHtml(String(row?.userId || '-'))}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(itemText)}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.itemName || row?.itemId || row?.gameItemId || '-'))}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(attemptText)}</div><div class="delivery-cell-sub">${escapeHtml(nextAttempt)}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(lastError || 'พร้อมส่ง')}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.guildId || '-'))}</div></td>`,
+            `<td><div class="row-actions"><button type="button" data-delivery-detail="${escapeHtml(code)}">ดู log</button><button type="button" data-delivery-retry="${escapeHtml(code)}" ${canAdmin ? '' : 'disabled'}>Retry</button><button type="button" data-delivery-cancel="${escapeHtml(code)}" ${canAdmin ? '' : 'disabled'}>Cancel</button></div></td>`,
+            '</tr>',
+          ].join('');
+        })
+        .join('');
+
+      deliveryQueueTableWrap.innerHTML = [
+        '<table><thead><tr>',
+        '<th>Purchase</th>',
+        '<th>Item</th>',
+        '<th>สถานะคิว</th>',
+        '<th>Last Error</th>',
+        '<th>Actions</th>',
+        '</tr></thead><tbody>',
+        body,
+        '</tbody></table>',
+      ].join('');
+
+      Array.from(deliveryQueueTableWrap.querySelectorAll('[data-delivery-detail]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryDetail || '').trim();
+          if (!code) return;
+          await loadDeliveryDetail(code);
+        });
+      });
+
+      Array.from(deliveryQueueTableWrap.querySelectorAll('[data-delivery-retry]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryRetry || '').trim();
+          if (!code) return;
+          try {
+            await performDeliveryRowAction(
+              button,
+              '/admin/api/delivery/retry',
+              { code },
+              'กำลัง retry...',
+              `สั่ง retry แล้ว: ${code}`,
+              code,
+            );
+          } catch (error) {
+            toast(error.message || 'retry queue ไม่สำเร็จ');
+          }
+        });
+      });
+
+      Array.from(deliveryQueueTableWrap.querySelectorAll('[data-delivery-cancel]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryCancel || '').trim();
+          if (!code) return;
+          const reason = String(window.prompt('เหตุผลที่ยกเลิกคิวส่งของ', 'manual-cancel') || '').trim();
+          if (!reason) return;
+          try {
+            await performDeliveryRowAction(
+              button,
+              '/admin/api/delivery/cancel',
+              { code, reason },
+              'กำลังยกเลิก...',
+              `ยกเลิกคิวแล้ว: ${code}`,
+              code,
+            );
+          } catch (error) {
+            toast(error.message || 'ยกเลิกคิวไม่สำเร็จ');
+          }
+        });
+      });
+    }
+
+    function renderDeliveryDeadLetterTable(rows = []) {
+      if (!deliveryDeadLetterTableWrap) return;
+      const list = Array.isArray(rows) ? rows : [];
+      if (list.length === 0) {
+        deliveryDeadLetterTableWrap.innerHTML =
+          '<div style="padding:12px; color:#9eb0d9;">ยังไม่มี dead-letter</div>';
+        return;
+      }
+
+      const canAdmin = hasRoleAtLeast(currentUserRole, 'admin');
+      const body = list
+        .slice(0, 100)
+        .map((row) => {
+          const code = String(row?.purchaseCode || '').trim();
+          const itemText = summarizeDeliveryItems(row);
+          const createdAt = formatDeliveryTime(row?.createdAt || row?.updatedAt);
+          return [
+            '<tr>',
+            `<td><div class="delivery-cell-main"><strong>${escapeHtml(code || '-')}</strong></div><div class="delivery-cell-sub">${escapeHtml(String(row?.userId || '-'))}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(itemText)}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.itemName || row?.itemId || row?.gameItemId || '-'))}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(String(row?.reason || '-'))}</div><div class="delivery-cell-sub">${escapeHtml(createdAt)}</div></td>`,
+            `<td><div class="delivery-cell-main">${escapeHtml(String(row?.lastError || '-'))}</div><div class="delivery-cell-sub">${escapeHtml(`attempt ${Number(row?.attempts || 0)}`)}</div></td>`,
+            `<td><div class="row-actions"><button type="button" data-delivery-detail="${escapeHtml(code)}">ดู log</button><button type="button" data-delivery-dead-retry="${escapeHtml(code)}" ${canAdmin ? '' : 'disabled'}>Retry</button><button type="button" data-delivery-dead-delete="${escapeHtml(code)}" ${canAdmin ? '' : 'disabled'}>Delete</button></div></td>`,
+            '</tr>',
+          ].join('');
+        })
+        .join('');
+
+      deliveryDeadLetterTableWrap.innerHTML = [
+        '<table><thead><tr>',
+        '<th>Purchase</th>',
+        '<th>Item</th>',
+        '<th>Reason</th>',
+        '<th>Last Error</th>',
+        '<th>Actions</th>',
+        '</tr></thead><tbody>',
+        body,
+        '</tbody></table>',
+      ].join('');
+
+      Array.from(deliveryDeadLetterTableWrap.querySelectorAll('[data-delivery-detail]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryDetail || '').trim();
+          if (!code) return;
+          await loadDeliveryDetail(code);
+        });
+      });
+
+      Array.from(deliveryDeadLetterTableWrap.querySelectorAll('[data-delivery-dead-retry]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryDeadRetry || '').trim();
+          if (!code) return;
+          try {
+            await performDeliveryRowAction(
+              button,
+              '/admin/api/delivery/dead-letter/retry',
+              { code },
+              'กำลัง retry dead-letter...',
+              `สั่ง retry dead-letter แล้ว: ${code}`,
+              code,
+            );
+          } catch (error) {
+            toast(error.message || 'retry dead-letter ไม่สำเร็จ');
+          }
+        });
+      });
+
+      Array.from(deliveryDeadLetterTableWrap.querySelectorAll('[data-delivery-dead-delete]')).forEach((button) => {
+        button.addEventListener('click', async () => {
+          const code = String(button.dataset.deliveryDeadDelete || '').trim();
+          if (!code) return;
+          if (!window.confirm(`ลบ dead-letter ${code} ?`)) return;
+          try {
+            await performDeliveryRowAction(
+              button,
+              '/admin/api/delivery/dead-letter/delete',
+              { code },
+              'กำลังลบ dead-letter...',
+              `ลบ dead-letter แล้ว: ${code}`,
+              currentDeliveryDetailCode === code ? code : '',
+            );
+          } catch (error) {
+            toast(error.message || 'ลบ dead-letter ไม่สำเร็จ');
+          }
+        });
+      });
+    }
+
+    function renderDeliveryOpsTables() {
+      renderDeliveryQueueTable(snapshot?.deliveryQueue || []);
+      renderDeliveryDeadLetterTable(snapshot?.deliveryDeadLetters || []);
     }
 
     function renderSelectedDataset() {
@@ -2973,7 +4477,7 @@
     }
 
     async function refreshSnapshot(options = {}) {
-      const { silent = false, syncConfigInputs = false } = options;
+      const { silent = false, syncConfigInputs = false, forceCardsRefresh = false } = options;
       if (refreshInFlight) return;
 
       refreshInFlight = true;
@@ -2981,11 +4485,26 @@
         if (!silent) {
           setStatus('กำลังโหลดข้อมูล...', '#ffb84d', 'กำลังดึง snapshot ล่าสุด', 'busy');
         }
-        const res = await api('/admin/api/snapshot');
-        snapshot = res.data;
+        const [snapshotRes, dashboardCardsRes] = await Promise.all([
+          api('/admin/api/snapshot'),
+          api(`/admin/api/dashboard/cards${forceCardsRefresh ? '?refresh=1' : ''}`).catch(() => null),
+        ]);
+        snapshot = snapshotRes.data;
+        currentDashboardCards = dashboardCardsRes?.data || null;
         renderSummary();
+        renderDeliveryRuntime(snapshot?.deliveryRuntime || null);
+        renderDeliveryOpsTables();
         renderSelectedDataset();
+        renderAuditCenter();
         renderMetricsCharts();
+        if (currentDeliveryDetailCode) {
+          await loadDeliveryDetail(currentDeliveryDetailCode, {
+            silent: true,
+            preserveStatus: true,
+          });
+        } else {
+          renderDeliveryDetail(null);
+        }
         if (syncConfigInputs) {
           fillSimpleConfigFromSnapshot();
           if (!String(configJsonInput?.value || '').trim()) {
@@ -3013,6 +4532,7 @@
         currentUserRole = normalizeRole(me?.data?.role || 'mod');
         currentUserName = String(me?.data?.user || '').trim();
         setAuthState(true);
+        await refreshAuditPresetList();
         await refreshSnapshot();
       } catch {
         setAuthState(false);
@@ -3096,7 +4616,7 @@
       }
       try {
         await runWithButtonState(refreshBtn, 'กำลังรีเฟรช...', async () => {
-          await refreshSnapshot();
+          await refreshSnapshot({ forceCardsRefresh: true });
         });
         toast('รีเฟรชข้อมูลแล้ว');
       } catch (err) {
@@ -3140,6 +4660,283 @@
     }
 
     datasetSelect.addEventListener('change', renderSelectedDataset);
+    [
+      [auditWalletBtn, 'wallet'],
+      [auditRewardBtn, 'reward'],
+      [auditEventBtn, 'event'],
+    ].forEach(([button, view]) => {
+      if (!button) return;
+      button.addEventListener('click', () => {
+        currentAuditView = view;
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    });
+    if (auditSearchInput) {
+      auditSearchInput.addEventListener('input', () => {
+        currentAuditQuery = String(auditSearchInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditUserInput) {
+      auditUserInput.addEventListener('input', () => {
+        currentAuditUser = String(auditUserInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditActorInput) {
+      auditActorInput.addEventListener('input', () => {
+        currentAuditActor = String(auditActorInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditActorModeSelect) {
+      auditActorModeSelect.addEventListener('change', () => {
+        currentAuditActorMode = String(auditActorModeSelect.value || 'contains').trim().toLowerCase() === 'exact'
+          ? 'exact'
+          : 'contains';
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditReasonInput) {
+      auditReasonInput.addEventListener('input', () => {
+        currentAuditReason = String(auditReasonInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditReferenceInput) {
+      auditReferenceInput.addEventListener('input', () => {
+        currentAuditReference = String(auditReferenceInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditReferenceModeSelect) {
+      auditReferenceModeSelect.addEventListener('change', () => {
+        currentAuditReferenceMode = String(auditReferenceModeSelect.value || 'contains').trim().toLowerCase() === 'exact'
+          ? 'exact'
+          : 'contains';
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditStatusInput) {
+      auditStatusInput.addEventListener('input', () => {
+        currentAuditStatus = String(auditStatusInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditStatusModeSelect) {
+      auditStatusModeSelect.addEventListener('change', () => {
+        currentAuditStatusMode = String(auditStatusModeSelect.value || 'contains').trim().toLowerCase() === 'exact'
+          ? 'exact'
+          : 'contains';
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditDateFromInput) {
+      auditDateFromInput.addEventListener('change', () => {
+        currentAuditDateFrom = String(auditDateFromInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditDateToInput) {
+      auditDateToInput.addEventListener('change', () => {
+        currentAuditDateTo = String(auditDateToInput.value || '').trim();
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditSortBySelect) {
+      auditSortBySelect.addEventListener('change', () => {
+        currentAuditSortBy = String(auditSortBySelect.value || 'timestamp').trim() || 'timestamp';
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditSortOrderSelect) {
+      auditSortOrderSelect.addEventListener('change', () => {
+        currentAuditSortOrder = String(auditSortOrderSelect.value || 'desc').trim().toLowerCase() === 'asc'
+          ? 'asc'
+          : 'desc';
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditWindowSelect) {
+      auditWindowSelect.addEventListener('change', () => {
+        const raw = String(auditWindowSelect.value || 'all').trim().toLowerCase();
+        const numeric = Number(raw);
+        currentAuditWindowMs = raw === 'all' || !Number.isFinite(numeric) || numeric <= 0
+          ? null
+          : Math.max(60 * 1000, Math.trunc(numeric));
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditPageSizeSelect) {
+      auditPageSizeSelect.addEventListener('change', () => {
+        currentAuditPageSize = Math.max(10, Number(auditPageSizeSelect.value || 50));
+        resetAuditPaging();
+        renderAuditCenter();
+      });
+    }
+    if (auditPrevBtn) {
+      auditPrevBtn.addEventListener('click', () => {
+        if (currentAuditPrevCursor) {
+          currentAuditCursor = currentAuditPrevCursor;
+          currentAuditPage = Math.max(1, currentAuditPage - 1);
+        } else {
+          currentAuditPage = Math.max(1, currentAuditPage - 1);
+          currentAuditCursor = null;
+        }
+        renderAuditCenter();
+      });
+    }
+    if (auditNextBtn) {
+      auditNextBtn.addEventListener('click', () => {
+        if (currentAuditNextCursor) {
+          currentAuditCursor = currentAuditNextCursor;
+          currentAuditPage = Math.min(currentAuditTotalPages, currentAuditPage + 1);
+        } else {
+          currentAuditPage = Math.min(currentAuditTotalPages, currentAuditPage + 1);
+          currentAuditCursor = null;
+        }
+        renderAuditCenter();
+      });
+    }
+    if (auditExportCsvBtn) {
+      auditExportCsvBtn.addEventListener('click', async () => {
+        try {
+          await exportAuditRows('csv');
+        } catch (error) {
+          toast(error.message || 'ส่งออก CSV ไม่สำเร็จ');
+        }
+      });
+    }
+    if (auditExportJsonBtn) {
+      auditExportJsonBtn.addEventListener('click', async () => {
+        try {
+          await exportAuditRows('json');
+        } catch (error) {
+          toast(error.message || 'ส่งออก JSON ไม่สำเร็จ');
+        }
+      });
+    }
+    if (auditPresetSelect) {
+      auditPresetSelect.addEventListener('change', () => {
+        const selectedId = String(auditPresetSelect.value || '').trim();
+        const preset = auditPresets.find((entry) => entry.id === selectedId);
+        if (auditPresetNameInput) {
+          auditPresetNameInput.value = preset?.name || '';
+        }
+        if (preset) {
+          currentAuditPresetVisibility = preset.visibility;
+          currentAuditPresetSharedRole = preset.sharedRole || 'mod';
+        }
+        updateAuditPresetSharingControls();
+        if (auditPresetApplyBtn) {
+          auditPresetApplyBtn.disabled = !selectedId;
+        }
+        if (auditPresetDeleteBtn) {
+          auditPresetDeleteBtn.disabled = !preset || preset.canDelete === false;
+        }
+      });
+    }
+    if (auditPresetVisibilitySelect) {
+      auditPresetVisibilitySelect.addEventListener('change', () => {
+        currentAuditPresetVisibility = String(auditPresetVisibilitySelect.value || 'public').trim().toLowerCase() || 'public';
+        if (currentAuditPresetVisibility !== 'role') {
+          currentAuditPresetSharedRole = 'mod';
+        }
+        updateAuditPresetSharingControls();
+      });
+    }
+    if (auditPresetSharedRoleSelect) {
+      auditPresetSharedRoleSelect.addEventListener('change', () => {
+        currentAuditPresetSharedRole = String(auditPresetSharedRoleSelect.value || 'mod').trim().toLowerCase() || 'mod';
+      });
+    }
+    if (auditPresetApplyBtn) {
+      auditPresetApplyBtn.addEventListener('click', () => {
+        try {
+          applyAuditPresetById(String(auditPresetSelect?.value || '').trim());
+        } catch (error) {
+          toast(error.message || 'ใช้ preset ไม่สำเร็จ');
+        }
+      });
+    }
+    if (auditPresetSaveBtn) {
+      auditPresetSaveBtn.addEventListener('click', async () => {
+        const draft = buildCurrentAuditPreset();
+        if (!draft) {
+          toast('กรุณาตั้งชื่อ preset ก่อนบันทึก');
+          return;
+        }
+        try {
+          await runWithButtonState(auditPresetSaveBtn, 'กำลังบันทึก preset...', async () => {
+            const selectedId = String(auditPresetSelect?.value || currentAuditPresetId || '').trim();
+            const selectedPreset = auditPresets.find((entry) => entry.id === selectedId);
+            const res = await api('/admin/api/audit/presets', 'POST', {
+              ...draft,
+              id: selectedPreset && selectedPreset.canEdit === false ? undefined : (selectedId || undefined),
+            });
+            const saved = normalizeAuditPresetRecord(res?.data);
+            currentAuditPresetId = String(saved?.id || '').trim();
+            currentAuditPresetVisibility = saved?.visibility || currentAuditPresetVisibility;
+            currentAuditPresetSharedRole = saved?.sharedRole || currentAuditPresetSharedRole;
+            await refreshAuditPresetList(currentAuditPresetId);
+            if (auditPresetNameInput) {
+              auditPresetNameInput.value = saved?.name || draft.name;
+            }
+          });
+          const savedName = String(auditPresetNameInput?.value || draft.name || '').trim();
+          toast(`บันทึก preset: ${savedName}`);
+        } catch (error) {
+          toast(error.message || 'บันทึก preset ไม่สำเร็จ');
+        }
+      });
+    }
+    if (auditPresetDeleteBtn) {
+      auditPresetDeleteBtn.addEventListener('click', async () => {
+        const selectedId = String(auditPresetSelect?.value || '').trim();
+        const preset = auditPresets.find((entry) => entry.id === selectedId);
+        if (!preset) {
+          toast('กรุณาเลือก preset ก่อนลบ');
+          return;
+        }
+        if (preset.canDelete === false) {
+          toast('preset นี้ลบได้เฉพาะเจ้าของหรือ owner');
+          return;
+        }
+        if (!window.confirm(`ลบ preset "${preset.name}" ?`)) {
+          return;
+        }
+        try {
+          await runWithButtonState(auditPresetDeleteBtn, 'กำลังลบ preset...', async () => {
+            await api('/admin/api/audit/presets/delete', 'POST', { id: selectedId });
+            if (currentAuditPresetId === selectedId) {
+              currentAuditPresetId = '';
+            }
+            await refreshAuditPresetList(currentAuditPresetId);
+            if (auditPresetNameInput) {
+              auditPresetNameInput.value = '';
+            }
+          });
+          toast(`ลบ preset: ${preset.name}`);
+        } catch (error) {
+          toast(error.message || 'ลบ preset ไม่สำเร็จ');
+        }
+      });
+    }
     if (metricsWindowSelect) {
       metricsWindowSelect.addEventListener('change', () => {
         currentMetricsWindowMs = Math.max(
@@ -3172,6 +4969,24 @@
           toast('อัปเดตกราฟตามช่วงเวลาแล้ว');
         } catch (error) {
           toast(error.message || 'โหลด metrics ไม่สำเร็จ');
+        }
+      });
+    }
+    if (metricsExportCsvBtn) {
+      metricsExportCsvBtn.addEventListener('click', async () => {
+        try {
+          await exportObservability('csv');
+        } catch (error) {
+          toast(error.message || 'ส่งออก metrics CSV ไม่สำเร็จ');
+        }
+      });
+    }
+    if (metricsExportJsonBtn) {
+      metricsExportJsonBtn.addEventListener('click', async () => {
+        try {
+          await exportObservability('json');
+        } catch (error) {
+          toast(error.message || 'ส่งออก metrics JSON ไม่สำเร็จ');
         }
       });
     }
@@ -3276,6 +5091,127 @@
         toast('ไม่สามารถคัดลอกได้');
       }
     });
+
+    if (snapshotExportBtn) {
+      snapshotExportBtn.addEventListener('click', async () => {
+        try {
+          if (!isAuthed) {
+            toast('กรุณาเข้าสู่ระบบก่อน');
+            return;
+          }
+          const { blob, filename } = await apiBlob('/admin/api/snapshot/export');
+          downloadBlob(
+            filename || `snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+            blob,
+          );
+          toast('ดาวน์โหลด snapshot แล้ว');
+        } catch (error) {
+          toast(error.message || 'ดาวน์โหลด snapshot ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryRuntimeRefreshBtn) {
+      deliveryRuntimeRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(deliveryRuntimeRefreshBtn, 'กำลังเช็ก...', async () => {
+            await refreshDeliveryRuntime();
+          });
+          toast('อัปเดตสถานะส่งของแล้ว');
+        } catch (error) {
+          toast(error.message || 'โหลดสถานะส่งของไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryPreviewForm) {
+      deliveryPreviewForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryPreviewForm, event);
+        const payload = {};
+        for (const [key, value] of new FormData(deliveryPreviewForm).entries()) {
+          const trimmed = String(value || '').trim();
+          if (trimmed) payload[key] = trimmed;
+        }
+        try {
+          await runWithButtonState(submitButton, 'กำลังพรีวิว...', async () => {
+            await previewDeliveryCommand(payload);
+          });
+          toast('สร้างพรีวิวคำสั่งแล้ว');
+        } catch (error) {
+          if (deliveryPreviewView) {
+            deliveryPreviewView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'พรีวิวคำสั่งไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryTestSendForm) {
+      deliveryTestSendForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryTestSendForm, event);
+        const payload = {};
+        for (const [key, value] of new FormData(deliveryTestSendForm).entries()) {
+          const trimmed = String(value || '').trim();
+          if (trimmed) payload[key] = trimmed;
+        }
+        try {
+          await runWithButtonState(submitButton, 'กำลังส่ง test item...', async () => {
+            const res = await api('/admin/api/delivery/test-send', 'POST', payload);
+            if (deliveryTestSendView) {
+              deliveryTestSendView.textContent = JSON.stringify(res?.data || {}, null, 2);
+            }
+          });
+          if (String(payload.purchaseCode || '').trim()) {
+            await loadDeliveryDetail(String(payload.purchaseCode || '').trim(), {
+              silent: true,
+              preserveStatus: true,
+            });
+          }
+          await refreshSnapshot({ silent: true, syncConfigInputs: false });
+          toast('ส่ง test item แล้ว');
+        } catch (error) {
+          if (deliveryTestSendView) {
+            deliveryTestSendView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'ส่ง test item ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryOpsRefreshBtn) {
+      deliveryOpsRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(
+            deliveryOpsRefreshBtn,
+            'กำลังรีเฟรชตาราง...',
+            async () => {
+              await refreshSnapshot({ silent: true, syncConfigInputs: false });
+            },
+          );
+          toast('รีเฟรชตารางส่งของแล้ว');
+        } catch (error) {
+          toast(error.message || 'รีเฟรชตารางส่งของไม่สำเร็จ');
+        }
+      });
+    }
 
     document.querySelectorAll('form[data-endpoint]').forEach((form) => {
       form.addEventListener('submit', async (event) => {
@@ -3420,6 +5356,8 @@
     }
 
     applyTheme(loadPreferredTheme(), false);
+    renderAuditPresetOptions('');
+    syncAuditControlsFromState();
     activateTab('economy');
     applyTabFilter('');
     updateLiveToggleUi();

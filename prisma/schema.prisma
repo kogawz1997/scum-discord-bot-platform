@@ -16,15 +16,21 @@ model UserWallet {
 }
 
 model ShopItem {
-  id          String @id
-  name        String
-  price       Int
-  description String
-  kind        String @default("item")
-  gameItemId  String?
-  quantity    Int    @default(1)
-  iconUrl     String?
-  deliveryItemsJson String?
+  id                      String @id
+  name                    String
+  price                   Int
+  description             String
+  kind                    String @default("item")
+  gameItemId              String?
+  quantity                Int    @default(1)
+  iconUrl                 String?
+  deliveryItemsJson       String?
+  deliveryProfile         String?
+  deliveryTeleportMode    String?
+  deliveryTeleportTarget  String?
+  deliveryPreCommandsJson String?
+  deliveryPostCommandsJson String?
+  deliveryReturnTarget    String?
 }
 
 model Purchase {
@@ -213,6 +219,41 @@ model DeliveryAudit {
   @@index([createdAt])
   @@index([level, createdAt])
   @@index([action, createdAt])
+}
+
+model AdminAuditPreset {
+  id            String   @id
+  name          String
+  view          String   @default("wallet")
+  visibility    String   @default("public")
+  sharedRole    String?
+  query         String?
+  userId        String?
+  actor         String?
+  actorMode     String   @default("contains")
+  reason        String?
+  reference     String?
+  referenceMode String   @default("contains")
+  status        String?
+  statusMode    String   @default("contains")
+  dateFrom      String?
+  dateTo        String?
+  sortBy        String   @default("timestamp")
+  sortOrder     String   @default("desc")
+  windowMs      Int?
+  pageSize      Int      @default(50)
+  createdBy     String?
+  createdByUser String?
+  updatedBy     String?
+  updatedByUser String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+  @@index([name])
+  @@index([visibility])
+  @@index([sharedRole])
+  @@index([createdByUser])
 }
 
 model RedeemCode {

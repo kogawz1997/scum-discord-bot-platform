@@ -1,5 +1,4 @@
-const crypto = require('node:crypto');
-const {
+﻿const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
@@ -9,26 +8,14 @@ const {
   MessageFlags,
 } = require('discord.js');
 const {
-  createGiveaway,
-  getGiveaway,
-  addEntrant,
-  removeGiveaway,
-} = require('../store/giveawayStore');
-
-function shuffleInPlace(list) {
-  for (let i = list.length - 1; i > 0; i -= 1) {
-    const j = crypto.randomInt(0, i + 1);
-    const tmp = list[i];
-    list[i] = list[j];
-    list[j] = tmp;
-  }
-  return list;
-}
+  startGiveawayForMessage,
+  settleGiveawayForMessage,
+} = require('../services/giveawayService');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('giveaway')
-    .setDescription('จัดกิจกรรมแจกของ/ยศ/เหรียญ')
+    .setDescription('จัดกิจกรรมแจกของ ยศ หรือเหรียญ')
     .addSubcommand((sub) =>
       sub
         .setName('start')
@@ -36,13 +23,13 @@ module.exports = {
         .addStringOption((option) =>
           option
             .setName('prize')
-            .setDescription('ของรางวัล (ข้อความ)')
+            .setDescription('ของรางวัล')
             .setRequired(true),
         )
         .addIntegerOption((option) =>
           option
             .setName('minutes')
-            .setDescription('เวลาจบ (นาที)')
+            .setDescription('เวลาจบกิจกรรม (นาที)')
             .setRequired(true)
             .setMinValue(1),
         )
@@ -56,15 +43,15 @@ module.exports = {
     ),
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    if (sub === 'start') {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        return interaction.reply({
-          content: 'คำสั่งนี้สำหรับแอดมินเท่านั้น',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-      return handleStart(interaction);
+    if (sub !== 'start') return;
+
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.reply({
+        content: 'คำสั่งนี้สำหรับแอดมินเท่านั้น',
+        flags: MessageFlags.Ephemeral,
+      });
     }
+    return handleStart(interaction);
   },
 };
 
@@ -72,7 +59,6 @@ async function handleStart(interaction) {
   const prize = interaction.options.getString('prize', true);
   const minutes = interaction.options.getInteger('minutes', true);
   const winners = interaction.options.getInteger('winners') || 1;
-
   const endsAt = new Date(Date.now() + minutes * 60 * 1000);
 
   const embed = new EmbedBuilder()
@@ -83,7 +69,7 @@ async function handleStart(interaction) {
         `จำนวนผู้ชนะ: **${winners}**`,
         `จะจบใน: **${minutes} นาที**`,
         '',
-        'กดปุ่มด้านล่างเพื่อเข้าร่วม!',
+        'กดปุ่มด้านล่างเพื่อเข้าร่วม',
       ].join('\n'),
     )
     .setTimestamp(endsAt)
@@ -95,14 +81,13 @@ async function handleStart(interaction) {
     .setStyle(ButtonStyle.Primary);
 
   const row = new ActionRowBuilder().addComponents(button);
-
   const msg = await interaction.reply({
     embeds: [embed],
     components: [row],
     fetchReply: true,
   });
 
-  createGiveaway({
+  const startResult = startGiveawayForMessage({
     messageId: msg.id,
     channelId: msg.channel.id,
     guildId: msg.guild.id,
@@ -110,26 +95,27 @@ async function handleStart(interaction) {
     winnersCount: winners,
     endsAt,
   });
+  if (!startResult.ok) {
+    await msg.edit({
+      content: 'ไม่สามารถบันทึกกิจกรรมแจกของลงระบบได้',
+      embeds: [],
+      components: [],
+    }).catch(() => null);
+    return;
+  }
 
-  // ตั้งเวลาเพื่อสุ่มผู้ชนะ
   setTimeout(async () => {
-    const g = getGiveaway(msg.id);
-    if (!g) return;
+    const result = settleGiveawayForMessage({ messageId: msg.id });
+    if (!result.ok) return;
 
-    const entrants = Array.from(g.entrants);
-    if (entrants.length === 0) {
-      await msg.reply('กิจกรรมแจกของจบแล้ว แต่ไม่มีผู้เข้าร่วม');
-      removeGiveaway(msg.id);
+    if (result.noEntrants) {
+      await msg.reply('กิจกรรมแจกของจบแล้ว แต่ไม่มีผู้เข้าร่วม').catch(() => null);
       return;
     }
 
-    const shuffled = shuffleInPlace(entrants.slice());
-    const winnersArr = shuffled.slice(0, g.winnersCount);
-    const winnerMentions = winnersArr.map((id) => `<@${id}>`).join(', ');
-
+    const winnerMentions = result.winnerIds.map((id) => `<@${id}>`).join(', ');
     await msg.reply(
-      `🎉 กิจกรรมแจกของจบแล้ว! ผู้ชนะ: ${winnerMentions}\nของรางวัล: **${g.prize}**`,
-    );
-    removeGiveaway(msg.id);
+      `🎉 กิจกรรมแจกของจบแล้ว ผู้ชนะ: ${winnerMentions}\nของรางวัล: **${result.giveaway.prize}**`,
+    ).catch(() => null);
   }, minutes * 60 * 1000);
 }

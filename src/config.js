@@ -1,9 +1,8 @@
 ﻿// ค่าคอนฟิกพื้นฐานของบอทเซิร์ฟ SCUM
 
-const { loadJson, saveJsonDebounced } = require('./store/_persist');
 const { prisma } = require('./prisma');
+const { looksLikeMojibake } = require('./utils/mojibake');
 
-const PERSIST_FILENAME = 'config-overrides.json';
 const CONFIG_ROW_ID = 1;
 
 let mutationVersion = 0;
@@ -95,10 +94,6 @@ function mergePatchInPlace(target, patch) {
   }
 
   return target;
-}
-
-function looksLikeMojibake(value) {
-  return /(?:Ã|Â|à¸|âœ|ðŸ)/.test(String(value || ''));
 }
 
 function sanitizeMojibakeInPlace(current, defaults) {
@@ -339,6 +334,7 @@ const defaultConfig = {
   delivery: {
     auto: {
       enabled: true,
+      executionMode: 'rcon',
       queueIntervalMs: 1200,
       maxRetries: 3,
       retryDelayMs: 6000,
@@ -354,6 +350,21 @@ const defaultConfig = {
       // If true: auto-use generic command template from scum_item_category_manifest.json
       // for all known item IDs in icon catalog when no explicit itemCommands is found.
       itemManifestCommandFallbackEnabled: true,
+      // Agent mode hooks. Useful for workflows like:
+      // - #TeleportTo "{teleportTarget}"
+      // - #SpawnItem Weapon_M1911 1
+      // - #TeleportTo "{returnTarget}"
+      // placeholders:
+      // {steamId} {itemId} {itemName} {gameItemId} {quantity} {itemKind}
+      // {userId} {purchaseCode} {inGameName} {playerName}
+      // {teleportTarget} {teleportTargetQuoted} {returnTarget} {returnTargetQuoted}
+      agentPreCommands: [],
+      agentPostCommands: [],
+      agentCommandDelayMs: 600,
+      agentPostTeleportDelayMs: 2000,
+      agentTeleportMode: 'player',
+      agentTeleportTarget: '',
+      agentReturnTarget: '',
       // Optional fallback if env RCON_EXEC_TEMPLATE is not set.
       // Example:
       // rconExecTemplate: 'mcrcon -H {host} -P {port} -p "{password}" "{command}"',
@@ -363,16 +374,7 @@ const defaultConfig = {
 };
 
 const runtimeConfig = deepClone(defaultConfig);
-const legacyConfigSnapshot = loadJson(PERSIST_FILENAME, null);
-if (isPlainObject(legacyConfigSnapshot)) {
-  mergePatchInPlace(runtimeConfig, legacyConfigSnapshot);
-}
 sanitizeMojibakeInPlace(runtimeConfig, defaultConfig);
-
-const scheduleConfigSave = saveJsonDebounced(
-  PERSIST_FILENAME,
-  () => getConfigSnapshot(),
-);
 
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
@@ -412,9 +414,6 @@ async function hydrateConfigFromPrisma() {
       where: { id: CONFIG_ROW_ID },
     });
     if (!row) {
-      if (isPlainObject(legacyConfigSnapshot)) {
-        persistConfigToPrisma(getConfigSnapshot());
-      }
       return;
     }
 
@@ -437,7 +436,6 @@ async function hydrateConfigFromPrisma() {
     mergePatchInPlace(merged, parsed);
     sanitizeMojibakeInPlace(merged, defaultConfig);
     replaceValueInPlace(runtimeConfig, merged);
-    scheduleConfigSave();
     persistConfigToPrisma(getConfigSnapshot());
   } catch (error) {
     console.error('[config] failed to hydrate from prisma:', error.message);
@@ -467,7 +465,6 @@ function updateConfigPatch(patch) {
   mergePatchInPlace(runtimeConfig, patch);
   sanitizeMojibakeInPlace(runtimeConfig, defaultConfig);
   const snapshot = getConfigSnapshot();
-  scheduleConfigSave();
   persistConfigToPrisma(snapshot);
   return snapshot;
 }
@@ -482,7 +479,6 @@ function setFullConfig(nextConfig) {
   sanitizeMojibakeInPlace(merged, defaultConfig);
   replaceValueInPlace(runtimeConfig, merged);
   const snapshot = getConfigSnapshot();
-  scheduleConfigSave();
   persistConfigToPrisma(snapshot);
   return snapshot;
 }
@@ -491,7 +487,6 @@ function resetConfigToDefault() {
   mutationVersion += 1;
   replaceValueInPlace(runtimeConfig, defaultConfig);
   const snapshot = getConfigSnapshot();
-  scheduleConfigSave();
   persistConfigToPrisma(snapshot);
   return snapshot;
 }

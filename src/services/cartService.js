@@ -1,18 +1,17 @@
+const { getWallet, getShopItemById } = require('../store/memoryStore');
 const {
-  getWallet,
-  getShopItemById,
-  createPurchase,
-  removeCoins,
-} = require('../store/memoryStore');
-const {
+  addCartItem,
+  removeCartItem,
   listCartItems,
   clearCart,
 } = require('../store/cartStore');
-const { enqueuePurchaseDelivery } = require('./rconDelivery');
-
-function normalizeKind(value) {
-  return String(value || 'item').trim().toLowerCase() === 'vip' ? 'vip' : 'item';
-}
+const { debitCoins, creditCoins } = require('./coinService');
+const {
+  normalizeShopKind,
+  buildBundleSummary,
+  getDeliveryStatusText,
+  createQueuedPurchase,
+} = require('./shopService');
 
 function normalizeQty(value) {
   const n = Number(value);
@@ -20,80 +19,16 @@ function normalizeQty(value) {
   return Math.max(1, Math.trunc(n));
 }
 
-function normalizeDeliveryItems(item) {
-  const direct = Array.isArray(item?.deliveryItems) ? item.deliveryItems : [];
-  const normalized = direct
-    .map((entry) => {
-      const gameItemId = String(entry?.gameItemId || '').trim();
-      if (!gameItemId) return null;
-      return {
-        gameItemId,
-        quantity: normalizeQty(entry?.quantity),
-      };
-    })
-    .filter(Boolean);
+async function getResolvedCart(userId, options = {}) {
+  const listCartItemsFn = options.listCartItemsFn || listCartItems;
+  const getShopItemByIdFn = options.getShopItemByIdFn || getShopItemById;
 
-  if (normalized.length > 0) return normalized;
-
-  const fallbackId = String(item?.gameItemId || '').trim();
-  if (!fallbackId) return [];
-  return [{ gameItemId: fallbackId, quantity: normalizeQty(item?.quantity) }];
-}
-
-function buildBundleSummary(item, maxRows = 4) {
-  const entries = normalizeDeliveryItems(item);
-  if (entries.length === 0) {
-    return {
-      short: '-',
-      long: 'ไอเทมในเกม: `-`',
-      totalQty: 0,
-    };
-  }
-
-  const totalQty = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-  const short = entries
-    .slice(0, 2)
-    .map((entry) => `${entry.gameItemId} x${entry.quantity}`)
-    .join(', ');
-  const shortText = entries.length > 2 ? `${short} (+${entries.length - 2})` : short;
-
-  const longLines = [
-    `ไอเทมในชุด: **${entries.length}** รายการ (รวม **${totalQty}** ชิ้น)`,
-    ...entries
-      .slice(0, maxRows)
-      .map((entry) => `- \`${entry.gameItemId}\` x**${entry.quantity}**`),
-  ];
-  if (entries.length > maxRows) {
-    longLines.push(`- และอีก **${entries.length - maxRows}** รายการ`);
-  }
-
-  return {
-    short: shortText,
-    long: longLines.join('\n'),
-    totalQty,
-  };
-}
-
-function getDeliveryStatusText(result) {
-  if (result?.queued) {
-    return 'เข้าคิวแล้ว';
-  }
-  if (result?.reason === 'item-not-configured') {
-    return 'ยังไม่ได้ตั้งค่า RCON สำหรับไอเทมนี้';
-  }
-  if (result?.reason === 'delivery-disabled') {
-    return 'ระบบส่งของอัตโนมัติถูกปิด';
-  }
-  return result?.reason || 'รอแอดมินจัดการ';
-}
-
-async function getResolvedCart(userId) {
-  const rows = listCartItems(userId);
+  const rows = await Promise.resolve(listCartItemsFn(userId));
   const resolved = [];
   const missingItemIds = [];
 
   for (const row of rows) {
-    const item = await getShopItemById(row.itemId);
+    const item = await getShopItemByIdFn(row.itemId);
     if (!item) {
       missingItemIds.push(row.itemId);
       continue;
@@ -120,7 +55,9 @@ async function getResolvedCart(userId) {
 
 async function checkoutCart(userId, options = {}) {
   const guildId = options.guildId || null;
-  const resolved = await getResolvedCart(userId);
+  const actor = options.actor || `discord:${userId}`;
+  const source = options.source || 'cart-checkout';
+  const resolved = await getResolvedCart(userId, options);
 
   if (resolved.rows.length === 0) {
     return {
@@ -130,42 +67,55 @@ async function checkoutCart(userId, options = {}) {
     };
   }
 
-  const wallet = await getWallet(userId);
-  if (wallet.balance < resolved.totalPrice) {
-    return {
-      ok: false,
-      reason: 'insufficient',
-      walletBalance: wallet.balance,
-      ...resolved,
-    };
-  }
+  const debitCoinsFn = options.debitCoinsFn || debitCoins;
+  const creditCoinsFn = options.creditCoinsFn || creditCoins;
+  const createQueuedPurchaseFn = options.createQueuedPurchaseFn || createQueuedPurchase;
 
-  await removeCoins(userId, resolved.totalPrice, {
-    reason: 'cart_checkout_debit',
-    actor: `discord:${userId}`,
-    meta: {
-      source: 'cart-checkout',
-      units: resolved.totalUnits,
-      rows: resolved.rows.length,
-    },
-  });
+  let walletBalance = Number((await getWallet(userId))?.balance || 0);
+  if (resolved.totalPrice > 0) {
+    const debit = await debitCoinsFn({
+      userId,
+      amount: resolved.totalPrice,
+      reason: 'cart_checkout_debit',
+      actor,
+      meta: {
+        source,
+        units: resolved.totalUnits,
+        rows: resolved.rows.length,
+      },
+    });
+    if (!debit.ok) {
+      return {
+        ok: false,
+        reason: debit.reason || 'insufficient',
+        walletBalance: Number(debit.balance || 0),
+        ...resolved,
+      };
+    }
+    walletBalance = Number(debit.balance || 0);
+  }
 
   const purchases = [];
   const failures = [];
+  let refundedAmount = 0;
   for (const row of resolved.rows) {
     for (let i = 0; i < row.quantity; i += 1) {
       try {
-        const purchase = await createPurchase(userId, row.item);
-        const delivery = await enqueuePurchaseDelivery(purchase, { guildId });
+        const result = await createQueuedPurchaseFn({
+          userId,
+          item: row.item,
+          guildId,
+        });
         purchases.push({
           itemId: row.item.id,
           itemName: row.item.name,
-          itemKind: normalizeKind(row.item.kind),
+          itemKind: normalizeShopKind(row.item.kind),
           bundle: buildBundleSummary(row.item),
-          purchase,
-          delivery,
+          purchase: result.purchase,
+          delivery: result.delivery,
         });
       } catch (error) {
+        refundedAmount += Number(row.item.price || 0);
         failures.push({
           itemId: row.item.id,
           itemName: row.item.name,
@@ -175,20 +125,81 @@ async function checkoutCart(userId, options = {}) {
     }
   }
 
-  clearCart(userId);
+  if (refundedAmount > 0) {
+    const refund = await creditCoinsFn({
+      userId,
+      amount: refundedAmount,
+      reason: 'cart_checkout_partial_refund',
+      actor,
+      meta: {
+        source,
+        failureCount: failures.length,
+      },
+    });
+    if (refund?.ok) {
+      walletBalance = Number(refund.balance || walletBalance);
+    }
+  }
+
+  const clearCartFn = options.clearCartFn || clearCart;
+  await Promise.resolve(clearCartFn(userId));
 
   return {
     ok: true,
     ...resolved,
     purchases,
     failures,
+    refundedAmount,
+    walletBalance,
   };
 }
 
+function addItemToCartForUser(params = {}) {
+  const userId = String(params.userId || '').trim();
+  const itemId = String(params.itemId || '').trim();
+  const quantity = normalizeQty(params.quantity);
+  if (!userId || !itemId) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  addCartItem(userId, itemId, quantity);
+  return { ok: true, userId, itemId, quantity };
+}
+
+function removeItemFromCartForUser(params = {}) {
+  const userId = String(params.userId || '').trim();
+  const itemId = String(params.itemId || '').trim();
+  const quantity = normalizeQty(params.quantity);
+  if (!userId || !itemId) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  const updated = removeCartItem(userId, itemId, quantity);
+  if (!updated) {
+    return { ok: false, reason: 'not-found' };
+  }
+  return { ok: true, userId, itemId, quantity, cart: updated };
+}
+
+function clearCartForUser(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  clearCart(normalizedUserId);
+  return { ok: true, userId: normalizedUserId };
+}
+
+function listCartItemsForUser(userId) {
+  return listCartItems(String(userId || '').trim());
+}
+
 module.exports = {
-  normalizeKind,
+  addItemToCartForUser,
   buildBundleSummary,
+  clearCartForUser,
   getDeliveryStatusText,
   getResolvedCart,
   checkoutCart,
+  listCartItemsForUser,
+  normalizeShopKind,
+  removeItemFromCartForUser,
 };

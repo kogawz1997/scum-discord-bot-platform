@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const memberships = new Map(); // userId -> { planId, expiresAt }
@@ -6,13 +5,6 @@ const memberships = new Map(); // userId -> { planId, expiresAt }
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('vip.json', () => ({
-  memberships: Array.from(memberships.entries()).map(([userId, m]) => [
-    userId,
-    { ...m, expiresAt: m.expiresAt ? new Date(m.expiresAt).toISOString() : null },
-  ]),
-}));
 
 function normalizeUserId(value) {
   return String(value || '').trim();
@@ -92,7 +84,6 @@ async function hydrateFromPrisma() {
       for (const [userId, value] of hydrated.entries()) {
         memberships.set(userId, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -101,32 +92,13 @@ async function hydrateFromPrisma() {
         memberships.set(userId, value);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[vipStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('vip.json', null);
-  if (!persisted) return;
-  for (const [rawUserId, rawValue] of persisted.memberships || []) {
-    const parsed = normalizeMembership({
-      userId: rawUserId,
-      planId: rawValue?.planId,
-      expiresAt: rawValue?.expiresAt,
-    });
-    if (!parsed) continue;
-    memberships.set(parsed.userId, {
-      planId: parsed.planId,
-      expiresAt: parsed.expiresAt,
-    });
-  }
-}
-
 function initVipStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -145,7 +117,6 @@ function setMembership(userId, planId, expiresAt) {
     planId: parsed.planId,
     expiresAt: parsed.expiresAt,
   });
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -194,7 +165,6 @@ function removeMembership(userId) {
   if (!existed) return false;
 
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.vipMembership.deleteMany({
@@ -217,7 +187,6 @@ function replaceMemberships(nextMemberships = []) {
       expiresAt: parsed.expiresAt,
     });
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

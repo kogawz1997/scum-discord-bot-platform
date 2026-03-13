@@ -1,25 +1,22 @@
-const {
+﻿const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
   MessageFlags,
 } = require('discord.js');
-const {
-  createEvent,
-  listEvents,
-  getEvent,
-  joinEvent,
-  startEvent,
-  endEvent,
-  getParticipants,
-} = require('../store/eventStore');
 const { economy } = require('../config');
-const { creditCoins } = require('../services/coinService');
+const {
+  createServerEvent,
+  listServerEvents,
+  joinServerEvent,
+  startServerEvent,
+  finishServerEvent,
+} = require('../services/eventService');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('event')
-    .setDescription('ระบบอีเวนต์ในเซิร์ฟ')
+    .setDescription('ระบบอีเวนต์ในเซิร์ฟเวอร์')
     .addSubcommand((sub) =>
       sub
         .setName('create')
@@ -39,14 +36,12 @@ module.exports = {
         .addStringOption((option) =>
           option
             .setName('reward')
-            .setDescription('ของรางวัล / เหรียญ (ข้อความ)')
+            .setDescription('ของรางวัลหรือเหรียญ (ข้อความ)')
             .setRequired(true),
         ),
     )
     .addSubcommand((sub) =>
-      sub
-        .setName('list')
-        .setDescription('ดูรายการอีเวนต์'),
+      sub.setName('list').setDescription('ดูรายการอีเวนต์'),
     )
     .addSubcommand((sub) =>
       sub
@@ -89,7 +84,7 @@ module.exports = {
         .addIntegerOption((option) =>
           option
             .setName('coins')
-            .setDescription('เหรียญที่จะมอบให้ผู้ชนะ (ถ้ามี)')
+            .setDescription('จำนวนเหรียญที่จะมอบให้ผู้ชนะ')
             .setRequired(false)
             .setMinValue(1),
         ),
@@ -106,8 +101,10 @@ module.exports = {
       }
       return handleCreate(interaction);
     }
+
     if (sub === 'list') return handleList(interaction);
     if (sub === 'join') return handleJoin(interaction);
+
     if (sub === 'start') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({
@@ -117,6 +114,7 @@ module.exports = {
       }
       return handleStart(interaction);
     }
+
     if (sub === 'end') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({
@@ -126,6 +124,11 @@ module.exports = {
       }
       return handleEnd(interaction);
     }
+
+    return interaction.reply({
+      content: 'ไม่พบคำสั่งย่อย',
+      flags: MessageFlags.Ephemeral,
+    });
   },
 };
 
@@ -134,26 +137,33 @@ async function handleCreate(interaction) {
   const time = interaction.options.getString('time', true);
   const reward = interaction.options.getString('reward', true);
 
-  const ev = createEvent({ name, time, reward });
+  const result = await createServerEvent({ name, time, reward });
+  if (!result.ok) {
+    return interaction.reply({
+      content: 'ข้อมูลอีเวนต์ไม่ถูกต้อง',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
+  const { event } = result;
   await interaction.reply(
-    `สร้างอีเวนต์ใหม่แล้ว (ID: **${ev.id}**)\nชื่อ: **${ev.name}**\nเวลา: ${ev.time}\nของรางวัล: ${ev.reward}`,
+    `สร้างอีเวนต์ใหม่แล้ว (ID: **${event.id}**)\nชื่อ: **${event.name}**\nเวลา: ${event.time}\nของรางวัล: ${event.reward}`,
   );
 }
 
 async function handleList(interaction) {
-  const list = listEvents();
+  const list = listServerEvents();
   if (list.length === 0) {
     return interaction.reply('ยังไม่มีอีเวนต์ในระบบ');
   }
 
   const lines = list.map(
-    (e) =>
-      `ID: **${e.id}** | **${e.name}** | เวลา: ${e.time} | สถานะ: ${e.status}`,
+    (event) =>
+      `ID: **${event.id}** | **${event.name}** | เวลา: ${event.time} | สถานะ: ${event.status}`,
   );
 
   const embed = new EmbedBuilder()
-    .setTitle('📅 อีเวนต์ทั้งหมด')
+    .setTitle('รายการอีเวนต์ทั้งหมด')
     .setDescription(lines.join('\n'))
     .setColor(0x8a2be2);
 
@@ -162,31 +172,31 @@ async function handleList(interaction) {
 
 async function handleJoin(interaction) {
   const id = interaction.options.getInteger('id', true);
-  const res = joinEvent(id, interaction.user.id);
-  if (!res) {
+  const result = await joinServerEvent({ id, userId: interaction.user.id });
+  if (!result.ok) {
     return interaction.reply({
-      content: 'ไม่พบอีเวนต์ที่ต้องการ',
+      content: result.reason === 'not-found' ? 'ไม่พบอีเวนต์ที่ต้องการ' : 'ไม่สามารถเข้าร่วมอีเวนต์ได้',
       flags: MessageFlags.Ephemeral,
     });
   }
 
   await interaction.reply(
-    `${interaction.user} เข้าร่วมอีเวนต์ **${res.ev.name}** แล้ว`,
+    `${interaction.user} เข้าร่วมอีเวนต์ **${result.event.name}** แล้ว`,
   );
 }
 
 async function handleStart(interaction) {
   const id = interaction.options.getInteger('id', true);
-  const ev = startEvent(id);
-  if (!ev) {
+  const result = await startServerEvent({ id });
+  if (!result.ok) {
     return interaction.reply({
-      content: 'ไม่พบอีเวนต์ที่ต้องการ',
+      content: result.reason === 'not-found' ? 'ไม่พบอีเวนต์ที่ต้องการ' : 'ไม่สามารถเริ่มอีเวนต์ได้',
       flags: MessageFlags.Ephemeral,
     });
   }
 
   await interaction.reply(
-    `🎉 อีเวนต์ **${ev.name}** เริ่มแล้ว! ใครจะเข้าร่วมใช้คำสั่ง \`/event join id:${ev.id}\``,
+    `อีเวนต์ **${result.event.name}** เริ่มแล้ว ใครจะเข้าร่วมใช้คำสั่ง \`/event join id:${result.event.id}\``,
   );
 }
 
@@ -195,39 +205,37 @@ async function handleEnd(interaction) {
   const winner = interaction.options.getUser('winner');
   const coins = interaction.options.getInteger('coins');
 
-  const ev = endEvent(id);
-  if (!ev) {
+  const result = await finishServerEvent({
+    id,
+    winnerUserId: winner?.id || null,
+    coins,
+    actor: `discord:${interaction.user.id}`,
+  });
+
+  if (!result.ok) {
     return interaction.reply({
-      content: 'ไม่พบอีเวนต์ที่ต้องการ',
+      content: result.reason === 'not-found' ? 'ไม่พบอีเวนต์ที่ต้องการ' : 'ไม่สามารถปิดอีเวนต์ได้',
       flags: MessageFlags.Ephemeral,
     });
   }
 
-  const participants = getParticipants(id);
-
-  if (winner && coins && coins > 0) {
-    await creditCoins({
-      userId: winner.id,
-      amount: coins,
-      reason: 'event_reward',
-      actor: `discord:${interaction.user.id}`,
-      meta: {
-        eventId: ev.id,
-        eventName: ev.name,
-      },
-    });
-  }
-
   const lines = [
-    `✅ อีเวนต์ **${ev.name}** สิ้นสุดแล้ว`,
-    `ผู้เข้าร่วมทั้งหมด: **${participants.length}** คน`,
+    `อีเวนต์ **${result.event.name}** สิ้นสุดแล้ว`,
+    `ผู้เข้าร่วมทั้งหมด: **${result.participants.length}** คน`,
   ];
+
   if (winner) {
-    lines.push(
-      `ผู้ชนะ: ${winner} ได้รับ ${economy.currencySymbol} **${(
-        coins || 0
-      ).toLocaleString()}**`,
-    );
+    if (result.rewardGranted) {
+      lines.push(
+        `ผู้ชนะ: ${winner} ได้รับ ${economy.currencySymbol} **${Number(result.coins || 0).toLocaleString()}**`,
+      );
+    } else if (Number(result.coins || 0) > 0) {
+      lines.push(
+        `ผู้ชนะ: ${winner} แต่แจกเหรียญไม่สำเร็จ (${result.rewardError || 'unknown-error'})`,
+      );
+    } else {
+      lines.push(`ผู้ชนะ: ${winner}`);
+    }
   }
 
   await interaction.reply(lines.join('\n'));

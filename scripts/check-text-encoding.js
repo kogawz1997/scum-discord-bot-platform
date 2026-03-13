@@ -2,22 +2,26 @@
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const includeDirs = ['src', 'test', 'docs', 'scripts'];
+const includeDirs = ['src', 'test', 'docs', 'scripts', 'apps', 'deploy'];
 const includeFiles = [
   'README.md',
   'PROJECT_HQ.md',
   'PROJECT_REVIEW.md',
   '.env',
   '.env.example',
+  'package.json',
 ];
 const allowedExt = new Set([
   '.js',
+  '.cjs',
   '.md',
   '.html',
   '.json',
   '.yml',
   '.yaml',
   '.txt',
+  '.cmd',
+  '.ps1',
   '.env',
 ]);
 

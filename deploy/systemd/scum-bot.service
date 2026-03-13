@@ -7,6 +7,8 @@ Type=simple
 User=scum
 WorkingDirectory=/opt/scum-platform
 Environment=NODE_ENV=production
+Environment=PERSIST_REQUIRE_DB=true
+Environment=PERSIST_LEGACY_SNAPSHOTS=false
 EnvironmentFile=/opt/scum-platform/.env
 ExecStart=/usr/bin/node src/bot.js
 Restart=always

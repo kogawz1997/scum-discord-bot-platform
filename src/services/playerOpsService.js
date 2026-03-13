@@ -1,4 +1,10 @@
-const { getCode, markUsed } = require('../store/redeemStore');
+const {
+  getCode,
+  markUsed,
+  setCode,
+  deleteCode,
+  resetCodeUsage,
+} = require('../store/redeemStore');
 const { creditCoins } = require('./coinService');
 const {
   createBounty,
@@ -108,6 +114,55 @@ function listActiveBountiesForUser() {
   return listBounties().filter((row) => row.status === 'active');
 }
 
+function createRedeemCodeForAdmin(params = {}) {
+  const code = normalizeCode(params.code);
+  const type = normalizeText(params.type).toLowerCase();
+  const amount = params.amount == null ? null : normalizeAmount(params.amount);
+  const itemId = normalizeText(params.itemId) || null;
+
+  if (!code || !type) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+
+  if (type === 'coins' && (!Number.isFinite(amount) || amount <= 0)) {
+    return { ok: false, reason: 'invalid-amount' };
+  }
+
+  if (type === 'item' && !itemId) {
+    return { ok: false, reason: 'invalid-item-id' };
+  }
+
+  return setCode(code, {
+    type,
+    amount,
+    itemId,
+  });
+}
+
+function deleteRedeemCodeForAdmin(params = {}) {
+  const code = normalizeCode(params.code);
+  if (!code) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  const removed = deleteCode(code);
+  if (!removed) {
+    return { ok: false, reason: 'not-found' };
+  }
+  return { ok: true, code };
+}
+
+function resetRedeemCodeUsageForAdmin(params = {}) {
+  const code = normalizeCode(params.code);
+  if (!code) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  const item = resetCodeUsage(code);
+  if (!item) {
+    return { ok: false, reason: 'not-found' };
+  }
+  return { ok: true, data: item };
+}
+
 async function requestRentBikeForUser(params = {}) {
   const discordUserId = normalizeText(params.discordUserId);
   const guildId = normalizeText(params.guildId) || null;
@@ -122,5 +177,8 @@ module.exports = {
   createBountyForUser,
   cancelBountyForUser,
   listActiveBountiesForUser,
+  createRedeemCodeForAdmin,
+  deleteRedeemCodeForAdmin,
+  resetRedeemCodeUsageForAdmin,
   requestRentBikeForUser,
 };

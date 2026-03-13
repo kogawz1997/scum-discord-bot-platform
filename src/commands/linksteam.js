@@ -1,13 +1,14 @@
-const {
+﻿const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   MessageFlags,
 } = require('discord.js');
 const {
-  setLink,
-  getLinkByUserId,
-  getLinkBySteamId,
-} = require('../store/linkStore');
+  normalizeSteamIdInput,
+  bindSteamLinkForUser,
+  getSteamLinkByUserId,
+  getSteamLinkBySteamId,
+} = require('../services/linkService');
 
 function isStaff(interaction) {
   return interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
@@ -16,9 +17,7 @@ function isStaff(interaction) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('linksteam')
-    .setDescription(
-      'ผูก SteamID (SCUM) กับ Discord เพื่อใช้ระบบส่งของ/สถิติอัตโนมัติ',
-    )
+    .setDescription('ผูก SteamID (SCUM) กับ Discord เพื่อใช้ระบบส่งของและข้อมูลผู้เล่น')
     .addSubcommand((sub) =>
       sub
         .setName('set')
@@ -26,20 +25,18 @@ module.exports = {
         .addStringOption((opt) =>
           opt
             .setName('steamid')
-            .setDescription('SteamID64 (ตัวเลข 15-25 หลัก)')
+            .setDescription('SteamID64 ตัวเลข 15-25 หลัก')
             .setRequired(true),
         )
         .addStringOption((opt) =>
           opt
             .setName('name')
-            .setDescription(
-              'ชื่อในเกม (ไม่จำเป็น ระบบจะดึงจาก SCUM log ให้อัตโนมัติ)',
-            )
+            .setDescription('ชื่อในเกม (ไม่บังคับ)')
             .setRequired(false),
         ),
     )
     .addSubcommand((sub) =>
-      sub.setName('me').setDescription('ดู SteamID ที่ลิงก์กับบัญชีคุณ'),
+      sub.setName('me').setDescription('ดู SteamID ที่ลิงก์กับบัญชีของคุณ'),
     )
     .addSubcommand((sub) =>
       sub
@@ -57,7 +54,7 @@ module.exports = {
     .addSubcommand((sub) =>
       sub
         .setName('setuser')
-        .setDescription('ลิงก์ SteamID ให้ผู้ใช้อื่น (ทีมงาน)')
+        .setDescription('ลิงก์ SteamID ให้ผู้ใช้คนอื่น (ทีมงาน)')
         .addUserOption((opt) =>
           opt.setName('user').setDescription('ผู้ใช้ Discord').setRequired(true),
         )
@@ -76,57 +73,60 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'set') {
-      const steamId = interaction.options.getString('steamid', true);
+      const steamIdRaw = interaction.options.getString('steamid', true);
+      const steamId = normalizeSteamIdInput(steamIdRaw);
       const name = interaction.options.getString('name');
 
-      const current = getLinkByUserId(interaction.user.id);
-      if (current?.steamId && current.steamId !== steamId) {
+      if (!steamId) {
         return interaction.reply({
-          content:
-            'บัญชีนี้ผูก SteamID ไปแล้ว หากต้องการเปลี่ยน กรุณาติดต่อแอดมินเท่านั้น',
+          content: 'SteamID ไม่ถูกต้อง ต้องเป็นตัวเลข 15-25 หลัก เช่น SteamID64',
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      if (current?.steamId && current.steamId === steamId) {
+      const result = bindSteamLinkForUser({
+        userId: interaction.user.id,
+        steamId,
+        inGameName: name || null,
+        allowReplace: false,
+        allowSteamReuse: false,
+      });
+
+      if (!result.ok && result.reason === 'user-already-linked') {
+        return interaction.reply({
+          content: 'บัญชีนี้ผูก SteamID ไปแล้ว หากต้องการเปลี่ยน กรุณาติดต่อแอดมินเท่านั้น',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      if (!result.ok && result.reason === 'steam-already-linked') {
+        return interaction.reply({
+          content: 'SteamID นี้ถูกลิงก์กับบัญชีอื่นแล้ว กรุณาติดต่อแอดมิน',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      if (!result.ok) {
+        return interaction.reply({
+          content: 'ไม่สามารถบันทึกลิงก์ SteamID ได้ในตอนนี้ กรุณาลองใหม่',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      if (result.alreadyLinked) {
         return interaction.reply({
           content: `คุณผูก SteamID นี้ไว้แล้ว: \`${steamId}\``,
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      const existing = getLinkBySteamId(steamId);
-      if (existing && existing.userId !== interaction.user.id) {
-        return interaction.reply({
-          content: 'SteamID นี้ถูกลิงก์กับบัญชีอื่นแล้ว กรุณาติดต่อแอดมิน',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      const res = setLink({
-        steamId,
-        userId: interaction.user.id,
-        inGameName: name || null,
-      });
-
-      if (!res.ok) {
-        return interaction.reply({
-          content:
-            'SteamID ไม่ถูกต้อง (ต้องเป็นตัวเลข 15-25 หลัก เช่น SteamID64)',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
       return interaction.reply({
         content:
-          `ลิงก์สำเร็จ ✅\nSteamID: \`${res.steamId}\`\n` +
+          `ลิงก์สำเร็จ ✅\nSteamID: \`${steamId}\`\n` +
           'หมายเหตุ: ถ้าต้องการเปลี่ยน SteamID ต้องให้แอดมินดำเนินการ',
         flags: MessageFlags.Ephemeral,
       });
     }
 
     if (sub === 'me') {
-      const link = getLinkByUserId(interaction.user.id);
+      const link = getSteamLinkByUserId(interaction.user.id);
       if (!link) {
         return interaction.reply({
           content: 'คุณยังไม่ได้ลิงก์ SteamID ใช้ `/linksteam set` ก่อน',
@@ -144,8 +144,7 @@ module.exports = {
 
     if (sub === 'unset') {
       return interaction.reply({
-        content:
-          'ไม่สามารถยกเลิก/เปลี่ยน SteamID ด้วยตัวเองได้ กรุณาติดต่อแอดมิน',
+        content: 'ไม่สามารถยกเลิกหรือเปลี่ยน SteamID ด้วยตัวเองได้ กรุณาติดต่อแอดมิน',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -158,11 +157,19 @@ module.exports = {
         });
       }
 
-      const steamId = interaction.options.getString('steamid', true);
-      const link = getLinkBySteamId(steamId);
+      const steamIdRaw = interaction.options.getString('steamid', true);
+      const steamId = normalizeSteamIdInput(steamIdRaw);
+      if (!steamId) {
+        return interaction.reply({
+          content: 'SteamID ไม่ถูกต้อง',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const link = getSteamLinkBySteamId(steamId);
       if (!link) {
         return interaction.reply({
-          content: 'ไม่พบลิงก์นี้',
+          content: 'ไม่พบลิงก์นี้ในระบบ',
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -182,24 +189,33 @@ module.exports = {
       }
 
       const user = interaction.options.getUser('user', true);
-      const steamId = interaction.options.getString('steamid', true);
+      const steamIdRaw = interaction.options.getString('steamid', true);
+      const steamId = normalizeSteamIdInput(steamIdRaw);
       const name = interaction.options.getString('name');
 
-      const res = setLink({
-        steamId,
-        userId: user.id,
-        inGameName: name || null,
-      });
-      if (!res.ok) {
+      if (!steamId) {
         return interaction.reply({
-          content:
-            'SteamID ไม่ถูกต้อง (ต้องเป็นตัวเลข 15-25 หลัก เช่น SteamID64)',
+          content: 'SteamID ไม่ถูกต้อง ต้องเป็นตัวเลข 15-25 หลัก เช่น SteamID64',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const result = bindSteamLinkForUser({
+        userId: user.id,
+        steamId,
+        inGameName: name || null,
+        allowReplace: true,
+        allowSteamReuse: true,
+      });
+      if (!result.ok) {
+        return interaction.reply({
+          content: 'ไม่สามารถบันทึกลิงก์ SteamID ได้ในตอนนี้',
           flags: MessageFlags.Ephemeral,
         });
       }
 
       return interaction.reply({
-        content: `ลิงก์สำเร็จ ✅\nSteamID: \`${res.steamId}\`\nผู้ใช้: ${user}`,
+        content: `ลิงก์สำเร็จ ✅\nSteamID: \`${steamId}\`\nผู้ใช้: ${user}`,
         flags: MessageFlags.Ephemeral,
       });
     }

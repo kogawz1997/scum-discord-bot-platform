@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const PANEL_TYPES = new Set([
@@ -55,10 +54,6 @@ function normalizeState(input) {
   state.topEconomy = normalizeRef(input.topEconomy);
   return state;
 }
-
-const scheduleSave = saveJsonDebounced('top-panels.json', () => ({
-  guilds: Array.from(panelsByGuild.entries()),
-}));
 
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
@@ -133,7 +128,6 @@ async function hydrateFromPrisma() {
       for (const [guildId, state] of hydrated.entries()) {
         panelsByGuild.set(guildId, state);
       }
-      scheduleSave();
       return;
     }
 
@@ -142,25 +136,13 @@ async function hydrateFromPrisma() {
         panelsByGuild.set(guildId, state);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[topPanelStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('top-panels.json', null);
-  if (!persisted?.guilds || !Array.isArray(persisted.guilds)) return;
-  for (const [guildIdRaw, stateRaw] of persisted.guilds) {
-    const guildId = String(guildIdRaw || '').trim();
-    if (!guildId) continue;
-    panelsByGuild.set(guildId, normalizeState(stateRaw));
-  }
-}
-
 function initTopPanelStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -177,7 +159,6 @@ function getGuildState(guildId, createIfMissing = false) {
   if (!state && createIfMissing) {
     state = normalizeState(null);
     panelsByGuild.set(key, state);
-    scheduleSave();
   }
   return state;
 }
@@ -189,7 +170,6 @@ function setTopPanelMessage(guildId, panelType, channelId, messageId) {
   if (!state) return null;
   state[key] = normalizeRef({ channelId, messageId, updatedAt: new Date().toISOString() });
   mutationVersion += 1;
-  scheduleSave();
 
   const guildKey = String(guildId || '').trim();
   const ref = state[key];
@@ -237,7 +217,6 @@ function removeTopPanelMessage(guildId, panelType) {
   if (!state || !state[key]) return false;
   state[key] = null;
   mutationVersion += 1;
-  scheduleSave();
 
   const guildKey = String(guildId || '').trim();
   queueDbWrite(
@@ -294,7 +273,6 @@ function replaceTopPanels(nextPanels = []) {
     if (!guildId) continue;
     panelsByGuild.set(guildId, normalizeState(row));
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

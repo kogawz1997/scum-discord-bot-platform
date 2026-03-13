@@ -1,6 +1,6 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { getWallet } = require('../store/memoryStore');
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const { economy } = require('../config');
+const { getWalletSnapshot } = require('../services/playerQueryService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -9,16 +9,16 @@ module.exports = {
     .addUserOption((option) =>
       option
         .setName('user')
-        .setDescription('ดูของคนอื่น (ถ้ามีสิทธิ์)')
+        .setDescription('ดูยอดของผู้ใช้คนอื่น')
         .setRequired(false),
     ),
+
   async execute(interaction) {
-    const targetUser =
-      interaction.options.getUser('user') ?? interaction.user;
+    const targetUser = interaction.options.getUser('user') ?? interaction.user;
 
     if (
-      targetUser.id !== interaction.user.id &&
-      !interaction.memberPermissions.has('ManageGuild')
+      targetUser.id !== interaction.user.id
+      && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
     ) {
       return interaction.reply({
         content: 'คุณไม่มีสิทธิ์ดูยอดของผู้ใช้งานคนอื่น',
@@ -26,10 +26,9 @@ module.exports = {
       });
     }
 
-    const wallet = await getWallet(targetUser.id);
-    await interaction.reply(
-      `${targetUser} มี ${economy.currencySymbol} **${wallet.balance.toLocaleString()}** เหรียญ`,
+    const wallet = await getWalletSnapshot(targetUser.id);
+    return interaction.reply(
+      `${targetUser} มี ${economy.currencySymbol} **${Number(wallet.balance || 0).toLocaleString()}** เหรียญ`,
     );
   },
 };
-

@@ -7,24 +7,26 @@ const http = require('node:http');
 const { pipeline } = require('node:stream/promises');
 const { URL, URLSearchParams } = require('node:url');
 
-const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config();
+const { loadMergedEnvFiles } = require('../../src/utils/loadEnvFiles');
+loadMergedEnvFiles({
+  basePath: path.resolve(process.cwd(), '.env'),
+  overlayPath: path.join(__dirname, '.env'),
+});
+const {
+  safeJsonStringify,
+  installBigIntJsonSerialization,
+} = require('../../src/utils/jsonSerialization');
+installBigIntJsonSerialization();
 
 const {
   listShopItems,
   listUserPurchases,
   getWallet,
-  addCoins,
   listWalletLedger,
   canClaimDaily,
   claimDaily,
   canClaimWeekly,
   claimWeekly,
-  getShopItemById,
-  getShopItemByName,
-  createPurchase,
-  removeCoins,
   listTopWallets,
   listPurchaseStatusHistory,
 } = require('../../src/store/memoryStore');
@@ -48,6 +50,11 @@ const {
   getDeliveryStatusText,
 } = require('../../src/services/cartService');
 const {
+  normalizeShopKind,
+  findShopItemByQuery,
+  purchaseShopItemForUser,
+} = require('../../src/services/shopService');
+const {
   addCartItem,
   removeCartItem,
   clearCart,
@@ -55,14 +62,17 @@ const {
 } = require('../../src/store/cartStore');
 const { transferCoins } = require('../../src/services/coinService');
 const {
+  checkRewardClaimForUser,
+  claimRewardForUser,
+} = require('../../src/services/rewardService');
+const {
   setLink,
   getLinkBySteamId,
   getLinkByUserId,
 } = require('../../src/store/linkStore');
 const {
-  getUserWheelState,
   canSpinWheel,
-  recordWheelSpin,
+  getUserWheelState,
 } = require('../../src/store/luckyWheelStore');
 const {
   listPartyMessages,
@@ -77,7 +87,7 @@ const {
   listRentalVehicles,
   getDailyRent,
 } = require('../../src/store/rentBikeStore');
-const { enqueuePurchaseDelivery } = require('../../src/services/rconDelivery');
+const { awardWheelRewardForUser } = require('../../src/services/wheelService');
 const config = require('../../src/config');
 
 const NODE_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
@@ -631,21 +641,10 @@ function sendJson(res, statusCode, payload, extraHeaders = {}) {
   let effectiveStatus = statusCode;
   let body = '';
   try {
-    body = JSON.stringify(payload, (_key, value) => {
-      if (typeof value === 'bigint') {
-        if (
-          value <= BigInt(Number.MAX_SAFE_INTEGER)
-          && value >= BigInt(Number.MIN_SAFE_INTEGER)
-        ) {
-          return Number(value);
-        }
-        return String(value);
-      }
-      return value;
-    });
+    body = safeJsonStringify(payload);
   } catch (error) {
     effectiveStatus = 500;
-    body = JSON.stringify({
+    body = safeJsonStringify({
       ok: false,
       error: 'Internal serialization error',
     });
@@ -1230,10 +1229,6 @@ function filterShopItems(rows, options = {}) {
   return out;
 }
 
-function normalizeShopKind(value) {
-  return normalizeText(value).toLowerCase() === 'vip' ? 'vip' : 'item';
-}
-
 function serializeCartResolved(resolved) {
   const rows = Array.isArray(resolved?.rows) ? resolved.rows : [];
   return {
@@ -1259,12 +1254,6 @@ function serializeCartResolved(resolved) {
     totalPrice: normalizeAmount(resolved?.totalPrice, 0),
     totalUnits: normalizeAmount(resolved?.totalUnits, 0),
   };
-}
-
-async function findShopItemByQuery(query) {
-  const q = normalizeText(query);
-  if (!q) return null;
-  return (await getShopItemByName(q)) || (await getShopItemById(q));
 }
 
 async function buildPlayerNameLookup() {
@@ -1887,22 +1876,6 @@ async function handlePlayerApi(req, res, urlObj) {
       });
     }
 
-    const hasItemRewards = wheelConfig.rewards.some(
-      (row) => normalizeText(row.type).toLowerCase() === 'item',
-    );
-    if (hasItemRewards) {
-      const link = await resolveSessionSteamLink(session.discordId);
-      if (!link?.linked) {
-        return sendJson(res, 400, {
-          ok: false,
-          error: 'steam-link-required-for-item-wheel',
-          data: {
-            message: 'วงล้อมีรางวัลไอเทมในเกม กรุณาผูก SteamID ก่อนหมุน',
-          },
-        });
-      }
-    }
-
     const reward = pickLuckyWheelReward(wheelConfig.rewards);
     if (!reward) {
       return sendJson(res, 500, {
@@ -1910,120 +1883,24 @@ async function handlePlayerApi(req, res, urlObj) {
         error: 'wheel-reward-not-found',
       });
     }
-
-    const rewardType = normalizeText(reward.type).toLowerCase() || 'coins';
-    const rewardAmount = normalizeAmount(reward.amount, 0);
-    const rewardQuantity = normalizeQuantity(reward.quantity, 1);
-    const rewardItemId = normalizeText(reward.itemId || reward.gameItemId || reward.id);
-    const rewardGameItemId = normalizeText(reward.gameItemId || reward.itemId || reward.id);
-    const rewardIconUrl = normalizeHttpUrl(reward.iconUrl)
-      || resolveItemIconUrl({
-        id: rewardItemId || rewardGameItemId || reward.id,
-        gameItemId: rewardGameItemId,
-        name: reward.label,
-      })
-      || null;
-    const rewardAt = new Date().toISOString();
-
-    let walletBalance = normalizeAmount((await getWallet(session.discordId))?.balance, 0);
-    let creditApplied = 0;
-    let itemRewardPurchaseCode = null;
-    let itemRewardQueued = false;
-    let itemRewardQueueReason = null;
-    if (rewardType === 'coins' && rewardAmount > 0) {
-      walletBalance = await addCoins(session.discordId, rewardAmount, {
-        reason: 'wheel_spin_reward',
-        actor: 'system',
-        reference: `wheel:${reward.id}`,
-        meta: {
-          source: 'player-portal',
-          rewardId: reward.id,
-          rewardLabel: reward.label,
-          rewardType,
-          rewardAmount,
+    const wheelResult = await awardWheelRewardForUser({
+      userId: session.discordId,
+      reward,
+      source: 'player-portal',
+      actor: 'system',
+    });
+    if (!wheelResult.ok) {
+      const error = wheelResult.reason || 'wheel-award-failed';
+      const statusCode = error === 'steam-link-required-for-item-wheel' ? 400 : 500;
+      return sendJson(res, statusCode, {
+        ok: false,
+        error,
+        data: {
+          message: error === 'steam-link-required-for-item-wheel'
+            ? 'วงล้อมีรางวัลไอเทมในเกม กรุณาผูก SteamID ก่อนหมุน'
+            : 'ไม่สามารถมอบรางวัลวงล้อได้',
         },
       });
-      creditApplied = rewardAmount;
-    }
-    if (rewardType === 'item') {
-      if (!rewardItemId || !rewardGameItemId) {
-        return sendJson(res, 500, {
-          ok: false,
-          error: 'wheel-item-reward-invalid',
-          data: {
-            message: 'ตั้งค่ารางวัลไอเทมไม่สมบูรณ์ (itemId/gameItemId)',
-          },
-        });
-      }
-
-      const rewardPurchase = await createPurchase(session.discordId, {
-        id: rewardItemId,
-        price: 0,
-      });
-      itemRewardPurchaseCode = normalizeText(rewardPurchase?.code) || null;
-
-      const enqueueResult = await enqueuePurchaseDelivery(rewardPurchase, {
-        source: 'wheel-spin',
-        itemName: reward.label,
-        iconUrl: rewardIconUrl,
-        itemKind: 'item',
-        gameItemId: rewardGameItemId,
-        quantity: rewardQuantity,
-        deliveryItems: [
-          {
-            gameItemId: rewardGameItemId,
-            quantity: rewardQuantity,
-            iconUrl: rewardIconUrl,
-          },
-        ],
-      });
-      itemRewardQueued = Boolean(enqueueResult?.queued);
-      itemRewardQueueReason = normalizeText(enqueueResult?.reason) || null;
-    }
-
-    const recorded = await recordWheelSpin(session.discordId, {
-      id: reward.id,
-      label: reward.label,
-      type: rewardType,
-      amount: rewardAmount,
-      quantity: rewardType === 'item' ? rewardQuantity : 0,
-      itemId: rewardType === 'item' ? rewardItemId : null,
-      gameItemId: rewardType === 'item' ? rewardGameItemId : null,
-      iconUrl: rewardIconUrl,
-      at: rewardAt,
-    });
-    if (!recorded?.ok) {
-      if (creditApplied > 0) {
-        try {
-          walletBalance = await removeCoins(session.discordId, creditApplied, {
-            reason: 'wheel_spin_rollback',
-            actor: 'system',
-            reference: `wheel:${reward.id}`,
-            meta: {
-              source: 'player-portal',
-              reason: 'wheel-state-write-failed',
-            },
-          });
-        } catch (rollbackError) {
-          console.error(
-            '[web-portal-standalone] wheel rollback failed:',
-            rollbackError?.message || rollbackError,
-          );
-        }
-      }
-      if (rewardType === 'item' && itemRewardPurchaseCode) {
-        console.error(
-          '[web-portal-standalone] wheel spin history write failed for item reward:',
-          recorded?.reason || 'unknown',
-          'purchaseCode=',
-          itemRewardPurchaseCode,
-        );
-      } else {
-        return sendJson(res, 500, {
-          ok: false,
-          error: 'wheel-record-failed',
-        });
-      }
     }
 
     const wheelState = await buildWheelStatePayload(
@@ -2031,36 +1908,29 @@ async function handlePlayerApi(req, res, urlObj) {
       wheelConfig,
       20,
     );
-    const rewardLabel = normalizeText(reward.label || reward.id) || 'รางวัลพิเศษ';
-    let message = `หมุนวงล้อสำเร็จ! ผลลัพธ์: ${rewardLabel}`;
-    if (rewardType === 'coins' && rewardAmount > 0) {
-      message = `หมุนวงล้อสำเร็จ! ได้รับ ${rewardLabel} (+${rewardAmount.toLocaleString()} Coins)`;
-    } else if (rewardType === 'item') {
-      message = itemRewardQueued
-        ? `หมุนวงล้อสำเร็จ! ได้รับ ${rewardLabel} x${rewardQuantity} (ออเดอร์ ${itemRewardPurchaseCode || '-'})`
-        : `หมุนวงล้อสำเร็จ! ได้รับ ${rewardLabel} x${rewardQuantity} (ออเดอร์ ${itemRewardPurchaseCode || '-'} | รอคิวส่งของ)`;
-    }
+    const rewardData = wheelResult.reward || {};
+    const rewardLabel = normalizeText(rewardData.label || reward.label || reward.id) || 'รางวัลพิเศษ';
 
     return sendJson(res, 200, {
       ok: true,
       data: {
         reward: {
-          id: reward.id,
+          id: rewardData.id,
           label: rewardLabel,
-          type: rewardType,
-          amount: rewardAmount,
-          quantity: rewardType === 'item' ? rewardQuantity : 0,
-          itemId: rewardType === 'item' ? rewardItemId : null,
-          gameItemId: rewardType === 'item' ? rewardGameItemId : null,
-          iconUrl: rewardIconUrl,
-          purchaseCode: itemRewardPurchaseCode,
-          deliveryQueued: itemRewardQueued,
-          deliveryQueueReason: itemRewardQueueReason,
-          at: rewardAt,
-          awardedCoins: creditApplied,
+          type: rewardData.type,
+          amount: rewardData.amount,
+          quantity: rewardData.type === 'item' ? rewardData.quantity : 0,
+          itemId: rewardData.type === 'item' ? rewardData.itemId : null,
+          gameItemId: rewardData.type === 'item' ? rewardData.gameItemId : null,
+          iconUrl: rewardData.iconUrl,
+          purchaseCode: rewardData.purchaseCode,
+          deliveryQueued: rewardData.deliveryQueued,
+          deliveryQueueReason: rewardData.deliveryQueueReason,
+          at: rewardData.at,
+          awardedCoins: rewardData.awardedCoins,
         },
-        walletBalance: normalizeAmount(walletBalance, 0),
-        message,
+        walletBalance: normalizeAmount(wheelResult.walletBalance, 0),
+        message: wheelResult.message,
         state: wheelState,
       },
     });
@@ -2213,7 +2083,10 @@ async function handlePlayerApi(req, res, urlObj) {
 
   if (pathname === '/player/api/daily/claim' && method === 'POST') {
     const economy = getEconomyConfig();
-    const check = await canClaimDaily(session.discordId);
+    const check = await checkRewardClaimForUser({
+      userId: session.discordId,
+      type: 'daily',
+    });
     if (!check?.ok) {
       return sendJson(res, 400, {
         ok: false,
@@ -2224,21 +2097,33 @@ async function handlePlayerApi(req, res, urlObj) {
         },
       });
     }
-    const balance = await claimDaily(session.discordId);
+    const result = await claimRewardForUser({
+      userId: session.discordId,
+      type: 'daily',
+    });
+    if (!result.ok) {
+      return sendJson(res, 500, {
+        ok: false,
+        error: result.reason || 'daily-claim-failed',
+      });
+    }
     return sendJson(res, 200, {
       ok: true,
       data: {
         reward: economy.dailyReward,
-        balance: normalizeAmount(balance, 0),
+        balance: normalizeAmount(result.balance, 0),
         currencySymbol: economy.currencySymbol,
-        message: `รับรายวันสำเร็จ +${economy.dailyReward.toLocaleString()} ${economy.currencySymbol}`,
+        message: result.message,
       },
     });
   }
 
   if (pathname === '/player/api/weekly/claim' && method === 'POST') {
     const economy = getEconomyConfig();
-    const check = await canClaimWeekly(session.discordId);
+    const check = await checkRewardClaimForUser({
+      userId: session.discordId,
+      type: 'weekly',
+    });
     if (!check?.ok) {
       return sendJson(res, 400, {
         ok: false,
@@ -2249,14 +2134,23 @@ async function handlePlayerApi(req, res, urlObj) {
         },
       });
     }
-    const balance = await claimWeekly(session.discordId);
+    const result = await claimRewardForUser({
+      userId: session.discordId,
+      type: 'weekly',
+    });
+    if (!result.ok) {
+      return sendJson(res, 500, {
+        ok: false,
+        error: result.reason || 'weekly-claim-failed',
+      });
+    }
     return sendJson(res, 200, {
       ok: true,
       data: {
         reward: economy.weeklyReward,
-        balance: normalizeAmount(balance, 0),
+        balance: normalizeAmount(result.balance, 0),
         currencySymbol: economy.currencySymbol,
-        message: `รับรายสัปดาห์สำเร็จ +${economy.weeklyReward.toLocaleString()} ${economy.currencySymbol}`,
+        message: result.message,
       },
     });
   }
@@ -2420,9 +2314,16 @@ async function handlePlayerApi(req, res, urlObj) {
     }
 
     const itemKind = normalizeShopKind(item.kind);
-    if (itemKind === 'item') {
-      const steamLink = await resolveSessionSteamLink(session.discordId);
-      if (!steamLink.linked || !steamLink.steamId) {
+    const result = await purchaseShopItemForUser({
+      userId: session.discordId,
+      item,
+      guildId: normalizeText(body.guildId) || null,
+      actor: `portal:${session.user}`,
+      source: 'player-portal-buy',
+      resolveSteamLink: async () => resolveSessionSteamLink(session.discordId),
+    });
+    if (!result.ok) {
+      if (result.reason === 'steam-link-required') {
         return sendJson(res, 400, {
           ok: false,
           error: 'steam-link-required',
@@ -2431,35 +2332,27 @@ async function handlePlayerApi(req, res, urlObj) {
           },
         });
       }
-    }
-
-    const wallet = await getWallet(session.discordId);
-    const price = normalizeAmount(item.price, 0);
-    if (normalizeAmount(wallet.balance, 0) < price) {
-      return sendJson(res, 400, {
+      if (result.reason === 'insufficient-balance') {
+        return sendJson(res, 400, {
+          ok: false,
+          error: 'insufficient-balance',
+          data: {
+            required: normalizeAmount(item.price, 0),
+            balance: normalizeAmount(result.balance, 0),
+          },
+        });
+      }
+      return sendJson(res, 500, {
         ok: false,
-        error: 'insufficient-balance',
+        error: 'purchase-failed',
         data: {
-          required: price,
-          balance: normalizeAmount(wallet.balance, 0),
+          message: 'ไม่สามารถสร้างคำสั่งซื้อได้ในตอนนี้ ระบบคืนเหรียญให้อัตโนมัติแล้ว',
         },
       });
     }
 
-    await removeCoins(session.discordId, price, {
-      reason: 'purchase_debit',
-      actor: `portal:${session.user}`,
-      meta: {
-        source: 'player-portal-buy',
-        itemId: item.id,
-        itemName: item.name,
-      },
-    });
-
-    const purchase = await createPurchase(session.discordId, item);
-    const delivery = await enqueuePurchaseDelivery(purchase, {
-      guildId: normalizeText(body.guildId) || null,
-    });
+    const { purchase, delivery } = result;
+    const price = normalizeAmount(item.price, 0);
 
     return sendJson(res, 200, {
       ok: true,
@@ -2662,6 +2555,8 @@ async function handlePlayerApi(req, res, urlObj) {
 
     const result = await checkoutCart(session.discordId, {
       guildId: normalizeText(body.guildId) || null,
+      actor: `portal:${session.user}`,
+      source: 'player-portal-cart-checkout',
     });
     if (!result.ok) {
       return sendJson(res, 400, {
@@ -2690,6 +2585,7 @@ async function handlePlayerApi(req, res, urlObj) {
             }))
           : [],
         failures: Array.isArray(result.failures) ? result.failures : [],
+        refundedAmount: normalizeAmount(result.refundedAmount, 0),
       },
     });
   }

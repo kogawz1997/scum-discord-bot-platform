@@ -1,13 +1,11 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { channels, economy } = require('../config');
-const { getShopItemByName, getShopItemById } = require('../store/memoryStore');
+const { findShopItemView } = require('../services/playerQueryService');
 const {
-  addCartItem,
-  removeCartItem,
-  clearCart,
-  listCartItems,
-} = require('../store/cartStore');
-const {
+  addItemToCartForUser,
+  removeItemFromCartForUser,
+  clearCartForUser,
+  listCartItemsForUser,
   getResolvedCart,
   checkoutCart,
 } = require('../services/cartService');
@@ -32,9 +30,7 @@ function formatResolvedCart(resolved, maxRows = 8) {
   lines.push(`ยอดรวม: ${economy.currencySymbol} **${resolved.totalPrice.toLocaleString()}**`);
   if (Array.isArray(resolved.missingItemIds) && resolved.missingItemIds.length > 0) {
     lines.push(
-      `ข้ามสินค้าที่ไม่พบในร้าน: ${resolved.missingItemIds
-        .map((id) => `\`${id}\``)
-        .join(', ')}`,
+      `ข้ามสินค้าที่ไม่พบในร้าน: ${resolved.missingItemIds.map((id) => `\`${id}\``).join(', ')}`,
     );
   }
 
@@ -50,48 +46,36 @@ module.exports = {
         .setName('add')
         .setDescription('เพิ่มสินค้าลงตะกร้า')
         .addStringOption((option) =>
-          option
-            .setName('item')
-            .setDescription('ชื่อสินค้า หรือรหัสสินค้า')
-            .setRequired(true),
+          option.setName('item').setDescription('ชื่อสินค้า หรือรหัสสินค้า').setRequired(true),
         )
         .addIntegerOption((option) =>
           option
             .setName('qty')
-            .setDescription('จำนวน (ค่าเริ่มต้น 1)')
+            .setDescription('จำนวน')
             .setMinValue(1)
             .setMaxValue(20)
             .setRequired(false),
         ),
     )
-    .addSubcommand((sub) =>
-      sub.setName('view').setDescription('ดูรายการสินค้าในตะกร้า'),
-    )
+    .addSubcommand((sub) => sub.setName('view').setDescription('ดูรายการสินค้าในตะกร้า'))
     .addSubcommand((sub) =>
       sub
         .setName('remove')
         .setDescription('นำสินค้าออกจากตะกร้า')
         .addStringOption((option) =>
-          option
-            .setName('item')
-            .setDescription('ชื่อสินค้า หรือรหัสสินค้า')
-            .setRequired(true),
+          option.setName('item').setDescription('ชื่อสินค้า หรือรหัสสินค้า').setRequired(true),
         )
         .addIntegerOption((option) =>
           option
             .setName('qty')
-            .setDescription('จำนวนที่ต้องการนำออก (ถ้าไม่ใส่ = ลบทั้งรายการ)')
+            .setDescription('จำนวนที่จะเอาออก')
             .setMinValue(1)
             .setMaxValue(99)
             .setRequired(false),
         ),
     )
-    .addSubcommand((sub) =>
-      sub.setName('clear').setDescription('ล้างตะกร้าทั้งหมด'),
-    )
-    .addSubcommand((sub) =>
-      sub.setName('checkout').setDescription('ชำระตะกร้าและสร้างคำสั่งซื้อทั้งหมด'),
-    ),
+    .addSubcommand((sub) => sub.setName('clear').setDescription('ล้างตะกร้าทั้งหมด'))
+    .addSubcommand((sub) => sub.setName('checkout').setDescription('ชำระตะกร้าทั้งหมด')),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
@@ -100,14 +84,22 @@ module.exports = {
     if (sub === 'add') {
       const query = interaction.options.getString('item', true);
       const qty = interaction.options.getInteger('qty') || 1;
-      const item = (await getShopItemByName(query)) || (await getShopItemById(query));
+      const item = await findShopItemView(query);
       if (!item) {
         return interaction.reply({
           content: 'ไม่พบสินค้าที่ต้องการเพิ่มลงตะกร้า',
           flags: MessageFlags.Ephemeral,
         });
       }
-      addCartItem(userId, item.id, qty);
+
+      const addResult = addItemToCartForUser({ userId, itemId: item.id, quantity: qty });
+      if (!addResult.ok) {
+        return interaction.reply({
+          content: 'ไม่สามารถเพิ่มสินค้าเข้าตะกร้าได้',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
       const resolved = await getResolvedCart(userId);
       return interaction.reply({
         content: `เพิ่ม **${item.name}** x**${qty}** ลงตะกร้าแล้ว\n\n${formatResolvedCart(resolved, 6)}`,
@@ -125,11 +117,12 @@ module.exports = {
 
     if (sub === 'remove') {
       const query = interaction.options.getString('item', true);
-      const item = (await getShopItemByName(query)) || (await getShopItemById(query));
-      const cartRows = listCartItems(userId);
+      const item = await findShopItemView(query);
+      const cartRows = listCartItemsForUser(userId);
       const row = item
         ? cartRows.find((entry) => entry.itemId === item.id)
         : cartRows.find((entry) => entry.itemId === query);
+
       if (!row) {
         return interaction.reply({
           content: 'ไม่พบสินค้านี้ในตะกร้าของคุณ',
@@ -139,7 +132,17 @@ module.exports = {
 
       const qtyArg = interaction.options.getInteger('qty');
       const removeQty = qtyArg || row.quantity;
-      removeCartItem(userId, row.itemId, removeQty);
+      const removeResult = removeItemFromCartForUser({
+        userId,
+        itemId: row.itemId,
+        quantity: removeQty,
+      });
+      if (!removeResult.ok) {
+        return interaction.reply({
+          content: 'ไม่สามารถนำสินค้าออกจากตะกร้าได้',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
       const resolved = await getResolvedCart(userId);
       const itemLabel = item?.name || row.itemId;
@@ -150,7 +153,7 @@ module.exports = {
     }
 
     if (sub === 'clear') {
-      clearCart(userId);
+      clearCartForUser(userId);
       return interaction.reply({
         content: 'ล้างตะกร้าเรียบร้อยแล้ว',
         flags: MessageFlags.Ephemeral,
@@ -161,20 +164,20 @@ module.exports = {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const result = await checkoutCart(userId, {
         guildId: interaction.guildId || null,
+        actor: `discord:${interaction.user.id}`,
+        source: 'slash-cart-checkout',
       });
 
       if (!result.ok && result.reason === 'empty') {
-        return interaction.editReply({
-          content: 'ตะกร้าของคุณว่างอยู่',
-        });
+        return interaction.editReply({ content: 'ตะกร้าของคุณว่างอยู่' });
       }
 
-      if (!result.ok && result.reason === 'insufficient') {
+      if (!result.ok && result.reason === 'insufficient-balance') {
         return interaction.editReply({
           content:
-            `ยอดเหรียญไม่พอสำหรับชำระตะกร้า\n` +
-            `ต้องใช้: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}**\n` +
-            `ยอดคงเหลือ: ${economy.currencySymbol} **${Number(result.walletBalance || 0).toLocaleString()}**`,
+            `ยอดเหรียญไม่พอสำหรับชำระตะกร้า\n`
+            + `ต้องใช้: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}**\n`
+            + `ยอดคงเหลือ: ${economy.currencySymbol} **${Number(result.walletBalance || 0).toLocaleString()}**`,
         });
       }
 
@@ -187,37 +190,38 @@ module.exports = {
         : '';
 
       const lines = [
-        'ชำระตะกร้าสำเร็จ ✅',
+        'ชำระตะกร้าสำเร็จ',
         `รวม ${result.rows.length} รายการ (${result.totalUnits} ชิ้น)`,
         `ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}**`,
-        `สร้างคำสั่งซื้อ: **${result.purchases.length}** รายการ`,
+        `สร้างคำสั่งซื้อสำเร็จ: **${result.purchases.length}** รายการ`,
       ];
       if (successCodes) {
         lines.push(`โค้ดอ้างอิง: ${successCodes}${moreText}`);
       }
-      if (result.failures.length > 0) {
+      if (Number(result.refundedAmount || 0) > 0) {
         lines.push(
-          `มี ${result.failures.length} รายการที่ระบบส่งของมีปัญหา (ตรวจสอบใน /inventory และ shop-log)`,
+          `คืนเหรียญอัตโนมัติแล้ว: ${economy.currencySymbol} **${Number(result.refundedAmount || 0).toLocaleString()}**`,
         );
+      }
+      if (result.failures.length > 0) {
+        lines.push(`มี ${result.failures.length} รายการที่สร้างคำสั่งซื้อไม่สำเร็จ ระบบคืนเหรียญส่วนที่ล้มเหลวแล้ว`);
       }
 
       try {
         const guild = interaction.guild;
         if (guild) {
-          const logChannel = guild.channels.cache.find((c) => c.name === channels.shopLog);
+          const logChannel = guild.channels.cache.find((channel) => channel.name === channels.shopLog);
           if (logChannel && logChannel.isTextBased()) {
             await logChannel.send(
-              `🛒 **ชำระตะกร้า** | ผู้ใช้: ${interaction.user} | รายการ: ${result.rows.length} | ชิ้นรวม: ${result.totalUnits} | ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}** | คำสั่งซื้อที่สร้าง: ${result.purchases.length} | fail: ${result.failures.length}`,
+              `ชำระตะกร้า | ผู้ใช้: ${interaction.user} | รายการ: ${result.rows.length} | ชิ้นรวม: ${result.totalUnits} | ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}** | สร้างคำสั่งซื้อสำเร็จ: ${result.purchases.length} | fail: ${result.failures.length} | refund: ${Number(result.refundedAmount || 0).toLocaleString()}`,
             );
           }
         }
       } catch (error) {
-        console.error('ไม่สามารถส่ง log ชำระตะกร้าไปยัง shop-log ได้', error);
+        console.error('ส่ง log ชำระตะกร้าไปช่อง shop-log ไม่สำเร็จ:', error.message);
       }
 
-      return interaction.editReply({
-        content: lines.join('\n'),
-      });
+      return interaction.editReply({ content: lines.join('\n') });
     }
 
     return interaction.reply({

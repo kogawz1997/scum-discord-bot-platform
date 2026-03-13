@@ -1,5 +1,4 @@
-﻿const { loadJson, saveJsonDebounced } = require('./_persist');
-const { prisma } = require('../prisma');
+﻿const { prisma } = require('../prisma');
 
 // steamId -> { userId, inGameName, linkedAt }
 const links = new Map();
@@ -7,16 +6,6 @@ const links = new Map();
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('links.json', () => ({
-  links: Array.from(links.entries()).map(([steamId, value]) => [
-    steamId,
-    {
-      ...value,
-      linkedAt: value.linkedAt ? new Date(value.linkedAt).toISOString() : null,
-    },
-  ]),
-}));
 
 function normalizeSteamId(steamId) {
   const s = String(steamId || '').trim();
@@ -112,7 +101,6 @@ async function hydrateFromPrisma() {
       for (const [steamId, value] of hydrated.entries()) {
         links.set(steamId, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -122,34 +110,13 @@ async function hydrateFromPrisma() {
       if (currentUserIndex.has(value.userId)) continue;
       links.set(steamId, value);
     }
-    scheduleSave();
   } catch (error) {
     console.error('[linkStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('links.json', null);
-  if (!persisted) return;
-  for (const [steamId, value] of persisted.links || []) {
-    const row = normalizeLinkRow({
-      steamId,
-      userId: value?.userId,
-      inGameName: value?.inGameName,
-      linkedAt: value?.linkedAt,
-    });
-    if (!row) continue;
-    links.set(row.steamId, {
-      userId: row.userId,
-      inGameName: row.inGameName,
-      linkedAt: row.linkedAt,
-    });
-  }
-}
-
 function initLinkStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -197,7 +164,6 @@ function setLink({ steamId, userId, inGameName }) {
     inGameName: normalizedInGameName,
     linkedAt,
   });
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -263,7 +229,6 @@ function updateInGameNameBySteamId(steamId, inGameName) {
     ...existing,
     inGameName: normalizedInGameName,
   });
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -288,20 +253,22 @@ function updateInGameNameBySteamId(steamId, inGameName) {
 function unlinkByUserId(userId) {
   const u = String(userId || '').trim();
   let removed = null;
+  const removedSteamIds = [];
   for (const [sid, value] of links.entries()) {
     if (value.userId === u) {
-      removed = { steamId: sid, ...value };
+      if (!removed) {
+        removed = { steamId: sid, ...value };
+      }
+      removedSteamIds.push(sid);
       links.delete(sid);
-      break;
     }
   }
   if (!removed) return null;
 
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
-      await prisma.link.deleteMany({ where: { steamId: removed.steamId } });
+      await prisma.link.deleteMany({ where: { userId: removed.userId } });
       await prisma.playerAccount.upsert({
         where: { discordId: removed.userId },
         update: {
@@ -317,7 +284,10 @@ function unlinkByUserId(userId) {
     },
     'unlink-user',
   );
-  return removed;
+  return {
+    ...removed,
+    removedSteamIds,
+  };
 }
 
 function unlinkBySteamId(steamId) {
@@ -328,7 +298,6 @@ function unlinkBySteamId(steamId) {
 
   mutationVersion += 1;
   links.delete(s);
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.link.deleteMany({ where: { steamId: s } });
@@ -371,7 +340,6 @@ function replaceLinks(nextLinks = []) {
     });
   }
 
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.link.deleteMany();

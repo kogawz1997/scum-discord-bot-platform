@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
@@ -162,11 +163,69 @@ function makeTestContext(overrides = {}) {
 
 test.afterEach(() => {
   delete process.env.RCON_EXEC_TEMPLATE;
+  delete process.env.DELIVERY_EXECUTION_MODE;
+  delete process.env.SCUM_CONSOLE_AGENT_BASE_URL;
+  delete process.env.SCUM_CONSOLE_AGENT_TOKEN;
+  delete process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON;
+  delete process.env.DELIVERY_AGENT_POST_COMMANDS_JSON;
+  delete process.env.DELIVERY_AGENT_COMMAND_DELAY_MS;
+  delete process.env.DELIVERY_AGENT_TELEPORT_MODE;
+  delete process.env.DELIVERY_AGENT_TELEPORT_TARGET;
+  delete process.env.DELIVERY_AGENT_RETURN_TARGET;
   delete require.cache[rconDeliveryPath];
   for (const dep of Object.values(depPaths)) {
     delete require.cache[dep];
   }
 });
+
+function startFakeAgentServer() {
+  const received = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method === 'POST' && req.url === '/execute') {
+      let raw = '';
+      req.setEncoding('utf8');
+      req.on('data', (chunk) => {
+        raw += chunk;
+      });
+      req.on('end', () => {
+        const payload = JSON.parse(raw || '{}');
+        received.push(payload.command);
+        const body = JSON.stringify({
+          ok: true,
+          result: {
+            backend: 'fake-agent',
+            stdout: `EXECUTED:${payload.command}`,
+            stderr: '',
+          },
+        });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(body);
+      });
+      return;
+    }
+    if (req.method === 'GET' && req.url === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({
+        server,
+        received,
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        close: () => new Promise((done) => server.close(done)),
+      });
+    });
+  });
+}
 
 test('purchase -> queue -> auto-delivery success for bundle item', async () => {
   process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
@@ -211,6 +270,223 @@ test('purchase -> queue -> auto-delivery success for bundle item', async () => {
     '#SpawnItem 76561198000000001 Weapon_AK47 2',
     '#SpawnItem 76561198000000001 Ammo_762 150',
   ]);
+});
+
+test('purchase -> queue -> auto-delivery success via console agent mode', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-1234567890';
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-125', {
+    code: 'P-125',
+    userId: 'u-1',
+    itemId: 'agent-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-ak', {
+    id: 'agent-ak',
+    name: 'Agent AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-125', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125').status, 'delivered');
+    assert.deepEqual(agent.received, [
+      '#SpawnItem Weapon_AK47 1',
+    ]);
+
+    const successAudit = ctx.audits.find(
+      (entry) => entry.action === 'success' && entry.purchaseCode === 'P-125',
+    );
+    assert.ok(successAudit, 'expected success audit entry');
+    assert.equal(successAudit.meta.outputs[0].mode, 'agent');
+    assert.equal(successAudit.meta.commandSummary, '#SpawnItem Weapon_AK47 1');
+    assert.match(String(successAudit.message || ''), /#SpawnItem Weapon_AK47 1/);
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent mode runs teleport hook before spawn and return hook after spawn', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-1234567890';
+  process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON =
+    '["#TeleportTo {teleportTargetQuoted}"]';
+  process.env.DELIVERY_AGENT_POST_COMMANDS_JSON =
+    '["#TeleportTo {returnTargetQuoted}"]';
+  process.env.DELIVERY_AGENT_RETURN_TARGET = 'Admin Anchor';
+  process.env.DELIVERY_AGENT_COMMAND_DELAY_MS = '0';
+
+  const ctx = makeTestContext();
+  ctx.links.set('u-1', {
+    steamId: '76561198000000001',
+    inGameName: 'Coke TAMTHAI',
+  });
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-ak-teleport': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-126', {
+    code: 'P-126',
+    userId: 'u-1',
+    itemId: 'agent-ak-teleport',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-ak-teleport', {
+    id: 'agent-ak-teleport',
+    name: 'Agent AK Teleport',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-126', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-126').status, 'delivered');
+    assert.deepEqual(agent.received, [
+      '#TeleportTo "Coke TAMTHAI"',
+      '#SpawnItem Weapon_AK47 1',
+      '#TeleportTo "Admin Anchor"',
+    ]);
+
+    const successAudit = ctx.audits.find(
+      (entry) => entry.action === 'success' && entry.purchaseCode === 'P-126',
+    );
+    assert.ok(successAudit, 'expected success audit entry');
+    assert.deepEqual(
+      successAudit.meta.outputs.map((entry) => entry.phase),
+      ['pre', 'item', 'post'],
+    );
+  } finally {
+    await agent.close();
+  }
+});
+
+test('item-level delivery profile overrides global agent hooks', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-1234567890';
+  process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON =
+    '["#Announce GLOBAL-FALLBACK"]';
+  process.env.DELIVERY_AGENT_COMMAND_DELAY_MS = '0';
+
+  const ctx = makeTestContext();
+  ctx.links.set('u-1', {
+    steamId: '76561198000000001',
+    inGameName: 'Coke TAMTHAI',
+  });
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-profile-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-127', {
+    code: 'P-127',
+    userId: 'u-1',
+    itemId: 'agent-profile-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-profile-ak', {
+    id: 'agent-profile-ak',
+    name: 'Agent Profile AK',
+    kind: 'item',
+    deliveryProfile: 'teleport_spawn',
+    deliveryReturnTarget: 'Admin Anchor',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-127', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-127').status, 'delivered');
+    assert.deepEqual(agent.received, [
+      '#TeleportTo "Coke TAMTHAI"',
+      '#SpawnItem Weapon_AK47 1',
+      '#TeleportTo "Admin Anchor"',
+    ]);
+  } finally {
+    await agent.close();
+  }
+});
+
+test('item-level vehicle teleport target allows delivery without player online', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-1234567890';
+  process.env.DELIVERY_AGENT_COMMAND_DELAY_MS = '0';
+
+  const ctx = makeTestContext();
+  ctx.links.set('u-1', {
+    steamId: '76561198000000001',
+    inGameName: '',
+  });
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-vehicle-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-127B', {
+    code: 'P-127B',
+    userId: 'u-1',
+    itemId: 'agent-vehicle-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-vehicle-ak', {
+    id: 'agent-vehicle-ak',
+    name: 'Agent Vehicle AK',
+    kind: 'item',
+    deliveryProfile: 'teleport_spawn',
+    deliveryTeleportMode: 'vehicle',
+    deliveryTeleportTarget: 'AdminBike',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-127B', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-127B').status, 'delivered');
+    assert.deepEqual(agent.received, [
+      '#TeleportToVehicle AdminBike',
+      '#SpawnItem Weapon_AK47 1',
+    ]);
+  } finally {
+    await agent.close();
+  }
 });
 
 test('fallback to wiki weapon command template when itemCommands is empty', async () => {
@@ -294,6 +570,143 @@ test('fallback to manifest command template when itemCommands/wiki fallback are 
   assert.ok(successAudit, 'expected success audit entry');
   const commands = successAudit.meta.outputs.map((entry) => entry.command);
   assert.deepEqual(commands, ['#SpawnItem 76561198000000001 Water_05l 2']);
+});
+
+test('previewDeliveryCommands generates dedicated-server and single-player commands', async () => {
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.shopItems.set('preview-ak', {
+    id: 'preview-ak',
+    name: 'Preview AK',
+    kind: 'item',
+    deliveryItems: [
+      { gameItemId: 'Weapon_AK47', quantity: 3, iconUrl: 'https://icons.local/ak.webp' },
+    ],
+    iconUrl: 'https://icons.local/ak.webp',
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-ak',
+    steamId: '76561198012345678',
+  });
+
+  assert.equal(preview.itemId, 'preview-ak');
+  assert.equal(preview.itemName, 'Preview AK');
+  assert.equal(preview.gameItemId, 'Weapon_AK47');
+  assert.equal(preview.quantity, 3);
+  assert.equal(preview.iconUrl, 'https://icons.local/ak.webp');
+  assert.deepEqual(preview.serverCommands, [
+    '#SpawnItem 76561198012345678 Weapon_AK47 3',
+  ]);
+  assert.deepEqual(preview.singlePlayerCommands, [
+    '#SpawnItem Weapon_AK47 3',
+  ]);
+});
+
+test('previewDeliveryCommands includes agent execution plan', async () => {
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON =
+    '["#TeleportTo {teleportTargetQuoted}"]';
+  process.env.DELIVERY_AGENT_POST_COMMANDS_JSON =
+    '["#TeleportTo {returnTargetQuoted}"]';
+  process.env.DELIVERY_AGENT_RETURN_TARGET = 'Admin Anchor';
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-teleport': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.shopItems.set('preview-teleport', {
+    id: 'preview-teleport',
+    name: 'Preview Teleport',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-teleport',
+    steamId: '76561198012345678',
+    inGameName: 'Coke TAMTHAI',
+  });
+
+  assert.equal(preview.executionMode, 'agent');
+  assert.deepEqual(preview.agentPreCommands, ['#TeleportTo "Coke TAMTHAI"']);
+  assert.deepEqual(preview.agentPostCommands, ['#TeleportTo "Admin Anchor"']);
+  assert.deepEqual(preview.allCommands, [
+    '#TeleportTo "Coke TAMTHAI"',
+    '#SpawnItem Weapon_M1911 1',
+    '#TeleportTo "Admin Anchor"',
+  ]);
+});
+
+test('previewDeliveryCommands uses item-level delivery profile and return target', async () => {
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON =
+    '["#Announce GLOBAL-FALLBACK"]';
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-profile': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.shopItems.set('preview-profile', {
+    id: 'preview-profile',
+    name: 'Preview Profile',
+    kind: 'item',
+    deliveryProfile: 'teleport_spawn',
+    deliveryReturnTarget: 'Admin Anchor',
+    deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-profile',
+    steamId: '76561198012345678',
+    inGameName: 'Coke TAMTHAI',
+  });
+
+  assert.equal(preview.deliveryProfile, 'teleport_spawn');
+  assert.equal(preview.deliveryReturnTarget, 'Admin Anchor');
+  assert.deepEqual(preview.agentPreCommands, ['#TeleportTo "Coke TAMTHAI"']);
+  assert.deepEqual(preview.agentPostCommands, ['#TeleportTo "Admin Anchor"']);
+});
+
+test('previewDeliveryCommands uses vehicle teleport target when configured on item', async () => {
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-vehicle-profile': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.shopItems.set('preview-vehicle-profile', {
+    id: 'preview-vehicle-profile',
+    name: 'Preview Vehicle Profile',
+    kind: 'item',
+    deliveryProfile: 'teleport_spawn',
+    deliveryTeleportMode: 'vehicle',
+    deliveryTeleportTarget: 'AdminBike',
+    deliveryReturnTarget: 'Admin Anchor',
+    deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-vehicle-profile',
+    steamId: '76561198012345678',
+  });
+
+  assert.equal(preview.deliveryProfile, 'teleport_spawn');
+  assert.equal(preview.deliveryTeleportMode, 'vehicle');
+  assert.equal(preview.deliveryTeleportTarget, 'AdminBike');
+  assert.deepEqual(preview.agentPreCommands, ['#TeleportToVehicle AdminBike']);
+  assert.deepEqual(preview.agentPostCommands, ['#TeleportTo "Admin Anchor"']);
 });
 
 test('bundle without {gameItemId}/{quantity} placeholder fails fast', async () => {
@@ -425,4 +838,107 @@ test('enqueue skips terminal status purchase (idempotency guard)', async () => {
   assert.equal(queued.ok, false);
   assert.equal(queued.reason, 'terminal-status');
   assert.equal(api.listDeliveryQueue().length, 0);
+});
+
+test('split runtime worker hydrates queue jobs from prisma and delivers them', async () => {
+  process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
+  const ctx = makeTestContext();
+  const queueRows = new Map();
+  const deadLetterRows = new Map();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'split-runtime-test': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+  ctx.mocks.prisma.prisma.deliveryQueueJob = {
+    findMany: async () =>
+      Array.from(queueRows.values()).sort((a, b) => {
+        const nextA = Number(a.nextAttemptAt || 0);
+        const nextB = Number(b.nextAttemptAt || 0);
+        if (nextA !== nextB) return nextA - nextB;
+        return String(a.purchaseCode).localeCompare(String(b.purchaseCode));
+      }),
+    upsert: async ({ where, update, create }) => {
+      const code = String(where.purchaseCode || '');
+      queueRows.set(code, { ...(queueRows.get(code) || {}), ...(update || create) });
+      return queueRows.get(code);
+    },
+    create: async ({ data }) => {
+      queueRows.set(String(data.purchaseCode), { ...data });
+      return data;
+    },
+    deleteMany: async ({ where } = {}) => {
+      if (where?.purchaseCode) {
+        queueRows.delete(String(where.purchaseCode));
+      } else {
+        queueRows.clear();
+      }
+      return { count: 0 };
+    },
+  };
+  ctx.mocks.prisma.prisma.deliveryDeadLetter = {
+    findMany: async () => Array.from(deadLetterRows.values()),
+    upsert: async ({ where, update, create }) => {
+      const code = String(where.purchaseCode || '');
+      deadLetterRows.set(code, {
+        ...(deadLetterRows.get(code) || {}),
+        ...(update || create),
+      });
+      return deadLetterRows.get(code);
+    },
+    create: async ({ data }) => {
+      deadLetterRows.set(String(data.purchaseCode), { ...data });
+      return data;
+    },
+    deleteMany: async ({ where } = {}) => {
+      if (where?.purchaseCode) {
+        deadLetterRows.delete(String(where.purchaseCode));
+      } else {
+        deadLetterRows.clear();
+      }
+      return { count: 0 };
+    },
+  };
+
+  ctx.purchases.set('P-500', {
+    code: 'P-500',
+    userId: 'u-1',
+    itemId: 'split-runtime-test',
+    status: 'pending',
+  });
+  ctx.shopItems.set('split-runtime-test', {
+    id: 'split-runtime-test',
+    name: 'Split Runtime Test',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  const producer = loadRconDeliveryWithMocks(ctx.mocks);
+  const queued = await producer.enqueuePurchaseDeliveryByCode('P-500', {
+    guildId: 'g-1',
+  });
+  assert.equal(queued.ok, true);
+  await producer.flushDeliveryPersistenceWrites();
+  assert.equal(queueRows.has('P-500'), true);
+
+  const consumer = loadRconDeliveryWithMocks(ctx.mocks);
+  const processed = await consumer.processDeliveryQueueNow(5);
+  await consumer.flushDeliveryPersistenceWrites();
+
+  assert.equal(processed.processed, 1);
+  assert.equal(ctx.purchases.get('P-500').status, 'delivered');
+  assert.equal(queueRows.has('P-500'), false);
+
+  const successAudit = ctx.audits.find(
+    (entry) => entry.action === 'success' && entry.purchaseCode === 'P-500',
+  );
+  assert.ok(successAudit, 'expected success audit entry');
+  assert.equal(successAudit.meta.outputs[0].command, '#SpawnItem 76561198000000001 Weapon_M1911 1');
+  assert.equal(
+    successAudit.meta.commandSummary,
+    '#SpawnItem 76561198000000001 Weapon_M1911 1',
+  );
+  assert.match(
+    String(successAudit.message || ''),
+    /#SpawnItem 76561198000000001 Weapon_M1911 1/,
+  );
 });

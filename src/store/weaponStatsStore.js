@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const weaponStats = new Map(); // weapon -> { kills, longestDistance, recordHolder }
@@ -6,10 +5,6 @@ const weaponStats = new Map(); // weapon -> { kills, longestDistance, recordHold
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('weapon-stats.json', () => ({
-  weaponStats: Array.from(weaponStats.entries()),
-}));
 
 function normalizeNumber(value, fallback = 0) {
   const num = Number(value);
@@ -89,7 +84,6 @@ async function hydrateFromPrisma() {
       for (const [weapon, value] of hydrated.entries()) {
         weaponStats.set(weapon, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -98,34 +92,13 @@ async function hydrateFromPrisma() {
         weaponStats.set(weapon, value);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[weaponStatsStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('weapon-stats.json', null);
-  if (!persisted) return;
-  for (const [weaponRaw, statRaw] of persisted.weaponStats || []) {
-    const parsed = normalizeStat({
-      weapon: weaponRaw,
-      kills: statRaw?.kills,
-      longestDistance: statRaw?.longestDistance,
-      recordHolder: statRaw?.recordHolder,
-    });
-    if (!parsed) continue;
-    weaponStats.set(parsed.weapon, {
-      kills: parsed.kills,
-      longestDistance: parsed.longestDistance,
-      recordHolder: parsed.recordHolder,
-    });
-  }
-}
-
 function initWeaponStatsStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -153,7 +126,6 @@ function recordWeaponKill({ weapon, distance, killer }) {
 
   weaponStats.set(key, current);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -197,7 +169,6 @@ function replaceWeaponStats(nextStats = []) {
       recordHolder: parsed.recordHolder,
     });
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

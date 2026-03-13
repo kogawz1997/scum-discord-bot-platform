@@ -261,6 +261,32 @@ function resolveItemIconUrl(item) {
   return null;
 }
 
+function resolveCanonicalItemId(item) {
+  const state = ensureLoaded();
+  const all = Array.isArray(state.catalog) ? state.catalog : [];
+  if (all.length === 0) return null;
+
+  const byId = new Map(
+    all.map((entry) => [normalizeKey(entry.id || entry.name), entry.id || entry.name]),
+  );
+
+  const values = [];
+  if (typeof item === 'string') {
+    values.push(item);
+  } else if (item && typeof item === 'object') {
+    values.push(item.id, item.name, item.gameItemId);
+  }
+
+  for (const value of values) {
+    for (const key of buildVariants(value)) {
+      const found = byId.get(key);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
 function listItemIconCatalog(query = '', limit = 200) {
   const state = ensureLoaded();
   const all = Array.isArray(state.catalog) ? state.catalog : [];
@@ -295,6 +321,7 @@ function getItemIconResolverMeta() {
 module.exports = {
   normalizeItemIconKey: normalizeKey,
   resolveItemIconUrl,
+  resolveCanonicalItemId,
   listItemIconCatalog,
   getItemIconResolverMeta,
 };

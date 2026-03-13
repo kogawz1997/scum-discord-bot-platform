@@ -1,22 +1,22 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+﻿const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { roles, channels } = require('../config');
-const { addPunishment } = require('../store/moderationStore');
+const { createPunishmentEntry } = require('../services/moderationService');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('mute')
-    .setDescription('ปิดแชทผู้ใช้ชั่วคราว')
+    .setDescription('ปิดแชตผู้ใช้ชั่วคราว')
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .addUserOption((option) =>
       option
         .setName('user')
-        .setDescription('ผู้ใช้ที่ต้องการปิดแชท')
+        .setDescription('ผู้ใช้ที่ต้องการปิดแชต')
         .setRequired(true),
     )
     .addIntegerOption((option) =>
       option
         .setName('minutes')
-        .setDescription('เวลาที่จะปิดแชท (นาที)')
+        .setDescription('เวลาที่จะปิดแชต (นาที)')
         .setRequired(true)
         .setMinValue(1),
     )
@@ -47,7 +47,7 @@ module.exports = {
       });
     }
 
-    const mutedRole = guild.roles.cache.find((r) => r.name === roles.muted);
+    const mutedRole = guild.roles.cache.find((role) => role.name === roles.muted);
     if (!mutedRole) {
       return interaction.reply({
         content: `ไม่พบยศ "${roles.muted}" กรุณาสร้างยศก่อน`,
@@ -55,19 +55,23 @@ module.exports = {
       });
     }
 
-    await member.roles.add(mutedRole, `ปิดแชทโดย ${interaction.user.tag}: ${reason}`);
-    addPunishment(member.id, 'mute', reason, interaction.user.id, minutes);
+    await member.roles.add(mutedRole, `ปิดแชตโดย ${interaction.user.tag}: ${reason}`);
+    createPunishmentEntry({
+      userId: member.id,
+      type: 'mute',
+      reason,
+      staffId: interaction.user.id,
+      durationMinutes: minutes,
+    });
 
     await interaction.reply(
-      `🔇 ${member} ถูกปิดแชทเป็นเวลา ${minutes} นาที | เหตุผล: ${reason}`,
+      `🔇 ${member} ถูกปิดแชตเป็นเวลา ${minutes} นาที | เหตุผล: ${reason}`,
     );
 
-    const logChannel = guild.channels.cache.find(
-      (c) => c.name === channels.adminLog,
-    );
+    const logChannel = guild.channels.cache.find((channel) => channel.name === channels.adminLog);
     if (logChannel && logChannel.isTextBased && logChannel.isTextBased()) {
       await logChannel.send(
-        `🔇 **ปิดแชท** | ผู้ใช้: ${member} | โดย: ${interaction.user} | ${minutes} นาที | เหตุผล: ${reason}`,
+        `🔇 **ปิดแชต** | ผู้ใช้: ${member} | โดย: ${interaction.user} | ${minutes} นาที | เหตุผล: ${reason}`,
       );
     }
   },

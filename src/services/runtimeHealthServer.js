@@ -30,19 +30,29 @@ function startRuntimeHealthServer(options = {}) {
     return null;
   }
 
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = req.url || '/';
     if (req.method !== 'GET') {
       return sendJson(res, 405, { ok: false, error: 'method-not-allowed' });
     }
 
     if (url === '/' || url === '/healthz') {
-      const payload = {
-        ok: true,
-        service: name,
-        ...getPayload(),
-      };
-      return sendJson(res, 200, payload);
+      try {
+        const resolvedPayload = await getPayload();
+        const payload = {
+          ok: true,
+          service: name,
+          ...(resolvedPayload && typeof resolvedPayload === 'object'
+            ? resolvedPayload
+            : { value: resolvedPayload }),
+        };
+        return sendJson(res, 200, payload);
+      } catch (error) {
+        return sendJson(res, 500, {
+          ok: false,
+          error: String(error?.message || 'health payload failed'),
+        });
+      }
     }
 
     return sendJson(res, 404, { ok: false, error: 'not-found' });

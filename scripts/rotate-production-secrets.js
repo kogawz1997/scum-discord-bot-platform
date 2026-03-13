@@ -124,6 +124,7 @@ function isLikelyPlaceholder(value) {
 function applyRootProduction(lines, options) {
   setEnvValue(lines, 'NODE_ENV', 'production');
   setEnvValue(lines, 'PERSIST_REQUIRE_DB', 'true');
+  setEnvValue(lines, 'PERSIST_LEGACY_SNAPSHOTS', 'false');
 
   setEnvValue(lines, 'SCUM_WEBHOOK_SECRET', randomSecret(32));
   setEnvValue(lines, 'ADMIN_WEB_PASSWORD', randomSecret(24));
@@ -135,7 +136,7 @@ function applyRootProduction(lines, options) {
   setEnvValue(lines, 'ADMIN_WEB_ALLOW_TOKEN_QUERY', 'false');
   setEnvValue(lines, 'ADMIN_WEB_ENFORCE_ORIGIN_CHECK', 'true');
   setEnvValue(lines, 'ADMIN_WEB_TRUST_PROXY', 'true');
-  setEnvValue(lines, 'ADMIN_WEB_ALLOWED_ORIGINS', 'https://admin.example.com');
+  setEnvValue(lines, 'ADMIN_WEB_ALLOWED_ORIGINS', 'https://genz.noah-dns.online');
 
   // Split runtime (bot/web/worker)
   setEnvValue(lines, 'BOT_ENABLE_ADMIN_WEB', 'true');
@@ -179,8 +180,9 @@ function applyPortalProduction(lines, options) {
   setEnvValue(lines, 'WEB_PORTAL_MODE', 'player');
   setEnvValue(lines, 'WEB_PORTAL_HOST', '0.0.0.0');
   setEnvValue(lines, 'WEB_PORTAL_PORT', '3300');
-  setEnvValue(lines, 'WEB_PORTAL_BASE_URL', 'https://player.example.com');
-  setEnvValue(lines, 'WEB_PORTAL_LEGACY_ADMIN_URL', 'https://admin.example.com/admin');
+  setEnvValue(lines, 'WEB_PORTAL_BASE_URL', 'https://genz.noah-dns.online');
+  setEnvValue(lines, 'WEB_PORTAL_LEGACY_ADMIN_URL', 'https://genz.noah-dns.online/admin');
+  setEnvValue(lines, 'WEB_PORTAL_DISCORD_REDIRECT_PATH', '/auth/discord/callback');
   setEnvValue(lines, 'WEB_PORTAL_SECURE_COOKIE', 'true');
   setEnvValue(lines, 'WEB_PORTAL_ENFORCE_ORIGIN_CHECK', 'true');
   setEnvValue(lines, 'WEB_PORTAL_COOKIE_SAMESITE', 'Lax');

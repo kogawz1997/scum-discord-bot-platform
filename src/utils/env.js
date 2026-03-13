@@ -43,6 +43,9 @@ function getProductionSecurityErrors(env = process.env) {
   const adminPassword = String(env.ADMIN_WEB_PASSWORD || '').trim();
   const adminToken = String(env.ADMIN_WEB_TOKEN || '').trim();
   const allowedOrigins = String(env.ADMIN_WEB_ALLOWED_ORIGINS || '').trim();
+  const deliveryExecutionMode = String(
+    env.DELIVERY_EXECUTION_MODE || 'rcon',
+  ).trim().toLowerCase() || 'rcon';
 
   if (!discordToken || isLikelyPlaceholder(discordToken)) {
     errors.push('Production requires a valid DISCORD_TOKEN (not placeholder).');
@@ -101,6 +104,19 @@ function getProductionSecurityErrors(env = process.env) {
 
   if (!isTruthy(env.PERSIST_REQUIRE_DB)) {
     errors.push('Production requires PERSIST_REQUIRE_DB=true.');
+  }
+
+  if (isTruthy(env.PERSIST_LEGACY_SNAPSHOTS)) {
+    errors.push('Production requires PERSIST_LEGACY_SNAPSHOTS=false.');
+  }
+
+  if (deliveryExecutionMode === 'agent') {
+    const agentToken = String(env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
+    if (!agentToken || agentToken.length < 16 || isLikelyPlaceholder(agentToken)) {
+      errors.push(
+        'Production agent mode requires SCUM_CONSOLE_AGENT_TOKEN with at least 16 characters.',
+      );
+    }
   }
 
   return errors;

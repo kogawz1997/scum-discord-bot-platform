@@ -6,6 +6,10 @@ const {
   validatePurchaseStatusTransition,
   listKnownPurchaseStatuses,
 } = require('../services/purchaseStateMachine');
+const {
+  resolveCanonicalItemId,
+  resolveItemIconUrl,
+} = require('../services/itemIconService');
 
 function normalizeShopKind(value, fallback = 'item') {
   const raw = String(value || fallback)
@@ -30,6 +34,98 @@ function normalizeInteger(value, fallback = 0) {
 function normalizeOptionalText(value) {
   const text = String(value || '').trim();
   return text || null;
+}
+
+function normalizeShopCommandList(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.map((entry) => String(entry || '').trim()).filter(Boolean)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return raw
+    .split(/\r?\n/)
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function normalizeDeliveryProfile(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'spawn_only') return 'spawn_only';
+  if (raw === 'teleport_spawn') return 'teleport_spawn';
+  if (raw === 'announce_teleport_spawn') return 'announce_teleport_spawn';
+  return null;
+}
+
+function normalizeDeliveryTeleportMode(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'player') return 'player';
+  if (raw === 'vehicle') return 'vehicle';
+  return null;
+}
+
+let shopItemSchemaEnsurePromise = null;
+
+async function ensureShopItemDeliveryProfileColumns() {
+  if (shopItemSchemaEnsurePromise) return shopItemSchemaEnsurePromise;
+  shopItemSchemaEnsurePromise = (async () => {
+    try {
+      const rows = await prisma.$queryRawUnsafe('PRAGMA table_info("ShopItem")');
+      const columnNames = new Set(
+        Array.isArray(rows) ? rows.map((row) => String(row?.name || '')) : [],
+      );
+      const statements = [];
+      if (!columnNames.has('deliveryProfile')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryProfile" TEXT');
+      }
+      if (!columnNames.has('deliveryTeleportMode')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryTeleportMode" TEXT');
+      }
+      if (!columnNames.has('deliveryTeleportTarget')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryTeleportTarget" TEXT');
+      }
+      if (!columnNames.has('deliveryPreCommandsJson')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryPreCommandsJson" TEXT');
+      }
+      if (!columnNames.has('deliveryPostCommandsJson')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryPostCommandsJson" TEXT');
+      }
+      if (!columnNames.has('deliveryReturnTarget')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryReturnTarget" TEXT');
+      }
+      for (const sql of statements) {
+        await prisma.$executeRawUnsafe(sql);
+      }
+    } catch (error) {
+      shopItemSchemaEnsurePromise = null;
+      throw error;
+    }
+  })();
+  return shopItemSchemaEnsurePromise;
+}
+
+function canonicalizeGameItemId(value, name = null) {
+  const requested = normalizeOptionalText(value);
+  if (!requested) return null;
+  if (typeof resolveCanonicalItemId !== 'function') return requested;
+  return (
+    resolveCanonicalItemId({
+      gameItemId: requested,
+      id: requested,
+      name,
+    }) || requested
+  );
 }
 
 function inferShopKindById(id) {
@@ -72,10 +168,16 @@ function parseMetaJson(value) {
 
 function normalizeDeliveryItem(entry) {
   if (!entry || typeof entry !== 'object') return null;
-  const gameItemId = normalizeOptionalText(entry.gameItemId || entry.id);
+  const gameItemId = canonicalizeGameItemId(entry.gameItemId || entry.id, entry.name);
   if (!gameItemId) return null;
   const quantity = normalizeShopQuantity(entry.quantity, 1);
-  const iconUrl = normalizeOptionalText(entry.iconUrl);
+  const iconUrl =
+    normalizeOptionalText(entry.iconUrl)
+    || resolveItemIconUrl({
+      gameItemId,
+      id: gameItemId,
+      name: entry.name,
+    });
   return { gameItemId, quantity, iconUrl };
 }
 
@@ -159,6 +261,12 @@ function toShopItemView(rawItem) {
       ? normalizeOptionalText(primary?.iconUrl || rawItem.iconUrl)
       : null,
     deliveryItems,
+    deliveryProfile: normalizeDeliveryProfile(rawItem.deliveryProfile),
+    deliveryTeleportMode: normalizeDeliveryTeleportMode(rawItem.deliveryTeleportMode),
+    deliveryTeleportTarget: normalizeOptionalText(rawItem.deliveryTeleportTarget),
+    deliveryPreCommands: normalizeShopCommandList(rawItem.deliveryPreCommandsJson),
+    deliveryPostCommands: normalizeShopCommandList(rawItem.deliveryPostCommandsJson),
+    deliveryReturnTarget: normalizeOptionalText(rawItem.deliveryReturnTarget),
   };
 }
 
@@ -354,6 +462,7 @@ async function claimWeekly(userId) {
 }
 
 async function listShopItems() {
+  await ensureShopItemDeliveryProfileColumns();
   const items = await prisma.shopItem.findMany();
   if (items.length === 0) {
     await prisma.$transaction(
@@ -382,6 +491,18 @@ async function listShopItems() {
               resolvedKind === 'item' && deliveryItems.length > 0
                 ? JSON.stringify(deliveryItems)
                 : null,
+            deliveryProfile: normalizeDeliveryProfile(i.deliveryProfile),
+            deliveryTeleportMode: normalizeDeliveryTeleportMode(i.deliveryTeleportMode),
+            deliveryTeleportTarget: normalizeOptionalText(i.deliveryTeleportTarget),
+            deliveryPreCommandsJson:
+              normalizeShopCommandList(i.deliveryPreCommands).length > 0
+                ? JSON.stringify(normalizeShopCommandList(i.deliveryPreCommands))
+                : null,
+            deliveryPostCommandsJson:
+              normalizeShopCommandList(i.deliveryPostCommands).length > 0
+                ? JSON.stringify(normalizeShopCommandList(i.deliveryPostCommands))
+                : null,
+            deliveryReturnTarget: normalizeOptionalText(i.deliveryReturnTarget),
           },
           create: {
             id: i.id,
@@ -396,6 +517,18 @@ async function listShopItems() {
               resolvedKind === 'item' && deliveryItems.length > 0
                 ? JSON.stringify(deliveryItems)
                 : null,
+            deliveryProfile: normalizeDeliveryProfile(i.deliveryProfile),
+            deliveryTeleportMode: normalizeDeliveryTeleportMode(i.deliveryTeleportMode),
+            deliveryTeleportTarget: normalizeOptionalText(i.deliveryTeleportTarget),
+            deliveryPreCommandsJson:
+              normalizeShopCommandList(i.deliveryPreCommands).length > 0
+                ? JSON.stringify(normalizeShopCommandList(i.deliveryPreCommands))
+                : null,
+            deliveryPostCommandsJson:
+              normalizeShopCommandList(i.deliveryPostCommands).length > 0
+                ? JSON.stringify(normalizeShopCommandList(i.deliveryPostCommands))
+                : null,
+            deliveryReturnTarget: normalizeOptionalText(i.deliveryReturnTarget),
           },
         });
       }),
@@ -407,11 +540,13 @@ async function listShopItems() {
 }
 
 async function getShopItemById(id) {
+  await ensureShopItemDeliveryProfileColumns();
   const item = await prisma.shopItem.findUnique({ where: { id: String(id) } });
   return toShopItemView(item);
 }
 
 async function getShopItemByName(name) {
+  await ensureShopItemDeliveryProfileColumns();
   const lower = String(name).toLowerCase();
   const all = await prisma.shopItem.findMany();
   const found = all.find((i) => {
@@ -435,6 +570,7 @@ async function getShopItemByName(name) {
 }
 
 async function addShopItem(id, name, price, description, meta = {}) {
+  await ensureShopItemDeliveryProfileColumns();
   const existing = await prisma.shopItem.findUnique({
     where: { id: String(id) },
   });
@@ -465,6 +601,18 @@ async function addShopItem(id, name, price, description, meta = {}) {
         resolvedKind === 'item' && deliveryItems.length > 0
           ? JSON.stringify(deliveryItems)
           : null,
+      deliveryProfile: normalizeDeliveryProfile(meta.deliveryProfile),
+      deliveryTeleportMode: normalizeDeliveryTeleportMode(meta.deliveryTeleportMode),
+      deliveryTeleportTarget: normalizeOptionalText(meta.deliveryTeleportTarget),
+      deliveryPreCommandsJson:
+        normalizeShopCommandList(meta.deliveryPreCommands).length > 0
+          ? JSON.stringify(normalizeShopCommandList(meta.deliveryPreCommands))
+          : null,
+      deliveryPostCommandsJson:
+        normalizeShopCommandList(meta.deliveryPostCommands).length > 0
+          ? JSON.stringify(normalizeShopCommandList(meta.deliveryPostCommands))
+          : null,
+      deliveryReturnTarget: normalizeOptionalText(meta.deliveryReturnTarget),
     },
   });
   return toShopItemView(created);

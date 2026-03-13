@@ -2,6 +2,25 @@
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
+function isLikelyPlaceholder(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return true;
+  const patterns = [
+    'your_',
+    'example',
+    'changeme',
+    'replace',
+    'rotate_in_',
+    'rotate_me',
+    'token_here',
+    'password_here',
+    'put_a_',
+    'placeholder',
+    'xxx',
+  ];
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -79,6 +98,10 @@ function printCheckOk(label, detail) {
   console.log(`[smoke] OK: ${label}${detail ? ` (${detail})` : ''}`);
 }
 
+function printCheckSkip(label, detail) {
+  console.log(`[smoke] SKIP: ${label}${detail ? ` (${detail})` : ''}`);
+}
+
 function buildOptionalHealthUrl({
   directUrl,
   host,
@@ -137,6 +160,24 @@ async function main() {
   const adminBase = `${adminOrigin}${adminPath}`;
   const playerBase = trimTrailingSlash(playerParsed.toString());
   const expectedLegacyAdmin = trimTrailingSlash(process.env.WEB_PORTAL_LEGACY_ADMIN_URL || adminBase);
+  const playerDiscordClientId = String(
+    process.env.WEB_PORTAL_DISCORD_CLIENT_ID
+      || process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_ID
+      || process.env.DISCORD_CLIENT_ID
+      || '',
+  ).trim();
+  const playerDiscordClientSecret = String(
+    process.env.WEB_PORTAL_DISCORD_CLIENT_SECRET
+      || process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
+      || '',
+  ).trim();
+  const adminSsoEnabled = String(process.env.ADMIN_WEB_SSO_DISCORD_ENABLED || '')
+    .trim()
+    .toLowerCase();
+  const adminDiscordClientId = String(process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_ID || '').trim();
+  const adminDiscordClientSecret = String(
+    process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET || '',
+  ).trim();
 
   console.log('[smoke] admin base :', adminBase);
   console.log('[smoke] player base:', playerBase);
@@ -180,6 +221,47 @@ async function main() {
   const meRes = await fetchWithTimeout(buildUrl(playerBase, '/player/api/me'), timeoutMs);
   assertStatus(meRes, [401], 'player api me (unauthenticated)');
   printCheckOk('player api auth gate');
+
+  if (
+    playerDiscordClientId
+    && !isLikelyPlaceholder(playerDiscordClientId)
+    && playerDiscordClientSecret
+    && !isLikelyPlaceholder(playerDiscordClientSecret)
+  ) {
+    const playerOauthStartRes = await fetchWithTimeout(
+      buildUrl(playerBase, '/auth/discord/start'),
+      timeoutMs,
+    );
+    assertStatus(playerOauthStartRes, [301, 302, 307, 308], 'player oauth start');
+    const location = String(playerOauthStartRes.headers.get('location') || '');
+    if (!location.startsWith('https://discord.com/')) {
+      throw new Error(`player oauth start expected redirect to Discord but got ${location || '(empty)'}`);
+    }
+    printCheckOk('player oauth start', location);
+  } else {
+    printCheckSkip('player oauth start', 'Discord OAuth secret/client id not configured');
+  }
+
+  if (
+    adminSsoEnabled === 'true'
+    && adminDiscordClientId
+    && !isLikelyPlaceholder(adminDiscordClientId)
+    && adminDiscordClientSecret
+    && !isLikelyPlaceholder(adminDiscordClientSecret)
+  ) {
+    const adminOauthStartRes = await fetchWithTimeout(
+      buildUrl(adminBase, '/auth/discord/start'),
+      timeoutMs,
+    );
+    assertStatus(adminOauthStartRes, [301, 302, 307, 308], 'admin oauth start');
+    const location = String(adminOauthStartRes.headers.get('location') || '');
+    if (!location.startsWith('https://discord.com/')) {
+      throw new Error(`admin oauth start expected redirect to Discord but got ${location || '(empty)'}`);
+    }
+    printCheckOk('admin oauth start', location);
+  } else {
+    printCheckSkip('admin oauth start', 'Admin Discord SSO is disabled or incomplete');
+  }
 
   if (botHealthBase) {
     await assertJsonOk(buildUrl(botHealthBase, '/healthz'), timeoutMs, 'bot healthz');

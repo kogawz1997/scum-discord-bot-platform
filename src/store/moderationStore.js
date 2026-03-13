@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const recentMessages = new Map(); // userId -> [timestamps] (ไม่ต้อง persist)
@@ -7,16 +6,6 @@ const punishments = new Map(); // userId -> [entries]
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('moderation.json', () => ({
-  punishments: Array.from(punishments.entries()).map(([userId, arr]) => [
-    userId,
-    (arr || []).map((e) => ({
-      ...e,
-      createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : null,
-    })),
-  ]),
-}));
 
 function normalizeDate(value, fallback = new Date()) {
   if (!value) return fallback;
@@ -92,7 +81,6 @@ async function hydrateFromPrisma() {
       for (const [userId, entries] of hydrated.entries()) {
         punishments.set(userId, entries);
       }
-      scheduleSave();
       return;
     }
 
@@ -101,28 +89,13 @@ async function hydrateFromPrisma() {
         punishments.set(userId, entries);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[moderationStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('moderation.json', null);
-  if (!persisted) return;
-  for (const [userIdRaw, arr] of persisted.punishments || []) {
-    const userId = String(userIdRaw || '').trim();
-    if (!userId || !Array.isArray(arr)) continue;
-    punishments.set(
-      userId,
-      arr.map((entry) => normalizeEntry(entry)),
-    );
-  }
-}
-
 function initModerationStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -159,7 +132,6 @@ function addPunishment(userId, type, reason, staffId, durationMinutes) {
   arr.push(entry);
   punishments.set(key, arr);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -200,7 +172,6 @@ function replacePunishments(nextRows = []) {
     const entries = Array.isArray(row.entries) ? row.entries : [];
     punishments.set(userId, entries.map((entry) => normalizeEntry(entry)));
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

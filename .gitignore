@@ -221,6 +221,7 @@ _compare/
 
 # Runtime app artifacts
 data/backups/
+backups/
 data/*.json
 logs/
 

@@ -1,15 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 
 function isTruthy(value) {
   const text = String(value || '').trim().toLowerCase();
   return text === '1' || text === 'true' || text === 'yes' || text === 'on';
 }
 
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const DATA_DIR = process.env.BOT_DATA_DIR
   ? path.resolve(process.env.BOT_DATA_DIR)
-  : path.resolve(__dirname, '..', '..', 'data');
+  : path.join(PROJECT_ROOT, 'data');
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -37,7 +37,7 @@ function resolveDbPath() {
   const filePath = raw.slice('file:'.length).replace(/^"|"$/g, '');
   const absolute = path.isAbsolute(filePath)
     ? filePath
-    : path.resolve(process.cwd(), filePath);
+    : path.resolve(PROJECT_ROOT, filePath);
 
   const dir = path.dirname(absolute);
   if (!fs.existsSync(dir)) {
@@ -50,6 +50,12 @@ const DB_PATH = resolveDbPath();
 const REQUIRE_DB = isTruthy(process.env.PERSIST_REQUIRE_DB);
 const IS_PRODUCTION =
   String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+const LEGACY_SNAPSHOTS_ENABLED = (() => {
+  const raw = String(process.env.PERSIST_LEGACY_SNAPSHOTS || '').trim();
+  if (raw) return isTruthy(raw);
+  if (REQUIRE_DB || IS_PRODUCTION) return false;
+  return true;
+})();
 
 if (IS_PRODUCTION && !REQUIRE_DB) {
   throw new Error(
@@ -57,80 +63,22 @@ if (IS_PRODUCTION && !REQUIRE_DB) {
   );
 }
 
-function runSql(sql) {
-  return execFileSync('sqlite3', [DB_PATH], {
-    input: sql,
-    encoding: 'utf8',
-  });
+if (IS_PRODUCTION && LEGACY_SNAPSHOTS_ENABLED) {
+  throw new Error(
+    '[persist] NODE_ENV=production requires PERSIST_LEGACY_SNAPSHOTS=false',
+  );
 }
 
-let useDb = true;
-let fallbackReason = null;
-
-function initKvStore() {
-  try {
-    runSql(`
-      PRAGMA journal_mode=WAL;
-      CREATE TABLE IF NOT EXISTS kv_store (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-    `);
-  } catch (err) {
-    if (err && err.code === 'ENOENT') {
-      if (REQUIRE_DB) {
-        throw new Error(
-          '[persist] PERSIST_REQUIRE_DB=true but sqlite3 binary is not installed or not in PATH',
-        );
-      }
-      useDb = false;
-      fallbackReason = 'sqlite3-not-found';
-      console.warn(
-        '[persist] sqlite3 binary not found; fallback to JSON file persistence.',
-      );
-      return;
-    }
-    if (REQUIRE_DB) {
-      throw new Error(
-        `[persist] PERSIST_REQUIRE_DB=true and sqlite init failed: ${err.message}`,
-      );
-    }
-    useDb = false;
-    fallbackReason = 'sqlite-init-error';
-    console.error(
-      `[persist] sqlite init failed (${err.message}); fallback to JSON file persistence.`,
-    );
-  }
-}
-
-initKvStore();
-
-function escapeSqlString(value) {
-  return String(value).replace(/'/g, "''");
-}
-
-function upsertJsonDb(key, obj) {
-  const json = JSON.stringify(obj);
-  runSql(`
-    INSERT INTO kv_store (key, value, updated_at)
-    VALUES ('${escapeSqlString(key)}', '${escapeSqlString(json)}', datetime('now'))
-    ON CONFLICT(key) DO UPDATE SET
-      value = excluded.value,
-      updated_at = datetime('now');
-  `);
-}
-
-function loadFromDb(filename) {
-  const result = runSql(`
-    SELECT value FROM kv_store
-    WHERE key = '${escapeSqlString(filename)}'
-    LIMIT 1;
-  `).trim();
-
-  if (!result) return null;
-  return JSON.parse(result);
-}
+const persistenceMode = REQUIRE_DB
+  ? 'db-only'
+  : LEGACY_SNAPSHOTS_ENABLED
+    ? 'legacy-file-snapshot'
+    : 'disabled';
+const fallbackReason = LEGACY_SNAPSHOTS_ENABLED
+  ? null
+  : REQUIRE_DB
+    ? 'db-only-mode'
+    : 'snapshots-disabled';
 
 function loadFromFile(filename) {
   const filePath = getFilePath(filename);
@@ -146,18 +94,11 @@ function saveToFile(filename, obj) {
 }
 
 function loadJson(filename, fallback) {
+  if (!LEGACY_SNAPSHOTS_ENABLED) {
+    return fallback;
+  }
+
   try {
-    if (useDb) {
-      const fromDb = loadFromDb(filename);
-      if (fromDb !== null) return fromDb;
-
-      // one-time migration fallback: read legacy JSON file and import to DB
-      const legacy = loadFromFile(filename);
-      if (legacy == null) return fallback;
-      upsertJsonDb(filename, legacy);
-      return legacy;
-    }
-
     const fromFile = loadFromFile(filename);
     return fromFile == null ? fallback : fromFile;
   } catch (err) {
@@ -170,16 +111,13 @@ const timers = new Map(); // filename -> timeout
 
 function saveJsonDebounced(filename, producer, waitMs = 300) {
   return function scheduleSave() {
+    if (!LEGACY_SNAPSHOTS_ENABLED) return;
     const prev = timers.get(filename);
     if (prev) clearTimeout(prev);
     const t = setTimeout(() => {
       try {
         const payload = producer();
-        if (useDb) {
-          upsertJsonDb(filename, payload);
-        } else {
-          saveToFile(filename, payload);
-        }
+        saveToFile(filename, payload);
       } catch (err) {
         console.error(`Failed to save ${filename}`, err);
       }
@@ -189,15 +127,16 @@ function saveJsonDebounced(filename, producer, waitMs = 300) {
 }
 
 function isDbPersistenceEnabled() {
-  return useDb;
+  return REQUIRE_DB;
 }
 
 function getPersistenceStatus() {
   return {
-    mode: useDb ? 'sqlite-kv' : 'json-fallback',
+    mode: persistenceMode,
     requireDb: REQUIRE_DB,
     dbPath: DB_PATH,
     dataDir: DATA_DIR,
+    legacySnapshotsEnabled: LEGACY_SNAPSHOTS_ENABLED,
     fallbackReason,
   };
 }

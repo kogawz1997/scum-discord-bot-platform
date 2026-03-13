@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const claimed = new Set();
@@ -6,10 +5,6 @@ const claimed = new Set();
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('welcome-pack.json', () => ({
-  claimed: Array.from(claimed),
-}));
 
 function normalizeUserId(value) {
   return String(value || '').trim();
@@ -62,7 +57,6 @@ async function hydrateFromPrisma() {
       for (const userId of hydrated.values()) {
         claimed.add(userId);
       }
-      scheduleSave();
       return;
     }
 
@@ -71,25 +65,13 @@ async function hydrateFromPrisma() {
         claimed.add(userId);
       }
     }
-    scheduleSave();
   } catch (error) {
     console.error('[welcomePackStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('welcome-pack.json', null);
-  if (!persisted) return;
-  for (const userIdRaw of persisted.claimed || []) {
-    const userId = normalizeUserId(userIdRaw);
-    if (!userId) continue;
-    claimed.add(userId);
-  }
-}
-
 function initWelcomePackStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -110,7 +92,6 @@ function claim(userId) {
 
   claimed.add(id);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -137,7 +118,6 @@ function revokeClaim(userId) {
   if (!removed) return false;
 
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.welcomeClaim.deleteMany({
@@ -152,7 +132,6 @@ function revokeClaim(userId) {
 function clearClaims() {
   claimed.clear();
   mutationVersion += 1;
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.welcomeClaim.deleteMany({});
@@ -169,7 +148,6 @@ function replaceClaims(nextClaims = []) {
     if (!userId) continue;
     claimed.add(userId);
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

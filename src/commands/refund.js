@@ -1,15 +1,15 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const {
-  findPurchaseByCode,
-  setPurchaseStatusByCode,
-} = require('../store/memoryStore');
+﻿const {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  MessageFlags,
+} = require('discord.js');
 const { economy } = require('../config');
-const { creditCoins } = require('../services/coinService');
+const { refundPurchaseForActor } = require('../services/purchaseService');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('refund')
-    .setDescription('คืนเงิน/ยกเลิกรายการซื้อ (แอดมิน)')
+    .setDescription('คืนเงินหรือยกเลิกรายการซื้อ (แอดมิน)')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption((option) =>
       option
@@ -19,62 +19,50 @@ module.exports = {
     ),
   async execute(interaction) {
     const code = interaction.options.getString('code', true);
-    const purchase = await findPurchaseByCode(code);
+    const result = await refundPurchaseForActor({
+      code,
+      actor: `discord:${interaction.user.id}`,
+      reason: 'refund-command',
+      source: 'refund-command',
+      meta: {
+        command: 'refund',
+      },
+      historyLimit: 20,
+    });
 
-    if (!purchase) {
+    if (!result.ok && result.reason === 'not-found') {
       return interaction.reply({
         content: 'ไม่พบรายการซื้อที่มีโค้ดนี้',
         flags: MessageFlags.Ephemeral,
       });
     }
-
-    if (purchase.status === 'refunded') {
+    if (!result.ok && result.reason === 'already-refunded') {
       return interaction.reply({
         content: 'รายการนี้ถูกคืนเงินไปแล้วก่อนหน้านี้',
         flags: MessageFlags.Ephemeral,
       });
     }
-
-    if (purchase.status === 'delivered') {
+    if (!result.ok && result.reason === 'already-delivered') {
       return interaction.reply({
         content: 'รายการนี้ถูกระบุว่าแจกของแล้ว หากจะคืนเงิน กรุณาจัดการด้วยวิธีแอดมิน',
         flags: MessageFlags.Ephemeral,
       });
     }
-
-    try {
-      await setPurchaseStatusByCode(code, 'refunded', {
-        actor: `discord:${interaction.user.id}`,
-        reason: 'refund-command',
-        meta: {
-          purchaseCode: purchase.code,
-        },
-      });
-    } catch (error) {
+    if (!result.ok && result.reason === 'refund-credit-failed') {
       return interaction.reply({
-        content: `ไม่สามารถเปลี่ยนสถานะได้: ${error.message}`,
+        content: 'คืนเหรียญไม่สำเร็จ แม้เปลี่ยนสถานะเป็น refunded แล้ว กรุณาตรวจสอบ ledger และเติมเหรียญด้วยมือ',
         flags: MessageFlags.Ephemeral,
       });
     }
-    const refundResult = await creditCoins({
-      userId: purchase.userId,
-      amount: purchase.price,
-      reason: 'refund_credit',
-      reference: purchase.code,
-      actor: `discord:${interaction.user.id}`,
-      meta: {
-        source: 'refund-command',
-      },
-    });
-    if (!refundResult.ok) {
+    if (!result.ok) {
       return interaction.reply({
-        content: 'คืนเหรียญไม่สำเร็จ แม้เปลี่ยนสถานะรายการเป็น refunded แล้ว กรุณาตรวจสอบ ledger และเติมเหรียญด้วยมือ',
+        content: `คืนเงินไม่สำเร็จ: ${result.error || result.reason || 'unknown-error'}`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
     await interaction.reply(
-      `คืนเงินรายการ \`${purchase.code}\` เรียบร้อยแล้ว เป็นจำนวน ${economy.currencySymbol} **${purchase.price.toLocaleString()}**`,
+      `คืนเงินรายการ \`${result.purchase.code}\` เรียบร้อยแล้ว เป็นจำนวน ${economy.currencySymbol} **${Number(result.amount || 0).toLocaleString()}**`,
     );
   },
 };

@@ -1,15 +1,10 @@
-﻿const { loadJson, saveJsonDebounced } = require('./_persist');
-const { prisma } = require('../prisma');
+﻿const { prisma } = require('../prisma');
 
 const stats = new Map(); // userId -> stat
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('stats.json', () => ({
-  stats: Array.from(stats.entries()),
-}));
 
 function normalizeStatRow(row) {
   const userId = String(row?.userId || '').trim();
@@ -86,7 +81,6 @@ async function hydrateFromPrisma() {
       for (const [userId, value] of hydrated.entries()) {
         stats.set(userId, value);
       }
-      scheduleSave();
       return;
     }
 
@@ -95,37 +89,13 @@ async function hydrateFromPrisma() {
       if (stats.has(userId)) continue;
       stats.set(userId, value);
     }
-    scheduleSave();
   } catch (error) {
     console.error('[statsStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('stats.json', null);
-  if (!persisted) return;
-
-  for (const [userIdRaw, value] of persisted.stats || []) {
-    const row = normalizeStatRow({
-      userId: userIdRaw,
-      kills: value?.kills,
-      deaths: value?.deaths,
-      playtimeMinutes: value?.playtimeMinutes,
-      squad: value?.squad,
-    });
-    if (!row) continue;
-    stats.set(row.userId, {
-      kills: row.kills,
-      deaths: row.deaths,
-      playtimeMinutes: row.playtimeMinutes,
-      squad: row.squad,
-    });
-  }
-}
-
 function initStatsStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -181,7 +151,6 @@ function getOrCreateStats(userIdRaw) {
       squad: null,
     };
     stats.set(userId, value);
-    scheduleSave();
     queueUpsertStat(userId, value, 'create-default');
   }
   return value;
@@ -206,7 +175,6 @@ function addKill(userId, amount = 1) {
 
   mutationVersion += 1;
   value.kills += add;
-  scheduleSave();
   queueUpsertStat(normalizedUserId, value, 'add-kill');
   return value;
 }
@@ -219,7 +187,6 @@ function addDeath(userId, amount = 1) {
 
   mutationVersion += 1;
   value.deaths += add;
-  scheduleSave();
   queueUpsertStat(normalizedUserId, value, 'add-death');
   return value;
 }
@@ -232,7 +199,6 @@ function addPlaytimeMinutes(userId, minutes) {
 
   mutationVersion += 1;
   value.playtimeMinutes += add;
-  scheduleSave();
   queueUpsertStat(normalizedUserId, value, 'add-playtime');
   return value;
 }
@@ -252,7 +218,6 @@ function replaceStats(nextStats = []) {
     });
   }
 
-  scheduleSave();
   queueDbWrite(
     async () => {
       await prisma.stats.deleteMany();

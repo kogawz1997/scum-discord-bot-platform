@@ -1,11 +1,11 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+﻿const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { economy } = require('../config');
 const { redeemCodeForUser } = require('../services/playerOpsService');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('redeem')
-    .setDescription('ยืนยันรับโค้ดโปรโมชั่น/โค้ดของรางวัล')
+    .setDescription('ใช้โค้ดโปรโมชั่นหรือโค้ดของรางวัล')
     .addStringOption((option) =>
       option
         .setName('code')
@@ -48,7 +48,7 @@ module.exports = {
     }
 
     return interaction.reply(
-      `ใช้โค้ดสำเร็จแล้ว (ประเภท: ${result.type}) กรุณารอทีมงานตรวจสอบ/แจกของในเกม`,
+      `ใช้โค้ดสำเร็จแล้ว (ประเภท: ${result.type}) กรุณารอทีมงานตรวจสอบหรือแจกของในเกม`,
     );
   },
 };

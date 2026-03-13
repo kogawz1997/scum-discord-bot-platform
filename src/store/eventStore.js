@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const events = new Map(); // id -> event
@@ -8,15 +7,6 @@ let eventCounter = 1;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('events.json', () => ({
-  eventCounter,
-  events: Array.from(events.entries()),
-  participants: Array.from(eventParticipants.entries()).map(([eventId, set]) => [
-    eventId,
-    Array.from(set || []),
-  ]),
-}));
 
 function normalizeEvent(row = {}) {
   const id = Number(row.id || 0);
@@ -123,7 +113,6 @@ async function hydrateFromPrisma() {
       }
       const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
       eventCounter = Math.max(1, maxId + 1);
-      scheduleSave();
       return;
     }
 
@@ -137,41 +126,13 @@ async function hydrateFromPrisma() {
     }
     const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
     eventCounter = Math.max(eventCounter, maxId + 1);
-    scheduleSave();
   } catch (error) {
     console.error('[eventStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('events.json', null);
-  if (!persisted) return;
-
-  if (typeof persisted.eventCounter === 'number') {
-    eventCounter = persisted.eventCounter;
-  }
-  for (const [id, ev] of persisted.events || []) {
-    const parsed = normalizeEvent({ ...ev, id: Number(ev?.id ?? id) });
-    if (!parsed) continue;
-    events.set(parsed.id, parsed);
-  }
-  for (const [eventId, arr] of persisted.participants || []) {
-    eventParticipants.set(
-      Number(eventId),
-      new Set(
-        (Array.isArray(arr) ? arr : [])
-          .map((userId) => String(userId || '').trim())
-          .filter(Boolean),
-      ),
-    );
-  }
-  const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
-  eventCounter = Math.max(eventCounter, maxId + 1);
-}
-
 function initEventStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -193,7 +154,6 @@ function createEvent({ name, time, reward }) {
   events.set(id, ev);
   eventParticipants.set(id, new Set());
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -237,7 +197,6 @@ function joinEvent(id, userId) {
   set.add(normalizedUserId);
   eventParticipants.set(eventId, set);
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -266,7 +225,6 @@ function startEvent(id) {
   if (!ev) return null;
   ev.status = 'started';
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -288,7 +246,6 @@ function endEvent(id) {
   if (!ev) return null;
   ev.status = 'ended';
   mutationVersion += 1;
-  scheduleSave();
 
   queueDbWrite(
     async () => {
@@ -343,7 +300,6 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
     const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
     eventCounter = maxId + 1;
   }
-  scheduleSave();
 
   queueDbWrite(
     async () => {

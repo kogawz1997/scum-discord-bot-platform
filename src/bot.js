@@ -20,51 +20,65 @@ const { moderation, roles, channels, economy } = require('./config');
 const {
   pushMessage,
   getRecentMessages,
-  addPunishment,
 } = require('./store/moderationStore');
-const { listMemberships, removeMembership } = require('./store/vipStore');
+const { createPunishmentEntry } = require('./services/moderationService');
+const { listMemberships, revokeVipForUser } = require('./services/vipService');
 const { startScumServer } = require('./scumWebhookServer');
 const { startRestartScheduler } = require('./services/restartScheduler');
 const { startRentBikeService } = require('./services/rentBikeService');
 const {
   startRconDeliveryWorker,
-  enqueuePurchaseDelivery,
 } = require('./services/rconDelivery');
 const { startAdminWebServer } = require('./adminWebServer');
 const { startRuntimeHealthServer } = require('./services/runtimeHealthServer');
+const { acquireRuntimeLock, releaseAllRuntimeLocks } = require('./services/runtimeLock');
 const { queueLeaderboardRefreshForGuild } = require('./services/leaderboardPanels');
 const { adminLiveBus } = require('./services/adminLiveBus');
 const { assertBotEnv } = require('./utils/env');
-const { claim: claimWelcomePack, hasClaimed: hasClaimedWelcomePack } = require('./store/welcomePackStore');
 const {
-  addCoins,
-  getWallet,
-  getShopItemById,
-  createPurchase,
-  removeCoins,
-} = require('./store/memoryStore');
-const {
-  addCartItem,
-} = require('./store/cartStore');
-const {
+  addItemToCartForUser,
   getResolvedCart,
   checkoutCart,
 } = require('./services/cartService');
 const {
-  normalizeSteamId,
-  setLink,
-  getLinkByUserId,
-  getLinkBySteamId,
+  getShopItemViewById,
+} = require('./services/playerQueryService');
+const {
+  purchaseShopItemForUser,
+  normalizeShopKind,
+  buildBundleSummary,
+} = require('./services/shopService');
+const { claimWelcomePackForUser } = require('./services/welcomePackService');
+const {
   initLinkStore,
 } = require('./store/linkStore');
+const {
+  normalizeSteamIdInput,
+  bindSteamLinkForUser,
+} = require('./services/linkService');
 const { upsertPlayerAccount } = require('./store/playerAccountStore');
 const { initBountyStore } = require('./store/bountyStore');
 const { initStatsStore } = require('./store/statsStore');
-const { createTicket, tickets } = require('./store/ticketStore');
+const {
+  createSupportTicket,
+  findOpenTicketForUserInGuild,
+} = require('./services/ticketService');
+const { enterGiveawayForUser } = require('./services/giveawayService');
 
 assertBotEnv();
 const token = process.env.DISCORD_TOKEN;
 let opsAlertRouteBound = false;
+
+function acquireExclusiveServiceLockOrExit(serviceName) {
+  const result = acquireRuntimeLock(serviceName, 'bot');
+  if (result.ok) return result.data;
+
+  const holder = result.data
+    ? `pid=${result.data.pid || '-'} owner=${result.data.owner || '-'} host=${result.data.hostname || '-'}`
+    : result.reason || 'unknown';
+  console.error(`[boot] runtime lock conflict for ${serviceName}: ${holder}`);
+  process.exit(1);
+}
 
 function envFlag(name, fallback = true) {
   const raw = String(process.env[name] || '').trim().toLowerCase();
@@ -165,6 +179,7 @@ client.once(Events.ClientReady, async (c) => {
   }
 
   if (START_RENT_BIKE_SERVICE) {
+    acquireExclusiveServiceLockOrExit('rent-bike-service');
     startRentBikeService(client).catch((error) => {
       console.error('[rent-bike] failed to start service:', error.message);
     });
@@ -173,6 +188,7 @@ client.once(Events.ClientReady, async (c) => {
   }
 
   if (START_DELIVERY_WORKER) {
+    acquireExclusiveServiceLockOrExit('delivery-worker');
     startRconDeliveryWorker(client);
   } else {
     console.log('[boot] skip delivery worker (BOT_ENABLE_DELIVERY_WORKER=false)');
@@ -197,7 +213,7 @@ client.once(Events.ClientReady, async (c) => {
             await member.roles.remove(vipRole, 'VIP หมดอายุ').catch(() => null);
           }
         }
-        removeMembership(m.userId);
+        await revokeVipForUser({ userId: m.userId }).catch(() => null);
       }
     }
   }, 60 * 1000);
@@ -292,12 +308,10 @@ async function openTicketFromPanel(interaction) {
     });
   }
 
-  const existing = Array.from(tickets.values()).find(
-    (t) =>
-      t.guildId === guild.id &&
-      t.userId === interaction.user.id &&
-      t.status !== 'closed',
-  );
+  const existing = findOpenTicketForUserInGuild({
+    guildId: guild.id,
+    userId: interaction.user.id,
+  });
 
   if (existing) {
     return interaction.reply({
@@ -379,13 +393,19 @@ async function openTicketFromPanel(interaction) {
     throw error;
   }
 
-  createTicket({
+  const ticketResult = createSupportTicket({
     guildId: guild.id,
     userId: interaction.user.id,
     channelId: newChannel.id,
     category: 'ช่วยเหลือ',
     reason: 'เปิดจากแพเนลทิคเก็ต',
   });
+  if (!ticketResult.ok) {
+    return interaction.reply({
+      content: 'บันทึกข้อมูลทิคเก็ตลงระบบไม่สำเร็จ',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   await newChannel.send(
     `สวัสดี ${interaction.user}
@@ -422,7 +442,7 @@ async function handleInteractionCreate(interaction) {
 
   if (interaction.isModalSubmit?.() && interaction.customId === 'panel-verify-modal') {
     const steamIdRaw = interaction.fields.getTextInputValue('steamid');
-    const steamId = normalizeSteamId(steamIdRaw);
+    const steamId = normalizeSteamIdInput(steamIdRaw);
 
     if (!steamId) {
       return interaction.reply({
@@ -431,37 +451,32 @@ async function handleInteractionCreate(interaction) {
       });
     }
 
-    const existing = getLinkBySteamId(steamId);
-    if (existing && existing.userId !== interaction.user.id) {
+    const res = bindSteamLinkForUser({
+      steamId,
+      userId: interaction.user.id,
+      inGameName: null,
+      allowReplace: false,
+      allowSteamReuse: false,
+    });
+
+    if (!res.ok && res.reason === 'steam-already-linked') {
       return interaction.reply({
         content: 'SteamID นี้ถูกลิงก์กับบัญชีอื่นแล้ว กรุณาติดต่อแอดมิน',
         flags: MessageFlags.Ephemeral,
       });
     }
-    const currentUserLink = getLinkByUserId(interaction.user.id);
-    if (
-      currentUserLink?.steamId
-      && currentUserLink.steamId !== steamId
-    ) {
+    if (!res.ok && res.reason === 'user-already-linked') {
       return interaction.reply({
-        content:
-          'บัญชีนี้ผูก SteamID ไปแล้ว หากต้องการเปลี่ยนกรุณาติดต่อแอดมิน',
+        content: 'บัญชีนี้ผูก SteamID ไปแล้ว หากต้องการเปลี่ยนกรุณาติดต่อแอดมิน',
         flags: MessageFlags.Ephemeral,
       });
     }
-    if (currentUserLink?.steamId && currentUserLink.steamId === steamId) {
+    if (res.alreadyLinked) {
       return interaction.reply({
         content: `คุณผูก SteamID นี้ไว้แล้ว: \`${steamId}\``,
         flags: MessageFlags.Ephemeral,
       });
     }
-
-    const res = setLink({
-      steamId,
-      userId: interaction.user.id,
-      inGameName: null,
-    });
-
     if (!res.ok) {
       return interaction.reply({
         content: 'ไม่สามารถยืนยัน SteamID ได้ในตอนนี้ กรุณาลองใหม่',
@@ -489,16 +504,28 @@ async function handleInteractionCreate(interaction) {
   // Panel buttons
   if (interaction.isButton?.()) {
     if (interaction.customId === 'giveaway-join') {
-      const { addEntrant, getGiveaway } = require('./store/giveawayStore');
-      const messageId = interaction.message.id;
-      const g = getGiveaway(messageId);
-      if (!g) {
+      const result = enterGiveawayForUser({
+        messageId: interaction.message.id,
+        userId: interaction.user.id,
+      });
+      if (!result.ok && (result.reason === 'not-found' || result.reason === 'expired')) {
         return interaction.reply({
           content: 'กิจกรรมแจกของนี้หมดอายุหรือไม่พบในระบบ',
           flags: MessageFlags.Ephemeral,
         });
       }
-      addEntrant(messageId, interaction.user.id);
+      if (!result.ok) {
+        return interaction.reply({
+          content: 'ไม่สามารถเข้าร่วมกิจกรรมนี้ได้ในตอนนี้',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      if (result.alreadyJoined) {
+        return interaction.reply({
+          content: 'คุณเข้าร่วมกิจกรรมนี้ไว้แล้ว',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
       return interaction.reply({
         content: 'เข้าร่วมกิจกรรมแจกของสำเร็จ!',
         flags: MessageFlags.Ephemeral,
@@ -529,27 +556,28 @@ async function handleInteractionCreate(interaction) {
     }
 
     if (interaction.customId === 'panel-welcome-claim') {
-      if (hasClaimedWelcomePack(interaction.user.id)) {
+      const claimResult = await claimWelcomePackForUser({
+        userId: interaction.user.id,
+        amount: 1500,
+        actor: `discord:${interaction.user.id}`,
+        source: 'panel-welcome-claim',
+      });
+      if (!claimResult.ok) {
+        const content = claimResult.reason === 'already-claimed'
+          ? 'คุณรับแพ็กต้อนรับไปแล้ว (รับได้ 1 ครั้งต่อบัญชี)'
+          : 'ระบบรับแพ็กต้อนรับล้มเหลว กรุณาลองใหม่อีกครั้ง';
         return interaction.reply({
-          content: 'คุณรับแพ็กต้อนรับไปแล้ว (รับได้ 1 ครั้งต่อบัญชี)',
+          content,
           flags: MessageFlags.Ephemeral,
         });
       }
-      claimWelcomePack(interaction.user.id);
-      await addCoins(interaction.user.id, 1500, {
-        reason: 'welcome_pack_claim',
-        actor: `discord:${interaction.user.id}`,
-        meta: {
-          source: 'panel-welcome-claim',
-        },
-      });
       queueLeaderboardRefreshForGuild(
         interaction.client,
         interaction.guildId,
         'welcome-claim',
       );
       return interaction.reply({
-        content: 'รับแพ็กต้อนรับสำเร็จ! ได้รับ 1,500 เหรียญ',
+        content: `รับแพ็กต้อนรับสำเร็จ! ได้รับ 1,500 เหรียญ\nยอดคงเหลือใหม่: ${claimResult.balance.toLocaleString()} เหรียญ`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -584,7 +612,7 @@ async function handleInteractionCreate(interaction) {
 
     if (interaction.customId.startsWith('panel-shop-buy:')) {
       const itemId = interaction.customId.split(':')[1];
-      const item = await getShopItemById(itemId);
+      const item = await getShopItemViewById(itemId);
       if (!item) {
         return interaction.reply({
           content: `ไม่พบสินค้า: ${itemId}`,
@@ -592,70 +620,40 @@ async function handleInteractionCreate(interaction) {
         });
       }
 
-      const wallet = await getWallet(interaction.user.id);
-      if (wallet.balance < item.price) {
+      const result = await purchaseShopItemForUser({
+        userId: interaction.user.id,
+        item,
+        guildId: interaction.guildId || null,
+        actor: `discord:${interaction.user.id}`,
+        source: 'panel-shop-buy',
+      });
+      if (!result.ok) {
+        if (result.reason === 'steam-link-required') {
+          return interaction.reply({
+            content: 'ต้องผูก SteamID ก่อนซื้อสินค้าไอเทมในเกม ใช้ `/linksteam set` ก่อนแล้วค่อยลองใหม่',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+        if (result.reason === 'insufficient-balance') {
+          return interaction.reply({
+            content: `ยอดเหรียญของคุณไม่พอ ต้องการ ${economy.currencySymbol} **${item.price.toLocaleString()}** แต่คุณมีเพียง ${economy.currencySymbol} **${Number(result.balance || 0).toLocaleString()}**`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
         return interaction.reply({
-          content: `ยอดเหรียญของคุณไม่พอ ต้องการ ${economy.currencySymbol} **${item.price.toLocaleString()}** แต่คุณมีเพียง ${economy.currencySymbol} **${wallet.balance.toLocaleString()}**`,
+          content: 'ไม่สามารถสร้างคำสั่งซื้อได้ในตอนนี้ ระบบยกเลิกและคืนเหรียญให้อัตโนมัติแล้ว กรุณาลองใหม่อีกครั้ง',
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      await removeCoins(interaction.user.id, item.price, {
-        reason: 'purchase_debit',
-        actor: `discord:${interaction.user.id}`,
-        meta: {
-          source: 'panel-shop-buy',
-          itemId: item.id,
-          itemName: item.name,
-        },
-      });
       queueLeaderboardRefreshForGuild(
         interaction.client,
         interaction.guildId,
         'panel-shop-buy',
       );
-      const purchase = await createPurchase(interaction.user.id, item);
-      const delivery = await enqueuePurchaseDelivery(purchase, {
-        guildId: interaction.guildId || null,
-      });
-      const kind = String(item.kind || 'item').trim().toLowerCase() === 'vip'
-        ? 'vip'
-        : 'item';
-      const bundleEntries = kind === 'item'
-        ? (Array.isArray(item.deliveryItems) && item.deliveryItems.length > 0
-            ? item.deliveryItems
-            : [{
-                gameItemId: item.gameItemId,
-                quantity: Math.max(1, Math.trunc(Number(item.quantity || 1))),
-              }])
-            .map((entry) => ({
-              gameItemId: String(entry?.gameItemId || '').trim(),
-              quantity: Math.max(1, Math.trunc(Number(entry?.quantity || 1))),
-            }))
-            .filter((entry) => entry.gameItemId)
-        : [];
-      const bundleTotalQty = bundleEntries.reduce(
-        (sum, entry) => sum + entry.quantity,
-        0,
-      );
-      const bundleShort = bundleEntries
-        .slice(0, 2)
-        .map((entry) => `${entry.gameItemId} x${entry.quantity}`)
-        .join(', ');
-      const bundleShortText = bundleEntries.length > 2
-        ? `${bundleShort} (+${bundleEntries.length - 2})`
-        : bundleShort || '-';
-      const bundleLongText = bundleEntries.length > 0
-        ? [
-            `ไอเทมในชุด: **${bundleEntries.length}** รายการ (รวม **${bundleTotalQty}** ชิ้น)`,
-            ...bundleEntries
-              .slice(0, 4)
-              .map((entry) => `- \`${entry.gameItemId}\` x**${entry.quantity}**`),
-            ...(bundleEntries.length > 4
-              ? [`- และอีก **${bundleEntries.length - 4}** รายการ`]
-              : []),
-          ].join('\n')
-        : 'ไอเทมในเกม: `-`';
+      const { purchase, delivery } = result;
+      const kind = normalizeShopKind(item.kind);
+      const bundle = buildBundleSummary(item, 4);
 
       let deliveryText = '\nสถานะการส่งของ: รอทีมงานจัดการ (ทำด้วยแอดมิน)';
       if (delivery.queued) {
@@ -676,7 +674,7 @@ async function handleInteractionCreate(interaction) {
             await logChannel.send(
               `🛒 **การซื้อ** | ผู้ใช้: ${interaction.user} | สินค้า: **${item.name}** (รหัส: \`${item.id}\`) | ราคา: ${economy.currencySymbol} **${item.price.toLocaleString()}** | โค้ด: \`${purchase.code}\` | สถานะส่งอัตโนมัติ: ${
                 delivery.queued ? 'เข้าคิวแล้ว' : delivery.reason || 'ทำด้วยแอดมิน'
-              } | ประเภท: ${kind.toUpperCase()} | รายการ: ${kind === 'item' ? bundleShortText : 'VIP'}`,
+              } | ประเภท: ${kind.toUpperCase()} | รายการ: ${kind === 'item' ? bundle.short : 'VIP'}`,
             );
           }
         }
@@ -685,14 +683,14 @@ async function handleInteractionCreate(interaction) {
       }
 
       return interaction.reply({
-        content: `คุณซื้อ **${item.name}** สำเร็จ!\nประเภท: **${kind.toUpperCase()}**\n${kind === 'item' ? `${bundleLongText}\n` : ''}ราคาที่จ่าย: ${economy.currencySymbol} **${item.price.toLocaleString()}**\nโค้ดอ้างอิง: \`${purchase.code}\`${deliveryText}`,
+        content: `คุณซื้อ **${item.name}** สำเร็จ!\nประเภท: **${kind.toUpperCase()}**\n${kind === 'item' ? `${bundle.long}\n` : ''}ราคาที่จ่าย: ${economy.currencySymbol} **${item.price.toLocaleString()}**\nโค้ดอ้างอิง: \`${purchase.code}\`${deliveryText}`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
     if (interaction.customId.startsWith('panel-shop-cart:')) {
       const itemId = interaction.customId.split(':')[1];
-      const item = await getShopItemById(itemId);
+      const item = await getShopItemViewById(itemId);
       if (!item) {
         return interaction.reply({
           content: `ไม่พบสินค้า: ${itemId}`,
@@ -700,7 +698,7 @@ async function handleInteractionCreate(interaction) {
         });
       }
 
-      addCartItem(interaction.user.id, item.id, 1);
+      addItemToCartForUser({ userId: interaction.user.id, itemId: item.id, quantity: 1 });
       const cart = await getResolvedCart(interaction.user.id);
       const preview = cart.rows
         .slice(0, 4)
@@ -736,7 +734,7 @@ async function handleInteractionCreate(interaction) {
         });
       }
 
-      if (!result.ok && result.reason === 'insufficient') {
+      if (!result.ok && result.reason === 'insufficient-balance') {
         return interaction.editReply({
           content:
             `ยอดเหรียญไม่พอสำหรับชำระตะกร้า\n` +
@@ -759,7 +757,7 @@ async function handleInteractionCreate(interaction) {
           );
           if (logChannel && logChannel.isTextBased()) {
             await logChannel.send(
-              `🛒 **ชำระตะกร้า** | ผู้ใช้: ${interaction.user} | รายการ: ${result.rows.length} | ชิ้นรวม: ${result.totalUnits} | ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}** | คำสั่งซื้อที่สร้าง: ${result.purchases.length} | fail: ${result.failures.length}`,
+              `🛒 **ชำระตะกร้า** | ผู้ใช้: ${interaction.user} | รายการ: ${result.rows.length} | ชิ้นรวม: ${result.totalUnits} | ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}** | คำสั่งซื้อที่สร้าง: ${result.purchases.length} | fail: ${result.failures.length} | refund: ${Number(result.refundedAmount || 0).toLocaleString()}`,
             );
           }
         }
@@ -781,6 +779,11 @@ async function handleInteractionCreate(interaction) {
         `ตัดเหรียญ: ${economy.currencySymbol} **${result.totalPrice.toLocaleString()}**`,
         `สร้างคำสั่งซื้อ: **${result.purchases.length}** รายการ`,
       ];
+      if (Number(result.refundedAmount || 0) > 0) {
+        lines.push(
+          `คืนเหรียญอัตโนมัติแล้ว: ${economy.currencySymbol} **${Number(result.refundedAmount || 0).toLocaleString()}**`,
+        );
+      }
       if (codePreview) {
         lines.push(`โค้ดอ้างอิง: ${codePreview}${moreCodeText}`);
       }
@@ -883,13 +886,13 @@ client.on(Events.MessageCreate, async (message) => {
         mutedRole,
         `ปิดแชทอัตโนมัติจากสแปม ${msgs.length} ข้อความ`,
       );
-      addPunishment(
-        member.id,
-        'mute',
-        'ปิดแชทอัตโนมัติ: สแปมข้อความ',
-        client.user.id,
-        moderation.spam.muteMinutes,
-      );
+      createPunishmentEntry({
+        userId: member.id,
+        type: 'mute',
+        reason: 'ปิดแชทอัตโนมัติ: สแปมข้อความ',
+        staffId: client.user.id,
+        durationMinutes: moderation.spam.muteMinutes,
+      });
 
       const logChannel = guild.channels.cache.find(
         (c) => c.name === channels.adminLog,
@@ -922,22 +925,22 @@ client.on(Events.MessageCreate, async (message) => {
       if (member.moderatable) {
         await member.timeout(ms, 'ลงโทษอัตโนมัติ: คำหยาบรุนแรง').catch(() => null);
       }
-      addPunishment(
-        member.id,
-        'timeout',
-        'ลงโทษอัตโนมัติ: คำหยาบรุนแรง',
-        client.user.id,
-        moderation.hardTimeoutMinutes,
-      );
+      createPunishmentEntry({
+        userId: member.id,
+        type: 'timeout',
+        reason: 'ลงโทษอัตโนมัติ: คำหยาบรุนแรง',
+        staffId: client.user.id,
+        durationMinutes: moderation.hardTimeoutMinutes,
+      });
     } else if (member) {
       // soft warning
-      addPunishment(
-        member.id,
-        'warn',
-        'เตือนอัตโนมัติ: คำหยาบ',
-        client.user.id,
-        null,
-      );
+      createPunishmentEntry({
+        userId: member.id,
+        type: 'warn',
+        reason: 'เตือนอัตโนมัติ: คำหยาบ',
+        staffId: client.user.id,
+        durationMinutes: null,
+      });
     }
 
     const logChannel = guild.channels.cache.find(
@@ -983,7 +986,17 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 if (require.main === module) {
-  client.login(token);
+client.login(token);
+
+process.once('SIGINT', () => {
+  releaseAllRuntimeLocks();
+});
+process.once('SIGTERM', () => {
+  releaseAllRuntimeLocks();
+});
+process.once('exit', () => {
+  releaseAllRuntimeLocks();
+});
 }
 
 process.once('SIGINT', () => {

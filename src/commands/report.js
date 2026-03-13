@@ -1,11 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+﻿const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { channels } = require('../config');
-const { addPunishment } = require('../store/moderationStore');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('report')
-    .setDescription('รายงานผู้เล่น / ผู้ใช้ที่ทำผิดกติกา')
+    .setDescription('รายงานผู้เล่นหรือผู้ใช้ที่ทำผิดกติกา')
     .addUserOption((option) =>
       option
         .setName('user')
@@ -15,13 +14,13 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName('reason')
-        .setDescription('เหตุผล / รายละเอียด')
+        .setDescription('เหตุผลหรือรายละเอียด')
         .setRequired(true),
     )
     .addAttachmentOption((option) =>
       option
         .setName('evidence')
-        .setDescription('แนบรูป/คลิปหลักฐาน (ถ้ามี)')
+        .setDescription('แนบรูปหรือคลิปหลักฐาน (ถ้ามี)')
         .setRequired(false),
     ),
   async execute(interaction) {
@@ -38,7 +37,7 @@ module.exports = {
     }
 
     const evidenceChannel = guild.channels.cache.find(
-      (c) => c.name === channels.evidence,
+      (channel) => channel.name === channels.evidence,
     );
 
     const embed = new EmbedBuilder()
@@ -51,7 +50,7 @@ module.exports = {
       .setColor(0xff0000)
       .setTimestamp(new Date());
 
-    if (evidence && evidence.url) {
+    if (evidence?.url) {
       embed.addFields({
         name: 'หลักฐาน',
         value: evidence.url,
@@ -63,9 +62,8 @@ module.exports = {
     }
 
     await interaction.reply({
-      content: 'ส่งรายงานให้ทีมงานแล้ว ขอบคุณที่ช่วยดูแลคอมมูนิตี้ 🙏',
+      content: 'ส่งรายงานให้ทีมงานแล้ว ขอบคุณที่ช่วยดูแลคอมมูนิตี้',
       flags: MessageFlags.Ephemeral,
     });
   },
 };
-

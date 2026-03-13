@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const dotenv = require('dotenv');
 const { spawnSync } = require('node:child_process');
+const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
@@ -13,10 +13,10 @@ const PORTAL_ENV_PATH = path.join(
 );
 
 const hasPortalEnvFile = fs.existsSync(PORTAL_ENV_PATH);
-if (hasPortalEnvFile) {
-  dotenv.config({ path: PORTAL_ENV_PATH });
-}
-dotenv.config({ path: ROOT_ENV_PATH });
+loadMergedEnvFiles({
+  basePath: ROOT_ENV_PATH,
+  overlayPath: hasPortalEnvFile ? PORTAL_ENV_PATH : null,
+});
 
 function isTruthy(value) {
   const text = String(value || '').trim().toLowerCase();
@@ -92,10 +92,14 @@ function checkPortalOAuth(env, errors) {
   ).trim();
 
   if (!portalClientId || isLikelyPlaceholder(portalClientId)) {
-    errors.push('WEB_PORTAL_DISCORD_CLIENT_ID is missing or placeholder');
+    errors.push(
+      'WEB_PORTAL_DISCORD_CLIENT_ID (or ADMIN_WEB_SSO_DISCORD_CLIENT_ID / DISCORD_CLIENT_ID fallback) is missing or placeholder',
+    );
   }
   if (!portalClientSecret || isLikelyPlaceholder(portalClientSecret)) {
-    errors.push('WEB_PORTAL_DISCORD_CLIENT_SECRET is missing or placeholder');
+    errors.push(
+      'WEB_PORTAL_DISCORD_CLIENT_SECRET (or ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET fallback) is missing or placeholder',
+    );
   }
 }
 
@@ -159,6 +163,7 @@ function run() {
   const isProduction =
     String(env.NODE_ENV || '').trim().toLowerCase() === 'production';
   const persistRequireDb = isTruthy(env.PERSIST_REQUIRE_DB);
+  const legacySnapshotsEnabled = isTruthy(env.PERSIST_LEGACY_SNAPSHOTS);
 
   checkDiscordToken(env.DISCORD_TOKEN, errors, warnings);
 
@@ -215,6 +220,9 @@ function run() {
   }
 
   const rconExecTemplate = String(env.RCON_EXEC_TEMPLATE || '').trim();
+  const deliveryExecutionMode = String(
+    env.DELIVERY_EXECUTION_MODE || 'rcon',
+  ).trim().toLowerCase() || 'rcon';
   if (
     rconExecTemplate.includes('{password}') &&
     !String(env.RCON_PASSWORD || '').trim()
@@ -226,14 +234,30 @@ function run() {
     errors.push('DATABASE_URL is missing');
   }
 
-  if (persistRequireDb) {
-    const sqliteCheck = spawnSync('sqlite3', ['--version'], {
-      encoding: 'utf8',
-    });
-    if (sqliteCheck.status !== 0) {
-      errors.push(
-        'PERSIST_REQUIRE_DB=true but sqlite3 binary is not available in PATH',
-      );
+  if (persistRequireDb && legacySnapshotsEnabled) {
+    warnings.push(
+      'PERSIST_LEGACY_SNAPSHOTS=true keeps legacy file snapshots enabled; set false for clean DB-only production runtime',
+    );
+  }
+
+  if (deliveryExecutionMode === 'agent') {
+    const agentToken = String(env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
+    if (!agentToken || isLikelyPlaceholder(agentToken)) {
+      errors.push('DELIVERY_EXECUTION_MODE=agent requires SCUM_CONSOLE_AGENT_TOKEN');
+    } else if (agentToken.length < 16) {
+      errors.push('SCUM_CONSOLE_AGENT_TOKEN should be at least 16 characters');
+    }
+
+    const backend = String(
+      env.SCUM_CONSOLE_AGENT_BACKEND || 'exec',
+    ).trim().toLowerCase() || 'exec';
+    if (backend === 'exec') {
+      const execTemplate = String(env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE || '').trim();
+      if (!execTemplate || !execTemplate.includes('{command}')) {
+        errors.push(
+          'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE must include {command} when agent backend=exec',
+        );
+      }
     }
   }
 
@@ -255,6 +279,11 @@ function run() {
     }
     if (!persistRequireDb) {
       errors.push('NODE_ENV=production requires PERSIST_REQUIRE_DB=true');
+    }
+    if (legacySnapshotsEnabled) {
+      errors.push(
+        'NODE_ENV=production requires PERSIST_LEGACY_SNAPSHOTS=false',
+      );
     }
   }
 

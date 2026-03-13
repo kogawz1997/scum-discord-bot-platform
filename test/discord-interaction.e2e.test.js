@@ -11,13 +11,20 @@ const botPath = path.resolve(__dirname, '../src/bot.js');
 
 function freshBotModule() {
   const previousNodeEnv = process.env.NODE_ENV;
+  const previousBotHealthPort = process.env.BOT_HEALTH_PORT;
   process.env.NODE_ENV = 'test';
+  process.env.BOT_HEALTH_PORT = '0';
   delete require.cache[botPath];
   const loaded = require(botPath);
   if (previousNodeEnv == null) {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = previousNodeEnv;
+  }
+  if (previousBotHealthPort == null) {
+    delete process.env.BOT_HEALTH_PORT;
+  } else {
+    process.env.BOT_HEALTH_PORT = previousBotHealthPort;
   }
   return loaded;
 }

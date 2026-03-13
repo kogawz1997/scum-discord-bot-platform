@@ -1,4 +1,3 @@
-const { loadJson, saveJsonDebounced } = require('./_persist');
 const { prisma } = require('../prisma');
 
 const serverStatus = {
@@ -12,13 +11,6 @@ const serverStatus = {
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
-
-const scheduleSave = saveJsonDebounced('scum-status.json', () => ({
-  ...serverStatus,
-  lastUpdated: serverStatus.lastUpdated
-    ? new Date(serverStatus.lastUpdated).toISOString()
-    : null,
-}));
 
 function normalizeDate(value) {
   if (!value) return null;
@@ -119,22 +111,14 @@ async function hydrateFromPrisma() {
     const parsed = normalizeStatus(row);
     if (startVersion === mutationVersion) {
       applyStatus(parsed);
-      scheduleSave();
     }
   } catch (error) {
     console.error('[scumStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function loadLegacySnapshot() {
-  const persisted = loadJson('scum-status.json', null);
-  if (!persisted) return;
-  applyStatus(normalizeStatus(persisted));
-}
-
 function initScumStore() {
   if (!initPromise) {
-    loadLegacySnapshot();
     initPromise = hydrateFromPrisma();
   }
   return initPromise;
@@ -151,7 +135,6 @@ function updateStatus({ onlinePlayers, maxPlayers, pingMs, uptimeMinutes }) {
   if (typeof pingMs === 'number') serverStatus.pingMs = pingMs;
   if (typeof uptimeMinutes === 'number') serverStatus.uptimeMinutes = uptimeMinutes;
   serverStatus.lastUpdated = new Date();
-  scheduleSave();
 
   const snapshot = getStatus();
   queueDbWrite(
@@ -195,7 +178,6 @@ function replaceStatus(nextStatus = {}) {
     ...parsed,
     lastUpdated: parsed.lastUpdated || new Date(),
   });
-  scheduleSave();
 
   const snapshot = getStatus();
   queueDbWrite(
