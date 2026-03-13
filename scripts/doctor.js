@@ -247,7 +247,7 @@ function addDiscordRedirectChecks() {
   );
   const portalRedirectPath = normalizePathname(
     process.env.WEB_PORTAL_DISCORD_REDIRECT_PATH,
-    '/admin/auth/discord/callback',
+    '/auth/discord/callback',
   );
   const portalRedirectUrl = new URL(portalRedirectPath, portalBaseUrl);
   const portalClientId = String(

@@ -43,7 +43,7 @@ const LEGACY_ADMIN_URL = String(
   process.env.WEB_PORTAL_LEGACY_ADMIN_URL || 'http://127.0.0.1:3200/admin',
 ).trim();
 const DISCORD_REDIRECT_PATH = String(
-  process.env.WEB_PORTAL_DISCORD_REDIRECT_PATH || '/admin/auth/discord/callback',
+  process.env.WEB_PORTAL_DISCORD_REDIRECT_PATH || '/auth/discord/callback',
 ).trim();
 
 const DISCORD_CLIENT_ID = String(
@@ -139,7 +139,7 @@ function validate() {
   }
 
   if (base) {
-    const redirectUrl = new URL(DISCORD_REDIRECT_PATH || '/admin/auth/discord/callback', base);
+    const redirectUrl = new URL(DISCORD_REDIRECT_PATH || '/auth/discord/callback', base);
     if (
       redirectUrl.pathname !== '/admin/auth/discord/callback'
       && redirectUrl.pathname !== '/auth/discord/callback'

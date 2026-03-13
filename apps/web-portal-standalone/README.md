@@ -6,6 +6,7 @@
 - บอทหลัก: `src/bot.js`
 - โหมดเว็บนี้: `player-only`
 - เส้นทาง `/admin*` บนเว็บนี้: redirect ไป admin เดิมด้วย `WEB_PORTAL_LEGACY_ADMIN_URL`
+- คู่มืออธิบายตัวแปร env ทั้งระบบ: [`docs/ENV_REFERENCE_TH.md`](../../docs/ENV_REFERENCE_TH.md)
 
 ---
 

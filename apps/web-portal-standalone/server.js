@@ -138,8 +138,8 @@ const OAUTH_STATE_TTL_MS = asInt(
   60 * 60 * 1000,
 );
 const DISCORD_REDIRECT_PATH = String(
-  process.env.WEB_PORTAL_DISCORD_REDIRECT_PATH || '/admin/auth/discord/callback',
-).trim() || '/admin/auth/discord/callback';
+  process.env.WEB_PORTAL_DISCORD_REDIRECT_PATH || '/auth/discord/callback',
+).trim() || '/auth/discord/callback';
 
 const CLEANUP_INTERVAL_MS = asInt(
   process.env.WEB_PORTAL_CLEANUP_INTERVAL_MS,

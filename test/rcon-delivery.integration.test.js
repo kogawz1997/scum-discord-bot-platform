@@ -169,6 +169,7 @@ test.afterEach(() => {
   delete process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON;
   delete process.env.DELIVERY_AGENT_POST_COMMANDS_JSON;
   delete process.env.DELIVERY_AGENT_COMMAND_DELAY_MS;
+  delete process.env.DELIVERY_MAGAZINE_STACKCOUNT;
   delete process.env.DELIVERY_AGENT_TELEPORT_MODE;
   delete process.env.DELIVERY_AGENT_TELEPORT_TARGET;
   delete process.env.DELIVERY_AGENT_RETURN_TARGET;
@@ -380,6 +381,53 @@ test('agent mode runs teleport hook before spawn and return hook after spawn', a
       successAudit.meta.outputs.map((entry) => entry.phase),
       ['pre', 'item', 'post'],
     );
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent mode adds StackCount for magazine items', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-1234567890';
+  process.env.DELIVERY_AGENT_COMMAND_DELAY_MS = '0';
+
+  const ctx = makeTestContext();
+  ctx.links.set('u-1', {
+    steamId: '76561198000000001',
+    inGameName: 'Coke TAMTHAI',
+  });
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-mag': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-126M', {
+    code: 'P-126M',
+    userId: 'u-1',
+    itemId: 'agent-mag',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-mag', {
+    id: 'agent-mag',
+    name: 'Agent Magazine',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Magazine_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-126M', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-126M').status, 'delivered');
+    assert.deepEqual(agent.received, [
+      '#SpawnItem Magazine_M1911 1 StackCount 100',
+    ]);
   } finally {
     await agent.close();
   }
@@ -605,6 +653,63 @@ test('previewDeliveryCommands generates dedicated-server and single-player comma
   ]);
   assert.deepEqual(preview.singlePlayerCommands, [
     '#SpawnItem Weapon_AK47 3',
+  ]);
+});
+
+test('previewDeliveryCommands adds StackCount for magazine spawn commands', async () => {
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-mag': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.shopItems.set('preview-mag', {
+    id: 'preview-mag',
+    name: 'Preview Magazine',
+    kind: 'item',
+    deliveryItems: [
+      { gameItemId: 'Magazine_M1911', quantity: 2, iconUrl: null },
+    ],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-mag',
+    steamId: '76561198012345678',
+  });
+
+  assert.deepEqual(preview.serverCommands, [
+    '#SpawnItem 76561198012345678 Magazine_M1911 2 StackCount 100',
+  ]);
+  assert.deepEqual(preview.singlePlayerCommands, [
+    '#SpawnItem Magazine_M1911 2 StackCount 100',
+  ]);
+});
+
+test('previewDeliveryCommands preserves explicit StackCount in template', async () => {
+  const ctx = makeTestContext();
+
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'preview-mag-explicit': ['#SpawnItem {steamId} {gameItemId} {quantity} StackCount 50'],
+  };
+
+  ctx.shopItems.set('preview-mag-explicit', {
+    id: 'preview-mag-explicit',
+    name: 'Preview Magazine Explicit',
+    kind: 'item',
+    deliveryItems: [
+      { gameItemId: 'Magazine_M1911', quantity: 1, iconUrl: null },
+    ],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const preview = await api.previewDeliveryCommands({
+    itemId: 'preview-mag-explicit',
+    steamId: '76561198012345678',
+  });
+
+  assert.deepEqual(preview.serverCommands, [
+    '#SpawnItem 76561198012345678 Magazine_M1911 1 StackCount 50',
   ]);
 });
 

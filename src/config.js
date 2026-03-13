@@ -362,6 +362,7 @@ const defaultConfig = {
       agentPostCommands: [],
       agentCommandDelayMs: 600,
       agentPostTeleportDelayMs: 2000,
+      magazineStackCount: 100,
       agentTeleportMode: 'player',
       agentTeleportTarget: '',
       agentReturnTarget: '',

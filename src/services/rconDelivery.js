@@ -245,6 +245,15 @@ function getSettings() {
     agentReturnTarget: sanitizeCommandText(
       process.env.DELIVERY_AGENT_RETURN_TARGET || auto.agentReturnTarget || '',
     ),
+    magazineStackCount: Math.max(
+      1,
+      Math.trunc(
+        asNumber(
+          process.env.DELIVERY_MAGAZINE_STACKCOUNT,
+          auto.magazineStackCount || 100,
+        ),
+      ),
+    ),
   };
 }
 
@@ -275,6 +284,37 @@ function normalizeCommands(rawValue) {
 function isTeleportCommand(command) {
   const text = String(command || '').trim();
   return /^#TeleportTo(?:Vehicle)?\b/i.test(text);
+}
+
+function isSpawnItemCommand(command) {
+  const text = String(command || '').trim();
+  return /^#SpawnItem\b/i.test(text);
+}
+
+function isMagazineGameItemId(gameItemId) {
+  const canonical = canonicalizeGameItemId(gameItemId);
+  return /^magazine_/i.test(String(canonical || '').trim());
+}
+
+function applySpawnItemModifiers(command, vars, settings = getSettings()) {
+  const text = String(command || '').trim();
+  if (!text || !isSpawnItemCommand(text)) return text;
+  if (!isMagazineGameItemId(vars?.gameItemId)) return text;
+  if (/\bStackCount\b/i.test(text)) return text;
+
+  const stackCount = Math.max(
+    1,
+    Math.trunc(Number(settings?.magazineStackCount || 100)),
+  );
+  return `${text} StackCount ${stackCount}`;
+}
+
+function renderItemCommand(template, vars, settings = getSettings(), options = {}) {
+  const runtimeTemplate = options.singlePlayer
+    ? adaptCommandTemplateForSinglePlayer(template)
+    : template;
+  const substituted = substituteTemplate(runtimeTemplate, vars);
+  return applySpawnItemModifiers(substituted, vars, settings);
 }
 
 function buildDeliveryTemplateVars(context = {}, settings = getSettings()) {
@@ -651,9 +691,11 @@ async function previewDeliveryCommands(options = {}) {
       settings,
     );
   const agentHooks = resolveAgentHookPlan(shopItem, vars, settings);
-  const serverCommands = commands.map((template) => substituteTemplate(template, vars));
+  const serverCommands = commands.map((template) =>
+    renderItemCommand(template, vars, settings),
+  );
   const singlePlayerCommands = commands.map((template) =>
-    substituteTemplate(adaptCommandTemplateForSinglePlayer(template), vars),
+    renderItemCommand(template, vars, settings, { singlePlayer: true }),
   );
   const executionPlan = resolveExecutionPlan(
     {
@@ -729,11 +771,12 @@ async function sendTestDeliveryCommand(options = {}) {
     };
 
     for (const template of commandTemplates) {
-      const runtimeTemplate =
-        settings.executionMode === 'agent'
-          ? adaptCommandTemplateForSinglePlayer(template)
-          : template;
-      const gameCommand = substituteTemplate(runtimeTemplate, vars);
+      const gameCommand = renderItemCommand(
+        template,
+        vars,
+        settings,
+        { singlePlayer: settings.executionMode === 'agent' },
+      );
       const output = await runGameCommand(gameCommand, settings);
       outputs.push({
         mode: output.mode || settings.executionMode,
@@ -2091,11 +2134,12 @@ async function processJob(job) {
         settings,
       );
       const itemCommands = commands.map((template) => {
-        const runtimeTemplate =
-          settings.executionMode === 'agent'
-            ? adaptCommandTemplateForSinglePlayer(template)
-            : template;
-        return substituteTemplate(runtimeTemplate, itemVars);
+        return renderItemCommand(
+          template,
+          itemVars,
+          settings,
+          { singlePlayer: settings.executionMode === 'agent' },
+        );
       });
       await executePhaseCommands('item', itemCommands, deliveryItem);
       if (
