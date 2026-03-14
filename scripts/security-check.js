@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
+const { validateCommandTemplate } = require('../src/utils/commandTemplate');
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
@@ -223,6 +224,13 @@ function run() {
   const deliveryExecutionMode = String(
     env.DELIVERY_EXECUTION_MODE || 'rcon',
   ).trim().toLowerCase() || 'rcon';
+  if (rconExecTemplate) {
+    try {
+      validateCommandTemplate(rconExecTemplate);
+    } catch (error) {
+      errors.push(`RCON_EXEC_TEMPLATE is not supported safely: ${error.message}`);
+    }
+  }
   if (
     rconExecTemplate.includes('{password}') &&
     !String(env.RCON_PASSWORD || '').trim()
@@ -257,6 +265,14 @@ function run() {
         errors.push(
           'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE must include {command} when agent backend=exec',
         );
+      } else {
+        try {
+          validateCommandTemplate(execTemplate);
+        } catch (error) {
+          errors.push(
+            `SCUM_CONSOLE_AGENT_EXEC_TEMPLATE is not supported safely: ${error.message}`,
+          );
+        }
       }
     }
   }

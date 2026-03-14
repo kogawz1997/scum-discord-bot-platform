@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
+const { validateCommandTemplate } = require('../src/utils/commandTemplate');
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
@@ -385,6 +386,7 @@ function addRconChecks() {
           'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE must include {command} when SCUM_CONSOLE_AGENT_BACKEND=exec',
         );
       }
+      validateCommandTemplate(template);
     }
     if (backend === 'process' && isTruthy(process.env.SCUM_CONSOLE_AGENT_AUTOSTART, false)) {
       const serverExe = String(process.env.SCUM_CONSOLE_AGENT_SERVER_EXE || '').trim();
@@ -404,6 +406,7 @@ function addRconChecks() {
   if (!template.includes('{command}')) {
     throw new Error('RCON_EXEC_TEMPLATE must include {command}');
   }
+  validateCommandTemplate(template);
 
   const host = String(process.env.RCON_HOST || '').trim();
   const port = String(process.env.RCON_PORT || '').trim();

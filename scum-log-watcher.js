@@ -100,6 +100,16 @@ const WATCHER_QUEUE_ALERT_THRESHOLD = parseIntegerEnv(
   Math.max(20, Math.floor(EVENT_QUEUE_MAX * 0.75)),
   10,
 );
+const WATCHER_FILE_STAT_INTERVAL_MS = parseIntegerEnv(
+  'SCUM_WATCHER_FILE_STAT_INTERVAL_MS',
+  Math.max(1000, WATCH_INTERVAL_MS * 2),
+  1000,
+);
+const WATCHER_BACKLOG_STALE_MS = parseIntegerEnv(
+  'SCUM_WATCHER_BACKLOG_STALE_MS',
+  60 * 1000,
+  5000,
+);
 const WATCHER_HEALTH_HOST = String(
   process.env.SCUM_WATCHER_HEALTH_HOST || '127.0.0.1',
 ).trim() || '127.0.0.1';
@@ -124,6 +134,17 @@ let webhookSuccessCount = 0;
 let webhookFailCount = 0;
 let lastWebhookErrorAlertAt = 0;
 let lastQueuePressureAlertAt = 0;
+let lastFileStatAt = 0;
+let lastFileReadAt = 0;
+let lastEventAt = 0;
+let lastRotationAt = 0;
+let lastKnownFileSize = 0;
+let lastKnownFileMtimeMs = 0;
+let lastReadOffset = 0;
+let lastBacklogAt = 0;
+let lastFileError = null;
+let lastFileExists = false;
+let watcherFileStatTimer = null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -137,6 +158,68 @@ function compactWebhookAttempts(now = Date.now()) {
   ) {
     webhookAttemptWindow.shift();
   }
+}
+
+function asIso(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return new Date(ms).toISOString();
+}
+
+function updateFileStateFromStat(stat) {
+  const now = Date.now();
+  lastFileStatAt = now;
+  lastFileError = null;
+  lastFileExists = true;
+  lastKnownFileSize = Number(stat?.size || 0);
+  lastKnownFileMtimeMs = Number(stat?.mtimeMs || 0);
+  if (lastKnownFileSize < lastReadOffset) {
+    lastReadOffset = lastKnownFileSize;
+  }
+  if (lastKnownFileSize > lastReadOffset) {
+    if (!lastBacklogAt) lastBacklogAt = now;
+  } else {
+    lastBacklogAt = 0;
+  }
+}
+
+function markFileError(error) {
+  lastFileStatAt = Date.now();
+  lastFileError = String(error?.message || error || 'file-stat-failed');
+  lastFileExists = false;
+  lastKnownFileSize = 0;
+  lastKnownFileMtimeMs = 0;
+  lastBacklogAt = 0;
+}
+
+function getWatcherHealthPayload(now = Date.now()) {
+  const snapshot = getWatcherMetricsSnapshot(now);
+  const backlogBytes = Math.max(0, lastKnownFileSize - lastReadOffset);
+  const backlogAgeMs = lastBacklogAt ? now - lastBacklogAt : 0;
+  const ready =
+    lastFileExists
+    && !lastFileError
+    && !(backlogBytes > 0 && backlogAgeMs >= WATCHER_BACKLOG_STALE_MS);
+  return {
+    ...snapshot,
+    ready,
+    status: ready ? 'ready' : 'degraded',
+    watch: {
+      logPath: LOG_PATH || null,
+      fileExists: lastFileExists,
+      lastFileError,
+      lastStatAt: asIso(lastFileStatAt),
+      lastReadAt: asIso(lastFileReadAt),
+      lastEventAt: asIso(lastEventAt),
+      lastRotationAt: asIso(lastRotationAt),
+      lastKnownFileSize,
+      lastKnownFileMtime: asIso(lastKnownFileMtimeMs),
+      lastReadOffset,
+      backlogBytes,
+      backlogSinceAt: asIso(lastBacklogAt),
+      backlogAgeMs,
+      backlogStaleAfterMs: WATCHER_BACKLOG_STALE_MS,
+    },
+  };
 }
 
 function getWatcherMetricsSnapshot(now = Date.now()) {
@@ -545,8 +628,13 @@ function tailFile(filePath, onLine) {
   const bufferState = { partial: '' };
   let offset = 0;
   try {
-    offset = fs.statSync(filePath).size;
+    const stat = fs.statSync(filePath);
+    offset = stat.size;
+    lastReadOffset = offset;
+    lastFileReadAt = Date.now();
+    updateFileStateFromStat(stat);
   } catch (error) {
+    markFileError(error);
     console.error('log file not found at path:', filePath);
     process.exit(1);
   }
@@ -570,7 +658,9 @@ function tailFile(filePath, onLine) {
         let stat;
         try {
           stat = fs.statSync(filePath);
+          updateFileStateFromStat(stat);
         } catch (error) {
+          markFileError(error);
           console.warn('failed to stat log file, waiting for next round:', error.message);
           return;
         }
@@ -579,6 +669,8 @@ function tailFile(filePath, onLine) {
           flushPartialLine(bufferState, onLine);
           console.log('log rotated/reset, restart from beginning');
           offset = 0;
+          lastReadOffset = 0;
+          lastRotationAt = Date.now();
         }
 
         if (stat.size > offset) {
@@ -586,6 +678,11 @@ function tailFile(filePath, onLine) {
           const end = stat.size;
           await readRange(filePath, start, end, onLine, bufferState);
           offset = end;
+          lastReadOffset = end;
+          lastFileReadAt = Date.now();
+          if (lastKnownFileSize <= end) {
+            lastBacklogAt = 0;
+          }
         }
       } while (pending);
     } finally {
@@ -624,12 +721,27 @@ function startWatcher() {
     name: 'watcher',
     host: WATCHER_HEALTH_HOST,
     port: WATCHER_HEALTH_PORT,
-    getPayload: () => getWatcherMetricsSnapshot(),
+    getPayload: () => getWatcherHealthPayload(),
   });
+
+  const pollLogFileState = () => {
+    try {
+      const stat = fs.statSync(LOG_PATH);
+      updateFileStateFromStat(stat);
+    } catch (error) {
+      markFileError(error);
+    }
+  };
+  pollLogFileState();
+  watcherFileStatTimer = setInterval(pollLogFileState, WATCHER_FILE_STAT_INTERVAL_MS);
+  if (typeof watcherFileStatTimer.unref === 'function') {
+    watcherFileStatTimer.unref();
+  }
 
   const stop = tailFile(LOG_PATH, (line) => {
     const event = parseLine(line);
     if (!event) return;
+    lastEventAt = Date.now();
     console.log('event:', event);
     enqueueEvent(event);
   });
@@ -637,6 +749,10 @@ function startWatcher() {
   const shutdown = () => {
     console.log('stopping SCUM log watcher...');
     stop();
+    if (watcherFileStatTimer) {
+      clearInterval(watcherFileStatTimer);
+      watcherFileStatTimer = null;
+    }
     if (healthServer) {
       healthServer.close();
     }

@@ -5,6 +5,8 @@ const { findShopItemView } = require('../services/playerQueryService');
 const {
   purchaseShopItemForUser,
   normalizeShopKind,
+  isVipShopKind,
+  isGameItemShopKind,
   buildBundleSummary,
 } = require('../services/shopService');
 
@@ -73,6 +75,8 @@ module.exports = {
     const { purchase, delivery } = result;
     const deliveryText = getDeliveryText(delivery);
     const kind = normalizeShopKind(item.kind);
+    const isVip = isVipShopKind(kind);
+    const isGameItem = isGameItemShopKind(kind);
     const bundle = buildBundleSummary(item, 5);
     const iconUrl = resolveItemIconUrl(item);
 
@@ -81,7 +85,7 @@ module.exports = {
         `ซื้อ **${item.name}** สำเร็จ\n`
         + `ประเภท: **${kind.toUpperCase()}**\n`
         + `ราคา: ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}**\n`
-        + `${kind === 'item' ? `${bundle.long}\n` : ''}`
+        + `${isGameItem ? `${bundle.long}\n` : isVip ? '' : 'การส่งมอบ: **ทีมงานจัดการในเกม**\n'}`
         + `โค้ดอ้างอิง: \`${purchase.code}\`${deliveryText}`,
     };
 
@@ -94,7 +98,11 @@ module.exports = {
             [
               `รหัส: \`${item.id}\``,
               `ประเภท: **${kind.toUpperCase()}**`,
-              ...(kind === 'item' ? [bundle.long] : []),
+              ...(isGameItem
+                ? [bundle.long]
+                : isVip
+                  ? []
+                  : ['การส่งมอบ: **ทีมงานจัดการในเกม**']),
             ].join('\n'),
           )
           .setThumbnail(iconUrl),
@@ -111,7 +119,7 @@ module.exports = {
         );
         if (logChannel && logChannel.isTextBased()) {
           await logChannel.send(
-            `การซื้อ | ผู้ใช้: ${interaction.user} | สินค้า: **${item.name}** (\`${item.id}\`) | ประเภท: ${kind.toUpperCase()} | รายการ: ${kind === 'item' ? bundle.short : 'VIP'} | ราคา: ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}** | โค้ด: \`${purchase.code}\` | ส่งอัตโนมัติ: ${delivery.queued ? 'เข้าคิวแล้ว' : delivery.reason || 'แอดมินจัดการ'}`,
+            `การซื้อ | ผู้ใช้: ${interaction.user} | สินค้า: **${item.name}** (\`${item.id}\`) | ประเภท: ${kind.toUpperCase()} | รายการ: ${isGameItem ? bundle.short : isVip ? 'VIP' : 'MANUAL'} | ราคา: ${economy.currencySymbol} **${Number(item.price || 0).toLocaleString()}** | โค้ด: \`${purchase.code}\` | ส่งอัตโนมัติ: ${delivery.queued ? 'เข้าคิวแล้ว' : delivery.reason || 'แอดมินจัดการ'}`,
           );
         }
       }

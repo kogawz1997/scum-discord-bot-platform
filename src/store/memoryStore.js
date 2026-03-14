@@ -16,7 +16,8 @@ function normalizeShopKind(value, fallback = 'item') {
     .trim()
     .toLowerCase();
   if (raw === 'vip') return 'vip';
-  return 'item';
+  if (raw === 'item') return 'item';
+  return raw || 'item';
 }
 
 function normalizeShopQuantity(value, fallback = 1) {
@@ -233,6 +234,58 @@ function resolveShopMetaForWrite(meta = {}, fallbackId = '') {
     : [];
   const primary = deliveryItems[0] || null;
   return { resolvedKind, deliveryItems, primary };
+}
+
+function buildInitialShopItemRecord(initialItem) {
+  const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(
+    {
+      kind: initialItem.kind,
+      gameItemId: initialItem.gameItemId,
+      quantity: initialItem.quantity,
+      iconUrl: initialItem.iconUrl,
+      deliveryItems: initialItem.deliveryItems,
+    },
+    initialItem.id,
+  );
+
+  return {
+    id: initialItem.id,
+    name: initialItem.name,
+    price: initialItem.price,
+    description: initialItem.description,
+    kind: resolvedKind,
+    gameItemId: primary?.gameItemId || null,
+    quantity: primary?.quantity || 1,
+    iconUrl: primary?.iconUrl || null,
+    deliveryItemsJson:
+      resolvedKind === 'item' && deliveryItems.length > 0
+        ? JSON.stringify(deliveryItems)
+        : null,
+    deliveryProfile: normalizeDeliveryProfile(initialItem.deliveryProfile),
+    deliveryTeleportMode: normalizeDeliveryTeleportMode(initialItem.deliveryTeleportMode),
+    deliveryTeleportTarget: normalizeOptionalText(initialItem.deliveryTeleportTarget),
+    deliveryPreCommandsJson:
+      normalizeShopCommandList(initialItem.deliveryPreCommands).length > 0
+        ? JSON.stringify(normalizeShopCommandList(initialItem.deliveryPreCommands))
+        : null,
+    deliveryPostCommandsJson:
+      normalizeShopCommandList(initialItem.deliveryPostCommands).length > 0
+        ? JSON.stringify(normalizeShopCommandList(initialItem.deliveryPostCommands))
+        : null,
+    deliveryReturnTarget: normalizeOptionalText(initialItem.deliveryReturnTarget),
+  };
+}
+
+function shouldRepairInitialShopKind(existingItem, initialRecord) {
+  const desiredKind = normalizeShopKind(initialRecord?.kind, inferShopKindById(initialRecord?.id));
+  const currentKind = normalizeShopKind(existingItem?.kind, inferShopKindById(existingItem?.id));
+  if (desiredKind === currentKind) return false;
+  if (desiredKind === 'vip' || desiredKind === 'item') return false;
+
+  const hasExistingDeliveryConfig =
+    String(existingItem?.gameItemId || '').trim().length > 0
+    || String(existingItem?.deliveryItemsJson || '').trim().length > 0;
+  return currentKind === 'item' && !hasExistingDeliveryConfig;
 }
 
 function toShopItemView(rawItem) {
@@ -463,79 +516,35 @@ async function claimWeekly(userId) {
 
 async function listShopItems() {
   await ensureShopItemDeliveryProfileColumns();
-  const items = await prisma.shopItem.findMany();
-  if (items.length === 0) {
-    await prisma.$transaction(
-      shop.initialItems.map((i) => {
-        const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(
-          {
-            kind: i.kind,
-            gameItemId: i.gameItemId,
-            quantity: i.quantity,
-            iconUrl: i.iconUrl,
-            deliveryItems: i.deliveryItems,
+  let items = await prisma.shopItem.findMany();
+  const byId = new Map(items.map((item) => [String(item.id), item]));
+  const writes = [];
+
+  for (const initialItem of shop.initialItems) {
+    const record = buildInitialShopItemRecord(initialItem);
+    const existing = byId.get(String(record.id));
+    if (!existing) {
+      writes.push(prisma.shopItem.create({ data: record }));
+      continue;
+    }
+
+    if (shouldRepairInitialShopKind(existing, record)) {
+      writes.push(
+        prisma.shopItem.update({
+          where: { id: record.id },
+          data: {
+            kind: record.kind,
           },
-          i.id,
-        );
-        return prisma.shopItem.upsert({
-          where: { id: i.id },
-          update: {
-            name: i.name,
-            price: i.price,
-            description: i.description,
-            kind: resolvedKind,
-            gameItemId: primary?.gameItemId || null,
-            quantity: primary?.quantity || 1,
-            iconUrl: primary?.iconUrl || null,
-            deliveryItemsJson:
-              resolvedKind === 'item' && deliveryItems.length > 0
-                ? JSON.stringify(deliveryItems)
-                : null,
-            deliveryProfile: normalizeDeliveryProfile(i.deliveryProfile),
-            deliveryTeleportMode: normalizeDeliveryTeleportMode(i.deliveryTeleportMode),
-            deliveryTeleportTarget: normalizeOptionalText(i.deliveryTeleportTarget),
-            deliveryPreCommandsJson:
-              normalizeShopCommandList(i.deliveryPreCommands).length > 0
-                ? JSON.stringify(normalizeShopCommandList(i.deliveryPreCommands))
-                : null,
-            deliveryPostCommandsJson:
-              normalizeShopCommandList(i.deliveryPostCommands).length > 0
-                ? JSON.stringify(normalizeShopCommandList(i.deliveryPostCommands))
-                : null,
-            deliveryReturnTarget: normalizeOptionalText(i.deliveryReturnTarget),
-          },
-          create: {
-            id: i.id,
-            name: i.name,
-            price: i.price,
-            description: i.description,
-            kind: resolvedKind,
-            gameItemId: primary?.gameItemId || null,
-            quantity: primary?.quantity || 1,
-            iconUrl: primary?.iconUrl || null,
-            deliveryItemsJson:
-              resolvedKind === 'item' && deliveryItems.length > 0
-                ? JSON.stringify(deliveryItems)
-                : null,
-            deliveryProfile: normalizeDeliveryProfile(i.deliveryProfile),
-            deliveryTeleportMode: normalizeDeliveryTeleportMode(i.deliveryTeleportMode),
-            deliveryTeleportTarget: normalizeOptionalText(i.deliveryTeleportTarget),
-            deliveryPreCommandsJson:
-              normalizeShopCommandList(i.deliveryPreCommands).length > 0
-                ? JSON.stringify(normalizeShopCommandList(i.deliveryPreCommands))
-                : null,
-            deliveryPostCommandsJson:
-              normalizeShopCommandList(i.deliveryPostCommands).length > 0
-                ? JSON.stringify(normalizeShopCommandList(i.deliveryPostCommands))
-                : null,
-            deliveryReturnTarget: normalizeOptionalText(i.deliveryReturnTarget),
-          },
-        });
-      }),
-    );
-    const fresh = await prisma.shopItem.findMany();
-    return fresh.map((item) => toShopItemView(item));
+        }),
+      );
+    }
   }
+
+  if (writes.length > 0) {
+    await prisma.$transaction(writes);
+    items = await prisma.shopItem.findMany();
+  }
+
   return items.map((item) => toShopItemView(item));
 }
 

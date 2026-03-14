@@ -3,15 +3,16 @@
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-97%2F97%20passing-15803d?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-106%2F106%20passing-15803d?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-production%20baseline%20ready-0f766e?style=for-the-badge)
 
 เอกสารนี้คือศูนย์กลางสถานะของโปรเจกต์ ใช้สรุปสิ่งที่เสร็จแล้ว, สิ่งที่ยืนยันใช้งานได้จริง, ความเสี่ยงที่ยังเหลือ, และแผนถัดไป
 
-อัปเดตล่าสุด: **2026-03-13 22:59 +07:00**
+อัปเดตล่าสุด: **2026-03-15 00:05 +07:00**
 
 อ้างอิงหลัก
 - ภาพรวม/วิธีใช้: [README.md](./README.md)
+- เอกสารโชว์งาน/ภาพรวมเชิง commercial: [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md)
 - คู่มือปฏิบัติการ: [docs/OPERATIONS_MANUAL_TH.md](./docs/OPERATIONS_MANUAL_TH.md)
 - คู่มือ `.env` ทุกไฟล์: [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md)
 - รายงาน gap ของ env ปัจจุบัน: [docs/PRODUCTION_ENV_GAP_TH.md](./docs/PRODUCTION_ENV_GAP_TH.md)
@@ -29,7 +30,7 @@
 
 ### ผลตรวจล่าสุด
 - `npm run lint` ผ่าน
-- `npm test` ผ่าน `97/97`
+- `npm test` ผ่าน `106/106`
 - doctor / topology / portal doctor / readiness tooling มีครบ
 
 ### สถานะ production baseline
@@ -37,6 +38,11 @@
 - `PERSIST_LEGACY_SNAPSHOTS=false` รองรับแล้ว
 - startup guard / topology guard / security check มีแล้ว
 - one-click / PM2 / Windows helper มีแล้ว
+
+### Showcase / commercial posture
+- admin dashboard มี landing showcase สรุป topology, delivery runtime, restore guardrails และ operational evidence แล้ว
+- มีเอกสารโชว์งานแยกที่ [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md) สำหรับใช้ present ลูกค้าหรือทีม
+- สิ่งที่นำเสนอได้ชัดแล้วคือ delivery timeline, preflight, simulator, capability test, notification center และ player portal
 
 ---
 
@@ -64,9 +70,15 @@
 ### Admin Web
 - login / RBAC
 - backup / restore / snapshot export
+- safe restore guardrails: dry-run diff + confirm + maintenance gate + rollback backup + restore status
 - Audit Center
 - observability / metrics / cards
 - delivery runtime / preview / detail / test-send
+- delivery timeline / step log รายออเดอร์
+- delivery preflight / simulator / dry run
+- SCUM admin capability tester + capability preset catalog
+- alert / notification center
+- item command editor + command template override preview
 - deep filters / exact match / sort / cursor pagination / shared presets
 
 ### Player Portal
@@ -78,7 +90,12 @@
 ### Delivery
 - queue + retry + dead-letter + audit + watchdog
 - worker hydrate queue จาก Prisma ข้าม process ได้
-- command preview ใช้งานได้
+- command preview / simulate / dry run ใช้งานได้
+- per-order timeline / status history / step log ใช้งานได้
+- runtime supervisor / watcher freshness / restore maintenance guard ใช้งานได้
+- delivery-specific preflight readiness ใช้งานได้
+- post-spawn verification policy `basic | output-match | observer | strict` ใช้งานได้
+- SCUM admin capability smoke test `announce / teleport / spawn` ใช้งานได้
 - delivery profile รายสินค้าใช้งานได้
 - teleport mode `player | vehicle`
 - multi-item delivery ใช้งานได้
@@ -136,6 +153,7 @@
 - observability query/export แยกเป็น service layer แล้ว
 - dashboard cards ใช้ aggregate endpoint + cache window
 - shared audit presets เก็บใน DB พร้อม visibility `private / role / public`
+- admin notification center เก็บสถานะ alert แบบ persist + acknowledge ได้แล้ว
 
 ---
 
@@ -159,6 +177,9 @@
 
 ### 5.3 เอกสาร deploy ยังต้องอิง env จริงก่อนใช้งาน production
 - ต้องใส่ OAuth secrets / tokens จริงก่อน `readiness:prod`
+
+### 5.4 Agent mode ยังขึ้นกับ Windows session และ SCUM client จริง
+- preflight ช่วยบอก readiness ได้ แต่ยังไม่สามารถกำจัดข้อจำกัดของ client automation ออกไปได้ทั้งหมด
 
 ---
 

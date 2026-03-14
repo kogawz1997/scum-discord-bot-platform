@@ -45,13 +45,29 @@ const {
   replaceDeliveryDeadLetters,
 } = require('./rconDelivery');
 const { replaceDeliveryAudit } = require('../store/deliveryAuditStore');
+const {
+  listAdminNotifications,
+  replaceAdminNotifications,
+} = require('../store/adminNotificationStore');
+const {
+  listAdminCommandCapabilityPresets,
+  replaceAdminCommandCapabilityPresets,
+} = require('../store/adminCommandCapabilityPresetStore');
 const { resolveItemIconUrl } = require('./itemIconService');
+const { getRuntimeSupervisorSnapshot } = require('./runtimeSupervisorService');
+const { publishAdminLiveUpdate } = require('./adminLiveBus');
+const { acquireRuntimeLock, releaseRuntimeLock } = require('./runtimeLock');
 const { DATA_DIR, getPersistenceStatus } = require('../store/_persist');
+const {
+  getAdminRestoreState,
+  setAdminRestoreState,
+} = require('../store/adminRestoreStateStore');
 
 const BACKUP_DIR = path.resolve(
   String(process.env.ADMIN_WEB_BACKUP_DIR || path.join(DATA_DIR, 'backups')).trim()
     || path.join(DATA_DIR, 'backups'),
 );
+const RESTORE_LOCK_NAME = 'admin-backup-restore';
 
 function jsonReplacer(_key, value) {
   if (typeof value === 'bigint') return Number(value);
@@ -114,6 +130,8 @@ function normalizeConfig() {
   };
 }
 
+// Backups are file-based on purpose so admins can inspect/export them without needing
+// a separate artifact store during recovery work.
 function ensureBackupDir() {
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
 }
@@ -165,6 +183,33 @@ function saveBackupPayload(payload, backupId = null) {
     sizeBytes: stat.size,
     createdAt: stat.birthtime?.toISOString?.() || stat.ctime.toISOString(),
   };
+}
+
+function buildBackupPayload({
+  actor = 'unknown',
+  role = 'unknown',
+  note = null,
+  snapshot = {},
+  meta = null,
+} = {}) {
+  return {
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    createdBy: actor,
+    role,
+    note,
+    meta: meta && typeof meta === 'object' ? meta : undefined,
+    snapshot,
+  };
+}
+
+function createRestoreError(message, statusCode = 500, data = null) {
+  const error = new Error(String(message || 'Backup restore failed'));
+  error.statusCode = Number(statusCode || 500);
+  if (data && typeof data === 'object') {
+    error.data = data;
+  }
+  return error;
 }
 
 function readBackupPayloadByName(inputName) {
@@ -242,7 +287,13 @@ async function replacePrismaTablesFromSnapshot(snapshot = {}) {
           .filter((entry) => entry.gameItemId)
       : [];
     const primary = deliveryItems[0] || null;
-    const kind = String(row.kind || 'item').toLowerCase() === 'vip' ? 'vip' : 'item';
+    const rawKind = String(row.kind || 'item').trim().toLowerCase();
+    const kind =
+      rawKind === 'vip'
+        ? 'vip'
+        : rawKind === 'item'
+          ? 'item'
+          : rawKind || 'item';
     await prisma.shopItem.create({
       data: {
         id,
@@ -346,6 +397,8 @@ async function replacePrismaTablesFromSnapshot(snapshot = {}) {
   }
 }
 
+// Restore applies DB-backed entities first, then file-backed/runtime stores, so the
+// admin surface can fall back to a coherent snapshot instead of a half-restored mix.
 async function restoreAdminSnapshotData(snapshot = {}) {
   await replacePrismaTablesFromSnapshot(snapshot);
 
@@ -378,6 +431,14 @@ async function restoreAdminSnapshotData(snapshot = {}) {
   replaceCarts(Array.isArray(snapshot.carts) ? snapshot.carts : []);
   replaceStatus(snapshot.status || {});
   replaceDeliveryAudit(Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : []);
+  replaceAdminNotifications(
+    Array.isArray(snapshot.adminNotifications) ? snapshot.adminNotifications : [],
+  );
+  replaceAdminCommandCapabilityPresets(
+    Array.isArray(snapshot.adminCommandCapabilityPresets)
+      ? snapshot.adminCommandCapabilityPresets
+      : [],
+  );
   replaceDeliveryQueue(Array.isArray(snapshot.deliveryQueue) ? snapshot.deliveryQueue : []);
   replaceDeliveryDeadLetters(
     Array.isArray(snapshot.deliveryDeadLetters) ? snapshot.deliveryDeadLetters : [],
@@ -415,16 +476,136 @@ function buildRestoreCounts(snapshot = {}) {
     tickets: Array.isArray(snapshot.tickets) ? snapshot.tickets.length : 0,
     bounties: Array.isArray(snapshot.bounties) ? snapshot.bounties.length : 0,
     events: Array.isArray(snapshot.events) ? snapshot.events.length : 0,
+    links: Array.isArray(snapshot.links) ? snapshot.links.length : 0,
+    memberships: Array.isArray(snapshot.memberships) ? snapshot.memberships.length : 0,
+    weaponStats: Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats.length : 0,
+    stats: Array.isArray(snapshot.stats) ? snapshot.stats.length : 0,
+    giveaways: Array.isArray(snapshot.giveaways) ? snapshot.giveaways.length : 0,
+    punishments: Array.isArray(snapshot.punishments) ? snapshot.punishments.length : 0,
+    redeemCodes: Array.isArray(snapshot.redeemCodes) ? snapshot.redeemCodes.length : 0,
+    welcomeClaims: Array.isArray(snapshot.welcomeClaims) ? snapshot.welcomeClaims.length : 0,
     carts: Array.isArray(snapshot.carts) ? snapshot.carts.length : 0,
+    topPanels: Array.isArray(snapshot.topPanels) ? snapshot.topPanels.length : 0,
+    dailyRents: Array.isArray(snapshot.dailyRents) ? snapshot.dailyRents.length : 0,
+    rentalVehicles: Array.isArray(snapshot.rentalVehicles)
+      ? snapshot.rentalVehicles.length
+      : 0,
     luckyWheelStates: Array.isArray(snapshot.luckyWheelStates)
       ? snapshot.luckyWheelStates.length
       : 0,
     partyChatMessages: Array.isArray(snapshot.partyChatMessages)
       ? snapshot.partyChatMessages.length
       : 0,
+    deliveryQueue: Array.isArray(snapshot.deliveryQueue) ? snapshot.deliveryQueue.length : 0,
+    deliveryDeadLetters: Array.isArray(snapshot.deliveryDeadLetters)
+      ? snapshot.deliveryDeadLetters.length
+      : 0,
+    deliveryAudit: Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit.length : 0,
+    adminNotifications: Array.isArray(snapshot.adminNotifications)
+      ? snapshot.adminNotifications.length
+      : 0,
+    adminCommandCapabilityPresets: Array.isArray(snapshot.adminCommandCapabilityPresets)
+      ? snapshot.adminCommandCapabilityPresets.length
+      : 0,
   };
 }
 
+function buildRestoreWarnings(targetSnapshot = {}, currentSnapshot = {}) {
+  const warnings = [];
+  if (targetSnapshot.config && currentSnapshot.config) {
+    try {
+      if (JSON.stringify(targetSnapshot.config) !== JSON.stringify(currentSnapshot.config)) {
+        warnings.push('config-will-be-restored');
+      }
+    } catch {
+      warnings.push('config-will-be-restored');
+    }
+  }
+  if (Array.isArray(targetSnapshot.deliveryQueue) && targetSnapshot.deliveryQueue.length > 0) {
+    warnings.push('delivery-queue-will-be-replaced');
+  }
+  if (
+    Array.isArray(targetSnapshot.deliveryDeadLetters)
+    && targetSnapshot.deliveryDeadLetters.length > 0
+  ) {
+    warnings.push('delivery-dead-letter-will-be-replaced');
+  }
+  if (Array.isArray(targetSnapshot.wallets) && targetSnapshot.wallets.length > 0) {
+    warnings.push('wallet-balances-will-be-restored');
+  }
+  if (Array.isArray(targetSnapshot.purchases) && targetSnapshot.purchases.length > 0) {
+    warnings.push('purchase-history-will-be-restored');
+  }
+  return warnings;
+}
+
+function buildRestoreDiff(currentSnapshot = {}, targetSnapshot = {}) {
+  const currentCounts = buildRestoreCounts(currentSnapshot);
+  const targetCounts = buildRestoreCounts(targetSnapshot);
+  const countKeys = Array.from(
+    new Set([...Object.keys(currentCounts), ...Object.keys(targetCounts)]),
+  ).sort();
+  const counts = {};
+  let changedCollections = 0;
+
+  for (const key of countKeys) {
+    const current = Number(currentCounts[key] || 0);
+    const target = Number(targetCounts[key] || 0);
+    const delta = target - current;
+    const changed = current !== target;
+    if (changed) changedCollections += 1;
+    counts[key] = {
+      current,
+      target,
+      delta,
+      changed,
+    };
+  }
+
+  return {
+    currentCounts,
+    targetCounts,
+    counts,
+    summary: {
+      changedCollections,
+      currentCollections: countKeys.length,
+      targetCollections: countKeys.length,
+    },
+    warnings: buildRestoreWarnings(targetSnapshot, currentSnapshot),
+  };
+}
+
+async function buildRestorePreviewData(loaded, options = {}) {
+  const snapshot = loaded?.payload?.snapshot;
+  if (!snapshot || typeof snapshot !== 'object') {
+    throw createRestoreError('Backup payload is invalid', 400);
+  }
+  const currentSnapshot = options.currentSnapshot || await buildAdminSnapshot({
+    client: options.client || null,
+    observabilitySnapshot: options.observabilitySnapshot || null,
+  });
+  const diff = buildRestoreDiff(currentSnapshot, snapshot);
+  return {
+    dryRun: true,
+    backup: loaded.file,
+    backupCreatedAt: loaded?.payload?.createdAt || null,
+    backupCreatedBy: loaded?.payload?.createdBy || null,
+    note: loaded?.payload?.note || null,
+    confirmBackup: loaded.file,
+    counts: diff.targetCounts,
+    currentCounts: diff.currentCounts,
+    diff,
+    warnings: diff.warnings,
+    restoreState: getAdminRestoreState(),
+  };
+}
+
+function createRestoreOperationId() {
+  return `restore-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+}
+
+// Snapshots intentionally capture both business data and operator-facing runtime state
+// so restore previews can show the blast radius before anything mutates.
 async function buildAdminSnapshot({ client = null, observabilitySnapshot = null } = {}) {
   const [
     shopItems,
@@ -438,6 +619,7 @@ async function buildAdminSnapshot({ client = null, observabilitySnapshot = null 
     luckyWheelStates,
     partyChatMessages,
     deliveryRuntime,
+    runtimeSupervisor,
   ] = await Promise.all([
     listShopItems(),
     prisma.userWallet.findMany({
@@ -465,6 +647,7 @@ async function buildAdminSnapshot({ client = null, observabilitySnapshot = null 
     listLuckyWheelStates(2000),
     listAllPartyMessages(5000),
     getDeliveryRuntimeStatus().catch(() => null),
+    getRuntimeSupervisorSnapshot().catch(() => null),
   ]);
 
   const shopItemsWithIcon = shopItems.map((item) => ({
@@ -511,9 +694,13 @@ async function buildAdminSnapshot({ client = null, observabilitySnapshot = null 
     partyChatMessages,
     rentBikeRuntime: getRentBikeRuntime(),
     deliveryRuntime,
+    runtimeSupervisor,
+    backupRestore: getAdminRestoreState(),
     deliveryQueue: listDeliveryQueue(500),
     deliveryDeadLetters: listDeliveryDeadLetters(1000),
     deliveryAudit: listDeliveryAudit(1000),
+    adminNotifications: listAdminNotifications({ limit: 300 }),
+    adminCommandCapabilityPresets: listAdminCommandCapabilityPresets(300),
     observability: observabilitySnapshot || {},
     backups: listAdminBackupFiles().slice(0, 50),
     topPanels: listTopPanels(),
@@ -533,14 +720,12 @@ async function createAdminBackup({
   const snapshot = includeSnapshot
     ? await buildAdminSnapshot({ client, observabilitySnapshot })
     : {};
-  const payload = {
-    schemaVersion: 1,
-    createdAt: new Date().toISOString(),
-    createdBy: actor,
+  const payload = buildBackupPayload({
+    actor,
     role,
     note,
     snapshot,
-  };
+  });
   const saved = saveBackupPayload(payload);
   return {
     ...saved,
@@ -548,35 +733,267 @@ async function createAdminBackup({
   };
 }
 
-function previewAdminBackupRestore(backupName) {
+async function previewAdminBackupRestore(backupName, options = {}) {
   const loaded = readBackupPayloadByName(backupName);
-  const snapshot = loaded?.payload?.snapshot;
-  if (!snapshot || typeof snapshot !== 'object') {
-    throw new Error('Backup payload is invalid');
-  }
-  return {
-    dryRun: true,
-    backup: loaded.file,
-    counts: buildRestoreCounts(snapshot),
-  };
+  return buildRestorePreviewData(loaded, options);
 }
 
-async function restoreAdminBackup(backupName) {
+function matchesRestoreConfirmation(input, backupFile) {
+  const actual = String(input || '').trim();
+  const expected = String(backupFile || '').trim();
+  if (!actual || !expected) return false;
+  if (actual === expected) return true;
+  const expectedBase = expected.replace(/\.json$/i, '');
+  return actual === expectedBase;
+}
+
+// Restore runs under maintenance mode with rollback backup creation so operators have
+// a reversible path when a snapshot turns out to be wrong for the target environment.
+async function restoreAdminBackup(backupName, options = {}) {
   const loaded = readBackupPayloadByName(backupName);
   const snapshot = loaded?.payload?.snapshot;
   if (!snapshot || typeof snapshot !== 'object') {
-    throw new Error('Backup payload is invalid');
+    throw createRestoreError('Backup payload is invalid', 400);
   }
-  await restoreAdminSnapshotData(snapshot);
-  return {
-    restored: true,
+
+  const confirmBackup = String(options.confirmBackup || '').trim();
+  if (!matchesRestoreConfirmation(confirmBackup, loaded.file)) {
+    throw createRestoreError('confirmBackup must match the backup filename', 400, {
+      expectedConfirmBackup: loaded.file,
+    });
+  }
+
+  const lock = acquireRuntimeLock(RESTORE_LOCK_NAME, 'admin-backup-restore');
+  if (!lock.ok) {
+    throw createRestoreError('A backup restore is already in progress', 409, {
+      reason: lock.reason || 'already-locked',
+      lock: lock.data || null,
+      restoreState: getAdminRestoreState(),
+    });
+  }
+
+  const startedAt = new Date().toISOString();
+  const operationId = createRestoreOperationId();
+  const actor = String(options.actor || 'unknown').trim() || 'unknown';
+  const role = String(options.role || 'unknown').trim() || 'unknown';
+
+  let currentSnapshot = null;
+  let rollbackBackup = null;
+  let restoreApplied = false;
+  let preview = null;
+
+  setAdminRestoreState({
+    status: 'running',
+    active: true,
+    maintenance: true,
+    operationId,
     backup: loaded.file,
-  };
+    confirmBackup: loaded.file,
+    rollbackBackup: null,
+    actor,
+    role,
+    note: loaded?.payload?.note || null,
+    startedAt,
+    endedAt: null,
+    updatedAt: startedAt,
+    lastCompletedAt: null,
+    durationMs: null,
+    lastError: null,
+    rollbackStatus: 'pending',
+    rollbackError: null,
+    counts: null,
+    currentCounts: null,
+    diff: null,
+    warnings: [],
+  });
+
+  try {
+    currentSnapshot = await buildAdminSnapshot({
+      client: options.client || null,
+      observabilitySnapshot: options.observabilitySnapshot || null,
+    });
+    preview = await buildRestorePreviewData(loaded, {
+      ...options,
+      currentSnapshot,
+    });
+
+    const rollbackPayload = buildBackupPayload({
+      actor,
+      role,
+      note: `auto-rollback-before-restore:${loaded.file}`,
+      snapshot: currentSnapshot,
+      meta: {
+        type: 'auto-rollback-backup',
+        sourceBackup: loaded.file,
+        operationId,
+      },
+    });
+    rollbackBackup = saveBackupPayload(rollbackPayload).file;
+
+    const runningState = setAdminRestoreState({
+      status: 'running',
+      active: true,
+      maintenance: true,
+      operationId,
+      backup: loaded.file,
+      confirmBackup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      note: loaded?.payload?.note || null,
+      startedAt,
+      endedAt: null,
+      updatedAt: new Date().toISOString(),
+      lastCompletedAt: null,
+      durationMs: null,
+      lastError: null,
+      rollbackStatus: 'pending',
+      rollbackError: null,
+      counts: preview.targetCounts,
+      currentCounts: preview.currentCounts,
+      diff: preview.diff,
+      warnings: preview.warnings,
+    });
+
+    publishAdminLiveUpdate('backup-restore-started', {
+      backup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      operationId,
+      warnings: runningState.warnings,
+    });
+
+    await restoreAdminSnapshotData(snapshot);
+    restoreApplied = true;
+
+    const endedAt = new Date().toISOString();
+    const durationMs = Math.max(0, new Date(endedAt) - new Date(startedAt));
+    setAdminRestoreState({
+      status: 'succeeded',
+      active: false,
+      maintenance: false,
+      operationId,
+      backup: loaded.file,
+      confirmBackup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      note: loaded?.payload?.note || null,
+      startedAt,
+      endedAt,
+      updatedAt: endedAt,
+      lastCompletedAt: endedAt,
+      durationMs,
+      lastError: null,
+      rollbackStatus: 'not-needed',
+      rollbackError: null,
+      counts: preview.targetCounts,
+      currentCounts: preview.currentCounts,
+      diff: preview.diff,
+      warnings: preview.warnings,
+    });
+
+    publishAdminLiveUpdate('backup-restore', {
+      backup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      operationId,
+      durationMs,
+    });
+
+    return {
+      restored: true,
+      backup: loaded.file,
+      rollbackBackup,
+      startedAt,
+      endedAt,
+      durationMs,
+      counts: preview.targetCounts,
+      currentCounts: preview.currentCounts,
+      diff: preview.diff,
+      warnings: preview.warnings,
+    };
+  } catch (error) {
+    let rollbackStatus = restoreApplied ? 'failed' : 'not-needed';
+    let rollbackError = null;
+
+    if (restoreApplied && currentSnapshot) {
+      try {
+        await restoreAdminSnapshotData(currentSnapshot);
+        rollbackStatus = 'succeeded';
+        publishAdminLiveUpdate('backup-restore-rollback', {
+          backup: loaded.file,
+          rollbackBackup,
+          actor,
+          role,
+          operationId,
+        });
+      } catch (rollbackFailure) {
+        rollbackStatus = 'failed';
+        rollbackError = String(rollbackFailure?.message || rollbackFailure);
+        publishAdminLiveUpdate('backup-restore-rollback-failed', {
+          backup: loaded.file,
+          rollbackBackup,
+          actor,
+          role,
+          operationId,
+          error: rollbackError,
+        });
+      }
+    }
+
+    const endedAt = new Date().toISOString();
+    const durationMs = Math.max(0, new Date(endedAt) - new Date(startedAt));
+    const failedState = setAdminRestoreState({
+      status: 'failed',
+      active: false,
+      maintenance: false,
+      operationId,
+      backup: loaded.file,
+      confirmBackup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      note: loaded?.payload?.note || null,
+      startedAt,
+      endedAt,
+      updatedAt: endedAt,
+      lastCompletedAt: endedAt,
+      durationMs,
+      lastError: String(error?.message || error),
+      rollbackStatus,
+      rollbackError,
+      counts: preview?.targetCounts || null,
+      currentCounts: preview?.currentCounts || null,
+      diff: preview?.diff || null,
+      warnings: preview?.warnings || [],
+    });
+
+    publishAdminLiveUpdate('backup-restore-failed', {
+      backup: loaded.file,
+      rollbackBackup,
+      actor,
+      role,
+      operationId,
+      durationMs,
+      rollbackStatus,
+      error: failedState.lastError,
+    });
+
+    throw createRestoreError('Backup restore failed', 500, {
+      restore: failedState,
+    });
+  } finally {
+    releaseRuntimeLock(RESTORE_LOCK_NAME);
+  }
 }
 
 module.exports = {
   buildAdminSnapshot,
   createAdminBackup,
+  getAdminRestoreState,
   jsonReplacer,
   listAdminBackupFiles,
   previewAdminBackupRestore,

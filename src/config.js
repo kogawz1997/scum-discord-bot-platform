@@ -166,6 +166,15 @@ const defaultConfig = {
         name: 'Loot Box (ในเกม)',
         price: 2000,
         description: 'กล่องสุ่มของในเกม (สตาฟเป็นคนแจกในเกมตาม code)',
+        kind: 'loot-box',
+      },
+      {
+        id: 'm1911-test',
+        name: 'M1911 Pistol (Test)',
+        price: 123,
+        description: 'A test item for delivery.',
+        kind: 'item',
+        gameItemId: 'Weapon_M1911',
       },
     ],
   },
@@ -366,6 +375,10 @@ const defaultConfig = {
       agentTeleportMode: 'player',
       agentTeleportTarget: '',
       agentReturnTarget: '',
+      verifyMode: 'basic',
+      verifySuccessPattern: '',
+      verifyFailurePattern: '',
+      verifyObserverWindowMs: 60000,
       // Optional fallback if env RCON_EXEC_TEMPLATE is not set.
       // Example:
       // rconExecTemplate: 'mcrcon -H {host} -P {port} -p "{password}" "{command}"',

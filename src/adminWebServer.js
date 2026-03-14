@@ -39,7 +39,6 @@ const {
   enqueuePurchaseDeliveryByCode,
   listDeliveryQueue,
   listFilteredDeliveryQueue,
-  listDeliveryDeadLetters,
   listFilteredDeliveryDeadLetters,
   retryDeliveryNow,
   retryDeliveryNowMany,
@@ -47,11 +46,16 @@ const {
   retryDeliveryDeadLetterMany,
   removeDeliveryDeadLetter,
   cancelDeliveryJob,
-  listDeliveryAudit,
   getDeliveryMetricsSnapshot,
   getDeliveryRuntimeStatus,
+  getDeliveryPreflightReport,
   previewDeliveryCommands,
+  simulateDeliveryPlan,
   sendTestDeliveryCommand,
+  listScumAdminCommandCapabilities,
+  testScumAdminCommandCapability,
+  getDeliveryCommandOverride,
+  setDeliveryCommandOverride,
   getDeliveryDetailsByPurchaseCode,
 } = require('./services/rconDelivery');
 const {
@@ -61,6 +65,17 @@ const {
   adminLiveBus,
   publishAdminLiveUpdate,
 } = require('./services/adminLiveBus');
+const {
+  listAdminNotifications,
+  acknowledgeAdminNotifications,
+  clearAdminNotifications,
+} = require('./store/adminNotificationStore');
+const {
+  listAdminCommandCapabilityPresets,
+  getAdminCommandCapabilityPresetById,
+  saveAdminCommandCapabilityPreset,
+  deleteAdminCommandCapabilityPreset,
+} = require('./store/adminCommandCapabilityPresetStore');
 const {
   listItemIconCatalog,
   resolveItemIconUrl,
@@ -106,6 +121,7 @@ const {
   listAdminBackupFiles,
   previewAdminBackupRestore,
   restoreAdminBackup,
+  getAdminRestoreState,
 } = require('./services/adminSnapshotService');
 const {
   buildAuditDataset: buildAuditDatasetService,
@@ -129,6 +145,11 @@ const {
   buildAdminDashboardCards,
 } = require('./services/adminDashboardService');
 const {
+  getRuntimeSupervisorSnapshot,
+  startRuntimeSupervisorMonitor,
+  stopRuntimeSupervisorMonitor,
+} = require('./services/runtimeSupervisorService');
+const {
   revokeWelcomePackClaimForAdmin,
   clearWelcomePackClaimsForAdmin,
 } = require('./services/welcomePackService');
@@ -148,6 +169,9 @@ const {
 } = require('./services/statsService');
 const { updateScumStatusForAdmin } = require('./services/scumStatusService');
 const { getPersistenceStatus } = require('./store/_persist');
+const {
+  isAdminRestoreMaintenanceActive,
+} = require('./store/adminRestoreStateStore');
 const { getWebhookMetricsSnapshot } = require('./scumWebhookServer');
 
 const dashboardHtmlPath = path.join(__dirname, 'admin', 'dashboard.html');
@@ -244,6 +268,25 @@ const ROLE_ORDER = {
 const ADMIN_WEB_USER_ROLE = normalizeRole(
   process.env.ADMIN_WEB_USER_ROLE || 'owner',
 );
+
+function shouldBypassRestoreMaintenance(pathname) {
+  const pathValue = String(pathname || '').trim();
+  return (
+    pathValue === '/admin/api/login'
+    || pathValue === '/admin/api/logout'
+    || pathValue === '/admin/api/backup/restore'
+  );
+}
+
+function sendRestoreMaintenanceUnavailable(res) {
+  return sendJson(res, 503, {
+    ok: false,
+    error: 'Backup restore is in progress',
+    data: {
+      restore: getAdminRestoreState(),
+    },
+  });
+}
 const ADMIN_WEB_TOKEN_ROLE = normalizeRole(
   process.env.ADMIN_WEB_TOKEN_ROLE || 'owner',
 );
@@ -370,6 +413,8 @@ function jsonReplacer(_key, value) {
   return value;
 }
 
+// Keep HTTP hardening in one place so HTML, JSON, downloads, and SSE all inherit the
+// same baseline protections without each handler reimplementing headers.
 function buildSecurityHeaders(extraHeaders = {}, options = {}) {
   const headers = {
     'X-Content-Type-Options': 'nosniff',
@@ -1034,6 +1079,8 @@ function cleanupSessions() {
   }
 }
 
+// Sessions remain lightweight and in-memory on purpose here; production hardening is
+// enforced by secure cookies, RBAC, rate-limits, and the readiness/security checks.
 function createSession(user, role = 'mod', authMethod = 'password') {
   cleanupSessions();
   const sessionId = crypto.randomBytes(24).toString('hex');
@@ -1464,6 +1511,8 @@ async function tryNotifyTicket(client, ticket, action, staffId) {
   }
 }
 
+// POST actions are centralized here so restore-maintenance gating, RBAC, validation,
+// and audit/live-update hooks stay consistent across the admin surface.
 async function handlePostAction(client, pathname, body, res, auth) {
   if (pathname === '/admin/api/wallet/set') {
     const userId = requiredString(body, 'userId');
@@ -2077,6 +2126,79 @@ async function handlePostAction(client, pathname, body, res, auth) {
     }
   }
 
+  if (pathname === '/admin/api/delivery/preflight') {
+    try {
+      const data = await getDeliveryPreflightReport({
+        itemId: requiredString(body, 'itemId') || undefined,
+        gameItemId: requiredString(body, 'gameItemId') || undefined,
+        itemName: requiredString(body, 'itemName') || undefined,
+        quantity: asInt(body.quantity, undefined) || undefined,
+        steamId: requiredString(body, 'steamId') || undefined,
+        userId: requiredString(body, 'userId') || undefined,
+        purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+        inGameName: requiredString(body, 'inGameName') || undefined,
+        teleportMode: requiredString(body, 'teleportMode') || undefined,
+        teleportTarget: requiredString(body, 'teleportTarget') || undefined,
+        returnTarget: requiredString(body, 'returnTarget') || undefined,
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถตรวจ preflight ส่งของได้'),
+      });
+    }
+  }
+
+  if (pathname === '/admin/api/delivery/simulate') {
+    const itemId = requiredString(body, 'itemId');
+    const gameItemId = requiredString(body, 'gameItemId');
+    if (!itemId && !gameItemId) {
+      return sendJson(res, 400, { ok: false, error: 'itemId or gameItemId is required' });
+    }
+    try {
+      const data = await simulateDeliveryPlan({
+        itemId: itemId || undefined,
+        gameItemId: gameItemId || undefined,
+        itemName: requiredString(body, 'itemName') || undefined,
+        quantity: asInt(body.quantity, undefined) || undefined,
+        steamId: requiredString(body, 'steamId') || undefined,
+        userId: requiredString(body, 'userId') || undefined,
+        purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+        inGameName: requiredString(body, 'inGameName') || undefined,
+        teleportMode: requiredString(body, 'teleportMode') || undefined,
+        teleportTarget: requiredString(body, 'teleportTarget') || undefined,
+        returnTarget: requiredString(body, 'returnTarget') || undefined,
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถ simulate delivery plan ได้'),
+      });
+    }
+  }
+
+  if (pathname === '/admin/api/delivery/command-template') {
+    try {
+      const data = setDeliveryCommandOverride({
+        lookupKey: requiredString(body, 'lookupKey') || undefined,
+        itemId: requiredString(body, 'itemId') || undefined,
+        gameItemId: requiredString(body, 'gameItemId') || undefined,
+        command: body?.command,
+        commands: body?.commands,
+        clear: body?.clear === true,
+        actor: auth?.user || 'unknown',
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถบันทึก command template ได้'),
+      });
+    }
+  }
+
   if (pathname === '/admin/api/delivery/test-send') {
     const itemId = requiredString(body, 'itemId');
     const gameItemId = requiredString(body, 'gameItemId');
@@ -2098,6 +2220,87 @@ async function handlePostAction(client, pathname, body, res, auth) {
       return sendJson(res, 400, {
         ok: false,
         error: String(error?.message || 'ไม่สามารถส่ง test item ได้'),
+      });
+    }
+  }
+
+  if (pathname === '/admin/api/delivery/capability-preset') {
+    try {
+      const data = saveAdminCommandCapabilityPreset({
+        id: requiredString(body, 'id') || undefined,
+        name: requiredString(body, 'name') || undefined,
+        description: requiredString(body, 'description') || undefined,
+        commands: body?.commands,
+        defaults: {
+          announceText: requiredString(body, 'announceText') || undefined,
+          steamId: requiredString(body, 'steamId') || undefined,
+          gameItemId: requiredString(body, 'gameItemId') || undefined,
+          quantity: asInt(body.quantity, undefined) || undefined,
+          teleportTarget: requiredString(body, 'teleportTarget') || undefined,
+          returnTarget: requiredString(body, 'returnTarget') || undefined,
+          inGameName: requiredString(body, 'inGameName') || undefined,
+          itemName: requiredString(body, 'itemName') || undefined,
+        },
+        tags: parseStringArray(body?.tags),
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถบันทึก capability preset ได้'),
+      });
+    }
+  }
+
+  if (pathname === '/admin/api/delivery/capability-preset/delete') {
+    const presetId = requiredString(body, 'presetId') || requiredString(body, 'id');
+    if (!presetId) {
+      return sendJson(res, 400, { ok: false, error: 'presetId is required' });
+    }
+    const removed = deleteAdminCommandCapabilityPreset(presetId);
+    if (!removed) {
+      return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    }
+    return sendJson(res, 200, {
+      ok: true,
+      data: {
+        id: removed.id,
+        name: removed.name,
+      },
+    });
+  }
+
+  if (pathname === '/admin/api/delivery/capability-test') {
+    const presetId = requiredString(body, 'presetId');
+    const preset = presetId ? getAdminCommandCapabilityPresetById(presetId) : null;
+    if (presetId && !preset) {
+      return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+    }
+    try {
+      const data = await testScumAdminCommandCapability({
+        capabilityId: requiredString(body, 'capabilityId') || undefined,
+        presetId: preset?.id || null,
+        name: preset?.name || undefined,
+        description: preset?.description || undefined,
+        commands: body?.commands || preset?.commandTemplates || undefined,
+        dryRun: body?.dryRun === true,
+        announceText: requiredString(body, 'announceText') || preset?.defaults?.announceText || undefined,
+        steamId: requiredString(body, 'steamId') || preset?.defaults?.steamId || undefined,
+        gameItemId: requiredString(body, 'gameItemId') || preset?.defaults?.gameItemId || undefined,
+        quantity: asInt(body.quantity, undefined) || preset?.defaults?.quantity || undefined,
+        teleportTarget: requiredString(body, 'teleportTarget') || preset?.defaults?.teleportTarget || undefined,
+        returnTarget: requiredString(body, 'returnTarget') || preset?.defaults?.returnTarget || undefined,
+        inGameName: requiredString(body, 'inGameName') || preset?.defaults?.inGameName || undefined,
+        itemId: requiredString(body, 'itemId') || undefined,
+        itemName: requiredString(body, 'itemName') || preset?.defaults?.itemName || undefined,
+        purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+        userId: requiredString(body, 'userId') || undefined,
+      });
+      return sendJson(res, 200, { ok: true, data });
+    } catch (error) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: String(error?.message || 'ไม่สามารถทดสอบ SCUM admin capability ได้'),
       });
     }
   }
@@ -2142,6 +2345,12 @@ async function handlePostAction(client, pathname, body, res, auth) {
       includeSnapshot: body?.includeSnapshot !== false,
       observabilitySnapshot: getCurrentObservabilitySnapshot(),
     });
+    publishAdminLiveUpdate('backup-create', {
+      backup: saved?.id || saved?.file || null,
+      actor: auth?.user || 'unknown',
+      role: auth?.role || 'unknown',
+      note,
+    });
     return sendJson(res, 200, {
       ok: true,
       data: saved,
@@ -2155,20 +2364,63 @@ async function handlePostAction(client, pathname, body, res, auth) {
       return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     }
     if (dryRun) {
+      try {
+        return sendJson(res, 200, {
+          ok: true,
+          data: await previewAdminBackupRestore(backupName, {
+            client,
+            observabilitySnapshot: getCurrentObservabilitySnapshot(),
+          }),
+        });
+      } catch (error) {
+        return sendJson(res, Number(error?.statusCode || 400), {
+          ok: false,
+          error: String(error?.message || 'Backup restore preview failed'),
+          data: error?.data || null,
+        });
+      }
+    }
+    try {
+      const restoreData = await restoreAdminBackup(backupName, {
+        client,
+        actor: auth?.user || 'unknown',
+        role: auth?.role || 'unknown',
+        confirmBackup: requiredString(body, 'confirmBackup') || '',
+        observabilitySnapshot: getCurrentObservabilitySnapshot(),
+      });
       return sendJson(res, 200, {
         ok: true,
-        data: previewAdminBackupRestore(backupName),
+        data: restoreData,
+      });
+    } catch (error) {
+      return sendJson(res, Number(error?.statusCode || 500), {
+        ok: false,
+        error:
+          Number(error?.statusCode || 500) >= 500
+            ? 'Backup restore failed'
+            : String(error?.message || 'Backup restore failed'),
+        data: error?.data || null,
       });
     }
-    const restoreData = await restoreAdminBackup(backupName);
-    publishAdminLiveUpdate('backup-restore', {
-      backup: restoreData.backup,
-      actor: auth?.user || 'unknown',
-      role: auth?.role || 'unknown',
-    });
+  }
+
+  if (pathname === '/admin/api/notifications/ack') {
+    const ids = parseStringArray(body?.ids);
+    if (ids.length === 0) {
+      return sendJson(res, 400, { ok: false, error: 'ids is required' });
+    }
     return sendJson(res, 200, {
       ok: true,
-      data: restoreData,
+      data: acknowledgeAdminNotifications(ids, auth?.user || 'unknown'),
+    });
+  }
+
+  if (pathname === '/admin/api/notifications/clear') {
+    return sendJson(res, 200, {
+      ok: true,
+      data: clearAdminNotifications({
+        acknowledgedOnly: body?.acknowledgedOnly === true,
+      }),
     });
   }
 
@@ -2243,6 +2495,8 @@ function buildDiscordAuthorizeUrl({ host, port, state }) {
   return url.toString();
 }
 
+// The admin web server bundles static UI, JSON APIs, SSE live updates, and auth flows
+// because operators need one coherent control plane during incidents.
 function startAdminWebServer(client) {
   if (adminServer) return adminServer;
 
@@ -2470,6 +2724,14 @@ function startAdminWebServer(client) {
           );
         }
 
+        if (
+          req.method === 'POST'
+          && !shouldBypassRestoreMaintenance(pathname)
+          && isAdminRestoreMaintenanceActive()
+        ) {
+          return sendRestoreMaintenanceUnavailable(res);
+        }
+
         if (req.method === 'GET' && pathname === '/admin/api/auth/providers') {
           return sendJson(res, 200, {
             ok: true,
@@ -2501,14 +2763,36 @@ function startAdminWebServer(client) {
         if (req.method === 'GET' && pathname === '/admin/api/health') {
           const auth = ensureRole(req, urlObj, 'mod', res);
           if (!auth) return undefined;
+          const runtimeSupervisor = await getRuntimeSupervisorSnapshot().catch(() => null);
           return sendJson(res, 200, {
             ok: true,
             data: {
               now: new Date().toISOString(),
               guilds: client.guilds.cache.size,
               role: auth.role,
+              runtimeSupervisor,
+              backupRestore: getAdminRestoreState(),
             },
           });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/backup/restore/status') {
+          const auth = ensureRole(req, urlObj, 'owner', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: getAdminRestoreState(),
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/runtime/supervisor') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const forceRefresh =
+            String(urlObj.searchParams.get('refresh') || '').trim() === '1'
+            || String(urlObj.searchParams.get('refresh') || '').trim().toLowerCase() === 'true';
+          const data = await getRuntimeSupervisorSnapshot({ forceRefresh });
+          return sendJson(res, 200, { ok: true, data });
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/observability') {
@@ -2790,6 +3074,39 @@ function startAdminWebServer(client) {
           });
         }
 
+        if (req.method === 'GET' && pathname === '/admin/api/delivery/capabilities') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: {
+              builtin: listScumAdminCommandCapabilities(),
+              presets: listAdminCommandCapabilityPresets(200),
+            },
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/delivery/command-template') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          try {
+            const data = getDeliveryCommandOverride({
+              lookupKey: String(urlObj.searchParams.get('lookupKey') || '').trim() || undefined,
+              itemId: String(urlObj.searchParams.get('itemId') || '').trim() || undefined,
+              gameItemId: String(urlObj.searchParams.get('gameItemId') || '').trim() || undefined,
+            });
+            return sendJson(res, 200, {
+              ok: true,
+              data,
+            });
+          } catch (error) {
+            return sendJson(res, 400, {
+              ok: false,
+              error: String(error?.message || 'ไม่สามารถโหลด command template ได้'),
+            });
+          }
+        }
+
         if (req.method === 'GET' && pathname === '/admin/api/delivery/detail') {
           const auth = ensureRole(req, urlObj, 'mod', res);
           if (!auth) return undefined;
@@ -2827,6 +3144,31 @@ function startAdminWebServer(client) {
               error: String(error?.message || 'ไม่สามารถโหลดรายละเอียด delivery ได้'),
             });
           }
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/notifications') {
+          const auth = ensureRole(req, urlObj, 'mod', res);
+          if (!auth) return undefined;
+          const acknowledgedRaw = String(urlObj.searchParams.get('acknowledged') || '').trim().toLowerCase();
+          const acknowledged =
+            acknowledgedRaw === 'true'
+              ? true
+              : acknowledgedRaw === 'false'
+                ? false
+                : null;
+          return sendJson(res, 200, {
+            ok: true,
+            data: {
+              items: listAdminNotifications({
+                limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
+                type: String(urlObj.searchParams.get('type') || '').trim(),
+                kind: String(urlObj.searchParams.get('kind') || '').trim(),
+                severity: String(urlObj.searchParams.get('severity') || '').trim(),
+                entityKey: String(urlObj.searchParams.get('entityKey') || '').trim(),
+                acknowledged,
+              }),
+            },
+          });
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/purchase/statuses') {
@@ -3217,11 +3559,13 @@ function startAdminWebServer(client) {
   adminServer.on('close', () => {
     closeAllLiveStreams();
     stopMetricsSeriesTimer();
+    stopRuntimeSupervisorMonitor();
     adminServer = null;
   });
 
   adminServer.listen(port, host, () => {
     console.log(`[admin-web] เปิดใช้งานที่ http://${host}:${port}/admin`);
+    startRuntimeSupervisorMonitor();
     ensureAdminUsersReady()
       .then(async () => {
         const users = await listAdminUsersFromDb(50);

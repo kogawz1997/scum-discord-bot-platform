@@ -1,21 +1,22 @@
-﻿# SCUM TH Bot
+# SCUM TH Bot
 SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-97%2F97%20passing-15803d?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-106%2F106%20passing-15803d?style=for-the-badge)
 ![Mode](https://img.shields.io/badge/delivery-agent%20mode%20validated-c2410c?style=for-the-badge)
 
 ระบบนี้เป็นแพลตฟอร์มจัดการเซิร์ฟเวอร์ SCUM แบบครบชุดในโปรเจกต์เดียว ประกอบด้วย Discord Bot, Worker, Log Watcher, Admin Web, Player Portal และระบบส่งของอัตโนมัติที่รองรับทั้ง `RCon` และ `agent mode`.
 
-สถานะปัจจุบัน ณ วันที่ **2026-03-13**
-- `npm test` ผ่าน `97/97`
+สถานะปัจจุบัน ณ วันที่ **2026-03-15**
+- `npm test` ผ่าน `106/106`
 - `npm run lint` ผ่าน
 - `agent mode` ส่งของจริงผ่าน SCUM admin client ได้แล้ว
 - flow ที่ยืนยันใช้งานจริงแล้ว: `announce -> teleport -> spawn -> multi-item -> magazine StackCount`
 
 เอกสารหลัก
+- เอกสารโชว์งาน/ภาพรวมเชิง commercial: [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md)
 - คู่มือปฏิบัติการ: [docs/OPERATIONS_MANUAL_TH.md](./docs/OPERATIONS_MANUAL_TH.md)
 - คู่มืออธิบายตัวแปร `.env`: [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md)
 - รายงานเทียบ `.env` จริงกับ production baseline: [docs/PRODUCTION_ENV_GAP_TH.md](./docs/PRODUCTION_ENV_GAP_TH.md)
@@ -25,7 +26,21 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 
 ---
 
-## 1. สิ่งที่ระบบทำได้แล้ว
+## 1. ทำไมระบบนี้ดูเป็นแพลตฟอร์ม ไม่ใช่แค่บอท
+
+สิ่งที่ยกระดับโปรเจกต์นี้จาก “Discord bot ทั่วไป” ไปเป็น control plane สำหรับ SCUM server:
+
+- split runtime ชัดเจน `bot / worker / watcher / web / console-agent`
+- มี delivery timeline, step log, preflight, simulator, capability test และ post-spawn verification
+- มี admin web สำหรับ config, audit, restore, observability และ incident response
+- มี player portal แยกให้ผู้เล่นเห็น wallet, history, redeem และ profile ของตัวเอง
+- มี production guardrails เช่น `doctor`, `security:check`, `readiness:prod`, `smoke:postdeploy`
+
+ถ้าต้องการเอกสารที่ใช้พรีเซนต์หรือส่งลูกค้าโดยตรง ให้ดู [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md)
+
+---
+
+## 2. สิ่งที่ระบบทำได้แล้ว
 
 ### Discord / Economy
 - wallet / balance / transfer / gift
@@ -44,14 +59,25 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 - Admin Web พร้อม RBAC `owner / admin / mod`
 - login จาก DB + Discord SSO + 2FA baseline
 - config editor / backup / restore / snapshot export
+- safe restore guardrails: dry-run diff, confirmation, maintenance gate, auto rollback backup, restore status
 - Audit Center พร้อม filter ลึก, sort/order, pagination, cursor, shared presets
 - observability, dashboard cards, metrics export, health endpoints
+- delivery timeline / step log รายออเดอร์
+- delivery preflight check / simulator / dry run
+- SCUM admin capability tester + capability preset catalog
+- notification center + item command editor พร้อม preview override
 - player portal แยกที่ `/player`
 
 ### Delivery
 - queue + retry + dead-letter + audit + watchdog
 - split runtime `bot / worker / watcher / web / console-agent`
+- runtime supervisor + watcher freshness / backlog topology checks
 - preview command จาก `itemId` หรือ `gameItemId`
+- per-order timeline / status history / step log
+- preflight readiness ก่อน test-send หรือ enqueue
+- delivery simulator / dry run แบบไม่ยิงคำสั่งจริง
+- post-spawn verification policy `basic | output-match | observer | strict`
+- SCUM admin capability catalog / preset สำหรับ smoke test `announce / teleport / spawn`
 - fallback command จาก
   - `itemCommands`
   - `scum_weapons_from_wiki.json`
@@ -70,7 +96,7 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 
 ---
 
-## 2. สภาพระบบส่งของปัจจุบัน
+## 3. สภาพระบบส่งของปัจจุบัน
 
 ระบบส่งของรองรับ 2 โหมด
 
@@ -116,7 +142,7 @@ Purchase
 
 ---
 
-## 3. สถาปัตยกรรมย่อ
+## 4. สถาปัตยกรรมย่อ
 
 ```mermaid
 flowchart LR
@@ -144,7 +170,7 @@ runtime ที่ควรแยกจริง
 
 ---
 
-## 4. Quick Start
+## 5. Quick Start
 
 ### Windows แบบเร็ว
 
@@ -191,6 +217,28 @@ DATABASE_URL="file:./prisma/dev.db"
 PERSIST_REQUIRE_DB=true
 PERSIST_LEGACY_SNAPSHOTS=false
 ```
+
+- โปรดทราบ:
+  - ใน `NODE_ENV=production` ระบบจะ **ไม่ยอมรัน** ถ้า `PERSIST_REQUIRE_DB` ไม่ได้ตั้งเป็น `true`
+  - ใน production ต้องตั้ง `PERSIST_LEGACY_SNAPSHOTS=false` เสมอ (ห้ามใช้โหมด snapshot ไฟล์)
+  - ฐานข้อมูลหลักปัจจุบันคือ SQLite (ไฟล์ในโฟลเดอร์ `prisma/`) ซึ่งเหมาะกับ single‑host / low‑concurrency
+  - ถ้าเตรียมขยายระบบหรือมี worker หลายตัว ควรวางแผนย้ายไป DB server เช่น Postgres/MySQL แล้วปรับ `DATABASE_URL` กับ Prisma schema ให้สอดคล้อง
+
+### Config lifecycle (runtime)
+
+- ไฟล์ `src/config.js` จะ:
+  - โหลดค่า default config เข้าหน่วยความจำ
+  - เรียก `initConfigStore()` อัตโนมัติ เพื่อ hydrate config จากตาราง `BotConfig` ใน Prisma แบบ async
+- ผลลัพธ์:
+  - โค้ดส่วนใหญ่สามารถ `require('./config')` และใช้งานค่า default ได้ทันที
+  - ถ้าเป็นสคริปต์/เครื่องมือที่ **ต้องการ** ค่า config จาก DB ก่อนเริ่มงาน (เช่น งาน admin บางอย่าง) แนะนำให้เรียก:
+
+```js
+const config = require('./src/config');
+await config.initConfigStore?.();
+```
+
+ก่อนอ่านค่า config เพื่อลดโอกาสค่า default ไปทับค่าที่ override ไว้ใน DB
 
 ### Watcher / Webhook
 
@@ -321,7 +369,12 @@ npm run scum:agent:exec -- --command "#SpawnItem Magazine_M1911 1 StackCount 100
 - config editor
 - delivery runtime
 - delivery preview
+- delivery timeline / step log
+- delivery preflight / simulator / dry run
+- capability tester / preset catalog / verification policy
 - queue / dead-letter / detail / command log
+- alert / notification center
+- item command editor + template override preview
 - wallet / reward / event audit
 - deep filters + exact filters + sort/order + pagination + cursor
 - shared presets ผ่าน DB (`private / role / public`)
@@ -406,7 +459,7 @@ npm test
 
 ผลล่าสุด
 - `npm run lint` ผ่าน
-- `npm test` ผ่าน `97/97`
+- `npm test` ผ่าน `106/106`
 
 ---
 

@@ -8,6 +8,18 @@
 - player portal: `https://genz.noah-dns.online`
 - admin portal: `https://genz.noah-dns.online/admin`
 
+## 0) ลูกค้าได้รับอะไรจากชุดนี้
+
+ชุดส่งมอบมาตรฐานของโปรเจกต์นี้ไม่ใช่แค่บอท แต่เป็นระบบครบชุด:
+
+- Discord bot สำหรับ economy, shop, reward และ community ops
+- worker สำหรับ delivery queue และ rent bike runtime
+- watcher สำหรับ ingest event จาก `SCUM.log`
+- admin web สำหรับ config, delivery operations, backup/restore, audit และ observability
+- player portal สำหรับ wallet, purchase history, redeem, profile และ steam link
+
+ถ้าต้องใช้เอกสารสำหรับพรีเซนต์ภาพรวมระบบ ให้เปิด [docs/SHOWCASE_TH.md](./SHOWCASE_TH.md) ควบคู่กัน
+
 ## 1) หน้าที่ของแต่ละ runtime
 
 - `bot`
@@ -215,6 +227,14 @@ npm run text:repair
 - backup / restore
 - ดู metrics / alerts
 - จัดการร้านค้า / เศรษฐกิจ / กิจกรรม
+
+## 10.1) สิ่งที่ควร demo ให้ลูกค้าเห็นก่อนส่งมอบ
+
+- dashboard landing ที่สรุป topology, delivery runtime และ restore guardrails
+- delivery preflight / simulator / capability tester
+- delivery detail รายออเดอร์พร้อม timeline และ step log
+- notification center และ backup/restore workflow
+- player portal ฝั่ง wallet / purchase / redeem / steam link
 
 ## 11) กติกาความปลอดภัยที่ต้องย้ำ
 

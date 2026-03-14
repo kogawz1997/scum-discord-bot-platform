@@ -51,6 +51,7 @@ const {
 } = require('../../src/services/cartService');
 const {
   normalizeShopKind,
+  isGameItemShopKind,
   findShopItemByQuery,
   purchaseShopItemForUser,
 } = require('../../src/services/shopService');
@@ -1215,7 +1216,7 @@ function filterShopItems(rows, options = {}) {
       .join(' ');
     if (query && !haystack.includes(query)) continue;
 
-    const requiresSteamLink = kind === 'item';
+    const requiresSteamLink = isGameItemShopKind(kind);
     out.push({
       ...row,
       kind,
@@ -1246,7 +1247,7 @@ function serializeCartResolved(resolved) {
             iconUrl: normalizeText(row.item.iconUrl) || resolveItemIconUrl(row.item),
             bundle: buildBundleSummary(row.item),
             stock: row.item.stock == null ? null : normalizeAmount(row.item.stock, 0),
-            requiresSteamLink: normalizeShopKind(row.item.kind) === 'item',
+            requiresSteamLink: isGameItemShopKind(row.item.kind),
           }
         : null,
     })),
@@ -2462,7 +2463,7 @@ async function handlePlayerApi(req, res, urlObj) {
       });
     }
 
-    if (normalizeShopKind(item.kind) === 'item') {
+    if (isGameItemShopKind(item.kind)) {
       const steamLink = await resolveSessionSteamLink(session.discordId);
       if (!steamLink.linked || !steamLink.steamId) {
         return sendJson(res, 400, {
@@ -2540,7 +2541,7 @@ async function handlePlayerApi(req, res, urlObj) {
     const resolvedBeforeCheckout = await getResolvedCart(session.discordId);
     const needsSteam = Array.isArray(resolvedBeforeCheckout?.rows)
       && resolvedBeforeCheckout.rows.some(
-        (row) => normalizeShopKind(row?.item?.kind) === 'item',
+        (row) => isGameItemShopKind(row?.item?.kind),
       );
     if (needsSteam && (!steamLink.linked || !steamLink.steamId)) {
       return sendJson(res, 400, {

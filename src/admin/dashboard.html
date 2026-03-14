@@ -381,6 +381,161 @@
       gap: 10px;
     }
 
+    .showcase-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .showcase-intro {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .showcase-intro p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 900px;
+      line-height: 1.5;
+    }
+
+    .showcase-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .showcase-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 0 0 1px rgba(145, 179, 236, 0.08);
+      display: grid;
+      gap: 8px;
+    }
+
+    .showcase-card h3,
+    .showcase-card h4 {
+      margin: 0;
+      font-family: "Teko", sans-serif;
+      letter-spacing: 0.28px;
+    }
+
+    .showcase-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .showcase-kicker {
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .showcase-value {
+      font-family: "Teko", sans-serif;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .showcase-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .showcase-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(146, 173, 255, 0.22);
+      background: rgba(255, 255, 255, 0.05);
+      color: #dbe7ff;
+      font-size: 11px;
+      letter-spacing: 0.35px;
+    }
+
+    .showcase-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+      color: #dbe7ff;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .showcase-flow {
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+      box-shadow: inset 0 0 0 1px rgba(145, 179, 236, 0.08);
+    }
+
+    .showcase-flow-head h3,
+    .showcase-flow-head p {
+      margin: 0;
+    }
+
+    .showcase-flow-head p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .showcase-flow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    .showcase-step {
+      border: 1px solid rgba(146, 173, 255, 0.18);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      display: grid;
+      gap: 4px;
+    }
+
+    .showcase-step .idx {
+      font-size: 11px;
+      color: var(--accent-2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .showcase-step strong {
+      font-size: 14px;
+      line-height: 1.15;
+    }
+
+    .showcase-step span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .metric {
       border-radius: 12px;
       border: 1px solid var(--line);
@@ -994,6 +1149,76 @@
       line-height: 1.35;
     }
 
+    .timeline-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .timeline-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .timeline-card.is-failed {
+      border-color: rgba(255, 107, 123, 0.45);
+      background: rgba(255, 107, 123, 0.08);
+    }
+
+    .timeline-card.is-completed {
+      border-color: rgba(135, 214, 157, 0.45);
+      background: rgba(135, 214, 157, 0.08);
+    }
+
+    .timeline-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .timeline-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .notification-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .notification-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      display: grid;
+      gap: 6px;
+    }
+
+    .notification-card.is-error {
+      border-color: rgba(255, 107, 123, 0.45);
+      background: rgba(255, 107, 123, 0.08);
+    }
+
+    .notification-card.is-warn {
+      border-color: rgba(255, 201, 107, 0.4);
+      background: rgba(255, 201, 107, 0.08);
+    }
+
     .live-controls {
       display: flex;
       align-items: center;
@@ -1068,8 +1293,8 @@
       <div class="brand">
         <div class="badge">SC</div>
         <div>
-          <h1>ศูนย์บัญชาการ SCUM</h1>
-          <div class="subtitle">จัดการระบบบอทแบบภาคสนามจากจุดเดียว: เศรษฐกิจ ร้านค้า ตั๋ว กิจกรรม RCON และคอนฟิก</div>
+          <h1>ศูนย์บัญชาการ SCUM Ops Platform</h1>
+          <div class="subtitle">ควบคุม bot, worker, watcher, admin web, player portal และ delivery runtime จากหน้าจอเดียว พร้อม audit, restore, preflight, simulator และ capability test สำหรับงานส่งของจริง</div>
         </div>
       </div>
       <div class="auth">
@@ -1098,6 +1323,24 @@
     <section class="panel">
       <h2 class="title">ภาพรวมระบบ</h2>
       <div id="summary" class="summary"></div>
+    </section>
+
+    <section class="panel showcase-shell">
+      <div class="showcase-intro">
+        <div>
+          <h2 class="title">Showcase ระบบ</h2>
+          <p>สรุปของที่ระบบทำได้จริง, จุดแข็งเชิง operations, และ flow ที่ยืนยันใช้งานแล้ว เพื่อให้เห็นภาพรวมของแพลตฟอร์มแบบครบชุดโดยไม่ต้องไล่ทุกแท็บก่อน</p>
+        </div>
+        <div class="showcase-actions">
+          <button type="button" class="ghost" data-showcase-tab="delivery">เปิดแท็บ Delivery</button>
+          <button type="button" class="ghost" data-showcase-tab="metrics">เปิดแท็บ Metrics</button>
+          <button type="button" class="ghost" data-showcase-tab="config">เปิดแท็บ Config</button>
+          <button type="button" class="ghost" data-showcase-tab="danger">เปิดแท็บ Restore</button>
+        </div>
+      </div>
+      <div id="showcaseHero" class="showcase-grid"></div>
+      <div id="showcaseModules" class="showcase-grid"></div>
+      <div id="showcaseFlow" class="showcase-flow"></div>
     </section>
 
     <main class="workspace">
@@ -1673,6 +1916,17 @@
               </div>
 
               <div class="form-card">
+                <h4>Runtime / Topology Supervisor</h4>
+                <p class="help">เช็ก bot, worker, watcher, admin web, player portal และ console-agent แบบรวมศูนย์เพื่อจับอาการพังเงียบ</p>
+                <div id="runtimeSupervisorSummary" class="summary"></div>
+                <div id="runtimeSupervisorTable" class="table-wrap"></div>
+                <pre id="runtimeSupervisorView" class="raw">ยังไม่มีข้อมูล runtime topology</pre>
+                <div class="form-grid">
+                  <button type="button" id="runtimeSupervisorRefreshBtn" class="ghost">รีเฟรช topology</button>
+                </div>
+              </div>
+
+              <div class="form-card">
                 <h4>สถานะ runtime ส่งของ</h4>
                 <p class="help">ตรวจ queue, dead-letter, worker และสุขภาพของ agent/RCON แบบสรุป</p>
                 <div id="deliveryRuntimeSummary" class="summary"></div>
@@ -1681,6 +1935,49 @@
                   <button type="button" id="deliveryRuntimeRefreshBtn" class="ghost">รีเฟรชสถานะส่งของ</button>
                 </div>
               </div>
+
+              <div class="form-card">
+                <div class="section-head-inline">
+                  <div>
+                    <h4>Alert / Notification Center</h4>
+                    <p class="help">สรุป incident สำคัญ เช่น fail-rate, dead-letter threshold และ backup activity</p>
+                  </div>
+                  <div class="inline-actions">
+                    <button type="button" id="adminNotificationRefreshBtn" class="ghost">รีเฟรชแจ้งเตือน</button>
+                    <button type="button" id="adminNotificationAckBtn" class="ghost">รับทราบทั้งหมดที่มองเห็น</button>
+                    <button type="button" id="adminNotificationClearBtn" class="ghost">ลบที่รับทราบแล้ว</button>
+                  </div>
+                </div>
+                <div id="adminNotificationSummary" class="summary"></div>
+                <div id="adminNotificationList" class="table-wrap"></div>
+              </div>
+
+              <form id="deliveryPreflightForm" class="form-card">
+                <h4>Delivery Preflight Check</h4>
+                <p class="help">เช็กความพร้อมของ worker, agent/RCON, template และ target ก่อนกดส่งของจริง</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Item ID ในร้าน (ถ้ามี)</span>
+                    <input name="itemId" placeholder="เช่น item-m1911">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>SteamID64</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <label class="field">
+                    <span>ชื่อในเกม (ถ้ามี)</span>
+                    <input name="inGameName" placeholder="เช่น Coke STRK">
+                  </label>
+                  <button type="submit">ตรวจ Preflight</button>
+                </div>
+                <div id="deliveryPreflightSummary" class="summary"></div>
+                <div id="deliveryPreflightChecks" class="table-wrap"></div>
+                <pre id="deliveryPreflightView" class="raw">ยังไม่มีผล preflight</pre>
+              </form>
 
               <form id="deliveryPreviewForm" class="form-card">
                 <h4>พรีวิวคำสั่งส่งของ</h4>
@@ -1711,6 +2008,66 @@
                 <pre id="deliveryPreviewView" class="raw">ยังไม่มีผลพรีวิวคำสั่ง</pre>
               </form>
 
+              <form id="deliverySimulateForm" class="form-card">
+                <h4>Delivery Simulator / Dry Run</h4>
+                <p class="help">จำลอง execution plan, bundle expansion, teleport mode และคำสั่งที่จะยิงจริง โดยไม่ยิงคำสั่งจริง</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Item ID ในร้าน (ถ้ามี)</span>
+                    <input name="itemId" placeholder="เช่น item-m1911">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>ชื่อ item (ถ้ามี)</span>
+                    <input name="itemName" placeholder="เช่น M1911">
+                  </label>
+                  <label class="field">
+                    <span>จำนวน</span>
+                    <input name="quantity" type="number" min="1" step="1" placeholder="1">
+                  </label>
+                  <label class="field">
+                    <span>SteamID64</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <button type="submit">จำลองแผนส่งของ</button>
+                </div>
+                <div id="deliverySimulateSummary" class="summary"></div>
+                <div id="deliverySimulateTimeline" class="table-wrap"></div>
+                <pre id="deliverySimulateView" class="raw">ยังไม่มีแผนจำลอง</pre>
+              </form>
+
+              <form id="deliveryCommandTemplateForm" class="form-card" data-min-role="admin">
+                <h4>Item Command Editor</h4>
+                <p class="help">แก้ command template ราย item/gameItemId ได้จากหน้าเว็บ พร้อมโหลดค่าเดิมและลบ override</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Lookup Key</span>
+                    <input name="lookupKey" placeholder="เช่น m1911-test หรือ Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>Item ID (เลือกใส่)</span>
+                    <input name="itemId" placeholder="เช่น item-m1911">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID (เลือกใส่)</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <div class="inline-actions">
+                    <button type="button" id="deliveryCommandTemplateLoadBtn" class="ghost">โหลดค่า</button>
+                    <button type="button" id="deliveryCommandTemplateDeleteBtn" class="ghost">ลบ override</button>
+                    <button type="submit">บันทึก template</button>
+                  </div>
+                  <label class="field wide">
+                    <span>Command Templates (1 บรรทัดต่อ 1 command)</span>
+                    <textarea name="commands" rows="6" placeholder="#SpawnItem {steamId} {gameItemId} {quantity}"></textarea>
+                  </label>
+                </div>
+                <pre id="deliveryCommandTemplateView" class="raw">ยังไม่ได้โหลด command template</pre>
+              </form>
+
               <form id="deliveryTestSendForm" class="form-card" data-min-role="admin">
                 <h4>ส่ง Test Item เข้าตัวแอดมิน</h4>
                 <p class="help">ใช้ตรวจ execution chain แบบสด ใน agent mode ของจะเสกใกล้ตัวแอดมินที่ล็อกอินค้างอยู่</p>
@@ -1738,6 +2095,127 @@
                   <button type="submit">ส่ง Test Item</button>
                 </div>
                 <pre id="deliveryTestSendView" class="raw">ยังไม่มีผล test send</pre>
+              </form>
+
+              <form id="deliveryCapabilityTestForm" class="form-card" data-min-role="admin">
+                <h4>SCUM Admin Command Capability Test</h4>
+                <p class="help">ลอง command ชุดสำคัญแบบ dry run หรือ execute จริง พร้อม verification หลังยิงคำสั่ง</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Built-in capability</span>
+                    <select id="deliveryCapabilitySelect" name="capabilityId">
+                      <option value="">เลือก capability</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Saved preset</span>
+                    <select id="deliveryCapabilityPresetSelect" name="presetId">
+                      <option value="">เลือก preset</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Dry-run</span>
+                    <select name="dryRun">
+                      <option value="true">เปิด (ไม่ยิงจริง)</option>
+                      <option value="">ปิด (execute จริง)</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Announce text</span>
+                    <input name="announceText" placeholder="เช่น DELIVERY TEST">
+                  </label>
+                  <label class="field">
+                    <span>Teleport target</span>
+                    <input name="teleportTarget" placeholder="เช่น Coke TAMTHAI หรือ AdminBike">
+                  </label>
+                  <label class="field">
+                    <span>Return target</span>
+                    <input name="returnTarget" placeholder="เช่น Admin Anchor">
+                  </label>
+                  <label class="field">
+                    <span>Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>จำนวน</span>
+                    <input name="quantity" type="number" min="1" step="1" placeholder="1">
+                  </label>
+                  <label class="field">
+                    <span>SteamID64</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <label class="field">
+                    <span>ชื่อในเกม</span>
+                    <input name="inGameName" placeholder="เช่น Coke TAMTHAI">
+                  </label>
+                  <button type="submit">รัน Capability Test</button>
+                </div>
+                <div id="deliveryCapabilitySummary" class="summary"></div>
+                <div id="deliveryCapabilityTimeline" class="table-wrap"></div>
+                <pre id="deliveryCapabilityView" class="raw">ยังไม่มีผล capability test</pre>
+              </form>
+
+              <form id="deliveryCapabilityPresetForm" class="form-card" data-min-role="admin">
+                <h4>SCUM Admin Command Catalog / Presets</h4>
+                <p class="help">บันทึก command sequence ที่ทีมใช้บ่อย เช่น smoke test, teleport, spawn และ delivery flow แบบกำหนดเอง</p>
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Preset ที่มีอยู่</span>
+                    <select id="deliveryCapabilityPresetManageSelect" name="id">
+                      <option value="">สร้าง preset ใหม่</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>ชื่อ preset</span>
+                    <input name="name" placeholder="เช่น Vehicle Spawn Smoke" required>
+                  </label>
+                  <label class="field wide">
+                    <span>คำอธิบาย</span>
+                    <input name="description" placeholder="อธิบายว่าพรีเซ็ตนี้ใช้ทดสอบอะไร">
+                  </label>
+                  <label class="field">
+                    <span>Default announce</span>
+                    <input name="announceText" placeholder="เช่น DELIVERY TEST">
+                  </label>
+                  <label class="field">
+                    <span>Default teleport target</span>
+                    <input name="teleportTarget" placeholder="เช่น AdminBike">
+                  </label>
+                  <label class="field">
+                    <span>Default return target</span>
+                    <input name="returnTarget" placeholder="เช่น Admin Anchor">
+                  </label>
+                  <label class="field">
+                    <span>Default Game Item ID</span>
+                    <input name="gameItemId" placeholder="เช่น Weapon_M1911">
+                  </label>
+                  <label class="field">
+                    <span>Default quantity</span>
+                    <input name="quantity" type="number" min="1" step="1" placeholder="1">
+                  </label>
+                  <label class="field">
+                    <span>Default SteamID64</span>
+                    <input name="steamId" placeholder="7656119...">
+                  </label>
+                  <label class="field">
+                    <span>Default ชื่อในเกม</span>
+                    <input name="inGameName" placeholder="เช่น Coke TAMTHAI">
+                  </label>
+                  <label class="field wide">
+                    <span>Tags (คั่นด้วย comma)</span>
+                    <input name="tags" placeholder="เช่น teleport,spawn,smoke">
+                  </label>
+                  <div class="inline-actions">
+                    <button type="button" id="deliveryCapabilityPresetRefreshBtn" class="ghost">รีเฟรช catalog</button>
+                    <button type="button" id="deliveryCapabilityPresetDeleteBtn" class="ghost">ลบ preset</button>
+                    <button type="submit">บันทึก preset</button>
+                  </div>
+                  <label class="field wide">
+                    <span>Command Templates (1 บรรทัดต่อ 1 command)</span>
+                    <textarea name="commands" rows="8" placeholder="#Announce {announceText}&#10;#TeleportToVehicle {teleportTargetRaw}&#10;#SpawnItem {steamId} {gameItemId} {quantity}"></textarea>
+                  </label>
+                </div>
+                <pre id="deliveryCapabilityPresetView" class="raw">ยังไม่มีข้อมูล capability preset</pre>
               </form>
 
               <div class="delivery-grid">
@@ -2062,7 +2540,7 @@
 
               <form class="form-card" data-endpoint="/admin/api/backup/restore" data-min-role="owner">
                 <h4>Restore จาก Backup</h4>
-                <p class="help">ใส่ชื่อไฟล์ backup แล้วกู้คืนข้อมูลกลับทั้งระบบ</p>
+                <p class="help">ใส่ชื่อไฟล์ backup แล้วกู้คืนข้อมูลกลับทั้งระบบ ระบบจะสร้าง rollback backup อัตโนมัติก่อน restore จริง</p>
                 <div class="form-grid">
                   <label class="field">
                     <span>ชื่อ Backup</span>
@@ -2075,9 +2553,23 @@
                       <option value="true">เปิด (ตรวจสอบก่อน)</option>
                     </select>
                   </label>
+                  <label class="field wide">
+                    <span>ยืนยันชื่อ Backup ก่อน Restore จริง</span>
+                    <input name="confirmBackup" placeholder="พิมพ์ชื่อ backup เดิมซ้ำอีกครั้งก่อนกู้คืนจริง">
+                  </label>
                   <button type="submit" class="danger">Restore Backup</button>
                 </div>
               </form>
+
+              <div class="form-card">
+                <h4>สถานะ Restore ล่าสุด</h4>
+                <p class="help">ดูสถานะ maintenance, rollback backup และ error ล่าสุดของการ restore</p>
+                <div id="backupRestoreStateSummary" class="summary"></div>
+                <pre id="backupRestoreStateView" class="raw">ยังไม่มีข้อมูล restore</pre>
+                <div class="form-grid">
+                  <button type="button" id="backupRestoreStateRefreshBtn" class="ghost" data-min-role="owner">รีเฟรชสถานะ Restore</button>
+                </div>
+              </div>
 
               <div class="form-card">
                 <h4>รีเซ็ตคอนฟิกบอทเป็นค่าเริ่มต้น</h4>
@@ -2252,6 +2744,10 @@
     const statusMain = document.getElementById('statusMain');
     const statusSub = document.getElementById('statusSub');
     const summaryEl = document.getElementById('summary');
+    const showcaseHeroEl = document.getElementById('showcaseHero');
+    const showcaseModulesEl = document.getElementById('showcaseModules');
+    const showcaseFlowEl = document.getElementById('showcaseFlow');
+    const showcaseTabButtons = Array.from(document.querySelectorAll('[data-showcase-tab]'));
     const tableWrap = document.getElementById('tableWrap');
     const rawView = document.getElementById('rawView');
     const auditSummaryEl = document.getElementById('auditSummary');
@@ -2348,13 +2844,48 @@
     const metricsApplyWindowBtn = document.getElementById('metricsApplyWindowBtn');
     const metricsExportCsvBtn = document.getElementById('metricsExportCsvBtn');
     const metricsExportJsonBtn = document.getElementById('metricsExportJsonBtn');
+    const runtimeSupervisorSummary = document.getElementById('runtimeSupervisorSummary');
+    const runtimeSupervisorTable = document.getElementById('runtimeSupervisorTable');
+    const runtimeSupervisorView = document.getElementById('runtimeSupervisorView');
+    const runtimeSupervisorRefreshBtn = document.getElementById('runtimeSupervisorRefreshBtn');
+    const backupRestoreStateSummary = document.getElementById('backupRestoreStateSummary');
+    const backupRestoreStateView = document.getElementById('backupRestoreStateView');
+    const backupRestoreStateRefreshBtn = document.getElementById('backupRestoreStateRefreshBtn');
     const deliveryRuntimeSummary = document.getElementById('deliveryRuntimeSummary');
     const deliveryRuntimeView = document.getElementById('deliveryRuntimeView');
     const deliveryRuntimeRefreshBtn = document.getElementById('deliveryRuntimeRefreshBtn');
+    const adminNotificationSummary = document.getElementById('adminNotificationSummary');
+    const adminNotificationList = document.getElementById('adminNotificationList');
+    const adminNotificationRefreshBtn = document.getElementById('adminNotificationRefreshBtn');
+    const adminNotificationAckBtn = document.getElementById('adminNotificationAckBtn');
+    const adminNotificationClearBtn = document.getElementById('adminNotificationClearBtn');
+    const deliveryPreflightForm = document.getElementById('deliveryPreflightForm');
+    const deliveryPreflightSummary = document.getElementById('deliveryPreflightSummary');
+    const deliveryPreflightChecks = document.getElementById('deliveryPreflightChecks');
+    const deliveryPreflightView = document.getElementById('deliveryPreflightView');
     const deliveryPreviewForm = document.getElementById('deliveryPreviewForm');
     const deliveryPreviewView = document.getElementById('deliveryPreviewView');
+    const deliverySimulateForm = document.getElementById('deliverySimulateForm');
+    const deliverySimulateSummary = document.getElementById('deliverySimulateSummary');
+    const deliverySimulateTimeline = document.getElementById('deliverySimulateTimeline');
+    const deliverySimulateView = document.getElementById('deliverySimulateView');
+    const deliveryCommandTemplateForm = document.getElementById('deliveryCommandTemplateForm');
+    const deliveryCommandTemplateLoadBtn = document.getElementById('deliveryCommandTemplateLoadBtn');
+    const deliveryCommandTemplateDeleteBtn = document.getElementById('deliveryCommandTemplateDeleteBtn');
+    const deliveryCommandTemplateView = document.getElementById('deliveryCommandTemplateView');
     const deliveryTestSendForm = document.getElementById('deliveryTestSendForm');
     const deliveryTestSendView = document.getElementById('deliveryTestSendView');
+    const deliveryCapabilityTestForm = document.getElementById('deliveryCapabilityTestForm');
+    const deliveryCapabilitySelect = document.getElementById('deliveryCapabilitySelect');
+    const deliveryCapabilityPresetSelect = document.getElementById('deliveryCapabilityPresetSelect');
+    const deliveryCapabilitySummary = document.getElementById('deliveryCapabilitySummary');
+    const deliveryCapabilityTimeline = document.getElementById('deliveryCapabilityTimeline');
+    const deliveryCapabilityView = document.getElementById('deliveryCapabilityView');
+    const deliveryCapabilityPresetForm = document.getElementById('deliveryCapabilityPresetForm');
+    const deliveryCapabilityPresetManageSelect = document.getElementById('deliveryCapabilityPresetManageSelect');
+    const deliveryCapabilityPresetRefreshBtn = document.getElementById('deliveryCapabilityPresetRefreshBtn');
+    const deliveryCapabilityPresetDeleteBtn = document.getElementById('deliveryCapabilityPresetDeleteBtn');
+    const deliveryCapabilityPresetView = document.getElementById('deliveryCapabilityPresetView');
     const deliveryOpsRefreshBtn = document.getElementById('deliveryOpsRefreshBtn');
     const deliveryQueueTableWrap = document.getElementById('deliveryQueueTableWrap');
     const deliveryDeadLetterTableWrap = document.getElementById('deliveryDeadLetterTableWrap');
@@ -2413,9 +2944,14 @@
     let currentAuditPresetSharedRole = 'mod';
     let auditPresets = [];
     let currentDashboardCards = null;
+    let currentRuntimeSupervisor = null;
+    let currentBackupRestoreState = null;
     let currentDeliveryRuntime = null;
     let currentDeliveryDetailCode = '';
     let currentDeliveryDetailData = null;
+    let currentAdminNotifications = [];
+    let currentDeliveryCapabilities = { builtin: [], presets: [] };
+    let currentDeliveryCapabilityResult = null;
     let currentDeliveryQueueErrorFilter = '';
     let currentDeliveryQueueSearch = '';
     let currentDeliveryDeadErrorFilter = '';
@@ -3148,7 +3684,11 @@
         currentUserRole = 'mod';
         currentUserName = '';
         currentDashboardCards = null;
+        currentRuntimeSupervisor = null;
+        currentBackupRestoreState = null;
         currentDeliveryRuntime = null;
+        currentDeliveryCapabilities = { builtin: [], presets: [] };
+        currentDeliveryCapabilityResult = null;
         auditPresets = [];
         currentAuditPresetId = '';
         currentAuditPresetVisibility = 'public';
@@ -3160,6 +3700,21 @@
         rawView.textContent = '';
         if (deliveryPreviewView) {
           deliveryPreviewView.textContent = 'ยังไม่มีผลพรีวิวคำสั่ง';
+        }
+        renderRuntimeSupervisor(null);
+        renderBackupRestoreState(null);
+        renderDeliveryPreflight(null);
+        renderDeliverySimulation(null);
+        renderDeliveryCommandTemplate(null);
+        renderDeliveryCapabilityResult(null);
+        currentAdminNotifications = [];
+        if (adminNotificationSummary) {
+          adminNotificationSummary.innerHTML =
+            '<div class="metric"><div class="k">Notifications</div><div class="v">ต้องเข้าสู่ระบบก่อน</div></div>';
+        }
+        if (adminNotificationList) {
+          adminNotificationList.innerHTML =
+            '<div style="padding:12px; color:#9eb0d9;">กำลังนำไปหน้าเข้าสู่ระบบ...</div>';
         }
         if (deliveryTestSendView) {
           deliveryTestSendView.textContent = 'ยังไม่มีผล test send';
@@ -3178,6 +3733,7 @@
         if (auditPresetNameInput) auditPresetNameInput.value = '';
         updateAuditPresetSharingControls();
         renderAuditCenter();
+        renderShowcasePanel();
       } else {
         updateShopKindUi();
         if (shopKindSelect && String(shopKindSelect.value || 'item') === 'item') {
@@ -4044,14 +4600,329 @@
       ];
     }
 
+    function getDashboardMetricValue(key, fallback = 0) {
+      const direct = Number(currentDashboardCards?.metrics?.[key]);
+      if (Number.isFinite(direct)) {
+        return direct;
+      }
+      const fallbackNumber = Number(fallback);
+      return Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+    }
+
+    function getSnapshotCount(key) {
+      const rows = snapshot?.[key];
+      return Array.isArray(rows) ? rows.length : 0;
+    }
+
+    function formatShowcaseNumber(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return '-';
+      return numeric.toLocaleString();
+    }
+
+    function renderShowcaseCards(container, cards = [], emptyMessage = 'ยังไม่มีข้อมูล showcase') {
+      if (!container) return;
+      const items = Array.isArray(cards) ? cards : [];
+      if (items.length === 0) {
+        container.innerHTML = `<article class="showcase-card"><p>${escapeHtml(emptyMessage)}</p></article>`;
+        return;
+      }
+      container.innerHTML = items.map((card) => {
+        const tags = Array.isArray(card?.tags) ? card.tags.filter(Boolean) : [];
+        const bullets = Array.isArray(card?.bullets) ? card.bullets.filter(Boolean) : [];
+        return [
+          '<article class="showcase-card">',
+          card?.kicker ? `<div class="showcase-kicker">${escapeHtml(String(card.kicker))}</div>` : '',
+          card?.value ? `<div class="showcase-value">${escapeHtml(String(card.value))}</div>` : '',
+          card?.title ? `<h3>${escapeHtml(String(card.title))}</h3>` : '',
+          card?.description ? `<p>${escapeHtml(String(card.description))}</p>` : '',
+          bullets.length
+            ? `<ul class="showcase-list">${bullets.map((item) => `<li>${escapeHtml(String(item))}</li>`).join('')}</ul>`
+            : '',
+          tags.length
+            ? `<div class="showcase-tags">${tags.map((tag) => `<span class="showcase-tag">${escapeHtml(String(tag))}</span>`).join('')}</div>`
+            : '',
+          '</article>',
+        ].join('');
+      }).join('');
+    }
+
+    // Build a concise executive view from live runtime data so the landing section doubles as a product showcase.
+    function buildShowcaseHeroCards() {
+      if (!snapshot && !currentRuntimeSupervisor && !currentDeliveryRuntime) {
+        return [
+          {
+            kicker: 'Control Plane',
+            value: 'ล็อกอิน',
+            title: 'ยืนยันตัวตนเพื่อดูสถานะจริงทั้งระบบ',
+            description: 'เมื่อเข้าสู่ระบบแล้ว ส่วนนี้จะสรุป topology, delivery runtime, player portal, guardrails และ operational evidence ให้ในหน้าเดียว',
+            tags: ['RBAC', 'Delivery', 'Restore', 'Audit'],
+          },
+        ];
+      }
+
+      const runtime = currentRuntimeSupervisor || snapshot?.runtimeSupervisor || null;
+      const runtimeCounts = runtime?.counts || {};
+      const deliveryRuntime = currentDeliveryRuntime || snapshot?.deliveryRuntime || null;
+      const deliveryMode = String(deliveryRuntime?.executionMode || 'unknown').toUpperCase();
+      const verifyMode = deliveryRuntime?.settings?.verifyMode || deliveryRuntime?.verifyMode || '-';
+      const restoreState = currentBackupRestoreState || snapshot?.backupRestore || null;
+      const { builtin, presets } = getCombinedDeliveryCapabilities();
+      const unackedNotifications = currentAdminNotifications.filter((row) => !row?.acknowledgedAt).length;
+
+      return [
+        {
+          kicker: 'Runtime Topology',
+          value: runtime
+            ? `${formatShowcaseNumber(runtimeCounts.ready || 0)}/${formatShowcaseNumber(runtimeCounts.required || 0)}`
+            : '-',
+          title: 'required runtimes พร้อมทำงาน',
+          description: 'ติดตาม bot, worker, watcher, admin web, player portal และ console-agent จาก supervisor ตัวเดียว พร้อมแยก ready / degraded / offline',
+          tags: [
+            `overall ${runtime?.overall || 'unknown'}`,
+            `offline ${formatShowcaseNumber(runtimeCounts.offline || 0)}`,
+            `degraded ${formatShowcaseNumber(runtimeCounts.degraded || 0)}`,
+          ],
+        },
+        {
+          kicker: 'Delivery Runtime',
+          value: deliveryMode,
+          title: 'pipeline ส่งของพร้อมใช้งาน',
+          description: 'queue, worker, retry, dead-letter, timeline และ verification policy ถูกรวมให้ดูได้จาก landing panel เดียว',
+          tags: [
+            `queue ${formatShowcaseNumber(deliveryRuntime?.queueLength || getDashboardMetricValue('deliveryQueueCount', getSnapshotCount('deliveryQueue')))}`,
+            `dead ${formatShowcaseNumber(deliveryRuntime?.deadLetterCount || getDashboardMetricValue('deliveryDeadLetterCount', getSnapshotCount('deliveryDeadLetters')))}`,
+            `verify ${verifyMode}`,
+          ],
+        },
+        {
+          kicker: 'Command Lab',
+          value: formatShowcaseNumber(builtin.length + presets.length),
+          title: 'capability tests + presets',
+          description: 'แอดมิน preview, preflight, simulate และทดสอบคำสั่งจริงสำหรับ announce / teleport / spawn ได้จากหน้าเดียว',
+          tags: [
+            `${formatShowcaseNumber(builtin.length)} builtin`,
+            `${formatShowcaseNumber(presets.length)} preset`,
+            'dry-run + live test',
+          ],
+        },
+        {
+          kicker: 'Player Surface',
+          value: formatShowcaseNumber(getDashboardMetricValue('walletCount', getSnapshotCount('wallets'))),
+          title: 'wallets บน player portal',
+          description: 'ผู้เล่นเข้าดู wallet, purchase history, redeem, profile และ steam binding ได้โดยไม่ต้องผ่านหน้าแอดมิน',
+          tags: [
+            `purchases ${formatShowcaseNumber(getDashboardMetricValue('purchaseCount', getSnapshotCount('purchases')))}`,
+            `links ${formatShowcaseNumber(getDashboardMetricValue('linkCount', getSnapshotCount('links')))}`,
+            `vip ${formatShowcaseNumber(getDashboardMetricValue('membershipCount', getSnapshotCount('memberships')))}`,
+          ],
+        },
+        {
+          kicker: 'Safety Net',
+          value: restoreState?.active ? 'LOCKED' : 'READY',
+          title: 'backup / restore guardrails',
+          description: 'มี dry-run diff, confirmation, maintenance gate, rollback backup และ restore status ช่วยกันความเสียหายจากงาน restore',
+          tags: [
+            `status ${restoreState?.status || 'idle'}`,
+            `backup ${restoreState?.backup || '-'}`,
+            `alerts ${formatShowcaseNumber(unackedNotifications)} open`,
+          ],
+        },
+        {
+          kicker: 'Operational Evidence',
+          value: formatShowcaseNumber(getDashboardMetricValue('deliveryAuditCount', getSnapshotCount('deliveryAudit'))),
+          title: 'delivery audit records',
+          description: 'ทุก order มี timeline, status history, audit และ dead-letter trail ให้ไล่ปัญหาเป็นขั้นแทนการเดาจาก log กระจัดกระจาย',
+          tags: [
+            `queue ${formatShowcaseNumber(getDashboardMetricValue('deliveryQueueCount', getSnapshotCount('deliveryQueue')))}`,
+            `dead ${formatShowcaseNumber(getDashboardMetricValue('deliveryDeadLetterCount', getSnapshotCount('deliveryDeadLetters')))}`,
+            'timeline + step log',
+          ],
+        },
+      ];
+    }
+
+    function buildShowcaseModuleCards() {
+      const runtime = currentRuntimeSupervisor || snapshot?.runtimeSupervisor || null;
+      const deliveryRuntime = currentDeliveryRuntime || snapshot?.deliveryRuntime || null;
+      const restoreState = currentBackupRestoreState || snapshot?.backupRestore || null;
+      const { builtin, presets } = getCombinedDeliveryCapabilities();
+      const unackedNotifications = currentAdminNotifications.filter((row) => !row?.acknowledgedAt).length;
+      const queueDepth = deliveryRuntime?.queueLength || getDashboardMetricValue('deliveryQueueCount', getSnapshotCount('deliveryQueue'));
+
+      return [
+        {
+          kicker: 'Module 01',
+          title: 'Economy + Commerce',
+          description: 'ชั้นธุรกรรมหลักสำหรับร้าน, wallet และ purchase lifecycle ที่ผู้เล่นใช้งานทุกวัน',
+          bullets: [
+            'wallet / ledger / transfer / gift พร้อม purchase log',
+            'shop / cart / inventory / VIP / redeem / refund',
+            'รองรับ welcome, daily, weekly, wheel และ reward flow',
+          ],
+          tags: [
+            `${formatShowcaseNumber(getDashboardMetricValue('shopItemCount', getSnapshotCount('shopItems')))} items`,
+            `${formatShowcaseNumber(getDashboardMetricValue('purchaseCount', getSnapshotCount('purchases')))} purchases`,
+            `${formatShowcaseNumber(getDashboardMetricValue('walletCount', getSnapshotCount('wallets')))} wallets`,
+          ],
+        },
+        {
+          kicker: 'Module 02',
+          title: 'Delivery + SCUM Ops',
+          description: 'เส้นทางส่งของจริงที่ต่อจาก queue ไปถึง SCUM command execution พร้อมเครื่องมือวิเคราะห์รายออเดอร์',
+          bullets: [
+            'queue + retry + dead-letter + watchdog + per-order timeline',
+            'preflight, simulator, capability tester และ command override',
+            'รองรับ RCON และ agent mode พร้อม teleport / spawn / multi-item / verify',
+          ],
+          tags: [
+            `mode ${deliveryRuntime?.executionMode || '-'}`,
+            `queue ${formatShowcaseNumber(queueDepth)}`,
+            `verify ${deliveryRuntime?.settings?.verifyMode || deliveryRuntime?.verifyMode || '-'}`,
+          ],
+        },
+        {
+          kicker: 'Module 03',
+          title: 'Runtime + Observability',
+          description: 'คุมระบบแยก process ให้พังยากขึ้นและจับอาการ topology เสียแบบเงียบได้เร็วขึ้น',
+          bullets: [
+            'runtime supervisor, watcher freshness และ queue backlog checks',
+            'health endpoints, dashboard cards, metrics export และ readiness tooling',
+            'notification center สรุป incident ที่ต้องเห็นจากหน้าแอดมิน',
+          ],
+          tags: [
+            `overall ${runtime?.overall || 'unknown'}`,
+            `${formatShowcaseNumber(runtime?.counts?.required || 0)} required`,
+            `${formatShowcaseNumber(unackedNotifications)} open alerts`,
+          ],
+        },
+        {
+          kicker: 'Module 04',
+          title: 'Admin Control Plane',
+          description: 'หน้าแอดมินไม่ใช่แค่ dashboard แต่เป็น cockpit สำหรับ config, incident response และ delivery operations',
+          bullets: [
+            'RBAC owner / admin / mod พร้อม DB login, Discord SSO และ 2FA baseline',
+            'config editor, backup, restore, snapshot export และ audit center',
+            'delivery runtime, detail, capability preset และ item command editor',
+          ],
+          tags: [
+            'RBAC + SSO',
+            restoreState?.active ? 'maintenance active' : 'maintenance ready',
+            'audit + restore',
+          ],
+        },
+        {
+          kicker: 'Module 05',
+          title: 'Player Portal',
+          description: 'แยกประสบการณ์ผู้เล่นออกจากแอดมินชัดเจน ทำให้ระบบดูเป็นแพลตฟอร์มเต็มตัวมากกว่าบอทคำสั่ง',
+          bullets: [
+            'Discord login, dashboard, wallet, purchase history และ shop',
+            'redeem, profile, steam link และ player-only mode แยกจาก admin',
+            'เชื่อมกับ delivery และ reward stack เดียวกับหลังบ้าน',
+          ],
+          tags: [
+            `${formatShowcaseNumber(getDashboardMetricValue('linkCount', getSnapshotCount('links')))} bindings`,
+            `${formatShowcaseNumber(getDashboardMetricValue('membershipCount', getSnapshotCount('memberships')))} vip`,
+            '/player',
+          ],
+        },
+        {
+          kicker: 'Module 06',
+          title: 'Safety + Deployment',
+          description: 'รวม guardrails ที่ช่วยให้ deploy, restore และเปลี่ยนค่า production ได้อย่างมีวินัยมากขึ้น',
+          bullets: [
+            'security-check, doctor, topology doctor, readiness และ smoke post-deploy',
+            'rotate secrets, PM2 runtime split และ Windows helper scripts',
+            'restore maintenance gate + auto rollback backup สำหรับงานเสี่ยง',
+          ],
+          tags: [
+            'doctor + readiness',
+            'PM2 + helper',
+            restoreState?.rollbackBackup ? 'rollback armed' : 'rollback ready',
+          ],
+        },
+      ];
+    }
+
+    function buildShowcaseFlowSteps() {
+      const deliveryRuntime = currentDeliveryRuntime || snapshot?.deliveryRuntime || null;
+      const mode = String(deliveryRuntime?.executionMode || 'agent').toUpperCase();
+      const verifyMode = deliveryRuntime?.settings?.verifyMode || deliveryRuntime?.verifyMode || 'basic';
+      return [
+        {
+          index: 'Step 01',
+          title: 'Discord / Player Portal',
+          detail: 'ผู้เล่นซื้อของ, redeem หรือแอดมินยิง test-send จากหน้าเว็บ โดยทุกคำขอถูกผูกเข้ากับ identity และ order code',
+        },
+        {
+          index: 'Step 02',
+          title: 'Queue + Audit',
+          detail: 'ระบบสร้าง queue job, status history และ audit trail ตั้งแต่ queued เพื่อให้ไล่ย้อนหลังได้รายออเดอร์',
+        },
+        {
+          index: 'Step 03',
+          title: 'Worker Pickup',
+          detail: 'worker ตัวเดียวรับงาน, ทำ preflight readiness, และตัดสินใจว่าจะวิ่งผ่าน RCON หรือ agent runtime',
+        },
+        {
+          index: 'Step 04',
+          title: `${mode} Command Plan`,
+          detail: 'คำสั่งจริงถูก resolve จาก item profile, command template, fallback catalogs และ simulator ก่อนยิงจริง',
+        },
+        {
+          index: 'Step 05',
+          title: 'Teleport + Spawn',
+          detail: 'ใน agent mode flow จะวิ่ง announce -> teleport -> spawn -> multi-item ตาม profile และ teleport target ของสินค้า',
+        },
+        {
+          index: 'Step 06',
+          title: `Verify + Timeline (${verifyMode})`,
+          detail: 'ผลลัพธ์ถูกปิดงานด้วย post-spawn verification, timeline, step log, dead-letter handling และ notification ถ้าเกิด incident',
+        },
+      ];
+    }
+
+    function renderShowcaseFlow() {
+      if (!showcaseFlowEl) return;
+      const steps = buildShowcaseFlowSteps();
+      if (!steps.length) {
+        showcaseFlowEl.innerHTML = '<div class="showcase-flow-head"><h3>Validated Flow</h3><p>ยังไม่มีข้อมูล flow</p></div>';
+        return;
+      }
+      showcaseFlowEl.innerHTML = [
+        '<div class="showcase-flow-head">',
+        '<h3>Validated Flow</h3>',
+        '<p>เส้นทางหลักที่ระบบใช้จริงตั้งแต่ผู้เล่นกดซื้อจนถึงการ verify และปิดงานใน delivery timeline</p>',
+        '</div>',
+        `<div class="showcase-flow-steps">${steps.map((step) => [
+          '<article class="showcase-step">',
+          `<div class="idx">${escapeHtml(String(step.index || '-'))}</div>`,
+          `<strong>${escapeHtml(String(step.title || '-'))}</strong>`,
+          `<span>${escapeHtml(String(step.detail || '-'))}</span>`,
+          '</article>',
+        ].join('')).join('')}</div>`,
+      ].join('');
+    }
+
+    function renderShowcasePanel() {
+      renderShowcaseCards(showcaseHeroEl, buildShowcaseHeroCards(), 'ยังไม่มีข้อมูลระบบสำหรับโชว์');
+      renderShowcaseCards(showcaseModulesEl, buildShowcaseModuleCards(), 'ยังไม่มีข้อมูล module');
+      renderShowcaseFlow();
+    }
+
     function renderSummary() {
       const metrics = Array.isArray(currentDashboardCards?.cards) && currentDashboardCards.cards.length > 0
         ? currentDashboardCards.cards
         : buildFallbackSummaryCards();
-      if (!metrics.length) return;
+      if (!metrics.length) {
+        summaryEl.innerHTML = '<div class="metric"><div class="k">Summary</div><div class="v">ไม่มีข้อมูล</div></div>';
+        renderShowcasePanel();
+        return;
+      }
       summaryEl.innerHTML = metrics
         .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
         .join('');
+      renderShowcasePanel();
     }
 
     function renderDeliveryRuntime(data = null) {
@@ -4065,6 +4936,7 @@
       if (!runtime) {
         deliveryRuntimeSummary.innerHTML = '<div class="metric"><div class="k">Delivery</div><div class="v">ไม่มีข้อมูล</div></div>';
         deliveryRuntimeView.textContent = 'ยังไม่มีข้อมูล runtime ส่งของ';
+        renderShowcasePanel();
         return;
       }
 
@@ -4121,6 +4993,100 @@
         latestAudit: Array.isArray(runtime.latestAudit) ? runtime.latestAudit.slice(0, 5) : [],
       };
       deliveryRuntimeView.textContent = JSON.stringify(detail, null, 2);
+      renderShowcasePanel();
+    }
+
+    function renderRuntimeSupervisor(data = null) {
+      if (!runtimeSupervisorSummary || !runtimeSupervisorView) return;
+      const runtime = data && typeof data === 'object'
+        ? data
+        : snapshot?.runtimeSupervisor && typeof snapshot.runtimeSupervisor === 'object'
+          ? snapshot.runtimeSupervisor
+          : null;
+      currentRuntimeSupervisor = runtime;
+      if (!runtime) {
+        runtimeSupervisorSummary.innerHTML = '<div class="metric"><div class="k">Topology</div><div class="v">ไม่มีข้อมูล</div></div>';
+        if (runtimeSupervisorTable) {
+          runtimeSupervisorTable.innerHTML = '<div style="padding:12px; color:#9eb0d9;">ยังไม่มีข้อมูล runtime topology</div>';
+        }
+        runtimeSupervisorView.textContent = 'ยังไม่มีข้อมูล runtime topology';
+        renderShowcasePanel();
+        return;
+      }
+
+      const counts = runtime.counts || {};
+      const metrics = [
+        ['Overall', runtime.overall || '-'],
+        ['Required', Number(counts.required || 0).toLocaleString()],
+        ['Ready', Number(counts.ready || 0).toLocaleString()],
+        ['Degraded', Number(counts.degraded || 0).toLocaleString()],
+        ['Offline', Number(counts.offline || 0).toLocaleString()],
+      ];
+      runtimeSupervisorSummary.innerHTML = metrics
+        .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+        .join('');
+      renderRowsToContainer(
+        runtimeSupervisorTable,
+        Array.isArray(runtime.items)
+          ? runtime.items.map((row) => ({
+            runtime: row?.label || row?.key || '-',
+            status: row?.status || '-',
+            required: row?.required ? 'yes' : 'no',
+            reachable: row?.reachable ? 'yes' : 'no',
+            ready: row?.ready == null ? '-' : row.ready ? 'yes' : 'no',
+            reason: row?.reason || '-',
+            latencyMs: row?.latencyMs == null ? '-' : Number(row.latencyMs).toLocaleString(),
+            url: row?.url || '-',
+          }))
+          : [],
+        'ยังไม่มีข้อมูล runtime topology',
+      );
+      runtimeSupervisorView.textContent = JSON.stringify(runtime, null, 2);
+      renderShowcasePanel();
+    }
+
+    async function refreshRuntimeSupervisor() {
+      const res = await api('/admin/api/runtime/supervisor?refresh=1');
+      currentRuntimeSupervisor = res?.data || null;
+      renderRuntimeSupervisor(currentRuntimeSupervisor);
+      return currentRuntimeSupervisor;
+    }
+
+    function renderBackupRestoreState(data = null) {
+      if (!backupRestoreStateSummary || !backupRestoreStateView) return;
+      const restoreState = data && typeof data === 'object'
+        ? data
+        : snapshot?.backupRestore && typeof snapshot.backupRestore === 'object'
+          ? snapshot.backupRestore
+          : null;
+      currentBackupRestoreState = restoreState;
+      if (!restoreState) {
+        backupRestoreStateSummary.innerHTML =
+          '<div class="metric"><div class="k">Restore</div><div class="v">ไม่มีข้อมูล</div></div>';
+        backupRestoreStateView.textContent = 'ยังไม่มีข้อมูล restore';
+        renderShowcasePanel();
+        return;
+      }
+
+      const metrics = [
+        ['Status', restoreState.status || '-'],
+        ['Active', restoreState.active ? 'yes' : 'no'],
+        ['Backup', restoreState.backup || '-'],
+        ['Rollback', restoreState.rollbackBackup || '-'],
+        ['Last Error', restoreState.lastError || '-'],
+      ];
+      backupRestoreStateSummary.innerHTML = metrics
+        .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+        .join('');
+      backupRestoreStateView.textContent = JSON.stringify(restoreState, null, 2);
+      renderShowcasePanel();
+    }
+
+    async function refreshBackupRestoreState() {
+      const res = await api('/admin/api/backup/restore/status');
+      currentBackupRestoreState = res?.data || null;
+      renderBackupRestoreState(currentBackupRestoreState);
+      return currentBackupRestoreState;
     }
 
     async function refreshDeliveryRuntime() {
@@ -4136,6 +5102,353 @@
         deliveryPreviewView.textContent = JSON.stringify(res?.data || {}, null, 2);
       }
       return res?.data || null;
+    }
+
+    function buildPayloadFromForm(form) {
+      const payload = {};
+      for (const [key, value] of new FormData(form).entries()) {
+        const trimmed = String(value || '').trim();
+        if (trimmed) payload[key] = trimmed;
+      }
+      return payload;
+    }
+
+    function renderTimelineCards(container, rows = [], emptyMessage = 'ยังไม่มี timeline') {
+      if (!container) return;
+      const items = Array.isArray(rows) ? rows : [];
+      if (items.length === 0) {
+        container.innerHTML = `<div style="padding:12px; color:#9eb0d9;">${escapeHtml(emptyMessage)}</div>`;
+        return;
+      }
+      container.innerHTML = `<div class="timeline-list">${items.map((row) => {
+        const status = String(row?.status || '').trim().toLowerCase();
+        const severity = status === 'failed' || String(row?.level || '').trim() === 'error'
+          ? 'is-failed'
+          : status === 'completed'
+            ? 'is-completed'
+            : '';
+        const badges = [
+          row?.stage ? `<span class="timeline-badge">${escapeHtml(String(row.stage))}</span>` : '',
+          row?.source ? `<span class="timeline-badge">${escapeHtml(String(row.source))}</span>` : '',
+          row?.errorCode ? `<span class="timeline-badge">${escapeHtml(String(row.errorCode))}</span>` : '',
+        ].filter(Boolean).join('');
+        const detail = row?.command || row?.recoveryHint || row?.commandSummary || '';
+        return [
+          `<article class="timeline-card ${severity}">`,
+          `<div class="delivery-cell-main"><strong>${escapeHtml(String(row?.title || row?.step || row?.action || '-'))}</strong><span class="delivery-cell-sub">${escapeHtml(formatDeliveryTime(row?.at || ''))}</span></div>`,
+          `<div class="timeline-meta"><span>${escapeHtml(String(row?.message || '-'))}</span></div>`,
+          badges ? `<div class="timeline-meta">${badges}</div>` : '',
+          detail ? `<div class="delivery-cell-sub">${escapeHtml(String(detail))}</div>` : '',
+          '</article>',
+        ].join('');
+      }).join('')}</div>`;
+    }
+
+    function renderDeliveryPreflight(report = null) {
+      if (deliveryPreflightSummary) {
+        if (!report) {
+          deliveryPreflightSummary.innerHTML =
+            '<div class="metric"><div class="k">Preflight</div><div class="v">ยังไม่ได้ตรวจ</div></div>';
+        } else {
+          const metrics = [
+            ['พร้อมส่ง', report.ready ? 'yes' : 'no'],
+            ['Mode', report.mode || '-'],
+            ['Failures', Number(report.failures?.length || 0).toLocaleString()],
+            ['Warnings', Number(report.warnings?.length || 0).toLocaleString()],
+          ];
+          deliveryPreflightSummary.innerHTML = metrics
+            .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+            .join('');
+        }
+      }
+      renderRowsToContainer(
+        deliveryPreflightChecks,
+        Array.isArray(report?.checks)
+          ? report.checks.map((row) => ({
+            key: row?.key || '-',
+            ok: row?.ok === true ? 'ok' : 'fail',
+            required: row?.required === false ? 'optional' : 'required',
+            scope: row?.scope || '-',
+            detail: row?.detail || '-',
+            code: row?.code || '-',
+          }))
+          : [],
+        'ยังไม่มีผล preflight',
+      );
+      if (deliveryPreflightView) {
+        deliveryPreflightView.textContent = JSON.stringify(report || {}, null, 2);
+      }
+    }
+
+    async function runDeliveryPreflightRequest(payload) {
+      const res = await api('/admin/api/delivery/preflight', 'POST', payload);
+      const data = res?.data || null;
+      renderDeliveryPreflight(data);
+      return data;
+    }
+
+    function renderDeliverySimulation(data = null) {
+      if (deliverySimulateSummary) {
+        if (!data) {
+          deliverySimulateSummary.innerHTML =
+            '<div class="metric"><div class="k">Simulator</div><div class="v">ยังไม่ได้จำลอง</div></div>';
+        } else {
+          const metrics = [
+            ['พร้อมยิงจริง', data.ready ? 'yes' : 'blocked'],
+            ['Commands', Number(data.summary?.commandCount || 0).toLocaleString()],
+            ['Items', Number(data.summary?.itemCount || 0).toLocaleString()],
+            ['Source', data.summary?.commandSource || '-'],
+          ];
+          deliverySimulateSummary.innerHTML = metrics
+            .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+            .join('');
+        }
+      }
+      renderTimelineCards(
+        deliverySimulateTimeline,
+        Array.isArray(data?.timeline) ? data.timeline : [],
+        'ยังไม่มีแผนจำลอง',
+      );
+      if (deliverySimulateView) {
+        deliverySimulateView.textContent = JSON.stringify(data || {}, null, 2);
+      }
+    }
+
+    async function simulateDelivery(payload) {
+      const res = await api('/admin/api/delivery/simulate', 'POST', payload);
+      const data = res?.data || null;
+      renderDeliverySimulation(data);
+      return data;
+    }
+
+    function renderDeliveryCommandTemplate(data = null) {
+      if (deliveryCommandTemplateView) {
+        deliveryCommandTemplateView.textContent = JSON.stringify(data || {}, null, 2);
+      }
+      if (deliveryCommandTemplateForm && data && Array.isArray(data.commandTemplates)) {
+        const commandsInput = deliveryCommandTemplateForm.elements.namedItem('commands');
+        const lookupInput = deliveryCommandTemplateForm.elements.namedItem('lookupKey');
+        const itemIdInput = deliveryCommandTemplateForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliveryCommandTemplateForm.elements.namedItem('gameItemId');
+        if (commandsInput) commandsInput.value = data.commandTemplates.join('\n');
+        if (lookupInput && !String(lookupInput.value || '').trim()) lookupInput.value = String(data.lookupKey || '');
+        if (itemIdInput && !String(itemIdInput.value || '').trim()) itemIdInput.value = String(data.lookupKey || '');
+        if (gameItemIdInput && !String(gameItemIdInput.value || '').trim()) gameItemIdInput.value = String(data.lookupKey || '');
+      }
+    }
+
+    async function loadDeliveryCommandTemplate(payload) {
+      const params = new URLSearchParams();
+      if (payload.lookupKey) params.set('lookupKey', payload.lookupKey);
+      if (payload.itemId) params.set('itemId', payload.itemId);
+      if (payload.gameItemId) params.set('gameItemId', payload.gameItemId);
+      const suffix = params.toString();
+      const res = await api(`/admin/api/delivery/command-template${suffix ? `?${suffix}` : ''}`);
+      const data = res?.data || null;
+      renderDeliveryCommandTemplate(data);
+      return data;
+    }
+
+    function normalizeDeliveryCapabilityRecord(entry, source = 'builtin') {
+      const id = String(entry?.id || '').trim();
+      const name = String(entry?.name || '').trim();
+      if (!id || !name) return null;
+      return {
+        id,
+        name,
+        description: String(entry?.description || '').trim(),
+        commandTemplates: Array.isArray(entry?.commandTemplates)
+          ? entry.commandTemplates.map((line) => String(line || '').trim()).filter(Boolean)
+          : [],
+        defaults: entry?.defaults && typeof entry.defaults === 'object' ? entry.defaults : {},
+        tags: Array.isArray(entry?.tags) ? entry.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [],
+        source,
+        builtin: source === 'builtin',
+      };
+    }
+
+    function getCombinedDeliveryCapabilities() {
+      const builtin = Array.isArray(currentDeliveryCapabilities?.builtin)
+        ? currentDeliveryCapabilities.builtin.map((entry) => normalizeDeliveryCapabilityRecord(entry, 'builtin')).filter(Boolean)
+        : [];
+      const presets = Array.isArray(currentDeliveryCapabilities?.presets)
+        ? currentDeliveryCapabilities.presets.map((entry) => normalizeDeliveryCapabilityRecord(entry, 'preset')).filter(Boolean)
+        : [];
+      return { builtin, presets };
+    }
+
+    function renderDeliveryCapabilityOptions() {
+      const { builtin, presets } = getCombinedDeliveryCapabilities();
+      if (deliveryCapabilitySelect) {
+        deliveryCapabilitySelect.innerHTML = '<option value="">เลือก capability</option>';
+        builtin.forEach((entry) => {
+          const option = document.createElement('option');
+          option.value = entry.id;
+          option.textContent = entry.name;
+          deliveryCapabilitySelect.appendChild(option);
+        });
+      }
+      const presetSelects = [deliveryCapabilityPresetSelect, deliveryCapabilityPresetManageSelect].filter(Boolean);
+      presetSelects.forEach((select) => {
+        const emptyLabel = select === deliveryCapabilityPresetManageSelect ? 'สร้าง preset ใหม่' : 'เลือก preset';
+        select.innerHTML = `<option value="">${emptyLabel}</option>`;
+        presets.forEach((entry) => {
+          const option = document.createElement('option');
+          option.value = entry.id;
+          option.textContent = entry.name;
+          select.appendChild(option);
+        });
+      });
+      if (deliveryCapabilityPresetView) {
+        deliveryCapabilityPresetView.textContent = JSON.stringify(currentDeliveryCapabilities || {}, null, 2);
+      }
+    }
+
+    function findDeliveryCapabilityById(capabilityId, source = '') {
+      const targetId = String(capabilityId || '').trim();
+      if (!targetId) return null;
+      const collections = getCombinedDeliveryCapabilities();
+      if (source === 'builtin') {
+        return collections.builtin.find((entry) => entry.id === targetId) || null;
+      }
+      if (source === 'preset') {
+        return collections.presets.find((entry) => entry.id === targetId) || null;
+      }
+      return collections.builtin.find((entry) => entry.id === targetId)
+        || collections.presets.find((entry) => entry.id === targetId)
+        || null;
+    }
+
+    function applyDeliveryCapabilityToForms(entry) {
+      if (!entry) return;
+      const defaults = entry.defaults && typeof entry.defaults === 'object' ? entry.defaults : {};
+      if (deliveryCapabilityTestForm) {
+        if (deliveryCapabilitySelect && entry.source === 'builtin') {
+          deliveryCapabilitySelect.value = entry.id;
+        }
+        if (deliveryCapabilityPresetSelect && entry.source === 'preset') {
+          deliveryCapabilityPresetSelect.value = entry.id;
+        }
+        const fieldMap = {
+          announceText: defaults.announceText,
+          steamId: defaults.steamId,
+          gameItemId: defaults.gameItemId,
+          quantity: defaults.quantity,
+          teleportTarget: defaults.teleportTarget,
+          returnTarget: defaults.returnTarget,
+          inGameName: defaults.inGameName,
+        };
+        for (const [name, value] of Object.entries(fieldMap)) {
+          const input = deliveryCapabilityTestForm.elements.namedItem(name);
+          if (input && value != null && String(input.value || '').trim() === '') {
+            input.value = String(value);
+          }
+        }
+      }
+      if (deliveryCapabilityPresetForm) {
+        const commandsInput = deliveryCapabilityPresetForm.elements.namedItem('commands');
+        const nameInput = deliveryCapabilityPresetForm.elements.namedItem('name');
+        const descriptionInput = deliveryCapabilityPresetForm.elements.namedItem('description');
+        const tagsInput = deliveryCapabilityPresetForm.elements.namedItem('tags');
+        if (deliveryCapabilityPresetManageSelect && entry.source === 'preset') {
+          deliveryCapabilityPresetManageSelect.value = entry.id;
+        }
+        if (commandsInput) commandsInput.value = entry.commandTemplates.join('\n');
+        if (nameInput) nameInput.value = entry.name;
+        if (descriptionInput) descriptionInput.value = entry.description || '';
+        if (tagsInput) tagsInput.value = Array.isArray(entry.tags) ? entry.tags.join(', ') : '';
+        const presetFields = {
+          announceText: defaults.announceText,
+          steamId: defaults.steamId,
+          gameItemId: defaults.gameItemId,
+          quantity: defaults.quantity,
+          teleportTarget: defaults.teleportTarget,
+          returnTarget: defaults.returnTarget,
+          inGameName: defaults.inGameName,
+          itemName: defaults.itemName,
+        };
+        Object.entries(presetFields).forEach(([name, value]) => {
+          const input = deliveryCapabilityPresetForm.elements.namedItem(name);
+          if (input) input.value = value == null ? '' : String(value);
+        });
+      }
+    }
+
+    async function refreshDeliveryCapabilities() {
+      const res = await api('/admin/api/delivery/capabilities');
+      currentDeliveryCapabilities = res?.data && typeof res.data === 'object'
+        ? res.data
+        : { builtin: [], presets: [] };
+      renderDeliveryCapabilityOptions();
+      renderShowcasePanel();
+      return currentDeliveryCapabilities;
+    }
+
+    function renderDeliveryCapabilityResult(data = null) {
+      currentDeliveryCapabilityResult = data && typeof data === 'object' ? data : null;
+      if (deliveryCapabilitySummary) {
+        const metrics = currentDeliveryCapabilityResult
+          ? [
+              ['Ready', currentDeliveryCapabilityResult.ready ? 'yes' : 'no'],
+              ['Dry-run', currentDeliveryCapabilityResult.dryRun ? 'yes' : 'no'],
+              ['Commands', Number(currentDeliveryCapabilityResult.summary?.commandCount || 0).toLocaleString()],
+              ['Mode', currentDeliveryCapabilityResult.summary?.executionMode || '-'],
+              ['Verify', currentDeliveryCapabilityResult.summary?.verificationMode || '-'],
+            ]
+          : [['Capability', 'ยังไม่มีข้อมูล']];
+        deliveryCapabilitySummary.innerHTML = metrics
+          .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+          .join('');
+      }
+      renderTimelineCards(
+        deliveryCapabilityTimeline,
+        Array.isArray(currentDeliveryCapabilityResult?.timeline) ? currentDeliveryCapabilityResult.timeline : [],
+        'ยังไม่มีผล capability test',
+      );
+      if (deliveryCapabilityView) {
+        deliveryCapabilityView.textContent = JSON.stringify(currentDeliveryCapabilityResult || {}, null, 2);
+      }
+    }
+
+    async function refreshAdminNotifications() {
+      const res = await api('/admin/api/notifications?limit=80');
+      currentAdminNotifications = Array.isArray(res?.data?.items) ? res.data.items : [];
+      if (adminNotificationSummary) {
+        const unacked = currentAdminNotifications.filter((row) => !row?.acknowledgedAt).length;
+        const metrics = [
+          ['ทั้งหมด', currentAdminNotifications.length.toLocaleString()],
+          ['ยังไม่รับทราบ', unacked.toLocaleString()],
+          ['Severity สูง', currentAdminNotifications.filter((row) => String(row?.severity || '').toLowerCase() === 'error').length.toLocaleString()],
+        ];
+        adminNotificationSummary.innerHTML = metrics
+          .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+          .join('');
+      }
+      if (adminNotificationList) {
+        if (currentAdminNotifications.length === 0) {
+          adminNotificationList.innerHTML = '<div style="padding:12px; color:#9eb0d9;">ยังไม่มี notification</div>';
+        } else {
+          adminNotificationList.innerHTML = `<div class="notification-list">${currentAdminNotifications.map((row) => {
+            const severity = String(row?.severity || '').trim().toLowerCase();
+            return [
+              `<article class="notification-card ${severity === 'error' ? 'is-error' : severity === 'warn' ? 'is-warn' : ''}">`,
+              `<label class="row-actions"><input type="checkbox" data-admin-notification-select="${escapeHtml(String(row?.id || ''))}"><strong>${escapeHtml(String(row?.title || row?.kind || 'Notification'))}</strong></label>`,
+              `<div class="delivery-cell-sub">${escapeHtml(String(row?.message || '-'))}</div>`,
+              `<div class="timeline-meta"><span>${escapeHtml(formatDeliveryTime(row?.createdAt || ''))}</span><span>${escapeHtml(String(row?.type || '-'))}</span><span>${escapeHtml(String(row?.severity || '-'))}</span><span>${escapeHtml(String(row?.acknowledgedAt ? `acked by ${row.acknowledgedBy || 'unknown'}` : 'unacked'))}</span></div>`,
+              '</article>',
+            ].join('');
+          }).join('')}</div>`;
+        }
+      }
+      renderShowcasePanel();
+      return currentAdminNotifications;
+    }
+
+    function getSelectedAdminNotificationIds() {
+      if (!adminNotificationList) return [];
+      return Array.from(adminNotificationList.querySelectorAll('input[data-admin-notification-select]:checked'))
+        .map((input) => String(input.getAttribute('data-admin-notification-select') || '').trim())
+        .filter(Boolean);
     }
 
     function formatDeliveryTime(value) {
@@ -4178,31 +5491,11 @@
     }
 
     function renderDeliveryStepLog(stepRows = []) {
-      if (!deliveryDetailStepLog) return;
-      const rows = Array.isArray(stepRows) ? stepRows : [];
-      if (rows.length === 0) {
-        deliveryDetailStepLog.innerHTML =
-          '<div style="padding:12px; color:#9eb0d9;">ยังไม่มี step log</div>';
-        return;
-      }
-
-      deliveryDetailStepLog.innerHTML = [
-        '<table><thead><tr>',
-        '<th>เวลา</th>',
-        '<th>Step</th>',
-        '<th>Error Code</th>',
-        '<th>ข้อความ</th>',
-        '</tr></thead><tbody>',
-        rows.map((row) => [
-          '<tr>',
-          `<td>${escapeHtml(formatDeliveryTime(row?.at || ''))}</td>`,
-          `<td><div class="delivery-cell-main">${escapeHtml(String(row?.step || row?.action || '-'))}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.level || '-'))}</div></td>`,
-          `<td><div class="delivery-cell-main">${escapeHtml(String(row?.errorCode || '-'))}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.retryable == null ? '-' : row.retryable ? 'retryable' : 'terminal'))}</div></td>`,
-          `<td><div class="delivery-cell-main">${escapeHtml(String(row?.message || '-'))}</div><div class="delivery-cell-sub">${escapeHtml(String(row?.recoveryHint || row?.commandSummary || '-'))}</div></td>`,
-          '</tr>',
-        ].join('')).join(''),
-        '</tbody></table>',
-      ].join('');
+      renderTimelineCards(
+        deliveryDetailStepLog,
+        Array.isArray(stepRows) ? stepRows : [],
+        'ยังไม่มี step log',
+      );
     }
 
     function prefillDeliveryFormsFromDetail(detail) {
@@ -4243,6 +5536,41 @@
         if (steamIdInput) steamIdInput.value = steamId;
       }
 
+      if (deliveryPreflightForm) {
+        const itemIdInput = deliveryPreflightForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliveryPreflightForm.elements.namedItem('gameItemId');
+        const steamIdInput = deliveryPreflightForm.elements.namedItem('steamId');
+        const inGameNameInput = deliveryPreflightForm.elements.namedItem('inGameName');
+        if (itemIdInput) itemIdInput.value = itemId;
+        if (gameItemIdInput) gameItemIdInput.value = gameItemId;
+        if (steamIdInput) steamIdInput.value = steamId;
+        if (inGameNameInput) inGameNameInput.value = String(link?.inGameName || '').trim();
+      }
+
+      if (deliverySimulateForm) {
+        const itemIdInput = deliverySimulateForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliverySimulateForm.elements.namedItem('gameItemId');
+        const itemNameInput = deliverySimulateForm.elements.namedItem('itemName');
+        const quantityInput = deliverySimulateForm.elements.namedItem('quantity');
+        const steamIdInput = deliverySimulateForm.elements.namedItem('steamId');
+        if (itemIdInput) itemIdInput.value = itemId;
+        if (gameItemIdInput) gameItemIdInput.value = gameItemId;
+        if (itemNameInput) itemNameInput.value = itemName;
+        if (quantityInput) quantityInput.value = String(quantity);
+        if (steamIdInput) steamIdInput.value = steamId;
+      }
+
+      if (deliveryCommandTemplateForm) {
+        const lookupKeyInput = deliveryCommandTemplateForm.elements.namedItem('lookupKey');
+        const itemIdInput = deliveryCommandTemplateForm.elements.namedItem('itemId');
+        const gameItemIdInput = deliveryCommandTemplateForm.elements.namedItem('gameItemId');
+        if (lookupKeyInput && !String(lookupKeyInput.value || '').trim()) {
+          lookupKeyInput.value = itemId || gameItemId;
+        }
+        if (itemIdInput && !String(itemIdInput.value || '').trim()) itemIdInput.value = itemId;
+        if (gameItemIdInput && !String(gameItemIdInput.value || '').trim()) gameItemIdInput.value = gameItemId;
+      }
+
       if (deliveryTestSendForm) {
         const itemIdInput = deliveryTestSendForm.elements.namedItem('itemId');
         const gameItemIdInput = deliveryTestSendForm.elements.namedItem('gameItemId');
@@ -4281,6 +5609,11 @@
       const queueJob = detail.queueJob || null;
       const deadLetter = detail.deadLetter || null;
       const latestOutputs = Array.isArray(detail.latestOutputs) ? detail.latestOutputs : [];
+      const timeline = Array.isArray(detail.timeline) && detail.timeline.length > 0
+        ? detail.timeline
+        : Array.isArray(detail.stepLog)
+          ? detail.stepLog
+          : [];
       const metrics = [
         ['Purchase Code', detail.purchaseCode || '-'],
         ['สถานะคำสั่งซื้อ', purchase?.status || '-'],
@@ -4288,12 +5621,13 @@
         ['Queue', queueJob ? `attempt ${Number(queueJob.attempts || 0)}` : '-'],
         ['Dead-Letter', deadLetter ? (deadLetter.reason || 'yes') : '-'],
         ['Audit Rows', Number(detail.auditRows?.length || 0).toLocaleString()],
+        ['Timeline', Number(timeline.length || 0).toLocaleString()],
         ['Command Outputs', Number(latestOutputs.length || 0).toLocaleString()],
       ];
       deliveryDetailSummary.innerHTML = metrics
         .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
         .join('');
-      renderDeliveryStepLog(detail.stepLog || []);
+      renderDeliveryStepLog(timeline);
 
       deliveryDetailView.textContent = JSON.stringify(
         {
@@ -4303,6 +5637,7 @@
           deadLetter,
           link: detail.link || null,
           statusHistory: Array.isArray(detail.statusHistory) ? detail.statusHistory : [],
+          timeline,
           stepLog: Array.isArray(detail.stepLog) ? detail.stepLog : [],
           latestCommandSummary: detail.latestCommandSummary || null,
           latestOutputs,
@@ -4628,8 +5963,12 @@
         snapshot = snapshotRes.data;
         currentDashboardCards = dashboardCardsRes?.data || null;
         renderSummary();
+        renderRuntimeSupervisor(snapshot?.runtimeSupervisor || null);
+        renderBackupRestoreState(snapshot?.backupRestore || null);
         renderDeliveryRuntime(snapshot?.deliveryRuntime || null);
         renderDeliveryOpsTables();
+        await refreshDeliveryCapabilities().catch(() => null);
+        await refreshAdminNotifications().catch(() => null);
         renderSelectedDataset();
         renderAuditCenter();
         renderMetricsCharts();
@@ -4714,6 +6053,10 @@
 
       if (form.dataset.endpoint === '/admin/api/backup/restore') {
         payload.dryRun = String(payload.dryRun || '').toLowerCase() === 'true';
+        payload.confirmBackup = String(payload.confirmBackup || '').trim();
+        if (!payload.dryRun && !payload.confirmBackup) {
+          throw new Error('กรุณาพิมพ์ชื่อ backup ซ้ำอีกครั้งก่อน restore จริง');
+        }
       }
 
       await api(form.dataset.endpoint, form.dataset.method || 'POST', payload);
@@ -5264,6 +6607,190 @@
       });
     }
 
+    if (runtimeSupervisorRefreshBtn) {
+      runtimeSupervisorRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(runtimeSupervisorRefreshBtn, 'กำลังเช็ก...', async () => {
+            await refreshRuntimeSupervisor();
+          });
+          toast('อัปเดต topology runtime แล้ว');
+        } catch (error) {
+          toast(error.message || 'โหลด topology runtime ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (backupRestoreStateRefreshBtn) {
+      backupRestoreStateRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(backupRestoreStateRefreshBtn, 'กำลังโหลด...', async () => {
+            await refreshBackupRestoreState();
+          });
+          toast('รีเฟรชสถานะ restore แล้ว');
+        } catch (error) {
+          toast(error.message || 'โหลดสถานะ restore ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCapabilityPresetRefreshBtn) {
+      deliveryCapabilityPresetRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(deliveryCapabilityPresetRefreshBtn, 'กำลังโหลด...', async () => {
+            await refreshDeliveryCapabilities();
+          });
+          toast('รีเฟรช command catalog แล้ว');
+        } catch (error) {
+          toast(error.message || 'โหลด command catalog ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCapabilitySelect) {
+      deliveryCapabilitySelect.addEventListener('change', () => {
+        const selected = findDeliveryCapabilityById(deliveryCapabilitySelect.value, 'builtin');
+        if (!selected) return;
+        if (deliveryCapabilityPresetSelect) {
+          deliveryCapabilityPresetSelect.value = '';
+        }
+        applyDeliveryCapabilityToForms(selected);
+      });
+    }
+
+    if (deliveryCapabilityPresetSelect) {
+      deliveryCapabilityPresetSelect.addEventListener('change', () => {
+        const selected = findDeliveryCapabilityById(deliveryCapabilityPresetSelect.value, 'preset');
+        if (!selected) return;
+        if (deliveryCapabilitySelect) {
+          deliveryCapabilitySelect.value = '';
+        }
+        applyDeliveryCapabilityToForms(selected);
+      });
+    }
+
+    if (deliveryCapabilityPresetManageSelect) {
+      deliveryCapabilityPresetManageSelect.addEventListener('change', () => {
+        const selected = findDeliveryCapabilityById(deliveryCapabilityPresetManageSelect.value, 'preset');
+        if (!selected) {
+          if (deliveryCapabilityPresetForm) {
+            deliveryCapabilityPresetForm.reset();
+          }
+          return;
+        }
+        applyDeliveryCapabilityToForms(selected);
+      });
+    }
+
+    if (deliveryCapabilityPresetDeleteBtn && deliveryCapabilityPresetManageSelect) {
+      deliveryCapabilityPresetDeleteBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const presetId = String(deliveryCapabilityPresetManageSelect.value || '').trim();
+        if (!presetId) {
+          toast('เลือก preset ก่อนลบ');
+          return;
+        }
+        const selected = findDeliveryCapabilityById(presetId, 'preset');
+        if (!selected) {
+          toast('ไม่พบ preset ที่เลือก');
+          return;
+        }
+        if (!window.confirm(`ลบ preset "${selected.name}" ?`)) {
+          return;
+        }
+        try {
+          await runWithButtonState(deliveryCapabilityPresetDeleteBtn, 'กำลังลบ...', async () => {
+            await api('/admin/api/delivery/capability-preset/delete', 'POST', { presetId });
+          });
+          await refreshDeliveryCapabilities();
+          if (deliveryCapabilityPresetForm) {
+            deliveryCapabilityPresetForm.reset();
+          }
+          toast(`ลบ preset: ${selected.name}`);
+        } catch (error) {
+          toast(error.message || 'ลบ preset ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (adminNotificationRefreshBtn) {
+      adminNotificationRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(adminNotificationRefreshBtn, 'กำลังโหลด...', async () => {
+            await refreshAdminNotifications();
+          });
+          toast('รีเฟรช notification แล้ว');
+        } catch (error) {
+          toast(error.message || 'รีเฟรช notification ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (adminNotificationAckBtn) {
+      adminNotificationAckBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const selectedIds = getSelectedAdminNotificationIds();
+        const ids = selectedIds.length > 0
+          ? selectedIds
+          : currentAdminNotifications
+            .filter((row) => !row?.acknowledgedAt)
+            .map((row) => String(row?.id || '').trim())
+            .filter(Boolean);
+        if (ids.length === 0) {
+          toast('ไม่มี notification ที่ต้องรับทราบ');
+          return;
+        }
+        try {
+          await runWithButtonState(adminNotificationAckBtn, 'กำลังรับทราบ...', async () => {
+            await api('/admin/api/notifications/ack', 'POST', { ids });
+          });
+          await refreshAdminNotifications();
+          toast(`รับทราบแล้ว ${ids.length} รายการ`);
+        } catch (error) {
+          toast(error.message || 'รับทราบ notification ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (adminNotificationClearBtn) {
+      adminNotificationClearBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(adminNotificationClearBtn, 'กำลังลบ...', async () => {
+            await api('/admin/api/notifications/clear', 'POST', { acknowledgedOnly: true });
+          });
+          await refreshAdminNotifications();
+          toast('ลบ notification ที่รับทราบแล้ว');
+        } catch (error) {
+          toast(error.message || 'ลบ notification ไม่สำเร็จ');
+        }
+      });
+    }
+
     if (deliveryQueueApplyFilterBtn) {
       deliveryQueueApplyFilterBtn.addEventListener('click', () => {
         currentDeliveryQueueErrorFilter = String(deliveryQueueErrorFilterInput?.value || '').trim();
@@ -5318,6 +6845,29 @@
       });
     }
 
+    if (deliveryPreflightForm) {
+      deliveryPreflightForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryPreflightForm, event);
+        const payload = buildPayloadFromForm(deliveryPreflightForm);
+        try {
+          await runWithButtonState(submitButton, 'กำลังตรวจ...', async () => {
+            await runDeliveryPreflightRequest(payload);
+          });
+          toast('ตรวจ preflight แล้ว');
+        } catch (error) {
+          if (deliveryPreflightView) {
+            deliveryPreflightView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'ตรวจ preflight ไม่สำเร็จ');
+        }
+      });
+    }
+
     if (deliveryPreviewForm) {
       deliveryPreviewForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -5326,11 +6876,7 @@
           return;
         }
         const submitButton = getSubmitButton(deliveryPreviewForm, event);
-        const payload = {};
-        for (const [key, value] of new FormData(deliveryPreviewForm).entries()) {
-          const trimmed = String(value || '').trim();
-          if (trimmed) payload[key] = trimmed;
-        }
+        const payload = buildPayloadFromForm(deliveryPreviewForm);
         try {
           await runWithButtonState(submitButton, 'กำลังพรีวิว...', async () => {
             await previewDeliveryCommand(payload);
@@ -5345,6 +6891,107 @@
       });
     }
 
+    if (deliverySimulateForm) {
+      deliverySimulateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliverySimulateForm, event);
+        const payload = buildPayloadFromForm(deliverySimulateForm);
+        try {
+          await runWithButtonState(submitButton, 'กำลังจำลอง...', async () => {
+            await simulateDelivery(payload);
+          });
+          toast('จำลอง delivery plan แล้ว');
+        } catch (error) {
+          if (deliverySimulateView) {
+            deliverySimulateView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'simulate delivery ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCommandTemplateLoadBtn && deliveryCommandTemplateForm) {
+      deliveryCommandTemplateLoadBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const payload = buildPayloadFromForm(deliveryCommandTemplateForm);
+        try {
+          await runWithButtonState(deliveryCommandTemplateLoadBtn, 'กำลังโหลด...', async () => {
+            await loadDeliveryCommandTemplate(payload);
+          });
+          toast('โหลด command template แล้ว');
+        } catch (error) {
+          if (deliveryCommandTemplateView) {
+            deliveryCommandTemplateView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'โหลด command template ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCommandTemplateDeleteBtn && deliveryCommandTemplateForm) {
+      deliveryCommandTemplateDeleteBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const payload = buildPayloadFromForm(deliveryCommandTemplateForm);
+        try {
+          await runWithButtonState(deliveryCommandTemplateDeleteBtn, 'กำลังลบ...', async () => {
+            const res = await api('/admin/api/delivery/command-template', 'POST', {
+              ...payload,
+              clear: true,
+            });
+            renderDeliveryCommandTemplate(res?.data || null);
+          });
+          await refreshAdminNotifications().catch(() => null);
+          toast('ลบ command template override แล้ว');
+        } catch (error) {
+          if (deliveryCommandTemplateView) {
+            deliveryCommandTemplateView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'ลบ command template ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCommandTemplateForm) {
+      deliveryCommandTemplateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryCommandTemplateForm, event);
+        const payload = buildPayloadFromForm(deliveryCommandTemplateForm);
+        if (payload.commands) {
+          payload.commands = String(payload.commands)
+            .split(/\r?\n/)
+            .map((row) => row.trim())
+            .filter(Boolean);
+        }
+        try {
+          await runWithButtonState(submitButton, 'กำลังบันทึก...', async () => {
+            const res = await api('/admin/api/delivery/command-template', 'POST', payload);
+            renderDeliveryCommandTemplate(res?.data || null);
+          });
+          await refreshAdminNotifications().catch(() => null);
+          toast('บันทึก command template แล้ว');
+        } catch (error) {
+          if (deliveryCommandTemplateView) {
+            deliveryCommandTemplateView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'บันทึก command template ไม่สำเร็จ');
+        }
+      });
+    }
+
     if (deliveryTestSendForm) {
       deliveryTestSendForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -5353,11 +7000,7 @@
           return;
         }
         const submitButton = getSubmitButton(deliveryTestSendForm, event);
-        const payload = {};
-        for (const [key, value] of new FormData(deliveryTestSendForm).entries()) {
-          const trimmed = String(value || '').trim();
-          if (trimmed) payload[key] = trimmed;
-        }
+        const payload = buildPayloadFromForm(deliveryTestSendForm);
         try {
           await runWithButtonState(submitButton, 'กำลังส่ง test item...', async () => {
             const res = await api('/admin/api/delivery/test-send', 'POST', payload);
@@ -5378,6 +7021,75 @@
             deliveryTestSendView.textContent = String(error.message || error);
           }
           toast(error.message || 'ส่ง test item ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCapabilityTestForm) {
+      deliveryCapabilityTestForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryCapabilityTestForm, event);
+        const payload = buildPayloadFromForm(deliveryCapabilityTestForm);
+        payload.dryRun = String(payload.dryRun || '').toLowerCase() === 'true';
+        try {
+          await runWithButtonState(submitButton, payload.dryRun ? 'กำลังจำลอง...' : 'กำลัง execute...', async () => {
+            const res = await api('/admin/api/delivery/capability-test', 'POST', payload);
+            renderDeliveryCapabilityResult(res?.data || null);
+          });
+          toast(payload.dryRun ? 'สร้าง capability dry run แล้ว' : 'รัน capability test แล้ว');
+        } catch (error) {
+          if (deliveryCapabilityView) {
+            deliveryCapabilityView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'รัน capability test ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (deliveryCapabilityPresetForm) {
+      deliveryCapabilityPresetForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        const submitButton = getSubmitButton(deliveryCapabilityPresetForm, event);
+        const payload = buildPayloadFromForm(deliveryCapabilityPresetForm);
+        if (payload.commands) {
+          payload.commands = String(payload.commands)
+            .split(/\r?\n/)
+            .map((row) => row.trim())
+            .filter(Boolean);
+        }
+        if (payload.tags) {
+          payload.tags = String(payload.tags)
+            .split(',')
+            .map((row) => row.trim())
+            .filter(Boolean);
+        }
+        try {
+          await runWithButtonState(submitButton, 'กำลังบันทึก preset...', async () => {
+            const res = await api('/admin/api/delivery/capability-preset', 'POST', payload);
+            if (deliveryCapabilityPresetView) {
+              deliveryCapabilityPresetView.textContent = JSON.stringify(res?.data || {}, null, 2);
+            }
+          });
+          await refreshDeliveryCapabilities();
+          const selectedId = String(deliveryCapabilityPresetManageSelect?.value || payload.id || '').trim();
+          const selected = findDeliveryCapabilityById(selectedId, 'preset');
+          if (selected) {
+            applyDeliveryCapabilityToForms(selected);
+          }
+          toast('บันทึก capability preset แล้ว');
+        } catch (error) {
+          if (deliveryCapabilityPresetView) {
+            deliveryCapabilityPresetView.textContent = String(error.message || error);
+          }
+          toast(error.message || 'บันทึก capability preset ไม่สำเร็จ');
         }
       });
     }
@@ -5538,6 +7250,15 @@
         activateTab(btn.dataset.tab);
       });
     }
+
+    showcaseTabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tabKey = String(btn.dataset.showcaseTab || '').trim();
+        if (tabKey) {
+          activateTab(tabKey);
+        }
+      });
+    });
 
     if (tabSearchInput) {
       tabSearchInput.addEventListener('input', () => {

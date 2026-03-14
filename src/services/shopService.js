@@ -12,7 +12,19 @@ const { debitCoins, creditCoins } = require('./coinService');
 const { enqueuePurchaseDelivery } = require('./rconDelivery');
 
 function normalizeShopKind(value) {
-  return String(value || 'item').trim().toLowerCase() === 'vip' ? 'vip' : 'item';
+  const raw = String(value || 'item').trim().toLowerCase();
+  if (!raw) return 'item';
+  if (raw === 'vip') return 'vip';
+  if (raw === 'item') return 'item';
+  return raw;
+}
+
+function isVipShopKind(value) {
+  return normalizeShopKind(value) === 'vip';
+}
+
+function isGameItemShopKind(value) {
+  return normalizeShopKind(value) === 'item';
 }
 
 function normalizeQty(value) {
@@ -179,7 +191,7 @@ async function purchaseShopItemForUser(params = {}) {
   }
 
   const kind = normalizeShopKind(item.kind);
-  if (kind === 'item' && params.requireSteamLink !== false) {
+  if (isGameItemShopKind(kind) && params.requireSteamLink !== false) {
     const resolveSteamLink = params.resolveSteamLink
       || (async (targetUserId) => getLinkByUserId(targetUserId));
     const link = await resolveSteamLink(userId);
@@ -297,23 +309,23 @@ async function addShopItemForAdmin(params = {}) {
   if (!id || !name || !Number.isFinite(price) || price <= 0 || !description) {
     return { ok: false, reason: 'invalid-input' };
   }
-  if (kind === 'item' && !gameItemId && deliveryItems.length === 0) {
+  if (isGameItemShopKind(kind) && !gameItemId && deliveryItems.length === 0) {
     return { ok: false, reason: 'game-item-required' };
   }
 
   try {
     const item = await addShopItem(id, name, Math.trunc(price), description, {
       kind,
-      gameItemId: kind === 'item' ? gameItemId : null,
-      quantity: kind === 'item' ? quantity : 1,
+      gameItemId: isGameItemShopKind(kind) ? gameItemId : null,
+      quantity: isGameItemShopKind(kind) ? quantity : 1,
       iconUrl,
-      deliveryItems,
-      deliveryProfile: kind === 'item' ? deliveryProfile : null,
-      deliveryTeleportMode: kind === 'item' ? deliveryTeleportMode : null,
-      deliveryTeleportTarget: kind === 'item' ? deliveryTeleportTarget : null,
-      deliveryPreCommands: kind === 'item' ? deliveryPreCommands : [],
-      deliveryPostCommands: kind === 'item' ? deliveryPostCommands : [],
-      deliveryReturnTarget: kind === 'item' ? deliveryReturnTarget : null,
+      deliveryItems: isGameItemShopKind(kind) ? deliveryItems : [],
+      deliveryProfile: isGameItemShopKind(kind) ? deliveryProfile : null,
+      deliveryTeleportMode: isGameItemShopKind(kind) ? deliveryTeleportMode : null,
+      deliveryTeleportTarget: isGameItemShopKind(kind) ? deliveryTeleportTarget : null,
+      deliveryPreCommands: isGameItemShopKind(kind) ? deliveryPreCommands : [],
+      deliveryPostCommands: isGameItemShopKind(kind) ? deliveryPostCommands : [],
+      deliveryReturnTarget: isGameItemShopKind(kind) ? deliveryReturnTarget : null,
     });
     return { ok: true, item };
   } catch (error) {
@@ -352,6 +364,8 @@ async function deleteShopItemForAdmin(params = {}) {
 
 module.exports = {
   normalizeShopKind,
+  isVipShopKind,
+  isGameItemShopKind,
   normalizeDeliveryItems,
   buildBundleSummary,
   getDeliveryStatusText,

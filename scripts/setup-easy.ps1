@@ -51,7 +51,13 @@ Write-Step "Preparing Prisma client"
 & npx prisma generate --schema prisma/schema.prisma
 
 Write-Step "Applying Prisma schema (db push)"
-& npx prisma db push --schema prisma/schema.prisma
+$allowDataLoss = "$env:SETUP_EASY_ACCEPT_DATA_LOSS".Trim().ToLower() -in @("1", "true", "yes", "on")
+$dbPushArgs = @("prisma", "db", "push", "--schema", "prisma/schema.prisma")
+if ($allowDataLoss) {
+  Write-Warning "SETUP_EASY_ACCEPT_DATA_LOSS is enabled. Prisma may drop incompatible schema data."
+  $dbPushArgs += "--accept-data-loss"
+}
+& npx @dbPushArgs
 
 Write-Host ""
 Write-Host "Setup completed." -ForegroundColor Green
@@ -66,4 +72,3 @@ Write-Host "7) Start watcher: npm run watch-scum"
 Write-Host "8) Start player portal: npm run start:web-standalone"
 Write-Host "Portal URL: http://127.0.0.1:3300/player"
 Write-Host "Admin URL: http://127.0.0.1:3200/admin/login"
-

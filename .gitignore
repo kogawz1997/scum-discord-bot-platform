@@ -225,3 +225,8 @@ backups/
 data/*.json
 logs/
 
+# SQLite / Prisma databases
+prisma/**/*.db
+*.sqlite
+*.sqlite-journal
+

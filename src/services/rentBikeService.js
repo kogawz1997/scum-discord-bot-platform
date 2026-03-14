@@ -1,8 +1,8 @@
 const crypto = require('node:crypto');
-const { exec } = require('node:child_process');
 
 const config = require('../config');
 const { getLinkByUserId } = require('../store/linkStore');
+const { executeCommandTemplate } = require('../utils/commandTemplate');
 const {
   ensureRentBikeTables,
   getDailyRent,
@@ -106,31 +106,6 @@ function trimOutput(value, maxLen = 900) {
   return `${text.slice(0, maxLen)}...`;
 }
 
-function runShellCommand(command, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    exec(
-      command,
-      {
-        timeout: timeoutMs,
-        windowsHide: true,
-        maxBuffer: 1024 * 1024 * 4,
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-          return;
-        }
-        resolve({
-          stdout: trimOutput(stdout),
-          stderr: trimOutput(stderr),
-        });
-      },
-    );
-  });
-}
-
 async function runRconCommand(gameCommand, settings) {
   const template = getRconTemplate(settings);
   if (!template) {
@@ -151,16 +126,22 @@ async function runRconCommand(gameCommand, settings) {
     throw new Error('RCON_PASSWORD is required');
   }
 
-  const shell = renderTemplate(template, {
-    host,
-    port,
-    password,
-    command: gameCommand,
-  });
-
-  const result = await runShellCommand(shell, settings.commandTimeoutMs);
+  const result = await executeCommandTemplate(
+    template,
+    {
+      host,
+      port,
+      password,
+      command: gameCommand,
+    },
+    {
+      timeoutMs: settings.commandTimeoutMs,
+      windowsHide: true,
+      cwd: process.cwd(),
+    },
+  );
   return {
-    shell,
+    shell: result.displayCommand,
     command: gameCommand,
     stdout: result.stdout,
     stderr: result.stderr,

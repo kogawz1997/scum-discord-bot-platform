@@ -5,6 +5,9 @@ const { once } = require('node:events');
 const { createPurchase, listShopItems } = require('../src/store/memoryStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
+const {
+  setAdminRestoreState,
+} = require('../src/store/adminRestoreStateStore');
 
 const adminWebServerPath = path.resolve(__dirname, '../src/adminWebServer.js');
 
@@ -219,6 +222,18 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(healthz.res.status, 200);
   assert.equal(healthz.data.ok, true);
   assert.equal(healthz.data.data.service, 'admin-web');
+
+  const adminHealth = await request('/admin/api/health', 'GET', null, cookie);
+  assert.equal(adminHealth.res.status, 200);
+  assert.equal(adminHealth.data.ok, true);
+  assert.equal(typeof adminHealth.data.data?.runtimeSupervisor?.overall, 'string');
+  assert.equal(typeof adminHealth.data.data?.backupRestore?.status, 'string');
+
+  const runtimeSupervisor = await request('/admin/api/runtime/supervisor', 'GET', null, cookie);
+  assert.equal(runtimeSupervisor.res.status, 200);
+  assert.equal(runtimeSupervisor.data.ok, true);
+  assert.ok(Array.isArray(runtimeSupervisor.data.data?.items));
+  assert.equal(typeof runtimeSupervisor.data.data?.overall, 'string');
 
   const deadLetterList = await request('/admin/api/delivery/dead-letter', 'GET', null, cookie);
   assert.equal(deadLetterList.res.status, 200);
@@ -605,14 +620,31 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(restoreDryRun.res.status, 200);
   assert.equal(restoreDryRun.data.ok, true);
   assert.equal(restoreDryRun.data.data.dryRun, true);
+  assert.equal(String(restoreDryRun.data.data.confirmBackup || ''), backupFile);
+  assert.equal(typeof restoreDryRun.data.data?.diff?.summary?.changedCollections, 'number');
+
+  const restoreStatusBefore = await request('/admin/api/backup/restore/status', 'GET', null, cookie);
+  assert.equal(restoreStatusBefore.res.status, 200);
+  assert.equal(restoreStatusBefore.data.ok, true);
+  assert.equal(typeof restoreStatusBefore.data.data?.status, 'string');
+
+  const restoreWithoutConfirm = await request('/admin/api/backup/restore', 'POST', {
+    backup: backupFile,
+    dryRun: false,
+  }, cookie);
+  assert.equal(restoreWithoutConfirm.res.status, 400);
+  assert.equal(restoreWithoutConfirm.data.ok, false);
+  assert.match(String(restoreWithoutConfirm.data.error || ''), /confirmBackup/i);
 
   const restoreLive = await request('/admin/api/backup/restore', 'POST', {
     backup: backupFile,
     dryRun: false,
+    confirmBackup: backupFile,
   }, cookie);
   assert.equal(restoreLive.res.status, 200);
   assert.equal(restoreLive.data.ok, true);
   assert.equal(restoreLive.data.data.restored, true);
+  assert.ok(String(restoreLive.data.data.rollbackBackup || '').endsWith('.json'));
 
   const snapshotAfterRestore = await request('/admin/api/snapshot', 'GET', null, cookie);
   assert.equal(snapshotAfterRestore.res.status, 200);
@@ -620,6 +652,14 @@ test('admin API auth + validation integration flow', async (t) => {
     (row) => String(row?.userId || '') === probeUserId,
   );
   assert.equal(Number(walletAfterRestore?.balance || 0), 123000);
+
+  const restoreStatusAfter = await request('/admin/api/backup/restore/status', 'GET', null, cookie);
+  assert.equal(restoreStatusAfter.res.status, 200);
+  assert.equal(restoreStatusAfter.data.ok, true);
+  assert.equal(restoreStatusAfter.data.data.status, 'succeeded');
+  assert.equal(restoreStatusAfter.data.data.active, false);
+  assert.equal(String(restoreStatusAfter.data.data.backup || ''), backupFile);
+  assert.ok(String(restoreStatusAfter.data.data.rollbackBackup || '').endsWith('.json'));
 
   const presetDelete = await request('/admin/api/audit/presets/delete', 'POST', {
     id: presetId,
@@ -700,6 +740,108 @@ test('admin API rejects malformed JSON and oversized UTF-8 body with proper stat
   const oversizedData = await oversized.json().catch(() => ({}));
   assert.equal(oversized.status, 413);
   assert.equal(oversizedData.ok, false);
+});
+
+test('admin API blocks mutating writes while backup restore maintenance is active', async (t) => {
+  const port = randomPort(39900, 700);
+  process.env.ADMIN_WEB_HOST = '127.0.0.1';
+  process.env.ADMIN_WEB_PORT = String(port);
+  process.env.ADMIN_WEB_USER = 'admin_test';
+  process.env.ADMIN_WEB_PASSWORD = 'pass_test';
+  process.env.ADMIN_WEB_TOKEN = 'token_test';
+  process.env.ADMIN_WEB_USERS_JSON = '';
+  process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+
+  const fakeClient = {
+    guilds: {
+      cache: new Map(),
+    },
+    channels: {
+      fetch: async () => null,
+    },
+  };
+
+  setAdminRestoreState({
+    status: 'running',
+    active: true,
+    maintenance: true,
+    backup: 'backup-maintenance.json',
+    confirmBackup: 'backup-maintenance.json',
+    rollbackBackup: 'backup-rollback.json',
+    actor: 'test-suite',
+    role: 'owner',
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const { startAdminWebServer } = freshAdminWebServerModule();
+  const server = startAdminWebServer(fakeClient);
+  if (!server.listening) {
+    await once(server, 'listening');
+  }
+
+  t.after(async () => {
+    setAdminRestoreState({
+      status: 'idle',
+      active: false,
+      maintenance: false,
+      backup: null,
+      confirmBackup: null,
+      rollbackBackup: null,
+      actor: null,
+      role: null,
+      startedAt: null,
+      endedAt: null,
+      updatedAt: new Date().toISOString(),
+      lastCompletedAt: null,
+      durationMs: null,
+      lastError: null,
+      rollbackStatus: 'none',
+      rollbackError: null,
+      counts: null,
+      currentCounts: null,
+      diff: null,
+      warnings: [],
+    });
+    await new Promise((resolve) => server.close(resolve));
+    delete require.cache[adminWebServerPath];
+  });
+
+  const baseUrl = `http://127.0.0.1:${port}`;
+  async function request(pathname, method = 'GET', body = null, cookie = '') {
+    const headers = {};
+    if (body != null) headers['content-type'] = 'application/json';
+    if (cookie) headers.cookie = cookie;
+    const res = await fetch(`${baseUrl}${pathname}`, {
+      method,
+      headers,
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  const login = await request('/admin/api/login', 'POST', {
+    username: 'admin_test',
+    password: 'pass_test',
+  });
+  assert.equal(login.res.status, 200);
+  const cookie = String(login.res.headers.get('set-cookie') || '').split(';')[0];
+  assert.ok(cookie);
+
+  const blockedWallet = await request('/admin/api/wallet/set', 'POST', {
+    userId: 'restore-maint-user',
+    balance: 99,
+  }, cookie);
+  assert.equal(blockedWallet.res.status, 503);
+  assert.equal(blockedWallet.data.ok, false);
+  assert.match(String(blockedWallet.data.error || ''), /restore/i);
+  assert.equal(blockedWallet.data.data?.restore?.status, 'running');
+
+  const restoreStatus = await request('/admin/api/backup/restore/status', 'GET', null, cookie);
+  assert.equal(restoreStatus.res.status, 200);
+  assert.equal(restoreStatus.data.ok, true);
+  assert.equal(restoreStatus.data.data.status, 'running');
 });
 
 test('admin API delivery detail + test send routes work with local console agent', async (t) => {
@@ -826,6 +968,166 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(String(runtimeStatus.data.data?.executionMode || ''), 'agent');
   assert.equal(Boolean(runtimeStatus.data.data?.readiness?.ready), true);
   assert.equal(Boolean(runtimeStatus.data.data?.agent?.preflight?.ok), true);
+  assert.ok(Array.isArray(runtimeStatus.data.data?.preflightSummary?.checks));
+
+  const preflightStatus = await request('/admin/api/delivery/preflight', 'POST', {
+    gameItemId: 'Weapon_M1911',
+    steamId: '76561198000000000',
+  }, cookie);
+  assert.equal(preflightStatus.res.status, 200);
+  assert.equal(preflightStatus.data.ok, true);
+  assert.equal(Boolean(preflightStatus.data.data?.ready), true);
+  assert.ok(Array.isArray(preflightStatus.data.data?.checks));
+
+  const simulateStatus = await request('/admin/api/delivery/simulate', 'POST', {
+    gameItemId: 'Weapon_M1911',
+    quantity: 2,
+    steamId: '76561198000000000',
+  }, cookie);
+  assert.equal(simulateStatus.res.status, 200);
+  assert.equal(simulateStatus.data.ok, true);
+  assert.equal(Boolean(simulateStatus.data.data?.ready), true);
+  assert.ok(Array.isArray(simulateStatus.data.data?.timeline));
+  assert.ok(Array.isArray(simulateStatus.data.data?.steps));
+
+  const capabilities = await request('/admin/api/delivery/capabilities', 'GET', null, cookie);
+  assert.equal(capabilities.res.status, 200);
+  assert.equal(capabilities.data.ok, true);
+  assert.ok(Array.isArray(capabilities.data.data?.builtin));
+  assert.ok(Array.isArray(capabilities.data.data?.presets));
+  assert.ok(
+    capabilities.data.data.builtin.some(
+      (entry) => String(entry?.id || '') === 'announce-teleport-spawn',
+    ),
+  );
+
+  const capabilityPresetId = `ADMIN_CAPABILITY_PRESET_${Date.now()}`;
+  const capabilityPresetSave = await request('/admin/api/delivery/capability-preset', 'POST', {
+    id: capabilityPresetId,
+    name: 'Admin API Capability Preset',
+    description: 'integration preset',
+    commands: [
+      '#Announce {announceText}',
+      '#SpawnItem {steamId} {gameItemId} {quantity}',
+    ],
+    announceText: 'API DELIVERY TEST',
+    steamId: '76561198000000000',
+    gameItemId: 'Weapon_M1911',
+    quantity: 1,
+    tags: ['integration', 'delivery'],
+  }, cookie);
+  assert.equal(capabilityPresetSave.res.status, 200);
+  assert.equal(capabilityPresetSave.data.ok, true);
+  assert.equal(String(capabilityPresetSave.data.data?.id || ''), capabilityPresetId);
+  assert.deepEqual(capabilityPresetSave.data.data?.commandTemplates, [
+    '#Announce {announceText}',
+    '#SpawnItem {steamId} {gameItemId} {quantity}',
+  ]);
+
+  const capabilitiesAfterSave = await request('/admin/api/delivery/capabilities', 'GET', null, cookie);
+  assert.equal(capabilitiesAfterSave.res.status, 200);
+  assert.equal(capabilitiesAfterSave.data.ok, true);
+  assert.ok(
+    capabilitiesAfterSave.data.data.presets.some(
+      (entry) => String(entry?.id || '') === capabilityPresetId,
+    ),
+  );
+
+  const capabilityDryRun = await request('/admin/api/delivery/capability-test', 'POST', {
+    capabilityId: 'announce-teleport-spawn',
+    dryRun: true,
+  }, cookie);
+  assert.equal(capabilityDryRun.res.status, 200);
+  assert.equal(capabilityDryRun.data.ok, true);
+  assert.equal(Boolean(capabilityDryRun.data.data?.ready), true);
+  assert.equal(Boolean(capabilityDryRun.data.data?.dryRun), true);
+  assert.equal(String(capabilityDryRun.data.data?.summary?.source || ''), 'builtin');
+  assert.ok(Array.isArray(capabilityDryRun.data.data?.renderedCommands));
+  assert.ok(capabilityDryRun.data.data.renderedCommands.length >= 4);
+
+  const capabilityPresetDryRun = await request('/admin/api/delivery/capability-test', 'POST', {
+    presetId: capabilityPresetId,
+    dryRun: true,
+  }, cookie);
+  assert.equal(capabilityPresetDryRun.res.status, 200);
+  assert.equal(capabilityPresetDryRun.data.ok, true);
+  assert.equal(Boolean(capabilityPresetDryRun.data.data?.ready), true);
+  assert.equal(Boolean(capabilityPresetDryRun.data.data?.dryRun), true);
+  assert.equal(String(capabilityPresetDryRun.data.data?.summary?.source || ''), 'preset');
+  assert.deepEqual(capabilityPresetDryRun.data.data?.renderedCommands, [
+    '#Announce API DELIVERY TEST',
+    '#SpawnItem Weapon_M1911 1',
+  ]);
+
+  const capabilityPresetDelete = await request('/admin/api/delivery/capability-preset/delete', 'POST', {
+    presetId: capabilityPresetId,
+  }, cookie);
+  assert.equal(capabilityPresetDelete.res.status, 200);
+  assert.equal(capabilityPresetDelete.data.ok, true);
+  assert.equal(String(capabilityPresetDelete.data.data?.id || ''), capabilityPresetId);
+
+  const templateKey = `ADMIN_TEST_TEMPLATE_${Date.now()}`;
+  const templateSet = await request('/admin/api/delivery/command-template', 'POST', {
+    lookupKey: templateKey,
+    commands: ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  }, cookie);
+  assert.equal(templateSet.res.status, 200);
+  assert.equal(templateSet.data.ok, true);
+  assert.equal(String(templateSet.data.data?.lookupKey || ''), templateKey);
+  assert.deepEqual(templateSet.data.data?.commandTemplates, [
+    '#SpawnItem {steamId} {gameItemId} {quantity}',
+  ]);
+
+  const templateGet = await request(
+    `/admin/api/delivery/command-template?lookupKey=${encodeURIComponent(templateKey)}`,
+    'GET',
+    null,
+    cookie,
+  );
+  assert.equal(templateGet.res.status, 200);
+  assert.equal(templateGet.data.ok, true);
+  assert.equal(Boolean(templateGet.data.data?.exists), true);
+
+  const commandTemplateNotifications = await request(
+    `/admin/api/notifications?type=command-template&entityKey=${encodeURIComponent(templateKey)}`,
+    'GET',
+    null,
+    cookie,
+  );
+  assert.equal(commandTemplateNotifications.res.status, 200);
+  assert.equal(commandTemplateNotifications.data.ok, true);
+  assert.ok(
+    Array.isArray(commandTemplateNotifications.data.data?.items)
+      && commandTemplateNotifications.data.data.items.some(
+        (row) => String(row?.entityKey || '') === templateKey,
+      ),
+  );
+
+  const notificationIds = (commandTemplateNotifications.data.data?.items || [])
+    .map((row) => String(row?.id || '').trim())
+    .filter(Boolean);
+  assert.ok(notificationIds.length > 0, 'expected at least one notification id');
+
+  const ackNotifications = await request('/admin/api/notifications/ack', 'POST', {
+    ids: notificationIds,
+  }, cookie);
+  assert.equal(ackNotifications.res.status, 200);
+  assert.equal(ackNotifications.data.ok, true);
+  assert.equal(Number(ackNotifications.data.data?.updated || 0) >= 1, true);
+
+  const clearNotifications = await request('/admin/api/notifications/clear', 'POST', {
+    acknowledgedOnly: true,
+  }, cookie);
+  assert.equal(clearNotifications.res.status, 200);
+  assert.equal(clearNotifications.data.ok, true);
+
+  const templateDelete = await request('/admin/api/delivery/command-template', 'POST', {
+    lookupKey: templateKey,
+    clear: true,
+  }, cookie);
+  assert.equal(templateDelete.res.status, 200);
+  assert.equal(templateDelete.data.ok, true);
+  assert.equal(Boolean(templateDelete.data.data?.exists), false);
 
   const initialShopItems = await listShopItems();
   const detailShopItem = initialShopItems.find(

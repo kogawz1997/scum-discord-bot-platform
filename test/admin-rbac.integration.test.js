@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { once } = require('node:events');
 
+const {
+  setAdminRestoreState,
+} = require('../src/store/adminRestoreStateStore');
+
 const adminWebServerPath = path.resolve(__dirname, '../src/adminWebServer.js');
 
 function freshAdminWebServerModule() {
@@ -12,6 +16,31 @@ function freshAdminWebServerModule() {
 
 function randomPort(base = 40500, span = 500) {
   return base + Math.floor(Math.random() * span);
+}
+
+function resetRestoreMaintenanceState() {
+  setAdminRestoreState({
+    status: 'idle',
+    active: false,
+    maintenance: false,
+    backup: null,
+    confirmBackup: null,
+    rollbackBackup: null,
+    actor: null,
+    role: null,
+    startedAt: null,
+    endedAt: null,
+    updatedAt: new Date().toISOString(),
+    lastCompletedAt: null,
+    durationMs: null,
+    lastError: null,
+    rollbackStatus: 'none',
+    rollbackError: null,
+    counts: null,
+    currentCounts: null,
+    diff: null,
+    warnings: [],
+  });
 }
 
 async function login(baseUrl, username, password) {
@@ -31,6 +60,7 @@ async function login(baseUrl, username, password) {
 
 test('admin RBAC blocks owner-only routes for mod role', async (t) => {
   const port = randomPort();
+  resetRestoreMaintenanceState();
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
   process.env.ADMIN_WEB_TOKEN = 'token_rbac';
@@ -56,6 +86,7 @@ test('admin RBAC blocks owner-only routes for mod role', async (t) => {
   }
 
   t.after(async () => {
+    resetRestoreMaintenanceState();
     await new Promise((resolve) => server.close(resolve));
     delete require.cache[adminWebServerPath];
   });

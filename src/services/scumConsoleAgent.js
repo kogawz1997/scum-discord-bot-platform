@@ -1,8 +1,9 @@
 'use strict';
 
 const http = require('node:http');
-const { exec, spawn } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const path = require('node:path');
+const { executeCommandTemplate, validateCommandTemplate } = require('../utils/commandTemplate');
 
 function asNumber(value, fallback) {
   const parsed = Number(value);
@@ -19,15 +20,6 @@ function trimText(value, maxLen = 1200) {
   const text = String(value || '').trim();
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}...`;
-}
-
-function substituteTemplate(template, vars) {
-  return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, key) => {
-    if (!(key in vars)) return `{${key}}`;
-    const value = vars[key];
-    if (value == null) return '';
-    return String(value);
-  });
 }
 
 function parseJsonArray(value) {
@@ -136,31 +128,6 @@ function parseRequestBody(req) {
   });
 }
 
-function execShell(command, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    exec(
-      command,
-      {
-        timeout: timeoutMs,
-        windowsHide: true,
-        maxBuffer: 1024 * 1024 * 4,
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-          return;
-        }
-        resolve({
-          stdout: trimText(stdout),
-          stderr: trimText(stderr),
-        });
-      },
-    );
-  });
-}
-
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -206,6 +173,7 @@ function startScumConsoleAgent(options = {}) {
   let startedAt = new Date().toISOString();
   let executeCount = 0;
   let activeExecutionCount = 0;
+  let queuedExecutionCount = 0;
   let executionQueue = Promise.resolve();
   const recentStdout = createOutputBuffer(120);
   const recentStderr = createOutputBuffer(120);
@@ -222,7 +190,7 @@ function startScumConsoleAgent(options = {}) {
   }
 
   function getQueueDepth() {
-    return recentExecutions.filter((entry) => entry?.ok === false).length;
+    return Math.max(0, queuedExecutionCount);
   }
 
   function isWindowScriptTemplate(template) {
@@ -245,18 +213,22 @@ function startScumConsoleAgent(options = {}) {
     return { status: 'ready', ready: true, code: 'READY', message: 'Agent ready' };
   }
 
-  function buildExecShellCommand(command, options = {}) {
+  function buildExecInvocation(command, options = {}) {
     if (!settings.execTemplate) {
       throw createAgentError(
         'AGENT_EXEC_TEMPLATE_MISSING',
         'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE is not set',
       );
     }
-    const shellCommand = substituteTemplate(settings.execTemplate, { command });
-    if (options.checkOnly && isWindowScriptTemplate(shellCommand)) {
-      return `${shellCommand} -CheckOnly`;
-    }
-    return shellCommand;
+    validateCommandTemplate(settings.execTemplate);
+    return {
+      template: settings.execTemplate,
+      vars: { command },
+      extraArgs:
+        options.checkOnly && isWindowScriptTemplate(settings.execTemplate)
+          ? ['-CheckOnly']
+          : [],
+    };
   }
 
   function getManagedServerState() {
@@ -322,12 +294,21 @@ function startScumConsoleAgent(options = {}) {
   }
 
   async function executeWithExecBackend(command) {
-    const shellCommand = buildExecShellCommand(command);
-    const result = await execShell(shellCommand, settings.commandTimeoutMs);
+    const invocation = buildExecInvocation(command);
+    const result = await executeCommandTemplate(
+      invocation.template,
+      invocation.vars,
+      {
+        extraArgs: invocation.extraArgs,
+        timeoutMs: settings.commandTimeoutMs,
+        windowsHide: true,
+        cwd: process.cwd(),
+      },
+    );
     return {
       backend: 'exec',
       accepted: true,
-      shellCommand,
+      shellCommand: result.displayCommand,
       stdout: result.stdout,
       stderr: result.stderr,
     };
@@ -368,10 +349,19 @@ function startScumConsoleAgent(options = {}) {
       }
 
       if (isWindowScriptTemplate(settings.execTemplate)) {
-        const shellCommand = buildExecShellCommand('#Announce PREFLIGHT', {
+        const invocation = buildExecInvocation('#Announce PREFLIGHT', {
           checkOnly: true,
         });
-        const result = await execShell(shellCommand, settings.commandTimeoutMs);
+        const result = await executeCommandTemplate(
+          invocation.template,
+          invocation.vars,
+          {
+            extraArgs: invocation.extraArgs,
+            timeoutMs: settings.commandTimeoutMs,
+            windowsHide: true,
+            cwd: process.cwd(),
+          },
+        );
         let parsed = null;
         try {
           parsed = result.stdout ? JSON.parse(result.stdout) : null;
@@ -380,7 +370,7 @@ function startScumConsoleAgent(options = {}) {
           ok: true,
           backend: 'exec',
           check: 'window',
-          shellCommand,
+          shellCommand: result.displayCommand,
           stdout: trimText(result.stdout),
           stderr: trimText(result.stderr),
           detail: parsed,
@@ -392,6 +382,7 @@ function startScumConsoleAgent(options = {}) {
         ok: true,
         backend: 'exec',
         check: 'config',
+        mode: 'config-exec',
         shellCommand: null,
         detail: {
           templateConfigured: true,
@@ -425,6 +416,8 @@ function startScumConsoleAgent(options = {}) {
     throw createAgentError('AGENT_BACKEND_UNSUPPORTED', `Unsupported backend: ${settings.backend}`);
   }
 
+  // Commands are serialized to preserve in-game ordering and to make queue depth/health
+  // reflect the real backlog seen by operators.
   async function executeCommand(command) {
     const normalizedCommand = ensureCommandAllowed(command);
     const executeOnce = async () => {
@@ -458,9 +451,11 @@ function startScumConsoleAgent(options = {}) {
         throw error;
       } finally {
         activeExecutionCount = Math.max(0, activeExecutionCount - 1);
+        queuedExecutionCount = Math.max(0, queuedExecutionCount - 1);
       }
     };
 
+    queuedExecutionCount += 1;
     const nextExecution = executionQueue.then(executeOnce);
     executionQueue = nextExecution.catch(() => {});
     return nextExecution;

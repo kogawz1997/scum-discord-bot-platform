@@ -67,7 +67,7 @@ test('scum console agent: process backend autostarts child and writes command to
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
         path.join(process.cwd(), 'scripts', 'fake-console-child.js'),
       ]),
-      SCUM_CONSOLE_AGENT_PROCESS_RESPONSE_WAIT_MS: '150',
+      SCUM_CONSOLE_AGENT_PROCESS_RESPONSE_WAIT_MS: '400',
     },
   });
 
@@ -78,7 +78,7 @@ test('scum console agent: process backend autostarts child and writes command to
     assert.equal(preflight.payload.ok, true);
     assert.equal(preflight.payload.result?.backend, 'process');
 
-    const execRes = await fetchJson('http://127.0.0.1:3314/execute', {
+    const execPromise = fetchJson('http://127.0.0.1:3314/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,6 +88,13 @@ test('scum console agent: process backend autostarts child and writes command to
         command: '#SpawnItem 76561198000000001 Weapon_M1911 1',
       }),
     });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const healthDuring = await fetchJson('http://127.0.0.1:3314/healthz');
+    assert.equal(healthDuring.res.status, 200);
+    assert.equal(Number(healthDuring.payload.queueDepth || 0) >= 1, true);
+
+    const execRes = await execPromise;
     assert.equal(execRes.res.status, 200);
     assert.equal(execRes.payload.ok, true);
     assert.equal(execRes.payload.result.backend, 'process');
@@ -97,6 +104,7 @@ test('scum console agent: process backend autostarts child and writes command to
     assert.equal(health.res.status, 200);
     assert.equal(health.payload.managedServer.running, true);
     assert.ok(health.payload.managedServer.pid);
+    assert.equal(Number(health.payload.queueDepth || 0), 0);
   } finally {
     await runtime.close();
   }

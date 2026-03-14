@@ -12,6 +12,8 @@ function freshPersistModule() {
 }
 
 test('legacy file snapshot save/load roundtrip in optional mode', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'test';
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scumdb-'));
   process.env.DATABASE_URL = `file:${path.join(tempDir, 'test.db')}`;
   process.env.BOT_DATA_DIR = path.join(tempDir, 'legacy-data');
@@ -28,6 +30,7 @@ test('legacy file snapshot save/load roundtrip in optional mode', async () => {
   const status = persist.getPersistenceStatus();
   assert.equal(status.mode, 'legacy-file-snapshot');
   assert.equal(status.legacySnapshotsEnabled, true);
+  process.env.NODE_ENV = originalNodeEnv;
 });
 
 test('db-only mode disables legacy snapshots cleanly', () => {

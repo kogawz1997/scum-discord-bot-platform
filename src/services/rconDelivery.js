@@ -1,5 +1,3 @@
-﻿const { exec } = require('node:child_process');
-
 const config = require('../config');
 const { prisma } = require('../prisma');
 const { getLinkByUserId } = require('../store/linkStore');
@@ -19,7 +17,18 @@ const {
 } = require('./itemIconService');
 const { resolveWikiWeaponCommandTemplate } = require('./wikiWeaponCatalog');
 const { resolveManifestItemCommandTemplate } = require('./wikiItemManifestCatalog');
+const {
+  getBuiltInScumAdminCommandCapability,
+  listBuiltInScumAdminCommandCapabilities,
+  normalizeCommandTemplates: normalizeCapabilityCommandTemplates,
+} = require('./scumAdminCommandCatalog');
+const {
+  executeCommandTemplate,
+  validateCommandTemplate,
+} = require('../utils/commandTemplate');
 
+// In-memory delivery state is shared across bot, worker, and admin code paths and
+// mirrored to Prisma so split-runtime deployments behave the same as single-process mode.
 const jobs = new Map(); // purchaseCode -> job
 const deadLetters = new Map(); // purchaseCode -> failed final delivery context
 const inFlightPurchaseCodes = new Set();
@@ -32,6 +41,8 @@ const deliveryOutcomes = []; // rolling attempt outcomes
 let lastQueuePressureAlertAt = 0;
 let lastFailRateAlertAt = 0;
 let lastQueueStuckAlertAt = 0;
+let lastDeadLetterAlertAt = 0;
+let lastConsecutiveFailureAlertAt = 0;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
@@ -61,6 +72,14 @@ const ALERT_COOLDOWN_MS = Math.max(
 const QUEUE_STUCK_SLA_MS = Math.max(
   10 * 1000,
   asNumber(process.env.DELIVERY_QUEUE_STUCK_SLA_MS, 2 * 60 * 1000),
+);
+const DEAD_LETTER_ALERT_THRESHOLD = Math.max(
+  1,
+  Math.trunc(asNumber(process.env.DELIVERY_DEAD_LETTER_ALERT_THRESHOLD, 5)),
+);
+const CONSECUTIVE_FAILURE_ALERT_THRESHOLD = Math.max(
+  2,
+  Math.trunc(asNumber(process.env.DELIVERY_CONSECUTIVE_FAILURE_ALERT_THRESHOLD, 3)),
 );
 const IDEMPOTENCY_SUCCESS_WINDOW_MS = Math.max(
   30 * 1000,
@@ -229,6 +248,17 @@ function normalizeDeliveryTeleportMode(value, fallback = null) {
   return fallback;
 }
 
+function normalizeDeliveryVerificationMode(value, fallback = 'basic') {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === 'none') return 'none';
+  if (raw === 'basic') return 'basic';
+  if (raw === 'output-match') return 'output-match';
+  if (raw === 'observer') return 'observer';
+  if (raw === 'strict') return 'strict';
+  return fallback;
+}
+
 function pickCommandList(envKey, fallback) {
   if (Object.prototype.hasOwnProperty.call(process.env, envKey)) {
     return parseCommandList(process.env[envKey]);
@@ -236,6 +266,8 @@ function pickCommandList(envKey, fallback) {
   return parseCommandList(fallback);
 }
 
+// Centralize delivery runtime settings so preview, worker, and admin APIs all resolve
+// commands, health checks, and retry rules from the same source of truth.
 function getSettings() {
   const auto = config.delivery?.auto || {};
   return {
@@ -300,6 +332,23 @@ function getSettings() {
         ),
       ),
     ),
+    verifyMode: normalizeDeliveryVerificationMode(
+      process.env.DELIVERY_VERIFY_MODE || auto.verifyMode || '',
+      'basic',
+    ),
+    verifySuccessPattern: String(
+      process.env.DELIVERY_VERIFY_SUCCESS_REGEX || auto.verifySuccessPattern || '',
+    ).trim(),
+    verifyFailurePattern: String(
+      process.env.DELIVERY_VERIFY_FAILURE_REGEX || auto.verifyFailurePattern || '',
+    ).trim(),
+    verifyObserverWindowMs: Math.max(
+      5000,
+      asNumber(
+        process.env.DELIVERY_VERIFY_OBSERVER_WINDOW_MS,
+        auto.verifyObserverWindowMs || 60 * 1000,
+      ),
+    ),
   };
 }
 
@@ -327,6 +376,26 @@ function normalizeCommands(rawValue) {
   return [];
 }
 
+function extractCommandPlaceholders(command) {
+  const placeholders = new Set();
+  const text = String(command || '');
+  for (const match of text.matchAll(/\{([a-zA-Z0-9_]+)\}/g)) {
+    const key = String(match[1] || '').trim();
+    if (key) placeholders.add(key);
+  }
+  return Array.from(placeholders);
+}
+
+function collectUnresolvedPlaceholders(commands = []) {
+  const unresolved = new Set();
+  for (const command of Array.isArray(commands) ? commands : []) {
+    for (const key of extractCommandPlaceholders(command)) {
+      unresolved.add(key);
+    }
+  }
+  return Array.from(unresolved);
+}
+
 function isTeleportCommand(command) {
   const text = String(command || '').trim();
   return /^#TeleportTo(?:Vehicle)?\b/i.test(text);
@@ -335,6 +404,215 @@ function isTeleportCommand(command) {
 function isSpawnItemCommand(command) {
   const text = String(command || '').trim();
   return /^#SpawnItem\b/i.test(text);
+}
+
+function isAnnounceCommand(command) {
+  const text = String(command || '').trim();
+  return /^#Announce\b/i.test(text);
+}
+
+function classifyCommandOperation(command, phase = 'item') {
+  const text = String(command || '').trim();
+  if (!text) {
+    return {
+      stage: 'command',
+      step: `${phase}-command`,
+      title: 'Command',
+      kind: 'command',
+    };
+  }
+  if (isAnnounceCommand(text)) {
+    return {
+      stage: 'command',
+      step: 'announce-sent',
+      title: 'Announce sent',
+      kind: 'announce',
+    };
+  }
+  if (isTeleportCommand(text)) {
+    return {
+      stage: 'command',
+      step: 'teleport-sent',
+      title: 'Teleport sent',
+      kind: 'teleport',
+    };
+  }
+  if (isSpawnItemCommand(text)) {
+    return {
+      stage: 'delivery',
+      step: 'spawn-sent',
+      title: 'Spawn sent',
+      kind: 'spawn',
+    };
+  }
+  return {
+    stage: phase === 'pre' ? 'preflight' : phase === 'post' ? 'cleanup' : 'command',
+    step: `${phase}-command`,
+    title: `${phase} command sent`,
+    kind: 'command',
+  };
+}
+
+function inferAuditSource(action, meta = {}) {
+  const explicit = String(meta.source || '').trim();
+  if (explicit) return explicit;
+  if (action === 'queued' || action === 'attempt' || action === 'worker-picked') {
+    return 'worker';
+  }
+  if (String(action || '').startsWith('preflight')) return 'agent';
+  if (action === 'command-dispatch' || action === 'command-ok') {
+    return meta.phase === 'item' ? 'game-command' : 'agent-hook';
+  }
+  if (action === 'retry' || action === 'failed' || action === 'success') {
+    return 'worker';
+  }
+  return 'delivery';
+}
+
+function inferAuditStage(action, meta = {}) {
+  const explicit = String(meta.stage || '').trim();
+  if (explicit) return explicit;
+  const step = String(meta.step || '').trim();
+  if (step === 'queued') return 'queue';
+  if (step === 'worker-picked' || action === 'attempt') return 'worker';
+  if (String(action || '').startsWith('preflight')) return 'preflight';
+  if (action === 'command-dispatch' || action === 'command-ok') {
+    return meta.phase === 'item' ? 'delivery' : 'command';
+  }
+  if (action === 'command-failed') {
+    return String(meta.stage || (meta.phase === 'item' ? 'delivery' : 'command')).trim()
+      || 'delivery';
+  }
+  if (action === 'verify-ok' || action === 'verify-failed') return 'verify';
+  if (action === 'retry') return 'retry';
+  if (action === 'manual-retry' || action === 'dead-letter-retry') return 'retry';
+  if (action === 'failed') return 'failed';
+  if (action === 'success') return 'completed';
+  if (action === 'manual-cancel') return 'cancelled';
+  return 'delivery';
+}
+
+function inferAuditStatus(action, level, meta = {}) {
+  const explicit = String(meta.status || '').trim();
+  if (explicit) return explicit;
+  if (level === 'error') return 'failed';
+  if (level === 'warn' && action === 'retry') return 'retrying';
+  if (action === 'manual-retry' || action === 'dead-letter-retry') return 'retrying';
+  if (action === 'verify-failed') return 'failed';
+  if (action === 'verify-ok') return 'ok';
+  if (action === 'command-dispatch' || action === 'preflight-start') return 'running';
+  if (action === 'queued') return 'queued';
+  if (action === 'success') return 'completed';
+  if (action === 'manual-cancel') return 'cancelled';
+  return 'ok';
+}
+
+function inferAuditTitle(action, meta = {}) {
+  const explicit = String(meta.title || '').trim();
+  if (explicit) return explicit;
+  if (action === 'queued') return 'Queued';
+  if (action === 'worker-picked' || action === 'attempt') return 'Worker picked job';
+  if (action === 'preflight-start') return 'Preflight started';
+  if (action === 'preflight-ok') return 'Preflight passed';
+  if (action === 'command-dispatch') return String(meta.commandTitle || 'Command dispatched');
+  if (action === 'command-ok') return String(meta.commandTitle || 'Command complete');
+  if (action === 'command-failed') return String(meta.commandTitle || 'Command failed');
+  if (action === 'verify-ok') return 'Verification passed';
+  if (action === 'verify-failed') return 'Verification failed';
+  if (action === 'retry') return 'Retry scheduled';
+  if (action === 'manual-retry') return 'Manual retry requested';
+  if (action === 'dead-letter-retry') return 'Dead-letter requeued';
+  if (action === 'failed') return 'Delivery failed';
+  if (action === 'success') return 'Delivery completed';
+  if (action === 'manual-cancel') return 'Queue job cancelled';
+  return String(action || 'event').replace(/-/g, ' ');
+}
+
+function normalizeTimelineEvent(event = {}) {
+  if (!event || typeof event !== 'object') return null;
+  const createdAt = event.at ? new Date(event.at) : new Date();
+  const outputs = Array.isArray(event.outputs) ? event.outputs : [];
+  return {
+    id: String(event.id || createEventId('timeline')).trim() || createEventId('timeline'),
+    at: Number.isNaN(createdAt.getTime()) ? nowIso() : createdAt.toISOString(),
+    level: String(event.level || 'info').trim() || 'info',
+    action: String(event.action || 'event').trim() || 'event',
+    stage: String(event.stage || 'delivery').trim() || 'delivery',
+    source: String(event.source || 'delivery').trim() || 'delivery',
+    status: String(event.status || 'ok').trim() || 'ok',
+    step: String(event.step || event.action || 'event').trim() || 'event',
+    title: String(event.title || event.step || event.action || 'Event').trim() || 'Event',
+    errorCode: String(event.errorCode || '').trim() || null,
+    retryable: typeof event.retryable === 'boolean' ? event.retryable : null,
+    recoveryHint: String(event.recoveryHint || '').trim() || null,
+    message: String(event.message || '').trim() || '',
+    command: String(event.command || '').trim() || null,
+    commandSummary: String(event.commandSummary || '').trim() || null,
+    outputs,
+    meta: event.meta && typeof event.meta === 'object' ? event.meta : null,
+  };
+}
+
+function createEventId(prefix = 'delivery') {
+  const suffix = Math.random().toString(16).slice(2, 10);
+  return `${prefix}-${Date.now()}-${suffix}`;
+}
+
+function buildTimelineEventFromAudit(row) {
+  const meta = row?.meta && typeof row.meta === 'object' ? row.meta : {};
+  const outputs = Array.isArray(meta.outputs) ? meta.outputs : [];
+  return normalizeTimelineEvent({
+    id: row?.id || createEventId('audit'),
+    at: row?.createdAt,
+    level: row?.level || 'info',
+    action: row?.action || 'event',
+    stage: inferAuditStage(row?.action, meta),
+    source: inferAuditSource(row?.action, meta),
+    status: inferAuditStatus(row?.action, row?.level, meta),
+    step: String(meta.step || row?.action || '').trim() || null,
+    title: inferAuditTitle(row?.action, meta),
+    errorCode:
+      String(meta.errorCode || deriveErrorCodeFromText(row?.message, '')).trim() || null,
+    retryable: typeof meta.retryable === 'boolean' ? meta.retryable : null,
+    recoveryHint: String(meta.recoveryHint || '').trim() || null,
+    message: row?.message || '',
+    command: String(meta.command || '').trim() || null,
+    commandSummary: meta.commandSummary || null,
+    outputs,
+    meta,
+  });
+}
+
+function buildTimelineEventsFromStatusHistory(statusHistory = []) {
+  return (Array.isArray(statusHistory) ? statusHistory : [])
+    .map((row) => normalizeTimelineEvent({
+      id: `status-${row?.id || createEventId('status')}`,
+      at: row?.createdAt,
+      level: 'info',
+      action: 'purchase-status',
+      stage: 'purchase-status',
+      source: 'purchase',
+      status:
+        String(row?.toStatus || '').trim().toLowerCase() === 'delivery_failed'
+          ? 'failed'
+          : String(row?.toStatus || '').trim().toLowerCase() === 'delivered'
+            ? 'completed'
+            : 'ok',
+      step: String(row?.toStatus || 'pending').trim() || 'pending',
+      title: `Purchase status: ${String(row?.toStatus || 'pending').trim() || 'pending'}`,
+      message: String(row?.reason || '').trim() || 'Purchase status updated',
+      meta: row?.metaJson ? { metaJson: row.metaJson } : null,
+    }))
+    .filter(Boolean);
+}
+
+function buildDeliveryTimeline(statusHistory = [], auditRows = []) {
+  const timeline = [
+    ...buildTimelineEventsFromStatusHistory(statusHistory),
+    ...(Array.isArray(auditRows) ? auditRows.map((row) => buildTimelineEventFromAudit(row)) : []),
+  ].filter(Boolean);
+  timeline.sort((left, right) => new Date(left.at) - new Date(right.at));
+  return timeline;
 }
 
 function isMagazineGameItemId(gameItemId) {
@@ -380,6 +658,7 @@ function buildDeliveryTemplateVars(context = {}, settings = getSettings()) {
     steamId: String(context.steamId || '').trim(),
     itemId: String(context.itemId || '').trim(),
     itemName: String(context.itemName || '').trim(),
+    announceText: sanitizeCommandText(context.announceText || context.adminMessage || ''),
     gameItemId: String(context.gameItemId || '').trim(),
     quantity: Math.max(1, Math.trunc(Number(context.quantity || 1))),
     itemKind: String(context.itemKind || 'item').trim() || 'item',
@@ -592,25 +871,37 @@ function findCommandOverride(commandMap, rawKey) {
   return null;
 }
 
-function resolveItemCommands(itemId, gameItemId = null) {
+function resolveItemCommandPlan(itemId, gameItemId = null) {
   const settings = getSettings();
   const byItemId = findCommandOverride(settings.itemCommands, itemId);
   const normalizedByItemId = normalizeCommands(byItemId);
   if (normalizedByItemId.length > 0) {
-    return normalizedByItemId;
+    return {
+      source: 'itemCommands:itemId',
+      lookupKey: String(itemId || '').trim() || null,
+      commands: normalizedByItemId,
+    };
   }
 
   const byGameItemId = findCommandOverride(settings.itemCommands, gameItemId);
   const normalizedByGameItemId = normalizeCommands(byGameItemId);
   if (normalizedByGameItemId.length > 0) {
-    return normalizedByGameItemId;
+    return {
+      source: 'itemCommands:gameItemId',
+      lookupKey: String(gameItemId || '').trim() || null,
+      commands: normalizedByGameItemId,
+    };
   }
 
   if (settings.wikiWeaponCommandFallbackEnabled) {
     const wikiTemplate = resolveWikiWeaponCommandTemplate(gameItemId);
     const normalizedWikiTemplate = normalizeCommands(wikiTemplate);
     if (normalizedWikiTemplate.length > 0) {
-      return normalizedWikiTemplate;
+      return {
+        source: 'wiki-weapon-fallback',
+        lookupKey: String(gameItemId || '').trim() || null,
+        commands: normalizedWikiTemplate,
+      };
     }
   }
 
@@ -618,11 +909,23 @@ function resolveItemCommands(itemId, gameItemId = null) {
     const manifestTemplate = resolveManifestItemCommandTemplate(gameItemId);
     const normalizedManifestTemplate = normalizeCommands(manifestTemplate);
     if (normalizedManifestTemplate.length > 0) {
-      return normalizedManifestTemplate;
+      return {
+        source: 'item-manifest-fallback',
+        lookupKey: String(gameItemId || '').trim() || null,
+        commands: normalizedManifestTemplate,
+      };
     }
   }
 
-  return [];
+  return {
+    source: 'none',
+    lookupKey: String(itemId || gameItemId || '').trim() || null,
+    commands: [],
+  };
+}
+
+function resolveItemCommands(itemId, gameItemId = null) {
+  return resolveItemCommandPlan(itemId, gameItemId).commands;
 }
 
 function commandSupportsBundleItems(commands) {
@@ -703,7 +1006,8 @@ async function previewDeliveryCommands(options = {}) {
     throw new Error('itemId or gameItemId is required');
   }
 
-  const commands = resolveItemCommands(resolvedItemId, resolvedGameItemId);
+  const commandPlan = resolveItemCommandPlan(resolvedItemId, resolvedGameItemId);
+  const commands = commandPlan.commands;
   const iconUrl =
     String(primary?.iconUrl || options.iconUrl || shopItem?.iconUrl || '').trim()
     || resolveItemIconUrl({
@@ -752,6 +1056,7 @@ async function previewDeliveryCommands(options = {}) {
     settings,
     agentHooks,
   );
+  const unresolvedPlaceholders = collectUnresolvedPlaceholders(executionPlan.allCommands);
 
   return {
     executionMode: settings.executionMode,
@@ -780,12 +1085,16 @@ async function previewDeliveryCommands(options = {}) {
       agentHooks.deliveryTeleportTarget || shopItem?.deliveryTeleportTarget || null,
     deliveryReturnTarget:
       agentHooks.deliveryReturnTarget || shopItem?.deliveryReturnTarget || null,
+    commandSource: commandPlan.source,
+    commandLookupKey: commandPlan.lookupKey,
     commandTemplates: commands,
     serverCommands,
     singlePlayerCommands,
     agentPreCommands: executionPlan.agentPreCommands,
     agentPostCommands: executionPlan.agentPostCommands,
     allCommands: executionPlan.allCommands,
+    unresolvedPlaceholders,
+    verificationPlan: buildVerificationPlan(settings),
   };
 }
 
@@ -797,6 +1106,9 @@ async function sendTestDeliveryCommand(options = {}) {
     : [];
   if (commandTemplates.length === 0) {
     throw new Error('No delivery command template found for requested item');
+  }
+  if (Array.isArray(preview.unresolvedPlaceholders) && preview.unresolvedPlaceholders.length > 0) {
+    throw new Error(`Unresolved placeholders: ${preview.unresolvedPlaceholders.join(', ')}`);
   }
 
   const steamId = String(options.steamId || '').trim() || '76561198000000000';
@@ -851,9 +1163,12 @@ async function sendTestDeliveryCommand(options = {}) {
     }
   }
 
+  const verification = await verifyDeliveryExecution(outputs, settings, {
+    purchaseCode: purchaseCode || 'TEST-SEND',
+  });
   const commandSummary = summarizeCommandOutputs(outputs, 700);
   addDeliveryAudit({
-    level: 'info',
+    level: verification.ok ? 'info' : 'warn',
     action: 'manual-test-send',
     purchaseCode,
     itemId: preview.itemId || preview.gameItemId || null,
@@ -868,6 +1183,7 @@ async function sendTestDeliveryCommand(options = {}) {
       deliveryItems: preview.deliveryItems || [],
       outputs,
       commandSummary: commandSummary || null,
+      verification,
     },
   });
 
@@ -878,25 +1194,8 @@ async function sendTestDeliveryCommand(options = {}) {
     userId,
     outputs,
     commandSummary,
+    verification,
   };
-}
-
-function runShell(command, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    exec(
-      command,
-      { timeout: timeoutMs, windowsHide: true, maxBuffer: 1024 * 1024 * 4 },
-      (error, stdout, stderr) => {
-        if (error) {
-          error.stdout = stdout;
-          error.stderr = stderr;
-          reject(error);
-          return;
-        }
-        resolve({ stdout, stderr });
-      },
-    );
-  });
 }
 
 function getRconTemplate() {
@@ -1019,55 +1318,45 @@ async function fetchAgentPreflight(settings) {
 }
 
 async function runDeliveryPreflight(job, settings, context = {}) {
-  if (settings.executionMode !== 'agent') {
-    return {
-      ok: true,
-      mode: settings.executionMode,
-      checks: ['delivery-worker'],
-    };
-  }
+  const report = await getDeliveryPreflightReport({
+    ...context,
+    settings,
+  });
 
-  const health = await fetchAgentHealth(settings);
-  if (!health.ok || !health.reachable) {
+  if (!report.ready) {
+    const failure = report.failures[0] || null;
     throw createDeliveryError(
-      health.errorCode || 'AGENT_UNREACHABLE',
-      health.error || 'SCUM console agent is unreachable',
+      failure?.code || 'DELIVERY_PREFLIGHT_FAILED',
+      failure?.detail || 'Delivery preflight failed',
       {
         step: 'preflight',
-        recoveryHint: 'ตรวจ agent process, token และ health endpoint ก่อน retry',
-        meta: { health },
+        recoveryHint:
+          report.mode === 'agent'
+            ? 'เช็ก worker, agent, SCUM client, focus ของหน้าต่างเกม และ Windows session ก่อน retry'
+            : 'เช็ก worker, RCON template/credential และ item command template ก่อน retry',
+        meta: report,
       },
     );
   }
 
-  const preflight = await fetchAgentPreflight(settings);
-  if (!preflight.ok) {
-    throw createDeliveryError(
-      preflight.errorCode || 'AGENT_PREFLIGHT_FAILED',
-      preflight.error || 'SCUM console agent preflight failed',
-      {
-        step: 'preflight',
-        recoveryHint: 'เช็ก SCUM client, focus ของหน้าต่างเกม, และ Windows session ว่ายัง active',
-        meta: { preflight, health },
-      },
-    );
-  }
-
-  queueAudit('info', 'preflight-ok', job, 'Agent preflight passed', {
-    preflight: preflight.result || null,
-    health: {
-      status: health.status || null,
-      ready: health.ready === true,
-      backend: health.backend || null,
-      activeExecutionCount: health.activeExecutionCount || 0,
-    },
+  queueAudit('info', 'preflight-ok', job, 'Delivery preflight passed', {
+    step: 'preflight-ok',
+    stage: 'preflight',
+    source: report.mode === 'agent' ? 'agent' : 'rcon',
+    status: 'ok',
+    title: 'Preflight passed',
+    preflight: report.agent?.preflight?.result || report.agent?.preflight || null,
+    health: report.agent?.health || report.workerHealth || null,
+    checks: report.checks,
     context,
   });
 
   return {
     ok: true,
-    health,
-    preflight,
+    mode: report.mode,
+    report,
+    health: report.agent?.health || report.workerHealth || null,
+    preflight: report.agent?.preflight || null,
   };
 }
 
@@ -1124,6 +1413,1322 @@ async function fetchWorkerHealth(settings) {
   }
 }
 
+function getWatcherHealthBaseUrl() {
+  const host = String(process.env.SCUM_WATCHER_HEALTH_HOST || '127.0.0.1').trim() || '127.0.0.1';
+  const port = Math.max(
+    0,
+    Math.trunc(asNumber(process.env.SCUM_WATCHER_HEALTH_PORT, 0)),
+  );
+  if (port <= 0) return null;
+  return `http://${host}:${port}`;
+}
+
+async function fetchWatcherHealth(settings) {
+  const baseUrl = getWatcherHealthBaseUrl();
+  if (!baseUrl) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(1000, Math.min(settings.commandTimeoutMs, 4000)),
+  );
+  try {
+    const res = await fetch(`${baseUrl}/healthz`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.ok) {
+      return {
+        ok: false,
+        reachable: false,
+        baseUrl,
+        error: trimText(payload?.error || payload?.message || `watcher health failed (${res.status})`, 300),
+      };
+    }
+    return {
+      ok: true,
+      reachable: true,
+      baseUrl,
+      ...payload,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reachable: false,
+      baseUrl,
+      error: trimText(error?.message || 'watcher health request failed', 300),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function compileSafeRegex(pattern, flags = 'i') {
+  const text = String(pattern || '').trim();
+  if (!text) return null;
+  try {
+    return new RegExp(text, flags);
+  } catch {
+    return null;
+  }
+}
+
+function getLatestWatcherActivityIso(watch = {}) {
+  const timestamps = [
+    watch?.lastEventAt,
+    watch?.lastFileReadAt,
+    watch?.lastFileStatAt,
+    watch?.lastRotationAt,
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .map((date) => date.toISOString());
+  return timestamps.sort().slice(-1)[0] || null;
+}
+
+function buildVerificationPlan(settings) {
+  const mode = normalizeDeliveryVerificationMode(settings?.verifyMode, 'basic');
+  return {
+    mode,
+    successPatternConfigured: Boolean(String(settings?.verifySuccessPattern || '').trim()),
+    failurePatternConfigured: Boolean(String(settings?.verifyFailurePattern || '').trim()),
+    observerWindowMs: Math.max(5000, Number(settings?.verifyObserverWindowMs || 60 * 1000)),
+    observerRequired: mode === 'observer' || mode === 'strict',
+  };
+}
+
+// Verification is intentionally layered: operators can start with command acknowledgements
+// and tighten the policy later with output markers or watcher freshness requirements.
+async function verifyDeliveryExecution(outputs = [], settings = getSettings(), options = {}) {
+  const plan = buildVerificationPlan(settings);
+  if (plan.mode === 'none') {
+    return {
+      ok: true,
+      mode: plan.mode,
+      reason: null,
+      checks: [],
+      failures: [],
+      warnings: [],
+      plan,
+      watcher: null,
+      combinedOutput: '',
+    };
+  }
+
+  const combinedOutput = trimText(
+    (Array.isArray(outputs) ? outputs : [])
+      .map((entry) => {
+        const chunks = [
+          entry?.command,
+          entry?.stdout,
+          entry?.stderr,
+        ].map((value) => String(value || '').trim()).filter(Boolean);
+        return chunks.join('\n');
+      })
+      .filter(Boolean)
+      .join('\n\n'),
+    1600,
+  );
+  const successRegex = compileSafeRegex(settings?.verifySuccessPattern);
+  const failureRegex = compileSafeRegex(settings?.verifyFailurePattern);
+  const checks = [];
+
+  checks.push(buildPreflightCheck({
+    key: 'verify-command-ack',
+    label: 'Command execution acknowledged',
+    ok: Array.isArray(outputs) && outputs.length > 0,
+    required: true,
+    scope: 'verify',
+    code: Array.isArray(outputs) && outputs.length > 0 ? 'READY' : 'VERIFY_OUTPUT_EMPTY',
+    detail:
+      Array.isArray(outputs) && outputs.length > 0
+        ? `Captured ${outputs.length} command output record(s)`
+        : 'No command outputs were captured for verification',
+    meta: {
+      outputCount: Array.isArray(outputs) ? outputs.length : 0,
+      purchaseCode: String(options.purchaseCode || '').trim() || null,
+    },
+  }));
+
+  if (failureRegex) {
+    const hasFailureMarker = failureRegex.test(combinedOutput);
+    checks.push(buildPreflightCheck({
+      key: 'verify-failure-pattern',
+      label: 'Failure marker',
+      ok: !hasFailureMarker,
+      required: true,
+      scope: 'verify',
+      code: hasFailureMarker ? 'VERIFY_FAILURE_PATTERN_MATCHED' : 'READY',
+      detail: hasFailureMarker
+        ? 'Failure pattern matched in command output'
+        : 'No failure marker matched in command output',
+      meta: {
+        pattern: String(settings?.verifyFailurePattern || '').trim() || null,
+      },
+    }));
+  }
+
+  if (plan.mode === 'output-match' || plan.mode === 'strict' || successRegex) {
+    const matched = successRegex ? successRegex.test(combinedOutput) : false;
+    checks.push(buildPreflightCheck({
+      key: 'verify-success-pattern',
+      label: 'Success marker',
+      ok: successRegex ? matched : false,
+      required: plan.mode === 'output-match' || plan.mode === 'strict',
+      scope: 'verify',
+      severity: successRegex ? 'error' : 'warn',
+      code:
+        successRegex
+          ? matched
+            ? 'READY'
+            : 'VERIFY_SUCCESS_PATTERN_MISSING'
+          : 'VERIFY_SUCCESS_PATTERN_NOT_CONFIGURED',
+      detail:
+        successRegex
+          ? matched
+            ? 'Success pattern matched in command output'
+            : 'Success pattern did not match command output'
+          : 'Success pattern is not configured',
+      meta: {
+        pattern: String(settings?.verifySuccessPattern || '').trim() || null,
+      },
+    }));
+  }
+
+  let watcher = null;
+  if (plan.observerRequired) {
+    watcher = await fetchWatcherHealth(settings);
+    const watch = watcher?.data?.watch || watcher?.watch || null;
+    const latestActivityAt = getLatestWatcherActivityIso(watch || {});
+    const freshnessAgeMs = latestActivityAt
+      ? Math.max(0, Date.now() - new Date(latestActivityAt).getTime())
+      : null;
+    const observerReady = Boolean(
+      watcher?.ok
+      && watcher?.ready !== false
+      && watch
+      && watch.fileExists !== false
+      && (freshnessAgeMs == null || freshnessAgeMs <= plan.observerWindowMs),
+    );
+    checks.push(buildPreflightCheck({
+      key: 'verify-observer',
+      label: 'Watcher observer',
+      ok: observerReady,
+      required: true,
+      scope: 'verify',
+      code:
+        observerReady
+          ? 'READY'
+          : !watcher
+            ? 'WATCHER_HEALTH_NOT_CONFIGURED'
+            : watcher?.ok
+              ? 'WATCHER_NOT_FRESH'
+              : 'WATCHER_UNREACHABLE',
+      detail:
+        observerReady
+          ? `Watcher is online and fresh${freshnessAgeMs == null ? '' : ` (${freshnessAgeMs}ms)`}`
+          : watcher?.error
+            ? watcher.error
+            : latestActivityAt
+              ? `Watcher is stale (${freshnessAgeMs}ms since last activity)`
+              : 'Watcher observer is not ready',
+      meta: {
+        watcher,
+        latestActivityAt,
+        freshnessAgeMs,
+      },
+    }));
+  }
+
+  const summary = summarizePreflightChecks(checks);
+  return {
+    ok: summary.ready,
+    mode: plan.mode,
+    reason: summary.reason,
+    checks,
+    failures: summary.failures,
+    warnings: summary.warnings,
+    plan,
+    watcher,
+    combinedOutput,
+  };
+}
+
+function buildPreflightCheck(entry = {}) {
+  return {
+    key: String(entry.key || 'check').trim() || 'check',
+    label: String(entry.label || entry.key || 'Check').trim() || 'Check',
+    ok: entry.ok === true,
+    required: entry.required !== false,
+    severity: String(entry.severity || (entry.required === false ? 'warn' : 'error')).trim() || 'error',
+    scope: String(entry.scope || 'delivery').trim() || 'delivery',
+    detail: trimText(entry.detail || '', 400),
+    code: String(entry.code || '').trim() || null,
+    meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null,
+  };
+}
+
+function summarizePreflightChecks(checks = []) {
+  const rows = Array.isArray(checks) ? checks : [];
+  const failures = rows.filter((row) => row.required !== false && row.ok !== true);
+  const warnings = rows.filter((row) => row.required === false && row.ok !== true);
+  return {
+    ready: failures.length === 0,
+    reason: failures[0]?.code || failures[0]?.key || 'ready',
+    failures,
+    warnings,
+  };
+}
+
+function hasDeliveryPreviewContext(options = {}) {
+  return Boolean(
+    String(options.itemId || '').trim()
+      || String(options.gameItemId || '').trim()
+      || Array.isArray(options.deliveryItems),
+  );
+}
+
+function getCommandTemplateLookupKey(options = {}) {
+  const explicit = String(options.lookupKey || '').trim();
+  if (explicit) return explicit;
+  const itemId = String(options.itemId || '').trim();
+  if (itemId) return itemId;
+  const gameItemId = String(options.gameItemId || '').trim();
+  if (gameItemId) return gameItemId;
+  return '';
+}
+
+function normalizeCommandTemplateInput(options = {}) {
+  const rawCommands = options.commands != null ? options.commands : options.command;
+  if (Array.isArray(rawCommands)) {
+    return rawCommands
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+  }
+  return parseCommandList(rawCommands);
+}
+
+function getItemCommandsSnapshot() {
+  const snapshot =
+    typeof config.getConfigSnapshot === 'function'
+      ? config.getConfigSnapshot()
+      : { delivery: config.delivery };
+  if (!snapshot.delivery || typeof snapshot.delivery !== 'object') {
+    snapshot.delivery = {};
+  }
+  if (!snapshot.delivery.auto || typeof snapshot.delivery.auto !== 'object') {
+    snapshot.delivery.auto = {};
+  }
+  if (
+    !snapshot.delivery.auto.itemCommands
+    || typeof snapshot.delivery.auto.itemCommands !== 'object'
+    || Array.isArray(snapshot.delivery.auto.itemCommands)
+  ) {
+    snapshot.delivery.auto.itemCommands = {};
+  }
+  return snapshot;
+}
+
+function getDeliveryCommandOverride(options = {}) {
+  const lookupKey = getCommandTemplateLookupKey(options);
+  if (!lookupKey) {
+    throw new Error('lookupKey, itemId or gameItemId is required');
+  }
+  const itemCommands = config.delivery?.auto?.itemCommands || {};
+  const raw = Object.prototype.hasOwnProperty.call(itemCommands, lookupKey)
+    ? itemCommands[lookupKey]
+    : null;
+  const commands = normalizeCommands(raw);
+  return {
+    lookupKey,
+    exists: raw != null,
+    commandTemplates: commands,
+    source: raw != null ? 'config' : 'none',
+  };
+}
+
+function setDeliveryCommandOverride(options = {}) {
+  const lookupKey = getCommandTemplateLookupKey(options);
+  if (!lookupKey) {
+    throw new Error('lookupKey, itemId or gameItemId is required');
+  }
+
+  const clear = options.clear === true;
+  const commands = normalizeCommandTemplateInput(options);
+  if (!clear && commands.length === 0) {
+    throw new Error('command or commands is required');
+  }
+
+  const snapshot = getItemCommandsSnapshot();
+  const itemCommands = snapshot.delivery.auto.itemCommands;
+  const action = clear || commands.length === 0 ? 'delete' : 'set';
+
+  if (action === 'delete') {
+    delete itemCommands[lookupKey];
+  } else if (commands.length === 1) {
+    itemCommands[lookupKey] = commands[0];
+  } else {
+    itemCommands[lookupKey] = commands;
+  }
+
+  if (typeof config.setFullConfig !== 'function') {
+    throw new Error('config.setFullConfig is not available');
+  }
+  config.setFullConfig(snapshot);
+
+  publishAdminLiveUpdate('command-template-update', {
+    action,
+    lookupKey,
+    actor: String(options.actor || 'admin-web').trim() || 'admin-web',
+    commands,
+  });
+
+  return getDeliveryCommandOverride({ lookupKey });
+}
+
+// Preflight answers "is this delivery safe to enqueue right now?" for both admin test-send
+// and worker-driven deliveries, so every runtime checks readiness the same way.
+async function getDeliveryPreflightReport(options = {}) {
+  const settings = options.settings || getSettings();
+  const checks = [];
+  const report = {
+    generatedAt: nowIso(),
+    mode: settings.executionMode,
+    enabled: settings.enabled,
+    checks,
+    workerHealth: null,
+    agent: null,
+    rcon: null,
+    preview: null,
+    verification: null,
+  };
+
+  checks.push(buildPreflightCheck({
+    key: 'delivery-enabled',
+    label: 'Delivery enabled',
+    ok: settings.enabled,
+    required: true,
+    scope: 'delivery',
+    code: settings.enabled ? 'READY' : 'DELIVERY_DISABLED',
+    detail: settings.enabled ? 'Auto delivery is enabled' : 'Auto delivery is disabled',
+  }));
+
+  const remoteWorkerEnabled = envFlag(process.env.WORKER_ENABLE_DELIVERY, false);
+  const localBotOwnsWorker = envFlag(process.env.BOT_ENABLE_DELIVERY_WORKER, false);
+  if (workerStarted) {
+    checks.push(buildPreflightCheck({
+      key: 'worker-online',
+      label: 'Delivery worker',
+      ok: true,
+      scope: 'worker',
+      code: 'WORKER_LOCAL_READY',
+      detail: workerBusy ? 'Local worker is busy' : 'Local worker process is running',
+      meta: {
+        busy: workerBusy,
+        source: 'local-process',
+      },
+    }));
+  } else if (remoteWorkerEnabled && !localBotOwnsWorker) {
+    const workerHealth = await fetchWorkerHealth(settings);
+    report.workerHealth = workerHealth;
+    checks.push(buildPreflightCheck({
+      key: 'worker-online',
+      label: 'Delivery worker',
+      ok: Boolean(workerHealth?.ok && workerHealth?.reachable),
+      required: true,
+      scope: 'worker',
+      code:
+        workerHealth?.ok && workerHealth?.reachable
+          ? 'WORKER_REMOTE_READY'
+          : 'WORKER_UNREACHABLE',
+      detail:
+        workerHealth?.ok && workerHealth?.reachable
+          ? `Remote worker is reachable at ${workerHealth.baseUrl || 'worker health endpoint'}`
+          : workerHealth?.error || 'Remote worker health endpoint is unreachable',
+      meta: workerHealth,
+    }));
+  } else {
+    checks.push(buildPreflightCheck({
+      key: 'worker-online',
+      label: 'Delivery worker',
+      ok: true,
+      required: false,
+      severity: 'info',
+      scope: 'worker',
+      code: 'WORKER_INLINE_MODE',
+      detail: 'No dedicated worker endpoint configured; current process handles delivery state',
+      meta: {
+        workerStarted,
+        remoteWorkerEnabled,
+        localBotOwnsWorker,
+      },
+    }));
+  }
+
+  if (settings.executionMode === 'agent') {
+    const tokenConfigured = String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim().length > 0;
+    const execTemplate = String(process.env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE || '').trim();
+    let execTemplateValid = false;
+    let execTemplateError = null;
+    if (execTemplate) {
+      try {
+        validateCommandTemplate(execTemplate);
+        execTemplateValid = true;
+      } catch (error) {
+        execTemplateError = trimText(error?.message || 'invalid exec template', 300);
+      }
+    }
+
+    checks.push(buildPreflightCheck({
+      key: 'agent-token',
+      label: 'Console agent token',
+      ok: tokenConfigured,
+      required: true,
+      scope: 'agent',
+      code: tokenConfigured ? 'READY' : 'AGENT_TOKEN_MISSING',
+      detail: tokenConfigured ? 'SCUM console agent token is configured' : 'SCUM console agent token is missing',
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'agent-exec-template',
+      label: 'Console agent exec template',
+      ok: !execTemplate || execTemplateValid,
+      required: false,
+      severity: 'info',
+      scope: 'agent',
+      code:
+        !execTemplate
+          ? 'AGENT_EXEC_TEMPLATE_REMOTE'
+          : execTemplateValid
+            ? 'READY'
+            : 'AGENT_EXEC_TEMPLATE_INVALID',
+      detail:
+        !execTemplate
+          ? 'Exec template is managed by the remote console agent'
+          : execTemplateValid
+          ? 'Console agent exec template is valid'
+          : execTemplateError || 'Console agent exec template is invalid',
+      meta: execTemplate ? { template: execTemplate } : null,
+    }));
+
+    const health = await fetchAgentHealth(settings);
+    const preflight = health?.ok ? await fetchAgentPreflight(settings) : null;
+    report.agent = {
+      tokenConfigured,
+      execTemplateConfigured: execTemplate.length > 0,
+      execTemplateValid,
+      backend: String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec',
+      health,
+      preflight,
+      ready: Boolean(tokenConfigured && health?.ok && preflight?.ok),
+    };
+
+    checks.push(buildPreflightCheck({
+      key: 'agent-online',
+      label: 'Console agent online',
+      ok: Boolean(health?.ok && health?.reachable),
+      required: true,
+      scope: 'agent',
+      code:
+        health?.ok && health?.reachable
+          ? 'READY'
+          : health?.errorCode || health?.statusCode || 'AGENT_UNREACHABLE',
+      detail:
+        health?.ok && health?.reachable
+          ? `Console agent reachable (${health.backend || health.status || 'ready'})`
+          : health?.error || 'Console agent is unreachable',
+      meta: health,
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'agent-preflight',
+      label: 'SCUM admin client preflight',
+      ok: Boolean(preflight?.ok),
+      required: true,
+      scope: 'agent',
+      code: preflight?.ok ? 'READY' : preflight?.errorCode || 'AGENT_PREFLIGHT_FAILED',
+      detail:
+        preflight?.ok
+          ? 'SCUM admin client and Windows session passed preflight'
+          : preflight?.error || 'SCUM admin client preflight failed',
+      meta: preflight,
+    }));
+  } else {
+    const shellTemplate = getRconTemplate();
+    let templateValid = false;
+    let templateError = null;
+    if (shellTemplate) {
+      try {
+        validateCommandTemplate(shellTemplate);
+        templateValid = true;
+      } catch (error) {
+        templateError = trimText(error?.message || 'invalid RCON template', 300);
+      }
+    }
+
+    const requiresHost = shellTemplate.includes('{host}');
+    const requiresPort = shellTemplate.includes('{port}');
+    const requiresPassword = shellTemplate.includes('{password}');
+    const host = String(process.env.RCON_HOST || '').trim();
+    const port = String(process.env.RCON_PORT || '').trim();
+    const password = String(process.env.RCON_PASSWORD || '').trim();
+
+    report.rcon = {
+      host: host || null,
+      port: port || null,
+      templateConfigured: shellTemplate.length > 0,
+      templateValid,
+      templateError,
+      requiresHost,
+      requiresPort,
+      requiresPassword,
+    };
+
+    checks.push(buildPreflightCheck({
+      key: 'rcon-template',
+      label: 'RCON exec template',
+      ok: Boolean(shellTemplate && templateValid),
+      required: true,
+      scope: 'rcon',
+      code:
+        shellTemplate && templateValid
+          ? 'READY'
+          : shellTemplate
+            ? 'RCON_TEMPLATE_INVALID'
+            : 'RCON_TEMPLATE_MISSING',
+      detail:
+        shellTemplate && templateValid
+          ? 'RCON exec template is valid'
+          : templateError || 'RCON exec template is missing or invalid',
+      meta: shellTemplate ? { template: shellTemplate } : null,
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'rcon-host',
+      label: 'RCON host',
+      ok: !requiresHost || Boolean(host),
+      required: requiresHost,
+      scope: 'rcon',
+      code: !requiresHost || host ? 'READY' : 'RCON_HOST_MISSING',
+      detail: !requiresHost || host ? `RCON host ${host || 'not required by template'}` : 'RCON_HOST is required by template',
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'rcon-port',
+      label: 'RCON port',
+      ok: !requiresPort || Boolean(port),
+      required: requiresPort,
+      scope: 'rcon',
+      code: !requiresPort || port ? 'READY' : 'RCON_PORT_MISSING',
+      detail: !requiresPort || port ? `RCON port ${port || 'not required by template'}` : 'RCON_PORT is required by template',
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'rcon-password',
+      label: 'RCON password',
+      ok: !requiresPassword || Boolean(password),
+      required: requiresPassword,
+      scope: 'rcon',
+      code: !requiresPassword || password ? 'READY' : 'RCON_PASSWORD_MISSING',
+      detail:
+        !requiresPassword || password
+          ? 'RCON password configured'
+          : 'RCON_PASSWORD is required by template',
+    }));
+  }
+
+  if (options.skipCommandTemplateCheck !== true && hasDeliveryPreviewContext(options)) {
+    try {
+      const preview = await previewDeliveryCommands(options);
+      report.preview = preview;
+      checks.push(buildPreflightCheck({
+        key: 'delivery-command-template',
+        label: 'Delivery command resolved',
+        ok: Array.isArray(preview.commandTemplates) && preview.commandTemplates.length > 0,
+        required: true,
+        scope: 'item',
+        code:
+          Array.isArray(preview.commandTemplates) && preview.commandTemplates.length > 0
+            ? 'READY'
+            : 'DELIVERY_ITEM_COMMAND_MISSING',
+        detail:
+          Array.isArray(preview.commandTemplates) && preview.commandTemplates.length > 0
+            ? `Resolved ${preview.commandTemplates.length} command template(s) from ${preview.commandSource || 'unknown'}`
+            : 'No delivery command template resolved for requested item',
+        meta: {
+          commandSource: preview.commandSource || null,
+          commandLookupKey: preview.commandLookupKey || null,
+        },
+      }));
+      checks.push(buildPreflightCheck({
+        key: 'delivery-placeholders',
+        label: 'Command placeholders resolved',
+        ok: Array.isArray(preview.unresolvedPlaceholders) && preview.unresolvedPlaceholders.length === 0,
+        required: true,
+        scope: 'item',
+        code:
+          Array.isArray(preview.unresolvedPlaceholders) && preview.unresolvedPlaceholders.length === 0
+            ? 'READY'
+            : 'DELIVERY_TEMPLATE_PLACEHOLDER_MISSING',
+        detail:
+          Array.isArray(preview.unresolvedPlaceholders) && preview.unresolvedPlaceholders.length === 0
+            ? 'All command placeholders resolved'
+            : `Unresolved placeholders: ${(preview.unresolvedPlaceholders || []).join(', ')}`,
+        meta: {
+          unresolvedPlaceholders: Array.isArray(preview.unresolvedPlaceholders)
+            ? preview.unresolvedPlaceholders
+            : [],
+        },
+      }));
+      const needsTeleportTarget =
+        settings.executionMode === 'agent'
+        && commandTemplatesNeedTeleportTarget([
+          ...(preview.agentPreCommands || []),
+          ...(preview.agentPostCommands || []),
+        ]);
+      if (settings.executionMode === 'agent') {
+        checks.push(buildPreflightCheck({
+          key: 'teleport-target',
+          label: 'Teleport target',
+          ok: !needsTeleportTarget || Boolean(preview.deliveryTeleportTarget),
+          required: needsTeleportTarget,
+          scope: 'item',
+          code:
+            !needsTeleportTarget || preview.deliveryTeleportTarget
+              ? 'READY'
+              : 'DELIVERY_TELEPORT_TARGET_MISSING',
+          detail:
+            !needsTeleportTarget
+              ? 'Teleport target not required for this item'
+              : preview.deliveryTeleportTarget
+                ? `Teleport target ready (${preview.deliveryTeleportTarget})`
+                : 'Teleport target is required by this delivery profile/template',
+          meta: {
+            deliveryTeleportMode: preview.deliveryTeleportMode || null,
+            deliveryTeleportTarget: preview.deliveryTeleportTarget || null,
+            deliveryProfile: preview.deliveryProfile || null,
+          },
+        }));
+      }
+    } catch (error) {
+      checks.push(buildPreflightCheck({
+        key: 'delivery-command-template',
+        label: 'Delivery command resolved',
+        ok: false,
+        required: true,
+        scope: 'item',
+        code: 'DELIVERY_PREVIEW_FAILED',
+        detail: trimText(error?.message || 'delivery preview failed', 300),
+      }));
+    }
+  }
+
+  const verificationPlan = buildVerificationPlan(settings);
+  const watcherHealthBaseUrl = getWatcherHealthBaseUrl();
+  report.verification = verificationPlan;
+  checks.push(buildPreflightCheck({
+    key: 'delivery-verification',
+    label: 'Delivery verification policy',
+    ok:
+      verificationPlan.mode === 'none'
+      || verificationPlan.mode === 'basic'
+      || (verificationPlan.observerRequired
+        ? Boolean(watcherHealthBaseUrl)
+        : Boolean(settings.verifySuccessPattern)),
+    required: verificationPlan.mode !== 'none',
+    severity: verificationPlan.mode === 'none' ? 'info' : 'error',
+    scope: 'verify',
+    code:
+      verificationPlan.mode === 'none'
+        ? 'VERIFY_DISABLED'
+        : verificationPlan.mode === 'basic'
+          ? 'READY'
+          : verificationPlan.mode === 'observer' || verificationPlan.mode === 'strict'
+            ? watcherHealthBaseUrl
+              ? 'READY'
+              : 'WATCHER_HEALTH_NOT_CONFIGURED'
+            : settings.verifySuccessPattern
+              ? 'READY'
+              : 'VERIFY_SUCCESS_PATTERN_NOT_CONFIGURED',
+    detail:
+      verificationPlan.mode === 'none'
+        ? 'Post-spawn verification is disabled'
+        : verificationPlan.mode === 'basic'
+          ? 'Basic verification will use command acknowledgements'
+          : verificationPlan.mode === 'observer' || verificationPlan.mode === 'strict'
+            ? watcherHealthBaseUrl
+              ? 'Verification will require watcher observer freshness'
+              : 'Set SCUM_WATCHER_HEALTH_PORT/SCUM_WATCHER_HEALTH_HOST for observer verification'
+            : settings.verifySuccessPattern
+              ? 'Verification will require success pattern match'
+              : 'Set DELIVERY_VERIFY_SUCCESS_REGEX for output-match verification',
+    meta: verificationPlan,
+  }));
+
+  const summary = summarizePreflightChecks(checks);
+  return {
+    ...report,
+    ready: summary.ready,
+    ok: summary.ready,
+    reason: summary.reason,
+    failures: summary.failures,
+    warnings: summary.warnings,
+  };
+}
+
+function buildSimulationCommandSteps(preview = {}) {
+  const steps = [];
+  const pushStep = (phase, command, extra = {}) => {
+    const operation = classifyCommandOperation(command, phase);
+    steps.push({
+      id: createEventId(`plan-${phase}`),
+      phase,
+      stage: operation.stage,
+      step: operation.step,
+      title: operation.title,
+      kind: operation.kind,
+      command: String(command || '').trim() || null,
+      deliveryItem: extra.deliveryItem || null,
+      source: phase === 'item' ? 'game-command' : 'agent-hook',
+      status: 'planned',
+      meta: extra.meta || null,
+    });
+  };
+
+  for (const command of Array.isArray(preview.agentPreCommands) ? preview.agentPreCommands : []) {
+    pushStep('pre', command);
+  }
+
+  for (const deliveryItem of Array.isArray(preview.deliveryItems) ? preview.deliveryItems : []) {
+    const gameItemId = String(deliveryItem?.gameItemId || '').trim();
+    const quantity = Math.max(1, Math.trunc(Number(deliveryItem?.quantity || 1)));
+    const commands = Array.isArray(preview.commandTemplates)
+      ? preview.commandTemplates.map((template) =>
+        renderItemCommand(
+          template,
+          buildDeliveryTemplateVars(
+            {
+              steamId: '76561198000000000',
+              itemId: preview.itemId || preview.gameItemId || gameItemId,
+              itemName: preview.itemName || preview.itemId || preview.gameItemId || gameItemId,
+              gameItemId,
+              quantity,
+              itemKind: preview.itemKind || 'item',
+              userId: 'simulator-user',
+              purchaseCode: 'SIM-DELIVERY-PLAN',
+              inGameName: '',
+              teleportTarget: preview.deliveryTeleportTarget || '',
+              teleportMode: preview.deliveryTeleportMode || '',
+              returnTarget: preview.deliveryReturnTarget || '',
+            },
+            getSettings(),
+          ),
+          getSettings(),
+          { singlePlayer: preview.executionMode === 'agent' },
+        ),
+      )
+      : [];
+    for (const command of commands) {
+      pushStep('item', command, {
+        deliveryItem: {
+          gameItemId,
+          quantity,
+          iconUrl: deliveryItem?.iconUrl || null,
+        },
+      });
+    }
+  }
+
+  for (const command of Array.isArray(preview.agentPostCommands) ? preview.agentPostCommands : []) {
+    pushStep('post', command);
+  }
+
+  return steps;
+}
+
+async function simulateDeliveryPlan(options = {}) {
+  const preview = await previewDeliveryCommands(options);
+  const preflight = await getDeliveryPreflightReport(options);
+  const steps = buildSimulationCommandSteps(preview);
+  const verificationPlan = buildVerificationPlan(options.settings || getSettings());
+  const timeline = [
+    normalizeTimelineEvent({
+      id: createEventId('sim'),
+      at: nowIso(),
+      level: 'info',
+      action: 'queued',
+      stage: 'queue',
+      source: 'simulator',
+      status: 'planned',
+      step: 'queued',
+      title: 'Queued',
+      message: 'Delivery would be queued for worker execution',
+    }),
+    normalizeTimelineEvent({
+      id: createEventId('sim'),
+      at: nowIso(),
+      level: 'info',
+      action: 'worker-picked',
+      stage: 'worker',
+      source: 'simulator',
+      status: 'planned',
+      step: 'worker-picked',
+      title: 'Worker picked job',
+      message: 'Worker would pick the delivery job',
+    }),
+    normalizeTimelineEvent({
+      id: createEventId('sim'),
+      at: nowIso(),
+      level: 'info',
+      action: 'preflight-start',
+      stage: 'preflight',
+      source: 'simulator',
+      status: preflight.ready ? 'planned' : 'blocked',
+      step: 'preflight-start',
+      title: 'Preflight check',
+      message: preflight.ready ? 'Preflight would pass' : `Preflight blocked: ${preflight.reason}`,
+      errorCode: preflight.ready ? null : preflight.reason,
+      meta: {
+        failures: preflight.failures,
+        warnings: preflight.warnings,
+      },
+    }),
+    ...steps.map((step) =>
+      normalizeTimelineEvent({
+        id: step.id,
+        at: nowIso(),
+        level: 'info',
+        action: 'simulate-step',
+        stage: step.stage,
+        source: step.source,
+        status: step.status,
+        step: step.step,
+        title: step.title,
+        message: step.command || step.title,
+        command: step.command,
+        meta: {
+          phase: step.phase,
+          kind: step.kind,
+          deliveryItem: step.deliveryItem,
+        },
+      })),
+    verificationPlan.mode !== 'none'
+      ? normalizeTimelineEvent({
+          id: createEventId('sim'),
+          at: nowIso(),
+          level: 'info',
+          action: 'simulate-verify',
+          stage: 'verify',
+          source: 'simulator',
+          status: 'planned',
+          step: 'verify-success',
+          title: 'Verification step',
+          message:
+            verificationPlan.mode === 'basic'
+              ? 'Would verify command acknowledgements after spawn'
+              : verificationPlan.mode === 'output-match'
+                ? 'Would verify success pattern after spawn'
+                : verificationPlan.mode === 'observer'
+                  ? 'Would verify watcher observer freshness after spawn'
+                  : 'Would verify output pattern and watcher observer after spawn',
+          meta: verificationPlan,
+        })
+      : null,
+    normalizeTimelineEvent({
+      id: createEventId('sim'),
+      at: nowIso(),
+      level: preflight.ready ? 'info' : 'warn',
+      action: 'simulate-finish',
+      stage: preflight.ready ? 'completed' : 'blocked',
+      source: 'simulator',
+      status: preflight.ready ? 'planned' : 'blocked',
+      step: preflight.ready ? 'completed' : 'blocked',
+      title: preflight.ready ? 'Delivery plan ready' : 'Delivery plan blocked',
+      message:
+        preflight.ready
+          ? 'All commands are ready for execution'
+          : `Fix preflight failures before sending delivery (${preflight.reason})`,
+      errorCode: preflight.ready ? null : preflight.reason,
+    }),
+  ].filter(Boolean);
+
+  return {
+    generatedAt: nowIso(),
+    ready: preflight.ready,
+    blockedReason: preflight.ready ? null : preflight.reason,
+    preview,
+    preflight,
+    verificationPlan,
+    steps,
+    timeline,
+    summary: {
+      itemCount: Array.isArray(preview.deliveryItems) ? preview.deliveryItems.length : 0,
+      commandCount: steps.length,
+      commandSource: preview.commandSource || null,
+      commandLookupKey: preview.commandLookupKey || null,
+      deliveryProfile: preview.deliveryProfile || null,
+      deliveryTeleportMode: preview.deliveryTeleportMode || null,
+      executionMode: preview.executionMode || null,
+      verificationMode: verificationPlan.mode,
+    },
+  };
+}
+
+function listScumAdminCommandCapabilities() {
+  return listBuiltInScumAdminCommandCapabilities();
+}
+
+function resolveScumAdminCommandCapability(options = {}) {
+  const customTemplates = normalizeCapabilityCommandTemplates(
+    options.commandTemplates || options.commands || options.command,
+  );
+  if (customTemplates.length > 0) {
+    return {
+      id: String(options.capabilityId || options.id || 'custom-command-sequence').trim() || 'custom-command-sequence',
+      name: String(options.name || options.capabilityName || 'Custom Command Sequence').trim() || 'Custom Command Sequence',
+      description: String(options.description || '').trim() || null,
+      commandTemplates: customTemplates,
+      defaults: {},
+      builtin: false,
+      source: options.presetId ? 'preset' : 'custom',
+    };
+  }
+
+  const capability = getBuiltInScumAdminCommandCapability(options.capabilityId || options.id);
+  if (!capability) {
+    throw new Error('capabilityId or commands is required');
+  }
+  return {
+    ...capability,
+    source: 'builtin',
+  };
+}
+
+function buildCapabilityTemplateVars(definition = {}, options = {}, settings = getSettings()) {
+  const defaults = definition.defaults && typeof definition.defaults === 'object'
+    ? definition.defaults
+    : {};
+  return buildDeliveryTemplateVars({
+    itemId: String(options.itemId || definition.id || '').trim() || undefined,
+    itemName: String(options.itemName || definition.name || '').trim() || undefined,
+    announceText: options.announceText || defaults.announceText || '',
+    steamId: options.steamId || defaults.steamId || '',
+    gameItemId: options.gameItemId || defaults.gameItemId || '',
+    quantity: options.quantity || defaults.quantity || 1,
+    userId: options.userId || '',
+    purchaseCode: options.purchaseCode || '',
+    inGameName: options.inGameName || defaults.inGameName || '',
+    teleportMode: options.teleportMode || '',
+    teleportTarget: options.teleportTarget || defaults.teleportTarget || '',
+    returnTarget: options.returnTarget || defaults.returnTarget || '',
+    itemKind: options.itemKind || 'item',
+  }, settings);
+}
+
+function collectMissingCapabilityInputs(commandTemplates = [], vars = {}, settings = getSettings()) {
+  const required = new Set();
+  for (const template of Array.isArray(commandTemplates) ? commandTemplates : []) {
+    const runtimeTemplate =
+      settings.executionMode === 'agent'
+        ? adaptCommandTemplateForSinglePlayer(template)
+        : String(template || '');
+    for (const key of extractCommandPlaceholders(runtimeTemplate)) {
+      required.add(key);
+    }
+  }
+  return Array.from(required).filter((key) => {
+    const value = vars?.[key];
+    if (key === 'quantity') {
+      return !(Number(value) > 0);
+    }
+    return String(value || '').trim().length === 0;
+  });
+}
+
+function buildCapabilityTimelineStep(command, index, count) {
+  const operation = classifyCommandOperation(command, 'item');
+  return normalizeTimelineEvent({
+    id: createEventId('capability'),
+    at: nowIso(),
+    level: 'info',
+    action: 'capability-command',
+    stage: operation.stage,
+    source: 'admin-capability-test',
+    status: 'planned',
+    step: operation.step,
+    title: operation.title,
+    message: command,
+    command,
+    meta: {
+      index,
+      count,
+      kind: operation.kind,
+    },
+  });
+}
+
+// Capability tests bypass item-template lookup because presets and custom smoke tests may
+// not correspond to a shop item at all.
+async function testScumAdminCommandCapability(options = {}) {
+  const settings = options.settings || getSettings();
+  const capability = resolveScumAdminCommandCapability(options);
+  const vars = buildCapabilityTemplateVars(capability, options, settings);
+  const renderedCommands = capability.commandTemplates.map((template) =>
+    renderItemCommand(
+      template,
+      vars,
+      settings,
+      { singlePlayer: settings.executionMode === 'agent' },
+    ),
+  );
+  const unresolvedPlaceholders = collectUnresolvedPlaceholders(renderedCommands);
+  const missingInputs = collectMissingCapabilityInputs(capability.commandTemplates, vars, settings);
+  const preflight = await getDeliveryPreflightReport({
+    settings,
+    skipCommandTemplateCheck: true,
+    itemId: vars.itemId || undefined,
+    itemName: vars.itemName || undefined,
+    gameItemId: vars.gameItemId || undefined,
+    quantity: vars.quantity || undefined,
+    steamId: vars.steamId || undefined,
+    userId: vars.userId || undefined,
+    purchaseCode: vars.purchaseCode || undefined,
+    inGameName: vars.inGameName || undefined,
+    teleportMode: vars.teleportMode || undefined,
+    teleportTarget: vars.teleportTarget || undefined,
+    returnTarget: vars.returnTarget || undefined,
+  });
+
+  const inputChecks = [
+    buildPreflightCheck({
+      key: 'capability-commands',
+      label: 'Capability commands',
+      ok: renderedCommands.length > 0,
+      required: true,
+      scope: 'capability',
+      code: renderedCommands.length > 0 ? 'READY' : 'CAPABILITY_COMMANDS_EMPTY',
+      detail:
+        renderedCommands.length > 0
+          ? `Resolved ${renderedCommands.length} command(s)`
+          : 'No commands resolved for selected capability',
+      meta: {
+        capabilityId: capability.id,
+      },
+    }),
+    buildPreflightCheck({
+      key: 'capability-inputs',
+      label: 'Capability inputs',
+      ok: missingInputs.length === 0,
+      required: true,
+      scope: 'capability',
+      code: missingInputs.length === 0 ? 'READY' : 'CAPABILITY_INPUT_MISSING',
+      detail:
+        missingInputs.length === 0
+          ? 'All required capability inputs are present'
+          : `Missing inputs: ${missingInputs.join(', ')}`,
+      meta: {
+        missingInputs,
+      },
+    }),
+    buildPreflightCheck({
+      key: 'capability-placeholders',
+      label: 'Rendered placeholders',
+      ok: unresolvedPlaceholders.length === 0,
+      required: true,
+      scope: 'capability',
+      code:
+        unresolvedPlaceholders.length === 0
+          ? 'READY'
+          : 'DELIVERY_TEMPLATE_PLACEHOLDER_MISSING',
+      detail:
+        unresolvedPlaceholders.length === 0
+          ? 'All rendered commands are fully resolved'
+          : `Unresolved placeholders: ${unresolvedPlaceholders.join(', ')}`,
+      meta: {
+        unresolvedPlaceholders,
+      },
+    }),
+  ];
+  const validationSummary = summarizePreflightChecks(inputChecks);
+  const ready = Boolean(preflight.ready && validationSummary.ready);
+  const timeline = [
+    normalizeTimelineEvent({
+      id: createEventId('capability'),
+      at: nowIso(),
+      level: 'info',
+      action: 'capability-selected',
+      stage: 'planning',
+      source: 'admin-capability-test',
+      status: ready ? 'planned' : 'blocked',
+      step: 'capability-selected',
+      title: capability.name,
+      message: capability.description || 'Capability selected',
+    }),
+    ...renderedCommands.map((command, index) =>
+      buildCapabilityTimelineStep(command, index + 1, renderedCommands.length)),
+  ];
+  const verificationPlan = buildVerificationPlan(settings);
+  if (verificationPlan.mode !== 'none') {
+    timeline.push(normalizeTimelineEvent({
+      id: createEventId('capability'),
+      at: nowIso(),
+      level: 'info',
+      action: 'capability-verify',
+      stage: 'verify',
+      source: 'admin-capability-test',
+      status: ready ? 'planned' : 'blocked',
+      step: 'verify-success',
+      title: 'Verification step',
+      message: `Verification mode: ${verificationPlan.mode}`,
+      meta: verificationPlan,
+    }));
+  }
+
+  const result = {
+    generatedAt: nowIso(),
+    capability,
+    ready,
+    dryRun: options.dryRun === true,
+    blockedReason: ready ? null : preflight.reason || validationSummary.reason || 'capability-not-ready',
+    preflight,
+    inputChecks,
+    validation: {
+      ready: validationSummary.ready,
+      reason: validationSummary.reason,
+      failures: validationSummary.failures,
+      warnings: validationSummary.warnings,
+    },
+    vars,
+    renderedCommands,
+    unresolvedPlaceholders,
+    missingInputs,
+    outputs: [],
+    verification: null,
+    timeline,
+    summary: {
+      commandCount: renderedCommands.length,
+      executionMode: settings.executionMode,
+      verificationMode: verificationPlan.mode,
+      source: capability.source || 'builtin',
+    },
+  };
+
+  if (result.dryRun || !ready) {
+    return result;
+  }
+
+  let executionError = null;
+  for (let index = 0; index < renderedCommands.length; index += 1) {
+    const command = renderedCommands[index];
+    try {
+      const output = await runGameCommand(command, settings);
+      result.outputs.push({
+        phase: 'capability',
+        mode: output.mode || settings.executionMode,
+        backend: output.backend || null,
+        command: output.command,
+        stdout: output.stdout,
+        stderr: output.stderr,
+      });
+      result.timeline.push(normalizeTimelineEvent({
+        id: createEventId('capability'),
+        at: nowIso(),
+        level: 'info',
+        action: 'capability-command-ok',
+        stage: classifyCommandOperation(command, 'item').stage,
+        source: 'admin-capability-test',
+        status: 'ok',
+        step: classifyCommandOperation(command, 'item').step,
+        title: `${classifyCommandOperation(command, 'item').title} complete`,
+        message: command,
+        command,
+      }));
+      if (settings.executionMode === 'agent' && settings.agentCommandDelayMs > 0 && index < renderedCommands.length - 1) {
+        await sleep(settings.agentCommandDelayMs);
+      }
+    } catch (error) {
+      executionError = trimText(error?.message || 'command execution failed', 400);
+      result.timeline.push(normalizeTimelineEvent({
+        id: createEventId('capability'),
+        at: nowIso(),
+        level: 'error',
+        action: 'capability-command-failed',
+        stage: classifyCommandOperation(command, 'item').stage,
+        source: 'admin-capability-test',
+        status: 'failed',
+        step: classifyCommandOperation(command, 'item').step,
+        title: `${classifyCommandOperation(command, 'item').title} failed`,
+        message: executionError,
+        command,
+        errorCode: 'CAPABILITY_EXEC_FAILED',
+      }));
+      break;
+    }
+  }
+
+  if (!executionError) {
+    result.verification = await verifyDeliveryExecution(result.outputs, settings, {
+      purchaseCode: vars.purchaseCode || null,
+    });
+    result.timeline.push(normalizeTimelineEvent({
+      id: createEventId('capability'),
+      at: nowIso(),
+      level: result.verification.ok ? 'info' : 'warn',
+      action: result.verification.ok ? 'verify-ok' : 'verify-failed',
+      stage: 'verify',
+      source: 'admin-capability-test',
+      status: result.verification.ok ? 'completed' : 'failed',
+      step: result.verification.ok ? 'verify-success' : 'verify-failed',
+      title: result.verification.ok ? 'Verification passed' : 'Verification failed',
+      message:
+        result.verification.ok
+          ? `Verification mode ${result.verification.mode} passed`
+          : result.verification.reason || 'Verification failed',
+      errorCode: result.verification.ok ? null : result.verification.reason,
+      meta: result.verification,
+    }));
+  } else {
+    result.verification = {
+      ok: false,
+      mode: verificationPlan.mode,
+      reason: 'CAPABILITY_EXEC_FAILED',
+      checks: [],
+      failures: [{
+        key: 'capability-command-execution',
+        code: 'CAPABILITY_EXEC_FAILED',
+        detail: executionError,
+      }],
+      warnings: [],
+      plan: verificationPlan,
+    };
+  }
+
+  result.passed = !executionError && Boolean(result.verification?.ok);
+  addDeliveryAudit({
+    level: result.passed ? 'info' : 'warn',
+    action: 'manual-capability-test',
+    purchaseCode: vars.purchaseCode || null,
+    itemId: vars.itemId || capability.id,
+    itemName: capability.name,
+    userId: vars.userId || null,
+    steamId: vars.steamId || null,
+    message: result.passed
+      ? `Capability test passed: ${capability.name}`
+      : `Capability test failed: ${capability.name}`,
+    meta: {
+      source: 'admin-web',
+      capabilityId: capability.id,
+      capabilityName: capability.name,
+      dryRun: false,
+      renderedCommands,
+      outputs: result.outputs,
+      verification: result.verification,
+      blockedReason: result.blockedReason,
+    },
+  });
+  return result;
+}
+
 async function runRconCommand(gameCommand, settings) {
   const shellTemplate = getRconTemplate();
   if (!shellTemplate) {
@@ -1144,20 +2749,26 @@ async function runRconCommand(gameCommand, settings) {
     throw new Error('RCON_PASSWORD is required by template');
   }
 
-  const shellCommand = substituteTemplate(shellTemplate, {
-    host,
-    port,
-    password,
-    command: gameCommand,
-  });
-
-  const { stdout, stderr } = await runShell(shellCommand, settings.commandTimeoutMs);
+  const result = await executeCommandTemplate(
+    shellTemplate,
+    {
+      host,
+      port,
+      password,
+      command: gameCommand,
+    },
+    {
+      timeoutMs: settings.commandTimeoutMs,
+      windowsHide: true,
+      cwd: process.cwd(),
+    },
+  );
   return {
     mode: 'rcon',
     command: gameCommand,
-    shellCommand,
-    stdout: trimText(stdout, 1200),
-    stderr: trimText(stderr, 1200),
+    shellCommand: result.displayCommand,
+    stdout: trimText(result.stdout, 1200),
+    stderr: trimText(result.stderr, 1200),
   };
 }
 
@@ -1248,6 +2859,9 @@ async function getDeliveryRuntimeStatus() {
       retryBackoff: settings.retryBackoff,
       commandTimeoutMs: settings.commandTimeoutMs,
       failedStatus: settings.failedStatus,
+      verifyMode: settings.verifyMode,
+      verifySuccessPatternConfigured: Boolean(settings.verifySuccessPattern),
+      verifyFailurePatternConfigured: Boolean(settings.verifyFailurePattern),
       wikiWeaponCommandFallbackEnabled:
         settings.wikiWeaponCommandFallbackEnabled === true,
       itemManifestCommandFallbackEnabled:
@@ -1314,19 +2928,18 @@ async function getDeliveryRuntimeStatus() {
 
   runtime.workerSource = workerStarted ? 'local-process' : 'current-process';
 
+  const preflightSummary = await getDeliveryPreflightReport({ settings });
+  runtime.preflightSummary = {
+    ready: preflightSummary.ready,
+    reason: preflightSummary.reason,
+    failures: preflightSummary.failures,
+    warnings: preflightSummary.warnings,
+    checks: preflightSummary.checks,
+  };
+
   runtime.readiness = {
-    ready:
-      settings.enabled
-      && (
-        settings.executionMode !== 'agent'
-        || Boolean(runtime.agent?.ready)
-      ),
-    reason:
-      !settings.enabled
-        ? 'delivery-disabled'
-        : settings.executionMode === 'agent' && !runtime.agent?.ready
-          ? String(runtime.agent?.preflight?.errorCode || runtime.agent?.health?.statusCode || 'agent-not-ready')
-          : 'ready',
+    ready: preflightSummary.ready,
+    reason: preflightSummary.reason,
   };
 
   return runtime;
@@ -1395,6 +3008,7 @@ async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
         commandSummary: meta.commandSummary || null,
       };
     });
+  const timeline = buildDeliveryTimeline(statusHistory, auditRows);
 
   return {
     purchaseCode: code,
@@ -1404,6 +3018,7 @@ async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
     link,
     statusHistory,
     auditRows,
+    timeline,
     stepLog,
     latestCommandSummary: latestCommandAudit?.meta?.commandSummary || null,
     latestOutputs: Array.isArray(latestCommandAudit?.meta?.outputs)
@@ -1989,6 +3604,7 @@ function addDeliveryDeadLetter(job, reason, meta = null) {
     reason: row.reason,
     count: deadLetters.size,
   });
+  maybeAlertDeadLetterThreshold();
   return { ...row };
 }
 
@@ -2106,6 +3722,56 @@ function maybeAlertFailRate(snapshot) {
   publishAdminLiveUpdate('ops-alert', payload);
 }
 
+function getConsecutiveFailureCount() {
+  let count = 0;
+  for (let index = deliveryOutcomes.length - 1; index >= 0; index -= 1) {
+    if (deliveryOutcomes[index]?.ok) break;
+    count += 1;
+  }
+  return count;
+}
+
+function maybeAlertDeadLetterThreshold() {
+  if (deadLetters.size < DEAD_LETTER_ALERT_THRESHOLD) return;
+  const now = Date.now();
+  if (now - lastDeadLetterAlertAt < ALERT_COOLDOWN_MS) return;
+  lastDeadLetterAlertAt = now;
+
+  const payload = {
+    source: 'delivery',
+    kind: 'dead-letter-threshold',
+    deadLetterCount: deadLetters.size,
+    threshold: DEAD_LETTER_ALERT_THRESHOLD,
+  };
+  console.warn(
+    `[delivery][alert] dead-letter threshold: count=${deadLetters.size} threshold=${DEAD_LETTER_ALERT_THRESHOLD}`,
+  );
+  publishAdminLiveUpdate('ops-alert', payload);
+}
+
+function maybeAlertConsecutiveFailures() {
+  const consecutiveFailures = getConsecutiveFailureCount();
+  if (consecutiveFailures < CONSECUTIVE_FAILURE_ALERT_THRESHOLD) return;
+  const now = Date.now();
+  if (now - lastConsecutiveFailureAlertAt < ALERT_COOLDOWN_MS) return;
+  lastConsecutiveFailureAlertAt = now;
+
+  const payload = {
+    source: 'delivery',
+    kind: 'consecutive-failures',
+    consecutiveFailures,
+    threshold: CONSECUTIVE_FAILURE_ALERT_THRESHOLD,
+    lastPurchaseCode:
+      deliveryOutcomes.length > 0
+        ? deliveryOutcomes[deliveryOutcomes.length - 1]?.purchaseCode || null
+        : null,
+  };
+  console.warn(
+    `[delivery][alert] consecutive failures: count=${consecutiveFailures} threshold=${CONSECUTIVE_FAILURE_ALERT_THRESHOLD}`,
+  );
+  publishAdminLiveUpdate('ops-alert', payload);
+}
+
 function recordDeliveryOutcome(ok, context = {}) {
   deliveryOutcomes.push({
     at: Date.now(),
@@ -2114,6 +3780,11 @@ function recordDeliveryOutcome(ok, context = {}) {
   });
   const snapshot = getDeliveryMetricsSnapshot();
   maybeAlertFailRate(snapshot);
+  if (ok === true) {
+    lastConsecutiveFailureAlertAt = 0;
+  } else {
+    maybeAlertConsecutiveFailures();
+  }
   return snapshot;
 }
 
@@ -2244,6 +3915,10 @@ async function handleRetry(job, reasonInput) {
       errorCode: failure.code,
       retryable: failure.retryable,
       step: failure.step,
+      stage: 'failed',
+      source: 'worker',
+      status: 'failed',
+      title: 'Delivery failed',
       recoveryHint: failure.recoveryHint,
       command: failure.command,
       failureMeta: failure.meta,
@@ -2292,6 +3967,10 @@ async function handleRetry(job, reasonInput) {
       errorCode: failure.code,
       retryable: failure.retryable,
       step: failure.step,
+      stage: 'retry',
+      source: 'worker',
+      status: 'retrying',
+      title: 'Retry scheduled',
       recoveryHint: failure.recoveryHint,
       command: failure.command,
       failureMeta: failure.meta,
@@ -2300,6 +3979,8 @@ async function handleRetry(job, reasonInput) {
     });
 }
 
+// A single job execution reuses the same preview, preflight, command execution, and
+// verification pipeline exposed to admin tooling to keep behavior consistent.
 async function processJob(job) {
   const purchaseCode = String(job?.purchaseCode || '').trim();
   if (!purchaseCode) {
@@ -2343,6 +4024,15 @@ async function processJob(job) {
       removeJob(purchaseCode);
       return;
     }
+
+    queueAudit('info', 'worker-picked', job, 'Worker picked delivery job', {
+      step: 'worker-picked',
+      stage: 'worker',
+      source: 'worker',
+      status: 'running',
+      title: 'Worker picked job',
+      purchaseStatus: purchase.status || null,
+    });
 
     const shopItem = await getShopItemById(purchase.itemId).catch(() => null);
     const resolvedDeliveryItems = normalizeDeliveryItemsForJob(
@@ -2452,10 +4142,28 @@ async function processJob(job) {
       return;
     }
 
+    queueAudit('info', 'preflight-start', job, 'Delivery preflight started', {
+      step: 'preflight-start',
+      stage: 'preflight',
+      source: settings.executionMode === 'agent' ? 'agent' : 'rcon',
+      status: 'running',
+      title: 'Preflight started',
+      context,
+    });
+
     const preflightState = await runDeliveryPreflight(job, settings, {
       purchaseCode: purchase.code,
       itemId: purchase.itemId,
       steamId: link.steamId,
+      itemName: context.itemName,
+      gameItemId: context.gameItemId,
+      quantity: context.quantity,
+      itemKind: context.itemKind,
+      userId: context.userId,
+      inGameName: context.inGameName,
+      teleportMode: context.teleportMode,
+      teleportTarget: context.teleportTarget,
+      deliveryItems: resolvedDeliveryItems,
     });
 
     const preCommands = agentHooks.preCommands;
@@ -2466,15 +4174,68 @@ async function processJob(job) {
       commandList,
       deliveryItem = null,
     ) => {
-        const normalizedCommands = (Array.isArray(commandList) ? commandList : [])
+      const normalizedCommands = (Array.isArray(commandList) ? commandList : [])
         .map((entry) => String(entry || '').trim())
         .filter(Boolean);
+      const unresolved = collectUnresolvedPlaceholders(normalizedCommands);
+      if (unresolved.length > 0) {
+        throw createDeliveryError(
+          'DELIVERY_TEMPLATE_PLACEHOLDER_MISSING',
+          `Unresolved placeholders: ${unresolved.join(', ')}`,
+          {
+            retryable: false,
+            step: `${phase}-command`,
+            recoveryHint: 'เติมค่าที่จำเป็นให้ command template เช่น teleportTarget, returnTarget หรือ announceText',
+            meta: {
+              phase,
+              unresolvedPlaceholders: unresolved,
+              deliveryItem,
+            },
+          },
+        );
+      }
       for (let i = 0; i < normalizedCommands.length; i += 1) {
         const gameCommand = normalizedCommands[i];
+        const operation = classifyCommandOperation(gameCommand, phase);
+        queueAudit('info', 'command-dispatch', job, operation.title, {
+          phase,
+          step: operation.step,
+          stage: operation.stage,
+          source: phase === 'item' ? 'game-command' : 'agent-hook',
+          status: 'running',
+          title: operation.title,
+          commandTitle: operation.title,
+          command: gameCommand,
+          commandIndex: i + 1,
+          commandCount: normalizedCommands.length,
+          deliveryItem,
+        });
         let output;
         try {
           output = await runGameCommand(gameCommand, settings);
         } catch (error) {
+          queueAudit(
+            'error',
+            'command-failed',
+            job,
+            `${operation.title} failed: ${trimText(error?.message || 'Game command execution failed', 300)}`,
+            {
+              phase,
+              step: operation.step,
+              stage: operation.stage,
+              source: phase === 'item' ? 'game-command' : 'agent-hook',
+              status: 'failed',
+              title: `${operation.title} failed`,
+              commandTitle: operation.title,
+              command: gameCommand,
+              commandIndex: i + 1,
+              commandCount: normalizedCommands.length,
+              deliveryItem,
+              errorCode:
+                String(error?.deliveryCode || error?.agentCode || error?.code || 'DELIVERY_COMMAND_EXEC_FAILED'),
+              retryable: error?.retryable !== false,
+            },
+          );
           throw createDeliveryError(
             error?.deliveryCode || error?.agentCode || 'DELIVERY_COMMAND_EXEC_FAILED',
             error?.message || 'Game command execution failed',
@@ -2503,6 +4264,37 @@ async function processJob(job) {
           command: output.command,
           stdout: output.stdout,
           stderr: output.stderr,
+        });
+        queueAudit('info', 'command-ok', job, operation.title, {
+          phase,
+          step: operation.step,
+          stage: operation.stage,
+          source:
+            output.mode === 'agent'
+              ? phase === 'item'
+                ? 'game-command'
+                : 'agent-hook'
+              : 'rcon',
+          status: 'ok',
+          title: `${operation.title} complete`,
+          commandTitle: operation.title,
+          command: output.command,
+          commandIndex: i + 1,
+          commandCount: normalizedCommands.length,
+          deliveryItem,
+          outputs: [
+            {
+              phase,
+              mode: output.mode || settings.executionMode,
+              backend: output.backend || null,
+              gameItemId: deliveryItem?.gameItemId || null,
+              quantity: deliveryItem?.quantity || null,
+              command: output.command,
+              stdout: output.stdout,
+              stderr: output.stderr,
+            },
+          ],
+          commandSummary: output.command,
         });
         if (
           settings.executionMode === 'agent'
@@ -2556,6 +4348,52 @@ async function processJob(job) {
     }
     await executePhaseCommands('post', postCommands);
 
+    const verification = await verifyDeliveryExecution(outputs, settings, {
+      purchaseCode,
+    });
+    if (!verification.ok) {
+      queueAudit('warn', 'verify-failed', job, `Delivery verification failed: ${verification.reason || 'verify failed'}`, {
+        step: 'verify-failed',
+        stage: 'verify',
+        source: 'worker',
+        status: 'failed',
+        title: 'Verification failed',
+        preflightState,
+        steamId: link.steamId,
+        deliveryItems: resolvedDeliveryItems,
+        outputs,
+        verification,
+        errorCode: verification.reason || 'DELIVERY_VERIFY_FAILED',
+        retryable: true,
+        recoveryHint: 'ตรวจ output ของ command, watcher health และ verify policy ก่อน retry',
+      });
+      throw createDeliveryError(
+        verification.reason || 'DELIVERY_VERIFY_FAILED',
+        verification.failures?.[0]?.detail || 'Delivery verification failed',
+        {
+          retryable: true,
+          step: 'verify',
+          recoveryHint: 'ตรวจ output ของ command, watcher health และ verify policy ก่อน retry',
+          meta: {
+            verification,
+            preflightState,
+          },
+        },
+      );
+    }
+    queueAudit('info', 'verify-ok', job, 'Delivery verification passed', {
+      step: 'verify-success',
+      stage: 'verify',
+      source: 'worker',
+      status: 'ok',
+      title: 'Verification passed',
+      preflightState,
+      steamId: link.steamId,
+      deliveryItems: resolvedDeliveryItems,
+      outputs,
+      verification,
+    });
+
     await setPurchaseStatusByCode(purchaseCode, 'delivered', {
       actor: 'delivery-worker',
       reason: 'delivery-success',
@@ -2576,12 +4414,18 @@ async function processJob(job) {
         ? `Auto delivery complete | commands: ${commandSummary}`
         : 'Auto delivery complete',
       {
-      preflightState,
-      steamId: link.steamId,
-      deliveryItems: resolvedDeliveryItems,
-      outputs,
-      commandSummary: commandSummary || null,
-    },
+        step: 'completed',
+        stage: 'completed',
+        source: 'worker',
+        status: 'completed',
+        title: 'Delivery completed',
+        preflightState,
+        verification,
+        steamId: link.steamId,
+        deliveryItems: resolvedDeliveryItems,
+        outputs,
+        commandSummary: commandSummary || null,
+      },
     );
     const deliveredItemsText = trimText(
       resolvedDeliveryItems
@@ -2613,7 +4457,13 @@ async function processDueJobOnce() {
   }
 
   workerBusy = true;
-  queueAudit('info', 'attempt', job, 'Processing auto-delivery job');
+  queueAudit('info', 'attempt', job, 'Processing auto-delivery job', {
+    step: 'worker-picked',
+    stage: 'worker',
+    source: 'worker',
+    status: 'running',
+    title: 'Worker processing job',
+  });
   try {
     await processJob(job);
     return { processed: true, purchaseCode: job.purchaseCode, ok: true };
@@ -2630,6 +4480,8 @@ async function processDueJobOnce() {
   }
 }
 
+// Admin-triggered retries and the background worker both flow through this pump so queue
+// semantics stay identical no matter which runtime is currently driving delivery.
 async function processDeliveryQueueNow(limit = 1) {
   await syncDeliveryPersistenceStore({ force: true });
   const max = Math.max(1, Math.trunc(Number(limit || 1)));
@@ -2824,7 +4676,14 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     actor: 'delivery-worker',
     reason: 'delivery-enqueued',
   }).catch(() => null);
-  queueAudit('info', 'queued', job, 'Queued purchase for auto-delivery');
+  queueAudit('info', 'queued', job, 'Queued purchase for auto-delivery', {
+    step: 'queued',
+    stage: 'queue',
+    source: 'worker',
+    status: 'queued',
+    title: 'Queued',
+    deliveryItems: resolvedDeliveryItems,
+  });
   kickWorker(20);
   return { queued: true, reason: 'queued' };
 }
@@ -2848,7 +4707,13 @@ function retryDeliveryNow(purchaseCode) {
     updatedAt: nowIso(),
     lastError: null,
   });
-  queueAudit('info', 'manual-retry', job, 'Manual retry requested');
+  queueAudit('info', 'manual-retry', job, 'Manual retry requested', {
+    step: 'manual-retry',
+    stage: 'retry',
+    source: 'admin',
+    status: 'retrying',
+    title: 'Manual retry requested',
+  });
   kickWorker(20);
   return { ...jobs.get(code) };
 }
@@ -2866,7 +4731,13 @@ async function retryDeliveryDeadLetter(purchaseCode, context = {}) {
   }
 
   removeDeliveryDeadLetter(code);
-  queueAudit('info', 'dead-letter-retry', deadLetter, 'Retry dead-letter queued');
+  queueAudit('info', 'dead-letter-retry', deadLetter, 'Retry dead-letter queued', {
+    step: 'dead-letter-retry',
+    stage: 'retry',
+    source: 'admin',
+    status: 'retrying',
+    title: 'Dead-letter requeued',
+  });
   publishAdminLiveUpdate('delivery-dead-letter', {
     action: 'retry',
     purchaseCode: code,
@@ -2921,7 +4792,13 @@ function cancelDeliveryJob(purchaseCode, reason = 'manual-cancel') {
   const job = jobs.get(code);
   if (!job) return null;
   removeJob(code);
-  queueAudit('warn', 'manual-cancel', job, `Queue job cancelled: ${reason}`);
+  queueAudit('warn', 'manual-cancel', job, `Queue job cancelled: ${reason}`, {
+    step: 'manual-cancel',
+    stage: 'cancelled',
+    source: 'admin',
+    status: 'cancelled',
+    title: 'Queue job cancelled',
+  });
   return { ...job };
 }
 
@@ -2954,9 +4831,15 @@ module.exports = {
   listDeliveryAudit,
   getDeliveryMetricsSnapshot,
   getDeliveryRuntimeStatus,
+  getDeliveryPreflightReport,
   processDeliveryQueueNow,
   previewDeliveryCommands,
+  simulateDeliveryPlan,
   sendTestDeliveryCommand,
+  listScumAdminCommandCapabilities,
+  testScumAdminCommandCapability,
+  getDeliveryCommandOverride,
+  setDeliveryCommandOverride,
   getDeliveryDetailsByPurchaseCode,
 };
 

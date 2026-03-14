@@ -16,6 +16,8 @@ const {
 const {
   buildBundleSummary,
   normalizeShopKind,
+  isVipShopKind,
+  isGameItemShopKind,
 } = require('../services/shopService');
 const {
   buildTopKillerEmbed,
@@ -34,13 +36,20 @@ function buildDeliverySummaryLines(item, maxRows = 4) {
 function buildShopEmbed(item, imageUrl) {
   const resolvedImageUrl = imageUrl || resolveItemIconUrl(item);
   const kind = normalizeShopKind(item.kind);
-  const metaLines = kind === 'item'
+  const isVip = isVipShopKind(kind);
+  const isGameItem = isGameItemShopKind(kind);
+  const metaLines = isGameItem
     ? [
         `**ประเภท:** ITEM`,
         ...buildDeliverySummaryLines(item),
       ]
-    : [
+    : isVip
+      ? [
         '**ประเภท:** VIP',
+      ]
+      : [
+        `**ประเภท:** ${kind.toUpperCase()}`,
+        '**การส่งมอบ:** ทีมงานจัดการในเกม',
       ];
   const embed = new EmbedBuilder()
     .setColor(0x22c55e)

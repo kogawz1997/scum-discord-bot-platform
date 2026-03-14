@@ -2,7 +2,12 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { economy } = require('../config');
 const { resolveItemIconUrl } = require('../services/itemIconService');
 const { listShopItemViews } = require('../services/playerQueryService');
-const { normalizeShopKind, buildBundleSummary } = require('../services/shopService');
+const {
+  normalizeShopKind,
+  isVipShopKind,
+  isGameItemShopKind,
+  buildBundleSummary,
+} = require('../services/shopService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,10 +24,14 @@ module.exports = {
       const iconUrl = resolveItemIconUrl(item);
       const iconLink = iconUrl ? `[🖼️](${iconUrl}) ` : '';
       const kind = normalizeShopKind(item.kind);
+      const isVip = isVipShopKind(kind);
+      const isGameItem = isGameItemShopKind(kind);
       const bundle = buildBundleSummary(item, 2);
-      const metaLine = kind === 'item'
+      const metaLine = isGameItem
         ? bundle.long
-        : 'แพ็กเกจ: **VIP**';
+        : isVip
+          ? 'แพ็กเกจ: **VIP**'
+          : 'การส่งมอบ: **ทีมงานจัดการในเกม**';
 
       return [
         `${iconLink}**${item.name}**`,

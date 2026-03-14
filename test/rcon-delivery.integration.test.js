@@ -28,6 +28,51 @@ const depPaths = {
   ),
 };
 
+const DELIVERY_ENV_KEYS = [
+  'RCON_EXEC_TEMPLATE',
+  'RCON_HOST',
+  'RCON_PORT',
+  'RCON_PASSWORD',
+  'RCON_PROTOCOL',
+  'DELIVERY_EXECUTION_MODE',
+  'DELIVERY_QUEUE_INTERVAL_MS',
+  'DELIVERY_MAX_RETRIES',
+  'DELIVERY_RETRY_DELAY_MS',
+  'DELIVERY_RETRY_BACKOFF',
+  'DELIVERY_COMMAND_TIMEOUT_MS',
+  'DELIVERY_FAILED_STATUS',
+  'DELIVERY_WIKI_WEAPON_COMMAND_FALLBACK_ENABLED',
+  'DELIVERY_ITEM_MANIFEST_COMMAND_FALLBACK_ENABLED',
+  'SCUM_CONSOLE_AGENT_BASE_URL',
+  'SCUM_CONSOLE_AGENT_TOKEN',
+  'SCUM_CONSOLE_AGENT_BACKEND',
+  'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE',
+  'DELIVERY_AGENT_PRE_COMMANDS_JSON',
+  'DELIVERY_AGENT_POST_COMMANDS_JSON',
+  'DELIVERY_AGENT_COMMAND_DELAY_MS',
+  'DELIVERY_AGENT_POST_TELEPORT_DELAY_MS',
+  'DELIVERY_MAGAZINE_STACKCOUNT',
+  'DELIVERY_AGENT_TELEPORT_MODE',
+  'DELIVERY_AGENT_TELEPORT_TARGET',
+  'DELIVERY_AGENT_RETURN_TARGET',
+  'DELIVERY_VERIFY_MODE',
+  'DELIVERY_VERIFY_SUCCESS_REGEX',
+  'DELIVERY_VERIFY_FAILURE_REGEX',
+  'DELIVERY_VERIFY_OBSERVER_WINDOW_MS',
+  'SCUM_WATCHER_HEALTH_HOST',
+  'SCUM_WATCHER_HEALTH_PORT',
+  'WORKER_ENABLE_DELIVERY',
+  'BOT_ENABLE_DELIVERY_WORKER',
+  'WORKER_HEALTH_HOST',
+  'WORKER_HEALTH_PORT',
+];
+
+function restoreDeliveryEnvBaseline() {
+  for (const key of DELIVERY_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
 function installMock(modulePath, exportsValue) {
   delete require.cache[modulePath];
   require.cache[modulePath] = {
@@ -161,18 +206,12 @@ function makeTestContext(overrides = {}) {
   };
 }
 
+test.beforeEach(() => {
+  restoreDeliveryEnvBaseline();
+});
+
 test.afterEach(() => {
-  delete process.env.RCON_EXEC_TEMPLATE;
-  delete process.env.DELIVERY_EXECUTION_MODE;
-  delete process.env.SCUM_CONSOLE_AGENT_BASE_URL;
-  delete process.env.SCUM_CONSOLE_AGENT_TOKEN;
-  delete process.env.DELIVERY_AGENT_PRE_COMMANDS_JSON;
-  delete process.env.DELIVERY_AGENT_POST_COMMANDS_JSON;
-  delete process.env.DELIVERY_AGENT_COMMAND_DELAY_MS;
-  delete process.env.DELIVERY_MAGAZINE_STACKCOUNT;
-  delete process.env.DELIVERY_AGENT_TELEPORT_MODE;
-  delete process.env.DELIVERY_AGENT_TELEPORT_TARGET;
-  delete process.env.DELIVERY_AGENT_RETURN_TARGET;
+  restoreDeliveryEnvBaseline();
   delete require.cache[rconDeliveryPath];
   for (const dep of Object.values(depPaths)) {
     delete require.cache[dep];
@@ -335,6 +374,122 @@ test('purchase -> queue -> auto-delivery success via console agent mode', async 
     assert.equal(successAudit.meta.outputs[0].mode, 'agent');
     assert.equal(successAudit.meta.commandSummary, '#SpawnItem Weapon_AK47 1');
     assert.match(String(successAudit.message || ''), /#SpawnItem Weapon_AK47 1/);
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent mode verification succeeds when output-match regex matches command output', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-verify-success';
+  process.env.DELIVERY_VERIFY_MODE = 'output-match';
+  process.env.DELIVERY_VERIFY_SUCCESS_REGEX = 'EXECUTED:#SpawnItem Weapon_AK47 1';
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-verify-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-125V', {
+    code: 'P-125V',
+    userId: 'u-1',
+    itemId: 'agent-verify-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-verify-ak', {
+    id: 'agent-verify-ak',
+    name: 'Agent Verify AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-125V', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125V').status, 'delivered');
+
+    const verifyAudit = ctx.audits.find(
+      (entry) => entry.action === 'verify-ok' && entry.purchaseCode === 'P-125V',
+    );
+    assert.ok(verifyAudit, 'expected verify-ok audit entry');
+
+    const successAudit = ctx.audits.find(
+      (entry) => entry.action === 'success' && entry.purchaseCode === 'P-125V',
+    );
+    assert.ok(successAudit, 'expected success audit entry');
+    assert.equal(Boolean(successAudit.meta?.verification?.ok), true);
+    assert.equal(String(successAudit.meta?.verification?.mode || ''), 'output-match');
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent mode verification failure moves job to dead-letter after command execution', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-verify-fail';
+  process.env.DELIVERY_VERIFY_MODE = 'output-match';
+  process.env.DELIVERY_VERIFY_SUCCESS_REGEX = 'THIS_WILL_NOT_MATCH';
+
+  const ctx = makeTestContext({
+    config: {
+      delivery: {
+        auto: {
+          enabled: true,
+          queueIntervalMs: 100,
+          maxRetries: 0,
+          retryDelayMs: 10,
+          retryBackoff: 1,
+          commandTimeoutMs: 2000,
+          failedStatus: 'delivery_failed',
+          itemCommands: {
+            'agent-verify-fail-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+          },
+        },
+      },
+    },
+  });
+
+  ctx.purchases.set('P-125F', {
+    code: 'P-125F',
+    userId: 'u-1',
+    itemId: 'agent-verify-fail-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-verify-fail-ak', {
+    id: 'agent-verify-fail-ak',
+    name: 'Agent Verify Fail AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-125F', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125F').status, 'delivery_failed');
+    assert.equal(api.listDeliveryQueue().length, 0);
+    assert.equal(api.listDeliveryDeadLetters().length, 1);
+
+    const verifyAudit = ctx.audits.find(
+      (entry) => entry.action === 'verify-failed' && entry.purchaseCode === 'P-125F',
+    );
+    assert.ok(verifyAudit, 'expected verify-failed audit entry');
+    assert.match(String(verifyAudit.message || ''), /verification failed/i);
   } finally {
     await agent.close();
   }
@@ -728,6 +883,40 @@ test('previewDeliveryCommands preserves explicit StackCount in template', async 
   assert.deepEqual(preview.serverCommands, [
     '#SpawnItem 76561198012345678 Magazine_M1911 1 StackCount 50',
   ]);
+});
+
+test('testScumAdminCommandCapability returns ready dry-run plan for builtin delivery sequence', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-capability';
+  process.env.DELIVERY_VERIFY_MODE = 'output-match';
+  process.env.DELIVERY_VERIFY_SUCCESS_REGEX = 'EXECUTED:#SpawnItem Weapon_M1911 1';
+
+  const ctx = makeTestContext();
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const result = await api.testScumAdminCommandCapability({
+      capabilityId: 'announce-teleport-spawn',
+      dryRun: true,
+    });
+
+    assert.equal(result.ready, true);
+    assert.equal(result.dryRun, true);
+    assert.equal(String(result.capability?.id || ''), 'announce-teleport-spawn');
+    assert.deepEqual(result.renderedCommands, [
+      '#Announce DELIVERY TEST',
+      '#TeleportTo "Coke TAMTHAI"',
+      '#SpawnItem Weapon_M1911 1',
+      '#TeleportTo "Admin Anchor"',
+    ]);
+    assert.equal(String(result.summary?.verificationMode || ''), 'output-match');
+    assert.ok(Array.isArray(result.timeline));
+    assert.ok(result.timeline.length >= 5);
+  } finally {
+    await agent.close();
+  }
 });
 
 test('previewDeliveryCommands includes agent execution plan', async () => {
