@@ -1,5 +1,5 @@
 {
-  "name": "discord",
+  "name": "@kogawz1997/scum-platform",
   "version": "1.0.0",
   "description": "SCUM Discord server bot (economy, shop, tickets, stats)",
   "main": "src/bot.js",
@@ -12,7 +12,7 @@
     "start:worker": "node src/worker.js",
     "start:scum-agent": "node src/scum-console-agent.js",
     "scum:agent:exec": "node scripts/send-scum-agent-command.js",
-    "start:watcher": "node scum-log-watcher.js",
+    "start:watcher": "node src/services/scumLogWatcherRuntime.js",
     "start:web-standalone": "node apps/web-portal-standalone/server.js",
     "preview:spawn": "node scripts/preview-spawn-command.js",
     "cleanup:test-data": "node scripts/cleanup-test-data.js",
@@ -28,7 +28,7 @@
     "doctor:web-standalone": "node apps/web-portal-standalone/scripts/doctor.js",
     "doctor:web-standalone:prod": "node apps/web-portal-standalone/scripts/doctor.js --production",
     "register-commands": "node src/register-commands.js",
-    "watch-scum": "node scum-log-watcher.js",
+    "watch-scum": "node src/services/scumLogWatcherRuntime.js",
     "test": "node --test --test-concurrency=1",
     "lint": "node scripts/check-js-syntax.js && node scripts/check-text-encoding.js",
     "check": "npm run lint && npm test",
@@ -38,7 +38,10 @@
     "readiness:prod:audit": "node scripts/readiness-gate.js --production --with-audit",
     "preflight:prod": "node scripts/preflight-prod.js",
     "smoke:postdeploy": "node scripts/post-deploy-smoke.js",
+    "admin:sso:roles": "node scripts/export-admin-discord-roles.js",
     "security:check": "node scripts/security-check.js",
+    "security:scan-secrets": "node scripts/secret-scan.js",
+    "security:scan-secrets:staged": "node scripts/secret-scan.js --staged",
     "security:generate-secrets": "node scripts/generate-secrets.js",
     "security:generate-admin-2fa": "node scripts/generate-admin-2fa-secret.js",
     "security:scaffold-split-env": "node scripts/scaffold-split-origin-env.js",
@@ -46,6 +49,7 @@
     "security:activate-split-env": "node scripts/activate-split-origin-env.js",
     "security:rotate:prod:dry": "node scripts/rotate-production-secrets.js",
     "security:rotate:prod": "node scripts/rotate-production-secrets.js --write",
+    "hooks:install": "node scripts/install-git-hooks.js",
     "deploy:oneclick:win": "deploy\\one-click-production.cmd",
     "platform:schema:upgrade": "node scripts/platform-schema-upgrade.js",
     "platform:bootstrap:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/platform-bootstrap.ps1"
@@ -56,9 +60,20 @@
     "scum",
     "game-server"
   ],
-  "author": "",
+  "author": "kogawz1997 <tawepornchok@gmail.com>",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kogawz1997/Scum-bot-discord-Full-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kogawz1997/Scum-bot-discord-Full-/issues"
+  },
+  "homepage": "https://github.com/kogawz1997/Scum-bot-discord-Full-#readme",
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "discord.js": "^14.25.1",

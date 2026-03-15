@@ -1265,9 +1265,102 @@
 
     .toast.show { opacity: 1; transform: translateY(0); }
 
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 10, 19, 0.72);
+      backdrop-filter: blur(4px);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-backdrop[hidden] { display: none; }
+
+    .modal-card {
+      width: min(520px, 100%);
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(165deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+        var(--card);
+      box-shadow: var(--shadow-lg);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .modal-card h3 {
+      margin: 0;
+      font-family: "Teko", sans-serif;
+      font-size: 24px;
+      letter-spacing: 0.3px;
+    }
+
+    .modal-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .auth-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .auth-grid .form-card {
+      min-height: 100%;
+    }
+
+    .auth-session-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .auth-session-table .row-actions {
+      justify-content: flex-start;
+    }
+
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .auth-badge.warn {
+      color: var(--warn);
+      border-color: rgba(219, 169, 103, 0.3);
+      background: rgba(219, 169, 103, 0.12);
+    }
+
+    .auth-badge.error {
+      color: var(--danger);
+      border-color: rgba(233, 142, 132, 0.3);
+      background: rgba(233, 142, 132, 0.12);
+    }
+
     @media (max-width: 1350px) {
       .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .form-grid > button { grid-column: 1 / -1; }
+      .auth-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 1180px) {
@@ -1361,6 +1454,7 @@
               <button class="tab-btn" data-tab="players" data-tab-label="ผู้เล่น player vip redeem link steam code" type="button">ผู้เล่น + VIP + ระบบแลกรางวัล<span class="desc">ลิงก์, VIP, โค้ด</span></button>
               <button class="tab-btn" data-tab="moderation" data-tab-label="ลงโทษ moderation สถิติ stats ต้อนรับ welcome" type="button">ลงโทษ + สถิติ + ต้อนรับ<span class="desc">ดูแล, สถิติ, ต้อนรับ</span></button>
               <button class="tab-btn" data-tab="delivery" data-tab-label="ส่งของ delivery rcon queue เช่ามอไซ rentbike" type="button">ส่งของ RCON + เช่ามอไซ<span class="desc">คิว, ลองใหม่, รีเซ็ต</span></button>
+              <button class="tab-btn" data-tab="auth" data-min-role="admin" data-tab-label="auth security session role matrix anomaly step-up revoke" type="button">Auth + Security<span class="desc">session, anomaly, role matrix</span></button>
               <button class="tab-btn" data-tab="platform" data-tab-label="platform tenant billing subscription license webhook api marketplace agent monitoring" type="button">Platform Center<span class="desc">tenant, billing, legal, API</span></button>
               <button class="tab-btn" data-tab="metrics" data-tab-label="metrics observability timeline charts alert webhook login delivery" type="button">Metrics Timeline<span class="desc">กราฟเวลา + แนวโน้มระบบ</span></button>
               <button class="tab-btn" data-tab="config" data-tab-label="คอนฟิก config setting patch" type="button">แก้ไขคอนฟิก<span class="desc">แก้บางส่วน / ตั้งค่าทั้งหมด</span></button>
@@ -2366,6 +2460,109 @@
               </form>
             </section>
 
+            <section class="tab-panel" data-tab-panel="auth">
+              <div class="tab-panel-head">
+                <h3>Auth และ Security Control</h3>
+                <p>ดู session ปัจจุบัน, security events, anomaly ล่าสุด, และ role matrix ที่ใช้บังคับบน admin routes</p>
+              </div>
+
+              <div class="auth-grid">
+                <div class="form-card">
+                  <h4>Security Summary</h4>
+                  <p class="help">สรุป health ฝั่ง admin auth, step-up และเหตุการณ์ผิดปกติที่ควรเห็นทันที</p>
+                  <div id="authSecuritySummary" class="summary"></div>
+                  <div class="form-grid">
+                    <button type="button" id="authSecurityRefreshBtn" class="ghost" data-min-role="admin">รีเฟรชข้อมูล Auth</button>
+                  </div>
+                </div>
+
+                <div class="form-card">
+                  <h4>Session Controls</h4>
+                  <p class="help">revoke session รายตัว, ทั้ง user, หรือ current session เมื่อสงสัยว่าบัญชีผิดปกติ</p>
+                  <form id="authSessionRevokeForm" class="form-grid">
+                    <label class="field">
+                      <span>Session ID</span>
+                      <input name="sessionId" placeholder="ปล่อยว่างถ้าจะ revoke ด้วย user/current">
+                    </label>
+                    <label class="field">
+                      <span>Target User</span>
+                      <input name="targetUser" placeholder="เช่น owner_stepup">
+                    </label>
+                    <label class="field wide">
+                      <span>เหตุผล</span>
+                      <input name="reason" placeholder="เช่น suspicious-login" value="manual-revoke">
+                    </label>
+                    <label class="field">
+                      <span>Current Session</span>
+                      <select name="current">
+                        <option value="">ปิด</option>
+                        <option value="true">เปิด</option>
+                      </select>
+                    </label>
+                    <button type="submit" class="danger" data-min-role="owner">Revoke Session</button>
+                  </form>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <h4>Auth Explorer Filters</h4>
+                <p class="help">ค้นพร้อมกันทั้ง security events, active sessions และ role matrix เพื่อ debug production ได้เร็วขึ้น</p>
+                <form id="authFilterForm" class="form-grid">
+                  <label class="field">
+                    <span>ค้นรวม</span>
+                    <input id="authSearchInput" name="search" placeholder="เช่น owner, step-up, session-revoked, /admin/api/config/patch">
+                  </label>
+                  <label class="field">
+                    <span>Severity</span>
+                    <select id="authSeveritySelect" name="severity">
+                      <option value="">ทั้งหมด</option>
+                      <option value="info">info</option>
+                      <option value="warn">warn</option>
+                      <option value="error">error</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Event Type</span>
+                    <input id="authEventTypeInput" name="eventType" placeholder="เช่น step-up-succeeded">
+                  </label>
+                  <label class="field">
+                    <span>Anomaly Only</span>
+                    <select id="authAnomalyOnlySelect" name="anomalyOnly">
+                      <option value="">ปิด</option>
+                      <option value="true">เฉพาะ warn/error</option>
+                    </select>
+                  </label>
+                  <div class="inline-actions">
+                    <button type="submit" class="ghost" data-min-role="admin">Apply Filter</button>
+                    <button type="button" id="authFilterResetBtn" class="ghost" data-min-role="admin">Reset Filter</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="form-card">
+                <h4>Active Sessions</h4>
+                <p class="help">ดู session ทั้งหมดที่ยัง active พร้อมอายุ, step-up state และ revoke action รายตัว</p>
+                <div id="authSessionTableWrap" class="table-wrap auth-session-table"></div>
+              </div>
+
+              <div class="form-card">
+                <h4>Security Events</h4>
+                <p class="help">รวม login, SSO, step-up, session revoke, และ anomaly events เพื่อ debug incident ได้จากจุดเดียว</p>
+                <div class="inline-actions">
+                  <button type="button" id="authSecurityExportCsvBtn" class="ghost" data-min-role="admin">Export CSV</button>
+                  <button type="button" id="authSecurityExportJsonBtn" class="ghost" data-min-role="admin">Export JSON</button>
+                </div>
+                <div id="authSecurityEventList" class="table-wrap"></div>
+              </div>
+
+              <div class="form-card">
+                <h4>Role Matrix</h4>
+                <p class="help">แสดง mapping ว่า route ไหนต้อง role อะไร และ route ไหนบังคับ step-up เพิ่ม</p>
+                <div id="authRoleMatrixSummary" class="summary"></div>
+                <div id="authRoleMatrixTableWrap" class="table-wrap"></div>
+              </div>
+            </section>
+
             <section class="tab-panel" data-tab-panel="platform">
               <div class="tab-panel-head">
                 <h3>Platform Center</h3>
@@ -2949,6 +3146,7 @@
                     <span>ยืนยันชื่อ Backup ก่อน Restore จริง</span>
                     <input name="confirmBackup" placeholder="พิมพ์ชื่อ backup เดิมซ้ำอีกครั้งก่อนกู้คืนจริง">
                   </label>
+                  <input type="hidden" name="previewToken" value="">
                   <button type="submit" class="danger">Restore Backup</button>
                 </div>
               </form>
@@ -2957,6 +3155,7 @@
                 <h4>สถานะ Restore ล่าสุด</h4>
                 <p class="help">ดูสถานะ maintenance, rollback backup และ error ล่าสุดของการ restore</p>
                 <div id="backupRestoreStateSummary" class="summary"></div>
+                <div id="backupRestorePreviewMeta" class="summary"></div>
                 <pre id="backupRestoreStateView" class="raw">ยังไม่มีข้อมูล restore</pre>
                 <div class="form-grid">
                   <button type="button" id="backupRestoreStateRefreshBtn" class="ghost" data-min-role="owner">รีเฟรชสถานะ Restore</button>
@@ -3010,6 +3209,10 @@
             </optgroup>
             <optgroup label="เซิร์ฟเวอร์ / วิเคราะห์">
               <option value="observability">metrics & alerts</option>
+              <option value="adminSecurityEvents">admin security events</option>
+              <option value="adminSessions">admin sessions</option>
+              <option value="adminRoleMatrix">admin role matrix</option>
+              <option value="adminAuthProviders">admin auth providers</option>
               <option value="backups">backup files</option>
               <option value="guilds">กิลด์ Discord</option>
               <option value="config">คอนฟิกทั้งหมด</option>
@@ -3128,6 +3331,22 @@
   </div>
 
   <div id="toast" class="toast"></div>
+  <div id="stepUpModal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div>
+        <h3 id="stepUpModalTitle">ยืนยันตัวตนเพิ่ม</h3>
+        <p id="stepUpModalMessage">งานนี้ต้องใช้รหัส 2FA เพิ่มอีกครั้งก่อนดำเนินการ</p>
+      </div>
+      <label class="field">
+        <span>รหัส 2FA (6 หลัก)</span>
+        <input id="stepUpOtpInput" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="stepUpCancelBtn" class="ghost">ยกเลิก</button>
+        <button type="button" id="stepUpConfirmBtn">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const logoutBtn = document.getElementById('logoutBtn');
@@ -3176,6 +3395,12 @@
     const auditNextBtn = document.getElementById('auditNextBtn');
     const datasetSelect = document.getElementById('datasetSelect');
     const toastEl = document.getElementById('toast');
+    const stepUpModal = document.getElementById('stepUpModal');
+    const stepUpModalTitle = document.getElementById('stepUpModalTitle');
+    const stepUpModalMessage = document.getElementById('stepUpModalMessage');
+    const stepUpOtpInput = document.getElementById('stepUpOtpInput');
+    const stepUpCancelBtn = document.getElementById('stepUpCancelBtn');
+    const stepUpConfirmBtn = document.getElementById('stepUpConfirmBtn');
     const copyJsonBtn = document.getElementById('copyJsonBtn');
     const snapshotExportBtn = document.getElementById('snapshotExportBtn');
     const configEditorForm = document.getElementById('configEditorForm');
@@ -3241,6 +3466,7 @@
     const runtimeSupervisorView = document.getElementById('runtimeSupervisorView');
     const runtimeSupervisorRefreshBtn = document.getElementById('runtimeSupervisorRefreshBtn');
     const backupRestoreStateSummary = document.getElementById('backupRestoreStateSummary');
+    const backupRestorePreviewMeta = document.getElementById('backupRestorePreviewMeta');
     const backupRestoreStateView = document.getElementById('backupRestoreStateView');
     const backupRestoreStateRefreshBtn = document.getElementById('backupRestoreStateRefreshBtn');
     const platformRefreshBtn = document.getElementById('platformRefreshBtn');
@@ -3272,6 +3498,21 @@
     const adminNotificationRefreshBtn = document.getElementById('adminNotificationRefreshBtn');
     const adminNotificationAckBtn = document.getElementById('adminNotificationAckBtn');
     const adminNotificationClearBtn = document.getElementById('adminNotificationClearBtn');
+    const authSecuritySummary = document.getElementById('authSecuritySummary');
+    const authSecurityRefreshBtn = document.getElementById('authSecurityRefreshBtn');
+    const authFilterForm = document.getElementById('authFilterForm');
+    const authSearchInput = document.getElementById('authSearchInput');
+    const authSeveritySelect = document.getElementById('authSeveritySelect');
+    const authEventTypeInput = document.getElementById('authEventTypeInput');
+    const authAnomalyOnlySelect = document.getElementById('authAnomalyOnlySelect');
+    const authFilterResetBtn = document.getElementById('authFilterResetBtn');
+    const authSecurityExportCsvBtn = document.getElementById('authSecurityExportCsvBtn');
+    const authSecurityExportJsonBtn = document.getElementById('authSecurityExportJsonBtn');
+    const authSessionRevokeForm = document.getElementById('authSessionRevokeForm');
+    const authSessionTableWrap = document.getElementById('authSessionTableWrap');
+    const authSecurityEventList = document.getElementById('authSecurityEventList');
+    const authRoleMatrixSummary = document.getElementById('authRoleMatrixSummary');
+    const authRoleMatrixTableWrap = document.getElementById('authRoleMatrixTableWrap');
     const deliveryPreflightForm = document.getElementById('deliveryPreflightForm');
     const deliveryPreflightSummary = document.getElementById('deliveryPreflightSummary');
     const deliveryPreflightChecks = document.getElementById('deliveryPreflightChecks');
@@ -3323,6 +3564,12 @@
     let isAuthed = false;
     let currentUserRole = 'mod';
     let currentUserName = '';
+    let currentAuthSearch = '';
+    let currentAuthEventSeverity = '';
+    let currentAuthEventType = '';
+    let currentAuthAnomalyOnly = false;
+    let pendingStepUpResolver = null;
+    let pendingStepUpRejecter = null;
     let currentAuditView = 'wallet';
     let currentAuditQuery = '';
     let currentAuditUser = '';
@@ -3359,6 +3606,7 @@
     let currentDashboardCards = null;
     let currentRuntimeSupervisor = null;
     let currentBackupRestoreState = null;
+    let currentRestorePreviewData = null;
     let currentPlatformOverview = null;
     let currentPlatformReconcile = null;
     let currentPlatformMonitoringReport = null;
@@ -3865,6 +4113,9 @@
       for (const panel of tabPanels) {
         panel.classList.toggle('active', panel.dataset.tabPanel === tabKey);
       }
+      updateDashboardQueryParams({
+        tab: String(tabKey || '').trim() === 'economy' ? '' : tabKey,
+      });
     }
 
     function applyTabFilter(queryText) {
@@ -4074,6 +4325,16 @@
       return `/admin/api/observability/export?${params.toString()}`;
     }
 
+    function buildAuthSecurityExportPath(format = 'json') {
+      const params = new URLSearchParams();
+      params.set('format', format === 'csv' ? 'csv' : 'json');
+      if (currentAuthSearch) params.set('q', currentAuthSearch);
+      if (currentAuthEventSeverity) params.set('severity', currentAuthEventSeverity);
+      if (currentAuthEventType) params.set('type', currentAuthEventType);
+      if (currentAuthAnomalyOnly) params.set('anomalyOnly', 'true');
+      return `/admin/api/auth/security-events/export?${params.toString()}`;
+    }
+
     async function refreshObservabilitySnapshot(options = {}) {
       const { silent = true } = options;
       if (!isAuthed) return;
@@ -4107,11 +4368,14 @@
       }
 
       if (!authed) {
+        rejectPendingStepUp();
+        resetAuthFilters();
         currentUserRole = 'mod';
         currentUserName = '';
         currentDashboardCards = null;
         currentRuntimeSupervisor = null;
         currentBackupRestoreState = null;
+        currentRestorePreviewData = null;
         currentDeliveryRuntime = null;
         currentDeliveryCapabilities = { builtin: [], presets: [] };
         currentDeliveryCapabilityResult = null;
@@ -4159,8 +4423,10 @@
         if (auditPresetNameInput) auditPresetNameInput.value = '';
         updateAuditPresetSharingControls();
         renderAuditCenter();
+        renderAuthSecurityCenter();
         renderShowcasePanel();
       } else {
+        syncAuthFilterInputs();
         updateShopKindUi();
         if (shopKindSelect && String(shopKindSelect.value || 'item') === 'item') {
           scheduleGameItemCatalogFetch(shopGameItemSearchInput.value || '');
@@ -4171,7 +4437,82 @@
       }
     }
 
-    async function api(path, method = 'GET', body = null) {
+    function closeStepUpModal() {
+      if (!stepUpModal) return;
+      stepUpModal.hidden = true;
+      if (stepUpOtpInput) {
+        stepUpOtpInput.value = '';
+      }
+      if (stepUpConfirmBtn) {
+        stepUpConfirmBtn.disabled = false;
+      }
+    }
+
+    function resolvePendingStepUp(otp) {
+      const resolver = pendingStepUpResolver;
+      pendingStepUpResolver = null;
+      pendingStepUpRejecter = null;
+      closeStepUpModal();
+      if (typeof resolver === 'function') {
+        resolver(String(otp || '').trim());
+      }
+    }
+
+    function rejectPendingStepUp(message = 'ยกเลิกการยืนยันตัวตนเพิ่ม') {
+      const rejecter = pendingStepUpRejecter;
+      pendingStepUpResolver = null;
+      pendingStepUpRejecter = null;
+      closeStepUpModal();
+      if (typeof rejecter === 'function') {
+        rejecter(new Error(message));
+      }
+    }
+
+    function submitStepUpModal() {
+      const otp = String(stepUpOtpInput?.value || '').trim();
+      if (!otp) {
+        stepUpOtpInput?.focus();
+        return;
+      }
+      resolvePendingStepUp(otp);
+    }
+
+    function openStepUpModal(message = '') {
+      const promptMessage = String(message || 'งานนี้ต้องใช้รหัส 2FA เพิ่มอีกครั้งก่อนดำเนินการ').trim();
+      if (!stepUpModal || !stepUpOtpInput) {
+        const otp = String(window.prompt(promptMessage, '') || '').trim();
+        if (!otp) {
+          return Promise.reject(new Error(promptMessage));
+        }
+        return Promise.resolve(otp);
+      }
+      if (pendingStepUpRejecter) {
+        rejectPendingStepUp('มีคำขอยืนยันตัวตนรายการใหม่เข้ามาแทนที่');
+      }
+      stepUpModal.hidden = false;
+      if (stepUpModalTitle) {
+        stepUpModalTitle.textContent = 'ยืนยันตัวตนเพิ่ม';
+      }
+      if (stepUpModalMessage) {
+        stepUpModalMessage.textContent = promptMessage;
+      }
+      if (stepUpOtpInput) {
+        stepUpOtpInput.value = '';
+      }
+      if (stepUpConfirmBtn) {
+        stepUpConfirmBtn.disabled = false;
+      }
+      return new Promise((resolve, reject) => {
+        pendingStepUpResolver = resolve;
+        pendingStepUpRejecter = reject;
+        window.setTimeout(() => {
+          stepUpOtpInput?.focus();
+          stepUpOtpInput?.select();
+        }, 0);
+      });
+    }
+
+    async function api(path, method = 'GET', body = null, options = {}) {
       const headers = {};
       let payload;
       if (body != null) {
@@ -4186,6 +4527,20 @@
       });
       const data = await res.json().catch(() => ({ ok: false, error: 'รูปแบบข้อมูล JSON ไม่ถูกต้อง' }));
       if (!res.ok || data.ok === false) {
+        if (
+          data?.requiresStepUp
+          && options.stepUpRetried !== true
+          && String(method || 'GET').toUpperCase() !== 'GET'
+        ) {
+          const otp = await openStepUpModal(
+            data?.error || 'ยืนยันตัวตนเพิ่มสำหรับงานเสี่ยงนี้ด้วยรหัส 2FA',
+          );
+          const nextBody =
+            body && typeof body === 'object' && !Array.isArray(body)
+              ? { ...body, stepUpOtp: otp }
+              : { stepUpOtp: otp };
+          return api(path, method, nextBody, { ...options, stepUpRetried: true });
+        }
         throw new Error(data.error || `คำขอล้มเหลว (${res.status})`);
       }
       return data;
@@ -5023,6 +5378,8 @@
         ['จำนวนคิวส่งของ', (snapshot.deliveryQueue || []).length],
         ['จำนวน dead-letter ส่งของ', (snapshot.deliveryDeadLetters || []).length],
         ['จำนวนบันทึกส่งของ', (snapshot.deliveryAudit || []).length],
+        ['จำนวน auth security events', (snapshot.adminSecurityEvents || []).length],
+        ['จำนวน admin sessions', (snapshot.adminSessions || []).length],
         ['จำนวน tenant', (snapshot.platformTenants || []).length],
         ['จำนวน subscription', (snapshot.platformSubscriptions || []).length],
         ['จำนวน license', (snapshot.platformLicenses || []).length],
@@ -5501,10 +5858,21 @@
         : snapshot?.backupRestore && typeof snapshot.backupRestore === 'object'
           ? snapshot.backupRestore
           : null;
+      if (
+        currentRestorePreviewData
+        && restoreState
+        && restoreState.previewToken
+        && currentRestorePreviewData.previewToken !== restoreState.previewToken
+      ) {
+        currentRestorePreviewData = null;
+      }
       currentBackupRestoreState = restoreState;
       if (!restoreState) {
         backupRestoreStateSummary.innerHTML =
           '<div class="metric"><div class="k">Restore</div><div class="v">ไม่มีข้อมูล</div></div>';
+        if (backupRestorePreviewMeta) {
+          backupRestorePreviewMeta.innerHTML = '';
+        }
         backupRestoreStateView.textContent = 'ยังไม่มีข้อมูล restore';
         renderShowcasePanel();
         return;
@@ -5520,7 +5888,27 @@
       backupRestoreStateSummary.innerHTML = metrics
         .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
         .join('');
-      backupRestoreStateView.textContent = JSON.stringify(restoreState, null, 2);
+      const preview = currentRestorePreviewData && typeof currentRestorePreviewData === 'object'
+        ? currentRestorePreviewData
+        : null;
+      if (backupRestorePreviewMeta) {
+        if (!preview) {
+          backupRestorePreviewMeta.innerHTML = '';
+        } else {
+          const previewMetrics = [
+            ['Preview backup', preview.backup || restoreState.previewBackup || '-'],
+            ['Schema', preview.schemaVersion == null ? '-' : String(preview.schemaVersion)],
+            ['Compatibility', preview.compatibilityMode || '-'],
+            ['Changed collections', Number(preview.diff?.summary?.changedCollections || 0).toLocaleString()],
+            ['Preview token', preview.previewToken ? `${String(preview.previewToken).slice(0, 10)}...` : '-'],
+            ['Expires', preview.previewExpiresAt ? formatDeliveryTime(preview.previewExpiresAt) : '-'],
+          ];
+          backupRestorePreviewMeta.innerHTML = previewMetrics
+            .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+            .join('');
+        }
+      }
+      backupRestoreStateView.textContent = JSON.stringify(preview || restoreState, null, 2);
       renderShowcasePanel();
     }
 
@@ -5529,6 +5917,296 @@
       currentBackupRestoreState = res?.data || null;
       renderBackupRestoreState(currentBackupRestoreState);
       return currentBackupRestoreState;
+    }
+
+    function syncAuthFilterInputs() {
+      if (authSearchInput) authSearchInput.value = currentAuthSearch;
+      if (authSeveritySelect) authSeveritySelect.value = currentAuthEventSeverity;
+      if (authEventTypeInput) authEventTypeInput.value = currentAuthEventType;
+      if (authAnomalyOnlySelect) authAnomalyOnlySelect.value = currentAuthAnomalyOnly ? 'true' : '';
+    }
+
+    function resetAuthFilters() {
+      currentAuthSearch = '';
+      currentAuthEventSeverity = '';
+      currentAuthEventType = '';
+      currentAuthAnomalyOnly = false;
+      syncAuthFilterInputs();
+    }
+
+    function syncAuthFiltersFromQueryParams(params = new URLSearchParams(window.location.search)) {
+      currentAuthSearch = String(params.get('authQ') || '').trim();
+      currentAuthEventSeverity = String(params.get('authSeverity') || '').trim().toLowerCase();
+      currentAuthEventType = String(params.get('authEventType') || '').trim();
+      currentAuthAnomalyOnly = String(params.get('authAnomalyOnly') || '').trim().toLowerCase() === 'true';
+      syncAuthFilterInputs();
+    }
+
+    function updateDashboardQueryParams(nextValues = {}) {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+      const entries = Object.entries(nextValues || {});
+      for (const [key, value] of entries) {
+        const normalized = String(value ?? '').trim();
+        if (!normalized) {
+          params.delete(key);
+        } else {
+          params.set(key, normalized);
+        }
+      }
+      const nextSearch = params.toString();
+      const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash || ''}`;
+      window.history.replaceState(null, '', nextUrl);
+    }
+
+    function getInitialActiveTabKey() {
+      const tabKey = String(new URLSearchParams(window.location.search).get('tab') || '').trim();
+      if (tabButtons.some((button) => String(button.dataset.tab || '').trim() === tabKey)) {
+        return tabKey;
+      }
+      return 'economy';
+    }
+
+    function serializeForSearch(value) {
+      if (Array.isArray(value)) {
+        return value.map((entry) => serializeForSearch(entry)).join(' ');
+      }
+      if (value && typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return String(value);
+        }
+      }
+      return String(value ?? '');
+    }
+
+    function matchesSearchQuery(row, query) {
+      const normalizedQuery = String(query || '').trim().toLowerCase();
+      if (!normalizedQuery) return true;
+      return Object.values(row || {}).some((value) =>
+        serializeForSearch(value).toLowerCase().includes(normalizedQuery),
+      );
+    }
+
+    function isSecurityAnomaly(row = {}) {
+      const severity = String(row?.severity || row?.level || '').trim().toLowerCase();
+      if (severity === 'warn' || severity === 'error') return true;
+      const type = String(row?.type || row?.title || '').trim().toLowerCase();
+      return /fail|anomaly|mismatch|revoked|denied|blocked|expired/.test(type);
+    }
+
+    function filterAuthEvents(rows = []) {
+      return (Array.isArray(rows) ? rows : []).filter((row) => {
+        if (currentAuthEventSeverity) {
+          const severity = String(row?.severity || row?.level || '').trim().toLowerCase();
+          if (severity !== currentAuthEventSeverity) return false;
+        }
+        if (currentAuthEventType) {
+          const type = String(row?.type || '').trim().toLowerCase();
+          if (!type.includes(String(currentAuthEventType || '').trim().toLowerCase())) return false;
+        }
+        if (currentAuthAnomalyOnly && !isSecurityAnomaly(row)) return false;
+        return matchesSearchQuery(row, currentAuthSearch);
+      });
+    }
+
+    function filterAuthSessions(rows = []) {
+      return (Array.isArray(rows) ? rows : []).filter((row) => matchesSearchQuery(row, currentAuthSearch));
+    }
+
+    function filterAuthPermissions(rows = []) {
+      return (Array.isArray(rows) ? rows : []).filter((row) => matchesSearchQuery(row, currentAuthSearch));
+    }
+
+    function getCurrentAdminSessionId() {
+      const sessions = Array.isArray(snapshot?.adminSessions) ? snapshot.adminSessions : [];
+      const currentSession = sessions.find((row) => row?.current === true);
+      return String(currentSession?.id || '').trim();
+    }
+
+    function renderAuthSessionTable(rows = []) {
+      if (!authSessionTableWrap) return;
+      if (!hasRoleAtLeast(currentUserRole, 'owner')) {
+        authSessionTableWrap.innerHTML =
+          '<div style="padding:12px; color:#9eb0d9;">ต้องใช้สิทธิ owner เพื่อดูและ revoke admin sessions</div>';
+        return;
+      }
+      const sessions = Array.isArray(rows) ? rows : [];
+      if (sessions.length === 0) {
+        authSessionTableWrap.innerHTML =
+          '<div style="padding:12px; color:#9eb0d9;">ยังไม่มี active session ที่บันทึกอยู่</div>';
+        return;
+      }
+      const head = [
+        '<tr>',
+        '<th>User</th>',
+        '<th>Role</th>',
+        '<th>Method</th>',
+        '<th>Created / Expire</th>',
+        '<th>Step-up / Source</th>',
+        '<th>Session</th>',
+        '<th>Actions</th>',
+        '</tr>',
+      ].join('');
+      const body = sessions.slice(0, 200).map((row) => {
+        const userBadges = [
+          row?.current ? '<span class="auth-badge">current</span>' : '',
+          row?.current !== true && row?.role === 'owner' ? '<span class="auth-badge warn">owner</span>' : '',
+        ].filter(Boolean).join(' ');
+        const stepUpBadges = [
+          row?.stepUpActive ? '<span class="auth-badge">step-up active</span>' : '<span class="auth-badge warn">step-up idle</span>',
+          row?.authSource ? `<span class="auth-badge">${escapeHtml(String(row.authSource))}</span>` : '',
+        ].filter(Boolean).join(' ');
+        const sessionMeta = [
+          row?.id ? `<code>${escapeHtml(String(row.id))}</code>` : '-',
+          row?.ip ? `IP: ${escapeHtml(String(row.ip))}` : '',
+        ].filter(Boolean).join('<br>');
+        return [
+          '<tr>',
+          `<td><strong>${escapeHtml(String(row?.user || '-'))}</strong>${userBadges ? `<div class="auth-session-meta">${userBadges}</div>` : ''}</td>`,
+          `<td>${escapeHtml(String(row?.role || '-'))}</td>`,
+          `<td>${escapeHtml(String(row?.authMethod || '-'))}</td>`,
+          `<td><div>${escapeHtml(formatDeliveryTime(row?.createdAt || ''))}</div><div class="auth-session-meta">หมดอายุ ${escapeHtml(formatDeliveryTime(row?.expiresAt || ''))}</div></td>`,
+          `<td><div>${stepUpBadges || '<span class="auth-badge warn">ไม่มีข้อมูล</span>'}</div><div class="auth-session-meta">ล่าสุด ${escapeHtml(formatDeliveryTime(row?.stepUpVerifiedAt || row?.lastSeenAt || ''))}</div></td>`,
+          `<td>${sessionMeta || '-'}</td>`,
+          `<td class="row-actions"><button type="button" class="danger" data-auth-session-revoke="${escapeHtml(String(row?.id || ''))}" data-auth-session-current="${row?.current ? 'true' : 'false'}">Revoke</button></td>`,
+          '</tr>',
+        ].join('');
+      }).join('');
+      authSessionTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    }
+
+    function renderAuthRoleMatrix(data = null) {
+      if (authRoleMatrixSummary) {
+        if (!data) {
+          authRoleMatrixSummary.innerHTML =
+            '<div class="metric"><div class="k">Role Matrix</div><div class="v">ยังไม่มีข้อมูล</div></div>';
+        } else {
+          const summary = data.summary || {};
+          const visiblePermissions = Array.isArray(data.permissions) ? data.permissions.length : 0;
+          const roleSummary = Array.isArray(summary.roles)
+            ? summary.roles
+                .map((row) => `${row.role}:${Number(row.permissionCount || 0).toLocaleString()}`)
+                .join(' | ')
+            : '-';
+          const metrics = [
+            ['Permissions', Number(summary.totalPermissions || 0).toLocaleString()],
+            ['Visible', Number(visiblePermissions || 0).toLocaleString()],
+            ['Step-up routes', Number(summary.stepUpPermissions || 0).toLocaleString()],
+            ['Categories', Number((summary.categories || []).length || 0).toLocaleString()],
+            ['Role coverage', roleSummary || '-'],
+          ];
+          authRoleMatrixSummary.innerHTML = metrics
+            .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+            .join('');
+        }
+      }
+      const rows = Array.isArray(data?.permissions)
+        ? data.permissions.map((entry) => ({
+          category: entry?.category || '-',
+          permission: entry?.permission || '-',
+          minRole: entry?.minRole || '-',
+          stepUp: entry?.stepUp ? 'yes' : 'no',
+          path: entry?.path || '-',
+          description: entry?.description || '-',
+        }))
+        : [];
+      renderRowsToContainer(authRoleMatrixTableWrap, rows, 'ยังไม่มีข้อมูล role matrix');
+    }
+
+    function renderAuthSecurityCenter() {
+      if (!hasRoleAtLeast(currentUserRole, 'admin') && isAuthed) {
+        if (authSecuritySummary) {
+          authSecuritySummary.innerHTML =
+            '<div class="metric"><div class="k">Auth</div><div class="v">ต้องใช้สิทธิ admin ขึ้นไป</div></div>';
+        }
+        if (authSessionTableWrap) {
+          authSessionTableWrap.innerHTML =
+            '<div style="padding:12px; color:#9eb0d9;">ต้องใช้สิทธิ admin/owner เพื่อดู auth security center</div>';
+        }
+        renderTimelineCards(authSecurityEventList, [], 'ต้องใช้สิทธิ admin ขึ้นไป');
+        renderAuthRoleMatrix(null);
+        return;
+      }
+      const providers = snapshot?.adminAuthProviders && typeof snapshot.adminAuthProviders === 'object'
+        ? snapshot.adminAuthProviders
+        : null;
+      const securityEvents = Array.isArray(snapshot?.adminSecurityEvents) ? snapshot.adminSecurityEvents : [];
+      const sessions = Array.isArray(snapshot?.adminSessions) ? snapshot.adminSessions : [];
+      const roleMatrix = snapshot?.adminRoleMatrix && typeof snapshot.adminRoleMatrix === 'object'
+        ? snapshot.adminRoleMatrix
+        : null;
+      const filteredSecurityEvents = filterAuthEvents(securityEvents);
+      const filteredSessions = filterAuthSessions(sessions);
+      const filteredPermissions = filterAuthPermissions(Array.isArray(roleMatrix?.permissions) ? roleMatrix.permissions : []);
+
+      if (!isAuthed) {
+        if (authSecuritySummary) {
+          authSecuritySummary.innerHTML =
+            '<div class="metric"><div class="k">Auth</div><div class="v">ต้องเข้าสู่ระบบก่อน</div></div>';
+        }
+        renderAuthSessionTable([]);
+        renderTimelineCards(authSecurityEventList, [], 'ต้องเข้าสู่ระบบก่อน');
+        renderAuthRoleMatrix(null);
+        return;
+      }
+
+      const warnCount = securityEvents.filter((entry) => String(entry?.severity || '').trim().toLowerCase() === 'warn').length;
+      const errorCount = securityEvents.filter((entry) => String(entry?.severity || '').trim().toLowerCase() === 'error').length;
+      const latestAnomaly = securityEvents.find((entry) => ['warn', 'error'].includes(String(entry?.severity || '').trim().toLowerCase()));
+      const activeFilterTokens = [
+        currentAuthSearch ? `search:${currentAuthSearch}` : '',
+        currentAuthEventSeverity ? `severity:${currentAuthEventSeverity}` : '',
+        currentAuthEventType ? `type:${currentAuthEventType}` : '',
+        currentAuthAnomalyOnly ? 'anomaly-only' : '',
+      ].filter(Boolean);
+      const metrics = [
+        ['Current user', currentUserName || '-'],
+        ['Current role', currentUserRole || '-'],
+        ['2FA', providers?.twoFactor ? 'enabled' : 'disabled'],
+        ['Step-up', providers?.stepUp?.enabled ? `enabled (${Number(providers.stepUp.ttlMinutes || 0).toLocaleString()}m)` : 'disabled'],
+        ['SSO', providers?.discordSso ? 'enabled' : 'disabled'],
+        ['Security events', Number(securityEvents.length || 0).toLocaleString()],
+        ['Visible events', Number(filteredSecurityEvents.length || 0).toLocaleString()],
+        ['Warn / Error', `${Number(warnCount || 0).toLocaleString()} / ${Number(errorCount || 0).toLocaleString()}`],
+        ['Active sessions', hasRoleAtLeast(currentUserRole, 'owner') ? `${Number(filteredSessions.length || 0).toLocaleString()} / ${Number(sessions.length || 0).toLocaleString()}` : 'owner only'],
+        ['Visible permissions', Number(filteredPermissions.length || 0).toLocaleString()],
+        ['Filters', activeFilterTokens.join(' | ') || 'none'],
+        ['Last anomaly', latestAnomaly ? `${latestAnomaly.type || '-'} @ ${formatDeliveryTime(latestAnomaly.at || '')}` : 'none'],
+      ];
+      if (authSecuritySummary) {
+        authSecuritySummary.innerHTML = metrics
+          .map(([k, v]) => `<div class="metric"><div class="k">${escapeHtml(String(k))}</div><div class="v">${escapeHtml(String(v))}</div></div>`)
+          .join('');
+      }
+
+      renderAuthSessionTable(filteredSessions);
+      renderTimelineCards(
+        authSecurityEventList,
+        filteredSecurityEvents.map((entry) => ({
+          title: entry?.type || 'security-event',
+          at: entry?.at || '',
+          status: String(entry?.severity || '').trim().toLowerCase() === 'error'
+            ? 'failed'
+            : /succeeded|created/i.test(String(entry?.type || ''))
+              ? 'completed'
+              : 'pending',
+          level: entry?.severity || 'info',
+          stage: entry?.severity || 'info',
+          source: [entry?.actor, entry?.role].filter(Boolean).join(' / ') || '-',
+          errorCode: entry?.reason || '',
+          message: entry?.detail || entry?.reason || entry?.path || '-',
+          commandSummary: [entry?.targetUser ? `target=${entry.targetUser}` : '', entry?.sessionId ? `session=${entry.sessionId}` : '', entry?.ip ? `ip=${entry.ip}` : '']
+            .filter(Boolean)
+            .join(' • '),
+        })),
+        activeFilterTokens.length > 0 ? 'ไม่พบ security events ที่ตรงกับ filter' : 'ยังไม่มี security events',
+      );
+      renderAuthRoleMatrix(roleMatrix ? {
+        ...roleMatrix,
+        permissions: filteredPermissions,
+      } : null);
     }
 
     function renderDatalistOptions(container, values = []) {
@@ -6708,10 +7386,30 @@
           api(`/admin/api/dashboard/cards${forceCardsRefresh ? '?refresh=1' : ''}`).catch(() => null),
         ]);
         snapshot = snapshotRes.data;
+        if (hasRoleAtLeast(currentUserRole, 'admin')) {
+          const [securityEventsRes, roleMatrixRes, sessionsRes, providersRes] = await Promise.all([
+            api('/admin/api/auth/security-events?limit=80').catch(() => null),
+            api('/admin/api/auth/role-matrix').catch(() => null),
+            hasRoleAtLeast(currentUserRole, 'owner')
+              ? api('/admin/api/auth/sessions').catch(() => null)
+              : Promise.resolve(null),
+            api('/admin/api/auth/providers').catch(() => null),
+          ]);
+          snapshot.adminSecurityEvents = securityEventsRes?.data || snapshot.adminSecurityEvents || [];
+          snapshot.adminRoleMatrix = roleMatrixRes?.data || snapshot.adminRoleMatrix || null;
+          snapshot.adminSessions = sessionsRes?.data || [];
+          snapshot.adminAuthProviders = providersRes?.data || snapshot.adminAuthProviders || null;
+        } else {
+          snapshot.adminSecurityEvents = [];
+          snapshot.adminRoleMatrix = null;
+          snapshot.adminSessions = [];
+          snapshot.adminAuthProviders = null;
+        }
         currentDashboardCards = dashboardCardsRes?.data || null;
         renderSummary();
         renderRuntimeSupervisor(snapshot?.runtimeSupervisor || null);
         renderBackupRestoreState(snapshot?.backupRestore || null);
+        renderAuthSecurityCenter();
         renderPlatformCenter();
         renderDeliveryRuntime(snapshot?.deliveryRuntime || null);
         renderDeliveryOpsTables();
@@ -6812,6 +7510,7 @@
       if (form.dataset.endpoint === '/admin/api/backup/restore') {
         payload.dryRun = String(payload.dryRun || '').toLowerCase() === 'true';
         payload.confirmBackup = String(payload.confirmBackup || '').trim();
+        payload.previewToken = String(payload.previewToken || '').trim();
         if (!payload.dryRun && !payload.confirmBackup) {
           throw new Error('กรุณาพิมพ์ชื่อ backup ซ้ำอีกครั้งก่อน restore จริง');
         }
@@ -6833,7 +7532,29 @@
         }
         updateShopKindUi();
       }
-      toast('บันทึกแล้ว');
+      if (form.dataset.endpoint === '/admin/api/backup/restore') {
+        const previewTokenInput = form.elements.namedItem('previewToken');
+        const confirmBackupInput = form.elements.namedItem('confirmBackup');
+        if (payload.dryRun) {
+          currentRestorePreviewData = response?.data || null;
+          if (previewTokenInput) {
+            previewTokenInput.value = String(response?.data?.previewToken || '');
+          }
+          if (confirmBackupInput && !String(confirmBackupInput.value || '').trim()) {
+            confirmBackupInput.value = String(response?.data?.confirmBackup || '');
+          }
+        } else {
+          currentRestorePreviewData = null;
+          if (previewTokenInput) {
+            previewTokenInput.value = '';
+          }
+        }
+      }
+      toast(
+        form.dataset.endpoint === '/admin/api/backup/restore' && payload.dryRun
+          ? 'สร้าง restore preview แล้ว'
+          : 'บันทึกแล้ว',
+      );
       await refreshSnapshot();
       if (String(form.dataset.endpoint || '').startsWith('/admin/api/platform/')) {
         await refreshPlatformCenter({
@@ -6842,10 +7563,15 @@
           fetchOpsState: true,
         }).catch(() => null);
       }
+      if (form.dataset.endpoint === '/admin/api/backup/restore') {
+        renderBackupRestoreState(currentBackupRestoreState || snapshot?.backupRestore || null);
+      }
       setStatus(
         'บันทึกสำเร็จ',
         '#43dd86',
-        `คำสั่ง ${form.dataset.endpoint || 'api'} สำเร็จ`,
+        form.dataset.endpoint === '/admin/api/backup/restore' && payload.dryRun
+          ? 'สร้าง restore preview สำเร็จ'
+          : `คำสั่ง ${form.dataset.endpoint || 'api'} สำเร็จ`,
         'ok',
       );
     }
@@ -7408,6 +8134,211 @@
           toast('รีเฟรชสถานะ restore แล้ว');
         } catch (error) {
           toast(error.message || 'โหลดสถานะ restore ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (authSecurityRefreshBtn) {
+      authSecurityRefreshBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(authSecurityRefreshBtn, 'กำลังโหลด...', async () => {
+            await refreshSnapshot({ silent: true, syncConfigInputs: false });
+          });
+          toast('รีเฟรชข้อมูล auth แล้ว');
+        } catch (error) {
+          toast(error.message || 'รีเฟรชข้อมูล auth ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (authFilterForm) {
+      authFilterForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        currentAuthSearch = String(authSearchInput?.value || '').trim();
+        currentAuthEventSeverity = String(authSeveritySelect?.value || '').trim().toLowerCase();
+        currentAuthEventType = String(authEventTypeInput?.value || '').trim();
+        currentAuthAnomalyOnly = String(authAnomalyOnlySelect?.value || '').trim().toLowerCase() === 'true';
+        updateDashboardQueryParams({
+          authQ: currentAuthSearch,
+          authSeverity: currentAuthEventSeverity,
+          authEventType: currentAuthEventType,
+          authAnomalyOnly: currentAuthAnomalyOnly ? 'true' : '',
+        });
+        renderAuthSecurityCenter();
+        toast('อัปเดต auth filter แล้ว');
+      });
+    }
+
+    if (authFilterResetBtn) {
+      authFilterResetBtn.addEventListener('click', () => {
+        resetAuthFilters();
+        updateDashboardQueryParams({
+          authQ: '',
+          authSeverity: '',
+          authEventType: '',
+          authAnomalyOnly: '',
+        });
+        renderAuthSecurityCenter();
+        toast('ล้าง auth filter แล้ว');
+      });
+    }
+
+    if (authSecurityExportCsvBtn) {
+      authSecurityExportCsvBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(authSecurityExportCsvBtn, 'กำลัง export...', async () => {
+            const { blob, filename } = await apiBlob(buildAuthSecurityExportPath('csv'));
+            downloadBlob(
+              filename || `admin-security-events-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`,
+              blob,
+            );
+          });
+          toast('export security events เป็น CSV แล้ว');
+        } catch (error) {
+          toast(error.message || 'export security events ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (authSecurityExportJsonBtn) {
+      authSecurityExportJsonBtn.addEventListener('click', async () => {
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        try {
+          await runWithButtonState(authSecurityExportJsonBtn, 'กำลัง export...', async () => {
+            const { blob, filename } = await apiBlob(buildAuthSecurityExportPath('json'));
+            downloadBlob(
+              filename || `admin-security-events-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+              blob,
+            );
+          });
+          toast('export security events เป็น JSON แล้ว');
+        } catch (error) {
+          toast(error.message || 'export security events ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (authSessionRevokeForm) {
+      authSessionRevokeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        if (!hasRoleAtLeast(currentUserRole, 'owner')) {
+          toast('ต้องใช้สิทธิ owner');
+          return;
+        }
+        const submitButton = getSubmitButton(authSessionRevokeForm, event);
+        const payload = buildPayloadFromForm(authSessionRevokeForm);
+        payload.current = String(payload.current || '').trim().toLowerCase() === 'true';
+        const currentSessionId = getCurrentAdminSessionId();
+        const revokesCurrent =
+          payload.current === true
+          || (!payload.sessionId && !payload.targetUser)
+          || (payload.sessionId && payload.sessionId === currentSessionId)
+          || (payload.targetUser && payload.targetUser === currentUserName);
+        try {
+          await runWithButtonState(submitButton, 'กำลัง revoke...', async () => {
+            await api('/admin/api/auth/session/revoke', 'POST', payload);
+          });
+          if (revokesCurrent) {
+            setAuthState(false);
+            toast('revoke current session แล้ว กำลังกลับไปหน้า login');
+            window.setTimeout(() => {
+              window.location.replace('/admin/login');
+            }, 150);
+            return;
+          }
+          authSessionRevokeForm.reset();
+          await refreshSnapshot({ silent: true, syncConfigInputs: false });
+          toast('revoke session แล้ว');
+        } catch (error) {
+          toast(error.message || 'revoke session ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (authSessionTableWrap) {
+      authSessionTableWrap.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-auth-session-revoke]');
+        if (!button) return;
+        if (!isAuthed) {
+          toast('กรุณาเข้าสู่ระบบก่อน');
+          return;
+        }
+        if (!hasRoleAtLeast(currentUserRole, 'owner')) {
+          toast('ต้องใช้สิทธิ owner');
+          return;
+        }
+        const sessionId = String(button.getAttribute('data-auth-session-revoke') || '').trim();
+        const isCurrent = String(button.getAttribute('data-auth-session-current') || '').trim() === 'true';
+        if (!sessionId) {
+          toast('ไม่พบ session ที่เลือก');
+          return;
+        }
+        try {
+          await runWithButtonState(button, 'กำลัง revoke...', async () => {
+            await api('/admin/api/auth/session/revoke', 'POST', {
+              sessionId,
+              reason: isCurrent ? 'manual-revoke-current' : 'manual-revoke-session',
+            });
+          });
+          if (isCurrent) {
+            setAuthState(false);
+            toast('revoke current session แล้ว กำลังกลับไปหน้า login');
+            window.setTimeout(() => {
+              window.location.replace('/admin/login');
+            }, 150);
+            return;
+          }
+          await refreshSnapshot({ silent: true, syncConfigInputs: false });
+          toast(`revoke session แล้ว: ${sessionId}`);
+        } catch (error) {
+          toast(error.message || 'revoke session ไม่สำเร็จ');
+        }
+      });
+    }
+
+    if (stepUpConfirmBtn) {
+      stepUpConfirmBtn.addEventListener('click', () => {
+        submitStepUpModal();
+      });
+    }
+
+    if (stepUpCancelBtn) {
+      stepUpCancelBtn.addEventListener('click', () => {
+        rejectPendingStepUp();
+      });
+    }
+
+    if (stepUpOtpInput) {
+      stepUpOtpInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitStepUpModal();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          rejectPendingStepUp();
+        }
+      });
+    }
+
+    if (stepUpModal) {
+      stepUpModal.addEventListener('click', (event) => {
+        if (event.target === stepUpModal) {
+          rejectPendingStepUp();
         }
       });
     }
@@ -8107,9 +9038,10 @@
     }
 
     applyTheme(loadPreferredTheme(), false);
+    syncAuthFiltersFromQueryParams();
     renderAuditPresetOptions('');
     syncAuditControlsFromState();
-    activateTab('economy');
+    activateTab(getInitialActiveTabKey());
     applyTabFilter('');
     updateLiveToggleUi();
     setShopCatalogSource('manifest', { reload: false });

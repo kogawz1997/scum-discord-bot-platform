@@ -3,6 +3,8 @@
   'deliveryFailRate',
   'loginFailures',
   'webhookErrorRate',
+  'adminRequestErrors',
+  'adminRequest5xx',
 ]);
 
 function asInt(value, fallback = null) {
@@ -83,6 +85,7 @@ function captureObservabilitySeries(options = {}) {
     getDeliveryMetricsSnapshot,
     getLoginFailureMetrics,
     getWebhookMetricsSnapshot,
+    getAdminRequestLogMetrics,
   } = options;
   if (!seriesState || typeof seriesState !== 'object') return;
 
@@ -95,11 +98,20 @@ function captureObservabilitySeries(options = {}) {
   const webhook = typeof getWebhookMetricsSnapshot === 'function'
     ? getWebhookMetricsSnapshot(now)
     : { errorRate: 0 };
+  const requestLog = typeof getAdminRequestLogMetrics === 'function'
+    ? getAdminRequestLogMetrics({ now })
+    : { errors: 0, serverErrors: 0 };
 
   recordObservabilityPoint(seriesState, 'deliveryQueueLength', Number(delivery.queueLength || 0), retentionMs, now);
   recordObservabilityPoint(seriesState, 'deliveryFailRate', Number(delivery.failRate || 0), retentionMs, now);
   recordObservabilityPoint(seriesState, 'loginFailures', Number(login.failures || 0), retentionMs, now);
   recordObservabilityPoint(seriesState, 'webhookErrorRate', Number(webhook.errorRate || 0), retentionMs, now);
+  if (Object.prototype.hasOwnProperty.call(seriesState, 'adminRequestErrors')) {
+    recordObservabilityPoint(seriesState, 'adminRequestErrors', Number(requestLog.errors || 0), retentionMs, now);
+  }
+  if (Object.prototype.hasOwnProperty.call(seriesState, 'adminRequest5xx')) {
+    recordObservabilityPoint(seriesState, 'adminRequest5xx', Number(requestLog.serverErrors || 0), retentionMs, now);
+  }
 }
 
 function listObservabilitySeries(options = {}) {
@@ -140,6 +152,8 @@ function buildAdminObservabilitySnapshot(options = {}) {
     getDeliveryMetricsSnapshot,
     getLoginFailureMetrics,
     getWebhookMetricsSnapshot,
+    getAdminRequestLogMetrics,
+    listAdminRequestLogs,
     listDeliveryQueue,
     listSeries,
   } = options;
@@ -159,12 +173,20 @@ function buildAdminObservabilitySnapshot(options = {}) {
   const webhookMetrics = typeof getWebhookMetricsSnapshot === 'function'
     ? getWebhookMetricsSnapshot()
     : { attempts: 0, errors: 0, errorRate: 0 };
+  const requestLogMetrics = typeof getAdminRequestLogMetrics === 'function'
+    ? getAdminRequestLogMetrics()
+    : { total: 0, errors: 0, serverErrors: 0, unauthorized: 0 };
+  const recentRequests = typeof listAdminRequestLogs === 'function'
+    ? listAdminRequestLogs({ limit: 100 })
+    : [];
 
   return {
     generatedAt: new Date().toISOString(),
     delivery: deliveryMetrics,
     adminLogin: loginMetrics,
     webhook: webhookMetrics,
+    requestLog: requestLogMetrics,
+    recentRequests,
     timeSeriesWindowMs: effectiveWindowMs || retentionMs,
     timeSeries: typeof listSeries === 'function'
       ? listSeries({ windowMs: effectiveWindowMs, keys: requestedKeys })
@@ -179,6 +201,8 @@ function buildObservabilityExportPayload(data = {}) {
     delivery: data.delivery || {},
     adminLogin: data.adminLogin || {},
     webhook: data.webhook || {},
+    requestLog: data.requestLog || {},
+    recentRequests: data.recentRequests || [],
     timeSeries: data.timeSeries || {},
   };
 }
@@ -189,6 +213,8 @@ function buildObservabilityCsv(data = {}) {
     { metric: 'delivery.failRate', value: Number(data?.delivery?.failRate || 0) },
     { metric: 'adminLogin.failures', value: Number(data?.adminLogin?.failures || 0) },
     { metric: 'webhook.errorRate', value: Number(data?.webhook?.errorRate || 0) },
+    { metric: 'requestLog.errors', value: Number(data?.requestLog?.errors || 0) },
+    { metric: 'requestLog.serverErrors', value: Number(data?.requestLog?.serverErrors || 0) },
   ];
   const lines = [
     [toCsvValue('metric'), toCsvValue('value')].join(','),
@@ -206,6 +232,36 @@ function buildObservabilityCsv(data = {}) {
         toCsvValue(Number(point?.value || 0)),
       ].join(','));
     }
+  }
+
+  lines.push('');
+  lines.push([
+    toCsvValue('requestId'),
+    toCsvValue('at'),
+    toCsvValue('method'),
+    toCsvValue('path'),
+    toCsvValue('statusCode'),
+    toCsvValue('latencyMs'),
+    toCsvValue('authMode'),
+    toCsvValue('user'),
+    toCsvValue('role'),
+    toCsvValue('tenantId'),
+    toCsvValue('error'),
+  ].join(','));
+  for (const row of Array.isArray(data?.recentRequests) ? data.recentRequests : []) {
+    lines.push([
+      toCsvValue(row?.id || ''),
+      toCsvValue(row?.at || ''),
+      toCsvValue(row?.method || ''),
+      toCsvValue(row?.path || ''),
+      toCsvValue(row?.statusCode || ''),
+      toCsvValue(row?.latencyMs || ''),
+      toCsvValue(row?.authMode || ''),
+      toCsvValue(row?.user || ''),
+      toCsvValue(row?.role || ''),
+      toCsvValue(row?.tenantId || ''),
+      toCsvValue(row?.error || ''),
+    ].join(','));
   }
 
   return lines.join('\r\n') + '\r\n';

@@ -14,7 +14,7 @@ const { listWeaponStats, replaceWeaponStats } = require('../store/weaponStatsSto
 const { listBounties, replaceBounties } = require('../store/bountyStore');
 const { listEvents, getParticipants, replaceEvents } = require('../store/eventStore');
 const { giveaways, replaceGiveaways } = require('../store/giveawayStore');
-const { listLinks, replaceLinks } = require('../store/linkStore');
+const { listLinks, replaceLinks, flushLinkStoreWrites } = require('../store/linkStore');
 const { getStatus, replaceStatus } = require('../store/scumStore');
 const { listMemberships, replaceMemberships } = require('../store/vipStore');
 const { listAllPunishments, replacePunishments } = require('../store/moderationStore');
@@ -50,6 +50,13 @@ const {
   replaceAdminNotifications,
 } = require('../store/adminNotificationStore');
 const {
+  listAdminSecurityEvents,
+  replaceAdminSecurityEvents,
+} = require('../store/adminSecurityEventStore');
+const {
+  listAdminRequestLogs,
+} = require('../store/adminRequestLogStore');
+const {
   listAdminCommandCapabilityPresets,
   replaceAdminCommandCapabilityPresets,
 } = require('../store/adminCommandCapabilityPresetStore');
@@ -78,6 +85,16 @@ const BACKUP_DIR = path.resolve(
     || path.join(DATA_DIR, 'backups'),
 );
 const RESTORE_LOCK_NAME = 'admin-backup-restore';
+const RESTORE_PREVIEW_TTL_MS = Math.max(
+  30 * 1000,
+  Math.trunc(Number(process.env.ADMIN_WEB_RESTORE_PREVIEW_TTL_MS || 10 * 60 * 1000) || (10 * 60 * 1000)),
+);
+const CURRENT_BACKUP_SCHEMA_VERSION = 1;
+const LEGACY_BACKUP_SCHEMA_VERSION = 0;
+const SUPPORTED_BACKUP_SCHEMA_VERSIONS = Object.freeze([
+  LEGACY_BACKUP_SCHEMA_VERSION,
+  CURRENT_BACKUP_SCHEMA_VERSION,
+]);
 
 function jsonReplacer(_key, value) {
   if (typeof value === 'bigint') return Number(value);
@@ -203,12 +220,58 @@ function buildBackupPayload({
   meta = null,
 } = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_BACKUP_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     createdBy: actor,
     role,
     note,
     meta: meta && typeof meta === 'object' ? meta : undefined,
+    snapshot,
+  };
+}
+
+function normalizeBackupSchemaVersion(value) {
+  if (value == null || value === '') return LEGACY_BACKUP_SCHEMA_VERSION;
+  const parsed = Math.trunc(Number(value));
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function normalizeAdminBackupPayload(rawPayload = null) {
+  if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) {
+    throw createRestoreError('Backup payload is invalid', 400);
+  }
+  const wrappedSnapshot = rawPayload.snapshot;
+  const isWrappedSnapshot =
+    wrappedSnapshot && typeof wrappedSnapshot === 'object' && !Array.isArray(wrappedSnapshot);
+  const schemaVersion = isWrappedSnapshot
+    ? normalizeBackupSchemaVersion(rawPayload.schemaVersion)
+    : LEGACY_BACKUP_SCHEMA_VERSION;
+  if (!SUPPORTED_BACKUP_SCHEMA_VERSIONS.includes(schemaVersion)) {
+    throw createRestoreError('Backup schemaVersion is not supported by this runtime', 400, {
+      supportedSchemaVersions: SUPPORTED_BACKUP_SCHEMA_VERSIONS,
+      receivedSchemaVersion: Number.isFinite(schemaVersion) ? schemaVersion : null,
+    });
+  }
+  const snapshot = isWrappedSnapshot ? wrappedSnapshot : rawPayload;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    throw createRestoreError('Backup payload is invalid', 400);
+  }
+  return {
+    schemaVersion,
+    compatibilityMode:
+      schemaVersion === CURRENT_BACKUP_SCHEMA_VERSION
+        ? 'current'
+        : isWrappedSnapshot
+          ? 'legacy-wrapped'
+          : 'legacy-unwrapped',
+    createdAt: isWrappedSnapshot ? rawPayload.createdAt || null : null,
+    createdBy: isWrappedSnapshot ? rawPayload.createdBy || null : null,
+    role: isWrappedSnapshot ? rawPayload.role || null : null,
+    note: isWrappedSnapshot ? rawPayload.note || null : null,
+    meta:
+      isWrappedSnapshot && rawPayload.meta && typeof rawPayload.meta === 'object'
+        ? rawPayload.meta
+        : null,
     snapshot,
   };
 }
@@ -220,6 +283,61 @@ function createRestoreError(message, statusCode = 500, data = null) {
     error.data = data;
   }
   return error;
+}
+
+function createRestorePreviewToken() {
+  return crypto.randomBytes(18).toString('hex');
+}
+
+function issueRestorePreviewState(backupFile) {
+  const issuedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + RESTORE_PREVIEW_TTL_MS).toISOString();
+  const previewToken = createRestorePreviewToken();
+  const nextState = setAdminRestoreState({
+    ...getAdminRestoreState(),
+    previewToken,
+    previewBackup: String(backupFile || '').trim() || null,
+    previewIssuedAt: issuedAt,
+    previewExpiresAt: expiresAt,
+  });
+  return {
+    previewToken,
+    previewBackup: nextState.previewBackup,
+    previewIssuedAt: nextState.previewIssuedAt,
+    previewExpiresAt: nextState.previewExpiresAt,
+  };
+}
+
+function validateRestorePreviewState(backupFile, previewToken) {
+  const backup = String(backupFile || '').trim();
+  const token = String(previewToken || '').trim();
+  const restoreState = getAdminRestoreState();
+  const expiresAtMs = restoreState.previewExpiresAt
+    ? new Date(restoreState.previewExpiresAt).getTime()
+    : 0;
+
+  if (!token) {
+    throw createRestoreError('previewToken is required; run a restore dry-run first', 400, {
+      restoreState,
+    });
+  }
+  if (!restoreState.previewToken || restoreState.previewToken !== token) {
+    throw createRestoreError('previewToken is invalid or no longer current', 400, {
+      restoreState,
+    });
+  }
+  if (!restoreState.previewBackup || restoreState.previewBackup !== backup) {
+    throw createRestoreError('previewToken does not match the selected backup', 400, {
+      restoreState,
+    });
+  }
+  if (!expiresAtMs || expiresAtMs < Date.now()) {
+    throw createRestoreError('previewToken has expired; run restore dry-run again', 400, {
+      restoreState,
+    });
+  }
+
+  return restoreState;
 }
 
 function readBackupPayloadByName(inputName) {
@@ -631,6 +749,7 @@ async function restoreAdminSnapshotData(snapshot = {}) {
     Number(snapshot.eventCounter || 0) || null,
   );
   replaceLinks(Array.isArray(snapshot.links) ? snapshot.links : []);
+  await flushLinkStoreWrites();
   replaceMemberships(Array.isArray(snapshot.memberships) ? snapshot.memberships : []);
   replaceWeaponStats(Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats : []);
   replaceStats(Array.isArray(snapshot.stats) ? snapshot.stats : []);
@@ -644,6 +763,9 @@ async function restoreAdminSnapshotData(snapshot = {}) {
   replaceDeliveryAudit(Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : []);
   replaceAdminNotifications(
     Array.isArray(snapshot.adminNotifications) ? snapshot.adminNotifications : [],
+  );
+  replaceAdminSecurityEvents(
+    Array.isArray(snapshot.adminSecurityEvents) ? snapshot.adminSecurityEvents : [],
   );
   replaceAdminCommandCapabilityPresets(
     Array.isArray(snapshot.adminCommandCapabilityPresets)
@@ -714,6 +836,9 @@ function buildRestoreCounts(snapshot = {}) {
     deliveryAudit: Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit.length : 0,
     adminNotifications: Array.isArray(snapshot.adminNotifications)
       ? snapshot.adminNotifications.length
+      : 0,
+    adminSecurityEvents: Array.isArray(snapshot.adminSecurityEvents)
+      ? snapshot.adminSecurityEvents.length
       : 0,
     adminCommandCapabilityPresets: Array.isArray(snapshot.adminCommandCapabilityPresets)
       ? snapshot.adminCommandCapabilityPresets.length
@@ -787,26 +912,37 @@ function buildRestoreDiff(currentSnapshot = {}, targetSnapshot = {}) {
 }
 
 async function buildRestorePreviewData(loaded, options = {}) {
-  const snapshot = loaded?.payload?.snapshot;
-  if (!snapshot || typeof snapshot !== 'object') {
-    throw createRestoreError('Backup payload is invalid', 400);
-  }
+  const normalizedPayload = normalizeAdminBackupPayload(loaded?.payload);
+  const snapshot = normalizedPayload.snapshot;
   const currentSnapshot = options.currentSnapshot || await buildAdminSnapshot({
     client: options.client || null,
     observabilitySnapshot: options.observabilitySnapshot || null,
   });
   const diff = buildRestoreDiff(currentSnapshot, snapshot);
+  const warnings = [...(diff.warnings || [])];
+  if (normalizedPayload.schemaVersion === LEGACY_BACKUP_SCHEMA_VERSION) {
+    warnings.push(`legacy-backup-schema:${normalizedPayload.compatibilityMode}`);
+  }
+  const previewState =
+    options.issuePreviewToken === true
+      ? issueRestorePreviewState(loaded.file)
+      : getAdminRestoreState();
   return {
     dryRun: true,
     backup: loaded.file,
-    backupCreatedAt: loaded?.payload?.createdAt || null,
-    backupCreatedBy: loaded?.payload?.createdBy || null,
-    note: loaded?.payload?.note || null,
+    schemaVersion: normalizedPayload.schemaVersion,
+    compatibilityMode: normalizedPayload.compatibilityMode,
+    backupCreatedAt: normalizedPayload.createdAt || null,
+    backupCreatedBy: normalizedPayload.createdBy || null,
+    note: normalizedPayload.note || null,
     confirmBackup: loaded.file,
     counts: diff.targetCounts,
     currentCounts: diff.currentCounts,
     diff,
-    warnings: diff.warnings,
+    warnings,
+    previewToken: previewState.previewToken || null,
+    previewIssuedAt: previewState.previewIssuedAt || null,
+    previewExpiresAt: previewState.previewExpiresAt || null,
     restoreState: getAdminRestoreState(),
   };
 }
@@ -972,6 +1108,8 @@ async function buildAdminSnapshot({
     deliveryDeadLetters: listDeliveryDeadLetters(1000),
     deliveryAudit: listDeliveryAudit(1000),
     adminNotifications: listAdminNotifications({ limit: 300 }),
+    adminSecurityEvents: listAdminSecurityEvents({ limit: 300 }),
+    adminRequestLogs: listAdminRequestLogs({ limit: 300 }),
     adminCommandCapabilityPresets: listAdminCommandCapabilityPresets(300),
     observability: observabilitySnapshot || {},
     backups: listAdminBackupFiles().slice(0, 50),
@@ -1011,7 +1149,10 @@ async function createAdminBackup({
 
 async function previewAdminBackupRestore(backupName, options = {}) {
   const loaded = readBackupPayloadByName(backupName);
-  return buildRestorePreviewData(loaded, options);
+  return buildRestorePreviewData(loaded, {
+    ...options,
+    issuePreviewToken: options.issuePreviewToken !== false,
+  });
 }
 
 function matchesRestoreConfirmation(input, backupFile) {
@@ -1027,10 +1168,8 @@ function matchesRestoreConfirmation(input, backupFile) {
 // a reversible path when a snapshot turns out to be wrong for the target environment.
 async function restoreAdminBackup(backupName, options = {}) {
   const loaded = readBackupPayloadByName(backupName);
-  const snapshot = loaded?.payload?.snapshot;
-  if (!snapshot || typeof snapshot !== 'object') {
-    throw createRestoreError('Backup payload is invalid', 400);
-  }
+  const normalizedPayload = normalizeAdminBackupPayload(loaded?.payload);
+  const snapshot = normalizedPayload.snapshot;
 
   const confirmBackup = String(options.confirmBackup || '').trim();
   if (!matchesRestoreConfirmation(confirmBackup, loaded.file)) {
@@ -1038,6 +1177,7 @@ async function restoreAdminBackup(backupName, options = {}) {
       expectedConfirmBackup: loaded.file,
     });
   }
+  validateRestorePreviewState(loaded.file, options.previewToken);
 
   const lock = acquireRuntimeLock(RESTORE_LOCK_NAME, 'admin-backup-restore');
   if (!lock.ok) {
@@ -1068,7 +1208,7 @@ async function restoreAdminBackup(backupName, options = {}) {
     rollbackBackup: null,
     actor,
     role,
-    note: loaded?.payload?.note || null,
+    note: normalizedPayload.note || null,
     startedAt,
     endedAt: null,
     updatedAt: startedAt,
@@ -1081,6 +1221,10 @@ async function restoreAdminBackup(backupName, options = {}) {
     currentCounts: null,
     diff: null,
     warnings: [],
+    previewToken: null,
+    previewBackup: null,
+    previewIssuedAt: null,
+    previewExpiresAt: null,
   });
 
   try {
@@ -1129,6 +1273,10 @@ async function restoreAdminBackup(backupName, options = {}) {
       currentCounts: preview.currentCounts,
       diff: preview.diff,
       warnings: preview.warnings,
+      previewToken: null,
+      previewBackup: null,
+      previewIssuedAt: null,
+      previewExpiresAt: null,
     });
 
     publishAdminLiveUpdate('backup-restore-started', {
@@ -1168,6 +1316,10 @@ async function restoreAdminBackup(backupName, options = {}) {
       currentCounts: preview.currentCounts,
       diff: preview.diff,
       warnings: preview.warnings,
+      previewToken: null,
+      previewBackup: null,
+      previewIssuedAt: null,
+      previewExpiresAt: null,
     });
 
     publishAdminLiveUpdate('backup-restore', {
@@ -1245,6 +1397,10 @@ async function restoreAdminBackup(backupName, options = {}) {
       currentCounts: preview?.currentCounts || null,
       diff: preview?.diff || null,
       warnings: preview?.warnings || [],
+      previewToken: null,
+      previewBackup: null,
+      previewIssuedAt: null,
+      previewExpiresAt: null,
     });
 
     publishAdminLiveUpdate('backup-restore-failed', {
@@ -1272,6 +1428,7 @@ module.exports = {
   getAdminRestoreState,
   jsonReplacer,
   listAdminBackupFiles,
+  normalizeAdminBackupPayload,
   previewAdminBackupRestore,
   restoreAdminBackup,
   restoreAdminSnapshotData,

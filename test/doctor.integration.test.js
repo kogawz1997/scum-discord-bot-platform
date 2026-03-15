@@ -32,6 +32,9 @@ test('doctor passes valid reverse proxy/origin/port production setup', () => {
     ADMIN_WEB_SSO_DISCORD_CLIENT_ID: '',
     ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET: '',
     ADMIN_WEB_SSO_DISCORD_REDIRECT_URI: '',
+    ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_MOD_ROLE_NAMES: '',
     WEB_PORTAL_BASE_URL: 'https://player.example.com',
     WEB_PORTAL_LEGACY_ADMIN_URL: 'https://admin.example.com/admin',
     WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
@@ -172,10 +175,14 @@ test('doctor warns when external admin lacks 2FA and session ttl is too long', (
     ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
     ADMIN_WEB_2FA_ENABLED: '',
     ADMIN_WEB_2FA_SECRET: '',
-    ADMIN_WEB_SSO_DISCORD_ENABLED: '',
-    ADMIN_WEB_SSO_DISCORD_CLIENT_ID: '',
-    ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET: '',
-    ADMIN_WEB_SSO_DISCORD_REDIRECT_URI: '',
+    ADMIN_WEB_SSO_DISCORD_ENABLED: 'true',
+    ADMIN_WEB_SSO_DISCORD_CLIENT_ID: '1478651427088760842',
+    ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET: 'admin-sso-secret-1234567890',
+    ADMIN_WEB_SSO_DISCORD_REDIRECT_URI:
+      'https://admin.example.com/admin/auth/discord/callback',
+    ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_MOD_ROLE_NAMES: '',
     ADMIN_WEB_SESSION_TTL_HOURS: '48',
     WEB_PORTAL_BASE_URL: 'https://player.example.com',
     WEB_PORTAL_LEGACY_ADMIN_URL: 'https://admin.example.com/admin',
@@ -196,4 +203,5 @@ test('doctor warns when external admin lacks 2FA and session ttl is too long', (
   assert.match(output, /without active 2FA/i);
   assert.match(output, /ADMIN_WEB_SESSION_TTL_HOURS=48/i);
   assert.match(output, /WEB_PORTAL_SESSION_TTL_HOURS=72/i);
+  assert.match(output, /fall back to ADMIN_WEB_SSO_DEFAULT_ROLE/i);
 });

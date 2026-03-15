@@ -137,12 +137,16 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.env.backup-*
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+*.pem
+*.key
+*.backup*
 
 # Spyder project settings
 .spyderproject
@@ -224,9 +228,10 @@ data/backups/
 backups/
 data/*.json
 logs/
+tmp-*.log
+tmp-*.txt
 
 # SQLite / Prisma databases
 prisma/**/*.db
 *.sqlite
 *.sqlite-journal
-

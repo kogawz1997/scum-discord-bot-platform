@@ -51,6 +51,9 @@ const DELIVERY_ENV_KEYS = [
   'DELIVERY_AGENT_POST_COMMANDS_JSON',
   'DELIVERY_AGENT_COMMAND_DELAY_MS',
   'DELIVERY_AGENT_POST_TELEPORT_DELAY_MS',
+  'DELIVERY_AGENT_FAILOVER_MODE',
+  'DELIVERY_AGENT_CIRCUIT_BREAKER_THRESHOLD',
+  'DELIVERY_AGENT_CIRCUIT_BREAKER_COOLDOWN_MS',
   'DELIVERY_MAGAZINE_STACKCOUNT',
   'DELIVERY_AGENT_TELEPORT_MODE',
   'DELIVERY_AGENT_TELEPORT_TARGET',
@@ -218,7 +221,7 @@ test.afterEach(() => {
   }
 });
 
-function startFakeAgentServer() {
+function startFakeAgentServer(options = {}) {
   const received = [];
   const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/execute') {
@@ -230,6 +233,17 @@ function startFakeAgentServer() {
       req.on('end', () => {
         const payload = JSON.parse(raw || '{}');
         received.push(payload.command);
+        if (typeof options.onExecute === 'function') {
+          const custom = options.onExecute(payload.command, payload);
+          if (custom && typeof custom === 'object') {
+            const statusCode = Number(custom.statusCode || 200);
+            res.writeHead(statusCode, {
+              'Content-Type': 'application/json; charset=utf-8',
+            });
+            res.end(JSON.stringify(custom.body || {}));
+            return;
+          }
+        }
         const body = JSON.stringify({
           ok: true,
           result: {
@@ -246,11 +260,31 @@ function startFakeAgentServer() {
       return;
     }
     if (req.method === 'GET' && req.url === '/healthz') {
+      if (typeof options.onHealth === 'function') {
+        const custom = options.onHealth();
+        if (custom && typeof custom === 'object') {
+          res.writeHead(Number(custom.statusCode || 200), {
+            'Content-Type': 'application/json; charset=utf-8',
+          });
+          res.end(JSON.stringify(custom.body || {}));
+          return;
+        }
+      }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true, ready: true, status: 'ready' }));
       return;
     }
     if (req.method === 'GET' && req.url === '/preflight') {
+      if (typeof options.onPreflight === 'function') {
+        const custom = options.onPreflight();
+        if (custom && typeof custom === 'object') {
+          res.writeHead(Number(custom.statusCode || 200), {
+            'Content-Type': 'application/json; charset=utf-8',
+          });
+          res.end(JSON.stringify(custom.body || {}));
+          return;
+        }
+      }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -327,6 +361,23 @@ test('purchase -> queue -> auto-delivery success for bundle item', async () => {
     '#SpawnItem 76561198000000001 Weapon_AK47 2',
     '#SpawnItem 76561198000000001 Ammo_762 150',
   ]);
+  assert.equal(successAudit.meta.executionMode, 'rcon');
+  assert.equal(successAudit.meta.backend, 'rcon-template');
+  assert.match(String(successAudit.meta.commandPath || ''), /rcon/i);
+  assert.equal(successAudit.meta.retryCount, 0);
+  const purchaseAudits = ctx.audits.filter((entry) => entry.purchaseCode === 'P-100');
+  assert.equal(
+    purchaseAudits.every((entry) => {
+      return Boolean(
+        entry.meta
+          && typeof entry.meta.executionMode === 'string'
+          && typeof entry.meta.commandPath === 'string'
+          && Number.isInteger(Number(entry.meta.retryCount))
+          && typeof entry.meta.backend === 'string',
+      );
+    }),
+    true,
+  );
 });
 
 test('purchase -> queue -> auto-delivery success via console agent mode', async () => {
@@ -374,6 +425,68 @@ test('purchase -> queue -> auto-delivery success via console agent mode', async 
     assert.equal(successAudit.meta.outputs[0].mode, 'agent');
     assert.equal(successAudit.meta.commandSummary, '#SpawnItem Weapon_AK47 1');
     assert.match(String(successAudit.message || ''), /#SpawnItem Weapon_AK47 1/);
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent enqueue is blocked when preflight fails before the job reaches the queue', async () => {
+  const agent = await startFakeAgentServer({
+    onPreflight: () => ({
+      statusCode: 500,
+      body: {
+        ok: false,
+        errorCode: 'AGENT_PREFLIGHT_FAILED',
+        error: 'SCUM admin client is not ready',
+        result: {
+          ok: false,
+          backend: 'fake-agent',
+        },
+      },
+    }),
+  });
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-preflight-block';
+  process.env.DELIVERY_AGENT_FAILOVER_MODE = 'none';
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-blocked-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+  ctx.purchases.set('P-125B', {
+    code: 'P-125B',
+    userId: 'u-1',
+    itemId: 'agent-blocked-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-blocked-ak', {
+    id: 'agent-blocked-ak',
+    name: 'Blocked Agent Item',
+    kind: 'item',
+    gameItemId: 'Weapon_AK47',
+    quantity: 1,
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-125B', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, false);
+    assert.equal(queued.reason, 'agent-preflight-failed');
+    assert.equal(api.listDeliveryQueue().length, 0);
+    assert.equal(ctx.purchases.get('P-125B').status, 'pending');
+    assert.equal(ctx.statuses.length, 0);
+
+    const blockedAudit = ctx.audits.find(
+      (entry) => entry.action === 'enqueue-blocked' && entry.purchaseCode === 'P-125B',
+    );
+    assert.ok(blockedAudit, 'expected enqueue-blocked audit entry');
+    assert.equal(blockedAudit.meta.executionMode, 'agent');
+    assert.equal(blockedAudit.meta.backend, 'exec');
+    assert.match(String(blockedAudit.meta.commandPath || ''), /queue->console-agent/i);
+    assert.equal(blockedAudit.meta.retryCount, 0);
   } finally {
     await agent.close();
   }
@@ -490,6 +603,147 @@ test('agent mode verification failure moves job to dead-letter after command exe
     );
     assert.ok(verifyAudit, 'expected verify-failed audit entry');
     assert.match(String(verifyAudit.message || ''), /verification failed/i);
+  } finally {
+    await agent.close();
+  }
+});
+
+test('agent mode falls back to RCON when agent preflight is unreachable and failover is enabled', async () => {
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.DELIVERY_AGENT_FAILOVER_MODE = 'rcon';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = 'http://127.0.0.1:39999';
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-failover-preflight';
+  process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-failover-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-125R', {
+    code: 'P-125R',
+    userId: 'u-1',
+    itemId: 'agent-failover-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-failover-ak', {
+    id: 'agent-failover-ak',
+    name: 'Agent Failover AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const queued = await api.enqueuePurchaseDeliveryByCode('P-125R', {
+    guildId: 'g-1',
+  });
+  assert.equal(queued.ok, true);
+
+  const processed = await api.processDeliveryQueueNow(5);
+  assert.equal(processed.processed, 1);
+  assert.equal(ctx.purchases.get('P-125R').status, 'delivered');
+
+  const successAudit = ctx.audits.find(
+    (entry) => entry.action === 'success' && entry.purchaseCode === 'P-125R',
+  );
+  assert.ok(successAudit, 'expected success audit entry');
+  assert.equal(String(successAudit.meta?.outputs?.[0]?.mode || ''), 'rcon');
+
+  const failoverAudit = ctx.audits.find(
+    (entry) => entry.action === 'failover-engaged' && entry.purchaseCode === 'P-125R',
+  );
+  assert.ok(failoverAudit, 'expected failover audit entry');
+});
+
+test('agent circuit breaker opens after command failure and next delivery uses RCON failover', async () => {
+  const agent = await startFakeAgentServer({
+    onExecute() {
+      return {
+        statusCode: 500,
+        body: {
+          ok: false,
+          errorCode: 'AGENT_EXEC_BROKEN',
+          error: 'simulated execute failure',
+        },
+      };
+    },
+  });
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.DELIVERY_AGENT_FAILOVER_MODE = 'rcon';
+  process.env.DELIVERY_AGENT_CIRCUIT_BREAKER_THRESHOLD = '1';
+  process.env.DELIVERY_AGENT_CIRCUIT_BREAKER_COOLDOWN_MS = '60000';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-circuit-open';
+  process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
+
+  const ctx = makeTestContext({
+    config: {
+      delivery: {
+        auto: {
+          enabled: true,
+          queueIntervalMs: 100,
+          maxRetries: 0,
+          retryDelayMs: 10,
+          retryBackoff: 1,
+          commandTimeoutMs: 2000,
+          failedStatus: 'delivery_failed',
+          itemCommands: {
+            'agent-circuit-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+          },
+        },
+      },
+    },
+  });
+
+  ctx.purchases.set('P-125C1', {
+    code: 'P-125C1',
+    userId: 'u-1',
+    itemId: 'agent-circuit-ak',
+    status: 'pending',
+  });
+  ctx.purchases.set('P-125C2', {
+    code: 'P-125C2',
+    userId: 'u-1',
+    itemId: 'agent-circuit-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-circuit-ak', {
+    id: 'agent-circuit-ak',
+    name: 'Agent Circuit AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queuedFirst = await api.enqueuePurchaseDeliveryByCode('P-125C1', {
+      guildId: 'g-1',
+    });
+    assert.equal(queuedFirst.ok, true);
+
+    const firstProcessed = await api.processDeliveryQueueNow(5);
+    assert.equal(firstProcessed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125C1').status, 'delivery_failed');
+
+    const queuedSecond = await api.enqueuePurchaseDeliveryByCode('P-125C2', {
+      guildId: 'g-1',
+    });
+    assert.equal(queuedSecond.ok, true);
+
+    const secondProcessed = await api.processDeliveryQueueNow(5);
+    assert.equal(secondProcessed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125C2').status, 'delivered');
+
+    const failoverAudit = ctx.audits.find(
+      (entry) => entry.action === 'failover-engaged' && entry.purchaseCode === 'P-125C2',
+    );
+    assert.ok(failoverAudit, 'expected failover audit entry on second job');
+
+    const successAudit = ctx.audits.find(
+      (entry) => entry.action === 'success' && entry.purchaseCode === 'P-125C2',
+    );
+    assert.ok(successAudit, 'expected success audit for second job');
+    assert.equal(String(successAudit.meta?.outputs?.[0]?.mode || ''), 'rcon');
   } finally {
     await agent.close();
   }

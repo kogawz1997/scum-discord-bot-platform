@@ -24,11 +24,28 @@ function parseCsvRoleIds(value) {
   return out;
 }
 
+function parseCsvRoleNames(value) {
+  const seen = new Set();
+  const out = [];
+  for (const part of String(value || '').split(',')) {
+    const normalized = normalizeRoleName(part);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
 function getAdminSsoRoleMappingSummary(env = process.env) {
   const ownerRoleIds = parseCsvRoleIds(env.ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_IDS);
   const adminRoleIds = parseCsvRoleIds(env.ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_IDS);
   const modRoleIds = parseCsvRoleIds(env.ADMIN_WEB_SSO_DISCORD_MOD_ROLE_IDS);
+  const ownerRoleNames = parseCsvRoleNames(env.ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES);
+  const adminRoleNames = parseCsvRoleNames(env.ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_NAMES);
+  const modRoleNames = parseCsvRoleNames(env.ADMIN_WEB_SSO_DISCORD_MOD_ROLE_NAMES);
   const totalMappedRoleIds = ownerRoleIds.length + adminRoleIds.length + modRoleIds.length;
+  const totalMappedRoleNames =
+    ownerRoleNames.length + adminRoleNames.length + modRoleNames.length;
 
   return {
     enabled: envBool(env.ADMIN_WEB_SSO_DISCORD_ENABLED, false),
@@ -36,9 +53,17 @@ function getAdminSsoRoleMappingSummary(env = process.env) {
     ownerRoleIds,
     adminRoleIds,
     modRoleIds,
+    ownerRoleNames,
+    adminRoleNames,
+    modRoleNames,
     totalMappedRoleIds,
-    hasExplicitMappings: totalMappedRoleIds > 0,
-    hasElevatedMappings: ownerRoleIds.length > 0 || adminRoleIds.length > 0,
+    totalMappedRoleNames,
+    hasExplicitMappings: totalMappedRoleIds > 0 || totalMappedRoleNames > 0,
+    hasElevatedMappings:
+      ownerRoleIds.length > 0
+      || adminRoleIds.length > 0
+      || ownerRoleNames.length > 0
+      || adminRoleNames.length > 0,
   };
 }
 
@@ -88,6 +113,26 @@ function selectDiscordRoleIdsByName(roles = [], requestedNames = []) {
   });
 }
 
+function resolveMappedMemberRole(roleIds = [], guildRoles = [], summary = getAdminSsoRoleMappingSummary()) {
+  const memberRoleIds = new Set(Array.isArray(roleIds) ? roleIds.map((entry) => String(entry || '').trim()) : []);
+  const roles = Array.isArray(guildRoles) ? guildRoles : [];
+
+  const matchesByIds = (ids = []) => ids.some((id) => memberRoleIds.has(String(id || '').trim()));
+  const matchesByNames = (names = []) => {
+    if (!Array.isArray(names) || names.length === 0 || roles.length === 0) return false;
+    const mappedIds = roles
+      .filter((role) => names.includes(normalizeRoleName(role?.name)))
+      .map((role) => String(role?.id || '').trim())
+      .filter(Boolean);
+    return mappedIds.some((id) => memberRoleIds.has(id));
+  };
+
+  if (matchesByIds(summary.ownerRoleIds) || matchesByNames(summary.ownerRoleNames)) return 'owner';
+  if (matchesByIds(summary.adminRoleIds) || matchesByNames(summary.adminRoleNames)) return 'admin';
+  if (matchesByIds(summary.modRoleIds) || matchesByNames(summary.modRoleNames)) return 'mod';
+  return summary.defaultRole;
+}
+
 function buildAdminSsoRoleMappingEnvLines(roles = [], mappingRequests = {}) {
   const ownerRoleIds = selectDiscordRoleIdsByName(roles, mappingRequests.owner);
   const adminRoleIds = selectDiscordRoleIdsByName(roles, mappingRequests.admin);
@@ -110,6 +155,8 @@ module.exports = {
   getAdminSsoRoleMappingSummary,
   normalizeAdminRole,
   parseCsvRoleIds,
+  parseCsvRoleNames,
   parseRoleNameRequests,
+  resolveMappedMemberRole,
   selectDiscordRoleIdsByName,
 };

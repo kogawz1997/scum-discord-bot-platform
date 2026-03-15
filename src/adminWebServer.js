@@ -8,6 +8,18 @@ const { URL } = require('node:url');
 const config = require('./config');
 const { prisma } = require('./prisma');
 const {
+  getAdminSsoRoleMappingSummary,
+  resolveMappedMemberRole,
+} = require('./utils/adminSsoRoleMapping');
+const {
+  buildRoleMatrix,
+  getAdminPermissionForPath,
+  getAdminPermissionMatrixSummary,
+  hasRoleAtLeast,
+  listAdminPermissionMatrix,
+  normalizeRole,
+} = require('./utils/adminPermissionMatrix');
+const {
   listShopItems,
   listUserPurchases,
   listKnownPurchaseStatuses,
@@ -69,7 +81,17 @@ const {
   listAdminNotifications,
   acknowledgeAdminNotifications,
   clearAdminNotifications,
+  addAdminNotification,
 } = require('./store/adminNotificationStore');
+const {
+  listAdminSecurityEvents,
+  recordAdminSecurityEvent,
+} = require('./store/adminSecurityEventStore');
+const {
+  getAdminRequestLogMetrics,
+  listAdminRequestLogs,
+  recordAdminRequestLog,
+} = require('./store/adminRequestLogStore');
 const {
   listAdminCommandCapabilityPresets,
   getAdminCommandCapabilityPresetById,
@@ -225,6 +247,15 @@ const SESSION_TTL_MS = Math.max(
   10 * 60 * 1000,
   Number(process.env.ADMIN_WEB_SESSION_TTL_HOURS || 12) * 60 * 60 * 1000,
 );
+const SESSION_IDLE_TIMEOUT_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.ADMIN_WEB_SESSION_IDLE_MINUTES || 120) * 60 * 1000,
+);
+const SESSION_MAX_PER_USER = Math.max(
+  1,
+  Number(process.env.ADMIN_WEB_SESSION_MAX_PER_USER || 5),
+);
+const SESSION_BIND_USER_AGENT = envBool('ADMIN_WEB_SESSION_BIND_USER_AGENT', true);
 const SESSION_COOKIE_PATH = normalizeCookiePath(
   process.env.ADMIN_WEB_SESSION_COOKIE_PATH || '/admin',
   '/admin',
@@ -303,11 +334,6 @@ const LOGIN_SPIKE_ALERT_COOLDOWN_MS = Math.max(
   15 * 1000,
   Number(process.env.ADMIN_WEB_LOGIN_SPIKE_ALERT_COOLDOWN_MS || 60 * 1000),
 );
-const ROLE_ORDER = {
-  mod: 1,
-  admin: 2,
-  owner: 3,
-};
 const ADMIN_WEB_USER_ROLE = normalizeRole(
   process.env.ADMIN_WEB_USER_ROLE || 'owner',
 );
@@ -340,6 +366,18 @@ const ADMIN_WEB_2FA_ACTIVE = ADMIN_WEB_2FA_ENABLED && ADMIN_WEB_2FA_SECRET.lengt
 const ADMIN_WEB_2FA_WINDOW_STEPS = Math.max(
   0,
   Number(process.env.ADMIN_WEB_2FA_WINDOW_STEPS || 1),
+);
+const ADMIN_WEB_STEP_UP_ENABLED = envBool(
+  'ADMIN_WEB_STEP_UP_ENABLED',
+  ADMIN_WEB_2FA_ACTIVE,
+);
+const ADMIN_WEB_STEP_UP_TTL_MS = Math.max(
+  60 * 1000,
+  Number(process.env.ADMIN_WEB_STEP_UP_TTL_MINUTES || 15) * 60 * 1000,
+);
+const ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS = envBool(
+  'ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS',
+  false,
 );
 const SSO_DISCORD_ENABLED = envBool('ADMIN_WEB_SSO_DISCORD_ENABLED', false);
 const SSO_DISCORD_CLIENT_ID = String(
@@ -402,19 +440,6 @@ function normalizeCookieDomain(value) {
   if (!text) return '';
   if (/[;\s]/.test(text)) return '';
   return text;
-}
-
-function normalizeRole(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (raw === 'owner') return 'owner';
-  if (raw === 'admin') return 'admin';
-  return 'mod';
-}
-
-function hasRoleAtLeast(actualRole, requiredRole) {
-  const actual = ROLE_ORDER[normalizeRole(actualRole)] || 0;
-  const required = ROLE_ORDER[normalizeRole(requiredRole)] || 0;
-  return actual >= required;
 }
 
 function parseCsvSet(value) {
@@ -552,6 +577,73 @@ function sendDownload(res, statusCode, body, options = {}) {
   res.end(body);
 }
 
+function escapeCsvCell(value) {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text)
+    ? `"${text.replace(/"/g, '""')}"`
+    : text;
+}
+
+function isAdminSecurityAnomaly(event = {}) {
+  const severity = String(event.severity || '').trim().toLowerCase();
+  if (severity === 'warn' || severity === 'error') return true;
+  const type = String(event.type || '').trim().toLowerCase();
+  return /fail|anomaly|mismatch|revoked|denied|blocked|expired/.test(type);
+}
+
+function matchesAdminSecurityEventQuery(event = {}, query = '') {
+  const normalized = String(query || '').trim().toLowerCase();
+  if (!normalized) return true;
+  return Object.values(event).some((value) => {
+    if (value == null) return false;
+    try {
+      return String(typeof value === 'object' ? JSON.stringify(value) : value)
+        .toLowerCase()
+        .includes(normalized);
+    } catch {
+      return String(value).toLowerCase().includes(normalized);
+    }
+  });
+}
+
+function buildAdminSecurityEventExportRows(urlObj) {
+  const q = requiredString(urlObj.searchParams.get('q'));
+  const anomalyOnly = String(urlObj.searchParams.get('anomalyOnly') || '').trim().toLowerCase() === 'true';
+  return listAdminSecurityEvents({
+    limit: asInt(urlObj.searchParams.get('limit'), 2000) || 2000,
+    type: requiredString(urlObj.searchParams.get('type')),
+    severity: requiredString(urlObj.searchParams.get('severity')),
+    actor: requiredString(urlObj.searchParams.get('actor')),
+    targetUser: requiredString(urlObj.searchParams.get('targetUser')),
+    sessionId: requiredString(urlObj.searchParams.get('sessionId')),
+  }).filter((row) => {
+    if (anomalyOnly && !isAdminSecurityAnomaly(row)) return false;
+    return matchesAdminSecurityEventQuery(row, q);
+  });
+}
+
+function buildAdminSecurityEventCsv(rows = []) {
+  const headers = [
+    'id',
+    'at',
+    'type',
+    'severity',
+    'actor',
+    'targetUser',
+    'role',
+    'authMethod',
+    'sessionId',
+    'ip',
+    'path',
+    'reason',
+    'detail',
+  ];
+  const body = (Array.isArray(rows) ? rows : [])
+    .map((row) => headers.map((key) => escapeCsvCell(row?.[key])).join(','))
+    .join('\n');
+  return `${headers.join(',')}\n${body}${body ? '\n' : ''}`;
+}
+
 function getIconContentType(ext) {
   const normalized = String(ext || '').toLowerCase();
   if (normalized === '.png') return 'image/png';
@@ -679,7 +771,11 @@ function openLiveStream(req, res) {
     liveClients.delete(res);
     stopLiveHeartbeatIfIdle();
   };
-  req.on('close', cleanup);
+  // Keep SSE subscribers alive until the response/socket closes. On Node's server-side
+  // request object, `close` can fire once the request payload is fully read, which would
+  // unregister an otherwise healthy live stream too early.
+  res.on('close', cleanup);
+  res.on('error', cleanup);
   req.on('aborted', cleanup);
 }
 
@@ -691,6 +787,7 @@ function captureMetricsSeries(now = Date.now()) {
     getDeliveryMetricsSnapshot,
     getLoginFailureMetrics,
     getWebhookMetricsSnapshot,
+    getAdminRequestLogMetrics,
   });
 }
 
@@ -969,20 +1066,8 @@ async function getUserByCredentials(username, password) {
 }
 
 function getSsoDiscordRole(roleIds = []) {
-  const ownerIds = parseCsvSet(process.env.ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_IDS);
-  const adminIds = parseCsvSet(process.env.ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_IDS);
-  const modIds = parseCsvSet(process.env.ADMIN_WEB_SSO_DISCORD_MOD_ROLE_IDS);
-  const source = new Set(Array.isArray(roleIds) ? roleIds.map((v) => String(v)) : []);
-  for (const id of ownerIds) {
-    if (source.has(id)) return 'owner';
-  }
-  for (const id of adminIds) {
-    if (source.has(id)) return 'admin';
-  }
-  for (const id of modIds) {
-    if (source.has(id)) return 'mod';
-  }
-  return SSO_DISCORD_DEFAULT_ROLE;
+  const mappingSummary = getAdminSsoRoleMappingSummary(process.env);
+  return resolveMappedMemberRole(roleIds, [], mappingSummary);
 }
 
 function getDiscordRedirectUri(host, port) {
@@ -1113,10 +1198,29 @@ function recordLoginAttempt(req, success) {
 
   if (success) {
     loginAttemptsByIp.delete(ip);
+    recordAdminSecuritySignal('login-succeeded', {
+      actor: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+      targetUser: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+      authMethod: String(req?.__pendingAdminAuthMethod || 'password'),
+      ip,
+      path: '/admin/api/login',
+      detail: 'Admin login succeeded',
+    });
     return;
   }
 
   loginFailureEvents.push({ at: now, ip });
+  recordAdminSecuritySignal('login-failed', {
+    severity: 'warn',
+    actor: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+    targetUser: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+    authMethod: String(req?.__pendingAdminAuthMethod || 'password'),
+    ip,
+    path: '/admin/api/login',
+    reason: String(req?.__pendingAdminFailureReason || 'invalid-credentials'),
+    detail: 'Admin login failed',
+    notify: true,
+  });
   maybeAlertLoginFailureSpike(now);
 
   const existing = loginAttemptsByIp.get(ip);
@@ -1135,33 +1239,212 @@ function secureEqual(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
+function hashText(value) {
+  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
+}
+
+function getUserAgentHash(req) {
+  if (!SESSION_BIND_USER_AGENT) return null;
+  return hashText(String(req?.headers?.['user-agent'] || '').trim());
+}
+
+function setRequestMeta(req, patch = {}) {
+  if (!req || typeof req !== 'object') return {};
+  const current = req.__adminRequestMeta && typeof req.__adminRequestMeta === 'object'
+    ? req.__adminRequestMeta
+    : {};
+  req.__adminRequestMeta = {
+    ...current,
+    ...(patch && typeof patch === 'object' ? patch : {}),
+  };
+  return req.__adminRequestMeta;
+}
+
+function buildSecurityNotificationMessage(event = {}) {
+  const parts = [
+    event.detail || event.type || 'security-event',
+    event.actor ? `actor=${event.actor}` : '',
+    event.targetUser ? `target=${event.targetUser}` : '',
+    event.ip ? `ip=${event.ip}` : '',
+    event.reason ? `reason=${event.reason}` : '',
+  ].filter(Boolean);
+  return parts.join(' • ');
+}
+
+function recordAdminSecuritySignal(type, options = {}) {
+  const normalizedType = String(type || 'security-event').trim() || 'security-event';
+  const severity = String(options.severity || (options.notify ? 'warn' : 'info')).trim() || 'info';
+  const event = recordAdminSecurityEvent({
+    type: normalizedType,
+    severity,
+    actor: options.actor || null,
+    targetUser: options.targetUser || null,
+    role: options.role || null,
+    authMethod: options.authMethod || null,
+    sessionId: options.sessionId || null,
+    ip: options.ip || null,
+    path: options.path || null,
+    reason: options.reason || null,
+    detail: options.detail || null,
+    data: options.data || null,
+  });
+  publishAdminLiveUpdate('admin-security', event);
+  if (options.notify === true || severity === 'warn' || severity === 'error') {
+    addAdminNotification({
+      type: 'security',
+      source: 'admin-auth',
+      kind: normalizedType,
+      severity,
+      title: options.title || 'Admin Security Event',
+      message: buildSecurityNotificationMessage(event),
+      entityKey: event.sessionId || event.targetUser || null,
+      data: event,
+    });
+  }
+  return event;
+}
+
+function buildSessionView(sessionId, session = {}, options = {}) {
+  return {
+    id: String(sessionId || '').trim(),
+    user: String(session.user || '').trim() || null,
+    role: normalizeRole(session.role || 'mod'),
+    authMethod: String(session.authMethod || 'password').trim() || 'password',
+    createdAt: Number.isFinite(session.createdAt) ? new Date(session.createdAt).toISOString() : null,
+    lastSeenAt: Number.isFinite(session.lastSeenAt) ? new Date(session.lastSeenAt).toISOString() : null,
+    expiresAt: Number.isFinite(session.expiresAt) ? new Date(session.expiresAt).toISOString() : null,
+    stepUpVerifiedAt:
+      Number.isFinite(session.stepUpVerifiedAt)
+        ? new Date(session.stepUpVerifiedAt).toISOString()
+        : null,
+    stepUpActive:
+      Number.isFinite(session.stepUpVerifiedAt)
+      && session.stepUpVerifiedAt + ADMIN_WEB_STEP_UP_TTL_MS > Date.now(),
+    ip: String(session.ip || '').trim() || null,
+    authSource: String(session.authSource || '').trim() || null,
+    current: options.current === true,
+  };
+}
+
+function listAdminSessions(options = {}) {
+  cleanupSessions();
+  const currentSessionId = String(options.currentSessionId || '').trim();
+  return Array.from(sessions.entries())
+    .map(([sessionId, session]) => buildSessionView(sessionId, session, {
+      current: sessionId === currentSessionId,
+    }))
+    .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+}
+
+function invalidateSession(sessionId, options = {}) {
+  const normalizedSessionId = String(sessionId || '').trim();
+  if (!normalizedSessionId) return null;
+  const existing = sessions.get(normalizedSessionId);
+  if (!existing) return null;
+  sessions.delete(normalizedSessionId);
+  const reason = String(options.reason || 'manual-revoke').trim() || 'manual-revoke';
+  recordAdminSecuritySignal('session-revoked', {
+    actor: options.actor || existing.user || 'system',
+    targetUser: existing.user || null,
+    role: existing.role || null,
+    authMethod: existing.authMethod || null,
+    sessionId: normalizedSessionId,
+    ip: existing.ip || null,
+    reason,
+    detail: 'Admin session revoked',
+    notify: reason !== 'logout',
+  });
+  return buildSessionView(normalizedSessionId, existing);
+}
+
+function revokeSessionsForUser(username, options = {}) {
+  const targetUser = String(username || '').trim();
+  if (!targetUser) return [];
+  const revoked = [];
+  for (const [sessionId, session] of sessions.entries()) {
+    if (String(session?.user || '').trim() !== targetUser) continue;
+    const removed = invalidateSession(sessionId, {
+      ...options,
+      reason: options.reason || 'user-revoke',
+      actor: options.actor || targetUser,
+    });
+    if (removed) revoked.push(removed);
+  }
+  return revoked;
+}
+
 function cleanupSessions() {
   const now = Date.now();
   for (const [sid, session] of sessions.entries()) {
-    if (!session || session.expiresAt <= now) {
+    if (!session) {
       sessions.delete(sid);
+      continue;
+    }
+    if (session.expiresAt <= now) {
+      invalidateSession(sid, {
+        actor: session.user || 'system',
+        reason: 'session-expired',
+      });
+      continue;
+    }
+    if (session.lastSeenAt && session.lastSeenAt + SESSION_IDLE_TIMEOUT_MS <= now) {
+      invalidateSession(sid, {
+        actor: session.user || 'system',
+        reason: 'session-idle-timeout',
+      });
     }
   }
 }
 
 // Sessions remain lightweight and in-memory on purpose here; production hardening is
 // enforced by secure cookies, RBAC, rate-limits, and the readiness/security checks.
-function createSession(user, role = 'mod', authMethod = 'password') {
+function createSession(user, role = 'mod', authMethod = 'password', req = null) {
   cleanupSessions();
   const sessionId = crypto.randomBytes(24).toString('hex');
+  const now = Date.now();
+  const username = String(user || ADMIN_WEB_USER);
+  const userSessions = Array.from(sessions.entries())
+    .filter(([, session]) => session?.user === username)
+    .sort((left, right) => Number((left[1]?.createdAt || 0) - (right[1]?.createdAt || 0)));
+  while (userSessions.length >= SESSION_MAX_PER_USER) {
+    const [oldestSessionId] = userSessions.shift();
+    invalidateSession(oldestSessionId, {
+      actor: username,
+      reason: 'session-max-per-user',
+    });
+  }
   sessions.set(sessionId, {
-    user: String(user || ADMIN_WEB_USER),
+    user: username,
     role: normalizeRole(role),
     authMethod: String(authMethod || 'password'),
-    createdAt: Date.now(),
-    expiresAt: Date.now() + SESSION_TTL_MS,
+    authSource: String(authMethod || 'password'),
+    createdAt: now,
+    lastSeenAt: now,
+    expiresAt: now + SESSION_TTL_MS,
+    stepUpVerifiedAt: null,
+    userAgentHash: getUserAgentHash(req),
+    ip: req ? getClientIp(req) : null,
+  });
+  recordAdminSecuritySignal('session-created', {
+    actor: username,
+    targetUser: username,
+    role: normalizeRole(role),
+    authMethod: String(authMethod || 'password'),
+    sessionId,
+    ip: req ? getClientIp(req) : null,
+    reason: 'login',
+    detail: 'Admin session created',
   });
   return sessionId;
 }
 
-function invalidateSession(sessionId) {
-  if (!sessionId) return;
-  sessions.delete(sessionId);
+function touchStepUpVerification(sessionId) {
+  const normalizedSessionId = String(sessionId || '').trim();
+  if (!normalizedSessionId) return null;
+  const session = sessions.get(normalizedSessionId);
+  if (!session) return null;
+  session.stepUpVerifiedAt = Date.now();
+  return buildSessionView(normalizedSessionId, session);
 }
 
 function getSessionId(req) {
@@ -1174,10 +1457,47 @@ function getSessionFromRequest(req) {
   if (!sessionId) return null;
   const session = sessions.get(sessionId);
   if (!session) return null;
-  if (session.expiresAt <= Date.now()) {
-    sessions.delete(sessionId);
+  const now = Date.now();
+  if (session.expiresAt <= now) {
+    invalidateSession(sessionId, {
+      actor: session.user || 'system',
+      reason: 'session-expired',
+    });
     return null;
   }
+  if (session.lastSeenAt && session.lastSeenAt + SESSION_IDLE_TIMEOUT_MS <= now) {
+    invalidateSession(sessionId, {
+      actor: session.user || 'system',
+      reason: 'session-idle-timeout',
+    });
+    return null;
+  }
+  if (
+    SESSION_BIND_USER_AGENT
+    && session.userAgentHash
+    && !secureEqual(session.userAgentHash, getUserAgentHash(req))
+  ) {
+    invalidateSession(sessionId, {
+      actor: session.user || 'system',
+      reason: 'session-user-agent-mismatch',
+    });
+    recordAdminSecuritySignal('session-user-agent-mismatch', {
+      severity: 'warn',
+      actor: session.user || 'unknown',
+      targetUser: session.user || 'unknown',
+      role: session.role || null,
+      authMethod: session.authMethod || null,
+      sessionId,
+      ip: getClientIp(req),
+      path: String(req?.url || '').trim() || null,
+      reason: 'session-user-agent-mismatch',
+      detail: 'Admin session was revoked due to user-agent mismatch',
+      notify: true,
+    });
+    return null;
+  }
+  session.lastSeenAt = now;
+  session.expiresAt = now + SESSION_TTL_MS;
   return session;
 }
 
@@ -1228,29 +1548,141 @@ function getRequestToken(req, urlObj) {
 function getAuthContext(req, urlObj) {
   const session = getSessionFromRequest(req);
   if (session) {
-    return {
+    const sessionId = getSessionId(req);
+    const auth = {
       mode: 'session',
+      sessionId,
       user: session.user || ADMIN_WEB_USER,
       role: normalizeRole(session.role || 'mod'),
       authMethod: session.authMethod || 'password',
+      stepUpVerifiedAt: session.stepUpVerifiedAt || null,
     };
+    setRequestMeta(req, {
+      authMode: auth.mode,
+      sessionId: auth.sessionId,
+      user: auth.user,
+      role: auth.role,
+    });
+    return auth;
   }
 
   const requestToken = getRequestToken(req, urlObj);
   const expected = getAdminToken();
   if (requestToken !== '' && secureEqual(requestToken, expected)) {
-    return {
+    const auth = {
       mode: 'token',
       user: 'token',
       role: ADMIN_WEB_TOKEN_ROLE,
       authMethod: 'token',
+      sessionId: null,
+      stepUpVerifiedAt: null,
     };
+    setRequestMeta(req, {
+      authMode: auth.mode,
+      user: auth.user,
+      role: auth.role,
+    });
+    return auth;
   }
   return null;
 }
 
 function isAuthorized(req, urlObj) {
   return getAuthContext(req, urlObj) != null;
+}
+
+function hasFreshStepUp(auth = {}) {
+  const verifiedAt = Number(auth.stepUpVerifiedAt || 0);
+  if (!Number.isFinite(verifiedAt) || verifiedAt <= 0) return false;
+  return verifiedAt + ADMIN_WEB_STEP_UP_TTL_MS > Date.now();
+}
+
+function requiresStepUpForPermission(permission = null, auth = null) {
+  if (!permission || permission.stepUp !== true) return false;
+  if (!ADMIN_WEB_STEP_UP_ENABLED || !ADMIN_WEB_2FA_ACTIVE) return false;
+  if (!auth || auth.mode !== 'session') return false;
+  return !hasFreshStepUp(auth);
+}
+
+function ensureStepUpAuth(req, res, auth, body = {}, permission = null) {
+  if (!permission || permission.stepUp !== true) return auth;
+  if (auth?.mode === 'token') {
+    if (ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS) return auth;
+    sendJson(res, 403, {
+      ok: false,
+      error: 'Sensitive admin mutation requires a session login',
+      requiresStepUp: true,
+      permission: permission.permission,
+      data: {
+        mode: auth.mode,
+        stepUpMode: 'session-only',
+      },
+    });
+    return null;
+  }
+  if (!requiresStepUpForPermission(permission, auth)) return auth;
+  const otp = requiredString(body, 'stepUpOtp')
+    || String(req.headers['x-admin-step-up-otp'] || '').trim();
+  if (!otp) {
+    sendJson(res, 403, {
+      ok: false,
+      error: 'Step-up verification required',
+      requiresStepUp: true,
+      permission: permission.permission,
+      data: {
+        path: permission.path,
+        ttlMinutes: Math.round(ADMIN_WEB_STEP_UP_TTL_MS / (60 * 1000)),
+        reason: 'step-up-otp-required',
+      },
+    });
+    return null;
+  }
+  if (!verifyTotpCode(ADMIN_WEB_2FA_SECRET, otp, ADMIN_WEB_2FA_WINDOW_STEPS)) {
+    recordAdminSecuritySignal('step-up-failed', {
+      severity: 'warn',
+      actor: auth?.user || 'unknown',
+      targetUser: auth?.user || 'unknown',
+      role: auth?.role || null,
+      authMethod: auth?.authMethod || null,
+      sessionId: auth?.sessionId || null,
+      ip: getClientIp(req),
+      path: permission.path,
+      reason: 'invalid-step-up-otp',
+      detail: 'Sensitive admin mutation step-up verification failed',
+      notify: true,
+    });
+    sendJson(res, 403, {
+      ok: false,
+      error: 'Invalid step-up 2FA code',
+      requiresStepUp: true,
+      permission: permission.permission,
+      data: {
+        path: permission.path,
+        ttlMinutes: Math.round(ADMIN_WEB_STEP_UP_TTL_MS / (60 * 1000)),
+        reason: 'invalid-step-up-otp',
+      },
+    });
+    return null;
+  }
+  const updatedSession = touchStepUpVerification(auth?.sessionId);
+  auth.stepUpVerifiedAt = updatedSession?.stepUpVerifiedAt
+    ? new Date(updatedSession.stepUpVerifiedAt).getTime()
+    : Date.now();
+  recordAdminSecuritySignal('step-up-succeeded', {
+    actor: auth?.user || 'unknown',
+    targetUser: auth?.user || 'unknown',
+    role: auth?.role || null,
+    authMethod: auth?.authMethod || null,
+    sessionId: auth?.sessionId || null,
+    ip: getClientIp(req),
+    path: permission.path,
+    reason: permission.permission,
+    detail: 'Sensitive admin mutation step-up verification succeeded',
+  });
+  setRequestMeta(req, {
+    note: `step-up:${permission.permission}`,
+  });
+  return auth;
 }
 
 function ensureRole(req, urlObj, minRole, res) {
@@ -1318,7 +1750,14 @@ async function ensurePlatformApiKey(req, res, requiredScopes = []) {
   const rawKey = getPlatformApiKeyFromRequest(req);
   const auth = await verifyPlatformApiKey(rawKey, requiredScopes);
   if (!auth?.ok) {
-    const status = auth?.reason === 'insufficient-scope' ? 403 : 401;
+    const status = [
+      'insufficient-scope',
+      'tenant-access-suspended',
+      'tenant-subscription-inactive',
+      'tenant-license-inactive',
+    ].includes(String(auth?.reason || '').trim())
+      ? 403
+      : 401;
     sendJson(res, status, {
       ok: false,
       error: auth?.reason || 'invalid-platform-api-key',
@@ -1326,6 +1765,12 @@ async function ensurePlatformApiKey(req, res, requiredScopes = []) {
     });
     return null;
   }
+  setRequestMeta(req, {
+    authMode: 'platform-api-key',
+    user: auth.apiKey?.name || 'platform-api-key',
+    role: 'tenant',
+    tenantId: auth.tenant?.id || null,
+  });
   return auth;
 }
 
@@ -1366,36 +1811,7 @@ function filterShopItems(rows, options = {}) {
 }
 
 function requiredRoleForPostPath(pathname) {
-  const ownerOnly = new Set([
-    '/admin/api/config/set',
-    '/admin/api/config/reset',
-    '/admin/api/welcome/clear',
-    '/admin/api/rentbike/reset-now',
-    '/admin/api/backup/create',
-    '/admin/api/backup/restore',
-    '/admin/api/platform/tenant',
-    '/admin/api/platform/subscription',
-    '/admin/api/platform/license',
-    '/admin/api/platform/license/accept-legal',
-    '/admin/api/platform/apikey',
-    '/admin/api/platform/webhook',
-    '/admin/api/platform/marketplace',
-  ]);
-  if (ownerOnly.has(pathname)) return 'owner';
-
-  const modAllowed = new Set([
-    '/admin/api/ticket/claim',
-    '/admin/api/ticket/close',
-    '/admin/api/moderation/add',
-    '/admin/api/stats/add-kill',
-    '/admin/api/stats/add-death',
-    '/admin/api/stats/add-playtime',
-    '/admin/api/scum/status',
-    '/admin/api/platform/reconcile',
-    '/admin/api/platform/monitoring/run',
-  ]);
-  if (modAllowed.has(pathname)) return 'mod';
-  return 'admin';
+  return getAdminPermissionForPath(pathname, 'POST')?.minRole || 'admin';
 }
 
 function normalizeOrigin(value) {
@@ -1569,6 +1985,8 @@ function getCurrentObservabilitySnapshot(options = {}) {
     getDeliveryMetricsSnapshot,
     getLoginFailureMetrics,
     getWebhookMetricsSnapshot,
+    getAdminRequestLogMetrics,
+    listAdminRequestLogs,
     listDeliveryQueue,
     listSeries: ({ windowMs, keys }) => listMetricsSeries({ windowMs, keys }),
   });
@@ -1616,6 +2034,59 @@ async function tryNotifyTicket(client, ticket, action, staffId) {
 // POST actions are centralized here so restore-maintenance gating, RBAC, validation,
 // and audit/live-update hooks stay consistent across the admin surface.
 async function handlePostAction(client, pathname, body, res, auth) {
+  if (pathname === '/admin/api/auth/session/revoke') {
+    const reason = requiredString(body, 'reason') || 'manual-revoke';
+    const sessionId = requiredString(body, 'sessionId');
+    const targetUser = requiredString(body, 'targetUser');
+    const revokeCurrent = body?.current === true || (!sessionId && !targetUser);
+
+    if (sessionId) {
+      const revoked = invalidateSession(sessionId, {
+        actor: auth?.user || 'unknown',
+        reason,
+      });
+      if (!revoked) {
+        return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+      }
+      return sendJson(
+        res,
+        200,
+        { ok: true, data: { revokedCount: 1, sessions: [revoked] } },
+        sessionId === auth?.sessionId ? { 'Set-Cookie': buildClearSessionCookie() } : {},
+      );
+    }
+
+    if (targetUser) {
+      const revoked = revokeSessionsForUser(targetUser, {
+        actor: auth?.user || 'unknown',
+        reason,
+      });
+      if (revoked.length === 0) {
+        return sendJson(res, 404, { ok: false, error: 'Resource not found' });
+      }
+      const currentRevoked = revoked.some((entry) => entry.id === auth?.sessionId);
+      return sendJson(
+        res,
+        200,
+        { ok: true, data: { revokedCount: revoked.length, sessions: revoked } },
+        currentRevoked ? { 'Set-Cookie': buildClearSessionCookie() } : {},
+      );
+    }
+
+    if (revokeCurrent) {
+      const revoked = invalidateSession(auth?.sessionId, {
+        actor: auth?.user || 'unknown',
+        reason,
+      });
+      return sendJson(
+        res,
+        200,
+        { ok: true, data: { revokedCount: revoked ? 1 : 0, sessions: revoked ? [revoked] : [] } },
+        { 'Set-Cookie': buildClearSessionCookie() },
+      );
+    }
+  }
+
   if (pathname === '/admin/api/wallet/set') {
     const userId = requiredString(body, 'userId');
     const balance = asInt(body.balance);
@@ -2459,21 +2930,22 @@ async function handlePostAction(client, pathname, body, res, auth) {
     });
   }
 
-  if (pathname === '/admin/api/backup/restore') {
-    const backupName = requiredString(body, 'backup');
-    const dryRun = body?.dryRun === true;
+        if (pathname === '/admin/api/backup/restore') {
+          const backupName = requiredString(body, 'backup');
+          const dryRun = body?.dryRun === true;
     if (!backupName) {
       return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
     }
-    if (dryRun) {
-      try {
-        return sendJson(res, 200, {
-          ok: true,
-          data: await previewAdminBackupRestore(backupName, {
-            client,
-            observabilitySnapshot: getCurrentObservabilitySnapshot(),
-          }),
-        });
+        if (dryRun) {
+          try {
+            return sendJson(res, 200, {
+              ok: true,
+              data: await previewAdminBackupRestore(backupName, {
+                client,
+                observabilitySnapshot: getCurrentObservabilitySnapshot(),
+                issuePreviewToken: true,
+              }),
+            });
       } catch (error) {
         return sendJson(res, Number(error?.statusCode || 400), {
           ok: false,
@@ -2482,14 +2954,15 @@ async function handlePostAction(client, pathname, body, res, auth) {
         });
       }
     }
-    try {
-      const restoreData = await restoreAdminBackup(backupName, {
-        client,
-        actor: auth?.user || 'unknown',
-        role: auth?.role || 'unknown',
-        confirmBackup: requiredString(body, 'confirmBackup') || '',
-        observabilitySnapshot: getCurrentObservabilitySnapshot(),
-      });
+        try {
+          const restoreData = await restoreAdminBackup(backupName, {
+            client,
+            actor: auth?.user || 'unknown',
+            role: auth?.role || 'unknown',
+            confirmBackup: requiredString(body, 'confirmBackup') || '',
+            previewToken: requiredString(body, 'previewToken') || '',
+            observabilitySnapshot: getCurrentObservabilitySnapshot(),
+          });
       return sendJson(res, 200, {
         ok: true,
         data: restoreData,
@@ -2719,6 +3192,30 @@ async function fetchDiscordGuildMember(accessToken, guildId) {
   return res.json().catch(() => null);
 }
 
+async function listDiscordGuildRolesFromClient(client, guildId) {
+  if (!client || !guildId) return [];
+  try {
+    const cachedGuild =
+      client.guilds?.cache?.get?.(guildId)
+      || (typeof client.guilds?.fetch === 'function' ? await client.guilds.fetch(guildId) : null);
+    if (!cachedGuild) return [];
+    const roleCollection =
+      cachedGuild.roles?.cache?.size > 0
+        ? cachedGuild.roles.cache
+        : (typeof cachedGuild.roles?.fetch === 'function' ? await cachedGuild.roles.fetch() : null);
+    if (!roleCollection) return [];
+    return [...roleCollection.values()]
+      .filter(Boolean)
+      .map((role) => ({
+        id: String(role.id || '').trim(),
+        name: String(role.name || '').trim(),
+      }))
+      .filter((role) => role.id && role.name);
+  } catch {
+    return [];
+  }
+}
+
 function buildDiscordAuthorizeUrl({ host, port, state }) {
   const redirectUri = getDiscordRedirectUri(host, port);
   const scopes = SSO_DISCORD_GUILD_ID
@@ -2731,6 +3228,16 @@ function buildDiscordAuthorizeUrl({ host, port, state }) {
   url.searchParams.set('scope', scopes);
   url.searchParams.set('state', state);
   return url.toString();
+}
+
+function deriveRouteGroup(pathname) {
+  const pathValue = String(pathname || '').trim();
+  if (pathValue.startsWith('/platform/api/')) return 'platform-api';
+  if (pathValue.startsWith('/admin/api/')) return 'admin-api';
+  if (pathValue.startsWith('/admin/auth/')) return 'admin-auth';
+  if (pathValue.startsWith('/assets/') || pathValue.startsWith('/admin/assets/')) return 'static-asset';
+  if (pathValue.startsWith('/admin')) return 'admin-page';
+  return 'other';
 }
 
 // The admin web server bundles static UI, JSON APIs, SSE live updates, and auth flows
@@ -2754,6 +3261,46 @@ function startAdminWebServer(client) {
   adminServer = http.createServer(async (req, res) => {
     const urlObj = new URL(req.url || '/', `http://${host}:${port}`);
     const { pathname } = urlObj;
+    const requestStartedAt = Date.now();
+    const requestId =
+      typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : crypto.randomBytes(12).toString('hex');
+    res.setHeader('X-Request-ID', requestId);
+    setRequestMeta(req, {
+      requestId,
+      method: String(req.method || 'GET').toUpperCase(),
+      path: pathname,
+      routeGroup: deriveRouteGroup(pathname),
+      ip: getClientIp(req),
+      origin: getRequestOrigin(req) || null,
+      userAgent: String(req.headers['user-agent'] || '').trim() || null,
+      source: pathname.startsWith('/platform/api/') ? 'platform-api' : 'admin-web',
+    });
+    res.once('finish', () => {
+      const meta = req.__adminRequestMeta && typeof req.__adminRequestMeta === 'object'
+        ? req.__adminRequestMeta
+        : {};
+      recordAdminRequestLog({
+        id: meta.requestId || requestId,
+        at: new Date().toISOString(),
+        method: meta.method || req.method,
+        path: meta.path || pathname,
+        routeGroup: meta.routeGroup || deriveRouteGroup(pathname),
+        statusCode: res.statusCode,
+        latencyMs: Date.now() - requestStartedAt,
+        authMode: meta.authMode || null,
+        user: meta.user || null,
+        role: meta.role || null,
+        tenantId: meta.tenantId || null,
+        ip: meta.ip || null,
+        origin: meta.origin || null,
+        userAgent: meta.userAgent || null,
+        source: meta.source || null,
+        note: meta.note || null,
+        error: meta.error || null,
+      });
+    });
 
     if (await tryServeStaticScumIcon(req, res, pathname)) {
       return;
@@ -2827,7 +3374,9 @@ function startAdminWebServer(client) {
           if (!platformAuth) return undefined;
           return sendJson(res, 200, {
             ok: true,
-            data: await getPlatformAnalyticsOverview(),
+            data: await getPlatformAnalyticsOverview({
+              tenantId: platformAuth.tenant?.id,
+            }),
           });
         }
 
@@ -2857,6 +3406,7 @@ function startAdminWebServer(client) {
           return sendJson(res, 200, {
             ok: true,
             data: await reconcileDeliveryState({
+              tenantId: platformAuth.tenant?.id,
               windowMs: body.windowMs,
               pendingOverdueMs: body.pendingOverdueMs,
             }),
@@ -2893,7 +3443,7 @@ function startAdminWebServer(client) {
       return res.end();
     }
 
-    if (req.method === 'GET' && pathname === '/admin/auth/discord/callback') {
+        if (req.method === 'GET' && pathname === '/admin/auth/discord/callback') {
       if (!SSO_DISCORD_ACTIVE) {
         return sendText(res, 404, 'SSO is disabled');
       }
@@ -2903,12 +3453,32 @@ function startAdminWebServer(client) {
         const state = String(urlObj.searchParams.get('state') || '').trim();
         const errorText = String(urlObj.searchParams.get('error') || '').trim();
         if (errorText) {
+          recordAdminSecuritySignal('sso-failed', {
+            severity: 'warn',
+            actor: 'discord-sso',
+            authMethod: 'discord-sso',
+            ip: getClientIp(req),
+            path: pathname,
+            reason: 'discord-authorization-denied',
+            detail: 'Discord SSO authorization was denied',
+            notify: true,
+          });
           res.writeHead(302, {
             Location: `/admin/login?error=${encodeURIComponent('Discord authorization denied')}`,
           });
           return res.end();
         }
         if (!code || !state || !discordOauthStates.has(state)) {
+          recordAdminSecuritySignal('sso-failed', {
+            severity: 'warn',
+            actor: 'discord-sso',
+            authMethod: 'discord-sso',
+            ip: getClientIp(req),
+            path: pathname,
+            reason: 'invalid-sso-state',
+            detail: 'Discord SSO callback failed validation',
+            notify: true,
+          });
           res.writeHead(302, {
             Location: `/admin/login?error=${encodeURIComponent('Invalid SSO state')}`,
           });
@@ -2925,13 +3495,28 @@ function startAdminWebServer(client) {
             tokenResult.access_token,
             SSO_DISCORD_GUILD_ID,
           );
-          resolvedRole = getSsoDiscordRole(member?.roles || []);
+          const guildRoles = await listDiscordGuildRolesFromClient(client, SSO_DISCORD_GUILD_ID);
+          resolvedRole = resolveMappedMemberRole(
+            member?.roles || [],
+            guildRoles,
+            getAdminSsoRoleMappingSummary(process.env),
+          );
         }
 
         const username = profile.username && profile.discriminator
           ? `${profile.username}#${profile.discriminator}`
           : String(profile.username || profile.id);
-        const sessionId = createSession(username, resolvedRole, 'discord-sso');
+        const sessionId = createSession(username, resolvedRole, 'discord-sso', req);
+        recordAdminSecuritySignal('sso-succeeded', {
+          actor: username,
+          targetUser: username,
+          role: resolvedRole,
+          authMethod: 'discord-sso',
+          sessionId,
+          ip: getClientIp(req),
+          path: pathname,
+          detail: 'Discord SSO login succeeded',
+        });
         res.writeHead(302, {
           Location: '/admin',
           'Set-Cookie': buildSessionCookie(sessionId),
@@ -2939,6 +3524,16 @@ function startAdminWebServer(client) {
         return res.end();
       } catch (error) {
         console.error('[admin-web] discord sso callback failed', error);
+        recordAdminSecuritySignal('sso-failed', {
+          severity: 'warn',
+          actor: 'discord-sso',
+          authMethod: 'discord-sso',
+          ip: getClientIp(req),
+          path: pathname,
+          reason: String(error?.message || 'discord-sso-failed'),
+          detail: 'Discord SSO callback failed unexpectedly',
+          notify: true,
+        });
         res.writeHead(302, {
           Location: `/admin/login?error=${encodeURIComponent('Discord SSO failed')}`,
         });
@@ -2962,6 +3557,17 @@ function startAdminWebServer(client) {
         if (req.method === 'POST' && pathname === '/admin/api/login') {
           const rateLimit = getLoginRateLimitState(req);
           if (rateLimit.limited) {
+            recordAdminSecuritySignal('login-rate-limited', {
+              severity: 'warn',
+              actor: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+              targetUser: String(req?.__pendingAdminUser || '').trim() || 'unknown',
+              authMethod: 'password',
+              ip: rateLimit.ip,
+              path: pathname,
+              reason: 'too-many-attempts',
+              detail: 'Admin login was rate limited',
+              notify: true,
+            });
             const retryAfterSec = Math.max(
               1,
               Math.ceil(rateLimit.retryAfterMs / 1000),
@@ -2982,12 +3588,16 @@ function startAdminWebServer(client) {
           const body = await readJsonBody(req);
           const username = requiredString(body, 'username');
           const password = requiredString(body, 'password');
+          req.__pendingAdminUser = username || 'unknown';
+          req.__pendingAdminAuthMethod = 'password';
           if (!username || !password) {
+            req.__pendingAdminFailureReason = 'invalid-payload';
             return sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
           }
 
           const user = await getUserByCredentials(username, password);
           if (!user) {
+            req.__pendingAdminFailureReason = 'invalid-credentials';
             recordLoginAttempt(req, false);
             return sendJson(res, 401, { ok: false, error: 'Invalid username or password' });
           }
@@ -2995,6 +3605,7 @@ function startAdminWebServer(client) {
           if (ADMIN_WEB_2FA_ACTIVE) {
             const otp = requiredString(body, 'otp');
             if (!otp) {
+              req.__pendingAdminFailureReason = 'otp-required';
               recordLoginAttempt(req, false);
               return sendJson(res, 401, {
                 ok: false,
@@ -3003,13 +3614,16 @@ function startAdminWebServer(client) {
               });
             }
             if (!verifyTotpCode(ADMIN_WEB_2FA_SECRET, otp, ADMIN_WEB_2FA_WINDOW_STEPS)) {
+              req.__pendingAdminFailureReason = 'invalid-2fa-code';
               recordLoginAttempt(req, false);
               return sendJson(res, 401, { ok: false, error: 'Invalid 2FA code' });
             }
           }
 
+          req.__pendingAdminUser = user.username;
+          req.__pendingAdminAuthMethod = user.authMethod;
           recordLoginAttempt(req, true);
-          const sessionId = createSession(user.username, user.role, user.authMethod);
+          const sessionId = createSession(user.username, user.role, user.authMethod, req);
           return sendJson(
             res,
             200,
@@ -3028,8 +3642,12 @@ function startAdminWebServer(client) {
         }
 
         if (req.method === 'POST' && pathname === '/admin/api/logout') {
+          const auth = getAuthContext(req, urlObj);
           const sessionId = getSessionId(req);
-          invalidateSession(sessionId);
+          invalidateSession(sessionId, {
+            actor: auth?.user || 'unknown',
+            reason: 'logout',
+          });
           return sendJson(
             res,
             200,
@@ -3047,12 +3665,25 @@ function startAdminWebServer(client) {
         }
 
         if (req.method === 'GET' && pathname === '/admin/api/auth/providers') {
+          const ssoRoleMapping = getAdminSsoRoleMappingSummary(process.env);
           return sendJson(res, 200, {
             ok: true,
             data: {
               loginSource: 'database',
               password: true,
               discordSso: SSO_DISCORD_ACTIVE,
+              discordSsoRoleMapping: {
+                enabled: ssoRoleMapping.enabled,
+                defaultRole: ssoRoleMapping.defaultRole,
+                hasExplicitMappings: ssoRoleMapping.hasExplicitMappings,
+                hasElevatedMappings: ssoRoleMapping.hasElevatedMappings,
+                ownerRoleCount: ssoRoleMapping.ownerRoleIds.length,
+                adminRoleCount: ssoRoleMapping.adminRoleIds.length,
+                modRoleCount: ssoRoleMapping.modRoleIds.length,
+                ownerRoleNameCount: ssoRoleMapping.ownerRoleNames.length,
+                adminRoleNameCount: ssoRoleMapping.adminRoleNames.length,
+                modRoleNameCount: ssoRoleMapping.modRoleNames.length,
+              },
               twoFactor: ADMIN_WEB_2FA_ACTIVE,
               sessionCookie: {
                 name: SESSION_COOKIE_NAME,
@@ -3061,7 +3692,87 @@ function startAdminWebServer(client) {
                 secure: SESSION_SECURE_COOKIE,
                 domain: SESSION_COOKIE_DOMAIN || null,
               },
+              sessionPolicy: {
+                ttlHours: Math.round(SESSION_TTL_MS / (60 * 60 * 1000)),
+                idleMinutes: Math.round(SESSION_IDLE_TIMEOUT_MS / (60 * 1000)),
+                maxSessionsPerUser: SESSION_MAX_PER_USER,
+                bindUserAgent: SESSION_BIND_USER_AGENT,
+              },
+              stepUp: {
+                enabled: ADMIN_WEB_STEP_UP_ENABLED && ADMIN_WEB_2FA_ACTIVE,
+                ttlMinutes: Math.round(ADMIN_WEB_STEP_UP_TTL_MS / (60 * 1000)),
+                tokenSensitiveMutationsAllowed: ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS,
+              },
+              roleMatrix: getAdminPermissionMatrixSummary(),
             },
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/auth/role-matrix') {
+          const auth = ensureRole(req, urlObj, 'admin', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: {
+              summary: getAdminPermissionMatrixSummary(),
+              roles: buildRoleMatrix(),
+              permissions: listAdminPermissionMatrix(),
+            },
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/auth/security-events') {
+          const auth = ensureRole(req, urlObj, 'admin', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: listAdminSecurityEvents({
+              limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
+              type: requiredString(urlObj.searchParams.get('type')),
+              severity: requiredString(urlObj.searchParams.get('severity')),
+              actor: requiredString(urlObj.searchParams.get('actor')),
+              targetUser: requiredString(urlObj.searchParams.get('targetUser')),
+              sessionId: requiredString(urlObj.searchParams.get('sessionId')),
+            }),
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/auth/security-events/export') {
+          const auth = ensureRole(req, urlObj, 'admin', res);
+          if (!auth) return undefined;
+          const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
+          const rows = buildAdminSecurityEventExportRows(urlObj);
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          if (format === 'csv') {
+            return sendDownload(
+              res,
+              200,
+              buildAdminSecurityEventCsv(rows),
+              {
+                filename: `admin-security-events-${timestamp}.csv`,
+                contentType: 'text/csv; charset=utf-8',
+              },
+            );
+          }
+          return sendDownload(
+            res,
+            200,
+            `${JSON.stringify({ ok: true, data: rows }, jsonReplacer, 2)}\n`,
+            {
+              filename: `admin-security-events-${timestamp}.json`,
+              contentType: 'application/json; charset=utf-8',
+            },
+          );
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/auth/sessions') {
+          const auth = ensureRole(req, urlObj, 'owner', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: listAdminSessions({
+              currentSessionId: getSessionId(req),
+            }),
           });
         }
 
@@ -3077,6 +3788,8 @@ function startAdminWebServer(client) {
               role: auth.role,
               authMethod: auth.authMethod,
               session: hasValidSession(req),
+              stepUpRequired: ADMIN_WEB_STEP_UP_ENABLED && ADMIN_WEB_2FA_ACTIVE,
+              stepUpActive: hasFreshStepUp(auth),
             },
           });
         }
@@ -3243,6 +3956,30 @@ function startAdminWebServer(client) {
               windowMs,
               seriesKeys,
             }),
+          });
+        }
+
+        if (req.method === 'GET' && pathname === '/admin/api/observability/requests') {
+          const auth = ensureRole(req, urlObj, 'admin', res);
+          if (!auth) return undefined;
+          return sendJson(res, 200, {
+            ok: true,
+            data: {
+              metrics: getAdminRequestLogMetrics({
+                windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
+              }),
+              items: listAdminRequestLogs({
+                limit: asInt(urlObj.searchParams.get('limit'), 200) || 200,
+                statusClass: requiredString(urlObj.searchParams.get('statusClass')),
+                routeGroup: requiredString(urlObj.searchParams.get('routeGroup')),
+                authMode: requiredString(urlObj.searchParams.get('authMode')),
+                requestId: requiredString(urlObj.searchParams.get('requestId')),
+                tenantId: requiredString(urlObj.searchParams.get('tenantId')),
+                pathContains: requiredString(urlObj.searchParams.get('path')),
+                onlyErrors:
+                  String(urlObj.searchParams.get('onlyErrors') || '').trim().toLowerCase() === 'true',
+              }),
+            },
           });
         }
 
@@ -3939,10 +4676,13 @@ function startAdminWebServer(client) {
         }
 
         if (req.method === 'POST') {
-          const requiredRole = requiredRoleForPostPath(pathname);
+          const permission = getAdminPermissionForPath(pathname, 'POST');
+          const requiredRole = permission?.minRole || requiredRoleForPostPath(pathname);
           const auth = ensureRole(req, urlObj, requiredRole, res);
           if (!auth) return undefined;
           const body = await readJsonBody(req);
+          const elevatedAuth = ensureStepUpAuth(req, res, auth, body, permission);
+          if (!elevatedAuth) return undefined;
           const out = await handlePostAction(client, pathname, body, res, auth);
           if (
             res.statusCode >= 200 &&
@@ -3963,6 +4703,9 @@ function startAdminWebServer(client) {
         return sendJson(res, 405, { ok: false, error: 'Method not allowed' });
       } catch (error) {
         const statusCode = Number(error?.statusCode || 500);
+        setRequestMeta(req, {
+          error: String(error?.message || error),
+        });
         if (statusCode >= 500) {
           console.error('[admin-web] คำขอผิดพลาด', error);
         } else {

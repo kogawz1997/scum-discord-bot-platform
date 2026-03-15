@@ -3,6 +3,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { validateCommandTemplate } = require('../src/utils/commandTemplate');
+const { getAdminSsoRoleMappingSummary } = require('../src/utils/adminSsoRoleMapping');
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
@@ -265,6 +266,10 @@ function run() {
     warnings.push('ADMIN_WEB_ENFORCE_ORIGIN_CHECK should be true');
   }
 
+  if (!isTruthy(env.ADMIN_WEB_STEP_UP_ENABLED, isTruthy(env.ADMIN_WEB_2FA_ENABLED))) {
+    warnings.push('ADMIN_WEB_STEP_UP_ENABLED should be true when admin 2FA is enabled');
+  }
+
   const allowedOrigins = String(env.ADMIN_WEB_ALLOWED_ORIGINS || '').trim();
   if (!allowedOrigins) {
     warnings.push('ADMIN_WEB_ALLOWED_ORIGINS is empty; set explicit allowed origins');
@@ -365,6 +370,20 @@ function run() {
         'NODE_ENV=production requires PERSIST_LEGACY_SNAPSHOTS=false',
       );
     }
+  }
+
+  const adminSsoRoleMapping = getAdminSsoRoleMappingSummary(env);
+  if (adminSsoRoleMapping.enabled && !adminSsoRoleMapping.hasExplicitMappings) {
+    warnings.push(
+      'ADMIN_WEB_SSO_DISCORD_ENABLED=true but no ADMIN_WEB_SSO_DISCORD_*_ROLE_IDS or ADMIN_WEB_SSO_DISCORD_*_ROLE_NAMES are configured; all Discord SSO logins fall back to ADMIN_WEB_SSO_DEFAULT_ROLE',
+    );
+  } else if (
+    adminSsoRoleMapping.enabled
+    && !adminSsoRoleMapping.hasElevatedMappings
+  ) {
+    warnings.push(
+      'Admin Discord SSO has no explicit owner/admin role mapping; review elevated access policy before production rollout',
+    );
   }
 
   if (errors.length > 0) {

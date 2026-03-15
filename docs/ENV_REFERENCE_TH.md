@@ -116,6 +116,14 @@
 
 - `ADMIN_WEB_SESSION_TTL_HOURS`
   - อายุ session ของแอดมิน
+- `ADMIN_WEB_2FA_ENABLED`
+  - เปิด 2FA สำหรับ admin login
+- `ADMIN_WEB_2FA_SECRET`
+  - secret สำหรับ TOTP ของ admin web
+- `ADMIN_WEB_STEP_UP_ENABLED`
+  - บังคับ step-up auth สำหรับ mutation เสี่ยง เช่น config / restore / bulk / platform secrets
+- `ADMIN_WEB_STEP_UP_TTL_MINUTES`
+  - อายุการยืนยัน step-up ต่อ session ก่อนต้องกรอกรหัส 2FA ใหม่
 - `ADMIN_WEB_SECURE_COOKIE`
   - `true` เมื่อใช้งานผ่าน HTTPS จริง
 - `ADMIN_WEB_HSTS_ENABLED`

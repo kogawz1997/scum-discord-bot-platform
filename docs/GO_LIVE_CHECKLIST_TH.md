@@ -15,6 +15,7 @@
 - ใช้ `ADMIN_WEB_ENFORCE_ORIGIN_CHECK=true`
 - ตั้ง `ADMIN_WEB_ALLOWED_ORIGINS` เป็น `https://...` เท่านั้น
 - เปิด `ADMIN_WEB_2FA_ENABLED=true` และใส่ `ADMIN_WEB_2FA_SECRET`
+- เปิด `ADMIN_WEB_STEP_UP_ENABLED=true` และตั้ง `ADMIN_WEB_STEP_UP_TTL_MINUTES=15`
 - หมุน `ADMIN_WEB_PASSWORD`, `ADMIN_WEB_TOKEN`, `SCUM_WEBHOOK_SECRET`, `SCUM_CONSOLE_AGENT_TOKEN`, Discord OAuth secret ให้เป็นค่าจริง
 - แยก `admin` และ `player` คนละ origin/subdomain ถ้าเป็นไปได้
 

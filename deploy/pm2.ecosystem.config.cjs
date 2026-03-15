@@ -45,7 +45,7 @@ module.exports = {
     },
     {
       name: 'scum-watcher',
-      script: 'scum-log-watcher.js',
+      script: 'src/services/scumLogWatcherRuntime.js',
       cwd: '.',
       instances: 1,
       exec_mode: 'fork',

@@ -3,7 +3,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-119%2F119%20passing-15803d?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-135%2F135%20passing-15803d?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-production%20baseline%20ready-0f766e?style=for-the-badge)
 
 เอกสารนี้คือศูนย์กลางสถานะของโปรเจกต์ ใช้สรุปสิ่งที่เสร็จแล้ว, สิ่งที่ยืนยันใช้งานได้จริง, ความเสี่ยงที่ยังเหลือ, และแผนถัดไป
@@ -15,9 +15,13 @@
 - เอกสารโชว์งาน/ภาพรวมเชิง commercial: [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md)
 - เช็กลิสต์ก่อนขึ้นจริง: [docs/GO_LIVE_CHECKLIST_TH.md](./docs/GO_LIVE_CHECKLIST_TH.md)
 - คู่มือปฏิบัติการ: [docs/OPERATIONS_MANUAL_TH.md](./docs/OPERATIONS_MANUAL_TH.md)
+- policy การ migration / rollback / restore: [docs/MIGRATION_ROLLBACK_POLICY_TH.md](./docs/MIGRATION_ROLLBACK_POLICY_TH.md)
 - คู่มือ `.env` ทุกไฟล์: [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md)
+- คู่มือตั้งค่า admin SSO role mapping: [docs/ADMIN_SSO_ROLE_MAPPING_TH.md](./docs/ADMIN_SSO_ROLE_MAPPING_TH.md)
 - รายงาน gap ของ env ปัจจุบัน: [docs/PRODUCTION_ENV_GAP_TH.md](./docs/PRODUCTION_ENV_GAP_TH.md)
 - คู่มือแอดมินใช้งานประจำวัน: [docs/ADMIN_DAILY_OPERATIONS_TH.md](./docs/ADMIN_DAILY_OPERATIONS_TH.md)
+- โครงสร้าง repo และแนวทาง monorepo ระยะยาว: [docs/REPO_STRUCTURE_TH.md](./docs/REPO_STRUCTURE_TH.md)
+- ข้อจำกัดและ SLA production: [docs/LIMITATIONS_AND_SLA_TH.md](./docs/LIMITATIONS_AND_SLA_TH.md)
 
 ---
 
@@ -28,10 +32,12 @@
 - data layer ฝั่งหลักย้ายเข้าชั้น service และ Prisma แล้วในระดับที่ใช้งาน production ได้
 - split runtime `bot / worker / watcher / web / console-agent` ใช้งานได้จริง
 - delivery ที่ใช้งานได้จริงใน environment นี้คือ `agent mode`
+- agent failover/circuit breaker และ tenant-scoped platform API ถูกเพิ่มแล้ว
+- admin web ถูกแยกให้บูตได้ก่อน Discord ready แล้ว ลดความเสี่ยง control plane หายตอน bot login ผิดพลาด
 
 ### ผลตรวจล่าสุด
 - `npm run lint` ผ่าน
-- `npm test` ผ่าน `119/119`
+- `npm test` ผ่าน `135/135`
 - `npm run smoke:postdeploy` ผ่านบน stack ที่รันจริงแล้ว
 - admin Discord SSO redirect ผ่านบน runtime จริงแล้ว
 - doctor / topology / portal doctor / readiness tooling มีครบ
@@ -73,10 +79,12 @@
 
 ### Admin Web
 - login / RBAC
+- session revoke / security event trail / step-up auth สำหรับงานเสี่ยง
 - backup / restore / snapshot export
 - safe restore guardrails: dry-run diff + confirm + maintenance gate + rollback backup + restore status
+- safe restore extra layer: preview token + preview expiry + schema guard
 - Audit Center
-- observability / metrics / cards
+- observability / metrics / cards / recent request trace
 - delivery runtime / preview / detail / test-send
 - delivery timeline / step log รายออเดอร์
 - delivery preflight / simulator / dry run
@@ -99,6 +107,7 @@
 - per-order timeline / status history / step log ใช้งานได้
 - runtime supervisor / watcher freshness / restore maintenance guard ใช้งานได้
 - delivery-specific preflight readiness ใช้งานได้
+- agent circuit breaker + RCon failover ใช้งานได้
 - post-spawn verification policy `basic | output-match | observer | strict` ใช้งานได้
 - SCUM admin capability smoke test `announce / teleport / spawn` ใช้งานได้
 - delivery profile รายสินค้าใช้งานได้
@@ -110,6 +119,7 @@
 - billing plan catalog + subscription records
 - license + legal acceptance records ต่อ tenant
 - multi-tenant foundation พร้อม `tenant type`, `parentTenantId`, reseller-ready shape
+- tenant-scoped analytics / reconcile / API key guard ทำงานตาม tenant isolation แล้ว
 - tenant API key scopes + public platform API
 - outbound platform webhooks
 - agent heartbeat + version drift detection

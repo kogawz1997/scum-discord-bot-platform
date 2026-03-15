@@ -54,6 +54,14 @@ test('security-check warns for shared admin-player origin, long sessions, and mi
     ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
     ADMIN_WEB_2FA_ENABLED: '',
     ADMIN_WEB_2FA_SECRET: '',
+    ADMIN_WEB_SSO_DISCORD_ENABLED: 'true',
+    ADMIN_WEB_SSO_DISCORD_CLIENT_ID: '1478651427088760842',
+    ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET: 'admin-sso-secret-1234567890',
+    ADMIN_WEB_SSO_DISCORD_REDIRECT_URI:
+      'https://admin.example.com/admin/auth/discord/callback',
+    ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_NAMES: '',
+    ADMIN_WEB_SSO_DISCORD_MOD_ROLE_NAMES: '',
     ADMIN_WEB_SECURE_COOKIE: 'true',
     ADMIN_WEB_HSTS_ENABLED: 'true',
     ADMIN_WEB_SESSION_TTL_HOURS: '48',
@@ -75,4 +83,5 @@ test('security-check warns for shared admin-player origin, long sessions, and mi
   assert.match(output, /ADMIN_WEB_SESSION_TTL_HOURS=48/i);
   assert.match(output, /WEB_PORTAL_SESSION_TTL_HOURS=36/i);
   assert.match(output, /share the same origin/i);
+  assert.match(output, /fall back to ADMIN_WEB_SSO_DEFAULT_ROLE/i);
 });

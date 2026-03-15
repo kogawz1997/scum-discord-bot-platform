@@ -186,7 +186,7 @@ function buildOptionalHealthUrl({
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || args.h) {
-    console.log('Usage: node scripts/post-deploy-smoke.js [--admin-base URL] [--player-base URL] [--timeout-ms N] [--bot-health-url URL] [--worker-health-url URL] [--watcher-health-url URL]');
+    console.log('Usage: node scripts/post-deploy-smoke.js [--admin-base URL] [--player-base URL] [--timeout-ms N] [--bot-health-url URL] [--worker-health-url URL] [--watcher-health-url URL] [--agent-health-url URL]');
     process.exit(0);
   }
 
@@ -214,6 +214,14 @@ async function main() {
     directUrl: args['watcher-health-url'] || process.env.SMOKE_WATCHER_HEALTH_URL,
     host: process.env.SCUM_WATCHER_HEALTH_HOST || '127.0.0.1',
     port: process.env.SCUM_WATCHER_HEALTH_PORT || 0,
+  });
+  const agentHealthBase = buildOptionalHealthUrl({
+    directUrl:
+      args['agent-health-url']
+      || process.env.SMOKE_AGENT_HEALTH_URL
+      || process.env.SCUM_CONSOLE_AGENT_BASE_URL,
+    host: process.env.SCUM_CONSOLE_AGENT_HOST || '127.0.0.1',
+    port: process.env.SCUM_CONSOLE_AGENT_PORT || 0,
   });
 
   const adminParsed = new URL(adminBaseInput);
@@ -252,6 +260,7 @@ async function main() {
   if (botHealthBase) console.log('[smoke] bot health  :', botHealthBase);
   if (workerHealthBase) console.log('[smoke] worker health:', workerHealthBase);
   if (watcherHealthBase) console.log('[smoke] watcher health:', watcherHealthBase);
+  if (agentHealthBase) console.log('[smoke] agent health :', agentHealthBase);
 
   await assertJsonOk(buildUrl(adminOrigin, '/healthz'), timeoutMs, 'admin healthz');
   printCheckOk('admin healthz');
@@ -385,6 +394,10 @@ async function main() {
   if (watcherHealthBase) {
     await assertJsonOk(buildUrl(watcherHealthBase, '/healthz'), timeoutMs, 'watcher healthz');
     printCheckOk('watcher healthz');
+  }
+  if (agentHealthBase) {
+    await assertJsonOk(buildUrl(agentHealthBase, '/healthz'), timeoutMs, 'console-agent healthz');
+    printCheckOk('console-agent healthz');
   }
 
   console.log('[smoke] PASS');

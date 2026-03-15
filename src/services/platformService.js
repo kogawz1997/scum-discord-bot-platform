@@ -289,6 +289,83 @@ function sanitizeMarketplaceRow(row) {
   };
 }
 
+function isTenantRuntimeStatusAllowed(status) {
+  const normalized = normalizeStatus(status, ['active', 'trialing', 'paused', 'suspended', 'inactive']);
+  return normalized === 'active' || normalized === 'trialing';
+}
+
+function isSubscriptionOperational(row) {
+  if (!row) return true;
+  const status = normalizeStatus(row.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']);
+  return status === 'active' || status === 'trialing';
+}
+
+function isLicenseOperational(row) {
+  if (!row) return true;
+  const status = normalizeStatus(row.status, ['active', 'trialing', 'expired', 'revoked']);
+  if (!(status === 'active' || status === 'trialing')) return false;
+  const expiresAt = parseDateOrNull(row.expiresAt);
+  return !expiresAt || expiresAt.getTime() >= Date.now();
+}
+
+async function getTenantOperationalState(tenantId) {
+  const id = trimText(tenantId, 120);
+  if (!id) {
+    return { ok: false, reason: 'tenant-required', tenant: null, subscription: null, license: null };
+  }
+  const tenant = await prisma.platformTenant.findUnique({ where: { id } });
+  if (!tenant) {
+    return { ok: false, reason: 'tenant-not-found', tenant: null, subscription: null, license: null };
+  }
+
+  const [subscription, license] = await Promise.all([
+    prisma.platformSubscription.findFirst({
+      where: { tenantId: id },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    }),
+    prisma.platformLicense.findFirst({
+      where: { tenantId: id },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    }),
+  ]);
+
+  if (!isTenantRuntimeStatusAllowed(tenant.status)) {
+    return {
+      ok: false,
+      reason: 'tenant-access-suspended',
+      tenant: sanitizeTenantRow(tenant),
+      subscription: sanitizeSubscriptionRow(subscription),
+      license: sanitizeLicenseRow(license),
+    };
+  }
+  if (!isSubscriptionOperational(subscription)) {
+    return {
+      ok: false,
+      reason: 'tenant-subscription-inactive',
+      tenant: sanitizeTenantRow(tenant),
+      subscription: sanitizeSubscriptionRow(subscription),
+      license: sanitizeLicenseRow(license),
+    };
+  }
+  if (!isLicenseOperational(license)) {
+    return {
+      ok: false,
+      reason: 'tenant-license-inactive',
+      tenant: sanitizeTenantRow(tenant),
+      subscription: sanitizeSubscriptionRow(subscription),
+      license: sanitizeLicenseRow(license),
+    };
+  }
+
+  return {
+    ok: true,
+    reason: 'ready',
+    tenant: sanitizeTenantRow(tenant),
+    subscription: sanitizeSubscriptionRow(subscription),
+    license: sanitizeLicenseRow(license),
+  };
+}
+
 async function dispatchPlatformWebhookEvent(eventType, payload = {}, options = {}) {
   const tenantId = trimText(options.tenantId, 120) || null;
   const endpoints = await prisma.platformWebhookEndpoint.findMany({
@@ -379,6 +456,16 @@ async function createTenant(input = {}, actor = 'system') {
   if (!slug || !name) {
     return { ok: false, reason: 'invalid-tenant' };
   }
+  const parentTenantId = trimText(input.parentTenantId, 120) || null;
+  if (parentTenantId && parentTenantId === id) {
+    return { ok: false, reason: 'tenant-parent-self' };
+  }
+  if (parentTenantId) {
+    const parentTenant = await prisma.platformTenant.findUnique({ where: { id: parentTenantId } });
+    if (!parentTenant) {
+      return { ok: false, reason: 'tenant-parent-not-found' };
+    }
+  }
   const rowData = {
     slug,
     name,
@@ -387,7 +474,7 @@ async function createTenant(input = {}, actor = 'system') {
     locale: normalizeLocale(input.locale),
     ownerName: trimText(input.ownerName, 180) || null,
     ownerEmail: trimText(input.ownerEmail, 180) || null,
-    parentTenantId: trimText(input.parentTenantId, 120) || null,
+    parentTenantId,
     metadataJson: stringifyMeta(input.metadata),
   };
   try {
@@ -638,16 +725,25 @@ async function verifyPlatformApiKey(rawKey, requiredScopes = []) {
       lastUsedAt: new Date(),
     },
   }).catch(() => null);
-  const tenant = await prisma.platformTenant.findUnique({
-    where: { id: matched.tenantId },
-  });
+  const tenantState = await getTenantOperationalState(matched.tenantId);
+  if (!tenantState.ok) {
+    return {
+      ok: false,
+      reason: tenantState.reason,
+      tenant: tenantState.tenant || null,
+      subscription: tenantState.subscription || null,
+      license: tenantState.license || null,
+    };
+  }
   return {
     ok: true,
     apiKey: sanitizeApiKeyRow({
       ...matched,
       lastUsedAt: new Date(),
     }),
-    tenant: sanitizeTenantRow(tenant),
+    tenant: tenantState.tenant,
+    subscription: tenantState.subscription || null,
+    license: tenantState.license || null,
     scopes,
   };
 }
@@ -821,7 +917,9 @@ async function listMarketplaceOffers(options = {}) {
   return rows.map(sanitizeMarketplaceRow);
 }
 
-async function getPlatformAnalyticsOverview() {
+async function getPlatformAnalyticsOverview(options = {}) {
+  const tenantId = trimText(options.tenantId, 120) || null;
+  const tenantWhere = tenantId ? { tenantId } : {};
   const [
     tenantRows,
     subscriptionRows,
@@ -832,20 +930,22 @@ async function getPlatformAnalyticsOverview() {
     offerRows,
     purchaseRows,
   ] = await Promise.all([
-    prisma.platformTenant.findMany(),
-    prisma.platformSubscription.findMany(),
-    prisma.platformLicense.findMany(),
-    prisma.platformApiKey.findMany(),
-    prisma.platformWebhookEndpoint.findMany(),
-    prisma.platformAgentRuntime.findMany(),
-    prisma.platformMarketplaceOffer.findMany(),
-    prisma.purchase.findMany({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    prisma.platformTenant.findMany(tenantId ? { where: { id: tenantId } } : {}),
+    prisma.platformSubscription.findMany({ where: tenantWhere }),
+    prisma.platformLicense.findMany({ where: tenantWhere }),
+    prisma.platformApiKey.findMany({ where: tenantWhere }),
+    prisma.platformWebhookEndpoint.findMany({ where: tenantWhere }),
+    prisma.platformAgentRuntime.findMany({ where: tenantWhere }),
+    prisma.platformMarketplaceOffer.findMany({ where: tenantWhere }),
+    tenantId
+      ? Promise.resolve([])
+      : prisma.purchase.findMany({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
         },
-      },
-    }),
+      }),
   ]);
 
   const mrrCents = subscriptionRows
@@ -865,6 +965,17 @@ async function getPlatformAnalyticsOverview() {
 
   return {
     generatedAt: nowIso(),
+    scope: tenantId
+      ? {
+        tenantId,
+        mode: 'tenant-isolated',
+        deliveryMetricsScoped: false,
+      }
+      : {
+        tenantId: null,
+        mode: 'global',
+        deliveryMetricsScoped: true,
+      },
     tenants: {
       total: tenantRows.length,
       active: tenantRows.filter((row) => row.status === 'active').length,
@@ -894,19 +1005,100 @@ async function getPlatformAnalyticsOverview() {
       draftOffers: offerRows.filter((row) => row.status === 'draft').length,
     },
     delivery: {
-      purchaseCount30d: purchaseRows.length,
-      deliveredCount,
-      failedCount,
-      successRate,
+      purchaseCount30d: tenantId ? null : purchaseRows.length,
+      deliveredCount: tenantId ? null : deliveredCount,
+      failedCount: tenantId ? null : failedCount,
+      successRate: tenantId ? null : successRate,
+      note: tenantId
+        ? 'Global purchase/delivery tables are not tenant-partitioned; tenant public analytics excludes shared commerce metrics'
+        : null,
     },
   };
 }
 
 async function reconcileDeliveryState(options = {}) {
+  const scopedTenantId = trimText(options.tenantId, 120) || null;
   const antiAbuse = config.platform?.antiAbuse || {};
   const windowMs = asInt(options.windowMs, antiAbuse.windowMs || (60 * 60 * 1000), 60 * 1000);
   const pendingOverdueMs = asInt(options.pendingOverdueMs, antiAbuse.pendingOverdueMs || (20 * 60 * 1000), 60 * 1000);
   const since = new Date(Date.now() - windowMs);
+
+  if (scopedTenantId) {
+    const [tenantState, agentRows, webhookRows] = await Promise.all([
+      getTenantOperationalState(scopedTenantId),
+      prisma.platformAgentRuntime.findMany({
+        where: { tenantId: scopedTenantId },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+      }),
+      prisma.platformWebhookEndpoint.findMany({
+        where: { tenantId: scopedTenantId },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+      }),
+    ]);
+
+    const anomalies = [];
+    if (!tenantState.ok) {
+      anomalies.push({
+        code: scopedTenantId,
+        type: tenantState.reason,
+        severity: 'error',
+        detail: 'Tenant operational state is blocking public platform access',
+      });
+    }
+    for (const runtime of agentRows) {
+      if (String(runtime.status || '').trim().toLowerCase() === 'outdated') {
+        anomalies.push({
+          code: runtime.runtimeKey,
+          type: 'agent-version-outdated',
+          severity: 'warn',
+          detail: `Runtime ${runtime.runtimeKey} is below ${runtime.minRequiredVersion || 'minimum version'}`,
+        });
+      }
+      const lastSeenAt = parseDateOrNull(runtime.lastSeenAt);
+      if (lastSeenAt && Date.now() - lastSeenAt.getTime() >= (config.platform?.monitoring?.agentStaleMs || 10 * 60 * 1000)) {
+        anomalies.push({
+          code: runtime.runtimeKey,
+          type: 'agent-runtime-stale',
+          severity: 'warn',
+          detail: `Runtime ${runtime.runtimeKey} heartbeat is stale`,
+        });
+      }
+    }
+    for (const webhook of webhookRows) {
+      if (webhook.enabled && webhook.lastError) {
+        anomalies.push({
+          code: webhook.id,
+          type: 'webhook-last-error',
+          severity: 'warn',
+          detail: trimText(webhook.lastError, 240),
+        });
+      }
+    }
+
+    return {
+      generatedAt: nowIso(),
+      scope: {
+        tenantId: scopedTenantId,
+        mode: 'tenant-isolated',
+        includesSharedCommerceTables: false,
+      },
+      notes: [
+        'Shared purchase/queue tables are not tenant-partitioned; tenant reconcile is limited to tenant runtime/webhook operational drift.',
+      ],
+      summary: {
+        purchases: null,
+        queueJobs: null,
+        deadLetters: null,
+        anomalies: anomalies.length,
+        abuseFindings: 0,
+        windowMs,
+      },
+      anomalies,
+      abuseFindings: [],
+    };
+  }
 
   const [purchases, queueJobs, deadLetters, auditRows] = await Promise.all([
     prisma.purchase.findMany({
@@ -1067,6 +1259,7 @@ module.exports = {
   getPlatformPermissionCatalog,
   getPlatformPublicOverview,
   getPlatformTenantById,
+  getTenantOperationalState,
   issuePlatformLicense,
   listMarketplaceOffers,
   listPlatformAgentRuntimes,

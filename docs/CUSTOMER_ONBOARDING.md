@@ -16,10 +16,12 @@
 - worker สำหรับ delivery queue และ rent bike runtime
 - watcher สำหรับ ingest event จาก `SCUM.log`
 - admin web สำหรับ config, delivery operations, backup/restore, audit และ observability
+- admin web มี request trace, preflight, simulator, failover visibility, restore preview token workflow, step-up auth และ security event trail แล้ว
 - player portal สำหรับ wallet, purchase history, redeem, profile และ steam link
 
 ถ้าต้องใช้เอกสารสำหรับพรีเซนต์ภาพรวมระบบ ให้เปิด [docs/SHOWCASE_TH.md](./SHOWCASE_TH.md) ควบคู่กัน
 ก่อน go-live ให้ไล่ตาม [docs/GO_LIVE_CHECKLIST_TH.md](./GO_LIVE_CHECKLIST_TH.md)
+และถ้าต้อง handoff เชิงสัญญาหรือ SLA ให้แนบ [docs/LIMITATIONS_AND_SLA_TH.md](./LIMITATIONS_AND_SLA_TH.md) ไปด้วย
 
 ## 1) หน้าที่ของแต่ละ runtime
 
@@ -76,6 +78,8 @@ copy apps\web-portal-standalone\.env.production.example apps\web-portal-standalo
 - `SCUM_WEBHOOK_SECRET=<secret จริง>`
 - `ADMIN_WEB_PASSWORD=<password จริง>`
 - `ADMIN_WEB_TOKEN=<token จริง>`
+- `ADMIN_WEB_STEP_UP_ENABLED=true`
+- `ADMIN_WEB_STEP_UP_TTL_MINUTES=15`
 - `DATABASE_URL=<db จริง>`
 
 runtime split ฝั่ง production
@@ -234,6 +238,7 @@ npm run text:repair
 - dashboard landing ที่สรุป topology, delivery runtime และ restore guardrails
 - delivery preflight / simulator / capability tester
 - delivery detail รายออเดอร์พร้อม timeline และ step log
+- observability recent requests และ incident/debug trail สำหรับไล่ production issue
 - notification center และ backup/restore workflow
 - player portal ฝั่ง wallet / purchase / redeem / steam link
 
@@ -252,3 +257,5 @@ npm run text:repair
 - [DEPLOYMENT_STORY.md](c:/new/docs/DEPLOYMENT_STORY.md)
 - [ARCHITECTURE.md](c:/new/docs/ARCHITECTURE.md)
 - [INCIDENT_RESPONSE.md](c:/new/docs/INCIDENT_RESPONSE.md)
+- [REPO_STRUCTURE_TH.md](c:/new/docs/REPO_STRUCTURE_TH.md)
+- [LIMITATIONS_AND_SLA_TH.md](c:/new/docs/LIMITATIONS_AND_SLA_TH.md)

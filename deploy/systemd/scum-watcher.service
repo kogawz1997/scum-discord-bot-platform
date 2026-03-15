@@ -8,7 +8,7 @@ User=scum
 WorkingDirectory=/opt/scum-platform
 Environment=NODE_ENV=production
 EnvironmentFile=/opt/scum-platform/.env
-ExecStart=/usr/bin/node scum-log-watcher.js
+ExecStart=/usr/bin/node src/services/scumLogWatcherRuntime.js
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

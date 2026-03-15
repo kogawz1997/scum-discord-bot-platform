@@ -88,6 +88,16 @@ test('admin platform routes and tenant public API flow work end-to-end', async (
   assert.equal(tenantCreate.res.status, 200);
   assert.equal(tenantCreate.data.ok, true);
 
+  const secondTenantCreate = await request('/admin/api/platform/tenant', 'POST', {
+    id: 'tenant-admin-api-b',
+    slug: 'tenant-admin-api-b',
+    name: 'Tenant Admin API B',
+    type: 'direct',
+    ownerEmail: 'tenant-b@example.com',
+  }, cookie);
+  assert.equal(secondTenantCreate.res.status, 200);
+  assert.equal(secondTenantCreate.data.ok, true);
+
   const subscriptionCreate = await request('/admin/api/platform/subscription', 'POST', {
     tenantId: 'tenant-admin-api',
     planId: 'trial-14d',
@@ -138,7 +148,9 @@ test('admin platform routes and tenant public API flow work end-to-end', async (
   });
   assert.equal(analytics.res.status, 200);
   assert.equal(analytics.data.ok, true);
-  assert.equal(Number(analytics.data.data?.tenants?.total || 0) >= 1, true);
+  assert.equal(Number(analytics.data.data?.tenants?.total || 0), 1);
+  assert.equal(String(analytics.data.data?.scope?.tenantId || ''), 'tenant-admin-api');
+  assert.equal(Boolean(analytics.data.data?.scope?.deliveryMetricsScoped), false);
 
   const heartbeat = await request('/platform/api/v1/agent/heartbeat', 'POST', {
     runtimeKey: 'tenant-agent',
@@ -159,6 +171,23 @@ test('admin platform routes and tenant public API flow work end-to-end', async (
   assert.equal(reconcile.res.status, 200);
   assert.equal(reconcile.data.ok, true);
   assert.equal(typeof reconcile.data.data?.summary?.anomalies, 'number');
+  assert.equal(String(reconcile.data.data?.scope?.tenantId || ''), 'tenant-admin-api');
+
+  const tenantSuspend = await request('/admin/api/platform/tenant', 'POST', {
+    id: 'tenant-admin-api',
+    slug: 'tenant-admin-api',
+    name: 'Tenant Admin API',
+    status: 'suspended',
+  }, cookie);
+  assert.equal(tenantSuspend.res.status, 200);
+  assert.equal(tenantSuspend.data.ok, true);
+
+  const tenantSelfAfterSuspend = await request('/platform/api/v1/tenant/self', 'GET', null, '', {
+    'x-platform-api-key': rawKey,
+  });
+  assert.equal(tenantSelfAfterSuspend.res.status, 403);
+  assert.equal(tenantSelfAfterSuspend.data.ok, false);
+  assert.equal(String(tenantSelfAfterSuspend.data.error || ''), 'tenant-access-suspended');
 
   const publicOverview = await request('/platform/api/v1/public/overview');
   assert.equal(publicOverview.res.status, 200);

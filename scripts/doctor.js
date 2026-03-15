@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { validateCommandTemplate } = require('../src/utils/commandTemplate');
+const { getAdminSsoRoleMappingSummary } = require('../src/utils/adminSsoRoleMapping');
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
@@ -247,12 +248,26 @@ function addAuthHardeningChecks() {
   });
   const adminTwoFactorEnabled = isTruthy(process.env.ADMIN_WEB_2FA_ENABLED, false);
   const adminTwoFactorSecret = String(process.env.ADMIN_WEB_2FA_SECRET || '').trim();
+  const adminStepUpEnabled = isTruthy(process.env.ADMIN_WEB_STEP_UP_ENABLED, adminTwoFactorEnabled);
+  const adminStepUpTtlMinutes = Number(process.env.ADMIN_WEB_STEP_UP_TTL_MINUTES || 15);
   const adminSessionTtlHours = Number(process.env.ADMIN_WEB_SESSION_TTL_HOURS || 12);
   const portalSessionTtlHours = Number(process.env.WEB_PORTAL_SESSION_TTL_HOURS || 12);
 
   if (hasExternalAdminOrigin && (!adminTwoFactorEnabled || !adminTwoFactorSecret)) {
     warnings.push(
       'Admin web is exposed externally without active 2FA; enable ADMIN_WEB_2FA_ENABLED=true and set ADMIN_WEB_2FA_SECRET',
+    );
+  }
+
+  if (hasExternalAdminOrigin && !adminStepUpEnabled) {
+    warnings.push(
+      'Admin web is exposed externally without step-up auth for sensitive mutations; enable ADMIN_WEB_STEP_UP_ENABLED=true',
+    );
+  }
+
+  if (Number.isFinite(adminStepUpTtlMinutes) && adminStepUpTtlMinutes > 60) {
+    warnings.push(
+      `ADMIN_WEB_STEP_UP_TTL_MINUTES=${adminStepUpTtlMinutes} is longer than 60 minutes; review step-up window for sensitive actions`,
     );
   }
 
@@ -377,6 +392,17 @@ function addDiscordRedirectChecks() {
   ) {
     warnings.push(
       'Admin SSO and player portal reuse the exact same Discord redirect URI; verify this is intentional',
+    );
+  }
+
+  const roleMapping = getAdminSsoRoleMappingSummary(process.env);
+  if (!roleMapping.hasExplicitMappings) {
+    warnings.push(
+      'Admin Discord SSO is enabled without explicit ADMIN_WEB_SSO_DISCORD_*_ROLE_IDS or ADMIN_WEB_SSO_DISCORD_*_ROLE_NAMES; all SSO logins will fall back to ADMIN_WEB_SSO_DEFAULT_ROLE',
+    );
+  } else if (!roleMapping.hasElevatedMappings) {
+    warnings.push(
+      'Admin Discord SSO has no owner/admin role mapping; elevated access still depends on ADMIN_WEB_SSO_DEFAULT_ROLE or manual admin users',
     );
   }
 }

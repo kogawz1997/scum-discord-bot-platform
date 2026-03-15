@@ -4,13 +4,13 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-119%2F119%20passing-15803d?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-135%2F135%20passing-15803d?style=for-the-badge)
 ![Mode](https://img.shields.io/badge/delivery-agent%20mode%20validated-c2410c?style=for-the-badge)
 
 ระบบนี้เป็นแพลตฟอร์มจัดการเซิร์ฟเวอร์ SCUM แบบครบชุดในโปรเจกต์เดียว ประกอบด้วย Discord Bot, Worker, Log Watcher, Admin Web, Player Portal และระบบส่งของอัตโนมัติที่รองรับทั้ง `RCon` และ `agent mode`.
 
 สถานะปัจจุบัน ณ วันที่ **2026-03-15**
-- `npm test` ผ่าน `119/119`
+- `npm test` ผ่าน `135/135`
 - `npm run lint` ผ่าน
 - `agent mode` ส่งของจริงผ่าน SCUM admin client ได้แล้ว
 - flow ที่ยืนยันใช้งานจริงแล้ว: `announce -> teleport -> spawn -> multi-item -> magazine StackCount`
@@ -19,9 +19,12 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 - เอกสารโชว์งาน/ภาพรวมเชิง commercial: [docs/SHOWCASE_TH.md](./docs/SHOWCASE_TH.md)
 - เช็กลิสต์ก่อนขึ้นจริง: [docs/GO_LIVE_CHECKLIST_TH.md](./docs/GO_LIVE_CHECKLIST_TH.md)
 - คู่มือปฏิบัติการ: [docs/OPERATIONS_MANUAL_TH.md](./docs/OPERATIONS_MANUAL_TH.md)
+- policy การ migration / rollback / restore: [docs/MIGRATION_ROLLBACK_POLICY_TH.md](./docs/MIGRATION_ROLLBACK_POLICY_TH.md)
 - คู่มืออธิบายตัวแปร `.env`: [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md)
 - รายงานเทียบ `.env` จริงกับ production baseline: [docs/PRODUCTION_ENV_GAP_TH.md](./docs/PRODUCTION_ENV_GAP_TH.md)
 - คู่มือแอดมินใช้งานประจำวัน: [docs/ADMIN_DAILY_OPERATIONS_TH.md](./docs/ADMIN_DAILY_OPERATIONS_TH.md)
+- โครงสร้าง repo และแนวทาง monorepo ระยะยาว: [docs/REPO_STRUCTURE_TH.md](./docs/REPO_STRUCTURE_TH.md)
+- ข้อจำกัดและ SLA สำหรับ production handoff: [docs/LIMITATIONS_AND_SLA_TH.md](./docs/LIMITATIONS_AND_SLA_TH.md)
 - สถานะระบบ/roadmap: [PROJECT_HQ.md](./PROJECT_HQ.md)
 - สถาปัตยกรรม: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
@@ -33,7 +36,8 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 
 - split runtime ชัดเจน `bot / worker / watcher / web / console-agent`
 - มี delivery timeline, step log, preflight, simulator, capability test และ post-spawn verification
-- มี admin web สำหรับ config, audit, restore, observability และ incident response
+- มี admin web สำหรับ config, audit, restore, observability, request trace และ incident response
+- admin web บูตได้แยกจาก Discord readiness แล้ว ทำให้ยังเข้า control plane ได้แม้ bot login มีปัญหา
 - มี player portal แยกให้ผู้เล่นเห็น wallet, history, redeem และ profile ของตัวเอง
 - มี production guardrails เช่น `doctor`, `security:check`, `readiness:prod`, `smoke:postdeploy`
 
@@ -58,7 +62,7 @@ SCUM Discord Bot + Admin Web + Player Portal + Delivery Worker
 
 ### Admin / Web
 - Admin Web พร้อม RBAC `owner / admin / mod`
-- login จาก DB + Discord SSO + 2FA baseline
+- login จาก DB + Discord SSO + 2FA baseline + step-up auth สำหรับงานเสี่ยง
 - config editor / backup / restore / snapshot export
 - safe restore guardrails: dry-run diff, confirmation, maintenance gate, auto rollback backup, restore status
 - Audit Center พร้อม filter ลึก, sort/order, pagination, cursor, shared presets
@@ -460,7 +464,7 @@ npm test
 
 ผลล่าสุด
 - `npm run lint` ผ่าน
-- `npm test` ผ่าน `119/119`
+- `npm test` ผ่าน `135/135`
 
 ---
 

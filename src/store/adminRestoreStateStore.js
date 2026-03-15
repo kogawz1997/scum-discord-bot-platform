@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const path = require('node:path');
 
 const { getFilePath } = require('./_persist');
 
@@ -70,6 +71,10 @@ function buildDefaultState() {
     currentCounts: null,
     diff: null,
     warnings: [],
+    previewToken: null,
+    previewBackup: null,
+    previewIssuedAt: null,
+    previewExpiresAt: null,
   };
 }
 
@@ -116,12 +121,17 @@ function normalizeState(nextState = {}) {
     currentCounts: normalizeObject(merged.currentCounts),
     diff: normalizeObject(merged.diff),
     warnings: normalizeWarnings(merged.warnings),
+    previewToken: normalizeString(merged.previewToken, 160),
+    previewBackup: normalizeString(merged.previewBackup, 260),
+    previewIssuedAt: normalizeIso(merged.previewIssuedAt),
+    previewExpiresAt: normalizeIso(merged.previewExpiresAt),
   };
 }
 
 function writeStateToDisk() {
   const snapshot = normalizeState(state || {});
   const tmpPath = `${FILE_PATH}.tmp`;
+  fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
   fs.writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8');
   fs.renameSync(tmpPath, FILE_PATH);
 }

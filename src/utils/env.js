@@ -11,6 +11,28 @@ function isProduction(env = process.env) {
   return String(env.NODE_ENV || '').trim().toLowerCase() === 'production';
 }
 
+function parseOriginList(value) {
+  const origins = [];
+  for (const token of String(value || '').split(',')) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    try {
+      origins.push(new URL(trimmed));
+    } catch {}
+  }
+  return origins;
+}
+
+function isLocalOrExampleOrigin(origin) {
+  if (!origin || !origin.hostname) return true;
+  const hostname = String(origin.hostname || '').trim().toLowerCase();
+  if (!hostname) return true;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') {
+    return true;
+  }
+  return hostname.endsWith('.example.com') || hostname === 'example.com';
+}
+
 function isLikelyPlaceholder(value) {
   const text = String(value || '').trim().toLowerCase();
   if (!text) return true;
@@ -43,9 +65,17 @@ function getProductionSecurityErrors(env = process.env) {
   const adminPassword = String(env.ADMIN_WEB_PASSWORD || '').trim();
   const adminToken = String(env.ADMIN_WEB_TOKEN || '').trim();
   const allowedOrigins = String(env.ADMIN_WEB_ALLOWED_ORIGINS || '').trim();
+  const allowedOriginUrls = parseOriginList(allowedOrigins);
   const deliveryExecutionMode = String(
     env.DELIVERY_EXECUTION_MODE || 'rcon',
   ).trim().toLowerCase() || 'rcon';
+  const playerBaseUrl = String(env.WEB_PORTAL_BASE_URL || '').trim();
+  const playerBaseUrlParsed = playerBaseUrl ? parseOriginList(playerBaseUrl)[0] || null : null;
+  const agentBaseUrl = String(env.SCUM_CONSOLE_AGENT_BASE_URL || '').trim();
+  const agentPort = String(env.SCUM_CONSOLE_AGENT_PORT || '').trim();
+  const adminTwoFactorEnabled = isTruthy(env.ADMIN_WEB_2FA_ENABLED);
+  const adminTwoFactorSecret = String(env.ADMIN_WEB_2FA_SECRET || '').trim();
+  const adminStepUpEnabled = isTruthy(env.ADMIN_WEB_STEP_UP_ENABLED);
 
   if (!discordToken || isLikelyPlaceholder(discordToken)) {
     errors.push('Production requires a valid DISCORD_TOKEN (not placeholder).');
@@ -101,6 +131,27 @@ function getProductionSecurityErrors(env = process.env) {
       'Production requires strict HTTPS ADMIN_WEB_ALLOWED_ORIGINS (no http://).',
     );
   }
+  if (allowedOriginUrls.length === 0 || allowedOriginUrls.some(isLocalOrExampleOrigin)) {
+    errors.push(
+      'Production requires non-local ADMIN_WEB_ALLOWED_ORIGINS (no localhost/127.0.0.1/example.com).',
+    );
+  }
+
+  if (!playerBaseUrlParsed || playerBaseUrlParsed.protocol !== 'https:' || isLocalOrExampleOrigin(playerBaseUrlParsed)) {
+    errors.push(
+      'Production requires WEB_PORTAL_BASE_URL on a real HTTPS origin (not localhost/example.com).',
+    );
+  }
+
+  if (!adminTwoFactorEnabled) {
+    errors.push('Production requires ADMIN_WEB_2FA_ENABLED=true.');
+  }
+  if (!adminTwoFactorSecret || adminTwoFactorSecret.length < 16 || isLikelyPlaceholder(adminTwoFactorSecret)) {
+    errors.push('Production requires ADMIN_WEB_2FA_SECRET with at least 16 characters.');
+  }
+  if (!adminStepUpEnabled) {
+    errors.push('Production requires ADMIN_WEB_STEP_UP_ENABLED=true.');
+  }
 
   if (!isTruthy(env.PERSIST_REQUIRE_DB)) {
     errors.push('Production requires PERSIST_REQUIRE_DB=true.');
@@ -115,6 +166,11 @@ function getProductionSecurityErrors(env = process.env) {
     if (!agentToken || agentToken.length < 16 || isLikelyPlaceholder(agentToken)) {
       errors.push(
         'Production agent mode requires SCUM_CONSOLE_AGENT_TOKEN with at least 16 characters.',
+      );
+    }
+    if (!agentBaseUrl && !agentPort) {
+      errors.push(
+        'Production agent mode requires SCUM_CONSOLE_AGENT_BASE_URL or SCUM_CONSOLE_AGENT_PORT.',
       );
     }
   }

@@ -48,6 +48,17 @@ let dbWriteQueue = Promise.resolve();
 let initPromise = null;
 let lastPersistenceSyncAt = 0;
 let persistenceSyncPromise = null;
+const agentRuntimeState = {
+  consecutiveFailures: 0,
+  lastFailureAt: null,
+  lastFailureCode: null,
+  lastFailureMessage: null,
+  lastSuccessAt: null,
+  circuitOpenedAt: null,
+  circuitOpenUntil: null,
+  lastFailoverAt: null,
+  lastFailoverReason: null,
+};
 
 const METRICS_WINDOW_MS = Math.max(
   60 * 1000,
@@ -322,6 +333,27 @@ function getSettings() {
     ),
     agentReturnTarget: sanitizeCommandText(
       process.env.DELIVERY_AGENT_RETURN_TARGET || auto.agentReturnTarget || '',
+    ),
+    agentFailoverMode: String(
+      process.env.DELIVERY_AGENT_FAILOVER_MODE || auto.agentFailoverMode || 'none',
+    ).trim().toLowerCase() || 'none',
+    agentCircuitBreakerThreshold: Math.max(
+      1,
+      Math.trunc(
+        asNumber(
+          process.env.DELIVERY_AGENT_CIRCUIT_BREAKER_THRESHOLD,
+          auto.agentCircuitBreakerThreshold || 2,
+        ),
+      ),
+    ),
+    agentCircuitBreakerCooldownMs: Math.max(
+      1000,
+      Math.trunc(
+        asNumber(
+          process.env.DELIVERY_AGENT_CIRCUIT_BREAKER_COOLDOWN_MS,
+          auto.agentCircuitBreakerCooldownMs || 30 * 1000,
+        ),
+      ),
     ),
     magazineStackCount: Math.max(
       1,
@@ -1177,14 +1209,31 @@ async function sendTestDeliveryCommand(options = {}) {
     message: commandSummary
       ? `Manual test send complete | commands: ${commandSummary}`
       : 'Manual test send complete',
-    meta: {
+    meta: buildExecutionAuditMeta(
+      {
+        purchaseCode,
+        userId,
+        itemId: preview.itemId || preview.gameItemId || null,
+        attempts: 0,
+        executionMode: settings.executionMode,
+        executionBackend: defaultExecutionBackendForMode(settings.executionMode),
+        commandPath: buildCommandPath({
+          executionMode: settings.executionMode,
+          backend: defaultExecutionBackendForMode(settings.executionMode),
+          stage: 'command',
+          source: 'admin',
+        }),
+      },
+      {
       source: 'admin-web',
       executionMode: settings.executionMode,
       deliveryItems: preview.deliveryItems || [],
       outputs,
       commandSummary: commandSummary || null,
       verification,
-    },
+      },
+      settings,
+    ),
   });
 
   return {
@@ -1215,6 +1264,263 @@ function getAgentBaseUrl() {
     Math.trunc(asNumber(process.env.SCUM_CONSOLE_AGENT_PORT, 3213)),
   );
   return `http://${host}:${port}`;
+}
+
+function normalizeFailoverMode(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'rcon') return 'rcon';
+  return 'none';
+}
+
+function clearExpiredAgentCircuit(now = Date.now()) {
+  const openUntil = Number(agentRuntimeState.circuitOpenUntil || 0);
+  if (openUntil > 0 && openUntil <= now) {
+    agentRuntimeState.circuitOpenUntil = null;
+    agentRuntimeState.circuitOpenedAt = null;
+    agentRuntimeState.consecutiveFailures = 0;
+    agentRuntimeState.lastFailureCode = null;
+    agentRuntimeState.lastFailureMessage = null;
+  }
+}
+
+function getAgentCircuitState(now = Date.now()) {
+  clearExpiredAgentCircuit(now);
+  const openUntil = Number(agentRuntimeState.circuitOpenUntil || 0);
+  return {
+    open: openUntil > now,
+    consecutiveFailures: Math.max(0, Number(agentRuntimeState.consecutiveFailures || 0)),
+    lastFailureAt: agentRuntimeState.lastFailureAt || null,
+    lastFailureCode: agentRuntimeState.lastFailureCode || null,
+    lastFailureMessage: agentRuntimeState.lastFailureMessage || null,
+    lastSuccessAt: agentRuntimeState.lastSuccessAt || null,
+    circuitOpenedAt: agentRuntimeState.circuitOpenedAt || null,
+    circuitOpenUntil: openUntil > now ? new Date(openUntil).toISOString() : null,
+    lastFailoverAt: agentRuntimeState.lastFailoverAt || null,
+    lastFailoverReason: agentRuntimeState.lastFailoverReason || null,
+  };
+}
+
+function recordAgentSuccess() {
+  agentRuntimeState.consecutiveFailures = 0;
+  agentRuntimeState.lastFailureCode = null;
+  agentRuntimeState.lastFailureMessage = null;
+  agentRuntimeState.lastFailureAt = null;
+  agentRuntimeState.circuitOpenedAt = null;
+  agentRuntimeState.circuitOpenUntil = null;
+  agentRuntimeState.lastSuccessAt = nowIso();
+}
+
+function recordAgentFailure(error, settings) {
+  const wasOpen = Number(agentRuntimeState.circuitOpenUntil || 0) > Date.now();
+  agentRuntimeState.consecutiveFailures = Math.max(
+    0,
+    Number(agentRuntimeState.consecutiveFailures || 0),
+  ) + 1;
+  agentRuntimeState.lastFailureAt = nowIso();
+  agentRuntimeState.lastFailureCode = String(
+    error?.deliveryCode || error?.agentCode || error?.code || 'AGENT_EXEC_FAILED',
+  );
+  agentRuntimeState.lastFailureMessage = trimText(error?.message || 'Agent execution failed', 300);
+  const threshold = Math.max(1, Number(settings?.agentCircuitBreakerThreshold || 2));
+  if (agentRuntimeState.consecutiveFailures >= threshold) {
+    agentRuntimeState.circuitOpenedAt = nowIso();
+    agentRuntimeState.circuitOpenUntil =
+      Date.now() + Math.max(1000, Number(settings?.agentCircuitBreakerCooldownMs || 30 * 1000));
+    if (!wasOpen) {
+      publishAdminLiveUpdate('ops-alert', {
+        source: 'delivery',
+        kind: 'agent-circuit-open',
+        consecutiveFailures: agentRuntimeState.consecutiveFailures,
+        threshold,
+        lastFailureCode: agentRuntimeState.lastFailureCode,
+        lastFailureMessage: agentRuntimeState.lastFailureMessage,
+        circuitOpenedAt: agentRuntimeState.circuitOpenedAt,
+        circuitOpenUntil: new Date(agentRuntimeState.circuitOpenUntil).toISOString(),
+      });
+    }
+  }
+}
+
+function recordAgentFailover(reason) {
+  agentRuntimeState.lastFailoverAt = nowIso();
+  agentRuntimeState.lastFailoverReason = trimText(reason || 'agent-failover', 240);
+}
+
+function getRconExecutionReadiness() {
+  const shellTemplate = getRconTemplate();
+  if (!shellTemplate) {
+    return { ok: false, code: 'RCON_TEMPLATE_MISSING', detail: 'RCON exec template is not configured' };
+  }
+
+  try {
+    validateCommandTemplate(shellTemplate);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'RCON_TEMPLATE_INVALID',
+      detail: trimText(error?.message || 'invalid RCON template', 300),
+    };
+  }
+
+  const host = String(process.env.RCON_HOST || '').trim();
+  const port = String(process.env.RCON_PORT || '').trim();
+  const password = String(process.env.RCON_PASSWORD || '').trim();
+  if (shellTemplate.includes('{host}') && !host) {
+    return { ok: false, code: 'RCON_HOST_MISSING', detail: 'RCON_HOST is required by template' };
+  }
+  if (shellTemplate.includes('{port}') && !port) {
+    return { ok: false, code: 'RCON_PORT_MISSING', detail: 'RCON_PORT is required by template' };
+  }
+  if (shellTemplate.includes('{password}') && !password) {
+    return { ok: false, code: 'RCON_PASSWORD_MISSING', detail: 'RCON_PASSWORD is required by template' };
+  }
+
+  return {
+    ok: true,
+    code: 'READY',
+    detail: 'RCON delivery fallback is ready',
+    shellTemplate,
+  };
+}
+
+function buildAgentFailoverState(settings, preview = null) {
+  const mode = normalizeFailoverMode(settings?.agentFailoverMode || 'none');
+  const rcon = mode === 'rcon' ? getRconExecutionReadiness() : null;
+  const previewAvailable = preview && typeof preview === 'object';
+  const hasAgentHooks =
+    previewAvailable
+      && (
+        (Array.isArray(preview.agentPreCommands) && preview.agentPreCommands.length > 0)
+        || (Array.isArray(preview.agentPostCommands) && preview.agentPostCommands.length > 0)
+      );
+  const compatible = !previewAvailable ? null : !hasAgentHooks;
+  const circuit = getAgentCircuitState();
+
+  return {
+    configured: mode !== 'none',
+    mode,
+    ready: mode === 'rcon' && Boolean(rcon?.ok) && compatible !== false,
+    compatible,
+    previewRequired: compatible === null,
+    reason:
+      mode === 'none'
+        ? 'failover-disabled'
+        : compatible === false
+          ? 'agent-hooks-present'
+          : rcon?.code || 'READY',
+    detail:
+      mode === 'none'
+        ? 'Agent failover is disabled'
+        : compatible === false
+          ? 'Agent-only teleport/cleanup hooks are configured; automatic failover would change delivery behavior'
+          : rcon?.detail || 'RCON delivery fallback is ready',
+    rcon,
+    circuit,
+  };
+}
+
+function normalizeExecutionModeValue(value, fallback = 'rcon') {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'agent') return 'agent';
+  if (text === 'rcon') return 'rcon';
+  return fallback;
+}
+
+function defaultExecutionBackendForMode(mode) {
+  if (mode === 'agent') {
+    return String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec';
+  }
+  return 'rcon-template';
+}
+
+function buildCommandPath(options = {}) {
+  const mode = normalizeExecutionModeValue(options.executionMode, 'rcon');
+  const backend = String(options.backend || '').trim() || defaultExecutionBackendForMode(mode);
+  const stage = String(options.stage || '').trim().toLowerCase();
+  const failoverMode = String(
+    options.failoverMode
+      || options.failover?.mode
+      || options.failover?.reason
+      || '',
+  ).trim().toLowerCase();
+
+  let prefix = 'worker';
+  if (stage === 'queue') prefix = 'queue';
+  if (stage === 'preflight') prefix = 'worker->preflight';
+  if (stage === 'verify') prefix = 'worker->verify';
+  if (stage === 'retry') prefix = 'worker->retry';
+  if (String(options.source || '').trim().toLowerCase() === 'admin') prefix = 'admin';
+
+  if (mode === 'agent') {
+    return `${prefix}->console-agent(${backend})`;
+  }
+  if (failoverMode === 'rcon') {
+    return `${prefix}->console-agent->rcon`;
+  }
+  return `${prefix}->rcon`;
+}
+
+function buildExecutionAuditMeta(job, meta = null, settings = null) {
+  const sourceMeta = meta && typeof meta === 'object' ? meta : {};
+  const existingExecution = sourceMeta.execution && typeof sourceMeta.execution === 'object'
+    ? sourceMeta.execution
+    : {};
+  const resolvedSettings = settings || getSettings();
+  const executionMode = normalizeExecutionModeValue(
+    sourceMeta.executionMode
+      || sourceMeta.mode
+      || existingExecution.executionMode
+      || existingExecution.mode
+      || job?.executionMode
+      || resolvedSettings?.executionMode
+      || 'rcon',
+    'rcon',
+  );
+  const backend = String(
+    sourceMeta.backend
+      || existingExecution.backend
+      || job?.executionBackend
+      || defaultExecutionBackendForMode(executionMode),
+  ).trim() || defaultExecutionBackendForMode(executionMode);
+  const retryCount = Math.max(
+    0,
+    Math.trunc(
+      Number(
+        sourceMeta.retryCount
+          ?? existingExecution.retryCount
+          ?? job?.attempts
+          ?? 0,
+      ) || 0,
+    ),
+  );
+  const commandPath = String(
+    sourceMeta.commandPath
+      || existingExecution.commandPath
+      || job?.commandPath
+      || buildCommandPath({
+        executionMode,
+        backend,
+        stage: sourceMeta.stage,
+        source: sourceMeta.source,
+        failover: sourceMeta.failover,
+        failoverMode: sourceMeta.failoverMode,
+      }),
+  ).trim();
+
+  return {
+    ...sourceMeta,
+    executionMode,
+    backend,
+    commandPath,
+    retryCount,
+    execution: {
+      ...existingExecution,
+      executionMode,
+      backend,
+      commandPath,
+      retryCount,
+    },
+  };
 }
 
 async function fetchAgentHealth(settings) {
@@ -1345,6 +1651,21 @@ async function runDeliveryPreflight(job, settings, context = {}) {
     source: report.mode === 'agent' ? 'agent' : 'rcon',
     status: 'ok',
     title: 'Preflight passed',
+    executionMode: report.effectiveMode || report.mode || settings.executionMode,
+    backend:
+      (report.effectiveMode || report.mode || settings.executionMode) === 'agent'
+        ? String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec'
+        : 'rcon-template',
+    commandPath: buildCommandPath({
+      executionMode: report.effectiveMode || report.mode || settings.executionMode,
+      backend:
+        (report.effectiveMode || report.mode || settings.executionMode) === 'agent'
+          ? String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec'
+          : 'rcon-template',
+      stage: 'preflight',
+      source: report.mode === 'agent' ? 'agent' : 'rcon',
+      failover: report.failover,
+    }),
     preflight: report.agent?.preflight?.result || report.agent?.preflight || null,
     health: report.agent?.health || report.workerHealth || null,
     checks: report.checks,
@@ -1353,10 +1674,15 @@ async function runDeliveryPreflight(job, settings, context = {}) {
 
   return {
     ok: true,
-    mode: report.mode,
+    mode: report.effectiveMode || report.mode,
     report,
     health: report.agent?.health || report.workerHealth || null,
     preflight: report.agent?.preflight || null,
+    failover: report.failover || null,
+    settings: {
+      ...settings,
+      executionMode: report.effectiveMode || report.mode || settings.executionMode,
+    },
   };
 }
 
@@ -1799,11 +2125,13 @@ async function getDeliveryPreflightReport(options = {}) {
   const report = {
     generatedAt: nowIso(),
     mode: settings.executionMode,
+    effectiveMode: settings.executionMode,
     enabled: settings.enabled,
     checks,
     workerHealth: null,
     agent: null,
     rcon: null,
+    failover: null,
     preview: null,
     verification: null,
   };
@@ -1924,6 +2252,7 @@ async function getDeliveryPreflightReport(options = {}) {
       backend: String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec',
       health,
       preflight,
+      circuit: getAgentCircuitState(),
       ready: Boolean(tokenConfigured && health?.ok && preflight?.ok),
     };
 
@@ -1955,6 +2284,22 @@ async function getDeliveryPreflightReport(options = {}) {
           ? 'SCUM admin client and Windows session passed preflight'
           : preflight?.error || 'SCUM admin client preflight failed',
       meta: preflight,
+    }));
+    checks.push(buildPreflightCheck({
+      key: 'agent-circuit',
+      label: 'Agent circuit breaker',
+      ok: report.agent.circuit?.open !== true,
+      required: true,
+      scope: 'agent',
+      code:
+        report.agent.circuit?.open === true
+          ? 'AGENT_CIRCUIT_OPEN'
+          : 'READY',
+      detail:
+        report.agent.circuit?.open === true
+          ? `Agent circuit is open until ${report.agent.circuit?.circuitOpenUntil || 'cooldown expires'}`
+          : 'Agent circuit breaker is closed',
+      meta: report.agent.circuit,
     }));
   } else {
     const shellTemplate = getRconTemplate();
@@ -2123,6 +2468,26 @@ async function getDeliveryPreflightReport(options = {}) {
     }
   }
 
+  if (settings.executionMode === 'agent') {
+    report.failover = buildAgentFailoverState(settings, report.preview);
+    checks.push(buildPreflightCheck({
+      key: 'agent-failover',
+      label: 'Agent failover strategy',
+      ok: report.failover.ready,
+      required: false,
+      severity: 'warn',
+      scope: 'agent',
+      code:
+        report.failover.mode === 'none'
+          ? 'AGENT_FAILOVER_DISABLED'
+          : report.failover.ready
+            ? 'AGENT_FAILOVER_READY'
+            : report.failover.reason || 'AGENT_FAILOVER_NOT_READY',
+      detail: report.failover.detail,
+      meta: report.failover,
+    }));
+  }
+
   const verificationPlan = buildVerificationPlan(settings);
   const watcherHealthBaseUrl = getWatcherHealthBaseUrl();
   report.verification = verificationPlan;
@@ -2166,13 +2531,39 @@ async function getDeliveryPreflightReport(options = {}) {
   }));
 
   const summary = summarizePreflightChecks(checks);
+  let failures = summary.failures;
+  let warnings = summary.warnings;
+  let ready = summary.ready;
+  let reason = summary.reason;
+
+  if (
+    settings.executionMode === 'agent'
+    && report.failover?.ready
+    && failures.length > 0
+    && failures.every((row) => row.scope === 'agent')
+  ) {
+    report.effectiveMode = 'rcon';
+    ready = true;
+    reason = null;
+    warnings = [
+      ...warnings,
+      ...failures.map((row) => ({
+        ...row,
+        required: false,
+        severity: 'warn',
+        detail: `${row.detail} | RCON failover will be used for this delivery`,
+      })),
+    ];
+    failures = [];
+  }
+
   return {
     ...report,
-    ready: summary.ready,
-    ok: summary.ready,
-    reason: summary.reason,
-    failures: summary.failures,
-    warnings: summary.warnings,
+    ready,
+    ok: ready,
+    reason: reason || 'ready',
+    failures,
+    warnings,
   };
 }
 
@@ -2715,7 +3106,22 @@ async function testScumAdminCommandCapability(options = {}) {
     message: result.passed
       ? `Capability test passed: ${capability.name}`
       : `Capability test failed: ${capability.name}`,
-    meta: {
+    meta: buildExecutionAuditMeta(
+      {
+        purchaseCode: vars.purchaseCode || null,
+        userId: vars.userId || null,
+        itemId: vars.itemId || capability.id,
+        attempts: 0,
+        executionMode: settings.executionMode,
+        executionBackend: defaultExecutionBackendForMode(settings.executionMode),
+        commandPath: buildCommandPath({
+          executionMode: settings.executionMode,
+          backend: defaultExecutionBackendForMode(settings.executionMode),
+          stage: 'command',
+          source: 'admin',
+        }),
+      },
+      {
       source: 'admin-web',
       capabilityId: capability.id,
       capabilityName: capability.name,
@@ -2724,16 +3130,24 @@ async function testScumAdminCommandCapability(options = {}) {
       outputs: result.outputs,
       verification: result.verification,
       blockedReason: result.blockedReason,
-    },
+      },
+      settings,
+    ),
   });
   return result;
 }
 
 async function runRconCommand(gameCommand, settings) {
-  const shellTemplate = getRconTemplate();
-  if (!shellTemplate) {
-    throw new Error('RCON_EXEC_TEMPLATE is not set');
+  const readiness = getRconExecutionReadiness();
+  if (!readiness.ok) {
+    throw createDeliveryError(readiness.code, readiness.detail, {
+      retryable: readiness.code !== 'RCON_TEMPLATE_INVALID',
+      step: 'rcon-command',
+      command: gameCommand,
+      recoveryHint: 'ตรวจ RCON template/host/port/password ก่อน retry',
+    });
   }
+  const shellTemplate = readiness.shellTemplate;
 
   const host = String(process.env.RCON_HOST || '').trim();
   const port = String(process.env.RCON_PORT || '').trim();
@@ -2765,6 +3179,13 @@ async function runRconCommand(gameCommand, settings) {
   );
   return {
     mode: 'rcon',
+    backend: 'rcon-template',
+    commandPath: buildCommandPath({
+      executionMode: 'rcon',
+      backend: 'rcon-template',
+      stage: 'command',
+      source: 'rcon',
+    }),
     command: gameCommand,
     shellCommand: result.displayCommand,
     stdout: trimText(result.stdout, 1200),
@@ -2776,7 +3197,12 @@ async function runAgentCommand(gameCommand, settings) {
   const baseUrl = getAgentBaseUrl();
   const token = String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
   if (!token) {
-    throw new Error('SCUM_CONSOLE_AGENT_TOKEN is not set');
+    throw createDeliveryError('AGENT_TOKEN_MISSING', 'SCUM_CONSOLE_AGENT_TOKEN is not set', {
+      retryable: false,
+      step: 'agent-command',
+      command: gameCommand,
+      recoveryHint: 'ตั้งค่า SCUM_CONSOLE_AGENT_TOKEN ให้ตรงกับ console agent ก่อน retry',
+    });
   }
 
   const controller = new AbortController();
@@ -2796,6 +3222,17 @@ async function runAgentCommand(gameCommand, settings) {
       body: JSON.stringify({ command: gameCommand }),
       signal: controller.signal,
     });
+  } catch (error) {
+    throw createDeliveryError(
+      error?.name === 'AbortError' ? 'AGENT_EXEC_TIMEOUT' : 'AGENT_EXEC_UNREACHABLE',
+      trimText(error?.message || 'SCUM console agent request failed', 300),
+      {
+        retryable: true,
+        step: 'agent-command',
+        command: gameCommand,
+        recoveryHint: 'ตรวจ console-agent, Windows session และ SCUM client ก่อน retry',
+      },
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -2808,20 +3245,33 @@ async function runAgentCommand(gameCommand, settings) {
   }
 
   if (!res.ok || !payload?.ok || !payload?.result) {
-    throw new Error(
+    throw createDeliveryError(
+      String(payload?.errorCode || `AGENT_HTTP_${res.status}`),
       trimText(
         payload?.error
           || payload?.message
           || `SCUM console agent error ${res.status}`,
         500,
       ),
+      {
+        retryable: res.status >= 500 || res.status === 429,
+        step: 'agent-command',
+        command: gameCommand,
+        recoveryHint: 'ตรวจ agent health, auth token และ SCUM client ก่อน retry',
+      },
     );
   }
 
   return {
     mode: 'agent',
+    backend: String(payload.result.backend || '').trim() || defaultExecutionBackendForMode('agent'),
+    commandPath: buildCommandPath({
+      executionMode: 'agent',
+      backend: String(payload.result.backend || '').trim() || defaultExecutionBackendForMode('agent'),
+      stage: 'command',
+      source: 'agent',
+    }),
     command: gameCommand,
-    backend: payload.result.backend || null,
     shellCommand: payload.result.shellCommand || null,
     stdout: trimText(payload.result.stdout, 1200),
     stderr: trimText(payload.result.stderr, 1200),
@@ -2831,7 +3281,14 @@ async function runAgentCommand(gameCommand, settings) {
 
 async function runGameCommand(gameCommand, settings) {
   if (settings.executionMode === 'agent') {
-    return runAgentCommand(gameCommand, settings);
+    try {
+      const result = await runAgentCommand(gameCommand, settings);
+      recordAgentSuccess();
+      return result;
+    } catch (error) {
+      recordAgentFailure(error, settings);
+      throw error;
+    }
   }
   return runRconCommand(gameCommand, settings);
 }
@@ -2896,8 +3353,10 @@ async function getDeliveryRuntimeStatus() {
       backend: String(process.env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim() || 'exec',
       health,
       preflight,
+      circuit: getAgentCircuitState(),
       ready,
     };
+    runtime.failover = buildAgentFailoverState(settings, null);
   } else {
     const shellTemplate = getRconTemplate();
     runtime.rcon = {
@@ -3105,6 +3564,9 @@ function normalizeJob(input) {
     deliveryItems,
     itemKind: String(input.itemKind || '').trim() || null,
     guildId: input.guildId ? String(input.guildId) : null,
+    executionMode: normalizeExecutionModeValue(input.executionMode, 'rcon'),
+    executionBackend: String(input.executionBackend || '').trim() || null,
+    commandPath: String(input.commandPath || '').trim() || null,
     attempts: Math.max(0, asNumber(input.attempts, 0)),
     nextAttemptAt: Math.max(Date.now(), asNumber(input.nextAttemptAt, Date.now())),
     lastError: input.lastError ? String(input.lastError) : null,
@@ -3817,7 +4279,7 @@ function queueAudit(level, action, job, message, meta = null) {
     userId: job?.userId || null,
     attempt: job?.attempts == null ? null : job.attempts,
     message,
-    meta,
+    meta: buildExecutionAuditMeta(job, meta),
   });
   publishQueueLiveUpdate(action, job);
 }
@@ -4148,6 +4610,14 @@ async function processJob(job) {
       source: settings.executionMode === 'agent' ? 'agent' : 'rcon',
       status: 'running',
       title: 'Preflight started',
+      executionMode: settings.executionMode,
+      backend: defaultExecutionBackendForMode(settings.executionMode),
+      commandPath: buildCommandPath({
+        executionMode: settings.executionMode,
+        backend: defaultExecutionBackendForMode(settings.executionMode),
+        stage: 'preflight',
+        source: settings.executionMode === 'agent' ? 'agent' : 'rcon',
+      }),
       context,
     });
 
@@ -4166,8 +4636,43 @@ async function processJob(job) {
       deliveryItems: resolvedDeliveryItems,
     });
 
-    const preCommands = agentHooks.preCommands;
-    const postCommands = agentHooks.postCommands;
+    const executionSettings = preflightState?.settings || settings;
+    if (
+      executionSettings.executionMode !== settings.executionMode
+      && preflightState?.failover?.ready
+    ) {
+      recordAgentFailover(preflightState.failover.reason || 'agent-failover');
+      queueAudit('warn', 'failover-engaged', job, 'Agent delivery failover engaged; using RCON for this attempt', {
+        step: 'failover',
+        stage: 'preflight',
+        source: 'worker',
+        status: 'retrying',
+        title: 'Failover engaged',
+        executionMode: executionSettings.executionMode,
+        backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+        commandPath: buildCommandPath({
+          executionMode: executionSettings.executionMode,
+          backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+          stage: 'preflight',
+          failover: preflightState.failover,
+        }),
+        preflightState,
+        failover: preflightState.failover,
+      });
+    }
+
+    const effectiveCommonVars = buildDeliveryTemplateVars(context, executionSettings);
+    const effectiveAgentHooks = resolveAgentHookPlan(shopItem, effectiveCommonVars, executionSettings);
+    const preCommands = effectiveAgentHooks.preCommands;
+    const postCommands = effectiveAgentHooks.postCommands;
+    job.executionMode = executionSettings.executionMode;
+    job.executionBackend = defaultExecutionBackendForMode(executionSettings.executionMode);
+    job.commandPath = buildCommandPath({
+      executionMode: executionSettings.executionMode,
+      backend: job.executionBackend,
+      stage: 'worker',
+      failover: preflightState?.failover,
+    });
 
     const executePhaseCommands = async (
       phase,
@@ -4209,10 +4714,19 @@ async function processJob(job) {
           commandIndex: i + 1,
           commandCount: normalizedCommands.length,
           deliveryItem,
+          executionMode: executionSettings.executionMode,
+          backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+          commandPath: buildCommandPath({
+            executionMode: executionSettings.executionMode,
+            backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+            stage: operation.stage,
+            source: phase === 'item' ? 'game-command' : 'agent-hook',
+            failover: preflightState?.failover,
+          }),
         });
         let output;
         try {
-          output = await runGameCommand(gameCommand, settings);
+          output = await runGameCommand(gameCommand, executionSettings);
         } catch (error) {
           queueAudit(
             'error',
@@ -4234,6 +4748,15 @@ async function processJob(job) {
               errorCode:
                 String(error?.deliveryCode || error?.agentCode || error?.code || 'DELIVERY_COMMAND_EXEC_FAILED'),
               retryable: error?.retryable !== false,
+              executionMode: executionSettings.executionMode,
+              backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+              commandPath: buildCommandPath({
+                executionMode: executionSettings.executionMode,
+                backend: defaultExecutionBackendForMode(executionSettings.executionMode),
+                stage: operation.stage,
+                source: phase === 'item' ? 'game-command' : 'agent-hook',
+                failover: preflightState?.failover,
+              }),
             },
           );
           throw createDeliveryError(
@@ -4257,13 +4780,23 @@ async function processJob(job) {
         }
         outputs.push({
           phase,
-          mode: output.mode || settings.executionMode,
+          mode: output.mode || executionSettings.executionMode,
           backend: output.backend || null,
+          commandPath: output.commandPath || null,
           gameItemId: deliveryItem?.gameItemId || null,
           quantity: deliveryItem?.quantity || null,
           command: output.command,
           stdout: output.stdout,
           stderr: output.stderr,
+        });
+        job.executionMode = output.mode || executionSettings.executionMode;
+        job.executionBackend =
+          output.backend || defaultExecutionBackendForMode(output.mode || executionSettings.executionMode);
+        job.commandPath = output.commandPath || buildCommandPath({
+          executionMode: job.executionMode,
+          backend: job.executionBackend,
+          stage: operation.stage,
+          failover: preflightState?.failover,
         });
         queueAudit('info', 'command-ok', job, operation.title, {
           phase,
@@ -4285,8 +4818,9 @@ async function processJob(job) {
           outputs: [
             {
               phase,
-              mode: output.mode || settings.executionMode,
+              mode: output.mode || executionSettings.executionMode,
               backend: output.backend || null,
+              commandPath: output.commandPath || null,
               gameItemId: deliveryItem?.gameItemId || null,
               quantity: deliveryItem?.quantity || null,
               command: output.command,
@@ -4295,22 +4829,36 @@ async function processJob(job) {
             },
           ],
           commandSummary: output.command,
+          executionMode: output.mode || executionSettings.executionMode,
+          backend: output.backend || defaultExecutionBackendForMode(output.mode || executionSettings.executionMode),
+          commandPath: output.commandPath || buildCommandPath({
+            executionMode: output.mode || executionSettings.executionMode,
+            backend: output.backend || defaultExecutionBackendForMode(output.mode || executionSettings.executionMode),
+            stage: operation.stage,
+            source:
+              output.mode === 'agent'
+                ? phase === 'item'
+                  ? 'game-command'
+                  : 'agent-hook'
+                : 'rcon',
+            failover: preflightState?.failover,
+          }),
         });
         if (
-          settings.executionMode === 'agent'
-          && settings.agentCommandDelayMs > 0
+          executionSettings.executionMode === 'agent'
+          && executionSettings.agentCommandDelayMs > 0
           && i < normalizedCommands.length - 1
         ) {
-          await sleep(settings.agentCommandDelayMs);
+          await sleep(executionSettings.agentCommandDelayMs);
         }
       }
     };
 
     await executePhaseCommands('pre', preCommands);
-    if (preCommands.length > 0 && settings.executionMode === 'agent') {
+    if (preCommands.length > 0 && executionSettings.executionMode === 'agent') {
       const prePhaseDelayMs = preCommands.some(isTeleportCommand)
-        ? settings.agentPostTeleportDelayMs
-        : settings.agentCommandDelayMs;
+        ? executionSettings.agentPostTeleportDelayMs
+        : executionSettings.agentCommandDelayMs;
       if (prePhaseDelayMs > 0) {
         await sleep(prePhaseDelayMs);
       }
@@ -4323,38 +4871,38 @@ async function processJob(job) {
           gameItemId: deliveryItem.gameItemId,
           quantity: deliveryItem.quantity,
         },
-        settings,
+        executionSettings,
       );
       const itemCommands = commands.map((template) => {
         return renderItemCommand(
           template,
           itemVars,
-          settings,
-          { singlePlayer: settings.executionMode === 'agent' },
+          executionSettings,
+          { singlePlayer: executionSettings.executionMode === 'agent' },
         );
       });
       await executePhaseCommands('item', itemCommands, deliveryItem);
       if (
-        settings.executionMode === 'agent'
-        && settings.agentCommandDelayMs > 0
+        executionSettings.executionMode === 'agent'
+        && executionSettings.agentCommandDelayMs > 0
         && deliveryItem !== resolvedDeliveryItems[resolvedDeliveryItems.length - 1]
       ) {
-        await sleep(settings.agentCommandDelayMs);
+        await sleep(executionSettings.agentCommandDelayMs);
       }
     }
 
-    if (postCommands.length > 0 && settings.executionMode === 'agent') {
-      await sleep(settings.agentCommandDelayMs);
+    if (postCommands.length > 0 && executionSettings.executionMode === 'agent') {
+      await sleep(executionSettings.agentCommandDelayMs);
     }
     await executePhaseCommands('post', postCommands);
 
-    const verification = await verifyDeliveryExecution(outputs, settings, {
+    const verification = await verifyDeliveryExecution(outputs, executionSettings, {
       purchaseCode,
     });
     if (!verification.ok) {
-      queueAudit('warn', 'verify-failed', job, `Delivery verification failed: ${verification.reason || 'verify failed'}`, {
-        step: 'verify-failed',
-        stage: 'verify',
+    queueAudit('warn', 'verify-failed', job, `Delivery verification failed: ${verification.reason || 'verify failed'}`, {
+      step: 'verify-failed',
+      stage: 'verify',
         source: 'worker',
         status: 'failed',
         title: 'Verification failed',
@@ -4362,11 +4910,19 @@ async function processJob(job) {
         steamId: link.steamId,
         deliveryItems: resolvedDeliveryItems,
         outputs,
-        verification,
-        errorCode: verification.reason || 'DELIVERY_VERIFY_FAILED',
-        retryable: true,
-        recoveryHint: 'ตรวจ output ของ command, watcher health และ verify policy ก่อน retry',
-      });
+      verification,
+      errorCode: verification.reason || 'DELIVERY_VERIFY_FAILED',
+      retryable: true,
+      recoveryHint: 'ตรวจ output ของ command, watcher health และ verify policy ก่อน retry',
+      executionMode: executionSettings.executionMode,
+      backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+      commandPath: outputs[outputs.length - 1]?.commandPath || buildCommandPath({
+        executionMode: executionSettings.executionMode,
+        backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+        stage: 'verify',
+        failover: preflightState?.failover,
+      }),
+    });
       throw createDeliveryError(
         verification.reason || 'DELIVERY_VERIFY_FAILED',
         verification.failures?.[0]?.detail || 'Delivery verification failed',
@@ -4392,6 +4948,14 @@ async function processJob(job) {
       deliveryItems: resolvedDeliveryItems,
       outputs,
       verification,
+      executionMode: executionSettings.executionMode,
+      backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+      commandPath: outputs[outputs.length - 1]?.commandPath || buildCommandPath({
+        executionMode: executionSettings.executionMode,
+        backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+        stage: 'verify',
+        failover: preflightState?.failover,
+      }),
     });
 
     await setPurchaseStatusByCode(purchaseCode, 'delivered', {
@@ -4425,6 +4989,14 @@ async function processJob(job) {
         deliveryItems: resolvedDeliveryItems,
         outputs,
         commandSummary: commandSummary || null,
+        executionMode: executionSettings.executionMode,
+        backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+        commandPath: outputs[outputs.length - 1]?.commandPath || buildCommandPath({
+          executionMode: executionSettings.executionMode,
+          backend: outputs[outputs.length - 1]?.backend || defaultExecutionBackendForMode(executionSettings.executionMode),
+          stage: 'completed',
+          failover: preflightState?.failover,
+        }),
       },
     );
     const deliveredItemsText = trimText(
@@ -4463,6 +5035,13 @@ async function processDueJobOnce() {
     source: 'worker',
     status: 'running',
     title: 'Worker processing job',
+    executionMode: job?.executionMode || settings.executionMode,
+    backend: job?.executionBackend || defaultExecutionBackendForMode(job?.executionMode || settings.executionMode),
+    commandPath: job?.commandPath || buildCommandPath({
+      executionMode: job?.executionMode || settings.executionMode,
+      backend: job?.executionBackend || defaultExecutionBackendForMode(job?.executionMode || settings.executionMode),
+      stage: 'worker',
+    }),
   });
   try {
     await processJob(job);
@@ -4541,9 +5120,20 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       purchaseCode,
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
-      meta: {
-        status: purchase.status,
-      },
+      meta: buildExecutionAuditMeta(
+        {
+          purchaseCode,
+          userId: String(purchase.userId),
+          itemId: String(purchase.itemId),
+          attempts: 0,
+        },
+        {
+          status: purchase.status,
+          stage: 'queue',
+          source: 'queue',
+        },
+        settings,
+      ),
       message: `Skip enqueue because purchase status is ${purchase.status}`,
     });
     return { queued: false, reason: 'terminal-status' };
@@ -4587,14 +5177,25 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
-      meta: {
-        itemName,
-        iconUrl,
-        gameItemId,
-        quantity,
-        itemKind,
-        deliveryItems: resolvedDeliveryItems,
-      },
+      meta: buildExecutionAuditMeta(
+        {
+          purchaseCode: String(purchase.code),
+          userId: String(purchase.userId),
+          itemId: String(purchase.itemId),
+          attempts: 0,
+        },
+        {
+          itemName,
+          iconUrl,
+          gameItemId,
+          quantity,
+          itemKind,
+          deliveryItems: resolvedDeliveryItems,
+          stage: 'queue',
+          source: 'queue',
+        },
+        settings,
+      ),
       message: 'Auto delivery is disabled',
     });
     return { queued: false, reason: 'delivery-disabled' };
@@ -4608,14 +5209,25 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
-      meta: {
-        itemName,
-        iconUrl,
-        gameItemId,
-        quantity,
-        itemKind,
-        deliveryItems: resolvedDeliveryItems,
-      },
+      meta: buildExecutionAuditMeta(
+        {
+          purchaseCode: String(purchase.code),
+          userId: String(purchase.userId),
+          itemId: String(purchase.itemId),
+          attempts: 0,
+        },
+        {
+          itemName,
+          iconUrl,
+          gameItemId,
+          quantity,
+          itemKind,
+          deliveryItems: resolvedDeliveryItems,
+          stage: 'queue',
+          source: 'queue',
+        },
+        settings,
+      ),
       message: 'Item has no configured auto-delivery command',
     });
     return { queued: false, reason: 'item-not-configured' };
@@ -4628,11 +5240,22 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
-      meta: {
-        deliveryItems: resolvedDeliveryItems,
-        itemName,
-        templateRule: '{gameItemId} or {quantity}',
-      },
+      meta: buildExecutionAuditMeta(
+        {
+          purchaseCode: String(purchase.code),
+          userId: String(purchase.userId),
+          itemId: String(purchase.itemId),
+          attempts: 0,
+        },
+        {
+          deliveryItems: resolvedDeliveryItems,
+          itemName,
+          templateRule: '{gameItemId} or {quantity}',
+          stage: 'queue',
+          source: 'queue',
+        },
+        settings,
+      ),
       message:
         'Bundle delivery requires {gameItemId} or {quantity} in itemCommands template',
     });
@@ -4649,6 +5272,117 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     return { queued: false, reason: 'idempotent-recent-success' };
   }
 
+  let plannedExecutionMode = settings.executionMode;
+  let plannedExecutionBackend = defaultExecutionBackendForMode(plannedExecutionMode);
+  let plannedCommandPath = buildCommandPath({
+    executionMode: plannedExecutionMode,
+    backend: plannedExecutionBackend,
+    stage: 'queue',
+  });
+  let preflightSnapshot = null;
+
+  if (settings.executionMode === 'agent') {
+    const link = getLinkByUserId(purchase.userId);
+    if (!link?.steamId) {
+      addDeliveryAudit({
+        level: 'warn',
+        action: 'enqueue-blocked',
+        purchaseCode,
+        itemId: String(purchase.itemId),
+        userId: String(purchase.userId),
+        message: 'Agent delivery requires a linked Steam profile before enqueue',
+        meta: buildExecutionAuditMeta(
+          {
+            purchaseCode,
+            userId: String(purchase.userId),
+            itemId: String(purchase.itemId),
+            attempts: 0,
+            executionMode: 'agent',
+            executionBackend: plannedExecutionBackend,
+            commandPath: plannedCommandPath,
+          },
+          {
+            step: 'enqueue-preflight',
+            stage: 'preflight',
+            source: 'queue',
+            status: 'blocked',
+            title: 'Enqueue blocked by agent preflight',
+            errorCode: 'DELIVERY_STEAM_LINK_MISSING',
+            retryable: false,
+            recoveryHint: 'ผูก Steam/SCUM identity ให้เรียบร้อยก่อน enqueue order จริง',
+          },
+          settings,
+        ),
+      });
+      return { queued: false, reason: 'steam-link-missing' };
+    }
+
+    const preflightReport = await getDeliveryPreflightReport({
+      settings,
+      purchaseCode,
+      itemId: String(purchase.itemId),
+      itemName,
+      steamId: link.steamId,
+      userId: String(purchase.userId),
+      inGameName: link.inGameName || null,
+      gameItemId,
+      quantity,
+      itemKind,
+      deliveryItems: resolvedDeliveryItems,
+      teleportMode: shopItem?.deliveryTeleportMode || '',
+      teleportTarget: shopItem?.deliveryTeleportTarget || '',
+    });
+    preflightSnapshot = preflightReport;
+    plannedExecutionMode = preflightReport.effectiveMode || plannedExecutionMode;
+    plannedExecutionBackend = defaultExecutionBackendForMode(plannedExecutionMode);
+    plannedCommandPath = buildCommandPath({
+      executionMode: plannedExecutionMode,
+      backend: plannedExecutionBackend,
+      stage: 'queue',
+      failover: preflightReport.failover,
+      source: 'queue',
+    });
+
+    if (!preflightReport.ready) {
+      addDeliveryAudit({
+        level: 'warn',
+        action: 'enqueue-blocked',
+        purchaseCode,
+        itemId: String(purchase.itemId),
+        userId: String(purchase.userId),
+        steamId: link.steamId,
+        message: `Delivery preflight blocked enqueue: ${preflightReport.reason || 'preflight-failed'}`,
+        meta: buildExecutionAuditMeta(
+          {
+            purchaseCode,
+            userId: String(purchase.userId),
+            itemId: String(purchase.itemId),
+            attempts: 0,
+            executionMode: plannedExecutionMode,
+            executionBackend: plannedExecutionBackend,
+            commandPath: plannedCommandPath,
+          },
+          {
+            step: 'enqueue-preflight',
+            stage: 'preflight',
+            source: 'queue',
+            status: 'blocked',
+            title: 'Enqueue blocked by agent preflight',
+            errorCode: preflightReport.reason || 'DELIVERY_PREFLIGHT_FAILED',
+            retryable: false,
+            preflight: preflightReport,
+          },
+          settings,
+        ),
+      });
+      return {
+        queued: false,
+        reason: 'agent-preflight-failed',
+        preflight: preflightReport,
+      };
+    }
+  }
+
   const job = normalizeJob({
     purchaseCode,
     userId: String(purchase.userId),
@@ -4660,6 +5394,9 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     deliveryItems: resolvedDeliveryItems,
     itemKind,
     guildId: context.guildId ? String(context.guildId) : null,
+    executionMode: plannedExecutionMode,
+    executionBackend: plannedExecutionBackend,
+    commandPath: plannedCommandPath,
     attempts: 0,
     nextAttemptAt: Date.now(),
     lastError: null,
@@ -4683,6 +5420,10 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     status: 'queued',
     title: 'Queued',
     deliveryItems: resolvedDeliveryItems,
+    preflight: preflightSnapshot,
+    executionMode: plannedExecutionMode,
+    backend: plannedExecutionBackend,
+    commandPath: plannedCommandPath,
   });
   kickWorker(20);
   return { queued: true, reason: 'queued' };

@@ -147,6 +147,14 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
+if (START_ADMIN_WEB) {
+  // Keep the admin control plane available even when Discord login is degraded so
+  // operators can still inspect runtime health, config, and incident tooling.
+  startAdminWebServer(client);
+} else {
+  console.log('[boot] skip admin web (BOT_ENABLE_ADMIN_WEB=false)');
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`บอทล็อกอินสำเร็จเป็น ${c.user.tag}`);
 
@@ -170,12 +178,6 @@ client.once(Events.ClientReady, async (c) => {
     startRestartScheduler(client);
   } else {
     console.log('[boot] skip restart scheduler (BOT_ENABLE_RESTART_SCHEDULER=false)');
-  }
-
-  if (START_ADMIN_WEB) {
-    startAdminWebServer(client);
-  } else {
-    console.log('[boot] skip admin web (BOT_ENABLE_ADMIN_WEB=false)');
   }
 
   if (START_RENT_BIKE_SERVICE) {

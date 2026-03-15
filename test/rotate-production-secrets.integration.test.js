@@ -65,6 +65,9 @@ test('rotate-production-secrets applies explicit split origins without hardcoded
     assert.match(rootEnv, /^ADMIN_WEB_ALLOWED_ORIGINS=https:\/\/admin\.example\.com$/m);
     assert.match(rootEnv, /^ADMIN_WEB_SESSION_COOKIE_PATH=\/admin$/m);
     assert.match(rootEnv, /^ADMIN_WEB_SESSION_COOKIE_DOMAIN=admin\.example\.com$/m);
+    assert.match(rootEnv, /^ADMIN_WEB_2FA_ENABLED=true$/m);
+    assert.match(rootEnv, /^ADMIN_WEB_2FA_SECRET=[A-Z2-7]{32}$/m);
+    assert.match(rootEnv, /^SCUM_CONSOLE_AGENT_TOKEN=[A-Za-z0-9_-]{24,}$/m);
     assert.match(
       rootEnv,
       /^ADMIN_WEB_SSO_DISCORD_REDIRECT_URI=https:\/\/admin\.example\.com\/admin\/auth\/discord\/callback$/m,
@@ -125,6 +128,9 @@ test('rotate-production-secrets preserves existing origin topology when no expli
 
     assert.match(rootEnv, /^ADMIN_WEB_ALLOWED_ORIGINS=https:\/\/ops\.example\.net$/m);
     assert.match(rootEnv, /^ADMIN_WEB_SESSION_COOKIE_DOMAIN=ops\.example\.net$/m);
+    assert.match(rootEnv, /^ADMIN_WEB_2FA_ENABLED=true$/m);
+    assert.match(rootEnv, /^ADMIN_WEB_2FA_SECRET=[A-Z2-7]{32}$/m);
+    assert.match(rootEnv, /^SCUM_CONSOLE_AGENT_TOKEN=[A-Za-z0-9_-]{24,}$/m);
     assert.match(portalEnv, /^WEB_PORTAL_BASE_URL=https:\/\/play\.example\.net$/m);
     assert.match(
       portalEnv,

@@ -1,14 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { once } = require('node:events');
 const { createPurchase, listShopItems } = require('../src/store/memoryStore');
+const { setLink } = require('../src/store/linkStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
 const { prisma } = require('../src/prisma');
 const {
   setAdminRestoreState,
 } = require('../src/store/adminRestoreStateStore');
+const {
+  clearAdminRequestLogs,
+} = require('../src/store/adminRequestLogStore');
+const {
+  clearAdminSecurityEvents,
+} = require('../src/store/adminSecurityEventStore');
 const {
   resetPlatformOpsState,
   updatePlatformOpsState,
@@ -23,6 +31,39 @@ function freshAdminWebServerModule() {
 
 function randomPort(base = 38000, span = 1000) {
   return base + Math.floor(Math.random() * span);
+}
+
+function decodeBase32(input) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = String(input || '')
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, '');
+  let bits = '';
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx < 0) continue;
+    bits += idx.toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+function buildTotp(secretText) {
+  const secret = decodeBase32(secretText);
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+  const hmac = crypto.createHmac('sha1', secret).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code =
+    ((hmac[offset] & 0x7f) << 24)
+    | ((hmac[offset + 1] & 0xff) << 16)
+    | ((hmac[offset + 2] & 0xff) << 8)
+    | (hmac[offset + 3] & 0xff);
+  return String(code % 1_000_000).padStart(6, '0');
 }
 
 function resetAdminIntegrationRuntimeState() {
@@ -47,13 +88,24 @@ function resetAdminIntegrationRuntimeState() {
     currentCounts: null,
     diff: null,
     warnings: [],
+    previewToken: null,
+    previewBackup: null,
+    previewIssuedAt: null,
+    previewExpiresAt: null,
   });
   resetPlatformOpsState();
+  clearAdminRequestLogs();
+  clearAdminSecurityEvents();
   process.env.ADMIN_WEB_SSO_DISCORD_ENABLED = 'false';
   process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_ID = '';
   process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET = '';
   process.env.ADMIN_WEB_SSO_DISCORD_REDIRECT_URI = '';
   process.env.ADMIN_WEB_SSO_DISCORD_GUILD_ID = '';
+  process.env.ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES = '';
+  process.env.ADMIN_WEB_SSO_DISCORD_ADMIN_ROLE_NAMES = '';
+  process.env.ADMIN_WEB_SSO_DISCORD_MOD_ROLE_NAMES = '';
+  process.env.ADMIN_WEB_STEP_UP_ENABLED = 'false';
+  process.env.ADMIN_WEB_STEP_UP_TTL_MINUTES = '15';
 }
 
 resetAdminIntegrationRuntimeState();
@@ -153,6 +205,17 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(providers.data.ok, true);
   assert.equal(String(providers.data.data?.sessionCookie?.path || ''), '/admin');
   assert.equal(String(providers.data.data?.sessionCookie?.name || ''), 'scum_admin_session');
+  assert.equal(Boolean(providers.data.data?.discordSsoRoleMapping?.enabled), false);
+  assert.equal(
+    Boolean(providers.data.data?.discordSsoRoleMapping?.hasExplicitMappings),
+    false,
+  );
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.ownerRoleCount || 0), 0);
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.adminRoleCount || 0), 0);
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.modRoleCount || 0), 0);
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.ownerRoleNameCount || 0), 0);
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.adminRoleNameCount || 0), 0);
+  assert.equal(Number(providers.data.data?.discordSsoRoleMapping?.modRoleNameCount || 0), 0);
 
   const invalidWallet = await request(
     '/admin/api/wallet/set',
@@ -669,6 +732,7 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(restoreDryRun.data.data.dryRun, true);
   assert.equal(String(restoreDryRun.data.data.confirmBackup || ''), backupFile);
   assert.equal(typeof restoreDryRun.data.data?.diff?.summary?.changedCollections, 'number');
+  assert.match(String(restoreDryRun.data.data.previewToken || ''), /^[a-f0-9]{20,}$/i);
 
   const restoreStatusBefore = await request('/admin/api/backup/restore/status', 'GET', null, cookie);
   assert.equal(restoreStatusBefore.res.status, 200);
@@ -683,10 +747,20 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(restoreWithoutConfirm.data.ok, false);
   assert.match(String(restoreWithoutConfirm.data.error || ''), /confirmBackup/i);
 
+  const restoreWithoutPreviewToken = await request('/admin/api/backup/restore', 'POST', {
+    backup: backupFile,
+    dryRun: false,
+    confirmBackup: backupFile,
+  }, cookie);
+  assert.equal(restoreWithoutPreviewToken.res.status, 400);
+  assert.equal(restoreWithoutPreviewToken.data.ok, false);
+  assert.match(String(restoreWithoutPreviewToken.data.error || ''), /previewToken/i);
+
   const restoreLive = await request('/admin/api/backup/restore', 'POST', {
     backup: backupFile,
     dryRun: false,
     confirmBackup: backupFile,
+    previewToken: restoreDryRun.data.data.previewToken,
   }, cookie);
   assert.equal(restoreLive.res.status, 200);
   assert.equal(restoreLive.data.ok, true);
@@ -1002,6 +1076,71 @@ test('admin API rejects malformed JSON and oversized UTF-8 body with proper stat
   assert.equal(oversizedData.ok, false);
 });
 
+test('admin observability request log exposes recent request traces with request ids', async (t) => {
+  resetAdminIntegrationRuntimeState();
+  const port = randomPort(39800, 700);
+  process.env.ADMIN_WEB_HOST = '127.0.0.1';
+  process.env.ADMIN_WEB_PORT = String(port);
+  process.env.ADMIN_WEB_USER = 'admin_trace_test';
+  process.env.ADMIN_WEB_PASSWORD = 'pass_trace_test';
+  process.env.ADMIN_WEB_TOKEN = 'token_trace_test';
+  process.env.ADMIN_WEB_USERS_JSON = '';
+  process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+
+  const fakeClient = {
+    guilds: { cache: new Map() },
+    channels: { fetch: async () => null },
+  };
+
+  const { startAdminWebServer } = freshAdminWebServerModule();
+  const server = startAdminWebServer(fakeClient);
+  if (!server.listening) {
+    await once(server, 'listening');
+  }
+
+  t.after(async () => {
+    resetAdminIntegrationRuntimeState();
+    await new Promise((resolve) => server.close(resolve));
+    delete require.cache[adminWebServerPath];
+  });
+
+  const baseUrl = `http://127.0.0.1:${port}`;
+  async function request(pathname, method = 'GET', body = null, cookie = '') {
+    const headers = {};
+    if (body != null) headers['content-type'] = 'application/json';
+    if (cookie) headers.cookie = cookie;
+    const res = await fetch(`${baseUrl}${pathname}`, {
+      method,
+      headers,
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  const unauthorized = await request('/admin/api/me');
+  assert.equal(unauthorized.res.status, 401);
+  const unauthorizedRequestId = String(unauthorized.res.headers.get('x-request-id') || '').trim();
+  assert.ok(unauthorizedRequestId);
+
+  const login = await request('/admin/api/login', 'POST', {
+    username: 'admin_trace_test',
+    password: 'pass_trace_test',
+  });
+  assert.equal(login.res.status, 200);
+  const cookie = String(login.res.headers.get('set-cookie') || '').split(';')[0];
+  assert.ok(cookie);
+
+  const traces = await request('/admin/api/observability/requests?limit=50', 'GET', null, cookie);
+  assert.equal(traces.res.status, 200);
+  assert.equal(traces.data.ok, true);
+  assert.equal(Number(traces.data.data?.metrics?.total || 0) >= 2, true);
+  assert.ok(
+    Array.isArray(traces.data.data?.items)
+    && traces.data.data.items.some((row) => String(row?.id || '') === unauthorizedRequestId),
+  );
+});
+
 test('admin API blocks mutating writes while backup restore maintenance is active', async (t) => {
   const port = randomPort(39900, 700);
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
@@ -1032,6 +1171,10 @@ test('admin API blocks mutating writes while backup restore maintenance is activ
     role: 'owner',
     startedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    previewToken: null,
+    previewBackup: null,
+    previewIssuedAt: null,
+    previewExpiresAt: null,
   });
 
   const { startAdminWebServer } = freshAdminWebServerModule();
@@ -1062,6 +1205,10 @@ test('admin API blocks mutating writes while backup restore maintenance is activ
       currentCounts: null,
       diff: null,
       warnings: [],
+      previewToken: null,
+      previewBackup: null,
+      previewIssuedAt: null,
+      previewExpiresAt: null,
     });
     await new Promise((resolve) => server.close(resolve));
     delete require.cache[adminWebServerPath];
@@ -1416,6 +1563,11 @@ test('admin API delivery detail + test send routes work with local console agent
     'admin-delivery-queue-user',
     detailShopItem,
   );
+  setLink({
+    userId: 'admin-delivery-queue-user',
+    steamId: '76561198000000002',
+    inGameName: 'Admin Queue User',
+  });
   const enqueueRes = await request('/admin/api/delivery/enqueue', 'POST', {
     code: queuedPurchase.code,
   }, cookie);
@@ -1451,4 +1603,169 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(deadRetryManyRes.data.ok, true);
   assert.equal(Number(deadRetryManyRes.data.data?.total || 0), 1);
   assert.equal(Number(deadRetryManyRes.data.data?.queued || 0), 0);
+});
+
+test('admin API step-up, session revoke, and security event flow', async (t) => {
+  resetAdminIntegrationRuntimeState();
+  const port = randomPort(39000, 1000);
+  process.env.ADMIN_WEB_HOST = '127.0.0.1';
+  process.env.ADMIN_WEB_PORT = String(port);
+  process.env.ADMIN_WEB_USER = 'owner_stepup';
+  process.env.ADMIN_WEB_PASSWORD = 'pass_stepup';
+  process.env.ADMIN_WEB_TOKEN = 'token_stepup';
+  process.env.ADMIN_WEB_USERS_JSON = '';
+  process.env.ADMIN_WEB_2FA_ENABLED = 'true';
+  process.env.ADMIN_WEB_2FA_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+  process.env.ADMIN_WEB_STEP_UP_ENABLED = 'true';
+  process.env.ADMIN_WEB_STEP_UP_TTL_MINUTES = '15';
+
+  const fakeClient = {
+    guilds: {
+      cache: new Map(),
+    },
+    channels: {
+      fetch: async () => null,
+    },
+  };
+
+  const { startAdminWebServer } = freshAdminWebServerModule();
+  const server = startAdminWebServer(fakeClient);
+  if (!server.listening) {
+    await once(server, 'listening');
+  }
+
+  t.after(async () => {
+    resetAdminIntegrationRuntimeState();
+    await new Promise((resolve) => server.close(resolve));
+    delete require.cache[adminWebServerPath];
+  });
+
+  const baseUrl = `http://127.0.0.1:${port}`;
+  async function request(pathname, method = 'GET', body = null, cookie = '') {
+    const headers = {};
+    if (body != null) headers['content-type'] = 'application/json';
+    if (cookie) headers.cookie = cookie;
+    const res = await fetch(`${baseUrl}${pathname}`, {
+      method,
+      headers,
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  const login = await request('/admin/api/login', 'POST', {
+    username: 'owner_stepup',
+    password: 'pass_stepup',
+    otp: buildTotp(process.env.ADMIN_WEB_2FA_SECRET),
+  });
+  assert.equal(login.res.status, 200);
+  assert.equal(login.data.ok, true);
+  const cookie = String(login.res.headers.get('set-cookie') || '').split(';')[0];
+  assert.ok(cookie);
+
+  const providers = await request('/admin/api/auth/providers', 'GET', null, cookie);
+  assert.equal(providers.res.status, 200);
+  assert.equal(Boolean(providers.data.data?.stepUp?.enabled), true);
+  assert.ok(Number(providers.data.data?.roleMatrix?.stepUpPermissions || 0) >= 1);
+
+  const roleMatrix = await request('/admin/api/auth/role-matrix', 'GET', null, cookie);
+  assert.equal(roleMatrix.res.status, 200);
+  assert.equal(roleMatrix.data.ok, true);
+  assert.ok(Array.isArray(roleMatrix.data.data?.permissions));
+  assert.ok(
+    roleMatrix.data.data.permissions.some(
+      (entry) => String(entry?.path || '') === '/admin/api/backup/restore' && entry?.stepUp === true,
+    ),
+  );
+
+  const sessions = await request('/admin/api/auth/sessions', 'GET', null, cookie);
+  assert.equal(sessions.res.status, 200);
+  assert.equal(sessions.data.ok, true);
+  assert.ok(Array.isArray(sessions.data.data));
+  assert.ok(sessions.data.data.some((entry) => entry.current === true));
+
+  const currentConfigName = await request('/admin/api/snapshot', 'GET', null, cookie);
+  assert.equal(currentConfigName.res.status, 200);
+  const currentServerName = String(
+    currentConfigName.data.data?.config?.serverInfo?.name || 'SCUM TH เซิร์ฟเวอร์',
+  );
+
+  const patchBlocked = await request('/admin/api/config/patch', 'POST', {
+    patch: {
+      serverInfo: {
+        name: currentServerName,
+      },
+    },
+  }, cookie);
+  assert.equal(patchBlocked.res.status, 403);
+  assert.equal(patchBlocked.data.ok, false);
+  assert.equal(Boolean(patchBlocked.data.requiresStepUp), true);
+
+  const patchAllowed = await request('/admin/api/config/patch', 'POST', {
+    patch: {
+      serverInfo: {
+        name: currentServerName,
+      },
+    },
+    stepUpOtp: buildTotp(process.env.ADMIN_WEB_2FA_SECRET),
+  }, cookie);
+  assert.equal(patchAllowed.res.status, 200);
+  assert.equal(patchAllowed.data.ok, true);
+
+  const securityEvents = await request('/admin/api/auth/security-events?limit=20', 'GET', null, cookie);
+  assert.equal(securityEvents.res.status, 200);
+  assert.equal(securityEvents.data.ok, true);
+  assert.ok(
+    securityEvents.data.data.some((entry) => String(entry?.type || '') === 'login-succeeded'),
+  );
+  assert.ok(
+    securityEvents.data.data.some((entry) => String(entry?.type || '') === 'step-up-succeeded'),
+  );
+
+  const securityExportCsv = await fetch(
+    `${baseUrl}/admin/api/auth/security-events/export?format=csv&severity=info&q=login`,
+    {
+      headers: {
+        cookie,
+      },
+    },
+  );
+  const securityExportCsvText = await securityExportCsv.text();
+  assert.equal(securityExportCsv.status, 200);
+  assert.match(
+    String(securityExportCsv.headers.get('content-disposition') || ''),
+    /admin-security-events-.*\.csv/i,
+  );
+  assert.match(securityExportCsvText, /type,severity,actor/i);
+  assert.match(securityExportCsvText, /login-succeeded/i);
+
+  const securityExportJson = await fetch(
+    `${baseUrl}/admin/api/auth/security-events/export?format=json&anomalyOnly=true`,
+    {
+      headers: {
+        cookie,
+      },
+    },
+  );
+  const securityExportJsonText = await securityExportJson.text();
+  const securityExportJsonData = JSON.parse(securityExportJsonText);
+  assert.equal(securityExportJson.status, 200);
+  assert.match(
+    String(securityExportJson.headers.get('content-disposition') || ''),
+    /admin-security-events-.*\.json/i,
+  );
+  assert.equal(securityExportJsonData.ok, true);
+  assert.ok(Array.isArray(securityExportJsonData.data));
+
+  const revokeCurrent = await request('/admin/api/auth/session/revoke', 'POST', {
+    current: true,
+    reason: 'test-revoke-current',
+  }, cookie);
+  assert.equal(revokeCurrent.res.status, 200);
+  assert.equal(revokeCurrent.data.ok, true);
+  assert.equal(Number(revokeCurrent.data.data?.revokedCount || 0), 1);
+
+  const meAfterRevoke = await request('/admin/api/me', 'GET', null, cookie);
+  assert.equal(meAfterRevoke.res.status, 401);
 });

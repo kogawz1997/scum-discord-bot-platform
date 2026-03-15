@@ -27,5 +27,16 @@ Production rollout update:
 - Admin portal now targets `https://admin.genz.noah-dns.online/admin`
 - Player portal now targets `https://player.genz.noah-dns.online`
 - `ADMIN_WEB_2FA_ENABLED=true` and `ADMIN_WEB_2FA_SECRET` are now set in the live root `.env`
+- `ADMIN_WEB_STEP_UP_ENABLED=true` and `ADMIN_WEB_STEP_UP_TTL_MINUTES=15` are now set explicitly in the live root `.env`
 - PM2 runtime `bot / worker / watcher / web / console-agent` is online together and `npm run smoke:postdeploy` now passes against the live split-origin stack
 - `ADMIN_WEB_SSO_DISCORD_ENABLED=true` and admin OAuth start now redirects to Discord successfully on the live split-origin stack
+- Added [ADMIN_SSO_ROLE_MAPPING_TH.md](./ADMIN_SSO_ROLE_MAPPING_TH.md) plus `npm run admin:sso:roles` to export owner/admin/mod Discord role ids for admin SSO
+- Added fallback support for `ADMIN_WEB_SSO_DISCORD_*_ROLE_NAMES` so production can map `Owner / Admin / Moderator` explicitly even when role ids are not yet exported
+- Added agent circuit breaker + RCon failover strategy for delivery runtime hardening
+- Added admin security event trail, session revoke flow, step-up auth for sensitive mutations, and role-matrix API
+- Added dedicated Auth + Security admin panel, modal-based step-up confirmation, auth explorer filters/search, and migration/rollback/restore policy docs with schema-version compatibility evidence
+- Added tenant-scoped analytics/reconcile guards for public platform API isolation
+- Added admin recent request trace logging for production debugging
+- Added restore preview token / expiry / schema guard as an extra restore safety layer
+- Moved admin web bootstrap out of the Discord-ready path so `/admin` stays available during Discord login degradation
+- Added [REPO_STRUCTURE_TH.md](./REPO_STRUCTURE_TH.md) and [LIMITATIONS_AND_SLA_TH.md](./LIMITATIONS_AND_SLA_TH.md) for long-term handoff quality

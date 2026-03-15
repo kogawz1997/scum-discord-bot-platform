@@ -99,6 +99,20 @@ function randomSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
 
+function randomBase32(length = 32) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let out = '';
+  const target = Math.max(16, Math.trunc(Number(length) || 32));
+  while (out.length < target) {
+    const chunk = crypto.randomBytes(32);
+    for (const byte of chunk) {
+      out += alphabet[byte % alphabet.length];
+      if (out.length >= target) break;
+    }
+  }
+  return out;
+}
+
 function readLines(filePath) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`env file not found: ${filePath}`);
@@ -242,7 +256,10 @@ function applyRootProduction(lines, options) {
   setEnvValue(lines, 'SCUM_WEBHOOK_SECRET', randomSecret(32));
   setEnvValue(lines, 'ADMIN_WEB_PASSWORD', randomSecret(24));
   setEnvValue(lines, 'ADMIN_WEB_TOKEN', randomSecret(32));
+  setEnvValue(lines, 'ADMIN_WEB_2FA_ENABLED', 'true');
+  setEnvValue(lines, 'ADMIN_WEB_2FA_SECRET', randomBase32(32));
   setEnvValue(lines, 'RCON_PASSWORD', randomSecret(24));
+  setEnvValue(lines, 'SCUM_CONSOLE_AGENT_TOKEN', randomSecret(24));
 
   setEnvValue(lines, 'ADMIN_WEB_SECURE_COOKIE', 'true');
   setEnvValue(lines, 'ADMIN_WEB_HSTS_ENABLED', 'true');
@@ -405,6 +422,9 @@ function main() {
       '[rotate-production-secrets] ACTION REQUIRED: set ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET or disable ADMIN_WEB_SSO_DISCORD_ENABLED.',
     );
   }
+  console.log(
+    '[rotate-production-secrets] ACTION REQUIRED: import the new ADMIN_WEB_2FA_SECRET into your authenticator app before the next admin login.',
+  );
 }
 
 main();

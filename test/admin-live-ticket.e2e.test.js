@@ -25,7 +25,7 @@ async function waitUntil(predicate, timeoutMs = 5000, intervalMs = 25) {
   throw new Error('Timed out waiting for condition');
 }
 
-function openSse(baseUrl, cookie) {
+function openSse(baseUrl, cookie, userAgent = 'admin-live-test') {
   return new Promise((resolve, reject) => {
     const url = new URL('/admin/api/live', baseUrl);
     const req = http.request(
@@ -37,6 +37,7 @@ function openSse(baseUrl, cookie) {
         method: 'GET',
         headers: {
           Cookie: cookie,
+          'User-Agent': userAgent,
         },
       },
       (res) => {
@@ -61,11 +62,12 @@ function openSse(baseUrl, cookie) {
   });
 }
 
-async function createLoggedInSession(baseUrl, username, password) {
+async function createLoggedInSession(baseUrl, username, password, userAgent = 'admin-live-test') {
   const loginRes = await fetch(`${baseUrl}/admin/api/login`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'user-agent': userAgent,
     },
     body: JSON.stringify({ username, password }),
   });
@@ -84,6 +86,7 @@ test('admin e2e: live update stream receives admin-action after API change', asy
   process.env.ADMIN_WEB_PASSWORD = 'pass_live';
   process.env.ADMIN_WEB_TOKEN = 'token_live';
   process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+  process.env.ADMIN_WEB_SESSION_BIND_USER_AGENT = 'true';
 
   const fakeClient = {
     guilds: { cache: new Map() },
@@ -97,9 +100,10 @@ test('admin e2e: live update stream receives admin-action after API change', asy
   }
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  const cookie = await createLoggedInSession(baseUrl, 'owner_live', 'pass_live');
+  const userAgent = 'admin-live-test';
+  const cookie = await createLoggedInSession(baseUrl, 'owner_live', 'pass_live', userAgent);
 
-  const sse = await openSse(baseUrl, cookie);
+  const sse = await openSse(baseUrl, cookie, userAgent);
   t.after(async () => {
     try {
       sse.close();
@@ -115,6 +119,7 @@ test('admin e2e: live update stream receives admin-action after API change', asy
     headers: {
       'content-type': 'application/json',
       cookie,
+      'user-agent': userAgent,
     },
     body: JSON.stringify({
       userId: '12345678901234567',
@@ -135,6 +140,7 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
   process.env.ADMIN_WEB_PASSWORD = 'pass_ticket';
   process.env.ADMIN_WEB_TOKEN = 'token_ticket';
   process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+  process.env.ADMIN_WEB_SESSION_BIND_USER_AGENT = 'true';
 
   const ticketStore = freshModule(ticketStorePath);
   if (typeof ticketStore.replaceTickets === 'function') {
@@ -187,13 +193,15 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
   });
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  const cookie = await createLoggedInSession(baseUrl, 'owner_ticket', 'pass_ticket');
+  const userAgent = 'admin-ticket-test';
+  const cookie = await createLoggedInSession(baseUrl, 'owner_ticket', 'pass_ticket', userAgent);
 
   const claimRes = await fetch(`${baseUrl}/admin/api/ticket/claim`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       cookie,
+      'user-agent': userAgent,
     },
     body: JSON.stringify({
       channelId,
@@ -208,6 +216,7 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
     headers: {
       'content-type': 'application/json',
       cookie,
+      'user-agent': userAgent,
     },
     body: JSON.stringify({
       channelId,

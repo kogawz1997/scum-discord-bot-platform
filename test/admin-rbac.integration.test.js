@@ -40,6 +40,10 @@ function resetRestoreMaintenanceState() {
     currentCounts: null,
     diff: null,
     warnings: [],
+    previewToken: null,
+    previewBackup: null,
+    previewIssuedAt: null,
+    previewExpiresAt: null,
   });
 }
 

@@ -5,22 +5,27 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_ROLE: migrate
     env_file:
       - ../.env
-    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      APP_ROLE: migrate
     restart: "no"
 
   bot:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_ROLE: bot
     env_file:
       - ../.env
-    command: ["node", "src/bot.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
     environment:
+      APP_ROLE: bot
       NODE_ENV: production
       BOT_HEALTH_HOST: 0.0.0.0
       BOT_HEALTH_PORT: 3210
@@ -39,23 +44,20 @@ services:
       - ../data:/app/data
       - ../logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3210/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
   worker:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_ROLE: worker
     env_file:
       - ../.env
-    command: ["node", "src/worker.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
     environment:
+      APP_ROLE: worker
       NODE_ENV: production
       WORKER_HEALTH_HOST: 0.0.0.0
       WORKER_HEALTH_PORT: 3211
@@ -70,23 +72,20 @@ services:
       - ../data:/app/data
       - ../logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3211/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
   watcher:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_ROLE: watcher
     env_file:
       - ../.env
-    command: ["node", "scum-log-watcher.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
     environment:
+      APP_ROLE: watcher
       NODE_ENV: production
       PERSIST_REQUIRE_DB: "true"
       PERSIST_LEGACY_SNAPSHOTS: "false"
@@ -99,24 +98,44 @@ services:
       - ../data:/app/data
       - ../logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3212/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+
+  console-agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        APP_ROLE: console-agent
+    env_file:
+      - ../.env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ROLE: console-agent
+      NODE_ENV: production
+      SCUM_CONSOLE_AGENT_HOST: 0.0.0.0
+      SCUM_CONSOLE_AGENT_PORT: 3213
+    ports:
+      - "3213:3213"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+    restart: unless-stopped
 
   web:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_ROLE: web
     env_file:
       - ../.env
       - ../apps/web-portal-standalone/.env
-    command: ["node", "apps/web-portal-standalone/server.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
     environment:
+      APP_ROLE: web
       NODE_ENV: production
       PERSIST_REQUIRE_DB: "true"
       PERSIST_LEGACY_SNAPSHOTS: "false"
@@ -130,8 +149,3 @@ services:
       - ../data:/app/data
       - ../logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3300/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
