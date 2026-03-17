@@ -16,6 +16,7 @@ This document is the working status register for the repository. It should stay 
 - Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - Runtime topology: [docs/RUNTIME_TOPOLOGY.md](./docs/RUNTIME_TOPOLOGY.md)
 - Worklist: [docs/WORKLIST.md](./docs/WORKLIST.md)
+- Product-ready gap matrix: [docs/PRODUCT_READY_GAP_MATRIX.md](./docs/PRODUCT_READY_GAP_MATRIX.md)
 - Refactor plan: [docs/REFACTOR_PLAN.md](./docs/REFACTOR_PLAN.md)
 - Config matrix: [docs/CONFIG_MATRIX.md](./docs/CONFIG_MATRIX.md)
 - Database strategy: [docs/DATABASE_STRATEGY.md](./docs/DATABASE_STRATEGY.md)

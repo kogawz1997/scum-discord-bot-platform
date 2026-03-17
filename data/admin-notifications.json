@@ -9465,5 +9465,860 @@
     "createdAt": "2026-03-17T14:00:07.056Z",
     "acknowledgedAt": null,
     "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-a36693d0-bd6d-438d-b5e6-be9b3aefb4c2",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T14:10:06.991Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-4b103c6c-39f6-4eaf-b4b4-b1e8c53bee90",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "platform-auto-backup-created",
+    "severity": "warn",
+    "title": "Platform Auto Backup Created",
+    "message": "backup=backup-20260317141908-9dda08 note=auto-platform-backup",
+    "entityKey": "platform-auto-backup-created",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "platform-auto-backup-created",
+      "backup": "backup-20260317141908-9dda08",
+      "note": "auto-platform-backup"
+    },
+    "createdAt": "2026-03-17T14:19:08.532Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-3b1676ba-c41b-466a-aced-de48588f2621",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T14:20:07.077Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-031032fd-d192-4da0-bf4c-f9397ad01ffd",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T14:30:07.099Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-0f76d47c-59e8-4391-b976-88350925453b",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T14:40:07.143Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-48210d61-425a-482e-8288-ac3a525f0d19",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T14:50:07.262Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-ad342165-af3c-41ef-be1c-47d6a0a18b50",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:00:07.323Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-dc59c330-6543-42a0-8eea-fa38e7671263",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:10:07.426Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-6cd4e927-3e69-48f5-b773-570614144895",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:20:07.500Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-7270f6ac-b9a2-4159-bbdb-5175d627b8d3",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:30:07.585Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-e7566c2d-8e06-4f22-b508-a5730eb35d3f",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:40:07.732Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-15502719-c0ac-4aeb-995d-0927358165d6",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T15:50:07.799Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-7fbba9df-47c3-4832-b6e9-8c4ef5d42a66",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:00:07.820Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-2874c917-9279-451e-8d46-39495850e957",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:10:07.956Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-72260c85-168e-49d2-88b4-f66d32d0cf00",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:20:08.007Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-b1239768-e41c-4072-bee8-48ed1b90df9a",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:30:08.096Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-224c0bbe-0846-41d1-8d91-84366249c011",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:40:08.207Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-f6615ba0-739f-46c3-b9fd-22aaade91482",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T16:50:08.271Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-12335d1c-6efe-4f70-a3ee-9253c5ab5855",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T17:00:08.260Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
+  },
+  {
+    "id": "admin-note-38ead5c0-abd9-44a0-8c43-2af67d387e2e",
+    "type": "ops-alert",
+    "source": "platform-monitor",
+    "kind": "delivery-reconcile-anomaly",
+    "severity": "warn",
+    "title": "Delivery Reconcile Anomaly",
+    "message": "count=4 sample=delivered-without-audit",
+    "entityKey": "delivery-reconcile-anomaly",
+    "data": {
+      "source": "platform-monitor",
+      "kind": "delivery-reconcile-anomaly",
+      "count": 4,
+      "sample": [
+        {
+          "code": "Pd7fbabc0-148b-4c27-a9c1-0214261ece23",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "P39ad3145-33e4-4476-87ce-48d4f6257f3d",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        },
+        {
+          "code": "P3a5b0743-f34d-4056-8a51-f6cad3e5dbc2",
+          "type": "delivered-without-audit",
+          "severity": "warn",
+          "detail": "Delivered purchase has no delivery audit evidence"
+        },
+        {
+          "code": "Pe6672f6d-b448-4d48-b279-6d7529d68043",
+          "type": "stuck-without-runtime-state",
+          "severity": "error",
+          "detail": "Pending purchase has neither queue nor dead-letter state"
+        }
+      ]
+    },
+    "createdAt": "2026-03-17T17:10:08.418Z",
+    "acknowledgedAt": null,
+    "acknowledgedBy": null
   }
 ]

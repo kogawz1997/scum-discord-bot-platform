@@ -17,6 +17,7 @@ Use this index to find the right document set by audience instead of scanning th
 - [assets/README.md](./assets/README.md)
 - [RUNTIME_TOPOLOGY.md](./RUNTIME_TOPOLOGY.md)
 - [WORKLIST.md](./WORKLIST.md)
+- [PRODUCT_READY_GAP_MATRIX.md](./PRODUCT_READY_GAP_MATRIX.md)
 - [REFACTOR_PLAN.md](./REFACTOR_PLAN.md)
 - [DATABASE_STRATEGY.md](./DATABASE_STRATEGY.md)
 - [POSTGRESQL_CUTOVER_CHECKLIST.md](./POSTGRESQL_CUTOVER_CHECKLIST.md)

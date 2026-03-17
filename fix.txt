@@ -1,39 +1,195 @@
-10 จุดที่ควรแก้/ทำต่อก่อน เพื่อดันให้ใกล้ product-ready จริง
+🧨 MASTER LIST: สิ่งที่ต้องแก้ทั้งหมด (ก่อนเรียก product-ready)
 
-1) ลดการพึ่ง agent mode ให้มากที่สุด
+🔴 PHASE A — Core Critical (ต้องทำก่อน ไม่งั้นระบบพังง่าย)
 
-ตอนนี้ execution หลักยังพึ่ง DELIVERY_EXECUTION_MODE=agent และเอกสารก็เตือนเองชัดๆ ว่า agent ยังขึ้นกับ Windows session state และต้องมี SCUM client window จริง อยู่ด้วย นี่คือคอขวดอันดับหนึ่งของความเสถียรและการสเกล ถ้าจะขาย/เปิดใช้จริงกว้างๆ ต้องลด dependency ตรงนี้ก่อน เช่น แยก fallback strategy, queue hold policy, agent liveness handling, auto-recovery และ failure classification ให้ชัดขึ้น  ￼
+นี่คือ 5 ตัวที่ “ห้ามข้าม” เด็ดขาด
 
-2) ขยาย native proof coverage ให้กว้างกว่าเดิม
+1) 🔥 ลด dependency ของ console-agent
 
-ตอนนี้ native proof มีแล้ว และมี live proof กับบาง item เช่น Water_05l, Weapon_M1911, Magazine_M1911, Weapon_AK47 ซึ่งถือว่าดีมาก แต่ยังไม่ครอบคลุมทุก delivery type / ทุก server environment เอกสารก็เตือนไว้เองว่า ห้ามอ้างว่าครอบคลุมทั้งหมด เพราะยังไม่ถึง ถ้าปิดจุดนี้ได้ ความน่าเชื่อถือของระบบจะกระโดดขึ้นมากทันที  ￼
+ปัญหา:
+•พึ่ง SCUM client
+•พึ่ง window
+•พึ่ง Windows session
 
-3) ดัน tenant isolation จาก “partial” ไปสู่ “จริงทั้งระบบ”
+สิ่งที่ต้องทำ:
+•agent liveness check + auto-restart
+•detect window focus / resolution fail
+•classify error (client crash vs command fail)
+•queue fallback / quarantine
+•retry strategy ที่ฉลาดขึ้น
 
-ตอนนี้มี PostgreSQL RLS strict mode และ tenant-aware topology บนหลาย surface แล้ว แต่ยังไม่ใช่ full application-wide DB isolation และเอกสารก็เตือนชัดว่า อย่าเคลม full tenant isolation เพราะยังไม่ครบ ถ้าคิดจะทำหลายชุมชน หลายเซิร์ฟ หรือทำเชิง commercial จุดนี้โคตรสำคัญ เพราะมันคือฐานของความปลอดภัยและการแยกข้อมูลลูกค้า  ￼
+👉 นี่คือ คอขวดอันดับ 1 ของทั้งระบบ
 
-4) ทำ admin web ให้แก้ config ได้ครบขึ้น
+⸻
 
-ตอนนี้ admin web ยัง ไม่ expose ทุก env/config switch และยังแทนการแก้ .env หรือ config โดยตรงไม่ได้เต็มตัว ซึ่งแปลว่าการดูแลระบบยังพึ่ง “คนรู้ระบบ” อยู่เยอะเกินไป ถ้าจะให้คนอื่นใช้หรือให้แอดมินทีมดูแลเองได้ ต้องทำ config surface ให้ครบ, ปลอดภัย, มี validation, และมี audit/change history ที่ชัดเจน  ￼
+2) 🔥 ทำ tenant isolation ให้ “ครบทั้งระบบ”
 
-5) ทำ restore / rollback ให้แข็งกว่านี้
+ตอนนี้ยังมี shared path อยู่
 
-ตอนนี้ restore ยังเป็น controlled maintenance workflow with confirmation gates ซึ่งแปลว่าใช้งานได้ แต่ยังไม่ใช่ automated rollback ที่มั่นใจได้ในสถานการณ์พังจริง ถ้าจะเข้า production แบบไม่ต้องสวดมนต์ทุกครั้งก่อน deploy ควรทำ restore rehearsal, rollback drill, snapshot verification, และ disaster recovery path ให้ชัดขึ้นกว่านี้  ￼
+สิ่งที่ต้องทำ:
+•migrate ทุก tenant-aware module
+•eliminate cross-tenant leakage risk
+•enforce tenant context ทุก query
+•test isolation จริง (ยิงหลาย tenant พร้อมกัน)
 
-6) เพิ่ม analytics ฝั่ง delivery และ operations
+👉 ถ้ายังไม่จบ = ยังไม่ใช่ multi-tenant product-ready
+⸻
 
-ในมุม product จริง คุณไม่ได้ต้องการแค่ “มันรันได้” แต่ต้องรู้ด้วยว่า อะไรพังบ่อย, retry ตรงไหนหนัก, item ไหน fail บ่อย, server ไหนชอบงอแง ตอนนี้ในเอกสารสรุปเองว่า remaining work ส่วนใหญ่เป็น boundary hardening กับ coverage ดังนั้นการเพิ่ม command log analytics, retry hotspot metrics, success/fail by item/server/operator จะช่วยให้ระบบ mature ขึ้นมากกว่าการยัดฟีเจอร์ใหม่มั่วๆ  ￼
+3) 🔥 ขยาย native proof → cross-environment
 
-7) เพิ่ม admin tools สำหรับ bulk retry / selective resend / incident handling
-ตอนมี order เยอะหรือมี failure เป็นชุด ถ้ายังต้องมานั่งไล่ทีละอันนี่ก็งานช่างฝีมือโบราณดีๆ นี่เอง ควรมี tooling ฝั่ง admin สำหรับ bulk retry, selective resend, stuck-order resolution, queue drain, quarantine, และ manual override แบบมี audit ครบ เพราะตอนนี้ตัวระบบมี worker/watcher/proof/validation แล้ว แต่ operational tooling ระดับ “รับมือเหตุการณ์จริง” ยังควรขยับต่อ  ￼
+ตอนนี้ proof ดี “ในเครื่องคุณ”
 
-8) ทำ commercial polish ให้ครบ
-ตัวระบบตอนนี้ดูจริงขึ้นมาก มี docs, architecture, evidence map, verification status, assets ครบพอสมควร แต่ถ้าจะให้คนภายนอกเชื่อว่า “นี่คือ product” ต้องมี demo flow ที่คมกว่านี้ เช่น screenshots ที่เป็นปัจจุบัน, GIF เดโมที่เดินครบ flow, deployment story ที่ง่าย, architecture image ที่อ่านง่าย, feature matrix ที่ไม่ฟุ้ง และ onboarding ที่จบในไม่กี่ขั้นตอน มิฉะนั้นของดีจะดูเหมือนของทดลอง เพราะมนุษย์ชอบตัดสินจากหน้าตาเอกสารก่อนของจริงเสมอ  ￼
+สิ่งที่ต้องทำ:
+•test 2nd machine / 2nd server
+•test หลาย config (latency / region)
+•เพิ่ม item coverage
+•verify database-per-tenant scenario
 
-9) ปิด consistency ของ API / serialization / data contracts
+👉 ของจริงพังตรงนี้บ่อยสุด
 
-ตอนโปรเจกต์โตเป็นหลาย runtime สิ่งที่ชอบฆ่าระบบไม่ใช่ logic เท่ๆ แต่เป็นพวก response shape ไม่ตรงกัน, BigInt/JSON serialization งอแง, field naming คนละแบบ, error contract ไม่นิ่ง ตอนนี้ repo มี config matrix, architecture, runtime topology, database strategy และ evidence map ชี้ว่าระบบเริ่มจริงจังแล้ว เพราะงั้นจุดต่อไปควรเป็นการทำ contract consistency ให้ทั้ง bot, web, portal, worker คุยกันนิ่งขึ้น  ￼
+⸻
 
-10) ขยาย player-facing features แบบมีเป้าหมาย ไม่ใช่ยัดเล่น
+4) 🔥 ทำ restore / rollback ให้ production จริง
+ตอนนี้ยัง semi-manual
 
-ฝั่ง player portal ตอนนี้มีฐานแล้ว แต่ถ้าจะให้คนใช้บ่อยและรู้สึกว่าระบบ “ครบ” ควรต่อยอดฟีเจอร์ที่เพิ่ม retention จริง เช่น missions, notification center, richer profile, Steam binding UX ที่เนียนขึ้น, order timeline ที่เข้าใจง่ายกว่าเดิม ไม่ใช่เพิ่มของเยอะเฉยๆ ต้องเลือกสิ่งที่ลด support load และเพิ่มความชัดให้ผู้เล่นก่อน  ￼
+สิ่งที่ต้องทำ:
+•snapshot restore test•rollback drill
+•automated recovery flow
+•disaster playbook
+
+👉 เวลาระบบพัง = ไม่มีใครอยากเปิด README มานั่งอ่าน
+
+⸻
+
+5) 🔥 ทำ config control ให้ centralized (ผ่าน admin)
+
+ตอนนี้ยังต้องแก้ .environment
+สิ่งที่ต้องทำ:
+•expose config ผ่าน admin panel
+•validation + safe update
+•audit config change
+•hot reload support
+
+👉 product จริงต้อง “คลิกแล้วจบ”
+
+⸻
+
+🟠 PHASE B — Production Hardening (ทำแล้วระบบจะนิ่งขึ้นเยอะ)
+
+6) 📊 Delivery analytics / metrics
+
+สิ่งที่ต้องมี:
+•success rate / fail rate•retry count
+•per item / per server stats
+•latency tracking
+
+👉 ไม่วัด = ไม่รู้ว่าระบบห่วยตรงไหน
+
+⸻
+
+7) 🛠️ Admin operational tools
+
+เพิ่ม:
+•bulk retry•selective resend
+•stuck order fix
+•queue drain / quarantine
+👉 ไม่งั้น dev = แอดมิน = คนแก้ปัญหาเองตลอดชีวิต
+
+⸻
+
+8) 🔄 API / data contract consistency
+
+ปัญหา:
+•response ไม่เหมือนกัน
+•BigInt / JSON งอแง
+
+สิ่งที่ต้องทำ:
+•unify response schema
+•standard error format
+•serialization fix•version API
+⸻
+
+9) 📈 Observability จริง (ไม่ใช่แค่ log)
+
+เพิ่ม:
+•metrics (Prometheus style หรือเทียบเท่า)
+•alert system
+•dashboard
+
+👉 ตอนนี้ debug ได้
+แต่ยัง “ดูแลระบบระยะยาว” ไม่ได้
+
+⸻
+
+10) 🔐 Security hardening
+
+เพิ่ม:
+•rate limiting
+•permission level
+•abuse detection
+•secret rotation
+
+👉 ก่อนโดนยิง ไม่เคยคิดว่าจำเป็น
+
+⸻
+
+🟡 PHASE C — Product / UX / Commercial
+
+11) 🎛️ Admin UX polish
+•config UI ใช้ง่ายขึ้น
+•flow ชัด
+•ลดความงง
+
+⸻
+
+12) 👤 Player portal improvement
+
+เพิ่ม:
+•notification center
+•mission / engagement
+•better profile / Steam UX
+⸻
+
+13) 📦 Deployment simplification
+•one-click setup
+•docker / script
+•onboarding guide
+
+👉 ตอนนี้ dev ใช้ได้
+แต่คนอื่น = งง
+
+⸻
+
+14) 📚 Documentation polish•architecture diagram
+•demo GIF
+•real use-case flow•troubleshooting guide
+👉 มนุษย์ judge จาก docs ก่อนเสมอ
+
+⸻
+
+15) 💰 Commercial readiness
+•license system•billing logic
+•usage limiting•tenant onboarding flow
+⸻
+
+🟣 PHASE D — Advanced (ถ้าจะไประดับโหด)
+
+16) ⚡ Performance tuning
+•query optimization
+•indexing
+•caching
+
+⸻
+
+17) 🧠 Smarter queue system•priority queue•adaptive retry•rate control
+⸻
+
+18) 🔌 Plugin / extension system•modular feature
+•extend without core change
+⸻
+
+19) 🌍 Multi-region readiness•latency handling
+•geo config
+⸻
+
+20) 🤖 Automation / self-healing system•auto recovery•anomaly detection
