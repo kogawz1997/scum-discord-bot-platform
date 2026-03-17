@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-03-17T06:16:00.000Z",
+  "workstationProfile": "Current Windows workstation",
+  "executionMode": "rcon",
+  "status": "blocked",
+  "host": "127.0.0.1",
+  "port": 27015,
+  "command": "#ListPlayers",
+  "result": {
+    "ok": false,
+    "code": "ECONNREFUSED",
+    "detail": "rcon-send: connect ECONNREFUSED 127.0.0.1:27015"
+  },
+  "notes": "This is an attempted second runtime capture on the same workstation. It does not count as verified native-proof coverage because no RCON listener was reachable."
+}

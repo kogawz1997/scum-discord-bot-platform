@@ -1219,6 +1219,48 @@ async function sendTestDeliveryCommand(options = {}) {
     )
     : null;
 
+  const executePhaseCommands = async (phase, commandList, deliveryItem = null) => {
+    const normalizedCommands = (Array.isArray(commandList) ? commandList : [])
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+    for (let index = 0; index < normalizedCommands.length; index += 1) {
+      const command = normalizedCommands[index];
+      const output = await runGameCommand(command, settings);
+      outputs.push({
+        phase,
+        mode: output.mode || settings.executionMode,
+        backend: output.backend || null,
+        commandPath: output.commandPath || null,
+        gameItemId: deliveryItem?.gameItemId || null,
+        quantity: deliveryItem?.quantity || null,
+        command: output.command,
+        stdout: output.stdout,
+        stderr: output.stderr,
+      });
+      if (
+        settings.executionMode === 'agent'
+        && settings.agentCommandDelayMs > 0
+        && index < normalizedCommands.length - 1
+      ) {
+        await sleep(settings.agentCommandDelayMs);
+      }
+    }
+  };
+
+  await executePhaseCommands('pre', preview.agentPreCommands);
+  if (
+    settings.executionMode === 'agent'
+    && Array.isArray(preview.agentPreCommands)
+    && preview.agentPreCommands.length > 0
+  ) {
+    const prePhaseDelayMs = preview.agentPreCommands.some(isTeleportCommand)
+      ? settings.agentPostTeleportDelayMs
+      : settings.agentCommandDelayMs;
+    if (prePhaseDelayMs > 0) {
+      await sleep(prePhaseDelayMs);
+    }
+  }
+
   for (const deliveryItem of preview.deliveryItems || []) {
     const vars = {
       steamId,
@@ -1230,26 +1272,35 @@ async function sendTestDeliveryCommand(options = {}) {
       userId,
       purchaseCode: purchaseCode || 'TEST-SEND',
     };
-
-    for (const template of commandTemplates) {
-      const gameCommand = renderItemCommand(
+    const itemCommands = commandTemplates.map((template) =>
+      renderItemCommand(
         template,
         vars,
         settings,
         { singlePlayer: settings.executionMode === 'agent' },
-      );
-      const output = await runGameCommand(gameCommand, settings);
-      outputs.push({
-        mode: output.mode || settings.executionMode,
-        backend: output.backend || null,
-        gameItemId: vars.gameItemId,
-        quantity: vars.quantity,
-        command: output.command,
-        stdout: output.stdout,
-        stderr: output.stderr,
-      });
+      ));
+    await executePhaseCommands('item', itemCommands, {
+      gameItemId: vars.gameItemId,
+      quantity: vars.quantity,
+    });
+    if (
+      settings.executionMode === 'agent'
+      && settings.agentCommandDelayMs > 0
+      && deliveryItem !== preview.deliveryItems[preview.deliveryItems.length - 1]
+    ) {
+      await sleep(settings.agentCommandDelayMs);
     }
   }
+
+  if (
+    settings.executionMode === 'agent'
+    && Array.isArray(preview.agentPostCommands)
+    && preview.agentPostCommands.length > 0
+    && settings.agentCommandDelayMs > 0
+  ) {
+    await sleep(settings.agentCommandDelayMs);
+  }
+  await executePhaseCommands('post', preview.agentPostCommands);
 
   const verification = await verifyDeliveryExecution(outputs, settings, {
     purchaseCode: purchaseCode || 'TEST-SEND',

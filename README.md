@@ -65,7 +65,9 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - SQLite-to-PostgreSQL cutover tooling exists in-repo
 - Tests run against isolated provider-specific databases or schemas instead of the live runtime database
 - Tenant DB topology resolver and provisioning script now exist for `shared`, `schema-per-tenant`, and `database-per-tenant`
-- Tenant-scoped platform, tenant-config, purchase/shop, delivery persistence, player wallet/account, cart/redeem/rent/wheel, and community/admin store paths now resolve Prisma datasource targets through the selected tenant DB topology where tenant context is available
+- Tenant-scoped platform, tenant-config, purchase/shop, delivery persistence, player wallet/account, player portal, community/admin store, and SCUM webhook/community automation paths now resolve Prisma datasource targets through the selected tenant DB topology where tenant context or a default tenant is available
+- `schema-per-tenant` is now the repository target for multi-tenant deployments; `database-per-tenant` remains supported for higher-isolation tiers
+- This workstation now runs the live runtime with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` for default tenant `1259096998045421672`
 
 ### Admin and player surfaces
 
@@ -97,12 +99,13 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Watcher health now exposes recent parsed `admin-command` events from the live server log
 - Delivery verification now supports a first-party native-proof backend that reads live SCUM save state from `SCUM.db`
 - Native proof now supports both inventory delta and world-spawn delta verification on this workstation
+- Live runtime evidence now also shows schema `tenant_1259096998045421672` provisioned in PostgreSQL, with delivery-audit writes present under that tenant schema
 - First-party native-proof scripts now exist at `scripts/delivery-native-proof-scum-savefile.js` and `scripts/delivery-native-proof-template.ps1`
+- Native-proof environment tracking now exists under `docs/assets/live-native-proof-environments.json` and `docs/assets/live-native-proof-coverage-summary.*`
 
 ## What Is Partial
 
 - Admin web still does not cover every `.env` or config setting
-- Multi-tenant isolation now runs in PostgreSQL RLS strict mode for the current tenant-scoped platform, tenant-config, purchase/admin-commerce, and delivery persistence surface, and tenant-aware service paths now route through the selected schema/database-per-tenant topology when configured
 - Restore still relies on a guarded maintenance flow rather than fully automatic rollback
 - Real captures now exist for admin login, authenticated admin dashboard, player landing, player login, authenticated player dashboard, player showcase, and a simple demo GIF under `docs/assets/`
 - `src/adminWebServer.js` and `apps/web-portal-standalone/server.js` are now thin bootstrap/composition entrypoints
@@ -118,8 +121,10 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 
 - SQLite remains in dev/import/compatibility paths, but it is no longer the target runtime path for this workstation
 - Admin web is not yet a full replacement for direct env/config editing
-- Tenant DB isolation is still partial: tenant-scoped platform services can route to schema/database-per-tenant targets, but the whole application is not migrated to per-tenant databases or schemas
-- Native game-state proof is verified on this workstation through `SCUM.db` for representative spawn-item classes, but broader coverage across all delivery types and server environments is still incomplete
+- Native-proof environment coverage is still based on one verified workstation; additional server/workstation captures remain open in `docs/assets/live-native-proof-environments.json`
+- A second server-configuration sample (`EnableSpawnOnGround=True`) exists but is only partial, and the same-workstation `rcon` runtime attempt is blocked by `ECONNREFUSED 127.0.0.1:27015`
+- This workstation now runs `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant`, but this is still only one verified environment; other workstations and `database-per-tenant` deployments require separate runtime evidence
+- Native game-state proof is verified on this workstation through `SCUM.db` for representative spawn-item classes, including representative `ammo` via `Cal_7_62x39mm_Ammobox`, plus representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles; broader server/workstation coverage is still incomplete
 - A capture checklist now exists at [docs/assets/CAPTURE_CHECKLIST.md](./docs/assets/CAPTURE_CHECKLIST.md)
 
 ## Evidence
@@ -157,11 +162,21 @@ Additional live runtime evidence from this workstation:
 - one live `#Announce` command executed through the agent and observed in `SCUM.log`
 - live native proof matrix captured from `SCUM.db` for:
   - `Water_05l`
+  - `BakedBeans`
+  - `Emergency_bandage`
   - `Weapon_M1911`
-  - `Magazine_M1911`
   - `Weapon_AK47`
+  - `Magazine_M1911`
+  - `Backpack_02_01`
+  - `Cal_7_62x39mm_Ammobox`
+- live wrapper-profile native proof matrix captured from `SCUM.db` for:
+  - `teleport_spawn` using `Weapon_M1911`
+  - `announce_teleport_spawn` using `Emergency_bandage`
+- representative `ammo` proof now passes with `Cal_7_62x39mm_Ammobox`; loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still did not yield a confirmed `SCUM.db` delta on `2026-03-17`
 
 See [docs/assets/live-runtime-evidence.md](./docs/assets/live-runtime-evidence.md).
+
+Environment coverage status is summarized in [docs/assets/live-native-proof-coverage-summary.md](./docs/assets/live-native-proof-coverage-summary.md).
 
 ## Architecture Summary
 

@@ -20,20 +20,20 @@ async function listTopWalletSnapshots(limit = 10, options = {}) {
   return listTopWallets(limit, options);
 }
 
-function getStatsSnapshot(userId) {
-  return getStats(userId);
+function getStatsSnapshot(userId, options = {}) {
+  return getStats(userId, options);
 }
 
-function listStatsSnapshots() {
-  return listAllStats();
+function listStatsSnapshots(options = {}) {
+  return listAllStats(options);
 }
 
-function getPunishmentHistory(userId) {
-  return getPunishments(userId);
+function getPunishmentHistory(userId, options = {}) {
+  return getPunishments(userId, options);
 }
 
-function getScumStatusSnapshot() {
-  return getStatus();
+function getScumStatusSnapshot(options = {}) {
+  return getStatus(options);
 }
 
 async function getShopItemViewById(itemId, options = {}) {

@@ -15,6 +15,14 @@ const { looksLikeMojibake } = require('../utils/mojibake');
 
 const killStreak = new Map();
 
+function normalizeScopeOptions(options = {}) {
+  return {
+    tenantId: String(options.tenantId || '').trim() || null,
+    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
+    env: options.env,
+  };
+}
+
 function sanitizeLabel(value, fallback) {
   const text = String(value || '').trim();
   if (!text || looksLikeMojibake(text)) return fallback;
@@ -163,9 +171,10 @@ function findNamedChannel(guild, name) {
   );
 }
 
-async function sendStatusOnline(guild, payload) {
+async function sendStatusOnline(guild, payload, options = {}) {
   const channel = findNamedChannel(guild, channels.statusOnline);
-  updateStatus(payload);
+  const scopeOptions = normalizeScopeOptions(options);
+  updateStatus(payload, scopeOptions);
 
   const { onlinePlayers, maxPlayers, pingMs, uptimeMinutes } = payload;
   const lines = [];
@@ -186,11 +195,12 @@ async function sendStatusOnline(guild, payload) {
   });
 }
 
-async function sendPlayerJoinLeave(guild, event) {
+async function sendPlayerJoinLeave(guild, event, options = {}) {
   const channel = findNamedChannel(guild, channels.playerJoin);
   const { playerName, type, steamId } = event;
+  const scopeOptions = normalizeScopeOptions(options);
   if (steamId && playerName) {
-    updateInGameNameBySteamId(steamId, playerName);
+    updateInGameNameBySteamId(steamId, playerName, scopeOptions);
   }
   const text =
     type === 'join'
@@ -206,8 +216,9 @@ async function sendPlayerJoinLeave(guild, event) {
   });
 }
 
-async function sendKillFeed(guild, event) {
+async function sendKillFeed(guild, event, options = {}) {
   const channel = findNamedChannel(guild, channels.killFeed);
+  const scopeOptions = normalizeScopeOptions(options);
 
   const killerName = String(event.killer || 'Unknown').trim() || 'Unknown';
   const victimName = String(event.victim || 'Unknown').trim() || 'Unknown';
@@ -220,10 +231,10 @@ async function sendKillFeed(guild, event) {
   const mapImageUrl = resolveMapImageUrl(resolvedSector, event.mapImageUrl);
 
   if (killerSteamId && killerName) {
-    updateInGameNameBySteamId(killerSteamId, killerName);
+    updateInGameNameBySteamId(killerSteamId, killerName, scopeOptions);
   }
   if (victimSteamId && victimName) {
-    updateInGameNameBySteamId(victimSteamId, victimName);
+    updateInGameNameBySteamId(victimSteamId, victimName, scopeOptions);
   }
 
   const killerNowStreak = (killStreak.get(killerName) || 0) + 1;
@@ -236,7 +247,7 @@ async function sendKillFeed(guild, event) {
       weapon: normalizedWeapon,
       distance: event.distance,
       killer: killerName,
-    });
+    }, scopeOptions);
   }
 
   const notes = [`☠️ **${victimName}**`];
@@ -272,10 +283,10 @@ async function sendKillFeed(guild, event) {
     await channel.send({ embeds: [embed] });
   }
 
-  const killerLink = killerSteamId ? getLinkBySteamId(killerSteamId) : null;
-  const victimLink = victimSteamId ? getLinkBySteamId(victimSteamId) : null;
-  if (killerLink?.userId) addKill(killerLink.userId, 1);
-  if (victimLink?.userId) addDeath(victimLink.userId, 1);
+  const killerLink = killerSteamId ? getLinkBySteamId(killerSteamId, scopeOptions) : null;
+  const victimLink = victimSteamId ? getLinkBySteamId(victimSteamId, scopeOptions) : null;
+  if (killerLink?.userId) addKill(killerLink.userId, 1, scopeOptions);
+  if (victimLink?.userId) addDeath(victimLink.userId, 1, scopeOptions);
 
   publishAdminLiveUpdate('scum-kill', {
     guildId: guild.id,
@@ -288,16 +299,16 @@ async function sendKillFeed(guild, event) {
     sector: resolvedSector,
     mapImageUrl,
   });
-  queueLeaderboardRefreshForGuild(guild.client, guild.id, 'scum-kill');
+  queueLeaderboardRefreshForGuild(guild.client, guild.id, 'scum-kill', scopeOptions);
 
-  const activeBounties = listBounties().filter((row) => row.status === 'active');
+  const activeBounties = listBounties(scopeOptions).filter((row) => row.status === 'active');
   const matchedBounty = activeBounties.find(
     (row) => row.targetName.toLowerCase() === victimName.toLowerCase(),
   );
 
   if (!matchedBounty) return;
 
-  const claimed = claimBounty(matchedBounty.id, killerName);
+  const claimed = claimBounty(matchedBounty.id, killerName, scopeOptions);
   if (!claimed.ok) return;
 
   const bountyChannel = findNamedChannel(
@@ -313,6 +324,7 @@ async function sendKillFeed(guild, event) {
       amount,
       reason: 'bounty_claim',
       actor: 'system:scum-events',
+      ...scopeOptions,
       meta: {
         bountyId: matchedBounty.id,
         targetName: victimName,
@@ -338,7 +350,8 @@ async function sendKillFeed(guild, event) {
   );
 }
 
-async function sendRestartAlert(guild, message) {
+async function sendRestartAlert(guild, message, options = {}) {
+  const scopeOptions = normalizeScopeOptions(options);
   const channel = findNamedChannel(guild, channels.restartAlerts);
   if (channel) {
     await channel.send(message);
@@ -346,6 +359,7 @@ async function sendRestartAlert(guild, message) {
   publishAdminLiveUpdate('scum-restart', {
     guildId: guild.id,
     message,
+    tenantId: scopeOptions.tenantId || null,
   });
 }
 

@@ -2,6 +2,10 @@
   {
     "label": "ammo-762",
     "gameItemId": "Ammo_762",
-    "quantity": 20
+    "quantity": 20,
+    "deliveryClass": "ammo",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Repeated 2026-03-17 live attempts timed out without a confirmed SCUM.db delta. Representative ammo proof now passes on this workstation with Cal_7_62x39mm_Ammobox, but loose-round IDs Ammo_762 and Cal_7_62x39mm still remain unproved here."
   }
 ]

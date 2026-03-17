@@ -1,19 +1,26 @@
-﻿const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-// steamId -> { userId, inGameName, linkedAt }
-const links = new Map();
+function createScopeState() {
+  return {
+    links: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getLinkDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureLinkScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeSteamId(steamId) {
@@ -42,30 +49,37 @@ function normalizeLinkRow(row) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise.catch(() => null);
+      }
       await work();
     })
     .catch((error) => {
       console.error(`[linkStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getLinkDb().link.findMany({
+    const rows = await db.link.findMany({
       orderBy: { linkedAt: 'desc' },
     });
 
     if (rows.length === 0) {
-      if (links.size > 0) {
+      if (state.links.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [steamId, value] of links.entries()) {
-              await getLinkDb().link.upsert({
+            for (const [steamId, value] of state.links.entries()) {
+              await db.link.upsert({
                 where: { steamId },
                 update: {
                   userId: value.userId,
@@ -88,7 +102,7 @@ async function hydrateFromPrisma() {
     }
 
     const currentUserIndex = new Set(
-      Array.from(links.values()).map((entry) => String(entry.userId || '')),
+      Array.from(state.links.values()).map((entry) => String(entry.userId || '')),
     );
     const hydrated = new Map();
     const seenUsers = new Set();
@@ -105,84 +119,93 @@ async function hydrateFromPrisma() {
       });
     }
 
-    if (startVersion === mutationVersion) {
-      links.clear();
+    if (startVersion === state.mutationVersion) {
+      state.links.clear();
       for (const [steamId, value] of hydrated.entries()) {
-        links.set(steamId, value);
+        state.links.set(steamId, value);
       }
       return;
     }
 
-    // There were local updates during hydration; only merge missing keys.
     for (const [steamId, value] of hydrated.entries()) {
-      if (links.has(steamId)) continue;
+      if (state.links.has(steamId)) continue;
       if (currentUserIndex.has(value.userId)) continue;
-      links.set(steamId, value);
+      state.links.set(steamId, value);
     }
   } catch (error) {
     console.error('[linkStore] failed to hydrate from prisma:', error.message);
+  } finally {
+    state.isHydrating = false;
   }
 }
 
-function initLinkStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initLinkStore(options = {}) {
+  const scope = ensureLinkScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-async function flushLinkStoreWrites() {
-  if (initPromise) {
-    await initPromise.catch(() => null);
+async function flushLinkStoreWrites(options = {}) {
+  const scope = ensureLinkScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
   }
-  await dbWriteQueue;
+  await scope.state.dbWriteQueue;
 }
 
-function getLinkBySteamId(steamId) {
+function getLinkBySteamId(steamId, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const s = normalizeSteamId(steamId);
   if (!s) return null;
-  return links.get(s) || null;
+  return scope.state.links.get(s) || null;
 }
 
-function getLinkByUserId(userId) {
+function getLinkByUserId(userId, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const u = String(userId || '').trim();
-  for (const [steamId, value] of links.entries()) {
+  for (const [steamId, value] of scope.state.links.entries()) {
     if (value.userId === u) return { steamId, ...value };
   }
   return null;
 }
 
-function setLink({ steamId, userId, inGameName }) {
+function setLink({ steamId, userId, inGameName }, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const s = normalizeSteamId(steamId);
   if (!s) return { ok: false, reason: 'invalid-steamid' };
   const u = String(userId || '').trim();
   if (!u) return { ok: false, reason: 'invalid-userid' };
   const normalizedInGameName = normalizeInGameName(inGameName);
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
-  // 1 user ต่อ 1 steamId: ลบลิงก์เดิมของ user ก่อน
   const removedSteamIds = [];
-  for (const [sid, value] of links.entries()) {
+  for (const [sid, value] of scope.state.links.entries()) {
     if (value.userId === u && sid !== s) {
-      links.delete(sid);
+      scope.state.links.delete(sid);
       removedSteamIds.push(sid);
     }
   }
 
   const linkedAt = new Date();
-  links.set(s, {
+  scope.state.links.set(s, {
     userId: u,
     inGameName: normalizedInGameName,
     linkedAt,
   });
 
   queueDbWrite(
+    scope,
     async () => {
       for (const sid of removedSteamIds) {
-        await getLinkDb().link.deleteMany({ where: { steamId: sid } });
+        await scope.db.link.deleteMany({ where: { steamId: sid } });
       }
-      await getLinkDb().link.upsert({
+      await scope.db.link.upsert({
         where: { steamId: s },
         update: {
           userId: u,
@@ -196,7 +219,7 @@ function setLink({ steamId, userId, inGameName }) {
           linkedAt,
         },
       });
-      await getLinkDb().playerAccount.upsert({
+      await scope.db.playerAccount.upsert({
         where: { discordId: u },
         update: {
           steamId: s,
@@ -215,14 +238,16 @@ function setLink({ steamId, userId, inGameName }) {
   return { ok: true, steamId: s, userId: u };
 }
 
-function updateInGameNameBySteamId(steamId, inGameName) {
+function updateInGameNameBySteamId(steamId, inGameName, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const s = normalizeSteamId(steamId);
   const normalizedInGameName = normalizeInGameName(inGameName);
   if (!s || !normalizedInGameName) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const existing = links.get(s);
+  const existing = scope.state.links.get(s);
   if (!existing) {
     return { ok: false, reason: 'link-not-found' };
   }
@@ -236,15 +261,16 @@ function updateInGameNameBySteamId(steamId, inGameName) {
     };
   }
 
-  mutationVersion += 1;
-  links.set(s, {
+  scope.state.mutationVersion += 1;
+  scope.state.links.set(s, {
     ...existing,
     inGameName: normalizedInGameName,
   });
 
   queueDbWrite(
+    scope,
     async () => {
-      await getLinkDb().link.updateMany({
+      await scope.db.link.updateMany({
         where: { steamId: s },
         data: {
           inGameName: normalizedInGameName,
@@ -262,26 +288,29 @@ function updateInGameNameBySteamId(steamId, inGameName) {
   };
 }
 
-function unlinkByUserId(userId) {
+function unlinkByUserId(userId, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const u = String(userId || '').trim();
   let removed = null;
   const removedSteamIds = [];
-  for (const [sid, value] of links.entries()) {
+  for (const [sid, value] of scope.state.links.entries()) {
     if (value.userId === u) {
       if (!removed) {
         removed = { steamId: sid, ...value };
       }
       removedSteamIds.push(sid);
-      links.delete(sid);
+      scope.state.links.delete(sid);
     }
   }
   if (!removed) return null;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   queueDbWrite(
+    scope,
     async () => {
-      await getLinkDb().link.deleteMany({ where: { userId: removed.userId } });
-      await getLinkDb().playerAccount.upsert({
+      await scope.db.link.deleteMany({ where: { userId: removed.userId } });
+      await scope.db.playerAccount.upsert({
         where: { discordId: removed.userId },
         update: {
           steamId: null,
@@ -302,18 +331,21 @@ function unlinkByUserId(userId) {
   };
 }
 
-function unlinkBySteamId(steamId) {
+function unlinkBySteamId(steamId, options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
   const s = normalizeSteamId(steamId);
   if (!s) return null;
-  const value = links.get(s);
+  const value = scope.state.links.get(s);
   if (!value) return null;
 
-  mutationVersion += 1;
-  links.delete(s);
+  scope.state.mutationVersion += 1;
+  scope.state.links.delete(s);
   queueDbWrite(
+    scope,
     async () => {
-      await getLinkDb().link.deleteMany({ where: { steamId: s } });
-      await getLinkDb().playerAccount.upsert({
+      await scope.db.link.deleteMany({ where: { steamId: s } });
+      await scope.db.playerAccount.upsert({
         where: { discordId: value.userId },
         update: {
           steamId: null,
@@ -331,21 +363,25 @@ function unlinkBySteamId(steamId) {
   return { steamId: s, ...value };
 }
 
-function listLinks() {
-  return Array.from(links.entries()).map(([steamId, value]) => ({
+function listLinks(options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
+  return Array.from(scope.state.links.entries()).map(([steamId, value]) => ({
     steamId,
     ...value,
   }));
 }
 
-function replaceLinks(nextLinks = []) {
-  mutationVersion += 1;
-  links.clear();
+function replaceLinks(nextLinks = [], options = {}) {
+  const scope = ensureLinkScope(options);
+  void initLinkStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.links.clear();
 
   for (const rowRaw of Array.isArray(nextLinks) ? nextLinks : []) {
     const row = normalizeLinkRow(rowRaw);
     if (!row) continue;
-    links.set(row.steamId, {
+    scope.state.links.set(row.steamId, {
       userId: row.userId,
       inGameName: row.inGameName,
       linkedAt: row.linkedAt,
@@ -353,15 +389,16 @@ function replaceLinks(nextLinks = []) {
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getLinkDb().link.deleteMany();
-      await getLinkDb().playerAccount.updateMany({
+      await scope.db.link.deleteMany({});
+      await scope.db.playerAccount.updateMany({
         data: {
           steamId: null,
         },
       });
-      for (const [steamId, value] of links.entries()) {
-        await getLinkDb().link.create({
+      for (const [steamId, value] of scope.state.links.entries()) {
+        await scope.db.link.create({
           data: {
             steamId,
             userId: value.userId,
@@ -369,7 +406,7 @@ function replaceLinks(nextLinks = []) {
             linkedAt: value.linkedAt || new Date(),
           },
         });
-        await getLinkDb().playerAccount.upsert({
+        await scope.db.playerAccount.upsert({
           where: { discordId: value.userId },
           update: {
             steamId,
@@ -385,7 +422,7 @@ function replaceLinks(nextLinks = []) {
     },
     'replace-all',
   );
-  return links.size;
+  return scope.state.links.size;
 }
 
 initLinkStore();

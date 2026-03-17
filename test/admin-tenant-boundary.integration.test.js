@@ -200,6 +200,35 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   assert.equal(tenantOwnerLogin.res.status, 200);
   const tenantOwnerCookie = String(tenantOwnerLogin.res.headers.get('set-cookie') || '').split(';')[0];
 
+  const scopedSnapshot = await request('/admin/api/snapshot', 'GET', null, tenantCookie);
+  assert.equal(scopedSnapshot.res.status, 403);
+  assert.match(String(scopedSnapshot.data.error || ''), /shared runtime snapshots/i);
+
+  const scopedSnapshotExport = await request('/admin/api/snapshot/export', 'GET', null, tenantCookie);
+  assert.equal(scopedSnapshotExport.res.status, 403);
+  assert.match(String(scopedSnapshotExport.data.error || ''), /shared runtime snapshots/i);
+
+  const scopedBackupList = await request('/admin/api/backup/list', 'GET', null, tenantOwnerCookie);
+  assert.equal(scopedBackupList.res.status, 403);
+  assert.match(String(scopedBackupList.data.error || ''), /shared backups/i);
+
+  const scopedBackupStatus = await request('/admin/api/backup/restore/status', 'GET', null, tenantOwnerCookie);
+  assert.equal(scopedBackupStatus.res.status, 403);
+  assert.match(String(scopedBackupStatus.data.error || ''), /shared backups/i);
+
+  const scopedBackupCreate = await request('/admin/api/backup/create', 'POST', {
+    note: 'tenant-scoped-should-fail',
+  }, tenantOwnerCookie);
+  assert.equal(scopedBackupCreate.res.status, 403);
+  assert.match(String(scopedBackupCreate.data.error || ''), /shared backups/i);
+
+  const scopedBackupRestore = await request('/admin/api/backup/restore', 'POST', {
+    backup: 'tenant-scoped-should-fail',
+    dryRun: true,
+  }, tenantOwnerCookie);
+  assert.equal(scopedBackupRestore.res.status, 403);
+  assert.match(String(scopedBackupRestore.data.error || ''), /shared backups/i);
+
   const tenantConfigUpsert = await request('/admin/api/platform/tenant-config', 'POST', {
     tenantId,
     featureFlags: {

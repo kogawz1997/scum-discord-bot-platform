@@ -154,6 +154,14 @@ function startScumServer(client) {
         res.writeHead(400);
         return res.end('Unknown guild');
       }
+      // The webhook secret is process-wide, so accepting tenantId from the body would
+      // let one caller inject events into another tenant's scoped stores.
+      if (String(data.tenantId || '').trim()) {
+        recordWebhookOutcome(false);
+        res.writeHead(400);
+        return res.end('tenantId is not accepted by this webhook');
+      }
+      const scopeOptions = {};
 
       if (eventType === 'status') {
         await sendStatusOnline(guild, {
@@ -161,13 +169,13 @@ function startScumServer(client) {
           maxPlayers: data.maxPlayers,
           pingMs: data.pingMs,
           uptimeMinutes: data.uptimeMinutes,
-        });
+        }, scopeOptions);
       } else if (eventType === 'join' || eventType === 'leave') {
         await sendPlayerJoinLeave(guild, {
           playerName: data.playerName,
           type: eventType,
           steamId: data.steamId || null,
-        });
+        }, scopeOptions);
       } else if (eventType === 'kill') {
         await sendKillFeed(guild, {
           killer: data.killer,
@@ -179,9 +187,9 @@ function startScumServer(client) {
           hitZone: data.hitZone,
           ...(data.sector != null ? { sector: data.sector } : {}),
           ...(data.mapImageUrl != null ? { mapImageUrl: data.mapImageUrl } : {}),
-        });
+        }, scopeOptions);
       } else if (eventType === 'restart') {
-        await sendRestartAlert(guild, data.message || 'เซิร์ฟเวอร์กำลังรีสตาร์ท');
+        await sendRestartAlert(guild, data.message || 'เซิร์ฟเวอร์กำลังรีสตาร์ท', scopeOptions);
       }
 
       recordWebhookOutcome(true);

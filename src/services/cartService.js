@@ -22,13 +22,18 @@ function normalizeQty(value) {
 async function getResolvedCart(userId, options = {}) {
   const listCartItemsFn = options.listCartItemsFn || listCartItems;
   const getShopItemByIdFn = options.getShopItemByIdFn || getShopItemById;
+  const scopeOptions = {
+    tenantId: options.tenantId || null,
+    defaultTenantId: options.defaultTenantId || null,
+    env: options.env,
+  };
 
-  const rows = await Promise.resolve(listCartItemsFn(userId));
+  const rows = await Promise.resolve(listCartItemsFn(userId, scopeOptions));
   const resolved = [];
   const missingItemIds = [];
 
   for (const row of rows) {
-    const item = await getShopItemByIdFn(row.itemId);
+    const item = await getShopItemByIdFn(row.itemId, scopeOptions);
     if (!item) {
       missingItemIds.push(row.itemId);
       continue;
@@ -57,6 +62,11 @@ async function checkoutCart(userId, options = {}) {
   const guildId = options.guildId || null;
   const actor = options.actor || `discord:${userId}`;
   const source = options.source || 'cart-checkout';
+  const scopeOptions = {
+    tenantId: options.tenantId || null,
+    defaultTenantId: options.defaultTenantId || null,
+    env: options.env,
+  };
   const resolved = await getResolvedCart(userId, options);
 
   if (resolved.rows.length === 0) {
@@ -71,7 +81,7 @@ async function checkoutCart(userId, options = {}) {
   const creditCoinsFn = options.creditCoinsFn || creditCoins;
   const createQueuedPurchaseFn = options.createQueuedPurchaseFn || createQueuedPurchase;
 
-  let walletBalance = Number((await getWallet(userId))?.balance || 0);
+  let walletBalance = Number((await getWallet(userId, scopeOptions))?.balance || 0);
   if (resolved.totalPrice > 0) {
     const debit = await debitCoinsFn({
       userId,
@@ -83,6 +93,7 @@ async function checkoutCart(userId, options = {}) {
         units: resolved.totalUnits,
         rows: resolved.rows.length,
       },
+      ...scopeOptions,
     });
     if (!debit.ok) {
       return {
@@ -105,6 +116,7 @@ async function checkoutCart(userId, options = {}) {
           userId,
           item: row.item,
           guildId,
+          tenantId: scopeOptions.tenantId || row.item?.tenantId || null,
         });
         purchases.push({
           itemId: row.item.id,
@@ -135,6 +147,7 @@ async function checkoutCart(userId, options = {}) {
         source,
         failureCount: failures.length,
       },
+      ...scopeOptions,
     });
     if (refund?.ok) {
       walletBalance = Number(refund.balance || walletBalance);
@@ -142,7 +155,7 @@ async function checkoutCart(userId, options = {}) {
   }
 
   const clearCartFn = options.clearCartFn || clearCart;
-  await Promise.resolve(clearCartFn(userId));
+  await Promise.resolve(clearCartFn(userId, scopeOptions));
 
   return {
     ok: true,
@@ -158,10 +171,15 @@ function addItemToCartForUser(params = {}) {
   const userId = String(params.userId || '').trim();
   const itemId = String(params.itemId || '').trim();
   const quantity = normalizeQty(params.quantity);
+  const scopeOptions = {
+    tenantId: String(params.tenantId || '').trim() || null,
+    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
+    env: params.env,
+  };
   if (!userId || !itemId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  addCartItem(userId, itemId, quantity);
+  addCartItem(userId, itemId, quantity, scopeOptions);
   return { ok: true, userId, itemId, quantity };
 }
 
@@ -169,27 +187,36 @@ function removeItemFromCartForUser(params = {}) {
   const userId = String(params.userId || '').trim();
   const itemId = String(params.itemId || '').trim();
   const quantity = normalizeQty(params.quantity);
+  const scopeOptions = {
+    tenantId: String(params.tenantId || '').trim() || null,
+    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
+    env: params.env,
+  };
   if (!userId || !itemId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const updated = removeCartItem(userId, itemId, quantity);
+  const updated = removeCartItem(userId, itemId, quantity, scopeOptions);
   if (!updated) {
     return { ok: false, reason: 'not-found' };
   }
   return { ok: true, userId, itemId, quantity, cart: updated };
 }
 
-function clearCartForUser(userId) {
+function clearCartForUser(userId, options = {}) {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  clearCart(normalizedUserId);
+  clearCart(normalizedUserId, {
+    tenantId: String(options.tenantId || '').trim() || null,
+    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
+    env: options.env,
+  });
   return { ok: true, userId: normalizedUserId };
 }
 
-function listCartItemsForUser(userId) {
-  return listCartItems(String(userId || '').trim());
+function listCartItemsForUser(userId, options = {}) {
+  return listCartItems(String(userId || '').trim(), options);
 }
 
 module.exports = {

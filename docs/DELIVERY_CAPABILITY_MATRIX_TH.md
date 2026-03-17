@@ -38,9 +38,11 @@ This document states which delivery features use `RCON`, which require `agent mo
 - proof can succeed through either:
   - inventory delta
   - world-spawn delta
-- live proof on this workstation was confirmed with `#SpawnItem Water_05l 1`, `#SpawnItem Weapon_M1911 1`, `#SpawnItem Magazine_M1911 1 StackCount 100`, and `#SpawnItem Weapon_AK47 1`
-- `Ammo_762` currently has a generic command fallback but is still experimental on this workstation because native proof does not confirm a matching game-state delta yet
-- broader proof coverage across all item classes is still incomplete
+- per-class operator guidance now lives in [DELIVERY_NATIVE_PROOF_COVERAGE.md](./DELIVERY_NATIVE_PROOF_COVERAGE.md)
+- live proof on this workstation was confirmed with `#SpawnItem Water_05l 1`, `#SpawnItem BakedBeans 1`, `#SpawnItem Emergency_bandage 1`, `#SpawnItem Weapon_M1911 1`, `#SpawnItem Weapon_AK47 1`, `#SpawnItem Magazine_M1911 1 StackCount 100`, `#SpawnItem Backpack_02_01 1`, and `#SpawnItem Cal_7_62x39mm_Ammobox 1`
+- live wrapper-profile proof on this workstation was also confirmed with `#TeleportTo "CokeTAMTHAI" | #SpawnItem Weapon_M1911 1` and `#Announce Delivering Announce Teleport Bandage to CokeTAMTHAI | #TeleportTo "CokeTAMTHAI" | #SpawnItem Emergency_bandage 1`
+- representative `ammo` proof now passes on this workstation with `Cal_7_62x39mm_Ammobox`; loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still do not produce a confirmed `SCUM.db` delta here
+- broader proof coverage across all item classes and server/workstation environments is still incomplete
 
 ## Main files
 

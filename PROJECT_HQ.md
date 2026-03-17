@@ -48,12 +48,15 @@ This document is the working status register for the repository. It should stay 
 - Policy checks now cover runtime profile parsing, control-panel env registry rules, smoke behavior, readiness ordering, and module docs
 - Tenant scope exists across core platform, commerce, and audit surfaces
 - Tenant DB topology resolver/provisioning now exists for `schema-per-tenant` and `database-per-tenant`
-- Tenant-scoped platform, tenant-config, purchase/admin-commerce, delivery persistence, player/account-wallet paths, and community/admin stores now resolve Prisma datasource targets through the selected tenant DB topology where tenant context is present
+- Tenant-scoped platform, tenant-config, purchase/admin-commerce, delivery persistence, player/account-wallet, player portal, community/admin store, and SCUM webhook/community automation paths now resolve Prisma datasource targets through the selected tenant DB topology where tenant context or a default tenant is present
+- `schema-per-tenant` is now the repository target for multi-tenant deployments; `database-per-tenant` remains supported for higher-isolation tiers
+- This workstation now boots with live `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` for default tenant `1259096998045421672`, and schema `tenant_1259096998045421672` is provisioned in PostgreSQL
 - This workstation has live `console-agent` proof: preflight passes against a real `SCUM` window and a live command reached the game log
 - This workstation has live watcher proof: watcher reports `ready` against a real `SCUM.log` path and exposes recent parsed `admin-command` events
 - Delivery verification now has a first-party native-proof backend that reads `SCUM.db`
-- This workstation has live native delivery proof from game state for `Water_05l`, `Weapon_M1911`, `Magazine_M1911`, and `Weapon_AK47`
+- This workstation has live native delivery proof from game state for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
 - First-party native-proof scripts now exist at `scripts/delivery-native-proof-scum-savefile.js` and `scripts/delivery-native-proof-template.ps1`
+- Native-proof environment tracking now exists in `docs/assets/live-native-proof-environments.json` and `docs/assets/live-native-proof-coverage-summary.md`
 - Admin browser shell/common helpers are extracted under `src/admin/assets/dashboard-shell.js`
 - Admin snapshot/session/form browser runtime is extracted under `src/admin/assets/dashboard-runtime.js`
 - Admin browser DOM refs, mutable state, and event binding/startup wiring are extracted under `src/admin/assets/dashboard-dom.js`, `src/admin/assets/dashboard-state.js`, and `src/admin/assets/dashboard-bindings.js`
@@ -63,7 +66,6 @@ This document is the working status register for the repository. It should stay 
 ### Partial
 
 - Admin web still does not expose every env/config switch
-- Tenant isolation now runs in PostgreSQL RLS strict mode for the current tenant-scoped platform, tenant-config, purchase/admin-commerce, delivery persistence, player/account-wallet paths, and community/admin store surface, and tenant-aware service paths now honor the configured schema/database topology when enabled
 - Restore remains a controlled maintenance workflow with confirmation gates
 - Exported diagrams, authenticated admin/player dashboard captures, and a simple demo GIF now exist under `docs/assets/`, but broader in-game evidence still depends on live runtime capture
 
@@ -78,7 +80,8 @@ This document is the working status register for the repository. It should stay 
 - Database provider in `.env`: `postgresql`
 - Runtime database endpoint: `127.0.0.1:55432`
 - `TENANT_DB_ISOLATION_MODE=postgres-rls-strict`
-- `TENANT_DB_TOPOLOGY_MODE=shared`
+- `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant`
+- `PLATFORM_DEFAULT_TENANT_ID=1259096998045421672`
 - Admin origin: `https://admin.genz.noah-dns.online/admin`
 - Player origin: `https://player.genz.noah-dns.online`
 - `DELIVERY_EXECUTION_MODE` in `.env`: `agent`
@@ -107,6 +110,8 @@ Important detail:
 - `smoke:postdeploy` no longer treats required runtimes as healthy based only on HTTP 200 and `{ ok: true }`
 - optional runtimes such as a disabled watcher or an optional console-agent are reported without failing the run
 - the latest local full pass on this workstation completed on `2026-03-17`
+- the latest live schema-per-tenant runtime pass on this workstation completed on `2026-03-17` with `npm test` and `node scripts/readiness-gate.js --production`
+- a targeted provider-backed tenant-topology suite covering admin/community/player/webhook paths also passed locally on `2026-03-17`
 
 ## Remaining Non-Delivery Gaps
 
@@ -114,18 +119,19 @@ Use [docs/WORKLIST.md](./docs/WORKLIST.md) as the only detailed backlog.
 
 Short form:
 
-- expand tenant DB topology rollout beyond the current platform/commerce/delivery surface if the target architecture is `schema-per-tenant` or `database-per-tenant`
-- expand native delivery proof coverage beyond the current live workstation matrix and server configuration
+- expand native delivery proof evidence beyond the current live workstation matrix and server configuration; the representative delivery-class matrix now includes `ammo` via `Cal_7_62x39mm_Ammobox`, and per-class guidance exists in `docs/DELIVERY_NATIVE_PROOF_COVERAGE.md`
 
 ## Review Warnings
 
-- Do not claim full tenant isolation; PostgreSQL RLS foundation exists for part of the tenant-scoped surface, but full DB-level isolation is not complete
+- Do not claim `database-per-tenant` is the active runtime here; this workstation is `schema-per-tenant`
+- Do not claim another workstation/environment is already verified for the same tenant topology without separate runtime evidence
 - Do not claim every setting is editable from admin web
 - Do not claim agent execution is independent of Windows and SCUM client state
-- Do not claim full application-wide DB-level tenant isolation
 - Do not claim native proof coverage for every delivery type or every server environment yet
+- Do not treat `docs/assets/live-native-proof-environments.json` as multi-environment proof until pending entries are replaced with verified captures
+- Do not treat the partial `EnableSpawnOnGround=True` sample or the blocked same-workstation `rcon` attempt as a second verified environment
 - Do not use hardcoded test counts in documents; use CI artifacts instead
 
 ## Summary
 
-The repository is in reviewable shape: PostgreSQL runtime is in place, validation commands are wired, the main admin/player/runtime surfaces exist, and the main documentation set now points back to evidence. The remaining work is mostly boundary hardening and coverage, not missing core infrastructure.
+The repository is in reviewable shape: PostgreSQL runtime is in place, this workstation now runs the tenant topology in live `schema-per-tenant` mode, validation commands are wired, and the main documentation set points back to evidence. The remaining work is concentrated in broader live native-proof coverage across more environments, not missing core infrastructure.

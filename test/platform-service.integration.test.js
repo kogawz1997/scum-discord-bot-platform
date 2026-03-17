@@ -2,8 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { once } = require('node:events');
+const crypto = require('node:crypto');
 
-const { prisma } = require('../src/prisma');
+const { prisma, getTenantScopedPrismaClient, disconnectAllPrismaClients } = require('../src/prisma');
 const {
   acceptPlatformLicenseLegal,
   createMarketplaceOffer,
@@ -14,6 +15,7 @@ const {
   getPlatformAnalyticsOverview,
   getPlatformPublicOverview,
   issuePlatformLicense,
+  listPlatformSubscriptions,
   recordPlatformAgentHeartbeat,
   reconcileDeliveryState,
   verifyPlatformApiKey,
@@ -58,6 +60,10 @@ async function cleanupPlatformTables() {
 
 function randomPort() {
   return 39500 + Math.floor(Math.random() * 500);
+}
+
+function isPostgresRuntime() {
+  return /^postgres(?:ql)?:\/\//i.test(String(process.env.DATABASE_URL || '').trim());
 }
 
 test('platform service manages tenant lifecycle, webhook delivery, analytics, and reconcile output', async (t) => {
@@ -168,7 +174,9 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
   }, 'test');
   assert.equal(offer.ok, true);
 
-  await prisma.purchase.createMany({
+  const tenantPrisma = getTenantScopedPrismaClient(tenant.tenant.id);
+
+  await tenantPrisma.purchase.createMany({
     data: [
       {
         code: 'PLATFORM-TEST-DELIVERED',
@@ -198,7 +206,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
       },
     ],
   });
-  await prisma.shopItem.createMany({
+  await tenantPrisma.shopItem.createMany({
     data: [
       {
         id: 'platform-test-item-1',
@@ -225,7 +233,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
       },
     ],
   });
-  await prisma.purchase.create({
+  await tenantPrisma.purchase.create({
     data: {
       code: 'PLATFORM-TEST-VIP-PENDING',
       tenantId: tenant.tenant.id,
@@ -308,4 +316,122 @@ test('platform service strict mode requires explicit global access for tenant-sc
 
   const reconcile = await reconcileDeliveryState({ allowGlobal: true });
   assert.equal(Boolean(reconcile.generatedAt), true);
+});
+
+test('platform service prefers tenant-scoped rows over stale shared copies', async (t) => {
+  if (!isPostgresRuntime()) {
+    t.skip('postgres runtime is required for scope precedence integration');
+    return;
+  }
+
+  const previousMode = process.env.TENANT_DB_TOPOLOGY_MODE;
+  const tenantId = `tenant-platform-precedence-${Date.now()}`;
+  const subscriptionId = `sub-precedence-${Date.now()}`;
+  const apiKeyId = `apikey-precedence-${Date.now()}`;
+  const tenantPrismaCleanup = () => getTenantScopedPrismaClient(tenantId);
+
+  process.env.TENANT_DB_TOPOLOGY_MODE = 'schema-per-tenant';
+  await disconnectAllPrismaClients().catch(() => null);
+
+  t.after(async () => {
+    const tenantPrisma = tenantPrismaCleanup();
+    await tenantPrisma.platformApiKey.deleteMany({
+      where: { id: apiKeyId },
+    }).catch(() => null);
+    await tenantPrisma.platformSubscription.deleteMany({
+      where: { id: subscriptionId },
+    }).catch(() => null);
+    await prisma.platformApiKey.deleteMany({
+      where: { id: apiKeyId },
+    }).catch(() => null);
+    await prisma.platformSubscription.deleteMany({
+      where: { id: subscriptionId },
+    }).catch(() => null);
+    await prisma.platformTenant.deleteMany({
+      where: { id: tenantId },
+    }).catch(() => null);
+    await disconnectAllPrismaClients().catch(() => null);
+    if (previousMode == null) {
+      delete process.env.TENANT_DB_TOPOLOGY_MODE;
+    } else {
+      process.env.TENANT_DB_TOPOLOGY_MODE = previousMode;
+    }
+  });
+
+  const tenant = await createTenant({
+    id: tenantId,
+    slug: tenantId,
+    name: 'Tenant Platform Precedence',
+    type: 'direct',
+    ownerEmail: 'precedence@example.com',
+  }, 'test');
+  assert.equal(tenant.ok, true);
+
+  const subscription = await createSubscription({
+    tenantId,
+    id: subscriptionId,
+    planId: 'platform-starter',
+    amountCents: 490000,
+    status: 'active',
+  }, 'test');
+  assert.equal(subscription.ok, true);
+
+  await prisma.platformSubscription.create({
+    data: {
+      id: subscriptionId,
+      tenantId,
+      planId: 'platform-starter',
+      billingCycle: 'monthly',
+      status: 'canceled',
+      currency: 'THB',
+      amountCents: 0,
+      startedAt: new Date(),
+      renewsAt: null,
+      canceledAt: new Date(),
+      externalRef: 'stale-shared-copy',
+      metadataJson: JSON.stringify({ source: 'shared-stale-copy' }),
+    },
+  });
+
+  const globalSubscriptions = await listPlatformSubscriptions({
+    allowGlobal: true,
+    limit: 200,
+  });
+  const resolvedSubscription = globalSubscriptions.find((row) => row.id === subscriptionId);
+  assert.equal(String(resolvedSubscription?.status || ''), 'active');
+  assert.equal(Number(resolvedSubscription?.amountCents || 0), 490000);
+
+  const apiKey = await createPlatformApiKey({
+    tenantId,
+    id: apiKeyId,
+    name: 'Scoped Key',
+    scopes: ['tenant:read'],
+  }, 'test');
+  assert.equal(apiKey.ok, true);
+
+  await prisma.platformApiKey.create({
+    data: {
+      id: apiKeyId,
+      tenantId,
+      name: 'Shared Stale Key',
+      keyPrefix: String(apiKey.rawKey || '').slice(0, 16),
+      keyHash: crypto.createHash('sha256').update(String(apiKey.rawKey || ''), 'utf8').digest('hex'),
+      scopesJson: JSON.stringify(['tenant:read']),
+      status: 'active',
+      revokedAt: null,
+    },
+  });
+
+  const tenantPrisma = tenantPrismaCleanup();
+  await tenantPrisma.platformApiKey.update({
+    where: { id: apiKeyId },
+    data: {
+      status: 'revoked',
+      revokedAt: new Date(),
+    },
+  });
+
+  const verified = await verifyPlatformApiKey(apiKey.rawKey, ['tenant:read']);
+  assert.equal(verified.ok, false);
+  assert.equal(String(verified.reason || ''), 'invalid-api-key');
 });

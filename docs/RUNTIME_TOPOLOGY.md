@@ -43,7 +43,7 @@ This exists for local development and targeted verification.
 ## Current Constraints
 
 - Delivery can run in `rcon` or `agent` mode, but agent mode still depends on a live SCUM window and Windows session.
-- Tenant isolation is enforced through application/config scope plus PostgreSQL RLS strict mode on the current tenant-scoped platform tables; it is still not database-per-tenant isolation.
+- Tenant-aware application paths are topology-ready through selected schema/database-per-tenant routing plus PostgreSQL RLS strict mode; this workstation now boots with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` and default tenant `1259096998045421672`.
 - Watcher health is allowed to report `disabled` when the runtime is intentionally turned off.
 
 ## Review Checklist

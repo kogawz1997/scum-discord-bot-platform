@@ -1,6 +1,8 @@
 const { getTenantScopedPrismaClient } = require('../prisma');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
 const {
+  buildScopedRowKey,
+  dedupeScopedRows,
   normalizeTenantId,
   readAcrossDeliveryPersistenceScopes,
 } = require('./deliveryPersistenceDb');
@@ -8,6 +10,32 @@ const {
 const DEFAULT_CACHE_WINDOW_MS = 15 * 1000;
 
 const dashboardCardsCache = new Map();
+
+const DASHBOARD_ROW_KEY_FIELDS = Object.freeze({
+  userWallet: ['userId'],
+  shopItem: ['id'],
+  purchase: ['code'],
+  ticketRecord: ['channelId'],
+  guildEvent: ['id'],
+  bounty: ['id'],
+  link: ['steamId'],
+  vipMembership: ['userId'],
+  redeemCode: ['code'],
+  stats: ['userId'],
+  weaponStat: ['weapon'],
+  dailyRent: ['userKey', 'date'],
+  rentalVehicle: ['orderId'],
+  deliveryQueueJob: ['purchaseCode'],
+  deliveryDeadLetter: ['purchaseCode'],
+  deliveryAudit: ['id'],
+});
+
+const DASHBOARD_TENANT_ID_MODELS = new Set([
+  'purchase',
+  'deliveryQueueJob',
+  'deliveryDeadLetter',
+  'deliveryAudit',
+]);
 
 function getDashboardCardsCacheWindowMs() {
   const raw = Number(process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS || DEFAULT_CACHE_WINDOW_MS);
@@ -23,7 +51,7 @@ function buildDashboardCards(metrics = {}) {
     ['จำนวนกระเป๋าเหรียญ', metrics.walletCount || 0],
     ['จำนวนสินค้า', metrics.shopItemCount || 0],
     ['จำนวนคำสั่งซื้อ', metrics.purchaseCount || 0],
-    ['จำนวนทิคเก็ต', metrics.ticketCount || 0],
+    ['จำนวนทิกเก็ต', metrics.ticketCount || 0],
     ['จำนวนกิจกรรม', metrics.eventCount || 0],
     ['จำนวนค่าหัว', metrics.bountyCount || 0],
     ['จำนวนลิงก์ Steam/Discord', metrics.linkCount || 0],
@@ -39,6 +67,15 @@ function buildDashboardCards(metrics = {}) {
   ];
 }
 
+function buildScopeSelect(modelName, fallbackField) {
+  const fields = DASHBOARD_ROW_KEY_FIELDS[modelName] || [fallbackField];
+  const select = Object.fromEntries(fields.map((field) => [field, true]));
+  if (DASHBOARD_TENANT_ID_MODELS.has(modelName)) {
+    select.tenantId = true;
+  }
+  return { fields, select };
+}
+
 async function queryAdminDashboardMetrics(options = {}) {
   const { prisma, client } = options;
   if (!prisma || typeof prisma.userWallet?.count !== 'function') {
@@ -52,13 +89,15 @@ async function queryAdminDashboardMetrics(options = {}) {
   const scopedPrisma = tenantId ? getTenantScopedPrismaClient(tenantId) : prisma;
 
   async function countRowsAcrossScopes(selectKey, modelName) {
+    const { fields, select } = buildScopeSelect(modelName, selectKey);
     const rows = await readAcrossDeliveryPersistenceScopes(
-      (db) => db?.[modelName]?.findMany({
-        select: { [selectKey]: true },
-      }),
+      (db) => db?.[modelName]?.findMany({ select }),
       tenantId ? { tenantId } : {},
     );
-    return rows.length;
+    return dedupeScopedRows(
+      rows,
+      (row) => buildScopedRowKey(row, fields, { mapSharedScopeToDefaultTenant: true }),
+    ).length;
   }
 
   if (tenantId || !usesTenantTopology) {

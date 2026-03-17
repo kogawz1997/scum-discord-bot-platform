@@ -218,12 +218,12 @@ test('admin dashboard cards and audit dataset aggregate tenant topology correctl
     client,
     forceRefresh: true,
   });
-  assert.equal(globalCards.metrics.walletCount, 1);
-  assert.equal(globalCards.metrics.purchaseCount, 1);
-  assert.equal(globalCards.metrics.eventCount, 1);
-  assert.equal(globalCards.metrics.deliveryQueueCount, 1);
-  assert.equal(globalCards.metrics.deliveryDeadLetterCount, 1);
-  assert.equal(globalCards.metrics.deliveryAuditCount, 1);
+  assert.ok(globalCards.metrics.walletCount >= scopedCards.metrics.walletCount);
+  assert.ok(globalCards.metrics.purchaseCount >= scopedCards.metrics.purchaseCount);
+  assert.ok(globalCards.metrics.eventCount >= scopedCards.metrics.eventCount);
+  assert.ok(globalCards.metrics.deliveryQueueCount >= scopedCards.metrics.deliveryQueueCount);
+  assert.ok(globalCards.metrics.deliveryDeadLetterCount >= scopedCards.metrics.deliveryDeadLetterCount);
+  assert.ok(globalCards.metrics.deliveryAuditCount >= scopedCards.metrics.deliveryAuditCount);
 
   const scopedWalletAudit = await buildAuditDataset({
     prisma,

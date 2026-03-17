@@ -6,11 +6,36 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { sendTestDeliveryCommand } = require('../src/services/rconDelivery');
+const {
+  addShopItem,
+  deleteShopItem,
+} = require('../src/store/memoryStore');
 
 const DEFAULT_CASES = Object.freeze([
-  Object.freeze({ label: 'consumable-water', gameItemId: 'Water_05l', quantity: 1 }),
-  Object.freeze({ label: 'weapon-m1911', gameItemId: 'Weapon_M1911', quantity: 1 }),
-  Object.freeze({ label: 'magazine-m1911', gameItemId: 'Magazine_M1911', quantity: 1 }),
+  Object.freeze({
+    label: 'consumable-water',
+    gameItemId: 'Water_05l',
+    quantity: 1,
+    deliveryClass: 'consumable',
+    deliveryProfile: 'spawn_only',
+    expectedProofStrategy: 'world-spawn-delta',
+  }),
+  Object.freeze({
+    label: 'weapon-m1911',
+    gameItemId: 'Weapon_M1911',
+    quantity: 1,
+    deliveryClass: 'weapon',
+    deliveryProfile: 'spawn_only',
+    expectedProofStrategy: 'world-spawn-delta',
+  }),
+  Object.freeze({
+    label: 'magazine-m1911',
+    gameItemId: 'Magazine_M1911',
+    quantity: 1,
+    deliveryClass: 'magazine',
+    deliveryProfile: 'spawn_only',
+    expectedProofStrategy: 'world-spawn-delta',
+  }),
 ]);
 
 function trimText(value, maxLen = 500) {
@@ -29,6 +54,7 @@ function sleep(ms) {
 function parseArgs(argv = process.argv.slice(2)) {
   const options = {
     steamId: String(process.env.PREFLIGHT_DELIVERY_TEST_STEAM_ID || '').trim(),
+    inGameName: String(process.env.PREFLIGHT_DELIVERY_TEST_INGAME_NAME || '').trim(),
     userId: 'native-proof-matrix',
     delayMs: 2500,
     jsonOut: '',
@@ -56,6 +82,15 @@ function parseArgs(argv = process.argv.slice(2)) {
     }
     if (part.startsWith('--user-id=')) {
       options.userId = trimText(part.slice('--user-id='.length), 120) || options.userId;
+      continue;
+    }
+    if (part === '--in-game-name' && argv[index + 1]) {
+      options.inGameName = trimText(argv[index + 1], 160) || options.inGameName;
+      index += 1;
+      continue;
+    }
+    if (part.startsWith('--in-game-name=')) {
+      options.inGameName = trimText(part.slice('--in-game-name='.length), 160) || options.inGameName;
       continue;
     }
     if (part === '--delay-ms' && argv[index + 1]) {
@@ -107,14 +142,27 @@ function parseArgs(argv = process.argv.slice(2)) {
   return options;
 }
 
-function normalizeMatrixCase(raw = {}, fallbackIndex = 0) {
+function normalizeMatrixCase(raw = {}, fallbackIndex = 0, defaults = {}) {
   const gameItemId = trimText(raw.gameItemId || raw.id, 160);
   if (!gameItemId) return null;
   const quantity = Math.max(1, Math.trunc(Number(raw.quantity || 1) || 1));
   return Object.freeze({
     label: trimText(raw.label, 120) || `case-${fallbackIndex + 1}`,
+    itemId: trimText(raw.itemId, 160) || null,
+    itemName: trimText(raw.itemName, 160) || null,
     gameItemId,
     quantity,
+    deliveryClass: trimText(raw.deliveryClass || raw.className || '', 120) || null,
+    deliveryProfile: trimText(raw.deliveryProfile || raw.profile || '', 120) || null,
+    deliveryTeleportMode: trimText(raw.deliveryTeleportMode || raw.teleportMode || '', 120) || null,
+    deliveryTeleportTarget: trimText(raw.deliveryTeleportTarget || raw.teleportTarget || '', 160) || null,
+    deliveryReturnTarget: trimText(raw.deliveryReturnTarget || raw.returnTarget || '', 160) || null,
+    inGameName: trimText(raw.inGameName || defaults.inGameName || '', 160) || null,
+    expectedProofStrategy: trimText(
+      raw.expectedProofStrategy || raw.expectedStrategy || '',
+      120,
+    ) || null,
+    notes: trimText(raw.notes || raw.note || '', 300) || null,
   });
 }
 
@@ -129,6 +177,7 @@ function parseInlineCase(raw, fallbackIndex = 0) {
       quantity: quantityText,
     },
     fallbackIndex,
+    {},
   );
 }
 
@@ -150,7 +199,7 @@ function loadMatrixCases(options = {}) {
     const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
     const rows = Array.isArray(parsed) ? parsed : parsed?.cases;
     const normalized = (Array.isArray(rows) ? rows : [])
-      .map((entry, index) => normalizeMatrixCase(entry, index))
+      .map((entry, index) => normalizeMatrixCase(entry, index, options))
       .filter(Boolean);
     if (normalized.length > 0) {
       return normalized;
@@ -158,6 +207,70 @@ function loadMatrixCases(options = {}) {
   }
 
   return DEFAULT_CASES;
+}
+
+function normalizeTempCaseId(value, fallback = 'native-proof-case') {
+  const text = trimText(value, 160)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return text || fallback;
+}
+
+function needsTemporaryShopItem(matrixCase = {}) {
+  return Boolean(
+    matrixCase.deliveryProfile
+    || matrixCase.deliveryTeleportMode
+    || matrixCase.deliveryTeleportTarget
+    || matrixCase.deliveryReturnTarget
+  );
+}
+
+async function withDeliveryTarget(matrixCase = {}, callback = async () => null) {
+  const existingItemId = trimText(matrixCase.itemId, 160);
+  if (!needsTemporaryShopItem(matrixCase)) {
+    return callback({
+      itemId: existingItemId || null,
+      itemName: trimText(matrixCase.itemName, 160) || null,
+    });
+  }
+
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tempItemId =
+    existingItemId
+    || `${normalizeTempCaseId(matrixCase.label || matrixCase.gameItemId)}-${suffix}`;
+  const tempItemName =
+    trimText(matrixCase.itemName, 160)
+    || trimText(matrixCase.label, 120)
+    || trimText(matrixCase.gameItemId, 160)
+    || tempItemId;
+  await addShopItem(
+    tempItemId,
+    tempItemName,
+    0,
+    'Temporary live native-proof matrix case',
+    {
+      kind: 'item',
+      deliveryItems: [
+        {
+          gameItemId: matrixCase.gameItemId,
+          quantity: matrixCase.quantity,
+        },
+      ],
+      deliveryProfile: matrixCase.deliveryProfile || undefined,
+      deliveryTeleportMode: matrixCase.deliveryTeleportMode || undefined,
+      deliveryTeleportTarget: matrixCase.deliveryTeleportTarget || undefined,
+      deliveryReturnTarget: matrixCase.deliveryReturnTarget || undefined,
+    },
+  );
+  try {
+    return await callback({
+      itemId: tempItemId,
+      itemName: tempItemName,
+    });
+  } finally {
+    await deleteShopItem(tempItemId).catch(() => null);
+  }
 }
 
 function buildCaseSummary(result = {}) {
@@ -170,6 +283,10 @@ function buildCaseSummary(result = {}) {
     label: trimText(result.label, 120) || null,
     gameItemId: trimText(result.gameItemId, 160) || null,
     quantity: Math.max(1, Math.trunc(Number(result.quantity || 1) || 1)),
+    deliveryClass: trimText(result.deliveryClass, 120) || null,
+    deliveryProfile: trimText(result.deliveryProfile, 120) || null,
+    expectedProofStrategy: trimText(result.expectedProofStrategy, 120) || null,
+    notes: trimText(result.notes, 300) || null,
     ok: nativeProof.ok === true,
     verificationOk: verification.ok === true,
     code: trimText(nativeProof.code || verification.code || '', 160) || null,
@@ -190,6 +307,23 @@ function buildCaseSummary(result = {}) {
 }
 
 function buildMarkdownReport(run = {}) {
+  const classSummary = new Map();
+  for (const entry of Array.isArray(run.results) ? run.results : []) {
+    const key = entry.deliveryClass || 'unclassified';
+    const summary = classSummary.get(key) || {
+      cases: 0,
+      proven: 0,
+      strategies: new Set(),
+    };
+    summary.cases += 1;
+    if (entry.ok === true && entry.verificationOk === true) {
+      summary.proven += 1;
+    }
+    if (entry.expectedProofStrategy) {
+      summary.strategies.add(entry.expectedProofStrategy);
+    }
+    classSummary.set(key, summary);
+  }
   const lines = [
     '# Live Native Proof Matrix',
     '',
@@ -199,20 +333,50 @@ function buildMarkdownReport(run = {}) {
     `executionMode: \`${run.executionMode || '-'}\``,
     `nativeProofMode: \`${run.nativeProofMode || '-'}\``,
     '',
-    '## Cases',
+    '## Delivery Class Summary',
     '',
   ];
+
+  if (classSummary.size === 0) {
+    lines.push('- no cases');
+  } else {
+    for (const [deliveryClass, summary] of classSummary.entries()) {
+      const strategies = Array.from(summary.strategies.values());
+      lines.push(
+        `- \`${deliveryClass}\`: ${summary.proven}/${summary.cases} cases proved`
+        + (strategies.length > 0 ? ` | expected: ${strategies.join(', ')}` : ''),
+      );
+    }
+  }
+
+  lines.push(
+    '',
+    '## Cases',
+    '',
+  );
 
   for (const entry of Array.isArray(run.results) ? run.results : []) {
     lines.push(`### ${entry.label || entry.gameItemId || 'case'}`);
     lines.push('');
     lines.push(`- gameItemId: \`${entry.gameItemId || '-'}\``);
     lines.push(`- quantity: \`${entry.quantity || 1}\``);
+    if (entry.deliveryClass) {
+      lines.push(`- deliveryClass: \`${entry.deliveryClass}\``);
+    }
+    if (entry.deliveryProfile) {
+      lines.push(`- deliveryProfile: \`${entry.deliveryProfile}\``);
+    }
+    if (entry.expectedProofStrategy) {
+      lines.push(`- expectedProofStrategy: \`${entry.expectedProofStrategy}\``);
+    }
     lines.push(`- verificationOk: \`${entry.verificationOk === true}\``);
     lines.push(`- nativeProofOk: \`${entry.ok === true}\``);
     lines.push(`- code: \`${entry.code || '-'}\``);
     lines.push(`- proofType: \`${entry.proofType || '-'}\``);
     lines.push(`- strategy: \`${entry.strategy || '-'}\``);
+    if (entry.notes) {
+      lines.push(`- notes: ${entry.notes}`);
+    }
     if (entry.detail) {
       lines.push(`- detail: ${entry.detail}`);
     }
@@ -255,20 +419,27 @@ async function main() {
   for (let index = 0; index < cases.length; index += 1) {
     const current = cases[index];
     const purchaseCode = `NPROOF-${Date.now()}-${index + 1}`;
-    const response = await sendTestDeliveryCommand({
-      gameItemId: current.gameItemId,
-      itemName: current.label,
-      quantity: current.quantity,
-      steamId: options.steamId,
-      userId: options.userId,
-      purchaseCode,
-    });
+    const response = await withDeliveryTarget(current, async (deliveryTarget = {}) =>
+      sendTestDeliveryCommand({
+        itemId: deliveryTarget.itemId || undefined,
+        gameItemId: deliveryTarget.itemId ? undefined : current.gameItemId,
+        itemName: deliveryTarget.itemName || current.itemName || current.label,
+        quantity: current.quantity,
+        steamId: options.steamId,
+        userId: options.userId,
+        purchaseCode,
+        inGameName: current.inGameName || options.inGameName || undefined,
+      }));
     results.push(
       buildCaseSummary({
         ...response,
         label: current.label,
         gameItemId: current.gameItemId,
         quantity: current.quantity,
+        deliveryClass: current.deliveryClass,
+        deliveryProfile: current.deliveryProfile,
+        expectedProofStrategy: current.expectedProofStrategy,
+        notes: current.notes,
       }),
     );
     if (index < cases.length - 1) {

@@ -1,18 +1,26 @@
-﻿const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const stats = new Map(); // userId -> stat
+function createScopeState() {
+  return {
+    stats: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getStatsDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureStatsScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeStatRow(row) {
@@ -28,28 +36,44 @@ function normalizeStatRow(row) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function buildEmptyStat() {
+  return {
+    kills: 0,
+    deaths: 0,
+    playtimeMinutes: 0,
+    squad: null,
+  };
+}
+
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise.catch(() => null);
+      }
       await work();
     })
     .catch((error) => {
       console.error(`[statsStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getStatsDb().stats.findMany();
+    const rows = await db.stats.findMany();
 
     if (rows.length === 0) {
-      if (stats.size > 0) {
+      if (state.stats.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [userId, value] of stats.entries()) {
-              await getStatsDb().stats.upsert({
+            for (const [userId, value] of state.stats.entries()) {
+              await db.stats.upsert({
                 where: { userId },
                 update: {
                   kills: value.kills,
@@ -85,40 +109,48 @@ async function hydrateFromPrisma() {
       });
     }
 
-    if (startVersion === mutationVersion) {
-      stats.clear();
+    if (startVersion === state.mutationVersion) {
+      state.stats.clear();
       for (const [userId, value] of hydrated.entries()) {
-        stats.set(userId, value);
+        state.stats.set(userId, value);
       }
       return;
     }
 
-    // There were local updates during hydration; merge missing users only.
     for (const [userId, value] of hydrated.entries()) {
-      if (stats.has(userId)) continue;
-      stats.set(userId, value);
+      if (!state.stats.has(userId)) {
+        state.stats.set(userId, value);
+      }
     }
   } catch (error) {
     console.error('[statsStore] failed to hydrate from prisma:', error.message);
+  } finally {
+    state.isHydrating = false;
   }
 }
 
-function initStatsStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initStatsStore(options = {}) {
+  const scope = ensureStatsScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushStatsStoreWrites() {
-  return dbWriteQueue;
+async function flushStatsStoreWrites(options = {}) {
+  const scope = ensureStatsScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function queueUpsertStat(userId, value, label) {
+function queueUpsertStat(scope, userId, value, label) {
   if (!String(userId || '').trim()) return;
   queueDbWrite(
+    scope,
     async () => {
-      await getStatsDb().stats.upsert({
+      await scope.db.stats.upsert({
         where: { userId },
         update: {
           kills: value.kills,
@@ -139,87 +171,86 @@ function queueUpsertStat(userId, value, label) {
   );
 }
 
-function getOrCreateStats(userIdRaw) {
+function getOrCreateStats(userIdRaw, options = {}) {
+  const scope = ensureStatsScope(options);
+  void initStatsStore(options);
   const userId = String(userIdRaw || '').trim();
   if (!userId) {
-    return {
-      kills: 0,
-      deaths: 0,
-      playtimeMinutes: 0,
-      squad: null,
-    };
+    return buildEmptyStat();
   }
 
-  let value = stats.get(userId);
+  let value = scope.state.stats.get(userId);
   if (!value) {
-    mutationVersion += 1;
-    value = {
-      kills: 0,
-      deaths: 0,
-      playtimeMinutes: 0,
-      squad: null,
-    };
-    stats.set(userId, value);
-    queueUpsertStat(userId, value, 'create-default');
+    scope.state.mutationVersion += 1;
+    value = buildEmptyStat();
+    scope.state.stats.set(userId, value);
+    queueUpsertStat(scope, userId, value, 'create-default');
   }
   return value;
 }
 
-function getStats(userId) {
-  return getOrCreateStats(userId);
+function getStats(userId, options = {}) {
+  return getOrCreateStats(userId, options);
 }
 
-function listAllStats() {
-  return Array.from(stats.entries()).map(([userId, value]) => ({
+function listAllStats(options = {}) {
+  const scope = ensureStatsScope(options);
+  void initStatsStore(options);
+  return Array.from(scope.state.stats.entries()).map(([userId, value]) => ({
     userId,
     ...value,
   }));
 }
 
-function addKill(userId, amount = 1) {
+function addKill(userId, amount = 1, options = {}) {
+  const scope = ensureStatsScope(options);
   const normalizedUserId = String(userId || '').trim();
-  if (!normalizedUserId) return getOrCreateStats(normalizedUserId);
-  const value = getOrCreateStats(normalizedUserId);
+  if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
+  const value = getOrCreateStats(normalizedUserId, options);
   const add = Number(amount || 0);
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   value.kills += add;
-  queueUpsertStat(normalizedUserId, value, 'add-kill');
+  queueUpsertStat(scope, normalizedUserId, value, 'add-kill');
   return value;
 }
 
-function addDeath(userId, amount = 1) {
+function addDeath(userId, amount = 1, options = {}) {
+  const scope = ensureStatsScope(options);
   const normalizedUserId = String(userId || '').trim();
-  if (!normalizedUserId) return getOrCreateStats(normalizedUserId);
-  const value = getOrCreateStats(normalizedUserId);
+  if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
+  const value = getOrCreateStats(normalizedUserId, options);
   const add = Number(amount || 0);
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   value.deaths += add;
-  queueUpsertStat(normalizedUserId, value, 'add-death');
+  queueUpsertStat(scope, normalizedUserId, value, 'add-death');
   return value;
 }
 
-function addPlaytimeMinutes(userId, minutes) {
+function addPlaytimeMinutes(userId, minutes, options = {}) {
+  const scope = ensureStatsScope(options);
   const normalizedUserId = String(userId || '').trim();
-  if (!normalizedUserId) return getOrCreateStats(normalizedUserId);
-  const value = getOrCreateStats(normalizedUserId);
+  if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
+  const value = getOrCreateStats(normalizedUserId, options);
   const add = Math.max(0, Number(minutes || 0));
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   value.playtimeMinutes += add;
-  queueUpsertStat(normalizedUserId, value, 'add-playtime');
+  queueUpsertStat(scope, normalizedUserId, value, 'add-playtime');
   return value;
 }
 
-function replaceStats(nextStats = []) {
-  mutationVersion += 1;
-  stats.clear();
+function replaceStats(nextStats = [], options = {}) {
+  const scope = ensureStatsScope(options);
+  void initStatsStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.stats.clear();
 
   for (const rowRaw of Array.isArray(nextStats) ? nextStats : []) {
     const row = normalizeStatRow(rowRaw);
     if (!row) continue;
-    stats.set(row.userId, {
+    scope.state.stats.set(row.userId, {
       kills: row.kills,
       deaths: row.deaths,
       playtimeMinutes: row.playtimeMinutes,
@@ -228,10 +259,11 @@ function replaceStats(nextStats = []) {
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getStatsDb().stats.deleteMany();
-      for (const [userId, value] of stats.entries()) {
-        await getStatsDb().stats.create({
+      await scope.db.stats.deleteMany();
+      for (const [userId, value] of scope.state.stats.entries()) {
+        await scope.db.stats.create({
           data: {
             userId,
             kills: value.kills,
@@ -245,7 +277,7 @@ function replaceStats(nextStats = []) {
     'replace-all',
   );
 
-  return stats.size;
+  return scope.state.stats.size;
 }
 
 initStatsStore();

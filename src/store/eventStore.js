@@ -1,20 +1,27 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const events = new Map(); // id -> event
-const eventParticipants = new Map(); // eventId -> Set(userId)
+function createScopeState() {
+  return {
+    events: new Map(),
+    eventParticipants: new Map(),
+    eventCounter: 1,
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+  };
+}
 
-let eventCounter = 1;
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getEventDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureEventScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeEvent(row = {}) {
@@ -29,21 +36,23 @@ function normalizeEvent(row = {}) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
       await work();
     })
     .catch((error) => {
       console.error(`[eventStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
   try {
-    const rows = await getEventDb().guildEvent.findMany({
+    const rows = await db.guildEvent.findMany({
       include: {
         participants: true,
       },
@@ -51,11 +60,12 @@ async function hydrateFromPrisma() {
     });
 
     if (rows.length === 0) {
-      if (events.size > 0) {
+      if (state.events.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const ev of events.values()) {
-              await getEventDb().guildEvent.upsert({
+            for (const ev of state.events.values()) {
+              await db.guildEvent.upsert({
                 where: { id: ev.id },
                 update: {
                   name: ev.name,
@@ -71,9 +81,9 @@ async function hydrateFromPrisma() {
                   status: ev.status,
                 },
               });
-              const participants = eventParticipants.get(ev.id) || new Set();
+              const participants = state.eventParticipants.get(ev.id) || new Set();
               for (const userId of participants) {
-                await getEventDb().guildEventParticipant.upsert({
+                await db.guildEventParticipant.upsert({
                   where: {
                     eventId_userId: {
                       eventId: ev.id,
@@ -111,62 +121,70 @@ async function hydrateFromPrisma() {
       );
     }
 
-    if (startVersion === mutationVersion) {
-      events.clear();
-      eventParticipants.clear();
+    if (startVersion === state.mutationVersion) {
+      state.events.clear();
+      state.eventParticipants.clear();
       for (const [id, ev] of hydratedEvents.entries()) {
-        events.set(id, ev);
+        state.events.set(id, ev);
       }
       for (const [id, set] of hydratedParticipants.entries()) {
-        eventParticipants.set(id, set);
+        state.eventParticipants.set(id, set);
       }
-      const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
-      eventCounter = Math.max(1, maxId + 1);
+      const maxId = Math.max(0, ...Array.from(state.events.keys()).map((n) => Number(n)));
+      state.eventCounter = Math.max(1, maxId + 1);
       return;
     }
 
     for (const [id, ev] of hydratedEvents.entries()) {
-      if (!events.has(id)) {
-        events.set(id, ev);
+      if (!state.events.has(id)) {
+        state.events.set(id, ev);
       }
-      if (!eventParticipants.has(id)) {
-        eventParticipants.set(id, hydratedParticipants.get(id) || new Set());
+      if (!state.eventParticipants.has(id)) {
+        state.eventParticipants.set(id, hydratedParticipants.get(id) || new Set());
       }
     }
-    const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
-    eventCounter = Math.max(eventCounter, maxId + 1);
+    const maxId = Math.max(0, ...Array.from(state.events.keys()).map((n) => Number(n)));
+    state.eventCounter = Math.max(state.eventCounter, maxId + 1);
   } catch (error) {
     console.error('[eventStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function initEventStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initEventStore(options = {}) {
+  const scope = ensureEventScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushEventStoreWrites() {
-  return dbWriteQueue;
+async function flushEventStoreWrites(options = {}) {
+  const scope = ensureEventScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function createEvent({ name, time, reward }) {
-  const id = eventCounter++;
+function createEvent(payload = {}, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  const id = scope.state.eventCounter++;
   const ev = {
     id,
-    name: String(name || ''),
-    time: String(time || ''),
-    reward: String(reward || ''),
-    status: 'scheduled', // scheduled | started | ended
+    name: String(payload.name || ''),
+    time: String(payload.time || ''),
+    reward: String(payload.reward || ''),
+    status: 'scheduled',
   };
-  events.set(id, ev);
-  eventParticipants.set(id, new Set());
-  mutationVersion += 1;
+  scope.state.events.set(id, ev);
+  scope.state.eventParticipants.set(id, new Set());
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getEventDb().guildEvent.upsert({
+      await scope.db.guildEvent.upsert({
         where: { id },
         update: {
           name: ev.name,
@@ -188,28 +206,35 @@ function createEvent({ name, time, reward }) {
   return ev;
 }
 
-function getEvent(id) {
-  return events.get(id) || null;
+function getEvent(id, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  return scope.state.events.get(id) || null;
 }
 
-function listEvents() {
-  return Array.from(events.values());
+function listEvents(options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  return Array.from(scope.state.events.values());
 }
 
-function joinEvent(id, userId) {
+function joinEvent(id, userId, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
   const eventId = Number(id);
-  const ev = events.get(eventId);
+  const ev = scope.state.events.get(eventId);
   if (!ev) return null;
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) return null;
-  const set = eventParticipants.get(eventId) || new Set();
+  const set = scope.state.eventParticipants.get(eventId) || new Set();
   set.add(normalizedUserId);
-  eventParticipants.set(eventId, set);
-  mutationVersion += 1;
+  scope.state.eventParticipants.set(eventId, set);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getEventDb().guildEventParticipant.upsert({
+      await scope.db.guildEventParticipant.upsert({
         where: {
           eventId_userId: {
             eventId,
@@ -228,16 +253,19 @@ function joinEvent(id, userId) {
   return { ev, participants: set };
 }
 
-function startEvent(id) {
+function startEvent(id, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
   const eventId = Number(id);
-  const ev = events.get(eventId);
+  const ev = scope.state.events.get(eventId);
   if (!ev) return null;
   ev.status = 'started';
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getEventDb().guildEvent.updateMany({
+      await scope.db.guildEvent.updateMany({
         where: { id: eventId },
         data: {
           status: ev.status,
@@ -249,16 +277,19 @@ function startEvent(id) {
   return ev;
 }
 
-function endEvent(id) {
+function endEvent(id, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
   const eventId = Number(id);
-  const ev = events.get(eventId);
+  const ev = scope.state.events.get(eventId);
   if (!ev) return null;
   ev.status = 'ended';
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getEventDb().guildEvent.updateMany({
+      await scope.db.guildEvent.updateMany({
         where: { id: eventId },
         data: {
           status: ev.status,
@@ -270,23 +301,27 @@ function endEvent(id) {
   return ev;
 }
 
-function getParticipants(id) {
+function getParticipants(id, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
   const eventId = Number(id);
-  const set = eventParticipants.get(eventId);
+  const set = scope.state.eventParticipants.get(eventId);
   if (!set) return [];
   return Array.from(set);
 }
 
-function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = null) {
-  mutationVersion += 1;
-  events.clear();
-  eventParticipants.clear();
+function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = null, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.events.clear();
+  scope.state.eventParticipants.clear();
 
   for (const row of Array.isArray(nextEvents) ? nextEvents : []) {
     const parsed = normalizeEvent(row);
     if (!parsed) continue;
-    events.set(parsed.id, parsed);
-    eventParticipants.set(parsed.id, new Set());
+    scope.state.events.set(parsed.id, parsed);
+    scope.state.eventParticipants.set(parsed.id, new Set());
   }
 
   if (Array.isArray(nextParticipants)) {
@@ -294,28 +329,29 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
       if (!row || typeof row !== 'object') continue;
       const eventId = Number(row.eventId || row.id || 0);
       if (!Number.isFinite(eventId) || eventId <= 0) continue;
-      const set = eventParticipants.get(eventId) || new Set();
+      const set = scope.state.eventParticipants.get(eventId) || new Set();
       for (const userId of Array.isArray(row.participants) ? row.participants : []) {
         const normalized = String(userId || '').trim();
         if (normalized) set.add(normalized);
       }
-      eventParticipants.set(eventId, set);
+      scope.state.eventParticipants.set(eventId, set);
     }
   }
 
   if (Number.isFinite(Number(nextCounter)) && Number(nextCounter) > 0) {
-    eventCounter = Math.max(1, Math.trunc(Number(nextCounter)));
+    scope.state.eventCounter = Math.max(1, Math.trunc(Number(nextCounter)));
   } else {
-    const maxId = Math.max(0, ...Array.from(events.keys()).map((n) => Number(n)));
-    eventCounter = maxId + 1;
+    const maxId = Math.max(0, ...Array.from(scope.state.events.keys()).map((n) => Number(n)));
+    scope.state.eventCounter = maxId + 1;
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getEventDb().guildEventParticipant.deleteMany({});
-      await getEventDb().guildEvent.deleteMany({});
-      for (const ev of events.values()) {
-        await getEventDb().guildEvent.create({
+      await scope.db.guildEventParticipant.deleteMany({});
+      await scope.db.guildEvent.deleteMany({});
+      for (const ev of scope.state.events.values()) {
+        await scope.db.guildEvent.create({
           data: {
             id: ev.id,
             name: ev.name,
@@ -325,9 +361,9 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
           },
         });
       }
-      for (const [eventId, participants] of eventParticipants.entries()) {
+      for (const [eventId, participants] of scope.state.eventParticipants.entries()) {
         for (const userId of participants) {
-          await getEventDb().guildEventParticipant.create({
+          await scope.db.guildEventParticipant.create({
             data: {
               eventId,
               userId,
@@ -338,7 +374,16 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
     },
     'replace-events',
   );
-  return events.size;
+  return scope.state.events.size;
+}
+
+function listAllEventsWithParticipants(options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  return Array.from(scope.state.events.values()).map((event) => ({
+    ...event,
+    participants: getParticipants(event.id, options),
+  }));
 }
 
 initEventStore();
@@ -351,6 +396,7 @@ module.exports = {
   startEvent,
   endEvent,
   getParticipants,
+  listAllEventsWithParticipants,
   replaceEvents,
   initEventStore,
   flushEventStoreWrites,

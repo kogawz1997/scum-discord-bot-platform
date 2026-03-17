@@ -24,6 +24,12 @@ Short factual summary of the release.
 - limitation 1
 - limitation 2
 
+## Runtime-Dependent Evidence Scope
+
+- current workstation only:
+- reproduced on additional workstation/runtime:
+- reproduced on additional SCUM server configuration:
+
 ## Verification
 
 - `npm run lint`

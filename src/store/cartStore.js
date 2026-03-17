@@ -1,18 +1,26 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const carts = new Map(); // userId -> { items: Map<itemId, quantity>, updatedAt }
+function createScopeState() {
+  return {
+    carts: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getCartDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureCartScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeUserId(value) {
@@ -67,31 +75,38 @@ function fromSerializableCart(row) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise.catch(() => null);
+      }
       await work();
     })
     .catch((error) => {
       console.error(`[cartStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getCartDb().cartEntry.findMany({
+    const rows = await db.cartEntry.findMany({
       orderBy: [{ updatedAt: 'desc' }],
     });
 
     if (rows.length === 0) {
-      if (carts.size > 0) {
+      if (state.carts.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [userId, cart] of carts.entries()) {
+            for (const [userId, cart] of state.carts.entries()) {
               for (const [itemId, quantity] of cart.items.entries()) {
-                await getCartDb().cartEntry.upsert({
+                await db.cartEntry.upsert({
                   where: {
                     userId_itemId: {
                       userId,
@@ -141,20 +156,20 @@ async function hydrateFromPrisma() {
       }
     }
 
-    if (startVersion === mutationVersion) {
-      carts.clear();
+    if (startVersion === state.mutationVersion) {
+      state.carts.clear();
       for (const [userId, cart] of hydrated.entries()) {
-        carts.set(userId, cart);
+        state.carts.set(userId, cart);
       }
       return;
     }
 
     for (const [userId, cart] of hydrated.entries()) {
-      if (!carts.has(userId)) {
-        carts.set(userId, cart);
+      if (!state.carts.has(userId)) {
+        state.carts.set(userId, cart);
         continue;
       }
-      const current = carts.get(userId);
+      const current = state.carts.get(userId);
       for (const [itemId, qty] of cart.items.entries()) {
         if (!current.items.has(itemId)) {
           current.items.set(itemId, qty);
@@ -166,31 +181,40 @@ async function hydrateFromPrisma() {
     }
   } catch (error) {
     console.error('[cartStore] failed to hydrate from prisma:', error.message);
+  } finally {
+    state.isHydrating = false;
   }
 }
 
-function initCartStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initCartStore(options = {}) {
+  const scope = ensureCartScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushCartStoreWrites() {
-  return dbWriteQueue;
+async function flushCartStoreWrites(options = {}) {
+  const scope = ensureCartScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function getOrCreateCart(userId) {
+function getOrCreateCart(userId, options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
   const key = normalizeUserId(userId);
   if (!key) return null;
 
-  let cart = carts.get(key);
+  let cart = scope.state.carts.get(key);
   if (!cart) {
     cart = {
       items: new Map(),
       updatedAt: new Date().toISOString(),
     };
-    carts.set(key, cart);
+    scope.state.carts.set(key, cart);
   }
   return cart;
 }
@@ -200,10 +224,12 @@ function touchCart(cart) {
   cart.updatedAt = new Date().toISOString();
 }
 
-function listCartItems(userId) {
+function listCartItems(userId, options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
   const key = normalizeUserId(userId);
   if (!key) return [];
-  const cart = carts.get(key);
+  const cart = scope.state.carts.get(key);
   if (!cart) return [];
   return Array.from(cart.items.entries()).map(([itemId, quantity]) => ({
     itemId,
@@ -211,17 +237,19 @@ function listCartItems(userId) {
   }));
 }
 
-function getCartUnits(userId) {
-  return listCartItems(userId).reduce((sum, row) => sum + row.quantity, 0);
+function getCartUnits(userId, options = {}) {
+  return listCartItems(userId, options).reduce((sum, row) => sum + row.quantity, 0);
 }
 
-function addCartItem(userId, itemId, quantity = 1) {
+function addCartItem(userId, itemId, quantity = 1, options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
   const key = normalizeUserId(userId);
   const itemKey = normalizeItemId(itemId);
   if (!key || !itemKey) return null;
 
-  mutationVersion += 1;
-  const cart = getOrCreateCart(key);
+  scope.state.mutationVersion += 1;
+  const cart = getOrCreateCart(key, options);
   const nextQty = normalizeQuantity(quantity, 1, 1);
   const prev = normalizeQuantity(cart.items.get(itemKey) || 0, 0, 0);
   const updatedQty = Math.max(1, prev + nextQty);
@@ -230,8 +258,9 @@ function addCartItem(userId, itemId, quantity = 1) {
 
   const updatedAt = normalizeIsoDate(cart.updatedAt);
   queueDbWrite(
+    scope,
     async () => {
-      await getCartDb().cartEntry.upsert({
+      await scope.db.cartEntry.upsert({
         where: {
           userId_itemId: {
             userId: key,
@@ -256,19 +285,21 @@ function addCartItem(userId, itemId, quantity = 1) {
   return {
     itemId: itemKey,
     quantity: updatedQty,
-    units: getCartUnits(key),
+    units: getCartUnits(key, options),
   };
 }
 
-function removeCartItem(userId, itemId, quantity = 1) {
+function removeCartItem(userId, itemId, quantity = 1, options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
   const key = normalizeUserId(userId);
   const itemKey = normalizeItemId(itemId);
   if (!key || !itemKey) return null;
 
-  const cart = carts.get(key);
+  const cart = scope.state.carts.get(key);
   if (!cart || !cart.items.has(itemKey)) return null;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   const dec = normalizeQuantity(quantity, 1, 1);
   const current = normalizeQuantity(cart.items.get(itemKey) || 0, 0, 0);
   const next = current - dec;
@@ -279,15 +310,16 @@ function removeCartItem(userId, itemId, quantity = 1) {
   }
 
   if (cart.items.size === 0) {
-    carts.delete(key);
+    scope.state.carts.delete(key);
   } else {
     touchCart(cart);
   }
 
   if (next <= 0) {
     queueDbWrite(
+      scope,
       async () => {
-        await getCartDb().cartEntry.deleteMany({
+        await scope.db.cartEntry.deleteMany({
           where: {
             userId: key,
             itemId: itemKey,
@@ -299,8 +331,9 @@ function removeCartItem(userId, itemId, quantity = 1) {
   } else {
     const updatedAt = normalizeIsoDate(cart.updatedAt);
     queueDbWrite(
+      scope,
       async () => {
-        await getCartDb().cartEntry.upsert({
+        await scope.db.cartEntry.upsert({
           where: {
             userId_itemId: {
               userId: key,
@@ -326,21 +359,24 @@ function removeCartItem(userId, itemId, quantity = 1) {
   return {
     itemId: itemKey,
     quantity: next > 0 ? next : 0,
-    units: getCartUnits(key),
+    units: getCartUnits(key, options),
   };
 }
 
-function clearCart(userId) {
+function clearCart(userId, options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
   const key = normalizeUserId(userId);
   if (!key) return false;
 
-  const existed = carts.delete(key);
+  const existed = scope.state.carts.delete(key);
   if (!existed) return false;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   queueDbWrite(
+    scope,
     async () => {
-      await getCartDb().cartEntry.deleteMany({
+      await scope.db.cartEntry.deleteMany({
         where: {
           userId: key,
         },
@@ -351,28 +387,32 @@ function clearCart(userId) {
   return true;
 }
 
-function listAllCarts() {
-  return Array.from(carts.entries()).map(([userId, cart]) =>
-    toSerializableCart(userId, cart),
-  );
+function listAllCarts(options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
+  return Array.from(scope.state.carts.entries()).map(([userId, cart]) =>
+    toSerializableCart(userId, cart));
 }
 
-function replaceCarts(nextCarts = []) {
-  mutationVersion += 1;
-  carts.clear();
+function replaceCarts(nextCarts = [], options = {}) {
+  const scope = ensureCartScope(options);
+  void initCartStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.carts.clear();
   for (const row of Array.isArray(nextCarts) ? nextCarts : []) {
     const parsed = fromSerializableCart(row);
     if (!parsed) continue;
-    carts.set(parsed.userId, parsed.cart);
+    scope.state.carts.set(parsed.userId, parsed.cart);
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getCartDb().cartEntry.deleteMany({});
-      for (const [userId, cart] of carts.entries()) {
+      await scope.db.cartEntry.deleteMany({});
+      for (const [userId, cart] of scope.state.carts.entries()) {
         const updatedAt = normalizeIsoDate(cart.updatedAt);
         for (const [itemId, quantity] of cart.items.entries()) {
-          await getCartDb().cartEntry.create({
+          await scope.db.cartEntry.create({
             data: {
               userId,
               itemId,
@@ -386,7 +426,7 @@ function replaceCarts(nextCarts = []) {
     'replace-carts',
   );
 
-  return carts.size;
+  return scope.state.carts.size;
 }
 
 initCartStore();

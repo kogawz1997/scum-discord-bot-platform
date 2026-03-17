@@ -68,13 +68,14 @@ function createPlayerGeneralRoutes(deps) {
       method,
       session,
     } = context;
+    const tenantOptions = {
+      tenantId: session?.tenantId || undefined,
+    };
 
     if (pathname === '/player/api/me' && method === 'GET') {
       const [account, link] = await Promise.all([
-        getPlayerAccount(session.discordId, {
-          tenantId: session?.tenantId || undefined,
-        }),
-        resolveSessionSteamLink(session.discordId),
+        getPlayerAccount(session.discordId, tenantOptions),
+        resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
       sendJson(res, 200, {
         ok: true,
@@ -182,10 +183,10 @@ function createPlayerGeneralRoutes(deps) {
         ? typeRaw
         : 'kills';
       const limit = asInt(urlObj.searchParams.get('limit'), 10, 3, 50);
-      const nameMap = await buildPlayerNameLookup();
+      const nameMap = await buildPlayerNameLookup(tenantOptions);
 
       if (type === 'economy') {
-        const rows = await listTopWallets(limit);
+        const rows = await listTopWallets(limit, tenantOptions);
         const items = rows.map((row, index) => {
           const userId = normalizeText(row?.userId);
           return {
@@ -199,7 +200,7 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const allStats = listAllStats().map((row) => {
+      const allStats = listAllStats(tenantOptions).map((row) => {
         const kills = normalizeAmount(row?.kills, 0);
         const deaths = normalizeAmount(row?.deaths, 0);
         const playtimeMinutes = normalizeAmount(row?.playtimeMinutes, 0);
@@ -230,7 +231,7 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/stats/me' && method === 'GET') {
-      const stats = getStats(session.discordId);
+      const stats = getStats(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -252,10 +253,8 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/profile' && method === 'GET') {
       const [account, link] = await Promise.all([
-        getPlayerAccount(session.discordId, {
-          tenantId: session?.tenantId || undefined,
-        }),
-        resolveSessionSteamLink(session.discordId),
+        getPlayerAccount(session.discordId, tenantOptions),
+        resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
       sendJson(res, 200, {
         ok: true,
@@ -284,17 +283,17 @@ function createPlayerGeneralRoutes(deps) {
     if (pathname === '/player/api/party' && method === 'GET') {
       sendJson(res, 200, {
         ok: true,
-        data: await resolvePartyContext(session.discordId),
+        data: await resolvePartyContext(session.discordId, tenantOptions),
       });
       return true;
     }
 
     if (pathname === '/player/api/party/chat' && method === 'GET') {
       const limit = asInt(urlObj.searchParams.get('limit'), 80, 1, 200);
-      const party = await resolvePartyContext(session.discordId);
+      const party = await resolvePartyContext(session.discordId, tenantOptions);
       const items =
         party.chatEnabled && party.partyKey
-          ? await listPartyMessages(party.partyKey, limit)
+          ? await listPartyMessages(party.partyKey, limit, tenantOptions)
           : [];
       sendJson(res, 200, {
         ok: true,
@@ -330,7 +329,7 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const party = await resolvePartyContext(session.discordId);
+      const party = await resolvePartyContext(session.discordId, tenantOptions);
       if (!party.chatEnabled || !party.partyKey) {
         sendJson(res, 400, {
           ok: false,
@@ -361,7 +360,7 @@ function createPlayerGeneralRoutes(deps) {
         userId: session.discordId,
         displayName,
         message,
-      });
+      }, tenantOptions);
       if (!addResult?.ok) {
         sendJson(res, 400, {
           ok: false,
@@ -416,7 +415,7 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/redeem/history' && method === 'GET') {
       const limit = asInt(urlObj.searchParams.get('limit'), 50, 1, 500);
-      const rows = listCodes()
+      const rows = listCodes(tenantOptions)
         .filter((row) => normalizeText(row.usedBy) === session.discordId)
         .sort((a, b) => {
           const at = a?.usedAt ? new Date(a.usedAt).getTime() : 0;
@@ -443,7 +442,7 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/rentbike/status' && method === 'GET') {
-      const link = await resolveSessionSteamLink(session.discordId);
+      const link = await resolveSessionSteamLink(session.discordId, tenantOptions);
       if (!link.linked || !link.steamId) {
         sendJson(res, 200, {
           ok: true,
@@ -463,8 +462,8 @@ function createPlayerGeneralRoutes(deps) {
       const timezone = getRentTimezone();
       const dateKey = getDateKeyInTimezone(timezone);
       const [dailyRent, rentals] = await Promise.all([
-        getDailyRent(link.steamId, dateKey),
-        listRentalVehicles(400),
+        getDailyRent(link.steamId, dateKey, tenantOptions),
+        listRentalVehicles(400, tenantOptions),
       ]);
       const history = rentals
         .filter((row) => normalizeText(row.userKey) === link.steamId)
@@ -494,16 +493,16 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/missions' && method === 'GET') {
       const [dailyCheck, weeklyCheck, rentLink] = await Promise.all([
-        canClaimDaily(session.discordId),
-        canClaimWeekly(session.discordId),
-        resolveSessionSteamLink(session.discordId),
+        canClaimDaily(session.discordId, tenantOptions),
+        canClaimWeekly(session.discordId, tenantOptions),
+        resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
       const timezone = getRentTimezone();
       const dateKey = getDateKeyInTimezone(timezone);
       let rentDaily = null;
       if (rentLink?.steamId) {
         await ensureRentBikeTables();
-        rentDaily = await getDailyRent(rentLink.steamId, dateKey);
+        rentDaily = await getDailyRent(rentLink.steamId, dateKey, tenantOptions);
       }
 
       sendJson(res, 200, {
@@ -552,7 +551,7 @@ function createPlayerGeneralRoutes(deps) {
       const limit = asInt(urlObj.searchParams.get('limit'), 20, 1, 80);
       sendJson(res, 200, {
         ok: true,
-        data: await buildWheelStatePayload(session.discordId, wheelConfig, limit),
+        data: await buildWheelStatePayload(session.discordId, wheelConfig, limit, tenantOptions),
       });
       return true;
     }
@@ -568,7 +567,12 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const check = await canSpinWheel(session.discordId, wheelConfig.cooldownMs);
+      const check = await canSpinWheel(
+        session.discordId,
+        wheelConfig.cooldownMs,
+        Date.now(),
+        tenantOptions,
+      );
       if (!check.ok) {
         sendJson(res, 429, {
           ok: false,
@@ -593,6 +597,7 @@ function createPlayerGeneralRoutes(deps) {
         reward,
         source: 'player-portal',
         actor: 'system',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!wheelResult.ok) {
         const error = wheelResult.reason || 'wheel-award-failed';
@@ -609,7 +614,12 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const wheelState = await buildWheelStatePayload(session.discordId, wheelConfig, 20);
+      const wheelState = await buildWheelStatePayload(
+        session.discordId,
+        wheelConfig,
+        20,
+        tenantOptions,
+      );
       const rewardData = wheelResult.reward || {};
       const rewardLabel = normalizeText(rewardData.label || reward.label || reward.id) || 'รางวัลพิเศษ';
       sendJson(res, 200, {
@@ -641,16 +651,16 @@ function createPlayerGeneralRoutes(deps) {
     if (pathname === '/player/api/notifications' && method === 'GET') {
       const limit = asInt(urlObj.searchParams.get('limit'), 30, 1, 100);
       const [purchasesRaw, ledgerRaw, rentLink] = await Promise.all([
-        deps.listUserPurchases(session.discordId),
+        deps.listUserPurchases(session.discordId, tenantOptions),
         listWalletLedger(session.discordId, limit, {
-          tenantId: session?.tenantId || undefined,
+          tenantId: tenantOptions.tenantId,
         }),
-        resolveSessionSteamLink(session.discordId),
+        resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
       let rentalRaw = [];
       if (rentLink?.steamId) {
         await ensureRentBikeTables();
-        const rentals = await listRentalVehicles(300);
+        const rentals = await listRentalVehicles(300, tenantOptions);
         rentalRaw = rentals.filter((row) => normalizeText(row.userKey) === rentLink.steamId);
       }
       const items = buildNotificationItems({
@@ -663,7 +673,7 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/linksteam/me' && method === 'GET') {
-      const link = await resolveSessionSteamLink(session.discordId);
+      const link = await resolveSessionSteamLink(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -677,7 +687,7 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/linksteam/history' && method === 'GET') {
-      const link = await resolveSessionSteamLink(session.discordId);
+      const link = await resolveSessionSteamLink(session.discordId, tenantOptions);
       const items = [];
       if (link?.steamId) {
         items.push({
@@ -710,7 +720,7 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const userCurrentLink = await resolveSessionSteamLink(session.discordId);
+      const userCurrentLink = await resolveSessionSteamLink(session.discordId, tenantOptions);
       if (userCurrentLink?.linked && normalizeText(userCurrentLink.steamId) !== steamId) {
         sendJson(res, 403, {
           ok: false,
@@ -737,7 +747,7 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const existing = getLinkBySteamId(steamId);
+      const existing = getLinkBySteamId(steamId, tenantOptions);
       if (existing && normalizeText(existing.userId) !== session.discordId) {
         sendJson(res, 409, {
           ok: false,
@@ -750,7 +760,7 @@ function createPlayerGeneralRoutes(deps) {
         steamId,
         userId: session.discordId,
         inGameName: null,
-      });
+      }, tenantOptions);
       if (!result?.ok) {
         sendJson(res, 400, {
           ok: false,
@@ -786,6 +796,7 @@ function createPlayerGeneralRoutes(deps) {
       const check = await checkRewardClaimForUser({
         userId: session.discordId,
         type: 'daily',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!check?.ok) {
         sendJson(res, 400, {
@@ -801,6 +812,7 @@ function createPlayerGeneralRoutes(deps) {
       const result = await claimRewardForUser({
         userId: session.discordId,
         type: 'daily',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         sendJson(res, 500, { ok: false, error: result.reason || 'daily-claim-failed' });
@@ -823,6 +835,7 @@ function createPlayerGeneralRoutes(deps) {
       const check = await checkRewardClaimForUser({
         userId: session.discordId,
         type: 'weekly',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!check?.ok) {
         sendJson(res, 400, {
@@ -838,6 +851,7 @@ function createPlayerGeneralRoutes(deps) {
       const result = await claimRewardForUser({
         userId: session.discordId,
         type: 'weekly',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         sendJson(res, 500, { ok: false, error: result.reason || 'weekly-claim-failed' });
@@ -877,6 +891,7 @@ function createPlayerGeneralRoutes(deps) {
         outReason: 'gift_transfer_out',
         inReason: 'gift_transfer_in',
         meta: { via: 'web-portal-standalone' },
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         const status = result.reason === 'insufficient-balance' ? 400 : 500;
@@ -903,9 +918,9 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
       const [dailyCheck, weeklyCheck, link] = await Promise.all([
-        canClaimDaily(session.discordId),
-        canClaimWeekly(session.discordId),
-        resolveSessionSteamLink(session.discordId),
+        canClaimDaily(session.discordId, tenantOptions),
+        canClaimWeekly(session.discordId, tenantOptions),
+        resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
 
       let rent = {
@@ -919,8 +934,8 @@ function createPlayerGeneralRoutes(deps) {
         const timezone = getRentTimezone();
         const dateKey = getDateKeyInTimezone(timezone);
         const [dailyRent, rentals] = await Promise.all([
-          getDailyRent(link.steamId, dateKey),
-          listRentalVehicles(250),
+          getDailyRent(link.steamId, dateKey, tenantOptions),
+          listRentalVehicles(250, tenantOptions),
         ]);
         const history = rentals
           .filter((row) => normalizeText(row.userKey) === link.steamId)

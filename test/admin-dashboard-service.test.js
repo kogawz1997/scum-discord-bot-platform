@@ -18,7 +18,11 @@ function createCountTracker() {
 }
 
 test('admin dashboard cards uses cache window and refresh override', async () => {
+  const previousTopologyMode = process.env.TENANT_DB_TOPOLOGY_MODE;
+  const previousCacheWindow = process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS;
   process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS = '60000';
+  process.env.TENANT_DB_TOPOLOGY_MODE = 'shared';
+  try {
   clearAdminDashboardCardsCache();
 
   const trackers = Array.from({ length: 15 }, () => createCountTracker());
@@ -64,4 +68,16 @@ test('admin dashboard cards uses cache window and refresh override', async () =>
   });
   assert.equal(deliveryAuditCountCalls, 2);
   clearAdminDashboardCardsCache();
+  } finally {
+    if (previousTopologyMode) {
+      process.env.TENANT_DB_TOPOLOGY_MODE = previousTopologyMode;
+    } else {
+      delete process.env.TENANT_DB_TOPOLOGY_MODE;
+    }
+    if (previousCacheWindow) {
+      process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS = previousCacheWindow;
+    } else {
+      delete process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS;
+    }
+  }
 });

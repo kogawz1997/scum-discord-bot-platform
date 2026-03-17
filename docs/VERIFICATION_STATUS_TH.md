@@ -47,17 +47,24 @@ npm run ci:verify
 
 On this workstation as of `2026-03-17`:
 
+- the runtime boots with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant`
+- default tenant `1259096998045421672` is provisioned at PostgreSQL schema `tenant_1259096998045421672`
 - watcher is `ready` against the real `SCUM.log`
 - console-agent is `ready` and preflight passes against the live `SCUM` window
 - one live agent command was observed in `SCUM.log`
-- one live native delivery proof matrix was observed from `SCUM.db` for `Water_05l`, `Weapon_M1911`, `Magazine_M1911`, and `Weapon_AK47`
+- live delivery-audit rows exist under `tenant_1259096998045421672."DeliveryAudit"` after the cutover
+- live native delivery proof matrices were observed from `SCUM.db` for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
 
 Summary evidence:
 
 - [assets/live-runtime-evidence.md](./assets/live-runtime-evidence.md)
+- [assets/live-native-proof-coverage-summary.md](./assets/live-native-proof-coverage-summary.md)
 
 ## What This File Still Does Not Prove
 
-- native proof coverage for every delivery item type or every SCUM server configuration
-- full database-per-tenant isolation beyond the current PostgreSQL RLS strict foundation and topology routing
+- native proof coverage for every SCUM server configuration or every workstation/runtime
+- a second verified native-proof environment; pending targets are tracked in `assets/live-native-proof-environments.json`
+- the partial `EnableSpawnOnGround=True` sample and the blocked same-workstation `rcon` attempt are tracked as evidence, but neither is counted as a second verified environment
+- a second live tenant-topology deployment on another workstation/environment
+- any `database-per-tenant` deployment evidence
 - behavior on another workstation without the same Windows session, SCUM client, `SCUM.db`, and `SCUM.log` paths

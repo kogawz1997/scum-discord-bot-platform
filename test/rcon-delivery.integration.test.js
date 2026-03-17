@@ -777,6 +777,71 @@ test('required native delivery proof can fail verification when external verifie
   );
 });
 
+test('manual test send executes profile pre/item/post hooks in agent mode', async () => {
+  const agent = await startFakeAgentServer();
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-manual-profile';
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'manual-profile-item': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+  ctx.shopItems.set('manual-profile-item', {
+    id: 'manual-profile-item',
+    name: 'Manual Profile Item',
+    kind: 'item',
+    deliveryProfile: 'announce_teleport_spawn',
+    deliveryReturnTarget: 'Admin Anchor',
+    deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const result = await api.sendTestDeliveryCommand({
+      itemId: 'manual-profile-item',
+      steamId: '76561198000000001',
+      userId: 'u-1',
+      purchaseCode: 'P-MANUAL-PROFILE',
+      inGameName: 'Coke TAMTHAI',
+    });
+
+    assert.equal(result.verification.ok, true);
+    assert.deepEqual(agent.received, [
+      '#Announce Delivering Manual Profile Item to Coke TAMTHAI',
+      '#TeleportTo "Coke TAMTHAI"',
+      '#SpawnItem Weapon_M1911 1',
+      '#TeleportTo "Admin Anchor"',
+    ]);
+    assert.deepEqual(
+      result.outputs.map((entry) => ({
+        phase: entry.phase,
+        command: entry.command,
+      })),
+      [
+        {
+          phase: 'pre',
+          command: '#Announce Delivering Manual Profile Item to Coke TAMTHAI',
+        },
+        {
+          phase: 'pre',
+          command: '#TeleportTo "Coke TAMTHAI"',
+        },
+        {
+          phase: 'item',
+          command: '#SpawnItem Weapon_M1911 1',
+        },
+        {
+          phase: 'post',
+          command: '#TeleportTo "Admin Anchor"',
+        },
+      ],
+    );
+  } finally {
+    await agent.close();
+  }
+});
+
 test('agent mode verification failure moves job to dead-letter after command execution', async () => {
   const agent = await startFakeAgentServer();
   process.env.DELIVERY_EXECUTION_MODE = 'agent';

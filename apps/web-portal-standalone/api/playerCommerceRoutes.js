@@ -45,12 +45,15 @@ function createPlayerCommerceRoutes(deps) {
       method,
       session,
     } = context;
+    const tenantOptions = {
+      tenantId: session?.tenantId || undefined,
+    };
 
     if (pathname === '/player/api/shop/list' && method === 'GET') {
       const q = normalizeText(urlObj.searchParams.get('q'));
       const kind = normalizeText(urlObj.searchParams.get('kind') || 'all') || 'all';
       const limit = asInt(urlObj.searchParams.get('limit'), 120, 1, 1000);
-      const rows = await listShopItems();
+      const rows = await listShopItems(tenantOptions);
       const items = deps.filterShopItems(rows, { q, kind, limit });
       sendJson(res, 200, {
         ok: true,
@@ -72,7 +75,7 @@ function createPlayerCommerceRoutes(deps) {
         return true;
       }
 
-      const item = await findShopItemByQuery(query);
+      const item = await findShopItemByQuery(query, tenantOptions);
       if (!item) {
         sendJson(res, 404, { ok: false, error: 'item-not-found' });
         return true;
@@ -85,7 +88,8 @@ function createPlayerCommerceRoutes(deps) {
         guildId: normalizeText(body.guildId) || null,
         actor: `portal:${session.user}`,
         source: 'player-portal-buy',
-        resolveSteamLink: async () => resolveSessionSteamLink(session.discordId),
+        tenantId: tenantOptions.tenantId || null,
+        resolveSteamLink: async () => resolveSessionSteamLink(session.discordId, tenantOptions),
       });
       if (!result.ok) {
         if (result.reason === 'steam-link-required') {
@@ -149,8 +153,8 @@ function createPlayerCommerceRoutes(deps) {
       const limit = asInt(urlObj.searchParams.get('limit'), 40, 1, 200);
       const includeHistory = urlObj.searchParams.get('includeHistory') === '1';
       const [rows, shopRows] = await Promise.all([
-        listUserPurchases(session.discordId),
-        listShopItems(),
+        listUserPurchases(session.discordId, tenantOptions),
+        listShopItems(tenantOptions),
       ]);
       const shopMap = new Map(
         (Array.isArray(shopRows) ? shopRows : []).map((row) => [String(row.id), row]),
@@ -181,7 +185,7 @@ function createPlayerCommerceRoutes(deps) {
 
       if (includeHistory && items.length > 0) {
         const historyRows = await Promise.all(
-          items.map((row) => listPurchaseStatusHistory(row.code, 20)),
+          items.map((row) => listPurchaseStatusHistory(row.code, 20, tenantOptions)),
         );
         items = items.map((row, index) => ({
           ...row,
@@ -202,8 +206,8 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart' && method === 'GET') {
-      const raw = listCartItems(session.discordId);
-      const resolved = await getResolvedCart(session.discordId);
+      const raw = listCartItems(session.discordId, tenantOptions);
+      const resolved = await getResolvedCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -223,14 +227,14 @@ function createPlayerCommerceRoutes(deps) {
         return true;
       }
 
-      const item = await findShopItemByQuery(query);
+      const item = await findShopItemByQuery(query, tenantOptions);
       if (!item) {
         sendJson(res, 404, { ok: false, error: 'item-not-found' });
         return true;
       }
 
       if (isGameItemShopKind(item.kind)) {
-        const steamLink = await resolveSessionSteamLink(session.discordId);
+        const steamLink = await resolveSessionSteamLink(session.discordId, tenantOptions);
         if (!steamLink.linked || !steamLink.steamId) {
           sendJson(res, 400, {
             ok: false,
@@ -243,8 +247,8 @@ function createPlayerCommerceRoutes(deps) {
         }
       }
 
-      addCartItem(session.discordId, item.id, quantity);
-      const resolved = await getResolvedCart(session.discordId);
+      addCartItem(session.discordId, item.id, quantity, tenantOptions);
+      const resolved = await getResolvedCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -266,14 +270,14 @@ function createPlayerCommerceRoutes(deps) {
         return true;
       }
 
-      const item = await findShopItemByQuery(query);
+      const item = await findShopItemByQuery(query, tenantOptions);
       const itemId = item?.id || query;
-      const removed = removeCartItem(session.discordId, itemId, quantity);
+      const removed = removeCartItem(session.discordId, itemId, quantity, tenantOptions);
       if (!removed) {
         sendJson(res, 404, { ok: false, error: 'cart-item-not-found' });
         return true;
       }
-      const resolved = await getResolvedCart(session.discordId);
+      const resolved = await getResolvedCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -287,7 +291,7 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart/clear' && method === 'POST') {
-      clearCart(session.discordId);
+      clearCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -303,8 +307,8 @@ function createPlayerCommerceRoutes(deps) {
 
     if (pathname === '/player/api/cart/checkout' && method === 'POST') {
       const body = await readJsonBody(req).catch(() => ({}));
-      const steamLink = await resolveSessionSteamLink(session.discordId);
-      const resolvedBeforeCheckout = await getResolvedCart(session.discordId);
+      const steamLink = await resolveSessionSteamLink(session.discordId, tenantOptions);
+      const resolvedBeforeCheckout = await getResolvedCart(session.discordId, tenantOptions);
       const needsSteam = Array.isArray(resolvedBeforeCheckout?.rows)
         && resolvedBeforeCheckout.rows.some(
           (row) => isGameItemShopKind(row?.item?.kind),
@@ -325,6 +329,7 @@ function createPlayerCommerceRoutes(deps) {
         guildId: normalizeText(body.guildId) || null,
         actor: `portal:${session.user}`,
         source: 'player-portal-cart-checkout',
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         sendJson(res, 400, {
@@ -361,7 +366,7 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/bounty/list' && method === 'GET') {
-      const items = listActiveBountiesForUser();
+      const items = listActiveBountiesForUser(tenantOptions);
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -388,6 +393,7 @@ function createPlayerCommerceRoutes(deps) {
         code,
         actor: `portal:${session.user}`,
         source: 'player-portal-standalone',
+        tenantId: tenantOptions.tenantId || null,
       });
 
       if (!result.ok) {
@@ -424,6 +430,7 @@ function createPlayerCommerceRoutes(deps) {
       const result = await requestRentBikeForUser({
         discordUserId: session.discordId,
         guildId: normalizeText(body.guildId) || null,
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         sendJson(res, 400, {
@@ -448,6 +455,7 @@ function createPlayerCommerceRoutes(deps) {
         createdBy: session.discordId,
         targetName,
         amount,
+        tenantId: tenantOptions.tenantId || null,
       });
       if (!result.ok) {
         sendJson(res, 400, {

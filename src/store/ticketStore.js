@@ -1,19 +1,26 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const tickets = new Map(); // channelId -> ticket
-let ticketCounter = 1;
+function createScopeState() {
+  return {
+    tickets: new Map(),
+    ticketCounter: 1,
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getTicketDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureTicketScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeDate(value, fallback = null) {
@@ -40,30 +47,33 @@ function normalizeTicket(row = {}) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
       await work();
     })
     .catch((error) => {
       console.error(`[ticketStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
   try {
-    const rows = await getTicketDb().ticketRecord.findMany({
+    const rows = await db.ticketRecord.findMany({
       orderBy: [{ createdAt: 'desc' }],
     });
 
     if (rows.length === 0) {
-      if (tickets.size > 0) {
+      if (state.tickets.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const value of tickets.values()) {
-              await getTicketDb().ticketRecord.upsert({
+            for (const value of state.tickets.values()) {
+              await db.ticketRecord.upsert({
                 where: { channelId: value.channelId },
                 update: {
                   id: value.id,
@@ -104,59 +114,68 @@ async function hydrateFromPrisma() {
       hydrated.set(parsed.channelId, parsed);
     }
 
-    if (startVersion === mutationVersion) {
-      tickets.clear();
+    if (startVersion === state.mutationVersion) {
+      state.tickets.clear();
       for (const [channelId, value] of hydrated.entries()) {
-        tickets.set(channelId, value);
+        state.tickets.set(channelId, value);
       }
-      const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
-      ticketCounter = Math.max(1, maxId + 1);
+      const maxId = Math.max(0, ...Array.from(state.tickets.values()).map((t) => Number(t.id || 0)));
+      state.ticketCounter = Math.max(1, maxId + 1);
       return;
     }
 
     for (const [channelId, value] of hydrated.entries()) {
-      if (!tickets.has(channelId)) {
-        tickets.set(channelId, value);
+      if (!state.tickets.has(channelId)) {
+        state.tickets.set(channelId, value);
       }
     }
-    const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
-    ticketCounter = Math.max(ticketCounter, maxId + 1);
+    const maxId = Math.max(0, ...Array.from(state.tickets.values()).map((t) => Number(t.id || 0)));
+    state.ticketCounter = Math.max(state.ticketCounter, maxId + 1);
   } catch (error) {
     console.error('[ticketStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function initTicketStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initTicketStore(options = {}) {
+  const scope = ensureTicketScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushTicketStoreWrites() {
-  return dbWriteQueue;
+async function flushTicketStoreWrites(options = {}) {
+  const scope = ensureTicketScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function createTicket({ guildId, userId, channelId, category, reason }) {
-  const id = ticketCounter++;
+function createTicket(payload = {}, options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  const id = scope.state.ticketCounter++;
   const t = normalizeTicket({
     id,
-    guildId,
-    userId,
-    channelId,
-    category,
-    reason,
+    guildId: payload.guildId,
+    userId: payload.userId,
+    channelId: payload.channelId,
+    category: payload.category,
+    reason: payload.reason,
     status: 'open',
     claimedBy: null,
     createdAt: new Date(),
     closedAt: null,
   });
-  tickets.set(t.channelId, t);
-  mutationVersion += 1;
+  if (!t) return null;
+  scope.state.tickets.set(t.channelId, t);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getTicketDb().ticketRecord.upsert({
+      await scope.db.ticketRecord.upsert({
         where: { channelId: t.channelId },
         update: {
           id: t.id,
@@ -188,20 +207,31 @@ function createTicket({ guildId, userId, channelId, category, reason }) {
   return t;
 }
 
-function getTicketByChannel(channelId) {
-  return tickets.get(channelId) || null;
+function getTicketByChannel(channelId, options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  return scope.state.tickets.get(channelId) || null;
 }
 
-function claimTicket(channelId, staffId) {
-  const t = tickets.get(channelId);
+function listTickets(options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  return Array.from(scope.state.tickets.values());
+}
+
+function claimTicket(channelId, staffId, options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  const t = scope.state.tickets.get(channelId);
   if (!t) return null;
   t.status = 'claimed';
   t.claimedBy = String(staffId || '');
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getTicketDb().ticketRecord.updateMany({
+      await scope.db.ticketRecord.updateMany({
         where: { channelId },
         data: {
           status: t.status,
@@ -214,16 +244,19 @@ function claimTicket(channelId, staffId) {
   return t;
 }
 
-function closeTicket(channelId) {
-  const t = tickets.get(channelId);
+function closeTicket(channelId, options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  const t = scope.state.tickets.get(channelId);
   if (!t) return null;
   t.status = 'closed';
   t.closedAt = new Date();
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getTicketDb().ticketRecord.updateMany({
+      await scope.db.ticketRecord.updateMany({
         where: { channelId },
         data: {
           status: t.status,
@@ -236,27 +269,30 @@ function closeTicket(channelId) {
   return t;
 }
 
-function replaceTickets(nextTickets = [], nextCounter = null) {
-  mutationVersion += 1;
-  tickets.clear();
+function replaceTickets(nextTickets = [], nextCounter = null, options = {}) {
+  const scope = ensureTicketScope(options);
+  void initTicketStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.tickets.clear();
   for (const row of Array.isArray(nextTickets) ? nextTickets : []) {
     const parsed = normalizeTicket(row);
     if (!parsed) continue;
-    tickets.set(parsed.channelId, parsed);
+    scope.state.tickets.set(parsed.channelId, parsed);
   }
 
   if (Number.isFinite(Number(nextCounter)) && Number(nextCounter) > 0) {
-    ticketCounter = Math.max(1, Math.trunc(Number(nextCounter)));
+    scope.state.ticketCounter = Math.max(1, Math.trunc(Number(nextCounter)));
   } else {
-    const maxId = Math.max(0, ...Array.from(tickets.values()).map((t) => Number(t.id || 0)));
-    ticketCounter = maxId + 1;
+    const maxId = Math.max(0, ...Array.from(scope.state.tickets.values()).map((t) => Number(t.id || 0)));
+    scope.state.ticketCounter = maxId + 1;
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getTicketDb().ticketRecord.deleteMany({});
-      for (const value of tickets.values()) {
-        await getTicketDb().ticketRecord.create({
+      await scope.db.ticketRecord.deleteMany({});
+      for (const value of scope.state.tickets.values()) {
+        await scope.db.ticketRecord.create({
           data: {
             channelId: value.channelId,
             id: value.id,
@@ -274,15 +310,15 @@ function replaceTickets(nextTickets = [], nextCounter = null) {
     },
     'replace-tickets',
   );
-  return tickets.size;
+  return scope.state.tickets.size;
 }
 
 initTicketStore();
 
 module.exports = {
-  tickets,
   createTicket,
   getTicketByChannel,
+  listTickets,
   claimTicket,
   closeTicket,
   replaceTickets,

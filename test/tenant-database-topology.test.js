@@ -23,8 +23,8 @@ test('tenant database topology mode reads from env', () => {
 });
 
 test('tenant database topology builds schema and database names from tenant ids', () => {
-  assert.equal(buildTenantSchemaName('tenant-a'), 'tenant_tenant_a');
-  assert.equal(buildTenantDatabaseName('tenant-a'), 'tenant_tenant_a');
+  assert.equal(buildTenantSchemaName('tenant-a', {}), 'tenant_tenant_a');
+  assert.equal(buildTenantDatabaseName('tenant-a', {}), 'tenant_tenant_a');
   assert.equal(
     buildTenantSchemaName('Tenant A', { TENANT_DB_SCHEMA_PREFIX: 'scum_' }),
     'scum_tenant_a',

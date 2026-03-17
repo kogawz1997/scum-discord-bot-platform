@@ -1,12 +1,7 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
-
-function getRentBikeDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
-  }
-  return getDefaultTenantScopedPrismaClient();
+function getRentBikeDb(options = {}) {
+  return resolveTenantStoreScope(options).db;
 }
 
 async function ensureTables() {
@@ -40,9 +35,9 @@ function normalizeRental(row) {
   };
 }
 
-async function getDailyRent(userKey, date) {
+async function getDailyRent(userKey, date, options = {}) {
   await ensureTables();
-  const row = await getRentBikeDb().dailyRent.findUnique({
+  const row = await getRentBikeDb(options).dailyRent.findUnique({
     where: {
       userKey_date: {
         userKey: String(userKey || ''),
@@ -53,9 +48,9 @@ async function getDailyRent(userKey, date) {
   return normalizeDailyRent(row);
 }
 
-async function markDailyRentUsed(userKey, date) {
+async function markDailyRentUsed(userKey, date, options = {}) {
   await ensureTables();
-  await getRentBikeDb().dailyRent.upsert({
+  await getRentBikeDb(options).dailyRent.upsert({
     where: {
       userKey_date: {
         userKey: String(userKey || ''),
@@ -72,12 +67,12 @@ async function markDailyRentUsed(userKey, date) {
       used: true,
     },
   });
-  return getDailyRent(userKey, date);
+  return getDailyRent(userKey, date, options);
 }
 
-async function createRentalOrder({ orderId, userKey, guildId = null }) {
+async function createRentalOrder({ orderId, userKey, guildId = null }, options = {}) {
   await ensureTables();
-  await getRentBikeDb().rentalVehicle.create({
+  await getRentBikeDb(options).rentalVehicle.create({
     data: {
       orderId: String(orderId || ''),
       userKey: String(userKey || ''),
@@ -89,23 +84,23 @@ async function createRentalOrder({ orderId, userKey, guildId = null }) {
       destroyedAt: null,
     },
   });
-  return getRentalOrder(orderId);
+  return getRentalOrder(orderId, options);
 }
 
-async function getRentalOrder(orderId) {
+async function getRentalOrder(orderId, options = {}) {
   await ensureTables();
-  const row = await getRentBikeDb().rentalVehicle.findUnique({
+  const row = await getRentBikeDb(options).rentalVehicle.findUnique({
     where: { orderId: String(orderId || '') },
   });
   return normalizeRental(row);
 }
 
-async function setRentalOrderStatus(orderId, status, extra = {}) {
+async function setRentalOrderStatus(orderId, status, extra = {}, options = {}) {
   await ensureTables();
-  const current = await getRentalOrder(orderId);
+  const current = await getRentalOrder(orderId, options);
   if (!current) return null;
 
-  await getRentBikeDb().rentalVehicle.update({
+  await getRentBikeDb(options).rentalVehicle.update({
     where: { orderId: String(orderId || '') },
     data: {
       status: String(status || current.status || 'pending'),
@@ -131,12 +126,12 @@ async function setRentalOrderStatus(orderId, status, extra = {}) {
     },
   });
 
-  return getRentalOrder(orderId);
+  return getRentalOrder(orderId, options);
 }
 
-async function updateRentalAttempt(orderId, attemptCount, lastError = null) {
+async function updateRentalAttempt(orderId, attemptCount, lastError = null, options = {}) {
   await ensureTables();
-  await getRentBikeDb().rentalVehicle.updateMany({
+  await getRentBikeDb(options).rentalVehicle.updateMany({
     where: { orderId: String(orderId || '') },
     data: {
       attemptCount: Number(attemptCount || 0),
@@ -144,10 +139,10 @@ async function updateRentalAttempt(orderId, attemptCount, lastError = null) {
       updatedAt: new Date(),
     },
   });
-  return getRentalOrder(orderId);
+  return getRentalOrder(orderId, options);
 }
 
-async function listRentalVehiclesByStatuses(statuses, limit = 5000) {
+async function listRentalVehiclesByStatuses(statuses, limit = 5000, options = {}) {
   await ensureTables();
   const values = Array.isArray(statuses)
     ? statuses
@@ -156,7 +151,7 @@ async function listRentalVehiclesByStatuses(statuses, limit = 5000) {
     : [];
   if (values.length === 0) return [];
 
-  const rows = await getRentBikeDb().rentalVehicle.findMany({
+  const rows = await getRentBikeDb(options).rentalVehicle.findMany({
     where: {
       status: { in: values },
     },
@@ -166,37 +161,37 @@ async function listRentalVehiclesByStatuses(statuses, limit = 5000) {
   return rows.map(normalizeRental);
 }
 
-async function listRentalVehicles(limit = 500) {
+async function listRentalVehicles(limit = 500, options = {}) {
   await ensureTables();
-  const rows = await getRentBikeDb().rentalVehicle.findMany({
+  const rows = await getRentBikeDb(options).rentalVehicle.findMany({
     orderBy: { createdAt: 'desc' },
     take: Math.max(1, Number(limit || 500)),
   });
   return rows.map(normalizeRental);
 }
 
-async function listDailyRents(limit = 1000) {
+async function listDailyRents(limit = 1000, options = {}) {
   await ensureTables();
-  const rows = await getRentBikeDb().dailyRent.findMany({
+  const rows = await getRentBikeDb(options).dailyRent.findMany({
     orderBy: [{ date: 'desc' }, { updatedAt: 'desc' }],
     take: Math.max(1, Number(limit || 1000)),
   });
   return rows.map(normalizeDailyRent);
 }
 
-async function getLatestRentalByUser(userKey) {
+async function getLatestRentalByUser(userKey, options = {}) {
   await ensureTables();
-  const row = await getRentBikeDb().rentalVehicle.findFirst({
+  const row = await getRentBikeDb(options).rentalVehicle.findFirst({
     where: { userKey: String(userKey || '') },
     orderBy: { createdAt: 'desc' },
   });
   return normalizeRental(row);
 }
 
-async function replaceRentBikeData(nextDailyRents = [], nextRentalVehicles = []) {
+async function replaceRentBikeData(nextDailyRents = [], nextRentalVehicles = [], options = {}) {
   await ensureTables();
 
-  await getRentBikeDb().$transaction(async (tx) => {
+  await getRentBikeDb(options).$transaction(async (tx) => {
     await tx.dailyRent.deleteMany();
     await tx.rentalVehicle.deleteMany();
 

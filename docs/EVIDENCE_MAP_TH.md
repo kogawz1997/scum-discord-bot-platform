@@ -58,14 +58,17 @@ Tracked visual assets:
 
 As of `2026-03-17` the repository has live runtime evidence for:
 
+- a live `schema-per-tenant` workstation runtime with default tenant schema `tenant_1259096998045421672`
 - watcher `ready` against `Z:\SteamLibrary\steamapps\common\SCUM Server\SCUM\Saved\Logs\SCUM.log`
 - console-agent `ready` with successful preflight against a live `SCUM` window
 - one live agent command confirmed in `SCUM.log`
-- one live native delivery proof matrix confirmed from `SCUM.db` using world-spawn delta for:
+- live native delivery proof matrices confirmed from `SCUM.db` using world-spawn delta for:
   - `Water_05l`
   - `Weapon_M1911`
   - `Magazine_M1911`
   - `Weapon_AK47`
+  - `teleport_spawn` using `Weapon_M1911`
+  - `announce_teleport_spawn` using `Emergency_bandage`
 
 Evidence summary:
 
@@ -75,8 +78,9 @@ Evidence summary:
 
 The repo still does not contain evidence for:
 
-- native proof coverage for every delivery class and every deployment environment
-- full application-wide database-per-tenant isolation proof beyond the current PostgreSQL RLS strict + topology-routed platform/commerce/delivery rollout
+- native proof coverage for every delivery class across every deployment environment
+- any `database-per-tenant` deployment
+- a second verified tenant-topology workstation/environment
 
 Do not overstate any of those until the asset, migration, or policy evidence is tracked in-repo.
 

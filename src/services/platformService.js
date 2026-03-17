@@ -7,8 +7,13 @@ const {
   assertTenantDbIsolationScope,
 } = require('../utils/tenantDbIsolation');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
-const { readAcrossDeliveryPersistenceScopes } = require('./deliveryPersistenceDb');
+const {
+  buildScopedRowKey,
+  dedupeScopedRows,
+  readAcrossDeliveryPersistenceScopes,
+} = require('./deliveryPersistenceDb');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
+const { ensureTenantDatabaseTargetProvisioned } = require('../utils/tenantDatabaseProvisioning');
 
 const PLATFORM_SCOPE_GROUPS = Object.freeze([
   {
@@ -178,6 +183,152 @@ function hmacSha256(secret, payload) {
 
 function safeMeta(row) {
   return parseJsonOrFallback(row?.metadataJson || row?.metaJson, null);
+}
+
+function buildPlatformRowScopeKey(row, fallbackFields = ['id']) {
+  const tenantId = trimText(row?.tenantId, 120);
+  const fields = Array.isArray(fallbackFields) ? fallbackFields : [fallbackFields];
+  const parts = [tenantId || '__shared__'];
+  for (const field of fields) {
+    const value = trimText(row?.[field], 240);
+    if (value) parts.push(value);
+  }
+  return parts.join(':');
+}
+
+function annotatePlatformScopeRow(row, scopeTenantId = null) {
+  if (!row || typeof row !== 'object') return row;
+  try {
+    Object.defineProperty(row, '__scopeTenantId', {
+      value: trimText(scopeTenantId, 120) || null,
+      configurable: true,
+      enumerable: false,
+      writable: true,
+    });
+  } catch {
+    row.__scopeTenantId = trimText(scopeTenantId, 120) || null;
+  }
+  return row;
+}
+
+function shouldReplacePlatformDuplicate(currentRow, nextRow) {
+  const currentScopeTenantId = trimText(currentRow?.__scopeTenantId, 120);
+  const nextScopeTenantId = trimText(nextRow?.__scopeTenantId, 120);
+  return !currentScopeTenantId && Boolean(nextScopeTenantId);
+}
+
+function dedupePlatformRows(rows, buildKey) {
+  const keyBuilder = typeof buildKey === 'function'
+    ? buildKey
+    : (row) => buildPlatformRowScopeKey(row);
+  const deduped = [];
+  const keyIndex = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const key = keyBuilder(row);
+    if (!key) {
+      deduped.push(row);
+      continue;
+    }
+    if (!keyIndex.has(key)) {
+      keyIndex.set(key, deduped.length);
+      deduped.push(row);
+      continue;
+    }
+    const index = keyIndex.get(key);
+    if (shouldReplacePlatformDuplicate(deduped[index], row)) {
+      deduped[index] = row;
+    }
+  }
+  return deduped;
+}
+
+function dedupeDeliveryScopeRows(rows, fields) {
+  return dedupeScopedRows(
+    rows,
+    (row) => buildScopedRowKey(row, fields, { mapSharedScopeToDefaultTenant: true }),
+  );
+}
+
+function sortRowsByTimestampDesc(rows, fields = ['updatedAt', 'createdAt']) {
+  const candidates = Array.isArray(fields) ? fields : [fields];
+  return (Array.isArray(rows) ? rows : []).slice().sort((left, right) => {
+    const leftTime = candidates
+      .map((field) => parseDateOrNull(left?.[field]))
+      .find(Boolean)?.getTime() || 0;
+    const rightTime = candidates
+      .map((field) => parseDateOrNull(right?.[field]))
+      .find(Boolean)?.getTime() || 0;
+    return rightTime - leftTime;
+  });
+}
+
+async function readAcrossPlatformTenantScopes(readWork, options = {}) {
+  if (typeof readWork !== 'function') {
+    throw new TypeError('readAcrossPlatformTenantScopes requires a callback');
+  }
+  const rows = [];
+  if (options.includeShared !== false) {
+    const sharedRows = await readWork(prisma, null).catch(() => []);
+    if (Array.isArray(sharedRows)) rows.push(...sharedRows.map((row) => annotatePlatformScopeRow(row, null)));
+  }
+  const tenantRows = await prisma.platformTenant.findMany({
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  }).catch(() => []);
+  const seenTenantIds = new Set();
+  for (const tenant of tenantRows) {
+    const tenantId = trimText(tenant?.id, 120);
+    if (!tenantId || seenTenantIds.has(tenantId)) continue;
+    seenTenantIds.add(tenantId);
+    const scopedRows = await runWithOptionalTenantDbIsolation(
+      tenantId,
+      (db) => readWork(db, tenantId),
+    ).catch(() => []);
+    if (Array.isArray(scopedRows)) {
+      rows.push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
+    }
+  }
+  return dedupePlatformRows(rows, options.buildKey);
+}
+
+async function listPlatformApiKeyCandidates(options = {}) {
+  const keyPrefix = trimText(options.keyPrefix, 120);
+  if (!keyPrefix) return [];
+  const take = Math.max(1, Math.min(50, asInt(options.limit, 10, 1)));
+  const rows = [];
+  const sharedRows = await prisma.platformApiKey.findMany({
+    where: { keyPrefix },
+    take,
+  }).catch(() => []);
+  if (Array.isArray(sharedRows)) {
+    rows.push(...sharedRows.map((row) => annotatePlatformScopeRow(row, null)));
+  }
+  const tenantRows = await prisma.platformTenant.findMany({
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  }).catch(() => []);
+  const seenTenantIds = new Set();
+  for (const tenant of tenantRows) {
+    const tenantId = trimText(tenant?.id, 120);
+    if (!tenantId || seenTenantIds.has(tenantId)) continue;
+    seenTenantIds.add(tenantId);
+    const scopedRows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
+      where: { keyPrefix },
+      take,
+    })).catch(() => []);
+    if (Array.isArray(scopedRows)) {
+      rows.push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
+    }
+  }
+  return dedupePlatformRows(
+    rows,
+    // Prefer the tenant-scoped copy when shared cutover rows still exist for the same key material.
+    (row) => [
+      trimText(row?.tenantId, 120) || '__shared__',
+      trimText(row?.keyPrefix, 120),
+      trimText(row?.keyHash, 240),
+    ].join(':'),
+  );
 }
 
 function compareVersions(left, right) {
@@ -780,6 +931,12 @@ async function createTenant(input = {}, actor = 'system') {
         ...rowData,
       },
     });
+    if (getTenantDatabaseTopologyMode() !== 'shared') {
+      ensureTenantDatabaseTargetProvisioned(row.id, {
+        env: process.env,
+        mode: getTenantDatabaseTopologyMode(),
+      });
+    }
     await emitPlatformEvent('platform.tenant.upserted', {
       tenantId: row.id,
       tenantSlug: row.slug,
@@ -866,11 +1023,18 @@ async function listPlatformSubscriptions(options = {}) {
   const where = {};
   if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformSubscription.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformSubscription.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformSubscription.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map(sanitizeSubscriptionRow);
 }
 
@@ -921,17 +1085,40 @@ async function issuePlatformLicense(input = {}, actor = 'system') {
 async function acceptPlatformLicenseLegal(input = {}, actor = 'system') {
   const licenseId = trimText(input.licenseId, 120);
   if (!licenseId) return { ok: false, reason: 'license-required' };
-  const row = await prisma.platformLicense.update({
-    where: { id: licenseId },
-    data: {
-      legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
-      legalAcceptedAt: new Date(),
-      metadataJson: stringifyMeta({
-        ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
-        acceptedBy: actor,
-      }),
-    },
-  }).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
+  let row = null;
+  const tenantRows = await prisma.platformTenant.findMany({
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  }).catch(() => []);
+  for (const tenant of tenantRows) {
+    const tenantId = trimText(tenant?.id, 120);
+    if (!tenantId) continue;
+    row = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.update({
+      where: { id: licenseId },
+      data: {
+        legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
+        legalAcceptedAt: new Date(),
+        metadataJson: stringifyMeta({
+          ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
+          acceptedBy: actor,
+        }),
+      },
+    })).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
+    if (row) break;
+  }
+  if (!row) {
+    row = await prisma.platformLicense.update({
+      where: { id: licenseId },
+      data: {
+        legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
+        legalAcceptedAt: new Date(),
+        metadataJson: stringifyMeta({
+          ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
+          acceptedBy: actor,
+        }),
+      },
+    }).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
+  }
   if (!row) return { ok: false, reason: 'license-not-found' };
   await emitPlatformEvent('platform.license.legal.accepted', {
     tenantId: row.tenantId,
@@ -951,11 +1138,18 @@ async function listPlatformLicenses(options = {}) {
   const where = {};
   if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'expired', 'revoked']);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformLicense.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map((row) => sanitizeLicenseRow(row));
 }
 
@@ -1019,11 +1213,18 @@ async function listPlatformApiKeys(options = {}) {
   const where = {};
   if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'revoked', 'disabled']);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformApiKey.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map(sanitizeApiKeyRow);
 }
 
@@ -1031,27 +1232,25 @@ async function verifyPlatformApiKey(rawKey, requiredScopes = []) {
   const key = trimText(rawKey, 500);
   if (!key) return { ok: false, reason: 'missing-api-key' };
   const keyPrefix = key.slice(0, 16);
-  const rows = await prisma.platformApiKey.findMany({
-    where: {
-      keyPrefix,
-      status: 'active',
-      revokedAt: null,
-    },
-    take: 10,
-  });
+  const rows = await listPlatformApiKeyCandidates({ keyPrefix, limit: 10 });
   const matched = rows.find((row) => sha256(key) === row.keyHash) || null;
-  if (!matched) return { ok: false, reason: 'invalid-api-key' };
+  if (!matched || matched.status !== 'active' || matched.revokedAt) {
+    return { ok: false, reason: 'invalid-api-key' };
+  }
   const scopes = parseJsonOrFallback(matched.scopesJson, []);
   const missingScopes = buildApiKeyScopes(requiredScopes).filter((scope) => !scopes.includes(scope));
   if (missingScopes.length > 0) {
     return { ok: false, reason: 'insufficient-scope', missingScopes };
   }
-  await prisma.platformApiKey.update({
-    where: { id: matched.id },
-    data: {
-      lastUsedAt: new Date(),
-    },
-  }).catch(() => null);
+  await runWithOptionalTenantDbIsolation(
+    matched.tenantId,
+    (db) => db.platformApiKey.update({
+      where: { id: matched.id },
+      data: {
+        lastUsedAt: new Date(),
+      },
+    }),
+  ).catch(() => null);
   const tenantState = await getTenantOperationalState(matched.tenantId);
   if (!tenantState.ok) {
     return {
@@ -1136,11 +1335,18 @@ async function listPlatformWebhookEndpoints(options = {}) {
   const where = {};
   if (tenantId) where.tenantId = tenantId;
   if (options.eventType) where.eventType = trimText(options.eventType, 120);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformWebhookEndpoint.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformWebhookEndpoint.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformWebhookEndpoint.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map((row) => sanitizeWebhookRow(row));
 }
 
@@ -1238,11 +1444,18 @@ async function listPlatformAgentRuntimes(options = {}) {
   const where = {};
   if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['online', 'degraded', 'outdated', 'offline']);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformAgentRuntime.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map(sanitizeAgentRow);
 }
 
@@ -1297,11 +1510,18 @@ async function listMarketplaceOffers(options = {}) {
   if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'draft', 'archived']);
   if (options.locale) where.locale = normalizeLocale(options.locale);
-  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformMarketplaceOffer.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-    take,
-  }));
+  const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
+    ? sortRowsByTimestampDesc(
+      await readAcrossPlatformTenantScopes(
+        (db) => db.platformMarketplaceOffer.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ).slice(0, take)
+    : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformMarketplaceOffer.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take,
+    }));
   return rows.map(sanitizeMarketplaceRow);
 }
 
@@ -1337,7 +1557,7 @@ async function getPlatformAnalyticsOverview(options = {}) {
       auditRowsCount,
       quota,
     ] = await Promise.all([
-      db.platformTenant.findMany(tenantId ? { where: { id: tenantId } } : {}),
+      prisma.platformTenant.findMany(tenantId ? { where: { id: tenantId } } : {}),
       db.platformSubscription.findMany({ where: tenantWhere }),
       db.platformLicense.findMany({ where: tenantWhere }),
       db.platformApiKey.findMany({ where: tenantWhere }),
@@ -1403,6 +1623,49 @@ async function getPlatformAnalyticsOverview(options = {}) {
   } = analyticsRows;
 
   const [
+    aggregatedSubscriptionRows,
+    aggregatedLicenseRows,
+    aggregatedApiKeyRows,
+    aggregatedWebhookRows,
+    aggregatedAgentRows,
+    aggregatedOfferRows,
+  ] = aggregateTenantCommerce
+    ? await Promise.all([
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformSubscription.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformLicense.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformApiKey.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformWebhookEndpoint.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformAgentRuntime.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+      readAcrossPlatformTenantScopes(
+        (db) => db.platformMarketplaceOffer.findMany({ where: tenantWhere }),
+        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+      ),
+    ])
+    : [
+      subscriptionRows,
+      licenseRows,
+      apiKeyRows,
+      webhookRows,
+      agentRows,
+      offerRows,
+    ];
+
+  const [
     purchaseRows30d,
     deliveredRows30d,
     failedRows30d,
@@ -1413,36 +1676,68 @@ async function getPlatformAnalyticsOverview(options = {}) {
     ? await Promise.all([
       readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
         where: purchaseWhere,
-        select: { code: true },
+        select: { code: true, tenantId: true },
       })),
       readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
         where: {
           ...purchaseWhere,
           status: 'delivered',
         },
-        select: { code: true },
+        select: { code: true, tenantId: true },
       })),
       readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
         where: {
           ...purchaseWhere,
           status: 'delivery_failed',
         },
-        select: { code: true },
+        select: { code: true, tenantId: true },
       })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany({ select: { purchaseCode: true } })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany({ select: { purchaseCode: true } })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({ select: { id: true } })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany({
+        select: { purchaseCode: true, tenantId: true },
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany({
+        select: { purchaseCode: true, tenantId: true },
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({
+        select: { id: true, tenantId: true },
+      })),
     ])
     : [null, null, null, null, null, null];
 
-  const resolvedPurchaseCount30d = aggregateTenantCommerce ? purchaseRows30d.length : purchaseCount30d;
-  const resolvedDeliveredCount = aggregateTenantCommerce ? deliveredRows30d.length : deliveredCount;
-  const resolvedFailedCount = aggregateTenantCommerce ? failedRows30d.length : failedCount;
-  const resolvedQueueJobsCount = aggregateTenantCommerce ? queueJobs.length : queueJobsCount;
-  const resolvedDeadLettersCount = aggregateTenantCommerce ? deadLetters.length : deadLettersCount;
-  const resolvedAuditRowsCount = aggregateTenantCommerce ? auditRows.length : auditRowsCount;
+  const dedupedPurchaseRows30d = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(purchaseRows30d, ['code'])
+    : null;
+  const dedupedDeliveredRows30d = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(deliveredRows30d, ['code'])
+    : null;
+  const dedupedFailedRows30d = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(failedRows30d, ['code'])
+    : null;
+  const dedupedQueueJobs = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(queueJobs, ['purchaseCode'])
+    : null;
+  const dedupedDeadLetters = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(deadLetters, ['purchaseCode'])
+    : null;
+  const dedupedAuditRows = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(auditRows, ['id'])
+    : null;
 
-  const mrrCents = subscriptionRows
+  const resolvedPurchaseCount30d = aggregateTenantCommerce ? dedupedPurchaseRows30d.length : purchaseCount30d;
+  const resolvedDeliveredCount = aggregateTenantCommerce ? dedupedDeliveredRows30d.length : deliveredCount;
+  const resolvedFailedCount = aggregateTenantCommerce ? dedupedFailedRows30d.length : failedCount;
+  const resolvedQueueJobsCount = aggregateTenantCommerce ? dedupedQueueJobs.length : queueJobsCount;
+  const resolvedDeadLettersCount = aggregateTenantCommerce ? dedupedDeadLetters.length : deadLettersCount;
+  const resolvedAuditRowsCount = aggregateTenantCommerce ? dedupedAuditRows.length : auditRowsCount;
+
+  const effectiveSubscriptionRows = aggregatedSubscriptionRows;
+  const effectiveLicenseRows = aggregatedLicenseRows;
+  const effectiveApiKeyRows = aggregatedApiKeyRows;
+  const effectiveWebhookRows = aggregatedWebhookRows;
+  const effectiveAgentRows = aggregatedAgentRows;
+  const effectiveOfferRows = aggregatedOfferRows;
+
+  const mrrCents = effectiveSubscriptionRows
     .filter((row) => row.status === 'active' || row.status === 'trialing')
     .reduce((sum, row) => {
       if (row.billingCycle === 'yearly') return sum + Math.round(row.amountCents / 12);
@@ -1475,26 +1770,26 @@ async function getPlatformAnalyticsOverview(options = {}) {
       reseller: tenantRows.filter((row) => row.type === 'reseller').length,
     },
     subscriptions: {
-      total: subscriptionRows.length,
-      active: subscriptionRows.filter((row) => row.status === 'active').length,
+      total: effectiveSubscriptionRows.length,
+      active: effectiveSubscriptionRows.filter((row) => row.status === 'active').length,
       mrrCents,
     },
     licenses: {
-      total: licenseRows.length,
-      active: licenseRows.filter((row) => row.status === 'active').length,
-      acceptedLegal: licenseRows.filter((row) => row.legalAcceptedAt).length,
+      total: effectiveLicenseRows.length,
+      active: effectiveLicenseRows.filter((row) => row.status === 'active').length,
+      acceptedLegal: effectiveLicenseRows.filter((row) => row.legalAcceptedAt).length,
     },
     api: {
-      apiKeys: apiKeyRows.filter((row) => row.status === 'active').length,
-      webhooks: webhookRows.filter((row) => row.enabled).length,
+      apiKeys: effectiveApiKeyRows.filter((row) => row.status === 'active').length,
+      webhooks: effectiveWebhookRows.filter((row) => row.enabled).length,
     },
     agent: {
-      runtimes: agentRows.length,
-      outdated: agentRows.filter((row) => row.status === 'outdated').length,
+      runtimes: effectiveAgentRows.length,
+      outdated: effectiveAgentRows.filter((row) => row.status === 'outdated').length,
     },
     marketplace: {
-      offers: offerRows.filter((row) => row.status === 'active').length,
-      draftOffers: offerRows.filter((row) => row.status === 'draft').length,
+      offers: effectiveOfferRows.filter((row) => row.status === 'active').length,
+      draftOffers: effectiveOfferRows.filter((row) => row.status === 'draft').length,
     },
     delivery: {
       purchaseCount30d: resolvedPurchaseCount30d,
@@ -1748,20 +2043,26 @@ async function reconcileDeliveryState(options = {}) {
     ]);
 
   const normalizedPurchases = aggregateTenantCommerce
-    ? purchases
+    ? dedupeDeliveryScopeRows(purchases, ['code'])
       .slice()
       .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
       .slice(0, 500)
     : purchases;
   const normalizedAuditRows = aggregateTenantCommerce
-    ? auditRows
+    ? dedupeDeliveryScopeRows(auditRows, ['id'])
       .slice()
       .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
       .slice(0, 2000)
     : auditRows;
+  const normalizedQueueJobs = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(queueJobs, ['purchaseCode'])
+    : queueJobs;
+  const normalizedDeadLetters = aggregateTenantCommerce
+    ? dedupeDeliveryScopeRows(deadLetters, ['purchaseCode'])
+    : deadLetters;
 
-  const queueByCode = new Map(queueJobs.map((row) => [String(row.purchaseCode), row]));
-  const deadByCode = new Map(deadLetters.map((row) => [String(row.purchaseCode), row]));
+  const queueByCode = new Map(normalizedQueueJobs.map((row) => [String(row.purchaseCode), row]));
+  const deadByCode = new Map(normalizedDeadLetters.map((row) => [String(row.purchaseCode), row]));
   const auditByCode = new Map();
   const itemKinds = new Map();
   for (const row of normalizedAuditRows) {
@@ -1877,8 +2178,8 @@ async function reconcileDeliveryState(options = {}) {
     ],
     summary: {
       purchases: normalizedPurchases.length,
-      queueJobs: queueJobs.length,
-      deadLetters: deadLetters.length,
+      queueJobs: normalizedQueueJobs.length,
+      deadLetters: normalizedDeadLetters.length,
       anomalies: anomalies.length,
       abuseFindings: abuseFindings.length,
       windowMs,

@@ -209,9 +209,14 @@ async function createVipPurchase(params = {}) {
   }
 
   const tenantId = params.tenantId || item?.tenantId || null;
+  const scopeOptions = {
+    tenantId,
+    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
+    env: params.env,
+  };
   const purchase = await createPurchaseFn(userId, item, { tenantId });
 
-  const previousMembership = getMembershipFn(userId);
+  const previousMembership = getMembershipFn(userId, scopeOptions);
   const now = params.now instanceof Date ? params.now : new Date();
   const membershipBaseAt =
     previousMembership?.expiresAt instanceof Date
@@ -221,7 +226,7 @@ async function createVipPurchase(params = {}) {
   const expiresAt = new Date(
     membershipBaseAt.getTime() + Number(vipPlan.durationDays || 0) * 24 * 60 * 60 * 1000,
   );
-  const membership = setMembershipFn(userId, vipPlan.id, expiresAt);
+  const membership = setMembershipFn(userId, vipPlan.id, expiresAt, scopeOptions);
   if (!membership) {
     throw new Error('vip-membership-write-failed');
   }
@@ -253,9 +258,14 @@ async function createVipPurchase(params = {}) {
     };
   } catch (error) {
     if (previousMembership?.expiresAt instanceof Date) {
-      setMembershipFn(userId, previousMembership.planId, previousMembership.expiresAt);
+      setMembershipFn(
+        userId,
+        previousMembership.planId,
+        previousMembership.expiresAt,
+        scopeOptions,
+      );
     } else {
-      removeMembershipFn(userId);
+      removeMembershipFn(userId, scopeOptions);
     }
     throw error;
   }

@@ -11,6 +11,14 @@ function normalizeMinutes(value) {
   return Math.max(0, Math.trunc(parsed));
 }
 
+function buildScopeOptions(params = {}) {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
+}
+
 function createPunishmentEntry(params = {}) {
   const userId = normalizeText(params.userId);
   const type = normalizeText(params.type);
@@ -22,7 +30,14 @@ function createPunishmentEntry(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const entry = addPunishment(userId, type, reason, staffId, durationMinutes);
+  const entry = addPunishment(
+    userId,
+    type,
+    reason,
+    staffId,
+    durationMinutes,
+    buildScopeOptions(params),
+  );
   if (!entry) {
     return { ok: false, reason: 'create-failed' };
   }

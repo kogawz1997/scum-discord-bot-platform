@@ -40,6 +40,13 @@ function createAdminPlatformPostRoutes(deps) {
     } = context;
 
     if (pathname === '/admin/api/backup/create') {
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot manage shared backups',
+        });
+        return true;
+      }
       const note = requiredString(body, 'note') || null;
       const saved = await createAdminBackup({
         client,
@@ -60,6 +67,13 @@ function createAdminPlatformPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/backup/restore') {
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot manage shared backups',
+        });
+        return true;
+      }
       const backupName = requiredString(body, 'backup');
       const dryRun = body?.dryRun === true;
       if (!backupName) {

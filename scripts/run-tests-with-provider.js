@@ -55,6 +55,21 @@ function runCommand(command, args = [], options = {}) {
   return result;
 }
 
+function escapeSqlLiteral(value) {
+  return String(value || '').replace(/'/g, "''");
+}
+
+function escapeSqlLikePattern(value) {
+  return escapeSqlLiteral(String(value || ''))
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+}
+
+function quoteIdentifier(value) {
+  return `"${String(value || '').replaceAll('"', '""')}"`;
+}
+
 function buildPostgresTestRuntime() {
   const rawUrl = String(process.env.DATABASE_URL || '').trim();
   if (!/^postgres(?:ql)?:\/\//i.test(rawUrl)) {
@@ -62,6 +77,7 @@ function buildPostgresTestRuntime() {
   }
   const url = new URL(rawUrl);
   const schema = `test_runtime_${Date.now()}`;
+  const tenantSchemaPrefix = `${schema}_tenant_`;
   const baseUrl = new URL(rawUrl);
   baseUrl.search = '';
   url.searchParams.set('schema', schema);
@@ -82,8 +98,24 @@ function buildPostgresTestRuntime() {
   return {
     databaseUrl: url.toString(),
     provider: 'postgresql',
+    tenantSchemaPrefix,
     cleanup: () => {
-      runCommand(path.join(pgBinDir, 'psql.exe'), ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', `DROP SCHEMA IF EXISTS "${schema}" CASCADE;`]);
+      const cleanupSql = `
+        DO $cleanup$
+        DECLARE scoped_schema record;
+        BEGIN
+          FOR scoped_schema IN
+            SELECT schema_name
+            FROM information_schema.schemata
+            WHERE schema_name LIKE '${escapeSqlLikePattern(tenantSchemaPrefix)}%' ESCAPE '\\'
+          LOOP
+            EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', scoped_schema.schema_name);
+          END LOOP;
+        END
+        $cleanup$;
+        DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;
+      `;
+      runCommand(path.join(pgBinDir, 'psql.exe'), ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', cleanupSql]);
     },
   };
 }
@@ -147,6 +179,9 @@ function main() {
         PRISMA_SCHEMA_PROVIDER: testRuntime.provider,
         PRISMA_TEST_DATABASE_URL: testRuntime.databaseUrl,
         PRISMA_TEST_DATABASE_PROVIDER: testRuntime.provider,
+        TENANT_DB_SCHEMA_PREFIX: testRuntime.tenantSchemaPrefix || process.env.TENANT_DB_SCHEMA_PREFIX || 'tenant_',
+        PLATFORM_DEFAULT_TENANT_ID: '',
+        DEFAULT_TENANT_ID: '',
       },
       stdio: 'inherit',
     });

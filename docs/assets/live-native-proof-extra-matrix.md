@@ -43,4 +43,3 @@ nativeProofMode: `required`
 - strategy: `world-spawn-delta`
 - detail: Game-state proof matched 1/1 expected item classes using post-baseline spawned entity delta
 - commandSummary: `#SpawnItem Backpack_02_01 1`
-

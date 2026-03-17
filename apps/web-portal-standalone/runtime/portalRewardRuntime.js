@@ -136,10 +136,10 @@ function createPortalRewardRuntime(options = {}) {
     return msToDaysHours(value);
   }
 
-  async function buildWheelStatePayload(discordId, wheelConfig, limit = 20) {
+  async function buildWheelStatePayload(discordId, wheelConfig, limit = 20, runtimeOptions = {}) {
     const [check, stateRaw] = await Promise.all([
-      canSpinWheel(discordId, wheelConfig.cooldownMs),
-      getUserWheelState(discordId, limit),
+      canSpinWheel(discordId, wheelConfig.cooldownMs, Date.now(), runtimeOptions),
+      getUserWheelState(discordId, limit, runtimeOptions),
     ]);
     const state = stateRaw || {
       userId: String(discordId || ''),

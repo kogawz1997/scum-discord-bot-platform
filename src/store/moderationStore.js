@@ -1,20 +1,27 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const recentMessages = new Map(); // userId -> [timestamps] (ไม่ต้อง persist)
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const recentMessages = new Map();
+const scopeStateByDatasource = new Map();
 
-const punishments = new Map(); // userId -> [entries]
+function createScopeState() {
+  return {
+    punishments: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-let isHydrating = false;
-
-function getModerationDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureModerationScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeDate(value, fallback = new Date()) {
@@ -35,34 +42,37 @@ function normalizeEntry(entry = {}) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
-      if (initPromise && !isHydrating) {
-        await initPromise;
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise;
       }
       await work();
     })
     .catch((error) => {
       console.error(`[moderationStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
-  isHydrating = true;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getModerationDb().punishment.findMany({
+    const rows = await db.punishment.findMany({
       orderBy: [{ createdAt: 'asc' }],
     });
     if (rows.length === 0) {
-      if (punishments.size > 0) {
+      if (state.punishments.size > 0 && startVersion === state.mutationVersion) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [userId, entries] of punishments.entries()) {
+            for (const [userId, entries] of state.punishments.entries()) {
               for (const entry of entries) {
-                await getModerationDb().punishment.create({
+                await db.punishment.create({
                   data: {
                     userId,
                     type: entry.type,
@@ -90,35 +100,40 @@ async function hydrateFromPrisma() {
       hydrated.set(userId, arr);
     }
 
-    if (startVersion === mutationVersion) {
-      punishments.clear();
+    if (startVersion === state.mutationVersion) {
+      state.punishments.clear();
       for (const [userId, entries] of hydrated.entries()) {
-        punishments.set(userId, entries);
+        state.punishments.set(userId, entries);
       }
       return;
     }
 
     for (const [userId, entries] of hydrated.entries()) {
-      if (!punishments.has(userId)) {
-        punishments.set(userId, entries);
+      if (!state.punishments.has(userId)) {
+        state.punishments.set(userId, entries);
       }
     }
   } catch (error) {
     console.error('[moderationStore] failed to hydrate from prisma:', error.message);
   } finally {
-    isHydrating = false;
+    state.isHydrating = false;
   }
 }
 
-function initModerationStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initModerationStore(options = {}) {
+  const scope = ensureModerationScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushModerationStoreWrites() {
-  return dbWriteQueue;
+async function flushModerationStoreWrites(options = {}) {
+  const scope = ensureModerationScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
 function pushMessage(userId, timestamp) {
@@ -134,10 +149,12 @@ function getRecentMessages(userId, sinceMs) {
   return filtered;
 }
 
-function addPunishment(userId, type, reason, staffId, durationMinutes) {
+function addPunishment(userId, type, reason, staffId, durationMinutes, options = {}) {
+  const scope = ensureModerationScope(options);
+  void initModerationStore(options);
   const key = String(userId || '').trim();
   if (!key) return null;
-  const arr = punishments.get(key) || [];
+  const arr = scope.state.punishments.get(key) || [];
   const entry = normalizeEntry({
     type,
     reason,
@@ -146,12 +163,13 @@ function addPunishment(userId, type, reason, staffId, durationMinutes) {
     createdAt: new Date(),
   });
   arr.push(entry);
-  punishments.set(key, arr);
-  mutationVersion += 1;
+  scope.state.punishments.set(key, arr);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getModerationDb().punishment.create({
+      await scope.db.punishment.create({
         data: {
           userId: key,
           type: entry.type,
@@ -167,34 +185,41 @@ function addPunishment(userId, type, reason, staffId, durationMinutes) {
   return entry;
 }
 
-function getPunishments(userId) {
-  return punishments.get(userId) || [];
+function getPunishments(userId, options = {}) {
+  const scope = ensureModerationScope(options);
+  void initModerationStore(options);
+  return scope.state.punishments.get(userId) || [];
 }
 
-function listAllPunishments() {
-  return Array.from(punishments.entries()).map(([userId, entries]) => ({
+function listAllPunishments(options = {}) {
+  const scope = ensureModerationScope(options);
+  void initModerationStore(options);
+  return Array.from(scope.state.punishments.entries()).map(([userId, entries]) => ({
     userId,
     entries: entries || [],
   }));
 }
 
-function replacePunishments(nextRows = []) {
-  mutationVersion += 1;
-  punishments.clear();
+function replacePunishments(nextRows = [], options = {}) {
+  const scope = ensureModerationScope(options);
+  void initModerationStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.punishments.clear();
   for (const row of Array.isArray(nextRows) ? nextRows : []) {
     if (!row || typeof row !== 'object') continue;
     const userId = String(row.userId || '').trim();
     if (!userId) continue;
     const entries = Array.isArray(row.entries) ? row.entries : [];
-    punishments.set(userId, entries.map((entry) => normalizeEntry(entry)));
+    scope.state.punishments.set(userId, entries.map((entry) => normalizeEntry(entry)));
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getModerationDb().punishment.deleteMany({});
-      for (const [userId, entries] of punishments.entries()) {
+      await scope.db.punishment.deleteMany({});
+      for (const [userId, entries] of scope.state.punishments.entries()) {
         for (const entry of entries) {
-          await getModerationDb().punishment.create({
+          await scope.db.punishment.create({
             data: {
               userId,
               type: entry.type,
@@ -209,7 +234,7 @@ function replacePunishments(nextRows = []) {
     },
     'replace-punishments',
   );
-  return punishments.size;
+  return scope.state.punishments.size;
 }
 
 initModerationStore();

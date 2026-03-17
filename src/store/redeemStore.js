@@ -3,21 +3,41 @@
 // - Prisma write-through for persistent source of truth
 // - legacy JSON snapshot retained as fallback/backup
 
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const codes = new Map(); // code -> { type, amount, itemId, usedBy, usedAt }
+function createScopeState() {
+  return {
+    codes: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getRedeemDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureRedeemScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
+}
+
+function ensureDefaultCodes(state) {
+  if (!state.codes.has('WELCOME1000')) {
+    state.codes.set('WELCOME1000', {
+      type: 'coins',
+      amount: 1000,
+      itemId: null,
+      usedBy: null,
+      usedAt: null,
+    });
+  }
 }
 
 function normalizeCode(value) {
@@ -82,30 +102,38 @@ function toSerializableCode(code, value) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise.catch(() => null);
+      }
       await work();
     })
     .catch((error) => {
       console.error(`[redeemStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getRedeemDb().redeemCode.findMany({
+    const rows = await db.redeemCode.findMany({
       orderBy: [{ code: 'asc' }],
     });
 
     if (rows.length === 0) {
-      if (codes.size > 0) {
+      ensureDefaultCodes(state);
+      if (state.codes.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [code, value] of codes.entries()) {
-              await getRedeemDb().redeemCode.upsert({
+            for (const [code, value] of state.codes.entries()) {
+              await db.redeemCode.upsert({
                 where: { code },
                 update: {
                   type: value.type,
@@ -138,49 +166,52 @@ async function hydrateFromPrisma() {
       if (!code || !value) continue;
       hydrated.set(code, value);
     }
+    ensureDefaultCodes({ codes: hydrated });
 
-    if (startVersion === mutationVersion) {
-      codes.clear();
+    if (startVersion === state.mutationVersion) {
+      state.codes.clear();
       for (const [code, value] of hydrated.entries()) {
-        codes.set(code, value);
+        state.codes.set(code, value);
       }
       return;
     }
 
     for (const [code, value] of hydrated.entries()) {
-      if (!codes.has(code)) {
-        codes.set(code, value);
+      if (!state.codes.has(code)) {
+        state.codes.set(code, value);
       }
     }
+    ensureDefaultCodes(state);
   } catch (error) {
     console.error('[redeemStore] failed to hydrate from prisma:', error.message);
+  } finally {
+    state.isHydrating = false;
   }
 }
 
-function initRedeemStore() {
-  if (!initPromise) {
-    if (!codes.has('WELCOME1000')) {
-      codes.set('WELCOME1000', {
-        type: 'coins',
-        amount: 1000,
-        itemId: null,
-        usedBy: null,
-        usedAt: null,
-      });
-    }
-    initPromise = hydrateFromPrisma();
+function initRedeemStore(options = {}) {
+  const scope = ensureRedeemScope(options);
+  ensureDefaultCodes(scope.state);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushRedeemStoreWrites() {
-  return dbWriteQueue;
+async function flushRedeemStoreWrites(options = {}) {
+  const scope = ensureRedeemScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function getCode(code) {
+function getCode(code, options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
   const normalized = normalizeCode(code);
   if (!normalized) return null;
-  const value = codes.get(normalized);
+  const value = scope.state.codes.get(normalized);
   if (!value) return null;
   return {
     ...value,
@@ -188,20 +219,23 @@ function getCode(code) {
   };
 }
 
-function markUsed(code, userId) {
+function markUsed(code, userId, options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
   const normalized = normalizeCode(code);
   if (!normalized) return null;
-  const value = codes.get(normalized);
+  const value = scope.state.codes.get(normalized);
   if (!value) return null;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   const usedAt = new Date();
   value.usedBy = String(userId || '');
   value.usedAt = usedAt;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getRedeemDb().redeemCode.upsert({
+      await scope.db.redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -223,10 +257,12 @@ function markUsed(code, userId) {
     'mark-used',
   );
 
-  return getCode(normalized);
+  return getCode(normalized, options);
 }
 
-function setCode(code, payload) {
+function setCode(code, payload, options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
   const normalized = normalizeCode(code);
   if (!normalized) return { ok: false, reason: 'invalid-code' };
 
@@ -241,12 +277,13 @@ function setCode(code, payload) {
     return { ok: false, reason: 'invalid-type' };
   }
 
-  mutationVersion += 1;
-  codes.set(normalized, value);
+  scope.state.mutationVersion += 1;
+  scope.state.codes.set(normalized, value);
 
   queueDbWrite(
+    scope,
     async () => {
-      await getRedeemDb().redeemCode.upsert({
+      await scope.db.redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -268,21 +305,24 @@ function setCode(code, payload) {
     'set-code',
   );
 
-  return { ok: true, code: normalized, value: getCode(normalized) };
+  return { ok: true, code: normalized, value: getCode(normalized, options) };
 }
 
-function deleteCode(code) {
+function deleteCode(code, options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
   const normalized = normalizeCode(code);
   if (!normalized) return false;
 
-  const existed = codes.delete(normalized);
+  const existed = scope.state.codes.delete(normalized);
   if (!existed) return false;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getRedeemDb().redeemCode.deleteMany({
+      await scope.db.redeemCode.deleteMany({
         where: { code: normalized },
       });
     },
@@ -291,19 +331,22 @@ function deleteCode(code) {
   return true;
 }
 
-function resetCodeUsage(code) {
+function resetCodeUsage(code, options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
   const normalized = normalizeCode(code);
   if (!normalized) return null;
-  const value = codes.get(normalized);
+  const value = scope.state.codes.get(normalized);
   if (!value) return null;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   value.usedBy = null;
   value.usedAt = null;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getRedeemDb().redeemCode.upsert({
+      await scope.db.redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -325,42 +368,38 @@ function resetCodeUsage(code) {
     'reset-code-usage',
   );
 
-  return getCode(normalized);
+  return getCode(normalized, options);
 }
 
-function listCodes() {
-  return Array.from(codes.entries()).map(([code, value]) =>
-    toSerializableCode(code, value),
-  );
+function listCodes(options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
+  return Array.from(scope.state.codes.entries()).map(([code, value]) =>
+    toSerializableCode(code, value));
 }
 
-function replaceCodes(nextCodes = []) {
-  mutationVersion += 1;
-  codes.clear();
+function replaceCodes(nextCodes = [], options = {}) {
+  const scope = ensureRedeemScope(options);
+  void initRedeemStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.codes.clear();
 
   for (const row of Array.isArray(nextCodes) ? nextCodes : []) {
     if (!row || typeof row !== 'object') continue;
     const code = normalizeCode(row.code);
     const value = normalizeRecord(row);
     if (!code || !value) continue;
-    codes.set(code, value);
+    scope.state.codes.set(code, value);
   }
 
-  if (!codes.has('WELCOME1000')) {
-    codes.set('WELCOME1000', {
-      type: 'coins',
-      amount: 1000,
-      itemId: null,
-      usedBy: null,
-      usedAt: null,
-    });
-  }
+  ensureDefaultCodes(scope.state);
 
   queueDbWrite(
+    scope,
     async () => {
-      await getRedeemDb().redeemCode.deleteMany({});
-      for (const [code, value] of codes.entries()) {
-        await getRedeemDb().redeemCode.create({
+      await scope.db.redeemCode.deleteMany({});
+      for (const [code, value] of scope.state.codes.entries()) {
+        await scope.db.redeemCode.create({
           data: {
             code,
             type: value.type,
@@ -375,7 +414,7 @@ function replaceCodes(nextCodes = []) {
     'replace-codes',
   );
 
-  return codes.size;
+  return scope.state.codes.size;
 }
 
 initRedeemStore();
@@ -387,7 +426,6 @@ module.exports = {
   deleteCode,
   resetCodeUsage,
   listCodes,
-  codes,
   replaceCodes,
   initRedeemStore,
   flushRedeemStoreWrites,

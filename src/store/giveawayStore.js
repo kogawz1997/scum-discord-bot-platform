@@ -1,19 +1,27 @@
-const { prisma } = require('../prisma');
+const crypto = require('node:crypto');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const giveaways = new Map(); // messageId -> { prize, winnersCount, endsAt, channelId, guildId, entrants: Set<userId> }
+function createScopeState() {
+  return {
+    giveaways: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-let isHydrating = false;
-
-function getGiveawayDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureGiveawayScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeDate(value) {
@@ -42,25 +50,27 @@ function normalizeGiveaway(row = {}) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
-      if (initPromise && !isHydrating) {
-        await initPromise;
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise;
       }
       await work();
     })
     .catch((error) => {
       console.error(`[giveawayStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
-  isHydrating = true;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getGiveawayDb().giveaway.findMany({
+    const rows = await db.giveaway.findMany({
       include: {
         entrants: true,
       },
@@ -68,11 +78,12 @@ async function hydrateFromPrisma() {
     });
 
     if (rows.length === 0) {
-      if (giveaways.size > 0) {
+      if (state.giveaways.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const g of giveaways.values()) {
-              await getGiveawayDb().giveaway.upsert({
+            for (const g of state.giveaways.values()) {
+              await db.giveaway.upsert({
                 where: { messageId: g.messageId },
                 update: {
                   channelId: g.channelId,
@@ -91,7 +102,7 @@ async function hydrateFromPrisma() {
                 },
               });
               for (const userId of g.entrants) {
-                await getGiveawayDb().giveawayEntrant.upsert({
+                await db.giveawayEntrant.upsert({
                   where: {
                     messageId_userId: {
                       messageId: g.messageId,
@@ -123,55 +134,63 @@ async function hydrateFromPrisma() {
       hydrated.set(parsed.messageId, parsed);
     }
 
-    if (startVersion === mutationVersion) {
-      giveaways.clear();
+    if (startVersion === state.mutationVersion) {
+      state.giveaways.clear();
       for (const [messageId, value] of hydrated.entries()) {
-        giveaways.set(messageId, value);
+        state.giveaways.set(messageId, value);
       }
       return;
     }
 
     for (const [messageId, value] of hydrated.entries()) {
-      if (!giveaways.has(messageId)) {
-        giveaways.set(messageId, value);
+      if (!state.giveaways.has(messageId)) {
+        state.giveaways.set(messageId, value);
       }
     }
   } catch (error) {
     console.error('[giveawayStore] failed to hydrate from prisma:', error.message);
   } finally {
-    isHydrating = false;
+    state.isHydrating = false;
   }
 }
 
-function initGiveawayStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initGiveawayStore(options = {}) {
+  const scope = ensureGiveawayScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushGiveawayStoreWrites() {
-  return dbWriteQueue;
+async function flushGiveawayStoreWrites(options = {}) {
+  const scope = ensureGiveawayScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function createGiveaway({ messageId, channelId, guildId, prize, winnersCount, endsAt }) {
+function createGiveaway(payload = {}, options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
   const g = normalizeGiveaway({
-    messageId,
-    channelId,
-    guildId,
-    prize,
-    winnersCount,
-    endsAt,
+    messageId: payload.messageId,
+    channelId: payload.channelId,
+    guildId: payload.guildId,
+    prize: payload.prize,
+    winnersCount: payload.winnersCount,
+    endsAt: payload.endsAt,
     entrants: [],
   });
   if (!g) return null;
 
-  giveaways.set(g.messageId, g);
-  mutationVersion += 1;
+  scope.state.giveaways.set(g.messageId, g);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getGiveawayDb().giveaway.upsert({
+      await scope.db.giveaway.upsert({
         where: { messageId: g.messageId },
         update: {
           channelId: g.channelId,
@@ -195,21 +214,35 @@ function createGiveaway({ messageId, channelId, guildId, prize, winnersCount, en
   return g;
 }
 
-function getGiveaway(messageId) {
-  return giveaways.get(messageId) || null;
+function getGiveaway(messageId, options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
+  return scope.state.giveaways.get(messageId) || null;
 }
 
-function addEntrant(messageId, userId) {
-  const g = giveaways.get(messageId);
+function listGiveaways(options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
+  return Array.from(scope.state.giveaways.values()).map((row) => ({
+    ...row,
+    entrants: new Set(row.entrants),
+  }));
+}
+
+function addEntrant(messageId, userId, options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
+  const g = scope.state.giveaways.get(messageId);
   if (!g) return null;
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) return null;
   g.entrants.add(normalizedUserId);
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getGiveawayDb().giveawayEntrant.upsert({
+      await scope.db.giveawayEntrant.upsert({
         where: {
           messageId_userId: {
             messageId,
@@ -228,12 +261,15 @@ function addEntrant(messageId, userId) {
   return g;
 }
 
-function removeGiveaway(messageId) {
-  const removed = giveaways.delete(messageId);
-  mutationVersion += 1;
+function removeGiveaway(messageId, options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
+  const removed = scope.state.giveaways.delete(messageId);
+  scope.state.mutationVersion += 1;
   queueDbWrite(
+    scope,
     async () => {
-      await getGiveawayDb().giveaway.deleteMany({
+      await scope.db.giveaway.deleteMany({
         where: { messageId },
       });
     },
@@ -242,21 +278,24 @@ function removeGiveaway(messageId) {
   return removed;
 }
 
-function replaceGiveaways(nextGiveaways = []) {
-  mutationVersion += 1;
-  giveaways.clear();
+function replaceGiveaways(nextGiveaways = [], options = {}) {
+  const scope = ensureGiveawayScope(options);
+  void initGiveawayStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.giveaways.clear();
   for (const row of Array.isArray(nextGiveaways) ? nextGiveaways : []) {
     const parsed = normalizeGiveaway(row);
     if (!parsed) continue;
-    giveaways.set(parsed.messageId, parsed);
+    scope.state.giveaways.set(parsed.messageId, parsed);
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getGiveawayDb().giveawayEntrant.deleteMany({});
-      await getGiveawayDb().giveaway.deleteMany({});
-      for (const g of giveaways.values()) {
-        await getGiveawayDb().giveaway.create({
+      await scope.db.giveawayEntrant.deleteMany({});
+      await scope.db.giveaway.deleteMany({});
+      for (const g of scope.state.giveaways.values()) {
+        await scope.db.giveaway.create({
           data: {
             messageId: g.messageId,
             channelId: g.channelId,
@@ -267,9 +306,9 @@ function replaceGiveaways(nextGiveaways = []) {
           },
         });
       }
-      for (const g of giveaways.values()) {
+      for (const g of scope.state.giveaways.values()) {
         for (const userId of g.entrants) {
-          await getGiveawayDb().giveawayEntrant.create({
+          await scope.db.giveawayEntrant.create({
             data: {
               messageId: g.messageId,
               userId,
@@ -280,18 +319,34 @@ function replaceGiveaways(nextGiveaways = []) {
     },
     'replace-giveaways',
   );
-  return giveaways.size;
+  return scope.state.giveaways.size;
+}
+
+function createGiveawayId() {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function createScopedGiveawaySnapshot(options = {}) {
+  return listGiveaways(options).map((giveaway) => ({
+    ...giveaway,
+    snapshotId: createGiveawayId(),
+    entrants: Array.from(giveaway.entrants || []),
+  }));
 }
 
 initGiveawayStore();
 
 module.exports = {
-  giveaways,
   createGiveaway,
   getGiveaway,
+  listGiveaways,
   addEntrant,
   removeGiveaway,
   replaceGiveaways,
+  createScopedGiveawaySnapshot,
   initGiveawayStore,
   flushGiveawayStoreWrites,
 };

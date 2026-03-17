@@ -44,6 +44,7 @@ function createAdminEntityPostRoutes(deps) {
       res,
       auth,
     } = context;
+    const scopedTenantId = String(auth?.tenantId || '').trim() || undefined;
 
     if (pathname === '/admin/api/ticket/claim') {
       const channelId = requiredString(body, 'channelId');
@@ -52,7 +53,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = claimSupportTicket({ channelId, staffId });
+      const result = claimSupportTicket({ channelId, staffId, tenantId: scopedTenantId });
       if (!result.ok && result.reason === 'not-found') {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -72,7 +73,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = closeSupportTicket({ channelId });
+      const result = closeSupportTicket({ channelId, tenantId: scopedTenantId });
       if (!result.ok && result.reason === 'not-found') {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -94,7 +95,12 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await createBountyForUser({ targetName, amount, createdBy });
+      const result = await createBountyForUser({
+        targetName,
+        amount,
+        createdBy,
+        tenantId: scopedTenantId,
+      });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: `ไม่สามารถสร้างค่าหัวได้ (${result.reason})` });
         return true;
@@ -113,6 +119,7 @@ function createAdminEntityPostRoutes(deps) {
         id,
         requesterId: auth?.user || 'admin-web',
         isStaff: true,
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: `ไม่สามารถยกเลิกค่าหัวได้ (${result.reason})` });
@@ -130,7 +137,12 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await createServerEvent({ name, time, reward });
+      const result = await createServerEvent({
+        name,
+        time,
+        reward,
+        tenantId: scopedTenantId,
+      });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
@@ -145,7 +157,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await startServerEvent({ id });
+      const result = await startServerEvent({ id, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -165,6 +177,7 @@ function createAdminEntityPostRoutes(deps) {
         winnerUserId: requiredString(body, 'winnerUserId') || null,
         coins: asInt(body.coins) || 0,
         actor: 'admin-web',
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
@@ -189,7 +202,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await joinServerEvent({ id, userId });
+      const result = await joinServerEvent({ id, userId, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -218,6 +231,7 @@ function createAdminEntityPostRoutes(deps) {
         inGameName: inGameName || null,
         allowReplace: true,
         allowSteamReuse: true,
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: `ไม่สามารถบันทึกลิงก์ได้ (${result.reason})` });
@@ -234,7 +248,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = removeSteamLink({ steamId, userId });
+      const result = removeSteamLink({ steamId, userId, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -256,6 +270,7 @@ function createAdminEntityPostRoutes(deps) {
         avatarUrl: requiredString(body, 'avatarUrl'),
         steamId: requiredString(body, 'steamId'),
         isActive: body?.isActive !== false,
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
@@ -272,7 +287,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await bindPlayerSteamId(userId, steamId);
+      const result = await bindPlayerSteamId(userId, steamId, { tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
@@ -287,7 +302,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await unbindPlayerSteamId(userId);
+      const result = await unbindPlayerSteamId(userId, { tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
@@ -308,6 +323,7 @@ function createAdminEntityPostRoutes(deps) {
         userId,
         planId,
         durationDays,
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
@@ -326,7 +342,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await revokeVipForUser({ userId });
+      const result = await revokeVipForUser({ userId, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: result.reason || 'Resource not found' });
         return true;
@@ -401,6 +417,7 @@ function createAdminEntityPostRoutes(deps) {
         reason,
         staffId,
         durationMinutes,
+        tenantId: scopedTenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
@@ -416,7 +433,7 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = revokeWelcomePackClaimForAdmin({ userId });
+      const result = revokeWelcomePackClaimForAdmin({ userId, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -426,7 +443,7 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/welcome/clear') {
-      const result = clearWelcomePackClaimsForAdmin();
+      const result = clearWelcomePackClaimsForAdmin({ tenantId: scopedTenantId });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -438,12 +455,12 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = addKillsForUser({ userId, amount });
+      const result = addKillsForUser({ userId, amount, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-kill');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-kill', { tenantId: scopedTenantId });
       sendJson(res, 200, { ok: true, data: result.stat });
       return true;
     }
@@ -455,12 +472,12 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = addDeathsForUser({ userId, amount });
+      const result = addDeathsForUser({ userId, amount, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-death');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-death', { tenantId: scopedTenantId });
       sendJson(res, 200, { ok: true, data: result.stat });
       return true;
     }
@@ -472,12 +489,12 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = addPlaytimeForUser({ userId, minutes });
+      const result = addPlaytimeForUser({ userId, minutes, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-playtime');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-add-playtime', { tenantId: scopedTenantId });
       sendJson(res, 200, { ok: true, data: result.stat });
       return true;
     }

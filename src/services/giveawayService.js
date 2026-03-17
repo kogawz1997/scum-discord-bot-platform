@@ -2,6 +2,7 @@
 const {
   createGiveaway,
   getGiveaway,
+  listGiveaways,
   addEntrant,
   removeGiveaway,
 } = require('../store/giveawayStore');
@@ -14,6 +15,14 @@ function normalizePositiveInt(value, fallback = 1) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(1, Math.trunc(parsed));
+}
+
+function buildScopeOptions(params = {}) {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
 }
 
 function shuffleInPlace(list, randomIntFn = crypto.randomInt) {
@@ -45,7 +54,7 @@ function startGiveawayForMessage(params = {}) {
     prize,
     winnersCount,
     endsAt,
-  });
+  }, buildScopeOptions(params));
   if (!giveaway) {
     return { ok: false, reason: 'create-failed' };
   }
@@ -59,6 +68,10 @@ function getGiveawayByMessageId(messageId) {
   return getGiveaway(normalized);
 }
 
+function listGiveawayMessages(options = {}) {
+  return listGiveaways(options);
+}
+
 function enterGiveawayForUser(params = {}) {
   const messageId = normalizeText(params.messageId);
   const userId = normalizeText(params.userId);
@@ -66,7 +79,8 @@ function enterGiveawayForUser(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const giveaway = getGiveaway(messageId);
+  const scopeOptions = buildScopeOptions(params);
+  const giveaway = getGiveaway(messageId, scopeOptions);
   if (!giveaway) {
     return { ok: false, reason: 'not-found' };
   }
@@ -77,7 +91,7 @@ function enterGiveawayForUser(params = {}) {
     return { ok: true, alreadyJoined: true, giveaway };
   }
 
-  const updated = addEntrant(messageId, userId);
+  const updated = addEntrant(messageId, userId, scopeOptions);
   if (!updated) {
     return { ok: false, reason: 'join-failed' };
   }
@@ -95,14 +109,15 @@ function settleGiveawayForMessage(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const giveaway = getGiveaway(messageId);
+  const scopeOptions = buildScopeOptions(params);
+  const giveaway = getGiveaway(messageId, scopeOptions);
   if (!giveaway) {
     return { ok: false, reason: 'not-found' };
   }
 
   const entrants = Array.from(giveaway.entrants || []);
   if (entrants.length === 0) {
-    removeGiveaway(messageId);
+    removeGiveaway(messageId, scopeOptions);
     return {
       ok: true,
       giveaway,
@@ -114,7 +129,7 @@ function settleGiveawayForMessage(params = {}) {
 
   const shuffled = shuffleInPlace(entrants.slice(), params.randomIntFn || crypto.randomInt);
   const winnerIds = shuffled.slice(0, Math.max(1, Number(giveaway.winnersCount || 1)));
-  removeGiveaway(messageId);
+  removeGiveaway(messageId, scopeOptions);
 
   return {
     ok: true,
@@ -128,6 +143,7 @@ function settleGiveawayForMessage(params = {}) {
 module.exports = {
   startGiveawayForMessage,
   getGiveawayByMessageId,
+  listGiveawayMessages,
   enterGiveawayForUser,
   settleGiveawayForMessage,
 };

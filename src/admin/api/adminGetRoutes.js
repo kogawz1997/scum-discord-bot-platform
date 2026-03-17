@@ -307,6 +307,13 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/backup/restore/status') {
       const auth = ensureRole(req, urlObj, 'owner', res);
       if (!auth) return true;
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot manage shared backups',
+        });
+        return true;
+      }
       sendJson(res, 200, {
         ok: true,
         data: getAdminRestoreState(),
@@ -1063,6 +1070,13 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/snapshot') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot export shared runtime snapshots',
+        });
+        return true;
+      }
       sendJson(res, 200, {
         ok: true,
         data: await buildAdminSnapshot({
@@ -1076,6 +1090,13 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/snapshot/export') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot export shared runtime snapshots',
+        });
+        return true;
+      }
       const data = await buildAdminSnapshot({
         client,
         observabilitySnapshot: await getCurrentObservabilitySnapshot(),
@@ -1096,6 +1117,13 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/backup/list') {
       const auth = ensureRole(req, urlObj, 'owner', res);
       if (!auth) return true;
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot manage shared backups',
+        });
+        return true;
+      }
       sendJson(res, 200, {
         ok: true,
         data: listAdminBackupFiles(),

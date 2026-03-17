@@ -1,6 +1,4 @@
-const { prisma } = require('../prisma');
-
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
 const PANEL_TYPES = new Set([
   'topKiller',
@@ -9,18 +7,27 @@ const PANEL_TYPES = new Set([
   'topPlaytime',
   'topEconomy',
 ]);
-const panelsByGuild = new Map(); // guildId -> panel refs
+const scopeStateByDatasource = new Map();
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-let isHydrating = false;
+function createScopeState() {
+  return {
+    panelsByGuild: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-function getTopPanelDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureTopPanelScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizePanelType(panelType) {
@@ -65,36 +72,39 @@ function normalizeState(input) {
   return state;
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
-      if (initPromise && !isHydrating) {
-        await initPromise;
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise;
       }
       await work();
     })
     .catch((error) => {
       console.error(`[topPanelStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
-  isHydrating = true;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getTopPanelDb().topPanelMessage.findMany({
+    const rows = await db.topPanelMessage.findMany({
       orderBy: [{ guildId: 'asc' }, { panelType: 'asc' }],
     });
     if (rows.length === 0) {
-      if (panelsByGuild.size > 0) {
+      if (state.panelsByGuild.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [guildId, state] of panelsByGuild.entries()) {
+            for (const [guildId, panelState] of state.panelsByGuild.entries()) {
               for (const panelType of PANEL_TYPES.values()) {
-                const ref = state?.[panelType];
+                const ref = panelState?.[panelType];
                 if (!ref) continue;
-                await getTopPanelDb().topPanelMessage.upsert({
+                await db.topPanelMessage.upsert({
                   where: {
                     guildId_panelType: {
                       guildId,
@@ -128,71 +138,81 @@ async function hydrateFromPrisma() {
       const guildId = String(row.guildId || '').trim();
       const panelType = normalizePanelType(row.panelType);
       if (!guildId || !panelType) continue;
-      const state = hydrated.get(guildId) || normalizeState(null);
-      state[panelType] = normalizeRef({
+      const panelState = hydrated.get(guildId) || normalizeState(null);
+      panelState[panelType] = normalizeRef({
         channelId: row.channelId,
         messageId: row.messageId,
         updatedAt: row.updatedAt,
       });
-      hydrated.set(guildId, state);
+      hydrated.set(guildId, panelState);
     }
 
-    if (startVersion === mutationVersion) {
-      panelsByGuild.clear();
-      for (const [guildId, state] of hydrated.entries()) {
-        panelsByGuild.set(guildId, state);
+    if (startVersion === state.mutationVersion) {
+      state.panelsByGuild.clear();
+      for (const [guildId, panelState] of hydrated.entries()) {
+        state.panelsByGuild.set(guildId, panelState);
       }
       return;
     }
 
-    for (const [guildId, state] of hydrated.entries()) {
-      if (!panelsByGuild.has(guildId)) {
-        panelsByGuild.set(guildId, state);
+    for (const [guildId, panelState] of hydrated.entries()) {
+      if (!state.panelsByGuild.has(guildId)) {
+        state.panelsByGuild.set(guildId, panelState);
       }
     }
   } catch (error) {
     console.error('[topPanelStore] failed to hydrate from prisma:', error.message);
   } finally {
-    isHydrating = false;
+    state.isHydrating = false;
   }
 }
 
-function initTopPanelStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initTopPanelStore(options = {}) {
+  const scope = ensureTopPanelScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushTopPanelStoreWrites() {
-  return dbWriteQueue;
+async function flushTopPanelStoreWrites(options = {}) {
+  const scope = ensureTopPanelScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function getGuildState(guildId, createIfMissing = false) {
+function getGuildState(guildId, createIfMissing = false, options = {}) {
+  const scope = ensureTopPanelScope(options);
+  void initTopPanelStore(options);
   const key = String(guildId || '').trim();
   if (!key) return null;
-  let state = panelsByGuild.get(key) || null;
+  let state = scope.state.panelsByGuild.get(key) || null;
   if (!state && createIfMissing) {
     state = normalizeState(null);
-    panelsByGuild.set(key, state);
+    scope.state.panelsByGuild.set(key, state);
   }
   return state;
 }
 
-function setTopPanelMessage(guildId, panelType, channelId, messageId) {
+function setTopPanelMessage(guildId, panelType, channelId, messageId, options = {}) {
+  const scope = ensureTopPanelScope(options);
+  void initTopPanelStore(options);
   const key = normalizePanelType(panelType);
   if (!key) return null;
-  const state = getGuildState(guildId, true);
+  const state = getGuildState(guildId, true, options);
   if (!state) return null;
   state[key] = normalizeRef({ channelId, messageId, updatedAt: new Date().toISOString() });
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   const guildKey = String(guildId || '').trim();
   const ref = state[key];
   queueDbWrite(
+    scope,
     async () => {
       if (!ref) return;
-      await getTopPanelDb().topPanelMessage.upsert({
+      await scope.db.topPanelMessage.upsert({
         where: {
           guildId_panelType: {
             guildId: guildKey,
@@ -218,26 +238,29 @@ function setTopPanelMessage(guildId, panelType, channelId, messageId) {
   return state[key];
 }
 
-function getTopPanelMessage(guildId, panelType) {
+function getTopPanelMessage(guildId, panelType, options = {}) {
   const key = normalizePanelType(panelType);
   if (!key) return null;
-  const state = getGuildState(guildId, false);
+  const state = getGuildState(guildId, false, options);
   if (!state) return null;
   return state[key] || null;
 }
 
-function removeTopPanelMessage(guildId, panelType) {
+function removeTopPanelMessage(guildId, panelType, options = {}) {
+  const scope = ensureTopPanelScope(options);
+  void initTopPanelStore(options);
   const key = normalizePanelType(panelType);
   if (!key) return false;
-  const state = getGuildState(guildId, false);
+  const state = getGuildState(guildId, false, options);
   if (!state || !state[key]) return false;
   state[key] = null;
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
 
   const guildKey = String(guildId || '').trim();
   queueDbWrite(
+    scope,
     async () => {
-      await getTopPanelDb().topPanelMessage.deleteMany({
+      await scope.db.topPanelMessage.deleteMany({
         where: {
           guildId: guildKey,
           panelType: key,
@@ -249,8 +272,8 @@ function removeTopPanelMessage(guildId, panelType) {
   return true;
 }
 
-function getTopPanelsForGuild(guildId) {
-  const state = getGuildState(guildId, false);
+function getTopPanelsForGuild(guildId, options = {}) {
+  const state = getGuildState(guildId, false, options);
   if (!state) {
     return {
       topKiller: null,
@@ -269,35 +292,40 @@ function getTopPanelsForGuild(guildId) {
   };
 }
 
-function listTopPanels() {
-  return Array.from(panelsByGuild.entries()).map(([guildId, state]) => ({
+function listTopPanels(options = {}) {
+  const scope = ensureTopPanelScope(options);
+  void initTopPanelStore(options);
+  return Array.from(scope.state.panelsByGuild.entries()).map(([guildId, panelState]) => ({
     guildId,
-    topKiller: state?.topKiller || null,
-    topGunKill: state?.topGunKill || null,
-    topKd: state?.topKd || null,
-    topPlaytime: state?.topPlaytime || null,
-    topEconomy: state?.topEconomy || null,
+    topKiller: panelState?.topKiller || null,
+    topGunKill: panelState?.topGunKill || null,
+    topKd: panelState?.topKd || null,
+    topPlaytime: panelState?.topPlaytime || null,
+    topEconomy: panelState?.topEconomy || null,
   }));
 }
 
-function replaceTopPanels(nextPanels = []) {
-  mutationVersion += 1;
-  panelsByGuild.clear();
+function replaceTopPanels(nextPanels = [], options = {}) {
+  const scope = ensureTopPanelScope(options);
+  void initTopPanelStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.panelsByGuild.clear();
   for (const row of Array.isArray(nextPanels) ? nextPanels : []) {
     if (!row || typeof row !== 'object') continue;
     const guildId = String(row.guildId || '').trim();
     if (!guildId) continue;
-    panelsByGuild.set(guildId, normalizeState(row));
+    scope.state.panelsByGuild.set(guildId, normalizeState(row));
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getTopPanelDb().topPanelMessage.deleteMany({});
-      for (const [guildId, state] of panelsByGuild.entries()) {
+      await scope.db.topPanelMessage.deleteMany({});
+      for (const [guildId, panelState] of scope.state.panelsByGuild.entries()) {
         for (const panelType of PANEL_TYPES.values()) {
-          const ref = state?.[panelType];
+          const ref = panelState?.[panelType];
           if (!ref) continue;
-          await getTopPanelDb().topPanelMessage.create({
+          await scope.db.topPanelMessage.create({
             data: {
               guildId,
               panelType,
@@ -311,7 +339,7 @@ function replaceTopPanels(nextPanels = []) {
     },
     'replace-top-panels',
   );
-  return panelsByGuild.size;
+  return scope.state.panelsByGuild.size;
 }
 
 initTopPanelStore();

@@ -2,36 +2,93 @@
   {
     "label": "consumable-water",
     "gameItemId": "Water_05l",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "consumable",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative drink/consumable spawn on the current workstation."
   },
   {
     "label": "weapon-m1911",
     "gameItemId": "Weapon_M1911",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "weapon",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative sidearm weapon spawn on the current workstation."
   },
   {
     "label": "magazine-m1911",
     "gameItemId": "Magazine_M1911",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "magazine",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative magazine spawn with StackCount handling."
   },
   {
     "label": "weapon-ak47",
     "gameItemId": "Weapon_AK47",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "weapon",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative rifle weapon spawn on the current workstation."
   },
   {
     "label": "medical-bandage",
     "gameItemId": "Emergency_bandage",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "medical",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative medical supply spawn on the current workstation."
   },
   {
     "label": "food-bakedbeans",
     "gameItemId": "BakedBeans",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "food",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative food spawn on the current workstation."
   },
   {
     "label": "gear-backpack",
     "gameItemId": "Backpack_02_01",
-    "quantity": 1
+    "quantity": 1,
+    "deliveryClass": "gear",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative wearable/container gear spawn on the current workstation."
+  },
+  {
+    "label": "ammo-ammobox-762",
+    "gameItemId": "Cal_7_62x39mm_Ammobox",
+    "quantity": 1,
+    "deliveryClass": "ammo",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative ammo proof on this workstation uses the ammobox class because loose-round IDs do not produce a confirmed SCUM.db delta here."
+  },
+  {
+    "label": "teleport-wrapper-m1911",
+    "itemName": "Teleport Wrapper M1911",
+    "gameItemId": "Weapon_M1911",
+    "quantity": 1,
+    "deliveryClass": "teleport wrapper profiles",
+    "deliveryProfile": "teleport_spawn",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative teleport wrapper profile proved through spawned item state on the current workstation."
+  },
+  {
+    "label": "announce-teleport-bandage",
+    "itemName": "Announce Teleport Bandage",
+    "gameItemId": "Emergency_bandage",
+    "quantity": 1,
+    "deliveryClass": "teleport wrapper profiles",
+    "deliveryProfile": "announce_teleport_spawn",
+    "expectedProofStrategy": "world-spawn-delta",
+    "notes": "Representative announce+teleport wrapper profile proved through spawned item state on the current workstation."
   }
 ]

@@ -6,20 +6,62 @@ const config = require('../config');
 const { prisma } = require('../prisma');
 const { listShopItems } = require('../store/memoryStore');
 const {
-  tickets,
+  listTickets,
   replaceTickets,
+  flushTicketStoreWrites,
 } = require('../store/ticketStore');
-const { listAllStats, replaceStats } = require('../store/statsStore');
-const { listWeaponStats, replaceWeaponStats } = require('../store/weaponStatsStore');
-const { listBounties, replaceBounties } = require('../store/bountyStore');
-const { listEvents, getParticipants, replaceEvents } = require('../store/eventStore');
-const { giveaways, replaceGiveaways } = require('../store/giveawayStore');
+const {
+  listAllStats,
+  replaceStats,
+  flushStatsStoreWrites,
+} = require('../store/statsStore');
+const {
+  listWeaponStats,
+  replaceWeaponStats,
+  flushWeaponStatsStoreWrites,
+} = require('../store/weaponStatsStore');
+const {
+  listBounties,
+  replaceBounties,
+  flushBountyStoreWrites,
+} = require('../store/bountyStore');
+const {
+  listEvents,
+  getParticipants,
+  replaceEvents,
+  flushEventStoreWrites,
+} = require('../store/eventStore');
+const {
+  listGiveaways,
+  replaceGiveaways,
+  flushGiveawayStoreWrites,
+} = require('../store/giveawayStore');
 const { listLinks, replaceLinks, flushLinkStoreWrites } = require('../store/linkStore');
-const { getStatus, replaceStatus } = require('../store/scumStore');
-const { listMemberships, replaceMemberships } = require('../store/vipStore');
-const { listAllPunishments, replacePunishments } = require('../store/moderationStore');
-const { listCodes, replaceCodes } = require('../store/redeemStore');
-const { listClaimed, replaceClaims } = require('../store/welcomePackStore');
+const {
+  getStatus,
+  replaceStatus,
+  flushScumStoreWrites,
+} = require('../store/scumStore');
+const {
+  listMemberships,
+  replaceMemberships,
+  flushVipStoreWrites,
+} = require('../store/vipStore');
+const {
+  listAllPunishments,
+  replacePunishments,
+  flushModerationStoreWrites,
+} = require('../store/moderationStore');
+const {
+  listCodes,
+  replaceCodes,
+  flushRedeemStoreWrites,
+} = require('../store/redeemStore');
+const {
+  listClaimed,
+  replaceClaims,
+  flushWelcomePackStoreWrites,
+} = require('../store/welcomePackStore');
 const {
   listDailyRents,
   listRentalVehicles,
@@ -33,18 +75,30 @@ const {
   listAllPartyMessages,
   replacePartyMessages,
 } = require('../store/partyChatStore');
-const { listTopPanels, replaceTopPanels } = require('../store/topPanelStore');
-const { listAllCarts, replaceCarts } = require('../store/cartStore');
+const {
+  listTopPanels,
+  replaceTopPanels,
+  flushTopPanelStoreWrites,
+} = require('../store/topPanelStore');
+const {
+  listAllCarts,
+  replaceCarts,
+  flushCartStoreWrites,
+} = require('../store/cartStore');
 const { getRentBikeRuntime } = require('./rentBikeService');
 const {
   listDeliveryQueue,
   listDeliveryDeadLetters,
   listDeliveryAudit,
   getDeliveryRuntimeStatus,
+  flushDeliveryPersistenceWrites,
   replaceDeliveryQueue,
   replaceDeliveryDeadLetters,
 } = require('./rconDelivery');
-const { replaceDeliveryAudit } = require('../store/deliveryAuditStore');
+const {
+  replaceDeliveryAudit,
+  flushDeliveryAuditStoreWrites,
+} = require('../store/deliveryAuditStore');
 const {
   listAdminNotifications,
   replaceAdminNotifications,
@@ -111,7 +165,7 @@ function normalizeWallet(wallet) {
 }
 
 function normalizeTickets() {
-  return Array.from(tickets.values())
+  return listTickets()
     .map((ticket) => ({
       ...ticket,
       createdAt: ticket.createdAt ? new Date(ticket.createdAt) : null,
@@ -132,7 +186,7 @@ function normalizeEvents() {
 }
 
 function normalizeGiveaways() {
-  return Array.from(giveaways.values()).map((giveaway) => {
+  return listGiveaways().map((giveaway) => {
     const entrants = Array.from(giveaway.entrants || []);
     return {
       ...giveaway,
@@ -283,6 +337,24 @@ function createRestoreError(message, statusCode = 500, data = null) {
     error.data = data;
   }
   return error;
+}
+
+// Full runtime snapshots/backups are intentionally global until the service grows
+// topology-aware export/restore semantics for every tenant-scoped collection.
+function assertGlobalSnapshotOperation(options = {}) {
+  const scopedTenantId = String(
+    options.tenantId
+      || options.defaultTenantId
+      || options.scopeTenantId
+      || options.authTenantId
+      || '',
+  ).trim();
+  if (!scopedTenantId) return;
+  throw createRestoreError(
+    'Tenant-scoped admin cannot manage shared runtime snapshots or backups',
+    403,
+    { tenantId: scopedTenantId },
+  );
 }
 
 function createRestorePreviewToken() {
@@ -749,7 +821,6 @@ async function restoreAdminSnapshotData(snapshot = {}) {
     Number(snapshot.eventCounter || 0) || null,
   );
   replaceLinks(Array.isArray(snapshot.links) ? snapshot.links : []);
-  await flushLinkStoreWrites();
   replaceMemberships(Array.isArray(snapshot.memberships) ? snapshot.memberships : []);
   replaceWeaponStats(Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats : []);
   replaceStats(Array.isArray(snapshot.stats) ? snapshot.stats : []);
@@ -786,6 +857,27 @@ async function restoreAdminSnapshotData(snapshot = {}) {
   await replacePartyMessages(
     Array.isArray(snapshot.partyChatMessages) ? snapshot.partyChatMessages : [],
   );
+
+  // Most tenant-aware stores persist through async write queues; restore should only
+  // report success after those queues drain or surface an error.
+  await Promise.all([
+    flushTicketStoreWrites(),
+    flushBountyStoreWrites(),
+    flushEventStoreWrites(),
+    flushLinkStoreWrites(),
+    flushVipStoreWrites(),
+    flushWeaponStatsStoreWrites(),
+    flushStatsStoreWrites(),
+    flushGiveawayStoreWrites(),
+    flushModerationStoreWrites(),
+    flushRedeemStoreWrites(),
+    flushWelcomePackStoreWrites(),
+    flushTopPanelStoreWrites(),
+    flushCartStoreWrites(),
+    flushScumStoreWrites(),
+    flushDeliveryAuditStoreWrites(),
+    flushDeliveryPersistenceWrites(),
+  ]);
 
   if (snapshot.config && typeof config.setFullConfig === 'function') {
     config.setFullConfig(snapshot.config);
@@ -953,11 +1045,13 @@ function createRestoreOperationId() {
 
 // Snapshots intentionally capture both business data and operator-facing runtime state
 // so restore previews can show the blast radius before anything mutates.
-async function buildAdminSnapshot({
-  client = null,
-  observabilitySnapshot = null,
-  includePlatformSecrets = false,
-} = {}) {
+async function buildAdminSnapshot(options = {}) {
+  assertGlobalSnapshotOperation(options);
+  const {
+    client = null,
+    observabilitySnapshot = null,
+    includePlatformSecrets = false,
+  } = options;
   const [
     shopItems,
     wallets,
@@ -1119,14 +1213,16 @@ async function buildAdminSnapshot({
   };
 }
 
-async function createAdminBackup({
-  client = null,
-  actor = 'unknown',
-  role = 'unknown',
-  note = null,
-  includeSnapshot = true,
-  observabilitySnapshot = null,
-} = {}) {
+async function createAdminBackup(options = {}) {
+  assertGlobalSnapshotOperation(options);
+  const {
+    client = null,
+    actor = 'unknown',
+    role = 'unknown',
+    note = null,
+    includeSnapshot = true,
+    observabilitySnapshot = null,
+  } = options;
   const snapshot = includeSnapshot
     ? await buildAdminSnapshot({
       client,
@@ -1148,6 +1244,7 @@ async function createAdminBackup({
 }
 
 async function previewAdminBackupRestore(backupName, options = {}) {
+  assertGlobalSnapshotOperation(options);
   const loaded = readBackupPayloadByName(backupName);
   return buildRestorePreviewData(loaded, {
     ...options,
@@ -1167,6 +1264,7 @@ function matchesRestoreConfirmation(input, backupFile) {
 // Restore runs under maintenance mode with rollback backup creation so operators have
 // a reversible path when a snapshot turns out to be wrong for the target environment.
 async function restoreAdminBackup(backupName, options = {}) {
+  assertGlobalSnapshotOperation(options);
   const loaded = readBackupPayloadByName(backupName);
   const normalizedPayload = normalizeAdminBackupPayload(loaded?.payload);
   const snapshot = normalizedPayload.snapshot;

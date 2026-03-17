@@ -1,24 +1,31 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const serverStatus = {
-  onlinePlayers: 0,
-  maxPlayers: 90,
-  pingMs: null,
-  uptimeMinutes: 0,
-  lastUpdated: null,
-};
+function createScopeState() {
+  return {
+    serverStatus: {
+      onlinePlayers: 0,
+      maxPlayers: 90,
+      pingMs: null,
+      uptimeMinutes: 0,
+      lastUpdated: null,
+    },
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getScumDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureScumScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeDate(value) {
@@ -47,67 +54,72 @@ function normalizeStatus(input = {}) {
   };
 }
 
-function applyStatus(next = {}) {
+function applyStatus(scope, next = {}) {
+  const current = scope.state.serverStatus;
   if (typeof next.onlinePlayers === 'number') {
-    serverStatus.onlinePlayers = next.onlinePlayers;
+    current.onlinePlayers = next.onlinePlayers;
   }
   if (typeof next.maxPlayers === 'number') {
-    serverStatus.maxPlayers = next.maxPlayers;
+    current.maxPlayers = next.maxPlayers;
   }
   if (typeof next.pingMs === 'number' || next.pingMs == null) {
-    serverStatus.pingMs = next.pingMs == null ? null : next.pingMs;
+    current.pingMs = next.pingMs == null ? null : next.pingMs;
   }
   if (typeof next.uptimeMinutes === 'number') {
-    serverStatus.uptimeMinutes = next.uptimeMinutes;
+    current.uptimeMinutes = next.uptimeMinutes;
   }
   if (next.lastUpdated === null || next.lastUpdated instanceof Date) {
-    serverStatus.lastUpdated = next.lastUpdated;
+    current.lastUpdated = next.lastUpdated;
   }
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
       await work();
     })
     .catch((error) => {
       console.error(`[scumStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
   try {
-    const row = await getScumDb().scumStatus.findUnique({
+    const row = await db.scumStatus.findUnique({
       where: { id: 1 },
     });
     if (!row) {
+      const current = state.serverStatus;
       const hasLegacy =
-        serverStatus.onlinePlayers !== 0 ||
-        serverStatus.maxPlayers !== 90 ||
-        serverStatus.pingMs != null ||
-        serverStatus.uptimeMinutes !== 0 ||
-        serverStatus.lastUpdated != null;
+        current.onlinePlayers !== 0 ||
+        current.maxPlayers !== 90 ||
+        current.pingMs != null ||
+        current.uptimeMinutes !== 0 ||
+        current.lastUpdated != null;
       if (hasLegacy) {
         await queueDbWrite(
+          scope,
           async () => {
-            await getScumDb().scumStatus.upsert({
+            await db.scumStatus.upsert({
               where: { id: 1 },
               update: {
-                onlinePlayers: serverStatus.onlinePlayers,
-                maxPlayers: serverStatus.maxPlayers,
-                pingMs: serverStatus.pingMs,
-                uptimeMinutes: serverStatus.uptimeMinutes,
-                lastUpdated: serverStatus.lastUpdated,
+                onlinePlayers: current.onlinePlayers,
+                maxPlayers: current.maxPlayers,
+                pingMs: current.pingMs,
+                uptimeMinutes: current.uptimeMinutes,
+                lastUpdated: current.lastUpdated,
               },
               create: {
                 id: 1,
-                onlinePlayers: serverStatus.onlinePlayers,
-                maxPlayers: serverStatus.maxPlayers,
-                pingMs: serverStatus.pingMs,
-                uptimeMinutes: serverStatus.uptimeMinutes,
-                lastUpdated: serverStatus.lastUpdated,
+                onlinePlayers: current.onlinePlayers,
+                maxPlayers: current.maxPlayers,
+                pingMs: current.pingMs,
+                uptimeMinutes: current.uptimeMinutes,
+                lastUpdated: current.lastUpdated,
               },
             });
           },
@@ -118,37 +130,45 @@ async function hydrateFromPrisma() {
     }
 
     const parsed = normalizeStatus(row);
-    if (startVersion === mutationVersion) {
-      applyStatus(parsed);
+    if (startVersion === state.mutationVersion) {
+      applyStatus(scope, parsed);
     }
   } catch (error) {
     console.error('[scumStore] failed to hydrate from prisma:', error.message);
   }
 }
 
-function initScumStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initScumStore(options = {}) {
+  const scope = ensureScumScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushScumStoreWrites() {
-  return dbWriteQueue;
+async function flushScumStoreWrites(options = {}) {
+  const scope = ensureScumScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function updateStatus({ onlinePlayers, maxPlayers, pingMs, uptimeMinutes }) {
-  mutationVersion += 1;
-  if (typeof onlinePlayers === 'number') serverStatus.onlinePlayers = onlinePlayers;
-  if (typeof maxPlayers === 'number') serverStatus.maxPlayers = maxPlayers;
-  if (typeof pingMs === 'number') serverStatus.pingMs = pingMs;
-  if (typeof uptimeMinutes === 'number') serverStatus.uptimeMinutes = uptimeMinutes;
-  serverStatus.lastUpdated = new Date();
+function updateStatus(payload = {}, options = {}) {
+  const scope = ensureScumScope(options);
+  void initScumStore(options);
+  scope.state.mutationVersion += 1;
+  if (typeof payload.onlinePlayers === 'number') scope.state.serverStatus.onlinePlayers = payload.onlinePlayers;
+  if (typeof payload.maxPlayers === 'number') scope.state.serverStatus.maxPlayers = payload.maxPlayers;
+  if (typeof payload.pingMs === 'number') scope.state.serverStatus.pingMs = payload.pingMs;
+  if (typeof payload.uptimeMinutes === 'number') scope.state.serverStatus.uptimeMinutes = payload.uptimeMinutes;
+  scope.state.serverStatus.lastUpdated = new Date();
 
-  const snapshot = getStatus();
+  const snapshot = getStatus(options);
   queueDbWrite(
+    scope,
     async () => {
-      await getScumDb().scumStatus.upsert({
+      await scope.db.scumStatus.upsert({
         where: { id: 1 },
         update: {
           onlinePlayers: snapshot.onlinePlayers,
@@ -171,27 +191,34 @@ function updateStatus({ onlinePlayers, maxPlayers, pingMs, uptimeMinutes }) {
   );
 }
 
-function getStatus() {
+function getStatus(options = {}) {
+  const scope = ensureScumScope(options);
+  void initScumStore(options);
   return {
-    ...serverStatus,
-    lastUpdated: serverStatus.lastUpdated ? new Date(serverStatus.lastUpdated) : null,
+    ...scope.state.serverStatus,
+    lastUpdated: scope.state.serverStatus.lastUpdated
+      ? new Date(scope.state.serverStatus.lastUpdated)
+      : null,
   };
 }
 
-function replaceStatus(nextStatus = {}) {
-  if (!nextStatus || typeof nextStatus !== 'object') return getStatus();
+function replaceStatus(nextStatus = {}, options = {}) {
+  const scope = ensureScumScope(options);
+  void initScumStore(options);
+  if (!nextStatus || typeof nextStatus !== 'object') return getStatus(options);
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   const parsed = normalizeStatus(nextStatus);
-  applyStatus({
+  applyStatus(scope, {
     ...parsed,
     lastUpdated: parsed.lastUpdated || new Date(),
   });
 
-  const snapshot = getStatus();
+  const snapshot = getStatus(options);
   queueDbWrite(
+    scope,
     async () => {
-      await getScumDb().scumStatus.upsert({
+      await scope.db.scumStatus.upsert({
         where: { id: 1 },
         update: {
           onlinePlayers: snapshot.onlinePlayers,
@@ -212,7 +239,7 @@ function replaceStatus(nextStatus = {}) {
     },
     'replace-status',
   );
-  return getStatus();
+  return getStatus(options);
 }
 
 initScumStore();

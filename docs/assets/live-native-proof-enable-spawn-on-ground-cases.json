@@ -1,0 +1,48 @@
+[
+  {
+    "label": "config-water",
+    "gameItemId": "Water_05l",
+    "quantity": 1,
+    "deliveryClass": "consumable",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Alternate server configuration sample with EnableSpawnOnGround=True."
+  },
+  {
+    "label": "config-weapon-m1911",
+    "gameItemId": "Weapon_M1911",
+    "quantity": 1,
+    "deliveryClass": "weapon",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Alternate server configuration sample with EnableSpawnOnGround=True."
+  },
+  {
+    "label": "config-magazine-m1911",
+    "gameItemId": "Magazine_M1911",
+    "quantity": 1,
+    "deliveryClass": "magazine",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Alternate server configuration sample with EnableSpawnOnGround=True."
+  },
+  {
+    "label": "config-ammo-ammobox-762",
+    "gameItemId": "Cal_7_62x39mm_Ammobox",
+    "quantity": 1,
+    "deliveryClass": "ammo",
+    "deliveryProfile": "spawn_only",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Alternate server configuration sample with EnableSpawnOnGround=True."
+  },
+  {
+    "label": "config-announce-teleport-bandage",
+    "itemName": "Config Announce Teleport Bandage",
+    "gameItemId": "Emergency_bandage",
+    "quantity": 1,
+    "deliveryClass": "teleport wrapper profiles",
+    "deliveryProfile": "announce_teleport_spawn",
+    "expectedProofStrategy": "baseline-delta or world-spawn-delta",
+    "notes": "Alternate server configuration sample with EnableSpawnOnGround=True."
+  }
+]

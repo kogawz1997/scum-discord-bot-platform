@@ -57,7 +57,12 @@ async function checkRewardClaimForUser(params = {}) {
   }
 
   const configRow = claimConfig(type);
-  const check = await configRow.canClaimFn(userId);
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
+  const check = await configRow.canClaimFn(userId, scopeOptions);
   if (check?.ok) {
     return {
       ok: true,
@@ -68,7 +73,7 @@ async function checkRewardClaimForUser(params = {}) {
     };
   }
 
-  const wallet = await getWallet(userId);
+  const wallet = await getWallet(userId, scopeOptions);
   return {
     ok: false,
     reason: configRow.cooldownReason,
@@ -88,12 +93,21 @@ async function claimRewardForUser(params = {}) {
   }
 
   const configRow = claimConfig(type);
-  const check = await checkRewardClaimForUser({ userId, type });
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
+  const check = await checkRewardClaimForUser({
+    userId,
+    type,
+    ...scopeOptions,
+  });
   if (!check.ok) {
     return check;
   }
 
-  const balance = await configRow.claimFn(userId);
+  const balance = await configRow.claimFn(userId, scopeOptions);
   return {
     ok: true,
     type,

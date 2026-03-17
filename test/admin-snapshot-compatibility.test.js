@@ -7,10 +7,6 @@ const {
   restoreAdminSnapshotData,
 } = require('../src/services/adminSnapshotService');
 
-function waitForAsyncStoreFlush(ms = 150) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 test('admin snapshot restore remains compatible when older backups omit newer auth/runtime collections', async (t) => {
   const baseline = await buildAdminSnapshot();
   const legacyCompatibleSnapshot = JSON.parse(JSON.stringify(baseline));
@@ -25,13 +21,10 @@ test('admin snapshot restore remains compatible when older backups omit newer au
   delete legacyCompatibleSnapshot.adminRequestLogs;
 
   t.after(async () => {
-    await waitForAsyncStoreFlush();
     await restoreAdminSnapshotData(baseline);
-    await waitForAsyncStoreFlush();
   });
 
   await restoreAdminSnapshotData(legacyCompatibleSnapshot);
-  await waitForAsyncStoreFlush();
   const restored = await buildAdminSnapshot();
 
   assert.ok(Array.isArray(restored.adminSecurityEvents));

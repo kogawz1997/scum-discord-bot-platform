@@ -3,11 +3,19 @@ const {
   getTicketByChannel,
   claimTicket,
   closeTicket,
-  tickets,
+  listTickets,
 } = require('../store/ticketStore');
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function buildScopeOptions(params = {}) {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
 }
 
 function createSupportTicket(params = {}) {
@@ -21,20 +29,21 @@ function createSupportTicket(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
+  const scopeOptions = buildScopeOptions(params);
   const ticket = createTicket({
     guildId,
     userId,
     channelId,
     category,
     reason,
-  });
+  }, scopeOptions);
   return { ok: true, ticket };
 }
 
-function getTicketByChannelId(channelId) {
+function getTicketByChannelId(channelId, options = {}) {
   const normalized = normalizeText(channelId);
   if (!normalized) return null;
-  return getTicketByChannel(normalized);
+  return getTicketByChannel(normalized, options);
 }
 
 function findOpenTicketForUserInGuild(params = {}) {
@@ -42,7 +51,8 @@ function findOpenTicketForUserInGuild(params = {}) {
   const userId = normalizeText(params.userId);
   if (!guildId || !userId) return null;
 
-  return Array.from(tickets.values()).find(
+  const scopeOptions = buildScopeOptions(params);
+  return listTickets(scopeOptions).find(
     (ticket) =>
       String(ticket?.guildId || '') === guildId
       && String(ticket?.userId || '') === userId
@@ -56,7 +66,7 @@ function claimSupportTicket(params = {}) {
   if (!channelId || !staffId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const ticket = claimTicket(channelId, staffId);
+  const ticket = claimTicket(channelId, staffId, buildScopeOptions(params));
   if (!ticket) {
     return { ok: false, reason: 'not-found' };
   }
@@ -68,7 +78,7 @@ function closeSupportTicket(params = {}) {
   if (!channelId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const ticket = closeTicket(channelId);
+  const ticket = closeTicket(channelId, buildScopeOptions(params));
   if (!ticket) {
     return { ok: false, reason: 'not-found' };
   }

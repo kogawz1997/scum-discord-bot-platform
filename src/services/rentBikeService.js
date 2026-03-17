@@ -230,12 +230,30 @@ function generateOrderId() {
   return `RB-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 }
 
-function enqueueOrder(orderId) {
+function normalizeScopeOptions(options = {}) {
+  return {
+    tenantId: String(options.tenantId || '').trim() || null,
+    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
+    env: options.env,
+  };
+}
+
+function buildQueueKey(orderId, options = {}) {
+  const tenantId = String(options.tenantId || '').trim() || '__shared__';
+  return `${tenantId}:${String(orderId || '').trim()}`;
+}
+
+function enqueueOrder(orderId, options = {}) {
   const key = String(orderId || '').trim();
   if (!key) return;
-  if (inQueue.has(key)) return;
-  inQueue.add(key);
-  queue.push(key);
+  const scopedOptions = normalizeScopeOptions(options);
+  const queueKey = buildQueueKey(key, scopedOptions);
+  if (inQueue.has(queueKey)) return;
+  inQueue.add(queueKey);
+  queue.push({
+    orderId: key,
+    ...scopedOptions,
+  });
   void processQueue();
 }
 
@@ -244,18 +262,20 @@ async function processQueue() {
   isProcessing = true;
   try {
     while (queue.length > 0 && !isMaintenance) {
-      const orderId = queue.shift();
-      inQueue.delete(orderId);
-      await processSingleOrder(orderId);
+      const entry = queue.shift();
+      inQueue.delete(buildQueueKey(entry?.orderId, entry || {}));
+      await processSingleOrder(entry);
     }
   } finally {
     isProcessing = false;
   }
 }
 
-async function processSingleOrder(orderId) {
+async function processSingleOrder(entry) {
+  const orderId = String(entry?.orderId || '').trim();
+  const scopeOptions = normalizeScopeOptions(entry || {});
   const settings = getSettings();
-  const order = await getRentalOrder(orderId);
+  const order = await getRentalOrder(orderId, scopeOptions);
   if (!order) return;
   if (order.status === 'destroyed' || order.status === 'missing' || order.status === 'delivered') {
     return;
@@ -265,7 +285,7 @@ async function processSingleOrder(orderId) {
   await setRentalOrderStatus(orderId, 'delivering', {
     attemptCount,
     lastError: null,
-  });
+  }, scopeOptions);
 
   try {
     if (!settings.spawnId) {
@@ -292,13 +312,13 @@ async function processSingleOrder(orderId) {
     }
 
     const today = getDateKey(settings.timezone);
-    await markDailyRentUsed(order.userKey, today);
+    await markDailyRentUsed(order.userKey, today, scopeOptions);
 
     await setRentalOrderStatus(orderId, 'delivered', {
       vehicleInstanceId: selected.id,
       attemptCount,
       lastError: null,
-    });
+    }, scopeOptions);
 
     await sendRentLog(
       order.guildId || null,
@@ -309,7 +329,7 @@ async function processSingleOrder(orderId) {
     await setRentalOrderStatus(orderId, 'failed', {
       attemptCount,
       lastError: message,
-    });
+    }, scopeOptions);
     await sendRentLog(
       order.guildId || null,
       `[RENTBIKE] Failed | order: \`${orderId}\` | userKey: \`${order.userKey}\` | reason: ${message}`,
@@ -317,7 +337,8 @@ async function processSingleOrder(orderId) {
   }
 }
 
-async function requestRentBike(discordUserId, guildId = null) {
+async function requestRentBike(discordUserId, guildId = null, options = {}) {
+  const scopeOptions = normalizeScopeOptions(options);
   await ensureRentBikeTables();
   const settings = getSettings();
   if (!settings.spawnId) {
@@ -343,7 +364,7 @@ async function requestRentBike(discordUserId, guildId = null) {
     };
   }
 
-  const link = getLinkByUserId(discordUserId);
+  const link = getLinkByUserId(discordUserId, scopeOptions);
   if (!link?.steamId) {
     return {
       ok: false,
@@ -354,7 +375,7 @@ async function requestRentBike(discordUserId, guildId = null) {
 
   const userKey = String(link.steamId);
   const today = getDateKey(settings.timezone);
-  const daily = await getDailyRent(userKey, today);
+  const daily = await getDailyRent(userKey, today, scopeOptions);
   if (daily?.used) {
     return {
       ok: false,
@@ -364,7 +385,7 @@ async function requestRentBike(discordUserId, guildId = null) {
   }
 
   if (settings.cooldownMinutes > 0) {
-    const latest = await getLatestRentalByUser(userKey);
+    const latest = await getLatestRentalByUser(userKey, scopeOptions);
     if (latest?.createdAt) {
       const diffMs = Date.now() - new Date(latest.createdAt).getTime();
       const cooldownMs = settings.cooldownMinutes * 60 * 1000;
@@ -385,7 +406,7 @@ async function requestRentBike(discordUserId, guildId = null) {
       orderId,
       userKey,
       guildId: guildId ? String(guildId) : null,
-    });
+    }, scopeOptions);
   } catch {
     orderId = `${orderId}-${crypto.randomBytes(2).toString('hex')}`;
     try {
@@ -393,7 +414,7 @@ async function requestRentBike(discordUserId, guildId = null) {
         orderId,
         userKey,
         guildId: guildId ? String(guildId) : null,
-      });
+      }, scopeOptions);
     } catch (error) {
       return {
         ok: false,
@@ -403,7 +424,7 @@ async function requestRentBike(discordUserId, guildId = null) {
     }
   }
 
-  enqueueOrder(orderId);
+  enqueueOrder(orderId, scopeOptions);
 
   return {
     ok: true,
@@ -413,7 +434,7 @@ async function requestRentBike(discordUserId, guildId = null) {
   };
 }
 
-async function destroySingleRental(order, settings) {
+async function destroySingleRental(order, settings, options = {}) {
   const orderId = order.orderId;
   const vehicleId = order.vehicleInstanceId;
 
@@ -421,7 +442,7 @@ async function destroySingleRental(order, settings) {
     await setRentalOrderStatus(orderId, 'missing', {
       destroyedAt: new Date(),
       lastError: 'No vehicle_instance_id recorded',
-    });
+    }, options);
     return { ok: false, status: 'missing' };
   }
 
@@ -433,28 +454,30 @@ async function destroySingleRental(order, settings) {
     await setRentalOrderStatus(orderId, 'destroyed', {
       destroyedAt: new Date(),
       lastError: null,
-    });
+    }, options);
     return { ok: true, status: 'destroyed' };
   } catch (error) {
     await setRentalOrderStatus(orderId, 'missing', {
       destroyedAt: new Date(),
       lastError: String(error?.message || 'Destroy failed'),
-    });
+    }, options);
     return { ok: false, status: 'missing' };
   }
 }
 
-async function runMidnightReset(reason = 'schedule') {
+async function runMidnightReset(reason = 'schedule', options = {}) {
   if (isMaintenance) return;
+  const scopeOptions = normalizeScopeOptions(options);
   const settings = getSettings();
   isMaintenance = true;
   try {
     const targets = await listRentalVehiclesByStatuses(
       ['delivered', 'pending', 'delivering'],
       5000,
+      scopeOptions,
     );
     for (const order of targets) {
-      await destroySingleRental(order, settings);
+      await destroySingleRental(order, settings, scopeOptions);
       await sleep(settings.resetDestroyDelayMs);
     }
     console.log(
@@ -468,7 +491,7 @@ async function runMidnightReset(reason = 'schedule') {
   }
 }
 
-function startDateWatcher() {
+function startDateWatcher(options = {}) {
   const settings = getSettings();
   lastDateKey = getDateKey(settings.timezone);
   if (resetTimer) clearInterval(resetTimer);
@@ -476,25 +499,26 @@ function startDateWatcher() {
     const current = getDateKey(settings.timezone);
     if (current === lastDateKey) return;
     lastDateKey = current;
-    void runMidnightReset('date-rollover');
+    void runMidnightReset('date-rollover', options);
   }, settings.resetCheckIntervalMs);
 }
 
-async function warmQueueFromDatabase() {
-  const rows = await listRentalVehiclesByStatuses(['pending', 'delivering'], 3000);
+async function warmQueueFromDatabase(options = {}) {
+  const scopeOptions = normalizeScopeOptions(options);
+  const rows = await listRentalVehiclesByStatuses(['pending', 'delivering'], 3000, scopeOptions);
   for (const row of rows) {
-    enqueueOrder(row.orderId);
+    enqueueOrder(row.orderId, scopeOptions);
   }
 }
 
-async function startRentBikeService(client) {
+async function startRentBikeService(client, options = {}) {
   if (client) discordClient = client;
   if (started) return;
   started = true;
 
   await ensureRentBikeTables();
-  await warmQueueFromDatabase();
-  startDateWatcher();
+  await warmQueueFromDatabase(options);
+  startDateWatcher(options);
   void processQueue();
   console.log('[rent-bike] service started');
 }

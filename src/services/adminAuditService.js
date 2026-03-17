@@ -4,6 +4,8 @@ const { getTenantScopedPrismaClient } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
 const {
+  buildScopedRowKey,
+  dedupeScopedRows,
   normalizeTenantId,
   readAcrossDeliveryPersistenceScopes,
 } = require('./deliveryPersistenceDb');
@@ -107,6 +109,13 @@ function getAuditScopedPrisma(options = {}) {
   const tenantId = normalizeTenantId(options.tenantId);
   if (!tenantId) return options.prisma;
   return getTenantScopedPrismaClient(tenantId);
+}
+
+function dedupeAuditRows(rows, fields) {
+  return dedupeScopedRows(
+    rows,
+    (row) => buildScopedRowKey(row, fields, { mapSharedScopeToDefaultTenant: true }),
+  );
 }
 
 function stringifyAuditValue(value) {
@@ -649,7 +658,10 @@ async function buildWalletLikeDataset(prisma, view, options, { rewardOnly = fals
   const aggregateAcrossTopology = shouldAggregateAuditAcrossTopology(options);
 
   if (aggregateAcrossTopology) {
-    const allRows = await readAcrossDeliveryPersistenceScopes((db) => db.walletLedger.findMany({ where }));
+    const allRows = dedupeAuditRows(
+      await readAcrossDeliveryPersistenceScopes((db) => db.walletLedger.findMany({ where })),
+      ['id'],
+    );
     const sortedRows = sortAuditRows(allRows, view, sortBy, sortOrder);
     const total = sortedRows.length;
     const paging = buildPaginationState({
@@ -751,13 +763,16 @@ async function buildEventDataset(prisma, options) {
   const aggregateAcrossTopology = shouldAggregateAuditAcrossTopology(options);
 
   if (aggregateAcrossTopology) {
-    const allRows = await readAcrossDeliveryPersistenceScopes((db) =>
-      db.guildEvent.findMany({
-        where,
-        include: {
-          participants: { select: { userId: true } },
-        },
-      }));
+    const allRows = dedupeAuditRows(
+      await readAcrossDeliveryPersistenceScopes((db) =>
+        db.guildEvent.findMany({
+          where,
+          include: {
+            participants: { select: { userId: true } },
+          },
+        })),
+      ['id'],
+    );
     const normalizedRows = allRows.map(normalizeEventRow);
     const sortedRows = sortAuditRows(normalizedRows, view, sortBy, sortOrder);
     const total = sortedRows.length;
@@ -771,11 +786,14 @@ async function buildEventDataset(prisma, options) {
     const rows = exportAll
       ? sortedRows
       : sortedRows.slice(paging.normalizedStartIndex, paging.normalizedStartIndex + pageSize);
-    const rewardRows = await readAcrossDeliveryPersistenceScopes((db) =>
-      db.walletLedger.findMany({
-        where: combineWhere(rewardWhere, buildRewardOnlyWhere()),
-        select: { reason: true },
-      }));
+    const rewardRows = dedupeAuditRows(
+      await readAcrossDeliveryPersistenceScopes((db) =>
+        db.walletLedger.findMany({
+          where: combineWhere(rewardWhere, buildRewardOnlyWhere()),
+          select: { id: true, reason: true },
+        })),
+      ['id'],
+    );
 
     return {
       view,

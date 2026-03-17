@@ -20,6 +20,14 @@ const REFRESH_DEBOUNCE_MS = Math.max(
 const refreshTimers = new Map(); // guildId -> timeout
 const runningGuilds = new Set(); // guildId
 
+function normalizeScopeOptions(options = {}) {
+  return {
+    tenantId: String(options.tenantId || '').trim() || null,
+    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
+    env: options.env,
+  };
+}
+
 function pad(value, width) {
   const text = String(value);
   if (text.length >= width) return text.slice(0, width);
@@ -45,9 +53,9 @@ function resolveDisplayName(client, guild, userId) {
   return uid;
 }
 
-function buildTopKillerEmbed(client, guildId) {
+function buildTopKillerEmbed(client, guildId, options = {}) {
   const guild = guildId ? client.guilds.cache.get(guildId) : null;
-  const all = listAllStats().slice();
+  const all = listAllStats(normalizeScopeOptions(options)).slice();
   all.sort((a, b) => b.kills - a.kills);
 
   const rows = all.slice(0, 25).map((s, i) => {
@@ -79,8 +87,8 @@ function buildTopKillerEmbed(client, guildId) {
     .setTimestamp();
 }
 
-function buildTopGunKillEmbed() {
-  const all = listWeaponStats().slice();
+function buildTopGunKillEmbed(options = {}) {
+  const all = listWeaponStats(normalizeScopeOptions(options)).slice();
   all.sort((a, b) => b.kills - a.kills);
 
   const rows = all.slice(0, 20).map((w, i) => ({
@@ -109,9 +117,9 @@ function buildTopGunKillEmbed() {
     .setTimestamp();
 }
 
-function buildTopKdEmbed(client, guildId) {
+function buildTopKdEmbed(client, guildId, options = {}) {
   const guild = guildId ? client.guilds.cache.get(guildId) : null;
-  const all = listAllStats().slice();
+  const all = listAllStats(normalizeScopeOptions(options)).slice();
   all.sort((a, b) => {
     const kdA = a.deaths === 0 ? a.kills : a.kills / a.deaths;
     const kdB = b.deaths === 0 ? b.kills : b.kills / b.deaths;
@@ -147,9 +155,9 @@ function buildTopKdEmbed(client, guildId) {
     .setTimestamp();
 }
 
-function buildTopPlaytimeEmbed(client, guildId) {
+function buildTopPlaytimeEmbed(client, guildId, options = {}) {
   const guild = guildId ? client.guilds.cache.get(guildId) : null;
-  const all = listAllStats().slice();
+  const all = listAllStats(normalizeScopeOptions(options)).slice();
   all.sort((a, b) => b.playtimeMinutes - a.playtimeMinutes);
 
   const rows = all.slice(0, 25).map((s, i) => ({
@@ -178,9 +186,9 @@ function buildTopPlaytimeEmbed(client, guildId) {
     .setTimestamp();
 }
 
-async function buildTopEconomyEmbed(client, guildId) {
+async function buildTopEconomyEmbed(client, guildId, options = {}) {
   const guild = guildId ? client.guilds.cache.get(guildId) : null;
-  const wallets = await listTopWallets(25);
+  const wallets = await listTopWallets(25, normalizeScopeOptions(options));
 
   const rows = wallets.map((wallet, i) => ({
     rank: `[${i + 1}]`,
@@ -209,7 +217,7 @@ async function buildTopEconomyEmbed(client, guildId) {
     .setTimestamp();
 }
 
-function registerLeaderboardPanelMessage(panelType, message) {
+function registerLeaderboardPanelMessage(panelType, message, options = {}) {
   const key = normalizePanelType(panelType);
   if (!key) return null;
   if (!message?.guildId || !message?.channelId || !message?.id) return null;
@@ -218,6 +226,7 @@ function registerLeaderboardPanelMessage(panelType, message) {
     key,
     message.channelId,
     message.id,
+    normalizeScopeOptions(options),
   );
   publishAdminLiveUpdate('leaderboard-register', {
     guildId: message.guildId,
@@ -239,17 +248,18 @@ async function loadMessageByRef(client, ref) {
   return message || null;
 }
 
-async function refreshLeaderboardPanelsNow(client, guildId, reason = 'update') {
+async function refreshLeaderboardPanelsNow(client, guildId, reason = 'update', options = {}) {
   const gid = String(guildId || '').trim();
   if (!gid) return { ok: false, reason: 'invalid-guild-id', updated: 0 };
   if (runningGuilds.has(gid)) {
     return { ok: false, reason: 'already-running', updated: 0 };
   }
+  const scopeOptions = normalizeScopeOptions(options);
 
   runningGuilds.add(gid);
   let updated = 0;
   try {
-    const refs = getTopPanelsForGuild(gid);
+    const refs = getTopPanelsForGuild(gid, scopeOptions);
     const tasks = [
       { type: 'topKiller', ref: refs.topKiller },
       { type: 'topGunKill', ref: refs.topGunKill },
@@ -262,21 +272,21 @@ async function refreshLeaderboardPanelsNow(client, guildId, reason = 'update') {
       if (!task.ref) continue;
       const message = await loadMessageByRef(client, task.ref);
       if (!message) {
-        removeTopPanelMessage(gid, task.type);
+        removeTopPanelMessage(gid, task.type, scopeOptions);
         continue;
       }
 
       let embed = null;
       if (task.type === 'topKiller') {
-        embed = buildTopKillerEmbed(client, gid);
+        embed = buildTopKillerEmbed(client, gid, scopeOptions);
       } else if (task.type === 'topGunKill') {
-        embed = buildTopGunKillEmbed();
+        embed = buildTopGunKillEmbed(scopeOptions);
       } else if (task.type === 'topKd') {
-        embed = buildTopKdEmbed(client, gid);
+        embed = buildTopKdEmbed(client, gid, scopeOptions);
       } else if (task.type === 'topPlaytime') {
-        embed = buildTopPlaytimeEmbed(client, gid);
+        embed = buildTopPlaytimeEmbed(client, gid, scopeOptions);
       } else if (task.type === 'topEconomy') {
-        embed = await buildTopEconomyEmbed(client, gid);
+        embed = await buildTopEconomyEmbed(client, gid, scopeOptions);
       } else {
         continue;
       }
@@ -288,7 +298,7 @@ async function refreshLeaderboardPanelsNow(client, guildId, reason = 'update') {
         const code = Number(error?.code || 0);
         // Unknown Message / Missing Access / Missing Permissions
         if (code === 10008 || code === 50001 || code === 50013) {
-          removeTopPanelMessage(gid, task.type);
+          removeTopPanelMessage(gid, task.type, scopeOptions);
           continue;
         }
         console.error(
@@ -312,22 +322,23 @@ async function refreshLeaderboardPanelsNow(client, guildId, reason = 'update') {
   }
 }
 
-function queueLeaderboardRefreshForGuild(client, guildId, reason = 'update') {
+function queueLeaderboardRefreshForGuild(client, guildId, reason = 'update', options = {}) {
   const gid = String(guildId || '').trim();
   if (!gid || !client) return;
+  const scopeOptions = normalizeScopeOptions(options);
   const prev = refreshTimers.get(gid);
   if (prev) clearTimeout(prev);
   const timer = setTimeout(() => {
     refreshTimers.delete(gid);
-    void refreshLeaderboardPanelsNow(client, gid, reason);
+    void refreshLeaderboardPanelsNow(client, gid, reason, scopeOptions);
   }, REFRESH_DEBOUNCE_MS);
   refreshTimers.set(gid, timer);
 }
 
-function queueLeaderboardRefreshForAllGuilds(client, reason = 'update') {
+function queueLeaderboardRefreshForAllGuilds(client, reason = 'update', options = {}) {
   if (!client?.guilds?.cache) return;
   for (const guildId of client.guilds.cache.keys()) {
-    queueLeaderboardRefreshForGuild(client, guildId, reason);
+    queueLeaderboardRefreshForGuild(client, guildId, reason, options);
   }
 }
 

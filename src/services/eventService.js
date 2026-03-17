@@ -26,6 +26,14 @@ function normalizeEventId(value) {
   return normalized > 0 ? normalized : null;
 }
 
+function buildScopeOptions(params = {}) {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
+}
+
 async function createServerEvent(params = {}) {
   const name = normalizeText(params.name);
   const time = normalizeText(params.time);
@@ -34,13 +42,14 @@ async function createServerEvent(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const event = createEvent({ name, time, reward });
-  await flushEventStoreWrites();
+  const scopeOptions = buildScopeOptions(params);
+  const event = createEvent({ name, time, reward }, scopeOptions);
+  await flushEventStoreWrites(scopeOptions);
   return { ok: true, event };
 }
 
-function listServerEvents() {
-  return listEvents();
+function listServerEvents(options = {}) {
+  return listEvents(options);
 }
 
 async function joinServerEvent(params = {}) {
@@ -50,12 +59,13 @@ async function joinServerEvent(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const result = joinEvent(id, userId);
+  const scopeOptions = buildScopeOptions(params);
+  const result = joinEvent(id, userId, scopeOptions);
   if (!result) {
     return { ok: false, reason: 'not-found' };
   }
 
-  await flushEventStoreWrites();
+  await flushEventStoreWrites(scopeOptions);
   return {
     ok: true,
     event: result.ev,
@@ -70,12 +80,13 @@ async function startServerEvent(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const event = startEvent(id);
+  const scopeOptions = buildScopeOptions(params);
+  const event = startEvent(id, scopeOptions);
   if (!event) {
     return { ok: false, reason: 'not-found' };
   }
 
-  await flushEventStoreWrites();
+  await flushEventStoreWrites(scopeOptions);
   return { ok: true, event };
 }
 
@@ -87,13 +98,14 @@ async function finishServerEvent(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const event = endEvent(id);
+  const scopeOptions = buildScopeOptions(params);
+  const event = endEvent(id, scopeOptions);
   if (!event) {
     return { ok: false, reason: 'not-found' };
   }
 
-  await flushEventStoreWrites();
-  const participants = getParticipants(id);
+  await flushEventStoreWrites(scopeOptions);
+  const participants = getParticipants(id, scopeOptions);
   if (!winnerUserId || coins <= 0) {
     return {
       ok: true,
@@ -110,6 +122,7 @@ async function finishServerEvent(params = {}) {
     amount: coins,
     reason: 'event_reward',
     actor: normalizeText(params.actor) || 'system',
+    ...scopeOptions,
     meta: {
       eventId: event.id,
       eventName: event.name,

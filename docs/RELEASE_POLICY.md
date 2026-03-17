@@ -41,6 +41,7 @@ Each release note should state:
 - migration or restart requirements
 - known limitations
 - evidence or verification references
+- runtime-dependent evidence scope when claims depend on live SCUM, Windows session state, `SCUM.db`, or `SCUM.log`
 
 ## Required Upgrade Flags
 
@@ -74,6 +75,12 @@ Release notes should link to at least one of:
 - code path implementing the change
 
 Avoid release notes that only restate intent without implementation evidence.
+
+If a release note mentions native proof, watcher readiness, or console-agent behavior, it must also state whether the evidence is:
+
+- current-workstation only
+- reproduced on more than one workstation/runtime
+- reproduced across more than one SCUM server configuration
 
 ## Review Checklist
 

@@ -10,7 +10,7 @@ const { createPurchase, listShopItems } = require('../src/store/memoryStore');
 const { setLink } = require('../src/store/linkStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
-const { prisma } = require('../src/prisma');
+const { prisma, getTenantScopedPrismaClient } = require('../src/prisma');
 const {
   setAdminRestoreState,
 } = require('../src/store/adminRestoreStateStore');
@@ -1020,7 +1020,8 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
   assert.equal(offerRes.res.status, 200);
   assert.equal(offerRes.data.ok, true);
 
-  await prisma.purchase.create({
+  const tenantPrisma = getTenantScopedPrismaClient(tenantId);
+  await tenantPrisma.purchase.create({
     data: {
       code: purchaseCode,
       tenantId,

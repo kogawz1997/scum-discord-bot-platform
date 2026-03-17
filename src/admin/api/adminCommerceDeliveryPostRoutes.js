@@ -52,6 +52,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
       res,
       auth,
     } = context;
+    const authTenantId = String(auth?.tenantId || '').trim() || undefined;
 
     if (pathname === '/admin/api/wallet/set') {
       const userId = requiredString(body, 'userId');
@@ -65,13 +66,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount: balance,
         reason: 'admin_wallet_set',
         actor: `admin-web:${auth?.user || 'unknown'}`,
+        tenantId: authTenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-set');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-set', { tenantId: authTenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }
@@ -88,13 +90,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount,
         reason: 'admin_wallet_add',
         actor: `admin-web:${auth?.user || 'unknown'}`,
+        tenantId: authTenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-add');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-add', { tenantId: authTenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }
@@ -111,13 +114,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount,
         reason: 'admin_wallet_remove',
         actor: `admin-web:${auth?.user || 'unknown'}`,
+        tenantId: authTenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-remove');
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-remove', { tenantId: authTenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }
@@ -756,12 +760,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         maxPlayers,
         pingMs,
         uptimeMinutes,
+        tenantId: authTenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: getStatus() });
+      sendJson(res, 200, { ok: true, data: getStatus({ tenantId: authTenantId }) });
       return true;
     }
 

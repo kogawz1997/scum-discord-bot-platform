@@ -113,6 +113,14 @@ test('SCUM webhook server validates auth and dispatches events', async (t) => {
   });
   assert.equal(invalidType.status, 400);
 
+  const tenantIdRejected = await post('/scum-event', {
+    secret: 'test-secret',
+    guildId: fakeGuild.id,
+    type: 'status',
+    tenantId: 'tenant-a',
+  });
+  assert.equal(tenantIdRejected.status, 400);
+
   const badContentType = await fetch(`${baseUrl}/scum-event`, {
     method: 'POST',
     headers: {
@@ -153,12 +161,20 @@ test('SCUM webhook server validates auth and dispatches events', async (t) => {
   });
   assert.equal(killOk.status, 200);
 
+  const restartOk = await post('/scum-event', {
+    secret: 'test-secret',
+    guildId: fakeGuild.id,
+    type: 'restart',
+    message: 'Restart soon',
+  });
+  assert.equal(restartOk.status, 200);
+
   assert.equal(calls.status.length, 1);
   assert.equal(calls.kill.length, 1);
   assert.equal(calls.joinLeave.length, 0);
-  assert.equal(calls.restart.length, 0);
+  assert.equal(calls.restart.length, 1);
 
-  const [statusGuild, statusPayload] = calls.status[0];
+  const [statusGuild, statusPayload, statusOptions] = calls.status[0];
   assert.equal(statusGuild.id, fakeGuild.id);
   assert.deepEqual(statusPayload, {
     onlinePlayers: 22,
@@ -166,8 +182,9 @@ test('SCUM webhook server validates auth and dispatches events', async (t) => {
     pingMs: 18,
     uptimeMinutes: 55,
   });
+  assert.deepEqual(statusOptions, {});
 
-  const [killGuild, killPayload] = calls.kill[0];
+  const [killGuild, killPayload, killOptions] = calls.kill[0];
   assert.equal(killGuild.id, fakeGuild.id);
   assert.deepEqual(killPayload, {
     killer: 'A',
@@ -180,6 +197,12 @@ test('SCUM webhook server validates auth and dispatches events', async (t) => {
     sector: 'B2',
     mapImageUrl: 'https://cdn.example.com/maps/b2.jpg',
   });
+  assert.deepEqual(killOptions, {});
+
+  const [restartGuild, restartMessage, restartOptions] = calls.restart[0];
+  assert.equal(restartGuild.id, fakeGuild.id);
+  assert.equal(restartMessage, 'Restart soon');
+  assert.deepEqual(restartOptions, {});
 });
 
 test('SCUM webhook server rejects invalid JSON and oversized UTF-8 payloads', async (t) => {

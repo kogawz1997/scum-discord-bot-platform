@@ -7,11 +7,20 @@ function normalizeOptionalInt(value) {
   return Math.max(0, Math.trunc(parsed));
 }
 
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
 function updateScumStatusForAdmin(params = {}) {
   const onlinePlayers = normalizeOptionalInt(params.onlinePlayers);
   const maxPlayers = normalizeOptionalInt(params.maxPlayers);
   const pingMs = normalizeOptionalInt(params.pingMs);
   const uptimeMinutes = normalizeOptionalInt(params.uptimeMinutes);
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
 
   if (
     onlinePlayers == null
@@ -27,7 +36,7 @@ function updateScumStatusForAdmin(params = {}) {
     ...(maxPlayers != null ? { maxPlayers } : {}),
     ...(pingMs != null ? { pingMs } : {}),
     ...(uptimeMinutes != null ? { uptimeMinutes } : {}),
-  });
+  }, scopeOptions);
 
   return {
     ok: true,

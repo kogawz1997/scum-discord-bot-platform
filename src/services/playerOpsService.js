@@ -31,11 +31,16 @@ function normalizeCode(value) {
 async function redeemCodeForUser(params = {}) {
   const userId = normalizeText(params.userId);
   const code = normalizeCode(params.code);
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
   if (!userId || !code) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const data = getCode(code);
+  const data = getCode(code, scopeOptions);
   if (!data) {
     return { ok: false, reason: 'code-not-found', code };
   }
@@ -60,12 +65,13 @@ async function redeemCodeForUser(params = {}) {
       meta: {
         source: normalizeText(params.source) || 'redeem-service',
       },
+      ...scopeOptions,
     });
     if (!credit.ok) {
       return { ok: false, reason: 'credit-failed', code };
     }
 
-    markUsed(code, userId);
+    markUsed(code, userId, scopeOptions);
     return {
       ok: true,
       code,
@@ -75,7 +81,7 @@ async function redeemCodeForUser(params = {}) {
     };
   }
 
-  markUsed(code, userId);
+  markUsed(code, userId, scopeOptions);
   return {
     ok: true,
     code,
@@ -88,6 +94,11 @@ async function createBountyForUser(params = {}) {
   const createdBy = normalizeText(params.createdBy);
   const targetName = normalizeText(params.targetName);
   const amount = normalizeAmount(params.amount);
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
   if (!createdBy || !targetName || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
@@ -96,7 +107,7 @@ async function createBountyForUser(params = {}) {
     targetName,
     amount,
     createdBy,
-  });
+  }, scopeOptions);
   return { ok: true, bounty };
 }
 
@@ -104,14 +115,19 @@ function cancelBountyForUser(params = {}) {
   const id = Number(params.id);
   const requesterId = normalizeText(params.requesterId);
   const isStaff = params.isStaff === true;
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
   if (!Number.isFinite(id) || id <= 0 || !requesterId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  return cancelBounty(id, requesterId, isStaff);
+  return cancelBounty(id, requesterId, isStaff, scopeOptions);
 }
 
-function listActiveBountiesForUser() {
-  return listBounties().filter((row) => row.status === 'active');
+function listActiveBountiesForUser(options = {}) {
+  return listBounties(options).filter((row) => row.status === 'active');
 }
 
 function createRedeemCodeForAdmin(params = {}) {
@@ -136,6 +152,10 @@ function createRedeemCodeForAdmin(params = {}) {
     type,
     amount,
     itemId,
+  }, {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
   });
 }
 
@@ -144,7 +164,11 @@ function deleteRedeemCodeForAdmin(params = {}) {
   if (!code) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const removed = deleteCode(code);
+  const removed = deleteCode(code, {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  });
   if (!removed) {
     return { ok: false, reason: 'not-found' };
   }
@@ -156,7 +180,11 @@ function resetRedeemCodeUsageForAdmin(params = {}) {
   if (!code) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const item = resetCodeUsage(code);
+  const item = resetCodeUsage(code, {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  });
   if (!item) {
     return { ok: false, reason: 'not-found' };
   }
@@ -169,7 +197,11 @@ async function requestRentBikeForUser(params = {}) {
   if (!discordUserId) {
     return { ok: false, reason: 'invalid-user-id', message: 'user id is required' };
   }
-  return requestRentBike(discordUserId, guildId);
+  return requestRentBike(discordUserId, guildId, {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  });
 }
 
 module.exports = {

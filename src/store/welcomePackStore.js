@@ -1,47 +1,57 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const claimed = new Set();
+function createScopeState() {
+  return {
+    claimed: new Set(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getWelcomePackDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureWelcomePackScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeUserId(value) {
   return String(value || '').trim();
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
       await work();
     })
     .catch((error) => {
       console.error(`[welcomePackStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
   try {
-    const rows = await getWelcomePackDb().welcomeClaim.findMany({
+    const rows = await db.welcomeClaim.findMany({
       orderBy: { claimedAt: 'desc' },
     });
     if (rows.length === 0) {
-      if (claimed.size > 0) {
+      if (state.claimed.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const userId of claimed.values()) {
-              await getWelcomePackDb().welcomeClaim.upsert({
+            for (const userId of state.claimed.values()) {
+              await db.welcomeClaim.upsert({
                 where: { userId },
                 update: {},
                 create: { userId },
@@ -61,17 +71,17 @@ async function hydrateFromPrisma() {
       hydrated.add(userId);
     }
 
-    if (startVersion === mutationVersion) {
-      claimed.clear();
+    if (startVersion === state.mutationVersion) {
+      state.claimed.clear();
       for (const userId of hydrated.values()) {
-        claimed.add(userId);
+        state.claimed.add(userId);
       }
       return;
     }
 
     for (const userId of hydrated.values()) {
-      if (!claimed.has(userId)) {
-        claimed.add(userId);
+      if (!state.claimed.has(userId)) {
+        state.claimed.add(userId);
       }
     }
   } catch (error) {
@@ -79,32 +89,42 @@ async function hydrateFromPrisma() {
   }
 }
 
-function initWelcomePackStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initWelcomePackStore(options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushWelcomePackStoreWrites() {
-  return dbWriteQueue;
+async function flushWelcomePackStoreWrites(options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function hasClaimed(userId) {
-  return claimed.has(normalizeUserId(userId));
+function hasClaimed(userId, options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
+  return scope.state.claimed.has(normalizeUserId(userId));
 }
 
-function claim(userId) {
+function claim(userId, options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
   const id = normalizeUserId(userId);
   if (!id) return false;
-  if (claimed.has(id)) return false;
+  if (scope.state.claimed.has(id)) return false;
 
-  claimed.add(id);
-  mutationVersion += 1;
+  scope.state.claimed.add(id);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getWelcomePackDb().welcomeClaim.upsert({
+      await scope.db.welcomeClaim.upsert({
         where: { userId: id },
         update: {},
         create: { userId: id },
@@ -116,20 +136,25 @@ function claim(userId) {
   return true;
 }
 
-function listClaimed() {
-  return Array.from(claimed.values());
+function listClaimed(options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
+  return Array.from(scope.state.claimed.values());
 }
 
-function revokeClaim(userId) {
+function revokeClaim(userId, options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
   const id = normalizeUserId(userId);
   if (!id) return false;
-  const removed = claimed.delete(id);
+  const removed = scope.state.claimed.delete(id);
   if (!removed) return false;
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   queueDbWrite(
+    scope,
     async () => {
-      await getWelcomePackDb().welcomeClaim.deleteMany({
+      await scope.db.welcomeClaim.deleteMany({
         where: { userId: id },
       });
     },
@@ -138,38 +163,44 @@ function revokeClaim(userId) {
   return true;
 }
 
-function clearClaims() {
-  claimed.clear();
-  mutationVersion += 1;
+function clearClaims(options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
+  scope.state.claimed.clear();
+  scope.state.mutationVersion += 1;
   queueDbWrite(
+    scope,
     async () => {
-      await getWelcomePackDb().welcomeClaim.deleteMany({});
+      await scope.db.welcomeClaim.deleteMany({});
     },
     'clear-claims',
   );
 }
 
-function replaceClaims(nextClaims = []) {
-  claimed.clear();
-  mutationVersion += 1;
+function replaceClaims(nextClaims = [], options = {}) {
+  const scope = ensureWelcomePackScope(options);
+  void initWelcomePackStore(options);
+  scope.state.claimed.clear();
+  scope.state.mutationVersion += 1;
   for (const userIdRaw of Array.isArray(nextClaims) ? nextClaims : []) {
     const userId = normalizeUserId(userIdRaw);
     if (!userId) continue;
-    claimed.add(userId);
+    scope.state.claimed.add(userId);
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getWelcomePackDb().welcomeClaim.deleteMany({});
-      for (const userId of claimed.values()) {
-        await getWelcomePackDb().welcomeClaim.create({
+      await scope.db.welcomeClaim.deleteMany({});
+      for (const userId of scope.state.claimed.values()) {
+        await scope.db.welcomeClaim.create({
           data: { userId },
         });
       }
     },
     'replace-claims',
   );
-  return claimed.size;
+  return scope.state.claimed.size;
 }
 
 initWelcomePackStore();

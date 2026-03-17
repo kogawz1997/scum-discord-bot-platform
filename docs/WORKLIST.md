@@ -2,26 +2,26 @@
 
 This file is the source of truth for work that is still open after the current validation pass.
 
-Repo-side review and hardening backlog is closed for the current bar. The remaining items are broader runtime coverage and architecture rollout, not failing repo validation.
+Repo-side review and hardening backlog is closed for the current bar. The remaining item is runtime evidence coverage, not failing repo validation.
 
 ## Status Labels
 
-- `partial`: implemented for the current surface, but not rolled out everywhere
 - `runtime-blocked`: depends on live infrastructure outside the repo
 - `deferred`: valid future work, but not required for the current validation bar
 
-## Open Items
+## Recently Closed
 
-### 1. Expand tenant DB topology beyond the current migrated surface
+### 1. Complete tenant DB topology routing across application service paths
 
-- Status: `partial`
+- Status: `closed`
 - Current state:
   - PostgreSQL RLS strict mode is active for the current tenant-scoped surface
   - tenant DB topology resolver and provisioning exist for `shared`, `schema-per-tenant`, and `database-per-tenant`
-  - tenant-aware platform, tenant-config, purchase/admin-commerce, shop, delivery persistence, player/account-wallet paths, and community/admin stores already route through tenant-scoped Prisma targets when tenant context is present or a default tenant is configured
-- What is still open:
-  - the whole application is not migrated to `schema-per-tenant` or `database-per-tenant`
-  - shared/global/admin paths still remain on the shared datasource unless explicitly migrated
+  - tenant-aware platform, tenant-config, purchase/admin-commerce, shop, delivery persistence, player/account-wallet, player portal, community/admin store, SCUM webhook, and guild-automation surfaces now route through tenant-scoped Prisma targets when tenant context is present or a default tenant is configured
+  - provider-backed integration coverage now includes tenant-scoped player and community/admin store paths, admin boundary/dashboard aggregation, platform tenant config, and SCUM webhook/community automation routes in [../test/player-tenant-topology.integration.test.js](../test/player-tenant-topology.integration.test.js), [../test/community-tenant-topology.integration.test.js](../test/community-tenant-topology.integration.test.js), [../test/admin-tenant-boundary.integration.test.js](../test/admin-tenant-boundary.integration.test.js), [../test/admin-dashboard-audit-tenant-topology.integration.test.js](../test/admin-dashboard-audit-tenant-topology.integration.test.js), [../test/platform-tenant-config-service.integration.test.js](../test/platform-tenant-config-service.integration.test.js), and [../test/scum-webhook.integration.test.js](../test/scum-webhook.integration.test.js)
+  - this workstation cut over to `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` on `2026-03-17`; the live runtime now boots with default tenant `1259096998045421672`, provisions schema `tenant_1259096998045421672`, and passes `npm test` plus `node scripts/readiness-gate.js --production`
+- Operational note:
+  - repository target for multi-tenant deployments is `schema-per-tenant`; `database-per-tenant` remains supported for higher-isolation tiers, but is not the active runtime on this workstation
 - Main files:
   - [docs/DATABASE_STRATEGY.md](./DATABASE_STRATEGY.md)
   - [src/utils/tenantDbIsolation.js](../src/utils/tenantDbIsolation.js)
@@ -33,24 +33,26 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
   - [src/services/shopService.js](../src/services/shopService.js)
   - [src/services/deliveryPersistenceDb.js](../src/services/deliveryPersistenceDb.js)
   - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
-- Acceptance:
-  - choose the long-term topology target
-  - migrate the remaining tenant-aware runtime paths onto that topology
-  - document the operational consequences of the selected model
 
-### 2. Expand native delivery proof coverage beyond the current workstation matrix
+## Open Items
+
+### 1. Expand native delivery proof coverage beyond the current workstation matrix
 
 - Status: `runtime-blocked`
 - Current state:
   - native proof reads live `SCUM.db` state on this workstation
-  - current live matrix is captured under [assets/live-native-proof-matrix.md](./assets/live-native-proof-matrix.md) and [assets/live-native-proof-matrix.json](./assets/live-native-proof-matrix.json)
-  - representative live proof is verified for `Water_05l`, `Weapon_M1911`, `Magazine_M1911`, and `Weapon_AK47`
-  - experimental cases that currently do not prove out on this workstation are tracked separately in [assets/live-native-proof-experimental-cases.json](./assets/live-native-proof-experimental-cases.json)
+  - current live matrices are captured under [assets/live-native-proof-matrix.md](./assets/live-native-proof-matrix.md), [assets/live-native-proof-matrix.json](./assets/live-native-proof-matrix.json), [assets/live-native-proof-wrapper-matrix.md](./assets/live-native-proof-wrapper-matrix.md), and [assets/live-native-proof-wrapper-matrix.json](./assets/live-native-proof-wrapper-matrix.json)
+  - an alternate server-configuration sample with `EnableSpawnOnGround=True` is captured under [assets/live-native-proof-enable-spawn-on-ground-matrix.md](./assets/live-native-proof-enable-spawn-on-ground-matrix.md) and [assets/live-native-proof-enable-spawn-on-ground-retry.md](./assets/live-native-proof-enable-spawn-on-ground-retry.md), but it is still partial rather than a full second verified matrix
+  - a same-workstation `rcon` runtime attempt is captured under [assets/live-native-proof-rcon-attempt.md](./assets/live-native-proof-rcon-attempt.md) and [assets/live-native-proof-rcon-attempt.json](./assets/live-native-proof-rcon-attempt.json); it is blocked by `ECONNREFUSED` on `127.0.0.1:27015`
+  - environment tracking now exists under [assets/live-native-proof-environments.json](./assets/live-native-proof-environments.json), [assets/live-native-proof-coverage-summary.md](./assets/live-native-proof-coverage-summary.md), and [assets/live-native-proof-coverage-summary.json](./assets/live-native-proof-coverage-summary.json)
+  - representative live proof is verified for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
+  - delivery-class coverage and operator guidance are documented in [DELIVERY_NATIVE_PROOF_COVERAGE.md](./DELIVERY_NATIVE_PROOF_COVERAGE.md)
+  - the machine-readable case list now records delivery class, delivery profile, and expected proof strategy in [assets/live-native-proof-cases.json](./assets/live-native-proof-cases.json)
+  - experimental cases that currently do not prove out on this workstation are tracked separately in [assets/live-native-proof-experimental-cases.json](./assets/live-native-proof-experimental-cases.json); repeated `2026-03-17` live attempts for loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still did not yield a confirmed game-state delta, while `Cal_7_62x39mm_Ammobox` now passes as the representative ammo case
   - proof remains game-state based through inventory/world-spawn delta, not just command-log evidence
 - What is still open:
-  - broader coverage across more delivery classes
-  - broader coverage across more SCUM server configurations
-  - broader coverage across more than one workstation/runtime
+  - a fully verified second SCUM server configuration, not just the partial `EnableSpawnOnGround=True` sample
+  - a verified second workstation/runtime capture; the current same-workstation `rcon` attempt is blocked
 - Main files:
   - [src/services/deliveryNativeProof.js](../src/services/deliveryNativeProof.js)
   - [src/services/deliveryNativeInventoryProof.js](../src/services/deliveryNativeInventoryProof.js)

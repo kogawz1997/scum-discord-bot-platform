@@ -26,8 +26,9 @@ The repository still keeps SQLite compatibility for:
 
 - `TENANT_DB_ISOLATION_MODE=postgres-rls-strict` enables PostgreSQL tenant session context helpers and strict guardrails for tenant-scoped platform/admin paths.
 - RLS policies are installable for tenant-scoped platform tables, `platform_tenant_configs`, and tenant-tagged delivery tables.
-- Current service coverage is strongest in platform, tenant-config, analytics, quota, webhook, reconcile, purchase/admin-commerce, delivery persistence, player/account-wallet paths, and community/admin stores that already carry explicit tenant context or use a configured default tenant.
-- This is not a full rollout yet. Global/admin paths still rely on application-layer checks when they are not running inside tenant DB context.
+- Tenant-aware application service paths now route through tenant-scoped Prisma targets across platform, tenant-config, analytics, quota, webhook, reconcile, purchase/admin-commerce, delivery persistence, player/account-wallet, player portal, community/admin store, and SCUM webhook/community automation surfaces when tenant context or a configured default tenant is present.
+- Provider-backed integration coverage now exercises tenant-scoped player/community/admin/dashboard/webhook paths in `test/player-tenant-topology.integration.test.js`, `test/community-tenant-topology.integration.test.js`, `test/admin-tenant-boundary.integration.test.js`, `test/admin-dashboard-audit-tenant-topology.integration.test.js`, `test/platform-tenant-config-service.integration.test.js`, and `test/scum-webhook.integration.test.js`.
+- The current workstation now runs `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` in `.env`; schema `tenant_1259096998045421672` is provisioned for the default tenant, and local verification passed with `npm test` plus `node scripts/readiness-gate.js --production` on `2026-03-17`.
 
 ## Tenant DB topology model
 
@@ -35,8 +36,10 @@ The repository still keeps SQLite compatibility for:
 - `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` resolves a tenant-scoped datasource URL by changing the PostgreSQL `schema=` query parameter.
 - `TENANT_DB_TOPOLOGY_MODE=database-per-tenant` resolves a tenant-scoped datasource URL by rewriting the PostgreSQL database name.
 - `scripts/tenant-database-topology.js` can preview and provision schema-per-tenant or database-per-tenant targets, then run `prisma db push` against the resolved target.
-- `src/prisma.js` now exposes tenant-scoped datasource routing so platform, tenant-config, tenant-aware purchase/shop services, delivery persistence, player/account-wallet paths, and community/admin stores can run against the selected topology instead of only the shared datasource.
-- This is not a full application rollout yet. Global/admin/shared paths still run on the shared runtime datasource unless they are explicitly migrated.
+- `scripts/cutover-shared-to-tenant-schema.js` exists for same-database cutover from shared PostgreSQL into the active schema-per-tenant target on a workstation like this one.
+- Repository target for multi-tenant deployments is `schema-per-tenant`; `database-per-tenant` remains supported for stricter isolation or dedicated-tenant tiers.
+- `src/prisma.js` exposes tenant-scoped datasource routing so tenant-aware application paths can run against the selected topology instead of only the shared datasource.
+- Selecting `schema-per-tenant` or `database-per-tenant` is now an operational deployment choice rather than a missing application rollout task.
 
 ## Operational rules
 
@@ -53,6 +56,5 @@ The repository still keeps SQLite compatibility for:
 
 ## Gaps still open
 
-- No full application rollout on schema-per-tenant or database-per-tenant topology yet
 - No read-replica path
 - No automated failover between database providers

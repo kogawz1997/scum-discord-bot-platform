@@ -1,19 +1,27 @@
-﻿const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const bounties = new Map(); // id -> bounty
+function createScopeState() {
+  return {
+    bounties: new Map(),
+    bountyCounter: 1,
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+    isHydrating: false,
+  };
+}
 
-let bountyCounter = 1;
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getBountyDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureBountyScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeBountyRow(row) {
@@ -30,30 +38,37 @@ function normalizeBountyRow(row) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
+      if (state.initPromise && !state.isHydrating) {
+        await state.initPromise.catch(() => null);
+      }
       await work();
     })
     .catch((error) => {
       console.error(`[bountyStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
+  state.isHydrating = true;
   try {
-    const rows = await getBountyDb().bounty.findMany({
+    const rows = await db.bounty.findMany({
       orderBy: { id: 'asc' },
     });
 
     if (rows.length === 0) {
-      if (bounties.size > 0) {
+      if (state.bounties.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const bounty of bounties.values()) {
-              await getBountyDb().bounty.upsert({
+            for (const bounty of state.bounties.values()) {
+              await db.bounty.upsert({
                 where: { id: bounty.id },
                 update: {
                   targetName: bounty.targetName,
@@ -86,50 +101,54 @@ async function hydrateFromPrisma() {
       hydrated.set(bounty.id, bounty);
     }
 
-    if (startVersion === mutationVersion) {
-      bounties.clear();
+    if (startVersion === state.mutationVersion) {
+      state.bounties.clear();
       for (const [id, bounty] of hydrated.entries()) {
-        bounties.set(id, bounty);
+        state.bounties.set(id, bounty);
       }
-      const maxId = Math.max(0, ...Array.from(bounties.keys()));
-      bountyCounter = maxId + 1;
+      const maxId = Math.max(0, ...Array.from(state.bounties.keys()));
+      state.bountyCounter = maxId + 1;
       return;
     }
 
-    // There were local updates during hydration; merge only missing IDs.
     for (const [id, bounty] of hydrated.entries()) {
-      if (bounties.has(id)) continue;
-      bounties.set(id, bounty);
+      if (!state.bounties.has(id)) {
+        state.bounties.set(id, bounty);
+      }
     }
-    const maxId = Math.max(0, ...Array.from(bounties.keys()));
-    bountyCounter = Math.max(bountyCounter, maxId + 1);
+    const maxId = Math.max(0, ...Array.from(state.bounties.keys()));
+    state.bountyCounter = Math.max(state.bountyCounter, maxId + 1);
   } catch (error) {
     console.error('[bountyStore] failed to hydrate from prisma:', error.message);
+  } finally {
+    state.isHydrating = false;
   }
 }
 
-
-function initBountyStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initBountyStore(options = {}) {
+  const scope = ensureBountyScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-async function flushBountyStoreWrites() {
-  if (initPromise) {
-    await initPromise.catch(() => null);
+async function flushBountyStoreWrites(options = {}) {
+  const scope = ensureBountyScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
   }
-  await dbWriteQueue;
+  await scope.state.dbWriteQueue;
 }
 
-async function createBounty({ targetName, amount, createdBy }) {
-  if (initPromise) {
-    await initPromise.catch(() => null);
+async function createBounty({ targetName, amount, createdBy }, options = {}) {
+  const scope = ensureBountyScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
   }
 
-  mutationVersion += 1;
-  const created = await getBountyDb().bounty.create({
+  scope.state.mutationVersion += 1;
+  const created = await scope.db.bounty.create({
     data: {
       targetName: String(targetName || ''),
       amount: Number(amount || 0),
@@ -144,29 +163,34 @@ async function createBounty({ targetName, amount, createdBy }) {
     throw new Error('failed-to-normalize-bounty');
   }
 
-  bounties.set(bounty.id, bounty);
-  bountyCounter = Math.max(bountyCounter, bounty.id + 1);
+  scope.state.bounties.set(bounty.id, bounty);
+  scope.state.bountyCounter = Math.max(scope.state.bountyCounter, bounty.id + 1);
   return bounty;
 }
 
-function listBounties() {
-  return Array.from(bounties.values());
+function listBounties(options = {}) {
+  const scope = ensureBountyScope(options);
+  void initBountyStore(options);
+  return Array.from(scope.state.bounties.values());
 }
 
-function cancelBounty(id, requesterId, isStaff) {
-  const bounty = bounties.get(Number(id));
+function cancelBounty(id, requesterId, isStaff, options = {}) {
+  const scope = ensureBountyScope(options);
+  void initBountyStore(options);
+  const bounty = scope.state.bounties.get(Number(id));
   if (!bounty) return { ok: false, reason: 'not-found' };
 
   if (!isStaff && bounty.createdBy !== requesterId) {
     return { ok: false, reason: 'forbidden' };
   }
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   bounty.status = 'cancelled';
 
   queueDbWrite(
+    scope,
     async () => {
-      await getBountyDb().bounty.updateMany({
+      await scope.db.bounty.updateMany({
         where: { id: bounty.id },
         data: {
           status: bounty.status,
@@ -179,18 +203,21 @@ function cancelBounty(id, requesterId, isStaff) {
   return { ok: true, bounty };
 }
 
-function claimBounty(id, killerName) {
-  const bounty = bounties.get(Number(id));
+function claimBounty(id, killerName, options = {}) {
+  const scope = ensureBountyScope(options);
+  void initBountyStore(options);
+  const bounty = scope.state.bounties.get(Number(id));
   if (!bounty) return { ok: false, reason: 'not-found' };
   if (bounty.status !== 'active') return { ok: false, reason: 'not-active' };
 
-  mutationVersion += 1;
+  scope.state.mutationVersion += 1;
   bounty.status = 'claimed';
   bounty.claimedBy = killerName ? String(killerName) : null;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getBountyDb().bounty.updateMany({
+      await scope.db.bounty.updateMany({
         where: { id: bounty.id },
         data: {
           status: bounty.status,
@@ -204,28 +231,31 @@ function claimBounty(id, killerName) {
   return { ok: true, bounty };
 }
 
-function replaceBounties(nextBounties = [], nextCounter = null) {
-  mutationVersion += 1;
-  bounties.clear();
+function replaceBounties(nextBounties = [], nextCounter = null, options = {}) {
+  const scope = ensureBountyScope(options);
+  void initBountyStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.bounties.clear();
 
   for (const rowRaw of Array.isArray(nextBounties) ? nextBounties : []) {
     const bounty = normalizeBountyRow(rowRaw);
     if (!bounty) continue;
-    bounties.set(bounty.id, bounty);
+    scope.state.bounties.set(bounty.id, bounty);
   }
 
   if (Number.isFinite(Number(nextCounter)) && Number(nextCounter) > 0) {
-    bountyCounter = Math.max(1, Math.trunc(Number(nextCounter)));
+    scope.state.bountyCounter = Math.max(1, Math.trunc(Number(nextCounter)));
   } else {
-    const maxId = Math.max(0, ...Array.from(bounties.keys()));
-    bountyCounter = maxId + 1;
+    const maxId = Math.max(0, ...Array.from(scope.state.bounties.keys()));
+    scope.state.bountyCounter = maxId + 1;
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getBountyDb().bounty.deleteMany();
-      for (const bounty of bounties.values()) {
-        await getBountyDb().bounty.create({
+      await scope.db.bounty.deleteMany();
+      for (const bounty of scope.state.bounties.values()) {
+        await scope.db.bounty.create({
           data: {
             id: bounty.id,
             targetName: bounty.targetName,
@@ -240,7 +270,7 @@ function replaceBounties(nextBounties = [], nextCounter = null) {
     'replace-all',
   );
 
-  return bounties.size;
+  return scope.state.bounties.size;
 }
 
 initBountyStore();

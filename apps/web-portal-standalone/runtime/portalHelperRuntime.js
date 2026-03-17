@@ -255,8 +255,8 @@ function createPortalHelperRuntime(options = {}) {
     };
   }
 
-  async function buildPlayerNameLookup() {
-    const rows = await options.listPlayerAccounts(2000).catch(() => []);
+  async function buildPlayerNameLookup(runtimeOptions = {}) {
+    const rows = await options.listPlayerAccounts(2000, runtimeOptions).catch(() => []);
     const map = new Map();
     for (const row of Array.isArray(rows) ? rows : []) {
       const discordId = normalizeText(row?.discordId);
@@ -276,9 +276,9 @@ function createPortalHelperRuntime(options = {}) {
     return name || null;
   }
 
-  async function resolvePartyContext(discordId) {
+  async function resolvePartyContext(discordId, runtimeOptions = {}) {
     const userId = normalizeText(discordId);
-    const statsRows = options.listAllStats();
+    const statsRows = options.listAllStats(runtimeOptions);
     const rows = Array.isArray(statsRows) ? statsRows : [];
     const statsByUser = new Map();
     for (const row of rows) {
@@ -289,7 +289,7 @@ function createPortalHelperRuntime(options = {}) {
     const selfStat = statsByUser.get(userId) || null;
     const selfSquad = normalizeSquadName(selfStat?.squad);
 
-    const nameMap = await buildPlayerNameLookup();
+    const nameMap = await buildPlayerNameLookup(runtimeOptions);
     const memberIds = new Set([userId]);
     let partyKey = null;
     let source = 'none';
@@ -317,7 +317,7 @@ function createPortalHelperRuntime(options = {}) {
     const members = Array.from(memberIds)
       .map((id) => {
         const stat = statsByUser.get(id);
-        const link = options.getLinkByUserId(id);
+        const link = options.getLinkByUserId(id, runtimeOptions);
         return {
           discordId: id,
           displayName: nameMap.get(id) || id,

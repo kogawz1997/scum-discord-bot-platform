@@ -1,18 +1,25 @@
-const { prisma } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const scopeStateByDatasource = new Map();
 
-const weaponStats = new Map(); // weapon -> { kills, longestDistance, recordHolder }
+function createScopeState() {
+  return {
+    weaponStats: new Map(),
+    mutationVersion: 0,
+    dbWriteQueue: Promise.resolve(),
+    initPromise: null,
+  };
+}
 
-let mutationVersion = 0;
-let dbWriteQueue = Promise.resolve();
-let initPromise = null;
-
-function getWeaponStatsDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
+function ensureWeaponStatsScope(options = {}) {
+  const scope = resolveTenantStoreScope(options);
+  if (!scopeStateByDatasource.has(scope.datasourceKey)) {
+    scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
-  return getDefaultTenantScopedPrismaClient();
+  return {
+    ...scope,
+    state: scopeStateByDatasource.get(scope.datasourceKey),
+  };
 }
 
 function normalizeNumber(value, fallback = 0) {
@@ -32,30 +39,33 @@ function normalizeStat(row = {}) {
   };
 }
 
-function queueDbWrite(work, label) {
-  dbWriteQueue = dbWriteQueue
+function queueDbWrite(scope, work, label) {
+  const { state } = scope;
+  state.dbWriteQueue = state.dbWriteQueue
     .then(async () => {
       await work();
     })
     .catch((error) => {
       console.error(`[weaponStatsStore] prisma ${label} failed:`, error.message);
     });
-  return dbWriteQueue;
+  return state.dbWriteQueue;
 }
 
-async function hydrateFromPrisma() {
-  const startVersion = mutationVersion;
+async function hydrateFromPrisma(scope) {
+  const { db, state } = scope;
+  const startVersion = state.mutationVersion;
   try {
-    const rows = await getWeaponStatsDb().weaponStat.findMany({
+    const rows = await db.weaponStat.findMany({
       orderBy: [{ kills: 'desc' }, { updatedAt: 'desc' }],
     });
 
     if (rows.length === 0) {
-      if (weaponStats.size > 0) {
+      if (state.weaponStats.size > 0) {
         await queueDbWrite(
+          scope,
           async () => {
-            for (const [weapon, stat] of weaponStats.entries()) {
-              await getWeaponStatsDb().weaponStat.upsert({
+            for (const [weapon, stat] of state.weaponStats.entries()) {
+              await db.weaponStat.upsert({
                 where: { weapon },
                 update: {
                   kills: stat.kills,
@@ -88,17 +98,17 @@ async function hydrateFromPrisma() {
       });
     }
 
-    if (startVersion === mutationVersion) {
-      weaponStats.clear();
+    if (startVersion === state.mutationVersion) {
+      state.weaponStats.clear();
       for (const [weapon, value] of hydrated.entries()) {
-        weaponStats.set(weapon, value);
+        state.weaponStats.set(weapon, value);
       }
       return;
     }
 
     for (const [weapon, value] of hydrated.entries()) {
-      if (!weaponStats.has(weapon)) {
-        weaponStats.set(weapon, value);
+      if (!state.weaponStats.has(weapon)) {
+        state.weaponStats.set(weapon, value);
       }
     }
   } catch (error) {
@@ -106,20 +116,27 @@ async function hydrateFromPrisma() {
   }
 }
 
-function initWeaponStatsStore() {
-  if (!initPromise) {
-    initPromise = hydrateFromPrisma();
+function initWeaponStatsStore(options = {}) {
+  const scope = ensureWeaponStatsScope(options);
+  if (!scope.state.initPromise) {
+    scope.state.initPromise = hydrateFromPrisma(scope);
   }
-  return initPromise;
+  return scope.state.initPromise;
 }
 
-function flushWeaponStatsStoreWrites() {
-  return dbWriteQueue;
+async function flushWeaponStatsStoreWrites(options = {}) {
+  const scope = ensureWeaponStatsScope(options);
+  if (scope.state.initPromise) {
+    await scope.state.initPromise.catch(() => null);
+  }
+  await scope.state.dbWriteQueue;
 }
 
-function recordWeaponKill({ weapon, distance, killer }) {
-  const key = String(weapon || 'อาวุธไม่ทราบชนิด').trim();
-  const current = weaponStats.get(key) || {
+function recordWeaponKill(payload = {}, options = {}) {
+  const scope = ensureWeaponStatsScope(options);
+  void initWeaponStatsStore(options);
+  const key = String(payload.weapon || 'อาวุธไม่ทราบชนิด').trim();
+  const current = scope.state.weaponStats.get(key) || {
     kills: 0,
     longestDistance: 0,
     recordHolder: null,
@@ -127,18 +144,19 @@ function recordWeaponKill({ weapon, distance, killer }) {
 
   current.kills += 1;
 
-  const distanceNumber = Number(distance || 0);
+  const distanceNumber = Number(payload.distance || 0);
   if (distanceNumber > current.longestDistance) {
     current.longestDistance = distanceNumber;
-    current.recordHolder = killer || null;
+    current.recordHolder = payload.killer || null;
   }
 
-  weaponStats.set(key, current);
-  mutationVersion += 1;
+  scope.state.weaponStats.set(key, current);
+  scope.state.mutationVersion += 1;
 
   queueDbWrite(
+    scope,
     async () => {
-      await getWeaponStatsDb().weaponStat.upsert({
+      await scope.db.weaponStat.upsert({
         where: { weapon: key },
         update: {
           kills: current.kills,
@@ -159,20 +177,24 @@ function recordWeaponKill({ weapon, distance, killer }) {
   return current;
 }
 
-function listWeaponStats() {
-  return Array.from(weaponStats.entries()).map(([weapon, stat]) => ({
+function listWeaponStats(options = {}) {
+  const scope = ensureWeaponStatsScope(options);
+  void initWeaponStatsStore(options);
+  return Array.from(scope.state.weaponStats.entries()).map(([weapon, stat]) => ({
     weapon,
     ...stat,
   }));
 }
 
-function replaceWeaponStats(nextStats = []) {
-  mutationVersion += 1;
-  weaponStats.clear();
+function replaceWeaponStats(nextStats = [], options = {}) {
+  const scope = ensureWeaponStatsScope(options);
+  void initWeaponStatsStore(options);
+  scope.state.mutationVersion += 1;
+  scope.state.weaponStats.clear();
   for (const row of Array.isArray(nextStats) ? nextStats : []) {
     const parsed = normalizeStat(row);
     if (!parsed) continue;
-    weaponStats.set(parsed.weapon, {
+    scope.state.weaponStats.set(parsed.weapon, {
       kills: parsed.kills,
       longestDistance: parsed.longestDistance,
       recordHolder: parsed.recordHolder,
@@ -180,10 +202,11 @@ function replaceWeaponStats(nextStats = []) {
   }
 
   queueDbWrite(
+    scope,
     async () => {
-      await getWeaponStatsDb().weaponStat.deleteMany({});
-      for (const [weapon, stat] of weaponStats.entries()) {
-        await getWeaponStatsDb().weaponStat.create({
+      await scope.db.weaponStat.deleteMany({});
+      for (const [weapon, stat] of scope.state.weaponStats.entries()) {
+        await scope.db.weaponStat.create({
           data: {
             weapon,
             kills: stat.kills,
@@ -196,7 +219,7 @@ function replaceWeaponStats(nextStats = []) {
     'replace-weapon-stats',
   );
 
-  return weaponStats.size;
+  return scope.state.weaponStats.size;
 }
 
 initWeaponStatsStore();

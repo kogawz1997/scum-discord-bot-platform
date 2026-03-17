@@ -1,14 +1,9 @@
-const { prisma } = require('../prisma');
-
-const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+const { resolveTenantStoreScope } = require('./tenantStoreScope');
 
 const MAX_HISTORY_PER_USER = 80;
 
-function getLuckyWheelDb() {
-  if (!prisma) {
-    return getDefaultTenantScopedPrismaClient();
-  }
-  return getDefaultTenantScopedPrismaClient();
+function getLuckyWheelDb(options = {}) {
+  return resolveTenantStoreScope(options).db;
 }
 
 function normalizeUserId(userId) {
@@ -80,16 +75,16 @@ function toStateView(userId, row, limit = 20) {
   };
 }
 
-async function getUserWheelState(userId, limit = 20) {
+async function getUserWheelState(userId, limit = 20, options = {}) {
   const id = normalizeUserId(userId);
   if (!id) return null;
-  const row = await getLuckyWheelDb().luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb(options).luckyWheelState.findUnique({
     where: { userId: id },
   });
   return toStateView(id, row, limit);
 }
 
-async function canSpinWheel(userId, cooldownMs, nowMs = Date.now()) {
+async function canSpinWheel(userId, cooldownMs, nowMs = Date.now(), options = {}) {
   const id = normalizeUserId(userId);
   if (!id) return { ok: false, reason: 'invalid-user-id', remainingMs: 0 };
 
@@ -98,7 +93,7 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now()) {
     return { ok: true, remainingMs: 0, lastSpinAt: null, nextSpinAt: null };
   }
 
-  const row = await getLuckyWheelDb().luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb(options).luckyWheelState.findUnique({
     where: { userId: id },
     select: { lastSpinAt: true },
   });
@@ -132,14 +127,14 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now()) {
   };
 }
 
-async function recordWheelSpin(userId, rewardEntry) {
+async function recordWheelSpin(userId, rewardEntry, options = {}) {
   const id = normalizeUserId(userId);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb().$transaction(async (tx) => {
+  const next = await getLuckyWheelDb(options).$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -177,14 +172,14 @@ async function recordWheelSpin(userId, rewardEntry) {
   };
 }
 
-async function rollbackWheelSpin(userId, rewardEntry) {
+async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
   const id = normalizeUserId(userId);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb().$transaction(async (tx) => {
+  const next = await getLuckyWheelDb(options).$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -230,8 +225,8 @@ async function rollbackWheelSpin(userId, rewardEntry) {
   };
 }
 
-async function listLuckyWheelStates(limit = 1000) {
-  const rows = await getLuckyWheelDb().luckyWheelState.findMany({
+async function listLuckyWheelStates(limit = 1000, options = {}) {
+  const rows = await getLuckyWheelDb(options).luckyWheelState.findMany({
     orderBy: { updatedAt: 'desc' },
     take: Math.max(1, Number(limit || 1000)),
   });
@@ -245,8 +240,8 @@ async function listLuckyWheelStates(limit = 1000) {
   }));
 }
 
-async function replaceLuckyWheelStates(nextRows = []) {
-  await getLuckyWheelDb().$transaction(async (tx) => {
+async function replaceLuckyWheelStates(nextRows = [], options = {}) {
+  await getLuckyWheelDb(options).$transaction(async (tx) => {
     await tx.luckyWheelState.deleteMany();
     for (const row of Array.isArray(nextRows) ? nextRows : []) {
       if (!row || typeof row !== 'object') continue;

@@ -17,6 +17,14 @@ function normalizeAmount(value, fallback = 0) {
   return Math.max(0, Math.trunc(amount));
 }
 
+function buildScopeOptions(params = {}) {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
+}
+
 async function claimWelcomePackForUser(params = {}) {
   const userId = normalizeText(params.userId);
   const actor = normalizeText(params.actor) || `discord:${userId}`;
@@ -26,16 +34,17 @@ async function claimWelcomePackForUser(params = {}) {
   const claimFn = params.claimFn || claim;
   const revokeClaimFn = params.revokeClaimFn || revokeClaim;
   const creditCoinsFn = params.creditCoinsFn || creditCoins;
+  const scopeOptions = buildScopeOptions(params);
 
   if (!userId || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  if (hasClaimedFn(userId)) {
+  if (hasClaimedFn(userId, scopeOptions)) {
     return { ok: false, reason: 'already-claimed' };
   }
 
-  const claimed = claimFn(userId);
+  const claimed = claimFn(userId, scopeOptions);
   if (!claimed) {
     return { ok: false, reason: 'already-claimed' };
   }
@@ -47,6 +56,7 @@ async function claimWelcomePackForUser(params = {}) {
       reason: params.creditReason || 'welcome_pack_claim',
       actor,
       reference: normalizeText(params.reference),
+      ...scopeOptions,
       meta: {
         source,
         ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
@@ -63,7 +73,7 @@ async function claimWelcomePackForUser(params = {}) {
       balance: Number(credit.balance || 0),
     };
   } catch (error) {
-    revokeClaimFn(userId);
+    revokeClaimFn(userId, scopeOptions);
     return {
       ok: false,
       reason: 'welcome-pack-credit-failed',
@@ -80,16 +90,17 @@ function revokeWelcomePackClaimForAdmin(params = {}) {
   if (!userId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const removed = revokeClaim(userId);
+  const removed = revokeClaim(userId, buildScopeOptions(params));
   if (!removed) {
     return { ok: false, reason: 'not-found' };
   }
   return { ok: true, userId };
 }
 
-function clearWelcomePackClaimsForAdmin() {
-  const clearedCount = listClaimed().length;
-  clearClaims();
+function clearWelcomePackClaimsForAdmin(params = {}) {
+  const scopeOptions = buildScopeOptions(params);
+  const clearedCount = listClaimed(scopeOptions).length;
+  clearClaims(scopeOptions);
   return {
     ok: true,
     cleared: true,

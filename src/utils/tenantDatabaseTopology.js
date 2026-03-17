@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const { resolveDatabaseRuntime } = require('./dbEngine');
 
 function trimText(value, maxLen = 240) {
@@ -33,14 +35,27 @@ function sanitizeTenantDatabaseToken(value, fallback = 'tenant') {
   return token || fallback;
 }
 
+function buildScopedDatabaseName(prefix, tenantId, fallback = 'tenant', maxLen = 63) {
+  const normalizedPrefix = trimText(prefix, 80);
+  const normalizedToken = sanitizeTenantDatabaseToken(tenantId, fallback);
+  const rawName = `${normalizedPrefix}${normalizedToken}`;
+  if (rawName.length <= maxLen) {
+    return rawName;
+  }
+  const digest = crypto.createHash('sha1').update(rawName, 'utf8').digest('hex').slice(0, 10);
+  const reserved = digest.length + 1;
+  const head = rawName.slice(0, Math.max(1, maxLen - reserved)).replace(/_+$/g, '');
+  return `${head}_${digest}`.slice(0, maxLen);
+}
+
 function buildTenantSchemaName(tenantId, env = process.env) {
   const prefix = trimText(env.TENANT_DB_SCHEMA_PREFIX || 'tenant_', 80) || 'tenant_';
-  return `${prefix}${sanitizeTenantDatabaseToken(tenantId)}`;
+  return buildScopedDatabaseName(prefix, tenantId, 'tenant', 63);
 }
 
 function buildTenantDatabaseName(tenantId, env = process.env) {
   const prefix = trimText(env.TENANT_DB_DATABASE_PREFIX || 'tenant_', 80) || 'tenant_';
-  return `${prefix}${sanitizeTenantDatabaseToken(tenantId)}`;
+  return buildScopedDatabaseName(prefix, tenantId, 'tenant', 63);
 }
 
 function buildTenantDatabaseAdminUrl(databaseUrl, env = process.env) {
@@ -122,6 +137,7 @@ module.exports = {
   buildTenantDatabaseAdminUrl,
   buildTenantDatabaseName,
   buildTenantSchemaName,
+  buildScopedDatabaseName,
   getTenantDatabaseTopologyMode,
   normalizeTenantDatabaseTopologyMode,
   resolveTenantDatabaseTarget,

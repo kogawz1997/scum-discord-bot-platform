@@ -1,0 +1,214 @@
+{
+  "generatedAt": "2026-03-17T06:00:05.440Z",
+  "currentEnvironmentId": "workstation-local-agent-2026-03-17",
+  "currentEnvironment": {
+    "id": "workstation-local-agent-2026-03-17",
+    "status": "verified",
+    "label": "Current workstation / local dedicated server",
+    "runtimeKind": "workstation",
+    "scumServerProfile": "Current local dedicated server configuration on this machine",
+    "workstationProfile": "Windows workstation with live SCUM client window",
+    "topologyMode": "shared",
+    "executionMode": "agent",
+    "nativeProofMode": "required",
+    "proofSources": [
+      "SCUM.db",
+      "SCUM.log"
+    ],
+    "coverageGoal": "Baseline verified environment used by the current live matrices.",
+    "notes": "This is evidence for the current workstation only. It is not evidence of environment-independent native proof.",
+    "itemMatrixPath": "docs/assets/live-native-proof-matrix.json",
+    "wrapperMatrixPath": "docs/assets/live-native-proof-wrapper-matrix.json",
+    "capturedAt": "2026-03-17"
+  },
+  "environments": [
+    {
+      "id": "workstation-local-agent-2026-03-17",
+      "status": "verified",
+      "label": "Current workstation / local dedicated server",
+      "runtimeKind": "workstation",
+      "scumServerProfile": "Current local dedicated server configuration on this machine",
+      "workstationProfile": "Windows workstation with live SCUM client window",
+      "topologyMode": "shared",
+      "executionMode": "agent",
+      "nativeProofMode": "required",
+      "proofSources": [
+        "SCUM.db",
+        "SCUM.log"
+      ],
+      "coverageGoal": "Baseline verified environment used by the current live matrices.",
+      "notes": "This is evidence for the current workstation only. It is not evidence of environment-independent native proof.",
+      "itemMatrixPath": "docs/assets/live-native-proof-matrix.json",
+      "wrapperMatrixPath": "docs/assets/live-native-proof-wrapper-matrix.json",
+      "capturedAt": "2026-03-17"
+    },
+    {
+      "id": "pending-second-server-config",
+      "status": "pending",
+      "label": "Additional SCUM server configuration",
+      "runtimeKind": "server-configuration",
+      "scumServerProfile": null,
+      "workstationProfile": null,
+      "topologyMode": null,
+      "executionMode": null,
+      "nativeProofMode": null,
+      "proofSources": [],
+      "coverageGoal": "Capture the representative native-proof matrix on a server with a different SCUM patch/config/runtime profile.",
+      "notes": "Needed before claiming broader environment coverage across server configurations.",
+      "itemMatrixPath": null,
+      "wrapperMatrixPath": null,
+      "capturedAt": null
+    },
+    {
+      "id": "pending-second-workstation",
+      "status": "pending",
+      "label": "Additional workstation/runtime",
+      "runtimeKind": "workstation",
+      "scumServerProfile": null,
+      "workstationProfile": null,
+      "topologyMode": null,
+      "executionMode": null,
+      "nativeProofMode": null,
+      "proofSources": [],
+      "coverageGoal": "Capture the representative native-proof matrix on another workstation or Windows session/runtime.",
+      "notes": "Needed before claiming native proof is reproduced beyond this workstation.",
+      "itemMatrixPath": null,
+      "wrapperMatrixPath": null,
+      "capturedAt": null
+    }
+  ],
+  "coverage": {
+    "itemCaseCount": 10,
+    "wrapperCaseCount": 2,
+    "provedDeliveryClasses": [
+      "ammo",
+      "consumable",
+      "food",
+      "gear",
+      "magazine",
+      "medical",
+      "teleport wrapper profiles",
+      "weapon"
+    ],
+    "classCoverage": [
+      {
+        "deliveryClass": "ammo",
+        "cases": [
+          "ammo-ammobox-762"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "consumable",
+        "cases": [
+          "consumable-water"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "food",
+        "cases": [
+          "food-bakedbeans"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "gear",
+        "cases": [
+          "gear-backpack"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "magazine",
+        "cases": [
+          "magazine-m1911"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "medical",
+        "cases": [
+          "medical-bandage"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "teleport wrapper profiles",
+        "cases": [
+          "teleport-wrapper-m1911",
+          "announce-teleport-bandage"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      },
+      {
+        "deliveryClass": "weapon",
+        "cases": [
+          "weapon-m1911",
+          "weapon-ak47"
+        ],
+        "proved": true,
+        "strategies": [
+          "world-spawn-delta"
+        ]
+      }
+    ],
+    "wrapperCoverage": [
+      {
+        "label": "announce-teleport-bandage",
+        "deliveryProfile": "announce_teleport_spawn",
+        "proved": true,
+        "strategy": "world-spawn-delta"
+      },
+      {
+        "label": "teleport-wrapper-m1911",
+        "deliveryProfile": "teleport_spawn",
+        "proved": true,
+        "strategy": "world-spawn-delta"
+      }
+    ],
+    "experimentalCases": [
+      {
+        "label": "ammo-762",
+        "gameItemId": "Ammo_762",
+        "deliveryClass": "ammo",
+        "notes": "Repeated 2026-03-17 live attempts timed out without a confirmed SCUM.db delta. Representative ammo proof now passes on this workstation with Cal_7_62x39mm_Ammobox, but loose-round IDs Ammo_762 and Cal_7_62x39mm still remain unproved here."
+      }
+    ]
+  },
+  "openCoverageRequirements": [
+    {
+      "id": "pending-second-server-config",
+      "label": "Additional SCUM server configuration",
+      "coverageGoal": "Capture the representative native-proof matrix on a server with a different SCUM patch/config/runtime profile.",
+      "notes": "Needed before claiming broader environment coverage across server configurations."
+    },
+    {
+      "id": "pending-second-workstation",
+      "label": "Additional workstation/runtime",
+      "coverageGoal": "Capture the representative native-proof matrix on another workstation or Windows session/runtime.",
+      "notes": "Needed before claiming native proof is reproduced beyond this workstation."
+    }
+  ]
+}

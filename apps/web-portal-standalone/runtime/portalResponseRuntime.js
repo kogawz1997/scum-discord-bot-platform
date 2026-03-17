@@ -33,10 +33,10 @@ function createPortalResponseRuntime(options = {}) {
     return map[key] || (key || 'unknown');
   }
 
-  async function resolveSessionSteamLink(discordId) {
+  async function resolveSessionSteamLink(discordId, runtimeOptions = {}) {
     const [link, account] = await Promise.all([
-      Promise.resolve(getLinkByUserId(discordId)),
-      getPlayerAccount(discordId),
+      Promise.resolve(getLinkByUserId(discordId, runtimeOptions)),
+      getPlayerAccount(discordId, runtimeOptions),
     ]);
     const steamId = link?.steamId || normalizeText(account?.steamId) || null;
     const inGameName = normalizeText(link?.inGameName) || null;

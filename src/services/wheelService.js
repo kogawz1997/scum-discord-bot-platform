@@ -71,6 +71,11 @@ async function awardWheelRewardForUser(params = {}) {
   const userId = normalizeText(params.userId);
   const actor = normalizeText(params.actor) || 'system';
   const source = normalizeText(params.source) || 'wheel-service';
+  const scopeOptions = {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  };
   const reward = normalizeReward(params.reward);
   const rewardAt = params.now instanceof Date
     ? params.now.toISOString()
@@ -91,7 +96,7 @@ async function awardWheelRewardForUser(params = {}) {
     if (!reward.itemId || !reward.gameItemId) {
       return { ok: false, reason: 'wheel-item-reward-invalid' };
     }
-    const link = await resolveSteamLinkFn(userId);
+    const link = await resolveSteamLinkFn(userId, scopeOptions);
     if (!link?.steamId) {
       return { ok: false, reason: 'steam-link-required-for-item-wheel' };
     }
@@ -109,7 +114,7 @@ async function awardWheelRewardForUser(params = {}) {
     at: rewardAt,
   };
 
-  const recorded = await recordWheelSpinFn(userId, rewardEntry);
+  const recorded = await recordWheelSpinFn(userId, rewardEntry, scopeOptions);
   if (!recorded?.ok) {
     return {
       ok: false,
@@ -117,7 +122,7 @@ async function awardWheelRewardForUser(params = {}) {
     };
   }
 
-  let walletBalance = normalizeAmount((await getWalletFn(userId))?.balance, 0);
+  let walletBalance = normalizeAmount((await getWalletFn(userId, scopeOptions))?.balance, 0);
   let awardedCoins = 0;
   let purchaseCode = null;
   let deliveryQueued = false;
@@ -132,13 +137,14 @@ async function awardWheelRewardForUser(params = {}) {
         actor,
         reference: `wheel:${reward.id}`,
         meta: {
-          source,
-          rewardId: reward.id,
-          rewardLabel: reward.label,
-          rewardType: reward.type,
-          rewardAmount: reward.amount,
-        },
-      });
+        source,
+        rewardId: reward.id,
+        rewardLabel: reward.label,
+        rewardType: reward.type,
+        rewardAmount: reward.amount,
+      },
+      ...scopeOptions,
+    });
       if (!credit.ok) {
         throw new Error(credit.reason || 'wheel-credit-failed');
       }
@@ -166,6 +172,7 @@ async function awardWheelRewardForUser(params = {}) {
           ],
         },
         guildId: params.guildId || null,
+        tenantId: scopeOptions.tenantId,
         deliveryOptions: {
           source,
           itemName: reward.label,
@@ -187,7 +194,7 @@ async function awardWheelRewardForUser(params = {}) {
       deliveryQueueReason = normalizeText(queueResult?.delivery?.reason) || null;
     }
   } catch (error) {
-    await rollbackWheelSpinFn(userId, rewardEntry).catch(() => null);
+    await rollbackWheelSpinFn(userId, rewardEntry, scopeOptions).catch(() => null);
     return {
       ok: false,
       reason: reward.type === 'item'

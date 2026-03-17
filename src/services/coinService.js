@@ -28,6 +28,9 @@ async function creditCoins(params = {}) {
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
   });
   return {
     ok: true,
@@ -44,7 +47,11 @@ async function debitCoins(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const wallet = await getWallet(userId);
+  const wallet = await getWallet(userId, {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+  });
   if (wallet.balance < amount) {
     return {
       ok: false,
@@ -60,6 +67,9 @@ async function debitCoins(params = {}) {
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
   });
   return {
     ok: true,
@@ -81,6 +91,9 @@ async function setCoinsExact(params = {}) {
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
   });
   return {
     ok: true,
@@ -109,6 +122,9 @@ async function transferCoins(params = {}) {
       toUserId,
       ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
     },
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
   });
   if (!outResult.ok) return outResult;
 
@@ -124,6 +140,9 @@ async function transferCoins(params = {}) {
         fromUserId,
         ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
       },
+      tenantId: normalizeText(params.tenantId),
+      defaultTenantId: normalizeText(params.defaultTenantId),
+      env: params.env,
     });
     if (!inResult.ok) {
       throw new Error(inResult.reason || 'credit-failed');
@@ -148,6 +167,9 @@ async function transferCoins(params = {}) {
         toUserId,
         rollbackReason: String(error?.message || error),
       },
+      tenantId: normalizeText(params.tenantId),
+      defaultTenantId: normalizeText(params.defaultTenantId),
+      env: params.env,
     }).catch(() => null);
     return {
       ok: false,
