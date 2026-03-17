@@ -1,12 +1,21 @@
 const { prisma } = require('../prisma');
 
 const recentMessages = new Map(); // userId -> [timestamps] (ไม่ต้อง persist)
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const punishments = new Map(); // userId -> [entries]
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
 let isHydrating = false;
+
+function getModerationDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeDate(value, fallback = new Date()) {
   if (!value) return fallback;
@@ -44,7 +53,7 @@ async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   isHydrating = true;
   try {
-    const rows = await prisma.punishment.findMany({
+    const rows = await getModerationDb().punishment.findMany({
       orderBy: [{ createdAt: 'asc' }],
     });
     if (rows.length === 0) {
@@ -53,7 +62,7 @@ async function hydrateFromPrisma() {
           async () => {
             for (const [userId, entries] of punishments.entries()) {
               for (const entry of entries) {
-                await prisma.punishment.create({
+                await getModerationDb().punishment.create({
                   data: {
                     userId,
                     type: entry.type,
@@ -142,7 +151,7 @@ function addPunishment(userId, type, reason, staffId, durationMinutes) {
 
   queueDbWrite(
     async () => {
-      await prisma.punishment.create({
+      await getModerationDb().punishment.create({
         data: {
           userId: key,
           type: entry.type,
@@ -182,10 +191,10 @@ function replacePunishments(nextRows = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.punishment.deleteMany({});
+      await getModerationDb().punishment.deleteMany({});
       for (const [userId, entries] of punishments.entries()) {
         for (const entry of entries) {
-          await prisma.punishment.create({
+          await getModerationDb().punishment.create({
             data: {
               userId,
               type: entry.type,

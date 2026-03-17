@@ -1,6 +1,11 @@
 ﻿const crypto = require('node:crypto');
 const { economy, shop } = require('../config');
-const { prisma } = require('../prisma');
+const {
+  prisma,
+  getTenantScopedPrismaClient,
+  resolveDefaultTenantId,
+  resolveTenantScopedDatasourceUrl,
+} = require('../prisma');
 const {
   normalizePurchaseStatus,
   validatePurchaseStatusTransition,
@@ -39,9 +44,10 @@ function normalizeOptionalText(value) {
 }
 
 function resolveTenantId(input) {
-  const direct = normalizeOptionalText(input);
-  if (direct) return direct;
-  return normalizeOptionalText(process.env.PLATFORM_DEFAULT_TENANT_ID || process.env.DEFAULT_TENANT_ID);
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    return resolveDefaultTenantId(input);
+  }
+  return resolveDefaultTenantId({ tenantId: input });
 }
 
 function normalizeShopCommandList(value) {
@@ -83,21 +89,41 @@ function normalizeDeliveryTeleportMode(value) {
   return null;
 }
 
-let shopItemSchemaEnsurePromise = null;
+const shopItemSchemaEnsurePromiseByDatasource = new Map();
 
-async function ensureShopItemDeliveryProfileColumns() {
-  if (shopItemSchemaEnsurePromise) return shopItemSchemaEnsurePromise;
-  shopItemSchemaEnsurePromise = (async () => {
+function resolveStoreScope(options = {}) {
+  const tenantId = resolveTenantId(options);
+  if (!tenantId) {
+    return {
+      tenantId: null,
+      datasourceKey: '__default__',
+      db: prisma,
+    };
+  }
+  return {
+    tenantId,
+    datasourceKey: resolveTenantScopedDatasourceUrl(tenantId, options) || tenantId,
+    db: getTenantScopedPrismaClient(tenantId, options),
+  };
+}
+
+async function ensureShopItemDeliveryProfileColumns(options = {}) {
+  const scope = resolveStoreScope(options);
+  if (shopItemSchemaEnsurePromiseByDatasource.has(scope.datasourceKey)) {
+    return shopItemSchemaEnsurePromiseByDatasource.get(scope.datasourceKey);
+  }
+  const ensurePromise = (async () => {
     try {
       const runtime = resolveDatabaseRuntime();
+      const db = scope.db;
       const rows = runtime.engine === 'postgresql'
-        ? await prisma.$queryRaw`
+        ? await db.$queryRaw`
           SELECT column_name AS name
           FROM information_schema.columns
           WHERE table_schema = current_schema()
             AND table_name = 'ShopItem'
         `
-        : await prisma.$queryRawUnsafe('PRAGMA table_info("ShopItem")');
+        : await db.$queryRawUnsafe('PRAGMA table_info("ShopItem")');
       const columnNames = new Set(
         Array.isArray(rows) ? rows.map((row) => String(row?.name || '')) : [],
       );
@@ -121,14 +147,15 @@ async function ensureShopItemDeliveryProfileColumns() {
         statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryReturnTarget" TEXT');
       }
       for (const sql of statements) {
-        await prisma.$executeRawUnsafe(sql);
+        await db.$executeRawUnsafe(sql);
       }
     } catch (error) {
-      shopItemSchemaEnsurePromise = null;
+      shopItemSchemaEnsurePromiseByDatasource.delete(scope.datasourceKey);
       throw error;
     }
   })();
-  return shopItemSchemaEnsurePromise;
+  shopItemSchemaEnsurePromiseByDatasource.set(scope.datasourceKey, ensurePromise);
+  return ensurePromise;
 }
 
 function canonicalizeGameItemId(value, name = null) {
@@ -359,8 +386,9 @@ async function mutateWalletWithLedger(userId, updater, options = {}) {
   if (!id) {
     throw new Error('userId is required');
   }
+  const { db } = resolveStoreScope(options);
 
-  return prisma.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     let wallet = await tx.userWallet.findUnique({ where: { userId: id } });
     if (!wallet) {
       wallet = await tx.userWallet.create({
@@ -402,11 +430,12 @@ async function mutateWalletWithLedger(userId, updater, options = {}) {
   });
 }
 
-async function getWallet(userId) {
-  const id = String(userId);
-  let wallet = await prisma.userWallet.findUnique({ where: { userId: id } });
+async function getWallet(userId, options = {}) {
+  const id = String(userId || '').trim();
+  const { db } = resolveStoreScope(options);
+  let wallet = await db.userWallet.findUnique({ where: { userId: id } });
   if (!wallet) {
-    wallet = await prisma.userWallet.create({
+    wallet = await db.userWallet.create({
       data: { userId: id, balance: 0, lastDaily: null, lastWeekly: null },
     });
   }
@@ -426,6 +455,9 @@ async function addCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      tenantId: options.tenantId,
+      defaultTenantId: options.defaultTenantId,
+      env: options.env,
     },
   );
   return updated.balance;
@@ -444,6 +476,9 @@ async function removeCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      tenantId: options.tenantId,
+      defaultTenantId: options.defaultTenantId,
+      env: options.env,
     },
   );
   return updated.balance;
@@ -462,13 +497,16 @@ async function setCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      tenantId: options.tenantId,
+      defaultTenantId: options.defaultTenantId,
+      env: options.env,
     },
   );
   return updated.balance;
 }
 
-async function canClaimDaily(userId) {
-  const wallet = await getWallet(userId);
+async function canClaimDaily(userId, options = {}) {
+  const wallet = await getWallet(userId, options);
   const now = BigInt(Date.now());
   if (wallet.lastDaily == null) return { ok: true };
   const diff = now - wallet.lastDaily;
@@ -477,7 +515,7 @@ async function canClaimDaily(userId) {
   return { ok: false, remainingMs: Number(remaining) };
 }
 
-async function claimDaily(userId) {
+async function claimDaily(userId, options = {}) {
   const reward = Math.max(0, normalizeInteger(economy.dailyReward, 0));
   const now = BigInt(Date.now());
   const updated = await mutateWalletWithLedger(
@@ -493,13 +531,16 @@ async function claimDaily(userId) {
       actor: 'system',
       meta: { reward },
       recordZeroDelta: true,
+      tenantId: options.tenantId,
+      defaultTenantId: options.defaultTenantId,
+      env: options.env,
     },
   );
   return updated.balance;
 }
 
-async function canClaimWeekly(userId) {
-  const wallet = await getWallet(userId);
+async function canClaimWeekly(userId, options = {}) {
+  const wallet = await getWallet(userId, options);
   const now = BigInt(Date.now());
   if (wallet.lastWeekly == null) return { ok: true };
   const diff = now - wallet.lastWeekly;
@@ -508,7 +549,7 @@ async function canClaimWeekly(userId) {
   return { ok: false, remainingMs: Number(remaining) };
 }
 
-async function claimWeekly(userId) {
+async function claimWeekly(userId, options = {}) {
   const reward = Math.max(0, normalizeInteger(economy.weeklyReward, 0));
   const now = BigInt(Date.now());
   const updated = await mutateWalletWithLedger(
@@ -524,14 +565,18 @@ async function claimWeekly(userId) {
       actor: 'system',
       meta: { reward },
       recordZeroDelta: true,
+      tenantId: options.tenantId,
+      defaultTenantId: options.defaultTenantId,
+      env: options.env,
     },
   );
   return updated.balance;
 }
 
-async function listShopItems() {
-  await ensureShopItemDeliveryProfileColumns();
-  let items = await prisma.shopItem.findMany();
+async function listShopItems(options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
+  let items = await db.shopItem.findMany();
   const byId = new Map(items.map((item) => [String(item.id), item]));
   const writes = [];
 
@@ -539,13 +584,13 @@ async function listShopItems() {
     const record = buildInitialShopItemRecord(initialItem);
     const existing = byId.get(String(record.id));
     if (!existing) {
-      writes.push(prisma.shopItem.create({ data: record }));
+      writes.push(db.shopItem.create({ data: record }));
       continue;
     }
 
     if (shouldRepairInitialShopKind(existing, record)) {
       writes.push(
-        prisma.shopItem.update({
+        db.shopItem.update({
           where: { id: record.id },
           data: {
             kind: record.kind,
@@ -556,23 +601,25 @@ async function listShopItems() {
   }
 
   if (writes.length > 0) {
-    await prisma.$transaction(writes);
-    items = await prisma.shopItem.findMany();
+    await db.$transaction(writes);
+    items = await db.shopItem.findMany();
   }
 
   return items.map((item) => toShopItemView(item));
 }
 
-async function getShopItemById(id) {
-  await ensureShopItemDeliveryProfileColumns();
-  const item = await prisma.shopItem.findUnique({ where: { id: String(id) } });
+async function getShopItemById(id, options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
+  const item = await db.shopItem.findUnique({ where: { id: String(id) } });
   return toShopItemView(item);
 }
 
-async function getShopItemByName(name) {
-  await ensureShopItemDeliveryProfileColumns();
+async function getShopItemByName(name, options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
   const lower = String(name).toLowerCase();
-  const all = await prisma.shopItem.findMany();
+  const all = await db.shopItem.findMany();
   const found = all.find((i) => {
     if (i.name.toLowerCase() === lower) return true;
     if (i.id.toLowerCase() === lower) return true;
@@ -593,9 +640,10 @@ async function getShopItemByName(name) {
   return toShopItemView(found || null);
 }
 
-async function addShopItem(id, name, price, description, meta = {}) {
-  await ensureShopItemDeliveryProfileColumns();
-  const existing = await prisma.shopItem.findUnique({
+async function addShopItem(id, name, price, description, meta = {}, options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
+  const existing = await db.shopItem.findUnique({
     where: { id: String(id) },
   });
   if (existing) {
@@ -611,7 +659,7 @@ async function addShopItem(id, name, price, description, meta = {}) {
     throw new Error('สินค้าประเภท item ต้องมี deliveryItems อย่างน้อย 1 รายการ');
   }
 
-  const created = await prisma.shopItem.create({
+  const created = await db.shopItem.create({
     data: {
       id: String(id),
       name,
@@ -642,19 +690,21 @@ async function addShopItem(id, name, price, description, meta = {}) {
   return toShopItemView(created);
 }
 
-async function deleteShopItem(idOrName) {
+async function deleteShopItem(idOrName, options = {}) {
+  const { db } = resolveStoreScope(options);
   const item =
-    (await getShopItemById(idOrName)) || (await getShopItemByName(idOrName));
+    (await getShopItemById(idOrName, options)) || (await getShopItemByName(idOrName, options));
   if (!item) return null;
-  await prisma.shopItem.delete({ where: { id: item.id } });
+  await db.shopItem.delete({ where: { id: item.id } });
   return item;
 }
 
-async function setShopItemPrice(idOrName, newPrice) {
+async function setShopItemPrice(idOrName, newPrice, options = {}) {
+  const { db } = resolveStoreScope(options);
   const item =
-    (await getShopItemById(idOrName)) || (await getShopItemByName(idOrName));
+    (await getShopItemById(idOrName, options)) || (await getShopItemByName(idOrName, options));
   if (!item) return null;
-  const updated = await prisma.shopItem.update({
+  const updated = await db.shopItem.update({
     where: { id: item.id },
     data: { price: Number(newPrice || 0) },
   });
@@ -663,6 +713,7 @@ async function setShopItemPrice(idOrName, newPrice) {
 
 async function createPurchase(userId, item, options = {}) {
   const tenantId = resolveTenantId(options.tenantId || item?.tenantId);
+  const { db } = resolveStoreScope({ tenantId });
   const payload = {
     tenantId,
     userId: String(userId),
@@ -678,7 +729,7 @@ async function createPurchase(userId, item, options = {}) {
         ? `P${crypto.randomUUID()}`
         : `P${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
     try {
-      return await prisma.$transaction(async (tx) => {
+      return await db.$transaction(async (tx) => {
         const created = await tx.purchase.create({
           data: {
             code,
@@ -707,13 +758,23 @@ async function createPurchase(userId, item, options = {}) {
   throw new Error('Failed to generate unique purchase code');
 }
 
-async function findPurchaseByCode(code) {
-  return prisma.purchase.findUnique({ where: { code: String(code) } });
+async function findPurchaseByCode(code, options = {}) {
+  const { db, tenantId } = resolveStoreScope(options);
+  return db.purchase.findFirst({
+    where: {
+      code: String(code),
+      ...(tenantId ? { tenantId } : {}),
+    },
+  });
 }
 
 async function setPurchaseStatusByCode(code, status, options = {}) {
-  const p = await findPurchaseByCode(code);
+  const p = await findPurchaseByCode(code, options);
   if (!p) return null;
+  const { db } = resolveStoreScope({
+    ...options,
+    tenantId: normalizeOptionalText(options.tenantId) || normalizeOptionalText(p.tenantId),
+  });
 
   const currentStatus = normalizePurchaseStatus(p.status);
   const nextStatus = normalizePurchaseStatus(status);
@@ -735,7 +796,7 @@ async function setPurchaseStatusByCode(code, status, options = {}) {
   }
 
   const now = new Date();
-  return prisma.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const updated = await tx.purchase.update({
       where: { code: p.code },
       data: {
@@ -759,23 +820,41 @@ async function setPurchaseStatusByCode(code, status, options = {}) {
   });
 }
 
-async function listUserPurchases(userId) {
-  return prisma.purchase.findMany({
-    where: { userId: String(userId) },
+async function listUserPurchases(userId, options = {}) {
+  const { db, tenantId } = resolveStoreScope(options);
+  return db.purchase.findMany({
+    where: {
+      userId: String(userId),
+      ...(tenantId ? { tenantId } : {}),
+    },
     orderBy: { createdAt: 'desc' },
   });
 }
 
-async function listTopWallets(limit = 10) {
-  return prisma.userWallet.findMany({
+async function listTopWallets(limitOrOptions = 10, maybeOptions = {}) {
+  const options = typeof limitOrOptions === 'object' && limitOrOptions !== null
+    ? limitOrOptions
+    : maybeOptions;
+  const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null
+    ? 10
+    : limitOrOptions;
+  const { db } = resolveStoreScope(options);
+  return db.userWallet.findMany({
     orderBy: { balance: 'desc' },
     take: Math.max(1, Number(limit || 10)),
   });
 }
 
-async function listWalletLedger(userId, limit = 100) {
+async function listWalletLedger(userId, limitOrOptions = 100, maybeOptions = {}) {
+  const options = typeof limitOrOptions === 'object' && limitOrOptions !== null
+    ? limitOrOptions
+    : maybeOptions;
+  const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null
+    ? 100
+    : limitOrOptions;
+  const { db } = resolveStoreScope(options);
   const max = Math.max(1, Math.min(1000, normalizeInteger(limit, 100)));
-  const rows = await prisma.walletLedger.findMany({
+  const rows = await db.walletLedger.findMany({
     where: { userId: String(userId) },
     orderBy: { createdAt: 'desc' },
     take: max,
@@ -783,10 +862,14 @@ async function listWalletLedger(userId, limit = 100) {
   return rows.map((row) => toWalletLedgerView(row));
 }
 
-async function listPurchaseStatusHistory(code, limit = 100) {
+async function listPurchaseStatusHistory(code, limit = 100, options = {}) {
+  const { db, tenantId } = resolveStoreScope(options);
   const max = Math.max(1, Math.min(1000, normalizeInteger(limit, 100)));
-  const rows = await prisma.purchaseStatusHistory.findMany({
-    where: { purchaseCode: String(code) },
+  const rows = await db.purchaseStatusHistory.findMany({
+    where: {
+      purchaseCode: String(code),
+      ...(tenantId ? { purchase: { tenantId } } : {}),
+    },
     orderBy: { createdAt: 'desc' },
     take: max,
   });

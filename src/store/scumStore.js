@@ -1,5 +1,7 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const serverStatus = {
   onlinePlayers: 0,
   maxPlayers: 90,
@@ -11,6 +13,13 @@ const serverStatus = {
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getScumDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeDate(value) {
   if (!value) return null;
@@ -70,7 +79,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const row = await prisma.scumStatus.findUnique({
+    const row = await getScumDb().scumStatus.findUnique({
       where: { id: 1 },
     });
     if (!row) {
@@ -83,7 +92,7 @@ async function hydrateFromPrisma() {
       if (hasLegacy) {
         await queueDbWrite(
           async () => {
-            await prisma.scumStatus.upsert({
+            await getScumDb().scumStatus.upsert({
               where: { id: 1 },
               update: {
                 onlinePlayers: serverStatus.onlinePlayers,
@@ -139,7 +148,7 @@ function updateStatus({ onlinePlayers, maxPlayers, pingMs, uptimeMinutes }) {
   const snapshot = getStatus();
   queueDbWrite(
     async () => {
-      await prisma.scumStatus.upsert({
+      await getScumDb().scumStatus.upsert({
         where: { id: 1 },
         update: {
           onlinePlayers: snapshot.onlinePlayers,
@@ -182,7 +191,7 @@ function replaceStatus(nextStatus = {}) {
   const snapshot = getStatus();
   queueDbWrite(
     async () => {
-      await prisma.scumStatus.upsert({
+      await getScumDb().scumStatus.upsert({
         where: { id: 1 },
         update: {
           onlinePlayers: snapshot.onlinePlayers,

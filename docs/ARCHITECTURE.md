@@ -158,7 +158,7 @@ Tenant scope is already present in:
 What is not finished yet:
 
 - database-per-tenant
-- RLS or per-tenant schema isolation
+- broader DB-level isolation beyond the current PostgreSQL RLS strict mode on tenant-scoped platform tables
 - complete tenant coverage across every admin/config collection
 
 ## Health, Readiness, And Smoke Boundaries

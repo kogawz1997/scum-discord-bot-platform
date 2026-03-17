@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath } = require('./_persist');
 
 const BASE_DIR = getFilePath(path.join('evidence', 'delivery'));
 const MAX_EVENTS = Math.max(
@@ -40,9 +40,7 @@ function loadEvidence(purchaseCode) {
 
 function saveEvidence(filePath, payload) {
   ensureBaseDir();
-  const tmpPath = `${filePath}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  atomicWriteJson(filePath, payload);
 }
 
 function normalizeExecution(execution = {}) {

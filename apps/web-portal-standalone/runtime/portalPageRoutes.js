@@ -7,6 +7,10 @@ function sendRedirect(res, location) {
 
 function createPortalPageRoutes(deps) {
   const {
+    allowCaptureAuth,
+    captureAuthToken,
+    createCaptureSession,
+    buildSessionCookie,
     tryServeStaticScumIcon,
     buildLegacyAdminUrl,
     getCanonicalRedirectUrl,
@@ -62,6 +66,24 @@ function createPortalPageRoutes(deps) {
 
     if (pathname === '/favicon.ico' || pathname === '/favicon.svg') {
       sendFavicon(res);
+      return true;
+    }
+
+    if (allowCaptureAuth && pathname === '/player/capture-auth' && method === 'GET') {
+      const token = String(urlObj.searchParams.get('token') || '').trim();
+      if (!token || token !== String(captureAuthToken || '').trim()) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Capture auth token is invalid',
+        });
+        return true;
+      }
+      const sessionId = createCaptureSession();
+      res.writeHead(302, {
+        Location: '/player',
+        'Set-Cookie': buildSessionCookie(sessionId),
+      });
+      res.end();
       return true;
     }
 

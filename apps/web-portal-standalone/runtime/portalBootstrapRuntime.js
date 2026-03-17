@@ -308,7 +308,9 @@ function createPortalBootstrapRuntime({
 
   const {
     buildClearSessionCookie,
+    buildSessionCookie,
     cleanupRuntimeState,
+    createSession,
     getCanonicalRedirectUrl,
     getSession,
     handleDiscordCallback,
@@ -429,6 +431,16 @@ function createPortalBootstrapRuntime({
       escapeHtml,
     },
     pageRouteDeps: {
+      allowCaptureAuth: nodeEnv === 'capture',
+      captureAuthToken: String(process.env.WEB_PORTAL_CAPTURE_TOKEN || '').trim(),
+      createCaptureSession: () => createSession({
+        user: 'Capture Player',
+        role: 'player',
+        discordId: 'capture_player',
+        authMethod: 'capture',
+        avatarUrl: null,
+      }),
+      buildSessionCookie,
       buildLegacyAdminUrl: (pathname, search) => buildLegacyAdminUrl(legacyAdminUrl, pathname, search),
       getCanonicalRedirectUrl,
       sendJson,

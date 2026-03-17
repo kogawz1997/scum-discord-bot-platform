@@ -1,11 +1,20 @@
 ﻿const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 // steamId -> { userId, inGameName, linkedAt }
 const links = new Map();
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getLinkDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeSteamId(steamId) {
   const s = String(steamId || '').trim();
@@ -47,7 +56,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.link.findMany({
+    const rows = await getLinkDb().link.findMany({
       orderBy: { linkedAt: 'desc' },
     });
 
@@ -56,7 +65,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const [steamId, value] of links.entries()) {
-              await prisma.link.upsert({
+              await getLinkDb().link.upsert({
                 where: { steamId },
                 update: {
                   userId: value.userId,
@@ -171,9 +180,9 @@ function setLink({ steamId, userId, inGameName }) {
   queueDbWrite(
     async () => {
       for (const sid of removedSteamIds) {
-        await prisma.link.deleteMany({ where: { steamId: sid } });
+        await getLinkDb().link.deleteMany({ where: { steamId: sid } });
       }
-      await prisma.link.upsert({
+      await getLinkDb().link.upsert({
         where: { steamId: s },
         update: {
           userId: u,
@@ -187,7 +196,7 @@ function setLink({ steamId, userId, inGameName }) {
           linkedAt,
         },
       });
-      await prisma.playerAccount.upsert({
+      await getLinkDb().playerAccount.upsert({
         where: { discordId: u },
         update: {
           steamId: s,
@@ -235,7 +244,7 @@ function updateInGameNameBySteamId(steamId, inGameName) {
 
   queueDbWrite(
     async () => {
-      await prisma.link.updateMany({
+      await getLinkDb().link.updateMany({
         where: { steamId: s },
         data: {
           inGameName: normalizedInGameName,
@@ -271,8 +280,8 @@ function unlinkByUserId(userId) {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.link.deleteMany({ where: { userId: removed.userId } });
-      await prisma.playerAccount.upsert({
+      await getLinkDb().link.deleteMany({ where: { userId: removed.userId } });
+      await getLinkDb().playerAccount.upsert({
         where: { discordId: removed.userId },
         update: {
           steamId: null,
@@ -303,8 +312,8 @@ function unlinkBySteamId(steamId) {
   links.delete(s);
   queueDbWrite(
     async () => {
-      await prisma.link.deleteMany({ where: { steamId: s } });
-      await prisma.playerAccount.upsert({
+      await getLinkDb().link.deleteMany({ where: { steamId: s } });
+      await getLinkDb().playerAccount.upsert({
         where: { discordId: value.userId },
         update: {
           steamId: null,
@@ -345,14 +354,14 @@ function replaceLinks(nextLinks = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.link.deleteMany();
-      await prisma.playerAccount.updateMany({
+      await getLinkDb().link.deleteMany();
+      await getLinkDb().playerAccount.updateMany({
         data: {
           steamId: null,
         },
       });
       for (const [steamId, value] of links.entries()) {
-        await prisma.link.create({
+        await getLinkDb().link.create({
           data: {
             steamId,
             userId: value.userId,
@@ -360,7 +369,7 @@ function replaceLinks(nextLinks = []) {
             linkedAt: value.linkedAt || new Date(),
           },
         });
-        await prisma.playerAccount.upsert({
+        await getLinkDb().playerAccount.upsert({
           where: { discordId: value.userId },
           update: {
             steamId,

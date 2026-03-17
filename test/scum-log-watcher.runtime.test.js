@@ -5,7 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 
 const watcherModulePath = path.join(__dirname, '..', 'scum-log-watcher.js');
-const { tailFile } = require('../scum-log-watcher');
+const watcherRuntimeModulePath = path.join(
+  __dirname,
+  '..',
+  'src',
+  'services',
+  'scumLogWatcherRuntime.js',
+);
 
 const WATCHER_ENV_KEYS = [
   'SCUM_LOG_PATH',
@@ -32,12 +38,14 @@ function restoreWatcherEnv() {
 
 function loadWatcherRuntime() {
   delete require.cache[watcherModulePath];
+  delete require.cache[watcherRuntimeModulePath];
   return require(watcherModulePath);
 }
 
 test.afterEach(() => {
   restoreWatcherEnv();
   delete require.cache[watcherModulePath];
+  delete require.cache[watcherRuntimeModulePath];
 });
 
 async function waitFor(predicate, timeoutMs = 2000) {
@@ -61,7 +69,8 @@ test('tailFile stays alive when log file is missing at startup and resumes when 
     throw new Error('process.exit should not be called');
   };
 
-  const stop = tailFile(logPath, (line) => {
+  const watcher = loadWatcherRuntime();
+  const stop = watcher.tailFile(logPath, (line) => {
     lines.push(line);
   });
 
@@ -99,4 +108,39 @@ test('watcher health reports disabled when SCUM_WATCHER_ENABLED=false', () => {
   assert.equal(payload.reason, 'watcher-disabled');
   assert.equal(payload.ready, null);
   assert.equal(payload.watch.fileExists, false);
+});
+
+test('watcher parses current SCUM login log format with steam id', () => {
+  process.env.SCUM_LOG_PATH = 'Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\Logs\\SCUM.log';
+  process.env.SCUM_WATCHER_ENABLED = 'true';
+  const watcher = loadWatcherRuntime();
+
+  const event = watcher.parseLine(
+    "[2026.03.16-12.11.36:432][636]LogSCUM: '192.156.1.116 76561199274778326:CokeTAMTHAI(1)' logged in at: X=-279431.000 Y=-674889.000 Z=7766.000 (as drone)",
+  );
+
+  assert.deepEqual(event, {
+    type: 'join',
+    playerName: 'CokeTAMTHAI',
+    steamId: '76561199274778326',
+    remoteAddress: '192.156.1.116',
+  });
+});
+
+test('watcher parses admin command log format', () => {
+  process.env.SCUM_LOG_PATH = 'Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\Logs\\SCUM.log';
+  process.env.SCUM_WATCHER_ENABLED = 'true';
+  const watcher = loadWatcherRuntime();
+
+  const event = watcher.parseLine(
+    "[2026.03.16-12.16.42:355][474]LogSCUM: '76561199274778326:CokeTAMTHAI(1)' Command: 'Announce [OPS] agent-live-check-20260316-191640'",
+  );
+
+  assert.deepEqual(event, {
+    type: 'admin-command',
+    playerName: 'CokeTAMTHAI',
+    steamId: '76561199274778326',
+    command: 'Announce [OPS] agent-live-check-20260316-191640',
+    commandName: 'Announce',
+  });
 });

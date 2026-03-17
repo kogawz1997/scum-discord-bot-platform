@@ -145,6 +145,7 @@ const MAX_DEDUPE_TRACK_SIZE = Math.max(
 
 const eventQueue = [];
 const eventDedupe = new Map();
+const recentEvents = [];
 const webhookAttemptWindow = [];
 let queueRunning = false;
 let webhookSuccessCount = 0;
@@ -162,6 +163,10 @@ let lastBacklogAt = 0;
 let lastFileError = null;
 let lastFileExists = false;
 let watcherFileStatTimer = null;
+const RECENT_EVENT_LIMIT = Math.max(
+  10,
+  parseIntegerEnv('SCUM_WATCHER_RECENT_EVENT_LIMIT', 30, 10),
+);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -234,6 +239,7 @@ function getWatcherHealthPayload(now = Date.now()) {
         backlogAgeMs: 0,
         backlogStaleAfterMs: WATCHER_BACKLOG_STALE_MS,
       },
+      recentEvents: recentEvents.slice(-RECENT_EVENT_LIMIT),
     };
   }
   if (!LOG_PATH) {
@@ -258,6 +264,7 @@ function getWatcherHealthPayload(now = Date.now()) {
         backlogAgeMs: 0,
         backlogStaleAfterMs: WATCHER_BACKLOG_STALE_MS,
       },
+      recentEvents: recentEvents.slice(-RECENT_EVENT_LIMIT),
     };
   }
   const ready =
@@ -284,7 +291,24 @@ function getWatcherHealthPayload(now = Date.now()) {
       backlogAgeMs,
       backlogStaleAfterMs: WATCHER_BACKLOG_STALE_MS,
     },
+    recentEvents: recentEvents.slice(-RECENT_EVENT_LIMIT),
   };
+}
+
+function rememberRecentEvent(event, sourceLine = '') {
+  if (!event || typeof event !== 'object') return;
+  recentEvents.push({
+    at: new Date().toISOString(),
+    type: String(event.type || '').trim() || 'event',
+    playerName: String(event.playerName || event.killer || '').trim() || null,
+    steamId: String(event.steamId || event.killerSteamId || '').trim() || null,
+    command: String(event.command || '').trim() || null,
+    commandName: String(event.commandName || '').trim() || null,
+    raw: cleanName(sourceLine || '').slice(0, 400) || null,
+  });
+  if (recentEvents.length > RECENT_EVENT_LIMIT) {
+    recentEvents.splice(0, recentEvents.length - RECENT_EVENT_LIMIT);
+  }
 }
 
 function createHealthServer() {
@@ -512,6 +536,18 @@ function parseLine(line) {
   }
 
   match = text.match(
+    /LogSCUM:\s+'(?<remoteAddress>[^ ]+)\s+(?<steamId>\d{15,25}):(?<playerName>.+?)\(\d+\)'\s+logged in at:/i,
+  );
+  if (match?.groups?.playerName) {
+    return {
+      type: 'join',
+      playerName: cleanName(match.groups.playerName),
+      steamId: match.groups.steamId || null,
+      remoteAddress: cleanName(match.groups.remoteAddress),
+    };
+  }
+
+  match = text.match(
     /LogSCUM:\s+Warning:\s+Prisoner logging out:\s+(?<playerName>.+?)(?:\s+\((?<steamId>\d{15,25})\))?$/i,
   );
   if (match?.groups?.playerName) {
@@ -519,6 +555,32 @@ function parseLine(line) {
       type: 'leave',
       playerName: cleanName(match.groups.playerName),
       steamId: match.groups.steamId || null,
+    };
+  }
+
+  match = text.match(
+    /LogBattlEye:\s+Display:\s+Player\s+#\d+\s+(?<playerName>.+?)\s+\([^)]+\)\s+disconnected/i,
+  );
+  if (match?.groups?.playerName) {
+    return {
+      type: 'leave',
+      playerName: cleanName(match.groups.playerName),
+      steamId: null,
+    };
+  }
+
+  match = text.match(
+    /LogSCUM:\s+'(?<steamId>\d{15,25}):(?<playerName>.+?)\(\d+\)'\s+Command:\s+'(?<command>.+?)'$/i,
+  );
+  if (match?.groups?.command) {
+    const commandText = cleanName(match.groups.command);
+    const commandName = String(commandText.split(/\s+/)[0] || '').trim() || null;
+    return {
+      type: 'admin-command',
+      playerName: cleanName(match.groups.playerName),
+      steamId: match.groups.steamId || null,
+      command: commandText,
+      commandName,
     };
   }
 
@@ -845,8 +907,11 @@ function startWatcher() {
     const event = parseLine(line);
     if (!event) return;
     lastEventAt = Date.now();
+    rememberRecentEvent(event, line);
     console.log('event:', event);
-    enqueueEvent(event);
+    if (event.type !== 'admin-command') {
+      enqueueEvent(event);
+    }
   });
   pollLogFileState();
   watcherFileStatTimer = setInterval(pollLogFileState, WATCHER_FILE_STAT_INTERVAL_MS);
@@ -869,6 +934,7 @@ module.exports = {
   enqueueEvent,
   getWatcherMetricsSnapshot,
   getWatcherHealthPayload,
+  rememberRecentEvent,
   resolveLogPath,
   resolveWatcherEnabled,
   startWatcher,

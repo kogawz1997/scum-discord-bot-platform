@@ -23,10 +23,44 @@ function getFilePath(filename) {
   return path.join(DATA_DIR, filename);
 }
 
+function sleepMs(delayMs) {
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.trunc(delayMs));
+}
+
+function replaceFileWithRetry(tmpPath, targetPath) {
+  let lastError = null;
+  for (const delayMs of [0, 20, 80, 160]) {
+    try {
+      if (delayMs > 0) {
+        sleepMs(delayMs);
+      }
+      fs.renameSync(tmpPath, targetPath);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!['EPERM', 'EBUSY'].includes(String(error && error.code || ''))) {
+        throw error;
+      }
+    }
+  }
+
+  if (lastError && ['EPERM', 'EBUSY'].includes(String(lastError.code || ''))) {
+    fs.copyFileSync(tmpPath, targetPath);
+    fs.unlinkSync(tmpPath);
+    return;
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+}
+
 function atomicWriteJson(filePath, obj) {
   const tmpPath = `${filePath}.tmp`;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(tmpPath, JSON.stringify(obj, null, 2), 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  replaceFileWithRetry(tmpPath, filePath);
 }
 
 function resolveDbRuntime() {
@@ -146,6 +180,8 @@ module.exports = {
   DB_PATH,
   loadJson,
   saveJsonDebounced,
+  atomicWriteJson,
+  replaceFileWithRetry,
   getFilePath,
   isDbPersistenceEnabled,
   getPersistenceStatus,

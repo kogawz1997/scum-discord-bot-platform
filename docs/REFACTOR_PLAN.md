@@ -126,9 +126,9 @@ Next cut:
 
 - Full TypeScript migration
 - Framework rewrite of admin web or player portal
-- Database-per-tenant isolation
+- Database-per-tenant isolation beyond the current PostgreSQL RLS foundation
 - Replacing Prisma
-- Live agent-mode proof, real watcher log proof, and inventory-native delivery proof without the game workstation state
+- Live agent-mode proof, real watcher log proof, and broader native delivery proof coverage beyond the current workstation
 
 ## Acceptance bar for the next refactor pass
 
@@ -136,3 +136,4 @@ Next cut:
 - Runtime-specific env requirements should come from one config boundary.
 - Admin route permissions should be testable without loading the whole HTTP server file.
 - Tests should continue to pass under the PostgreSQL runtime profile used on this machine.
+- Tenant-scoped platform paths should keep working under `TENANT_DB_ISOLATION_MODE=postgres-rls-strict`.

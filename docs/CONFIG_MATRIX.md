@@ -17,13 +17,15 @@ This document is the operator-facing matrix for core configuration. It is not a 
 
 ## Shared Runtime
 
-| Key                        | Required | Production-only | Used by | UI scope | Notes                                         |
-| -------------------------- | -------- | --------------- | ------- | -------- | --------------------------------------------- |
-| `NODE_ENV`                 | Yes      | Yes             | all     | env-only | `production` for live deployments             |
-| `DATABASE_PROVIDER`        | Yes      | Yes             | all     | env-only | runtime standard is `postgresql`              |
-| `DATABASE_URL`             | Yes      | Yes             | all     | no-ui    | secret-bearing; do not expose raw value in UI |
-| `PERSIST_REQUIRE_DB`       | Yes      | Yes             | all     | restart  | should stay `true` in production              |
-| `PERSIST_LEGACY_SNAPSHOTS` | Yes      | Yes             | all     | restart  | should stay `false` in production             |
+| Key                        | Required | Production-only | Used by | UI scope | Notes                                                              |
+| -------------------------- | -------- | --------------- | ------- | -------- | ------------------------------------------------------------------ |
+| `NODE_ENV`                 | Yes      | Yes             | all     | env-only | `production` for live deployments                                  |
+| `DATABASE_PROVIDER`        | Yes      | Yes             | all     | env-only | runtime standard is `postgresql`                                   |
+| `DATABASE_URL`             | Yes      | Yes             | all     | no-ui    | secret-bearing; do not expose raw value in UI                      |
+| `TENANT_DB_ISOLATION_MODE` | Optional | Yes             | all     | env-only | `application`, `postgres-rls-foundation`, or `postgres-rls-strict` |
+| `TENANT_DB_TOPOLOGY_MODE`  | Optional | Yes             | all     | env-only | `shared`, `schema-per-tenant`, or `database-per-tenant`            |
+| `PERSIST_REQUIRE_DB`       | Yes      | Yes             | all     | restart  | should stay `true` in production                                   |
+| `PERSIST_LEGACY_SNAPSHOTS` | Yes      | Yes             | all     | restart  | should stay `false` in production                                  |
 
 ## Discord Bot
 
@@ -60,16 +62,18 @@ This document is the operator-facing matrix for core configuration. It is not a 
 
 ## Delivery / RCON / Agent
 
-| Key                                | Required | Production-only | Used by         | UI scope | Notes                                        |
-| ---------------------------------- | -------- | --------------- | --------------- | -------- | -------------------------------------------- |
-| `DELIVERY_EXECUTION_MODE`          | Yes      | No              | bot, worker     | restart  | `rcon` or `agent`                            |
-| `RCON_HOST`                        | Optional | Yes             | delivery        | env-only | required for RCON path                       |
-| `RCON_PORT`                        | Optional | Yes             | delivery        | env-only | required for RCON path                       |
-| `RCON_PASSWORD`                    | Optional | Yes             | delivery        | no-ui    | secret                                       |
-| `SCUM_CONSOLE_AGENT_BASE_URL`      | Optional | Yes             | delivery, agent | env-only | required for remote agent path               |
-| `SCUM_CONSOLE_AGENT_TOKEN`         | Optional | Yes             | delivery, agent | no-ui    | secret                                       |
-| `SCUM_CONSOLE_AGENT_REQUIRED`      | Optional | No              | delivery        | restart  | allows optional degraded agent with fallback |
-| `SCUM_CONSOLE_AGENT_EXEC_TEMPLATE` | Optional | Yes             | agent           | env-only | required for exec backend                    |
+| Key                                | Required | Production-only | Used by         | UI scope | Notes                                                                                                            |
+| ---------------------------------- | -------- | --------------- | --------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `DELIVERY_EXECUTION_MODE`          | Yes      | No              | bot, worker     | restart  | `rcon` or `agent`                                                                                                |
+| `DELIVERY_NATIVE_PROOF_MODE`       | Optional | No              | delivery        | restart  | `disabled`, `optional`, or `required`                                                                            |
+| `DELIVERY_NATIVE_PROOF_SCRIPT`     | Optional | Yes             | delivery        | restart  | external inventory/state proof script path; `scripts/delivery-native-proof-template.ps1` is the bundled template |
+| `RCON_HOST`                        | Optional | Yes             | delivery        | env-only | required for RCON path                                                                                           |
+| `RCON_PORT`                        | Optional | Yes             | delivery        | env-only | required for RCON path                                                                                           |
+| `RCON_PASSWORD`                    | Optional | Yes             | delivery        | no-ui    | secret                                                                                                           |
+| `SCUM_CONSOLE_AGENT_BASE_URL`      | Optional | Yes             | delivery, agent | env-only | required for remote agent path                                                                                   |
+| `SCUM_CONSOLE_AGENT_TOKEN`         | Optional | Yes             | delivery, agent | no-ui    | secret                                                                                                           |
+| `SCUM_CONSOLE_AGENT_REQUIRED`      | Optional | No              | delivery        | restart  | allows optional degraded agent with fallback                                                                     |
+| `SCUM_CONSOLE_AGENT_EXEC_TEMPLATE` | Optional | Yes             | agent           | env-only | required for exec backend                                                                                        |
 
 ## Admin Web
 
@@ -110,7 +114,7 @@ Current state:
 
 - some runtime, bot, delivery, and feature settings are editable through admin UI
 - some env-backed settings can be edited but still require restart
-- admin env metadata now covers SSO role mapping, login/rate-limit settings, cookie/origin policy, persistence flags, watcher health settings, agent tuning, and portal OAuth/map settings
+- admin env metadata now covers SSO role mapping, login/rate-limit settings, cookie/origin policy, persistence flags, watcher health settings, agent tuning, tenant DB topology settings, native delivery proof settings, and portal OAuth/map settings
 - secrets and low-level bind/topology settings remain env-only by design
 
 Use this rule for review:

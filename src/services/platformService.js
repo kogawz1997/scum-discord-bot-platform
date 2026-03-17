@@ -1,7 +1,13 @@
 const crypto = require('node:crypto');
 
 const config = require('../config');
-const { prisma } = require('../prisma');
+const { prisma, getTenantScopedPrismaClient } = require('../prisma');
+const {
+  withTenantDbIsolation,
+  assertTenantDbIsolationScope,
+} = require('../utils/tenantDbIsolation');
+const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
+const { readAcrossDeliveryPersistenceScopes } = require('./deliveryPersistenceDb');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 
 const PLATFORM_SCOPE_GROUPS = Object.freeze([
@@ -36,6 +42,25 @@ const PLATFORM_SCOPE_GROUPS = Object.freeze([
     scopes: ['analytics:read', 'delivery:reconcile', 'agent:write'],
   },
 ]);
+
+async function runWithOptionalTenantDbIsolation(tenantId, work) {
+  const scopedTenantId = trimText(tenantId, 120) || null;
+  if (!scopedTenantId) {
+    return work(prisma, {
+      applied: false,
+      tenantId: null,
+      enforce: false,
+      bypass: false,
+      mode: 'application',
+    });
+  }
+  const tenantPrisma = getTenantScopedPrismaClient(scopedTenantId);
+  return withTenantDbIsolation(
+    tenantPrisma,
+    { tenantId: scopedTenantId, enforce: true },
+    (db, context) => work(db, context),
+  );
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -263,6 +288,14 @@ function sanitizeTenantRow(row) {
   };
 }
 
+async function getSharedTenantRegistryRow(tenantId) {
+  const id = trimText(tenantId, 120);
+  if (!id) return null;
+  return prisma.platformTenant.findUnique({
+    where: { id },
+  });
+}
+
 function sanitizeSubscriptionRow(row) {
   if (!row) return null;
   return {
@@ -357,22 +390,22 @@ function isLicenseOperational(row) {
   return !expiresAt || expiresAt.getTime() >= Date.now();
 }
 
-async function getTenantOperationalState(tenantId) {
+async function getTenantOperationalStateInternal(db, tenantId) {
   const id = trimText(tenantId, 120);
   if (!id) {
     return { ok: false, reason: 'tenant-required', tenant: null, subscription: null, license: null };
   }
-  const tenant = await prisma.platformTenant.findUnique({ where: { id } });
+  const tenant = await getSharedTenantRegistryRow(id);
   if (!tenant) {
     return { ok: false, reason: 'tenant-not-found', tenant: null, subscription: null, license: null };
   }
 
   const [subscription, license] = await Promise.all([
-    prisma.platformSubscription.findFirst({
+    db.platformSubscription.findFirst({
       where: { tenantId: id },
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
     }),
-    prisma.platformLicense.findFirst({
+    db.platformLicense.findFirst({
       where: { tenantId: id },
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
     }),
@@ -415,7 +448,18 @@ async function getTenantOperationalState(tenantId) {
   };
 }
 
-async function getTenantQuotaSnapshot(tenantId) {
+async function getTenantOperationalState(tenantId, options = {}) {
+  const id = trimText(tenantId, 120);
+  if (!id) {
+    return { ok: false, reason: 'tenant-required', tenant: null, subscription: null, license: null };
+  }
+  if (options.db) {
+    return getTenantOperationalStateInternal(options.db, id);
+  }
+  return runWithOptionalTenantDbIsolation(id, (db) => getTenantOperationalStateInternal(db, id));
+}
+
+async function getTenantQuotaSnapshotInternal(db, tenantId) {
   const id = trimText(tenantId, 120);
   if (!id) {
     return {
@@ -429,18 +473,18 @@ async function getTenantQuotaSnapshot(tenantId) {
     };
   }
 
-  const tenantState = await getTenantOperationalState(id);
+  const tenantState = await getTenantOperationalStateInternal(db, id);
   const activeState = tenantState.ok
     ? tenantState
     : await (async () => {
-      const tenant = await prisma.platformTenant.findUnique({ where: { id } });
+      const tenant = await getSharedTenantRegistryRow(id);
       if (!tenant) return tenantState;
       const [subscription, license] = await Promise.all([
-        prisma.platformSubscription.findFirst({
+        db.platformSubscription.findFirst({
           where: { tenantId: id },
           orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         }),
-        prisma.platformLicense.findFirst({
+        db.platformLicense.findFirst({
           where: { tenantId: id },
           orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         }),
@@ -477,25 +521,25 @@ async function getTenantQuotaSnapshot(tenantId) {
     marketplaceOffersUsed,
     purchases30dUsed,
   ] = await Promise.all([
-    prisma.platformApiKey.count({
+    db.platformApiKey.count({
       where: {
         tenantId: id,
         status: 'active',
         revokedAt: null,
       },
     }),
-    prisma.platformWebhookEndpoint.count({
+    db.platformWebhookEndpoint.count({
       where: {
         tenantId: id,
         enabled: true,
       },
     }),
-    prisma.platformAgentRuntime.count({
+    db.platformAgentRuntime.count({
       where: {
         tenantId: id,
       },
     }),
-    prisma.platformMarketplaceOffer.count({
+    db.platformMarketplaceOffer.count({
       where: {
         tenantId: id,
         status: {
@@ -503,7 +547,7 @@ async function getTenantQuotaSnapshot(tenantId) {
         },
       },
     }),
-    prisma.purchase.count({
+    db.purchase.count({
       where: {
         tenantId: id,
         createdAt: {
@@ -534,6 +578,25 @@ async function getTenantQuotaSnapshot(tenantId) {
       purchases30d: buildQuotaEntry(quotas.purchases30d, purchases30dUsed),
     },
   };
+}
+
+async function getTenantQuotaSnapshot(tenantId, options = {}) {
+  const id = trimText(tenantId, 120);
+  if (!id) {
+    return {
+      ok: false,
+      reason: 'tenant-required',
+      tenantId: null,
+      plan: null,
+      subscription: null,
+      license: null,
+      quotas: {},
+    };
+  }
+  if (options.db) {
+    return getTenantQuotaSnapshotInternal(options.db, id);
+  }
+  return runWithOptionalTenantDbIsolation(id, (db) => getTenantQuotaSnapshotInternal(db, id));
 }
 
 async function assertTenantQuotaAvailable(tenantId, quotaKey, nextUsageIncrement = 1) {
@@ -592,73 +655,79 @@ async function assertTenantQuotaAvailable(tenantId, quotaKey, nextUsageIncrement
 }
 
 async function dispatchPlatformWebhookEvent(eventType, payload = {}, options = {}) {
-  const tenantId = trimText(options.tenantId, 120) || null;
-  const endpoints = await prisma.platformWebhookEndpoint.findMany({
-    where: {
-      enabled: true,
-      ...(tenantId ? { tenantId } : {}),
-      OR: [
-        { eventType: String(eventType || '').trim() || 'unknown' },
-        { eventType: '*' },
-      ],
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 50,
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform webhook dispatch',
   });
-  const body = JSON.stringify({
-    eventType: String(eventType || 'platform.unknown'),
-    deliveredAt: nowIso(),
-    payload: payload && typeof payload === 'object' ? payload : {},
-  });
-  const results = [];
-  for (const endpoint of endpoints) {
-    const signature = hmacSha256(endpoint.secretValue, body);
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(endpoint.targetUrl, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'content-type': 'application/json',
-          'x-scum-platform-event': String(eventType || 'platform.unknown'),
-          'x-scum-signature': `sha256=${signature}`,
-        },
-        body,
-      });
-      clearTimeout(timeout);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+  return runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    const endpoints = await db.platformWebhookEndpoint.findMany({
+      where: {
+        enabled: true,
+        ...(tenantId ? { tenantId } : {}),
+        OR: [
+          { eventType: String(eventType || '').trim() || 'unknown' },
+          { eventType: '*' },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+    const body = JSON.stringify({
+      eventType: String(eventType || 'platform.unknown'),
+      deliveredAt: nowIso(),
+      payload: payload && typeof payload === 'object' ? payload : {},
+    });
+    const results = [];
+    for (const endpoint of endpoints) {
+      const signature = hmacSha256(endpoint.secretValue, body);
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(endpoint.targetUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'content-type': 'application/json',
+            'x-scum-platform-event': String(eventType || 'platform.unknown'),
+            'x-scum-signature': `sha256=${signature}`,
+          },
+          body,
+        });
+        clearTimeout(timeout);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        await db.platformWebhookEndpoint.update({
+          where: { id: endpoint.id },
+          data: {
+            lastSuccessAt: new Date(),
+            lastError: null,
+          },
+        });
+        results.push({ id: endpoint.id, ok: true, status: res.status });
+      } catch (error) {
+        await db.platformWebhookEndpoint.update({
+          where: { id: endpoint.id },
+          data: {
+            lastFailureAt: new Date(),
+            lastError: trimText(error?.message || error, 400),
+          },
+        });
+        publishAdminLiveUpdate('ops-alert', {
+          source: 'platform-webhook',
+          kind: 'platform-webhook-failed',
+          tenantId: endpoint.tenantId,
+          endpointId: endpoint.id,
+          targetUrl: endpoint.targetUrl,
+          eventType,
+          error: trimText(error?.message || error, 240),
+        });
+        results.push({ id: endpoint.id, ok: false, error: trimText(error?.message || error, 400) });
       }
-      await prisma.platformWebhookEndpoint.update({
-        where: { id: endpoint.id },
-        data: {
-          lastSuccessAt: new Date(),
-          lastError: null,
-        },
-      });
-      results.push({ id: endpoint.id, ok: true, status: res.status });
-    } catch (error) {
-      await prisma.platformWebhookEndpoint.update({
-        where: { id: endpoint.id },
-        data: {
-          lastFailureAt: new Date(),
-          lastError: trimText(error?.message || error, 400),
-        },
-      });
-      publishAdminLiveUpdate('ops-alert', {
-        source: 'platform-webhook',
-        kind: 'platform-webhook-failed',
-        tenantId: endpoint.tenantId,
-        endpointId: endpoint.id,
-        targetUrl: endpoint.targetUrl,
-        eventType,
-        error: trimText(error?.message || error, 240),
-      });
-      results.push({ id: endpoint.id, ok: false, error: trimText(error?.message || error, 400) });
     }
-  }
-  return results;
+    return results;
+  });
 }
 
 async function emitPlatformEvent(eventType, payload = {}, options = {}) {
@@ -748,34 +817,36 @@ async function getPlatformTenantById(tenantId) {
 async function createSubscription(input = {}, actor = 'system') {
   const tenantId = trimText(input.tenantId, 120);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
+  const tenant = await getSharedTenantRegistryRow(tenantId);
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
-
-  const plan = findPlanById(input.planId);
-  const startedAt = parseDateOrNull(input.startedAt) || new Date();
-  const cycle = normalizeBillingCycle(input.billingCycle || plan?.billingCycle);
-  const intervalDays = asInt(
-    input.intervalDays,
-    plan?.intervalDays || (cycle === 'yearly' ? 365 : cycle === 'quarterly' ? 90 : cycle === 'trial' ? 14 : 30),
-    1,
-  );
-  const renewsAt = parseDateOrNull(input.renewsAt) || new Date(startedAt.getTime() + intervalDays * 24 * 60 * 60 * 1000);
-  const row = await prisma.platformSubscription.create({
-    data: {
-      id: trimText(input.id, 120) || createId('sub'),
-      tenantId,
-      planId: trimText(input.planId, 120) || plan?.id || 'custom',
-      billingCycle: cycle,
-      status: normalizeStatus(input.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']),
-      currency: normalizeCurrency(input.currency || config.platform?.billing?.currency),
-      amountCents: asInt(input.amountCents, plan?.amountCents || 0, 0),
-      startedAt,
-      renewsAt,
-      canceledAt: parseDateOrNull(input.canceledAt),
-      externalRef: trimText(input.externalRef, 180) || null,
-      metadataJson: stringifyMeta(input.metadata),
-    },
+  const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    const plan = findPlanById(input.planId);
+    const startedAt = parseDateOrNull(input.startedAt) || new Date();
+    const cycle = normalizeBillingCycle(input.billingCycle || plan?.billingCycle);
+    const intervalDays = asInt(
+      input.intervalDays,
+      plan?.intervalDays || (cycle === 'yearly' ? 365 : cycle === 'quarterly' ? 90 : cycle === 'trial' ? 14 : 30),
+      1,
+    );
+    const renewsAt = parseDateOrNull(input.renewsAt) || new Date(startedAt.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+    return db.platformSubscription.create({
+      data: {
+        id: trimText(input.id, 120) || createId('sub'),
+        tenantId,
+        planId: trimText(input.planId, 120) || plan?.id || 'custom',
+        billingCycle: cycle,
+        status: normalizeStatus(input.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']),
+        currency: normalizeCurrency(input.currency || config.platform?.billing?.currency),
+        amountCents: asInt(input.amountCents, plan?.amountCents || 0, 0),
+        startedAt,
+        renewsAt,
+        canceledAt: parseDateOrNull(input.canceledAt),
+        externalRef: trimText(input.externalRef, 180) || null,
+        metadataJson: stringifyMeta(input.metadata),
+      },
+    });
   });
+  if (!row) return { ok: false, reason: 'tenant-not-found' };
   await emitPlatformEvent('platform.subscription.created', {
     tenantId,
     subscriptionId: row.id,
@@ -786,15 +857,20 @@ async function createSubscription(input = {}, actor = 'system') {
 }
 
 async function listPlatformSubscriptions(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform subscription listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']);
-  const rows = await prisma.platformSubscription.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformSubscription.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map(sanitizeSubscriptionRow);
 }
 
@@ -811,26 +887,29 @@ function generateLicenseKey() {
 async function issuePlatformLicense(input = {}, actor = 'system') {
   const tenantId = trimText(input.tenantId, 120);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
+  const tenant = await getSharedTenantRegistryRow(tenantId);
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   const legalVersion = trimText(
     input.legalDocVersion || config.platform?.legal?.currentVersion,
     80,
   ) || null;
-  const row = await prisma.platformLicense.create({
-    data: {
-      id: trimText(input.id, 120) || createId('license'),
-      tenantId,
-      licenseKey: trimText(input.licenseKey, 80) || generateLicenseKey(),
-      status: normalizeStatus(input.status, ['active', 'trialing', 'expired', 'revoked']),
-      seats: asInt(input.seats, 1, 1),
-      issuedAt: parseDateOrNull(input.issuedAt) || new Date(),
-      expiresAt: parseDateOrNull(input.expiresAt),
-      legalDocVersion: legalVersion,
-      legalAcceptedAt: parseDateOrNull(input.legalAcceptedAt),
-      metadataJson: stringifyMeta(input.metadata),
-    },
+  const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    return db.platformLicense.create({
+      data: {
+        id: trimText(input.id, 120) || createId('license'),
+        tenantId,
+        licenseKey: trimText(input.licenseKey, 80) || generateLicenseKey(),
+        status: normalizeStatus(input.status, ['active', 'trialing', 'expired', 'revoked']),
+        seats: asInt(input.seats, 1, 1),
+        issuedAt: parseDateOrNull(input.issuedAt) || new Date(),
+        expiresAt: parseDateOrNull(input.expiresAt),
+        legalDocVersion: legalVersion,
+        legalAcceptedAt: parseDateOrNull(input.legalAcceptedAt),
+        metadataJson: stringifyMeta(input.metadata),
+      },
+    });
   });
+  if (!row) return { ok: false, reason: 'tenant-not-found' };
   await emitPlatformEvent('platform.license.issued', {
     tenantId,
     licenseId: row.id,
@@ -863,15 +942,20 @@ async function acceptPlatformLicenseLegal(input = {}, actor = 'system') {
 }
 
 async function listPlatformLicenses(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform license listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'expired', 'revoked']);
-  const rows = await prisma.platformLicense.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map((row) => sanitizeLicenseRow(row));
 }
 
@@ -885,7 +969,7 @@ async function createPlatformApiKey(input = {}, actor = 'system') {
   const tenantId = trimText(input.tenantId, 120);
   const name = trimText(input.name, 160);
   if (!tenantId || !name) return { ok: false, reason: 'invalid-api-key' };
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
+  const tenant = await getSharedTenantRegistryRow(tenantId);
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   const quotaCheck = await assertTenantQuotaAvailable(tenantId, 'apiKeys', 1);
   if (!quotaCheck.ok) {
@@ -899,17 +983,20 @@ async function createPlatformApiKey(input = {}, actor = 'system') {
   }
   const rawKey = generateApiKey();
   const scopes = buildApiKeyScopes(input.scopes);
-  const row = await prisma.platformApiKey.create({
-    data: {
-      id: trimText(input.id, 120) || createId('apikey'),
-      tenantId,
-      name,
-      keyPrefix: rawKey.slice(0, 16),
-      keyHash: sha256(rawKey),
-      scopesJson: JSON.stringify(scopes),
-      status: normalizeStatus(input.status, ['active', 'revoked', 'disabled']),
-    },
+  const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    return db.platformApiKey.create({
+      data: {
+        id: trimText(input.id, 120) || createId('apikey'),
+        tenantId,
+        name,
+        keyPrefix: rawKey.slice(0, 16),
+        keyHash: sha256(rawKey),
+        scopesJson: JSON.stringify(scopes),
+        status: normalizeStatus(input.status, ['active', 'revoked', 'disabled']),
+      },
+    });
   });
+  if (!row) return { ok: false, reason: 'tenant-not-found' };
   await emitPlatformEvent('platform.apikey.created', {
     tenantId,
     apiKeyId: row.id,
@@ -923,15 +1010,20 @@ async function createPlatformApiKey(input = {}, actor = 'system') {
 }
 
 async function listPlatformApiKeys(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform API key listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'revoked', 'disabled']);
-  const rows = await prisma.platformApiKey.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map(sanitizeApiKeyRow);
 }
 
@@ -991,13 +1083,13 @@ async function createPlatformWebhookEndpoint(input = {}, actor = 'system') {
   if (!tenantId || !name || !targetUrl) {
     return { ok: false, reason: 'invalid-webhook' };
   }
+  const tenant = await getSharedTenantRegistryRow(tenantId);
+  if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   try {
     new URL(targetUrl);
   } catch {
     return { ok: false, reason: 'invalid-webhook-url' };
   }
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
-  if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   const quotaCheck = await assertTenantQuotaAvailable(tenantId, 'webhooks', 1);
   if (!quotaCheck.ok) {
     return {
@@ -1009,17 +1101,20 @@ async function createPlatformWebhookEndpoint(input = {}, actor = 'system') {
     };
   }
   const secretValue = trimText(input.secretValue, 200) || crypto.randomBytes(18).toString('hex');
-  const row = await prisma.platformWebhookEndpoint.create({
-    data: {
-      id: trimText(input.id, 120) || createId('hook'),
-      tenantId,
-      name,
-      eventType,
-      targetUrl,
-      secretValue,
-      enabled: input.enabled !== false,
-    },
+  const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    return db.platformWebhookEndpoint.create({
+      data: {
+        id: trimText(input.id, 120) || createId('hook'),
+        tenantId,
+        name,
+        eventType,
+        targetUrl,
+        secretValue,
+        enabled: input.enabled !== false,
+      },
+    });
   });
+  if (!row) return { ok: false, reason: 'tenant-not-found' };
   await emitPlatformEvent('platform.webhook.created', {
     tenantId,
     webhookId: row.id,
@@ -1032,15 +1127,20 @@ async function createPlatformWebhookEndpoint(input = {}, actor = 'system') {
 }
 
 async function listPlatformWebhookEndpoints(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform webhook listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.eventType) where.eventType = trimText(options.eventType, 120);
-  const rows = await prisma.platformWebhookEndpoint.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformWebhookEndpoint.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map((row) => sanitizeWebhookRow(row));
 }
 
@@ -1051,16 +1151,16 @@ async function recordPlatformAgentHeartbeat(input = {}, actor = 'platform-api') 
   if (!tenantId || !runtimeKey || !version) {
     return { ok: false, reason: 'invalid-agent-heartbeat' };
   }
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
-  if (!tenant) return { ok: false, reason: 'tenant-not-found' };
-  const existingRuntime = await prisma.platformAgentRuntime.findUnique({
+  const tenantExists = await getSharedTenantRegistryRow(tenantId);
+  if (!tenantExists) return { ok: false, reason: 'tenant-not-found' };
+  const existingRuntime = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.findUnique({
     where: {
       tenantId_runtimeKey: {
         tenantId,
         runtimeKey,
       },
     },
-  });
+  }));
   if (!existingRuntime) {
     const quotaCheck = await assertTenantQuotaAvailable(tenantId, 'agentRuntimes', 1);
     if (!quotaCheck.ok) {
@@ -1081,7 +1181,7 @@ async function recordPlatformAgentHeartbeat(input = {}, actor = 'platform-api') 
     compareVersions(version, minimumVersion) < 0
       ? 'outdated'
       : normalizeStatus(input.status, ['online', 'degraded', 'outdated', 'offline']);
-  const row = await prisma.platformAgentRuntime.upsert({
+  const row = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.upsert({
     where: {
       tenantId_runtimeKey: {
         tenantId,
@@ -1107,7 +1207,7 @@ async function recordPlatformAgentHeartbeat(input = {}, actor = 'platform-api') 
       lastSeenAt: new Date(),
       metaJson: stringifyMeta(input.meta),
     },
-  });
+  }));
   if (status === 'outdated') {
     publishAdminLiveUpdate('ops-alert', {
       source: 'platform-agent',
@@ -1129,15 +1229,20 @@ async function recordPlatformAgentHeartbeat(input = {}, actor = 'platform-api') 
 }
 
 async function listPlatformAgentRuntimes(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform agent runtime listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['online', 'degraded', 'outdated', 'offline']);
-  const rows = await prisma.platformAgentRuntime.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map(sanitizeAgentRow);
 }
 
@@ -1145,7 +1250,7 @@ async function createMarketplaceOffer(input = {}, actor = 'system') {
   const tenantId = trimText(input.tenantId, 120);
   const title = trimText(input.title, 180);
   if (!tenantId || !title) return { ok: false, reason: 'invalid-marketplace-offer' };
-  const tenant = await prisma.platformTenant.findUnique({ where: { id: tenantId } });
+  const tenant = await getSharedTenantRegistryRow(tenantId);
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   const quotaCheck = await assertTenantQuotaAvailable(tenantId, 'marketplaceOffers', 1);
   if (!quotaCheck.ok) {
@@ -1157,19 +1262,22 @@ async function createMarketplaceOffer(input = {}, actor = 'system') {
       snapshot: quotaCheck.snapshot || null,
     };
   }
-  const row = await prisma.platformMarketplaceOffer.create({
-    data: {
-      id: trimText(input.id, 120) || createId('offer'),
-      tenantId,
-      title,
-      kind: trimText(input.kind, 80) || 'service',
-      priceCents: asInt(input.priceCents, 0, 0),
-      currency: normalizeCurrency(input.currency),
-      status: normalizeStatus(input.status, ['active', 'draft', 'archived']),
-      locale: normalizeLocale(input.locale),
-      metaJson: stringifyMeta(input.meta),
-    },
+  const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    return db.platformMarketplaceOffer.create({
+      data: {
+        id: trimText(input.id, 120) || createId('offer'),
+        tenantId,
+        title,
+        kind: trimText(input.kind, 80) || 'service',
+        priceCents: asInt(input.priceCents, 0, 0),
+        currency: normalizeCurrency(input.currency),
+        status: normalizeStatus(input.status, ['active', 'draft', 'archived']),
+        locale: normalizeLocale(input.locale),
+        metaJson: stringifyMeta(input.meta),
+      },
+    });
   });
+  if (!row) return { ok: false, reason: 'tenant-not-found' };
   await emitPlatformEvent('platform.marketplace.offer.created', {
     tenantId,
     offerId: row.id,
@@ -1179,21 +1287,32 @@ async function createMarketplaceOffer(input = {}, actor = 'system') {
 }
 
 async function listMarketplaceOffers(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform marketplace listing',
+  });
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
-  if (options.tenantId) where.tenantId = trimText(options.tenantId, 120);
+  if (tenantId) where.tenantId = tenantId;
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'draft', 'archived']);
   if (options.locale) where.locale = normalizeLocale(options.locale);
-  const rows = await prisma.platformMarketplaceOffer.findMany({
+  const rows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformMarketplaceOffer.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
     take,
-  });
+  }));
   return rows.map(sanitizeMarketplaceRow);
 }
 
 async function getPlatformAnalyticsOverview(options = {}) {
-  const tenantId = trimText(options.tenantId, 120) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform analytics overview',
+  });
+  const tenantTopologyMode = getTenantDatabaseTopologyMode();
+  const aggregateTenantCommerce = !tenantId && tenantTopologyMode !== 'shared';
   const tenantWhere = tenantId ? { tenantId } : {};
   const purchaseWhere = {
     ...(tenantId ? { tenantId } : {}),
@@ -1201,7 +1320,72 @@ async function getPlatformAnalyticsOverview(options = {}) {
       gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     },
   };
-  const [
+  const analyticsRows = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    const [
+      tenantRows,
+      subscriptionRows,
+      licenseRows,
+      apiKeyRows,
+      webhookRows,
+      agentRows,
+      offerRows,
+      purchaseCount30d,
+      deliveredCount,
+      failedCount,
+      queueJobsCount,
+      deadLettersCount,
+      auditRowsCount,
+      quota,
+    ] = await Promise.all([
+      db.platformTenant.findMany(tenantId ? { where: { id: tenantId } } : {}),
+      db.platformSubscription.findMany({ where: tenantWhere }),
+      db.platformLicense.findMany({ where: tenantWhere }),
+      db.platformApiKey.findMany({ where: tenantWhere }),
+      db.platformWebhookEndpoint.findMany({ where: tenantWhere }),
+      db.platformAgentRuntime.findMany({ where: tenantWhere }),
+      db.platformMarketplaceOffer.findMany({ where: tenantWhere }),
+      aggregateTenantCommerce
+        ? Promise.resolve(null)
+        : db.purchase.count({ where: purchaseWhere }),
+      aggregateTenantCommerce
+        ? Promise.resolve(null)
+        : db.purchase.count({
+        where: {
+          ...purchaseWhere,
+          status: 'delivered',
+        },
+      }),
+      aggregateTenantCommerce
+        ? Promise.resolve(null)
+        : db.purchase.count({
+        where: {
+          ...purchaseWhere,
+          status: 'delivery_failed',
+        },
+      }),
+      aggregateTenantCommerce ? Promise.resolve(null) : db.deliveryQueueJob.count({ where: tenantWhere }),
+      aggregateTenantCommerce ? Promise.resolve(null) : db.deliveryDeadLetter.count({ where: tenantWhere }),
+      aggregateTenantCommerce ? Promise.resolve(null) : db.deliveryAudit.count({ where: tenantWhere }),
+      tenantId ? getTenantQuotaSnapshot(tenantId, { db }).catch(() => null) : Promise.resolve(null),
+    ]);
+    return {
+      tenantRows,
+      subscriptionRows,
+      licenseRows,
+      apiKeyRows,
+      webhookRows,
+      agentRows,
+      offerRows,
+      purchaseCount30d,
+      deliveredCount,
+      failedCount,
+      queueJobsCount,
+      deadLettersCount,
+      auditRowsCount,
+      quota,
+    };
+  });
+  const {
     tenantRows,
     subscriptionRows,
     licenseRows,
@@ -1216,32 +1400,47 @@ async function getPlatformAnalyticsOverview(options = {}) {
     deadLettersCount,
     auditRowsCount,
     quota,
-  ] = await Promise.all([
-    prisma.platformTenant.findMany(tenantId ? { where: { id: tenantId } } : {}),
-    prisma.platformSubscription.findMany({ where: tenantWhere }),
-    prisma.platformLicense.findMany({ where: tenantWhere }),
-    prisma.platformApiKey.findMany({ where: tenantWhere }),
-    prisma.platformWebhookEndpoint.findMany({ where: tenantWhere }),
-    prisma.platformAgentRuntime.findMany({ where: tenantWhere }),
-    prisma.platformMarketplaceOffer.findMany({ where: tenantWhere }),
-    prisma.purchase.count({ where: purchaseWhere }),
-    prisma.purchase.count({
-      where: {
-        ...purchaseWhere,
-        status: 'delivered',
-      },
-    }),
-    prisma.purchase.count({
-      where: {
-        ...purchaseWhere,
-        status: 'delivery_failed',
-      },
-    }),
-    prisma.deliveryQueueJob.count({ where: tenantWhere }),
-    prisma.deliveryDeadLetter.count({ where: tenantWhere }),
-    prisma.deliveryAudit.count({ where: tenantWhere }),
-    tenantId ? getTenantQuotaSnapshot(tenantId).catch(() => null) : Promise.resolve(null),
-  ]);
+  } = analyticsRows;
+
+  const [
+    purchaseRows30d,
+    deliveredRows30d,
+    failedRows30d,
+    queueJobs,
+    deadLetters,
+    auditRows,
+  ] = aggregateTenantCommerce
+    ? await Promise.all([
+      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
+        where: purchaseWhere,
+        select: { code: true },
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
+        where: {
+          ...purchaseWhere,
+          status: 'delivered',
+        },
+        select: { code: true },
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
+        where: {
+          ...purchaseWhere,
+          status: 'delivery_failed',
+        },
+        select: { code: true },
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany({ select: { purchaseCode: true } })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany({ select: { purchaseCode: true } })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({ select: { id: true } })),
+    ])
+    : [null, null, null, null, null, null];
+
+  const resolvedPurchaseCount30d = aggregateTenantCommerce ? purchaseRows30d.length : purchaseCount30d;
+  const resolvedDeliveredCount = aggregateTenantCommerce ? deliveredRows30d.length : deliveredCount;
+  const resolvedFailedCount = aggregateTenantCommerce ? failedRows30d.length : failedCount;
+  const resolvedQueueJobsCount = aggregateTenantCommerce ? queueJobs.length : queueJobsCount;
+  const resolvedDeadLettersCount = aggregateTenantCommerce ? deadLetters.length : deadLettersCount;
+  const resolvedAuditRowsCount = aggregateTenantCommerce ? auditRows.length : auditRowsCount;
 
   const mrrCents = subscriptionRows
     .filter((row) => row.status === 'active' || row.status === 'trialing')
@@ -1252,8 +1451,8 @@ async function getPlatformAnalyticsOverview(options = {}) {
       return sum + row.amountCents;
     }, 0);
 
-  const successRate = purchaseCount30d > 0
-    ? Number((deliveredCount / purchaseCount30d).toFixed(4))
+  const successRate = resolvedPurchaseCount30d > 0
+    ? Number((resolvedDeliveredCount / resolvedPurchaseCount30d).toFixed(4))
     : 0;
 
   return {
@@ -1298,58 +1497,93 @@ async function getPlatformAnalyticsOverview(options = {}) {
       draftOffers: offerRows.filter((row) => row.status === 'draft').length,
     },
     delivery: {
-      purchaseCount30d,
-      deliveredCount,
-      failedCount,
+      purchaseCount30d: resolvedPurchaseCount30d,
+      deliveredCount: resolvedDeliveredCount,
+      failedCount: resolvedFailedCount,
       successRate,
-      queueJobs: queueJobsCount,
-      deadLetters: deadLettersCount,
-      auditEvents: auditRowsCount,
+      queueJobs: resolvedQueueJobsCount,
+      deadLetters: resolvedDeadLettersCount,
+      auditEvents: resolvedAuditRowsCount,
       note: tenantId
         ? 'Tenant analytics include only tenant-tagged commerce rows; legacy rows without tenantId stay out of tenant views'
-        : null,
+        : (aggregateTenantCommerce ? 'Global analytics aggregate delivery and purchase rows across shared and tenant-scoped commerce topology' : null),
     },
     quota: quota?.ok ? quota : null,
   };
 }
 
 async function reconcileDeliveryState(options = {}) {
-  const scopedTenantId = trimText(options.tenantId, 120) || null;
+  const { tenantId: scopedTenantId } = assertTenantDbIsolationScope({
+    tenantId: options.tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform delivery reconcile',
+  });
+  const tenantTopologyMode = getTenantDatabaseTopologyMode();
+  const aggregateTenantCommerce = !scopedTenantId && tenantTopologyMode !== 'shared';
   const antiAbuse = config.platform?.antiAbuse || {};
   const windowMs = asInt(options.windowMs, antiAbuse.windowMs || (60 * 60 * 1000), 60 * 1000);
   const pendingOverdueMs = asInt(options.pendingOverdueMs, antiAbuse.pendingOverdueMs || (20 * 60 * 1000), 60 * 1000);
   const since = new Date(Date.now() - windowMs);
 
   if (scopedTenantId) {
-    const [tenantState, agentRows, webhookRows, purchases, queueJobs, deadLetters, auditRows] = await Promise.all([
-      getTenantOperationalState(scopedTenantId),
-      prisma.platformAgentRuntime.findMany({
-        where: { tenantId: scopedTenantId },
-        orderBy: { updatedAt: 'desc' },
-        take: 100,
-      }),
-      prisma.platformWebhookEndpoint.findMany({
-        where: { tenantId: scopedTenantId },
-        orderBy: { updatedAt: 'desc' },
-        take: 100,
-      }),
-      prisma.purchase.findMany({
-        where: { tenantId: scopedTenantId },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-      }),
-      prisma.deliveryQueueJob.findMany({
-        where: { tenantId: scopedTenantId },
-      }),
-      prisma.deliveryDeadLetter.findMany({
-        where: { tenantId: scopedTenantId },
-      }),
-      prisma.deliveryAudit.findMany({
-        where: { tenantId: scopedTenantId },
-        orderBy: { createdAt: 'desc' },
-        take: 2000,
-      }),
-    ]);
+    const scopedRows = await runWithOptionalTenantDbIsolation(scopedTenantId, async (db) => {
+      const [tenantState, agentRows, webhookRows, purchases, queueJobs, deadLetters, auditRows] = await Promise.all([
+        getTenantOperationalState(scopedTenantId, { db }),
+        db.platformAgentRuntime.findMany({
+          where: { tenantId: scopedTenantId },
+          orderBy: { updatedAt: 'desc' },
+          take: 100,
+        }),
+        db.platformWebhookEndpoint.findMany({
+          where: { tenantId: scopedTenantId },
+          orderBy: { updatedAt: 'desc' },
+          take: 100,
+        }),
+        db.purchase.findMany({
+          where: { tenantId: scopedTenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        }),
+        db.deliveryQueueJob.findMany({
+          where: { tenantId: scopedTenantId },
+        }),
+        db.deliveryDeadLetter.findMany({
+          where: { tenantId: scopedTenantId },
+        }),
+        db.deliveryAudit.findMany({
+          where: { tenantId: scopedTenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 2000,
+        }),
+      ]);
+      const purchaseItemIds = [...new Set(
+        purchases.map((row) => trimText(row.itemId, 120)).filter(Boolean),
+      )];
+      const shopItems = purchaseItemIds.length > 0
+        ? await db.shopItem.findMany({
+          where: {
+            id: {
+              in: purchaseItemIds,
+            },
+          },
+          select: {
+            id: true,
+            kind: true,
+          },
+        })
+        : [];
+      return { tenantState, agentRows, webhookRows, purchases, queueJobs, deadLetters, auditRows, shopItems };
+    });
+    const {
+      tenantState,
+      agentRows,
+      webhookRows,
+      purchases,
+      queueJobs,
+      deadLetters,
+      auditRows,
+      shopItems,
+    } = scopedRows;
 
     const queueByCode = new Map(queueJobs.map((row) => [String(row.purchaseCode), row]));
     const deadByCode = new Map(deadLetters.map((row) => [String(row.purchaseCode), row]));
@@ -1362,24 +1596,8 @@ async function reconcileDeliveryState(options = {}) {
       list.push(row);
       auditByCode.set(code, list);
     }
-    const purchaseItemIds = [...new Set(
-      purchases.map((row) => trimText(row.itemId, 120)).filter(Boolean),
-    )];
-    if (purchaseItemIds.length > 0) {
-      const shopItems = await prisma.shopItem.findMany({
-        where: {
-          id: {
-            in: purchaseItemIds,
-          },
-        },
-        select: {
-          id: true,
-          kind: true,
-        },
-      });
-      for (const row of shopItems) {
-        itemKinds.set(String(row.id), normalizeShopKind(row.kind));
-      }
+    for (const row of shopItems) {
+      itemKinds.set(String(row.id), normalizeShopKind(row.kind));
     }
 
     const anomalies = [];
@@ -1503,24 +1721,50 @@ async function reconcileDeliveryState(options = {}) {
     };
   }
 
-  const [purchases, queueJobs, deadLetters, auditRows] = await Promise.all([
-    prisma.purchase.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-    }),
-    prisma.deliveryQueueJob.findMany(),
-    prisma.deliveryDeadLetter.findMany(),
-    prisma.deliveryAudit.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    }),
-  ]);
+  const [purchases, queueJobs, deadLetters, auditRows] = aggregateTenantCommerce
+    ? await Promise.all([
+      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      })),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany()),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany()),
+      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      })),
+    ])
+    : await Promise.all([
+      prisma.purchase.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      prisma.deliveryQueueJob.findMany(),
+      prisma.deliveryDeadLetter.findMany(),
+      prisma.deliveryAudit.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+    ]);
+
+  const normalizedPurchases = aggregateTenantCommerce
+    ? purchases
+      .slice()
+      .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
+      .slice(0, 500)
+    : purchases;
+  const normalizedAuditRows = aggregateTenantCommerce
+    ? auditRows
+      .slice()
+      .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
+      .slice(0, 2000)
+    : auditRows;
 
   const queueByCode = new Map(queueJobs.map((row) => [String(row.purchaseCode), row]));
   const deadByCode = new Map(deadLetters.map((row) => [String(row.purchaseCode), row]));
   const auditByCode = new Map();
   const itemKinds = new Map();
-  for (const row of auditRows) {
+  for (const row of normalizedAuditRows) {
     const code = trimText(row.purchaseCode, 120);
     if (!code) continue;
     const list = auditByCode.get(code) || [];
@@ -1528,27 +1772,39 @@ async function reconcileDeliveryState(options = {}) {
     auditByCode.set(code, list);
   }
   const purchaseItemIds = [...new Set(
-    purchases.map((row) => trimText(row.itemId, 120)).filter(Boolean),
+    normalizedPurchases.map((row) => trimText(row.itemId, 120)).filter(Boolean),
   )];
   if (purchaseItemIds.length > 0) {
-    const shopItems = await prisma.shopItem.findMany({
-      where: {
-        id: {
-          in: purchaseItemIds,
+    const shopItems = aggregateTenantCommerce
+      ? await readAcrossDeliveryPersistenceScopes((db) => db.shopItem.findMany({
+        where: {
+          id: {
+            in: purchaseItemIds,
+          },
         },
-      },
-      select: {
-        id: true,
-        kind: true,
-      },
-    });
+        select: {
+          id: true,
+          kind: true,
+        },
+      }))
+      : await prisma.shopItem.findMany({
+        where: {
+          id: {
+            in: purchaseItemIds,
+          },
+        },
+        select: {
+          id: true,
+          kind: true,
+        },
+      });
     for (const row of shopItems) {
       itemKinds.set(String(row.id), normalizeShopKind(row.kind));
     }
   }
 
   const anomalies = [];
-  for (const purchase of purchases) {
+  for (const purchase of normalizedPurchases) {
     const code = String(purchase.code || '');
     const queue = queueByCode.get(code) || null;
     const dead = deadByCode.get(code) || null;
@@ -1571,7 +1827,7 @@ async function reconcileDeliveryState(options = {}) {
     }
   }
 
-  const recentPurchases = purchases.filter((row) => new Date(row.createdAt) >= since);
+  const recentPurchases = normalizedPurchases.filter((row) => new Date(row.createdAt) >= since);
   const ordersByUser = new Map();
   const userItemCounts = new Map();
   const failedByUser = new Map();
@@ -1609,8 +1865,18 @@ async function reconcileDeliveryState(options = {}) {
 
   return {
     generatedAt: nowIso(),
+    scope: {
+      tenantId: null,
+      mode: 'global',
+      topology: aggregateTenantCommerce ? tenantTopologyMode : 'shared',
+    },
+    notes: [
+      aggregateTenantCommerce
+        ? 'Global reconcile aggregates purchase, queue, dead-letter, and audit rows across shared and tenant-scoped commerce topology.'
+        : 'Global reconcile uses all purchase, queue, dead-letter, and audit rows.',
+    ],
     summary: {
-      purchases: purchases.length,
+      purchases: normalizedPurchases.length,
       queueJobs: queueJobs.length,
       deadLetters: deadLetters.length,
       anomalies: anomalies.length,
@@ -1623,7 +1889,7 @@ async function reconcileDeliveryState(options = {}) {
 }
 
 async function getPlatformPublicOverview() {
-  const analytics = await getPlatformAnalyticsOverview();
+  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
   const legalDocs = Array.isArray(config.platform?.legal?.docs)
     ? config.platform.legal.docs.map((doc) => {
       const pathValue = trimText(doc.path, 260) || null;
@@ -1652,7 +1918,7 @@ async function getPlatformPublicOverview() {
     trial: config.platform?.demo?.trialEnabled === true ? { enabled: true, cta: '/trial' } : { enabled: false },
     marketplace: {
       enabled: config.platform?.marketplace?.enabled === true,
-      offers: await listMarketplaceOffers({ status: 'active', limit: 20 }),
+      offers: await listMarketplaceOffers({ status: 'active', limit: 20, allowGlobal: true }),
     },
     analytics,
     legal: {

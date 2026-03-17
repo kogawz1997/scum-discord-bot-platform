@@ -24,15 +24,19 @@ test('worker runtime profile exposes provider, execution mode, and feature flags
   const profile = getWorkerRuntimeProfile({
     DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:55432/scum',
     PRISMA_SCHEMA_PROVIDER: 'postgresql',
+    TENANT_DB_TOPOLOGY_MODE: 'schema-per-tenant',
     WORKER_ENABLE_RENTBIKE: 'true',
     WORKER_ENABLE_DELIVERY: 'false',
     DELIVERY_EXECUTION_MODE: 'agent',
+    DELIVERY_NATIVE_PROOF_MODE: 'required',
     WORKER_HEARTBEAT_MS: '45000',
     PLATFORM_DEFAULT_TENANT_ID: 'tenant-a',
   });
 
   assert.equal(profile.database.provider, 'postgresql');
   assert.equal(profile.executionMode, 'agent');
+  assert.equal(profile.tenantDbTopologyMode, 'schema-per-tenant');
+  assert.equal(profile.deliveryNativeProofMode, 'required');
   assert.equal(profile.features.rentBike, true);
   assert.equal(profile.features.delivery, false);
   assert.equal(profile.heartbeatMs, 45000);

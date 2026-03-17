@@ -10,19 +10,25 @@ Current assets:
 - [admin-dashboard.png](./admin-dashboard.png)
 - [player-landing.png](./player-landing.png)
 - [player-login.png](./player-login.png)
+- [player-dashboard.png](./player-dashboard.png)
 - [player-showcase.png](./player-showcase.png)
 - [platform-demo.gif](./platform-demo.gif)
+- [live-runtime-evidence.md](./live-runtime-evidence.md)
+- [live-native-proof-matrix.md](./live-native-proof-matrix.md)
+- [live-native-proof-matrix.json](./live-native-proof-matrix.json)
+- [live-native-proof-cases.json](./live-native-proof-cases.json)
+- [live-native-proof-experimental-cases.json](./live-native-proof-experimental-cases.json)
 - [CAPTURE_CHECKLIST.md](./CAPTURE_CHECKLIST.md)
 
 What is still missing:
 
-- authenticated player portal screenshots
-- live in-game delivery evidence tied to a recorded session
+- broader native delivery proof coverage across more delivery classes, more server configurations, and more than one workstation
 
 Capture workflow:
 
 - `npm run docs:capture-evidence`
 - `npm run docs:build-demo-gif`
-- current script captures local admin login, authenticated admin dashboard, player landing, player login, and player showcase surfaces
+- current script captures local admin login, authenticated admin dashboard, player landing, player login, authenticated player dashboard, and player showcase surfaces
 - current Windows capture flow also builds `platform-demo.gif`
-- authenticated player portal views and live in-game delivery evidence still require a separate interactive capture pass
+- live runtime command/log evidence is documented in `live-runtime-evidence.md`
+- live native-proof matrix artifacts are documented in `live-native-proof-matrix.md` and `live-native-proof-matrix.json`

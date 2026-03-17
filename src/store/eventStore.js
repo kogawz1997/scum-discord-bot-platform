@@ -1,5 +1,7 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const events = new Map(); // id -> event
 const eventParticipants = new Map(); // eventId -> Set(userId)
 
@@ -7,6 +9,13 @@ let eventCounter = 1;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getEventDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeEvent(row = {}) {
   const id = Number(row.id || 0);
@@ -34,7 +43,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.guildEvent.findMany({
+    const rows = await getEventDb().guildEvent.findMany({
       include: {
         participants: true,
       },
@@ -46,7 +55,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const ev of events.values()) {
-              await prisma.guildEvent.upsert({
+              await getEventDb().guildEvent.upsert({
                 where: { id: ev.id },
                 update: {
                   name: ev.name,
@@ -64,7 +73,7 @@ async function hydrateFromPrisma() {
               });
               const participants = eventParticipants.get(ev.id) || new Set();
               for (const userId of participants) {
-                await prisma.guildEventParticipant.upsert({
+                await getEventDb().guildEventParticipant.upsert({
                   where: {
                     eventId_userId: {
                       eventId: ev.id,
@@ -157,7 +166,7 @@ function createEvent({ name, time, reward }) {
 
   queueDbWrite(
     async () => {
-      await prisma.guildEvent.upsert({
+      await getEventDb().guildEvent.upsert({
         where: { id },
         update: {
           name: ev.name,
@@ -200,7 +209,7 @@ function joinEvent(id, userId) {
 
   queueDbWrite(
     async () => {
-      await prisma.guildEventParticipant.upsert({
+      await getEventDb().guildEventParticipant.upsert({
         where: {
           eventId_userId: {
             eventId,
@@ -228,7 +237,7 @@ function startEvent(id) {
 
   queueDbWrite(
     async () => {
-      await prisma.guildEvent.updateMany({
+      await getEventDb().guildEvent.updateMany({
         where: { id: eventId },
         data: {
           status: ev.status,
@@ -249,7 +258,7 @@ function endEvent(id) {
 
   queueDbWrite(
     async () => {
-      await prisma.guildEvent.updateMany({
+      await getEventDb().guildEvent.updateMany({
         where: { id: eventId },
         data: {
           status: ev.status,
@@ -303,10 +312,10 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
 
   queueDbWrite(
     async () => {
-      await prisma.guildEventParticipant.deleteMany({});
-      await prisma.guildEvent.deleteMany({});
+      await getEventDb().guildEventParticipant.deleteMany({});
+      await getEventDb().guildEvent.deleteMany({});
       for (const ev of events.values()) {
-        await prisma.guildEvent.create({
+        await getEventDb().guildEvent.create({
           data: {
             id: ev.id,
             name: ev.name,
@@ -318,7 +327,7 @@ function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = nul
       }
       for (const [eventId, participants] of eventParticipants.entries()) {
         for (const userId of participants) {
-          await prisma.guildEventParticipant.create({
+          await getEventDb().guildEventParticipant.create({
             data: {
               eventId,
               userId,

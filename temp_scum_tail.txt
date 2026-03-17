@@ -1,0 +1,200 @@
+[2026.03.16-12.09.06:266][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_C_4_1) is flushing async loading
+[2026.03.16-12.09.06:565][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_C_4_2) is flushing async loading
+[2026.03.16-12.09.06:885][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_C_4_3) is flushing async loading
+[2026.03.16-12.09.07:187][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_C_4_4) is flushing async loading
+[2026.03.16-12.09.07:575][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Factory_BASE) is flushing async loading
+[2026.03.16-12.09.07:657][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Farm_01) is flushing async loading
+[2026.03.16-12.09.07:694][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Farm_02) is flushing async loading
+[2026.03.16-12.09.07:725][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Farm_03) is flushing async loading
+[2026.03.16-12.09.07:756][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Farm_04) is flushing async loading
+[2026.03.16-12.09.07:812][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/B_1_Prkno) is flushing async loading
+[2026.03.16-12.09.07:941][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_3_1) is flushing async loading
+[2026.03.16-12.09.07:941][  0]LogPakFile: New pak file ../../../SCUM/Content/Paks/pakchunk8-WindowsServer.pak added to pak precacher.
+[2026.03.16-12.09.08:246][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_3_2) is flushing async loading
+[2026.03.16-12.09.08:499][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_3_3) is flushing async loading
+[2026.03.16-12.09.08:750][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_3_4) is flushing async loading
+[2026.03.16-12.09.09:050][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_4_1) is flushing async loading
+[2026.03.16-12.09.09:394][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_4_2) is flushing async loading
+[2026.03.16-12.09.09:710][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_4_3) is flushing async loading
+[2026.03.16-12.09.09:976][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_4_4) is flushing async loading
+[2026.03.16-12.09.10:257][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Farm_01) is flushing async loading
+[2026.03.16-12.09.10:267][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Farm_02) is flushing async loading
+[2026.03.16-12.09.10:274][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Farm_03) is flushing async loading
+[2026.03.16-12.09.10:283][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Farm_04) is flushing async loading
+[2026.03.16-12.09.10:290][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Medsave) is flushing async loading
+[2026.03.16-12.09.10:295][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.10:409][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_1_Veliki_Tabor) is flushing async loading
+[2026.03.16-12.09.10:445][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Depot_01) is flushing async loading
+[2026.03.16-12.09.10:451][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Farm_01) is flushing async loading
+[2026.03.16-12.09.10:458][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Humac) is flushing async loading
+[2026.03.16-12.09.10:461][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Power_Plant) is flushing async loading
+[2026.03.16-12.09.10:800][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Prison) is flushing async loading
+[2026.03.16-12.09.10:908][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Slani_Dol) is flushing async loading
+[2026.03.16-12.09.10:947][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_2_Vinski_Vrh) is flushing async loading
+[2026.03.16-12.09.10:972][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Blace) is flushing async loading
+[2026.03.16-12.09.10:985][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Camp_01) is flushing async loading
+[2026.03.16-12.09.11:014][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Dol) is flushing async loading
+[2026.03.16-12.09.11:016][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Farm_01) is flushing async loading
+[2026.03.16-12.09.11:021][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Gas_Station_01) is flushing async loading
+[2026.03.16-12.09.11:030][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Marof) is flushing async loading
+[2026.03.16-12.09.11:041][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Site_01) is flushing async loading
+[2026.03.16-12.09.11:071][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.11:073][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Vineyard_01) is flushing async loading
+[2026.03.16-12.09.11:124][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Vineyard_02) is flushing async loading
+[2026.03.16-12.09.11:165][  0]LogSCUM: Warning: ABuilding::UpdateDoorNavLinks() runtime id doesn't exist: X=188590.000 Y=-511540.000 Z=480.000
+[2026.03.16-12.09.11:166][  0]LogSCUM: Warning: ABuilding::UpdateDoorNavLinks() runtime id doesn't exist: X=188270.000 Y=-511100.000 Z=230.000
+[2026.03.16-12.09.11:166][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/C_3_Zagorje) is flushing async loading
+[2026.03.16-12.09.11:197][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_Farm_01) is flushing async loading
+[2026.03.16-12.09.11:197][  0]LogPakFile: New pak file ../../../SCUM/Content/Paks/pakchunk9-WindowsServer.pak added to pak precacher.
+[2026.03.16-12.09.11:271][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_Farm_02) is flushing async loading
+[2026.03.16-12.09.11:284][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_Gunja) is flushing async loading
+[2026.03.16-12.09.11:363][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_Lokve) is flushing async loading
+[2026.03.16-12.09.11:409][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.11:411][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Dubrava) is flushing async loading
+[2026.03.16-12.09.11:414][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Farm_01) is flushing async loading
+[2026.03.16-12.09.11:448][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Farm_02) is flushing async loading
+[2026.03.16-12.09.11:489][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Farm_03) is flushing async loading
+[2026.03.16-12.09.11:507][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Gas_Station) is flushing async loading
+[2026.03.16-12.09.11:536][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Gornji_Humac) is flushing async loading
+[2026.03.16-12.09.11:554][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Industrial_01) is flushing async loading
+[2026.03.16-12.09.11:586][  0]LogSCUM: Warning: ABuilding::UpdateDoorNavLinks() runtime id doesn't exist: X=-122590.000 Y=335820.000 Z=74510.000
+[2026.03.16-12.09.11:587][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Kotoriba) is flushing async loading
+[2026.03.16-12.09.11:597][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_Novaki) is flushing async loading
+[2026.03.16-12.09.11:652][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Farm_01) is flushing async loading
+[2026.03.16-12.09.11:662][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Farm_02) is flushing async loading
+[2026.03.16-12.09.11:700][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Farm_04) is flushing async loading
+[2026.03.16-12.09.11:709][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Gdinj) is flushing async loading
+[2026.03.16-12.09.11:780][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Novi_Glog) is flushing async loading
+[2026.03.16-12.09.11:784][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Povlja) is flushing async loading
+[2026.03.16-12.09.11:847][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Ston) is flushing async loading
+[2026.03.16-12.09.11:866][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Trilj) is flushing async loading
+[2026.03.16-12.09.11:898][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.11:900][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2) is flushing async loading
+[2026.03.16-12.09.12:756][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.AnimBP_DiscoLight04Red2.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:756][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.AnimBP_DiscoLight04Red_2.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:757][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.AnimBP_DiscoLight04Red4.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:757][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.AnimBP_DiscoLight04Red3_7.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:770][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.AnimBP_DiscoLight05_Blue_GEN_VARIABLE_AnimBP_DiscoLight05_Blue_C_CAT_26.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:770][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.ChildActor_GEN_VARIABLE_AnimBP_DiscoLight05_Blue_C_CAT_28.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:770][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.ChildActor1_GEN_VARIABLE_AnimBP_DiscoLight05_Red_C_CAT_26.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:770][  0]LogSkeletalMesh: USkeletalMeshComponent::InitArticulated : Could not find root physics body: '/Game/ConZ_Files/Maps/The_Island/Safe_Zone_D_2.Safe_Zone_D_2:PersistentLevel.ChildActor2_GEN_VARIABLE_AnimBP_DiscoLight05_Red_C_CAT_28.SkeletalMeshComponent0'
+[2026.03.16-12.09.12:789][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/TV_Base_D_3) is flushing async loading
+[2026.03.16-12.09.12:929][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_1_1) is flushing async loading
+[2026.03.16-12.09.13:358][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_1_2) is flushing async loading
+[2026.03.16-12.09.13:577][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_1_3) is flushing async loading
+[2026.03.16-12.09.14:031][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_1_4) is flushing async loading
+[2026.03.16-12.09.14:277][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_2_1) is flushing async loading
+[2026.03.16-12.09.14:594][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_2_2) is flushing async loading
+[2026.03.16-12.09.14:998][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_2_3) is flushing async loading
+[2026.03.16-12.09.15:233][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/Landscape_D_2_4) is flushing async loading
+[2026.03.16-12.09.16:010][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Farm_01) is flushing async loading
+[2026.03.16-12.09.16:035][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D4_Airport_Zeljava) is flushing async loading
+[2026.03.16-12.09.18:752][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Farm_02) is flushing async loading
+[2026.03.16-12.09.18:760][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_3_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.18:805][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Gorica) is flushing async loading
+[2026.03.16-12.09.18:829][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_4_Airport_Zeljava_Entrance) is flushing async loading
+[2026.03.16-12.09.18:832][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Industrial_01) is flushing async loading
+[2026.03.16-12.09.18:893][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Kirin) is flushing async loading
+[2026.03.16-12.09.18:896][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_Prigorje) is flushing async loading
+[2026.03.16-12.09.18:924][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_1_TV_Base_Entrance) is flushing async loading
+[2026.03.16-12.09.19:057][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/ConZ_Files/Maps/The_Island/D_2_Babino_Polje) is flushing async loading
+[2026.03.16-12.09.19:161][  0]LogBattlEye: Display: Config entry: GameID scum
+[2026.03.16-12.09.19:161][  0]LogBattlEye: Display: Config entry: MasterPort 8037
+[2026.03.16-12.09.19:162][  0]LogBattlEye: Display: Config entry: RConPort 8038
+[2026.03.16-12.09.19:162][  0]LogBattlEye: Display: Config entry: RConPassword TN_QDwOiaJvAT82XfEKjJ62K5XAqBoQ5
+[2026.03.16-12.09.19:591][  1]LogNet: UNetDriver::TickDispatch: Very long time between ticks. DeltaTime: 397.81, Realtime: 397.80. IpNetDriver_2147480227
+[2026.03.16-12.09.21:485][  4]LogRadiationManager: Warning: AuthorityTick took 25.983ms
+[2026.03.16-12.09.25:406][ 24]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 216.4ms (  4.6FPS), 400.0ms (  2.5FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.25:409][ 24]LogQuadTree: Warning: [Unknown Source] Adding element (bIsValid=true, Min=(X=60785811456.000 Y=77255458816.000), Max=(X=60785811456.000 Y=77255458816.000)) that is outside the bounds of the quadtree root (bIsValid=true, Min=(X=-954800.000 Y=-954800.000), Max=(X=669200.000 Y=669200.000)). Consider resizing.
+[2026.03.16-12.09.25:409][ 24]LogQuadTree: Warning: [Unknown Source] Adding element (bIsValid=true, Min=(X=60785815552.000 Y=77255458816.000), Max=(X=60785815552.000 Y=77255458816.000)) that is outside the bounds of the quadtree root (bIsValid=true, Min=(X=-954800.000 Y=-954800.000), Max=(X=669200.000 Y=669200.000)). Consider resizing.
+[2026.03.16-12.09.25:409][ 24]LogQuadTree: Warning: [Unknown Source] Adding element (bIsValid=true, Min=(X=60785815552.000 Y=77255458816.000), Max=(X=60785815552.000 Y=77255458816.000)) that is outside the bounds of the quadtree root (bIsValid=true, Min=(X=-954800.000 Y=-954800.000), Max=(X=669200.000 Y=669200.000)). Consider resizing.
+[2026.03.16-12.09.25:410][ 24]LogQuadTree: Warning: [Unknown Source] Adding element (bIsValid=true, Min=(X=60785811456.000 Y=77255458816.000), Max=(X=60785811456.000 Y=77255458816.000)) that is outside the bounds of the quadtree root (bIsValid=true, Min=(X=-954800.000 Y=-954800.000), Max=(X=669200.000 Y=669200.000)). Consider resizing.
+[2026.03.16-12.09.25:410][ 24]LogQuadTree: Warning: [Unknown Source] Adding element (bIsValid=true, Min=(X=-5545295872.000 Y=-97701404672.000), Max=(X=-5545294848.000 Y=-97701404672.000)) that is outside the bounds of the quadtree root (bIsValid=true, Min=(X=-954800.000 Y=-954800.000), Max=(X=669200.000 Y=669200.000)). Consider resizing.
+[2026.03.16-12.09.30:406][ 49]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 200.0ms (  5.0FPS), 200.8ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.35:603][ 75]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 199.9ms (  5.0FPS), 200.4ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.40:801][101]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 199.9ms (  5.0FPS), 200.8ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.45:996][127]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 199.8ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.51:193][153]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 199.9ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.09.56:393][179]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 200.0ms (  5.0FPS), 200.8ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.01:393][204]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 200.0ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.06:394][229]LogSCUM: Global Stats: 199.4ms (  5.0FPS), 200.0ms (  5.0FPS), 200.7ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.11:394][254]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 200.0ms (  5.0FPS), 200.4ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.16:591][280]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 199.9ms (  5.0FPS), 200.4ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.20:412][299]LogSCUM: ATimedGiftSpawner - gifts already spawned
+[2026.03.16-12.10.21:386][304]LogRadiationManager: DbSaveGlobalData took 0.188ms
+[2026.03.16-12.10.21:786][306]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 199.8ms (  5.0FPS), 200.6ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.26:987][332]LogSCUM: Global Stats: 199.6ms (  5.0FPS), 200.0ms (  5.0FPS), 200.4ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.32:183][358]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 199.9ms (  5.0FPS), 200.4ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.37:377][384]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 199.8ms (  5.0FPS), 200.3ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.42:576][410]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 199.9ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.47:576][435]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 200.0ms (  5.0FPS), 200.8ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.51:178][453]LogEntitySystem: Auto-save took 1.458ms for 8 objects and 0 relative transform(s)
+[2026.03.16-12.10.52:774][461]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 199.9ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.10.57:967][487]LogSCUM: Global Stats: 199.2ms (  5.0FPS), 199.8ms (  5.0FPS), 200.3ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.03:163][513]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 199.8ms (  5.0FPS), 200.8ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.08:363][539]LogSCUM: Global Stats: 199.4ms (  5.0FPS), 200.0ms (  5.0FPS), 200.5ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.13:365][564]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 200.1ms (  5.0FPS), 200.6ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.18:562][590]LogSCUM: Global Stats: 199.1ms (  5.0FPS), 199.9ms (  5.0FPS), 200.7ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.22:357][609]LogSCUM: UDedicatedServerResponse: Client connected from: 192.156.1.116:53421
+[2026.03.16-12.11.22:357][609]LogRadiationManager: DbSaveGlobalData took 0.246ms
+[2026.03.16-12.11.22:358][609]LogSCUM: UDedicatedServerResponse::ProcessAuthenticateUserRequest: Begin auth session for user '76561199274778326' (192.156.1.116:53421)
+[2026.03.16-12.11.22:358][609]LogRadiationManager: Warning: AuthorityTick took 1.623ms
+[2026.03.16-12.11.23:156][614]LogSCUM: UDedicatedServerResponse::ProcessAuthenticateUserRequestInner: '76561199274778326' authenticated
+[2026.03.16-12.11.23:753][616]LogSCUM: Global Stats: 199.3ms (  5.0FPS), 199.7ms (  5.0FPS), 200.3ms (  5.0FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  734 ( 734)
+[2026.03.16-12.11.26:162][628]LogNet: NotifyAcceptingConnection accepted from: 192.156.1.116:57866
+[2026.03.16-12.11.26:353][629]LogNet: NotifyAcceptingConnection accepted from: 192.156.1.116:57866
+[2026.03.16-12.11.26:353][629]LogNet: Server accepting post-challenge connection from: 192.156.1.116:57866
+[2026.03.16-12.11.26:402][629]LogNet: NotifyAcceptedConnection: Name: The_Island, TimeStamp: 03/16/26 19:11:26, [UNetConnection] RemoteAddr: 192.156.1.116:57866, Name: IpConnection_2147344446, Driver: GameNetDriver IpNetDriver_2147480227, IsServer: YES, PC: NULL, Owner: NULL, UniqueId: INVALID
+[2026.03.16-12.11.26:403][629]LogNet: AddClientConnection: Added client connection: [UNetConnection] RemoteAddr: 192.156.1.116:57866, Name: IpConnection_2147344446, Driver: GameNetDriver IpNetDriver_2147480227, IsServer: YES, PC: NULL, Owner: NULL, UniqueId: INVALID
+[2026.03.16-12.11.26:416][629]LogNet: NotifyAcceptingChannel Control 0 server World /Game/ConZ_Files/Maps/The_Island/The_Island.The_Island: Accepted
+[2026.03.16-12.11.26:427][629]LogNetVersion: SCUM 1.2.1.1.106289+0, NetCL: 0, EngineNetVer: 17, GameNetVer: 0 (Checksum: 749279892)
+[2026.03.16-12.11.26:459][629]LogNet: Login request: ?user=76561199274778326?ticket=FAAAAFhZVhpoJxN21t5ZTgEAEAH42bdpGAAAAAEAAAACAAAAxGNyLWinjqTYYRADFwAAALgAAAA4AAAABAAAANbeWU4BABABrtYHANu5gKJ9fEhkAAAAALrKsGk6esxpAQDg0wEAAQDE3jkAAAAAAB0rRAVY1YUae+womAOzITtwA8IrV38SNmziA6tMUsn3GGQX+bgtWF5IcYr3u+gFs4qBCBuw3DqFLy4Jb5L2qdMvg7HqwgzBL7+5czh1xDPfJzLykyfcwdwIDP6BWStz8IE695PPlBrbUqC7Q9I+ulgPkbyXFP9IhxJRhh1Y9wZQ?version=1.2.1.1.106289?EncryptionToken=76561199274778326?PlayAsDrone=1?Name=CokeTAMTHAI userId: Steam:UNKNOWN [0x11000014E59DED6] platform: Steam
+[2026.03.16-12.11.27:136][630]LogNet: Client netspeed is 64000
+[2026.03.16-12.11.28:353][636]LogNet: Join request: /Game/ConZ_Files/Maps/The_Island/The_Island?user=76561199274778326?ticket=FAAAAFhZVhpoJxN21t5ZTgEAEAH42bdpGAAAAAEAAAACAAAAxGNyLWinjqTYYRADFwAAALgAAAA4AAAABAAAANbeWU4BABABrtYHANu5gKJ9fEhkAAAAALrKsGk6esxpAQDg0wEAAQDE3jkAAAAAAB0rRAVY1YUae+womAOzITtwA8IrV38SNmziA6tMUsn3GGQX+bgtWF5IcYr3u+gFs4qBCBuw3DqFLy4Jb5L2qdMvg7HqwgzBL7+5czh1xDPfJzLykyfcwdwIDP6BWStz8IE695PPlBrbUqC7Q9I+ulgPkbyXFP9IhxJRhh1Y9wZQ?version=1.2.1.1.106289?EncryptionToken=76561199274778326?PlayAsDrone=1?Name=CokeTAMTHAI?SplitscreenCount=1
+[2026.03.16-12.11.28:353][636]LogSCUM: User '76561199274778326' did not specify which profile to use. Selected first available: '1'
+[2026.03.16-12.11.34:822][636]LogPakFile: New pak file ../../../SCUM/Content/Paks/pakchunk43-WindowsServer.pak added to pak precacher.
+[2026.03.16-12.11.36:170][636]LogOnlineSession: Warning: STEAM: No game present to join for session (GameSession)
+[2026.03.16-12.11.36:324][636]LogGameplayTags: NetworkGameplayTagNodeIndexHash is 4f7a838c
+[2026.03.16-12.11.36:338][636]LogGameMode: Display: SCUM: sending level streaming statues in batches of 500
+[2026.03.16-12.11.36:340][636]LogGameMode: Display: SCUM: sending level streaming statues in batches of 500
+[2026.03.16-12.11.36:342][636]LogGameMode: Display: SCUM: sending level streaming statues in batches of 500
+[2026.03.16-12.11.36:344][636]LogGameMode: Display: SCUM: sending level streaming statues in batches of 500
+[2026.03.16-12.11.36:350][636]LogBattlEye: Display: Communication Component running on Server
+[2026.03.16-12.11.36:351][636]LogBattlEye: Display: Player "CokeTAMTHAI" reported as player 0 
+[2026.03.16-12.11.36:368][636]LogBattlEye: Display: Player #0 CokeTAMTHAI (192.156.1.116:57866) connected
+[2026.03.16-12.11.36:372][636]LogBattlEye: Display: Player 0 SteamID (assumed): 76561199274778326
+[2026.03.16-12.11.36:376][636]LogBattlEye: Display: Player #0 CokeTAMTHAI - BE GUID: 1335c7a174c48e2925d0ff90d3463dbe
+[2026.03.16-12.11.36:390][636]LogGameMode: Display: Match State Changed from WaitingToStart to InProgress
+[2026.03.16-12.11.36:423][636]LogGameState: Match State Changed from WaitingToStart to InProgress
+[2026.03.16-12.11.36:432][636]LogSCUM: Login with use profile 1
+[2026.03.16-12.11.36:432][636]LogSCUM: '192.156.1.116 76561199274778326:CokeTAMTHAI(1)' logged in at: X=-279431.000 Y=-674889.000 Z=7766.000 (as drone)
+[2026.03.16-12.11.36:436][636]LogSCUM: Update profile deletion because money balance is updated.
+[2026.03.16-12.11.36:454][636]LogNet: Join succeeded: CokeTAMTHAI
+[2026.03.16-12.11.36:616][637]LogNet: UNetDriver::TickDispatch: Very long time between ticks. DeltaTime: 8.26, Realtime: 8.26. IpNetDriver_2147480227
+[2026.03.16-12.11.37:005][645]LogSCUM: Global Stats:  37.8ms ( 26.5FPS), 172.5ms (  5.8FPS), 400.0ms (  2.5FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  740 ( 740)
+[2026.03.16-12.11.37:214][648]LogBattlEye: Display: Connected to BE Master
+[2026.03.16-12.11.42:071][737]LogSCUM: Global Stats:  34.7ms ( 28.8FPS),  54.7ms ( 18.3FPS), 400.0ms (  2.5FPS) | C:   0 (  0), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  761 ( 761)
+[2026.03.16-12.11.42:820][754]LogSCUM: UDedicatedServerResponse: Client connected from: 192.156.1.116:50344
+[2026.03.16-12.11.42:924][756]LogSCUM: UDedicatedServerResponse::ProcessAuthenticateUserRequest: Begin auth session for user '76561199274778326' (192.156.1.116:50344)
+[2026.03.16-12.11.43:472][768]LogSCUM: UDedicatedServerResponse::ProcessAuthenticateUserRequestInner: '76561199274778326' authenticated
+[2026.03.16-12.11.43:798][775]LogSCUM: [InitialSync] Getting initial synchronizers data took 0.032357 seconds.
+[2026.03.16-12.11.44:821][795]LogVoiceDecode: Display: DecoderVersion: libopus unknown
+[2026.03.16-12.11.47:092][844]LogSCUM: Global Stats:  32.5ms ( 30.8FPS),  46.9ms ( 21.3FPS), 106.0ms (  9.4FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  761 ( 742)
+[2026.03.16-12.11.52:105][942]LogSCUM: Global Stats:  35.1ms ( 28.5FPS),  51.1ms ( 19.6FPS), 305.8ms (  3.3FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 0 | IV: 3713 (   0) | NO:  761 ( 742)
+[2026.03.16-12.11.57:224][ 44]LogSCUM: Global Stats:  45.7ms ( 21.9FPS),  50.0ms ( 20.0FPS), 400.0ms (  2.5FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 1 | IV: 3713 (   0) | NO:  763 ( 744)
+[2026.03.16-12.12.02:250][150]LogSCUM: Global Stats:  32.6ms ( 30.7FPS),  47.4ms ( 21.1FPS), 153.1ms (  6.5FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.07:267][258]LogSCUM: Global Stats:  45.3ms ( 22.1FPS),  46.5ms ( 21.5FPS),  47.6ms ( 21.0FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.12:283][366]LogSCUM: Global Stats:  45.7ms ( 21.9FPS),  46.4ms ( 21.5FPS),  47.8ms ( 20.9FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.17:299][474]LogSCUM: Global Stats:  45.5ms ( 22.0FPS),  46.4ms ( 21.5FPS),  47.4ms ( 21.1FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.22:307][582]LogSCUM: Global Stats:  45.7ms ( 21.9FPS),  46.4ms ( 21.6FPS),  47.4ms ( 21.1FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.27:318][727]LogSCUM: Global Stats:  32.4ms ( 30.8FPS),  34.6ms ( 28.9FPS),  46.8ms ( 21.4FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.29:537][794]LogEntitySystem: Auto-save took 1.972ms for 451 objects and 4 relative transform(s)
+[2026.03.16-12.12.31:552][855]LogRadiationManager: DbSaveGlobalData took 0.270ms
+[2026.03.16-12.12.32:347][879]LogSCUM: Global Stats:  32.4ms ( 30.8FPS),  33.1ms ( 30.2FPS),  34.3ms ( 29.2FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.35:527][975]LogSCUM: Saving survival stats to database query took: 0.21367, 0.0108, 9.4968 ms.
+[2026.03.16-12.12.37:379][ 31]LogSCUM: Global Stats:  32.4ms ( 30.9FPS),  33.1ms ( 30.2FPS),  34.1ms ( 29.3FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.42:408][183]LogSCUM: Global Stats:  32.4ms ( 30.8FPS),  33.1ms ( 30.2FPS),  34.3ms ( 29.2FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.47:417][334]LogSCUM: Global Stats:  32.4ms ( 30.8FPS),  33.2ms ( 30.2FPS),  34.3ms ( 29.2FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.52:422][485]LogSCUM: Global Stats:  32.5ms ( 30.7FPS),  33.1ms ( 30.2FPS),  34.3ms ( 29.2FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.12.57:424][636]LogSCUM: Global Stats:  32.4ms ( 30.8FPS),  33.1ms ( 30.2FPS),  34.2ms ( 29.3FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)
+[2026.03.16-12.13.02:443][768]LogSCUM: Global Stats:  32.4ms ( 30.9FPS),  38.0ms ( 26.3FPS),  47.4ms ( 21.1FPS) | C:   1 (  1), P:   0 (  0), Z:   0 (  0), R:   0 (  0), S:   0 (  0), A:   0 (  0), V: 2 | IV: 3713 (   0) | NO:  765 ( 746)

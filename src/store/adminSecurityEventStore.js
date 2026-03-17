@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath } = require('./_persist');
 
 const FILE_PATH = getFilePath('admin-security-events.json');
 const MAX_ENTRIES = Math.max(
@@ -73,10 +73,8 @@ function schedulePersist() {
   persistTimer = setTimeout(() => {
     persistTimer = null;
     ensureParentDir();
-    const tmpPath = `${FILE_PATH}.tmp`;
     try {
-      fs.writeFileSync(tmpPath, JSON.stringify(events || [], null, 2), 'utf8');
-      fs.renameSync(tmpPath, FILE_PATH);
+      atomicWriteJson(FILE_PATH, events || []);
     } catch (error) {
       console.error('[adminSecurityEventStore] failed to persist:', error.message);
     }

@@ -1,0 +1,3348 @@
+{
+  "generatedAt": "2026-03-16T20:18:50.729Z",
+  "steamId": "76561199274778326",
+  "executionMode": "agent",
+  "nativeProofMode": "required",
+  "results": [
+    {
+      "label": "consumable-water",
+      "gameItemId": "Water_05l",
+      "quantity": 1,
+      "ok": true,
+      "verificationOk": true,
+      "code": "READY",
+      "proofType": "inventory-state",
+      "strategy": "world-spawn-delta",
+      "detail": "Game-state proof matched 1/1 expected item classes using post-baseline spawned entity delta",
+      "commandSummary": "#SpawnItem Water_05l 1",
+      "outputs": [
+        {
+          "backend": "exec",
+          "command": "#SpawnItem Water_05l 1",
+          "gameItemId": "Water_05l",
+          "quantity": 1
+        }
+      ],
+      "evidence": {
+        "databasePath": "Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\SaveFiles\\SCUM.db",
+        "player": {
+          "steamId": "76561199274778326",
+          "playerName": "CokeTAMTHAI",
+          "userProfileId": 1,
+          "prisonerId": 1,
+          "prisonerEntityId": 40004,
+          "isAlive": true
+        },
+        "purchaseCode": "NPROOF-1773692301227-1",
+        "strategy": "world-spawn-delta",
+        "expected": [
+          {
+            "itemId": "water_05l",
+            "quantity": 1
+          }
+        ],
+        "matched": [
+          {
+            "itemId": "water_05l",
+            "expectedQuantity": 1,
+            "matchedQuantity": 1,
+            "mode": "world-spawn-delta",
+            "examples": [
+              {
+                "entityId": 60707,
+                "className": "Water_05l_ES",
+                "owningEntityId": null,
+                "parentEntityId": null,
+                "lastAccessTime": 1773692306,
+                "recent": true
+              }
+            ]
+          }
+        ],
+        "missing": [],
+        "ambiguous": [],
+        "observed": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineObserved": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineEntityCursor": 60705,
+        "deltaVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "water_05l",
+              "quantity": 1
+            }
+          ],
+          "baseline": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [],
+          "ambiguous": [
+            {
+              "itemId": "water_05l",
+              "expectedQuantity": 1,
+              "beforeQuantity": 1,
+              "afterQuantity": 1,
+              "deltaQuantity": 0,
+              "deltaRecentSpawnedQuantity": 0
+            }
+          ]
+        },
+        "spawnDeltaVerification": {
+          "ok": true,
+          "expected": [
+            {
+              "itemId": "water_05l",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "water_05l",
+              "count": 1,
+              "examples": [
+                {
+                  "entityId": 60707,
+                  "className": "Water_05l_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692306,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "matched": [
+            {
+              "itemId": "water_05l",
+              "expectedQuantity": 1,
+              "matchedQuantity": 1,
+              "mode": "world-spawn-delta",
+              "examples": [
+                {
+                  "entityId": 60707,
+                  "className": "Water_05l_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692306,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "missing": [],
+          "ambiguous": []
+        },
+        "recentSpawnVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "water_05l",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [],
+          "ambiguous": [
+            {
+              "itemId": "water_05l",
+              "expectedQuantity": 1,
+              "totalQuantity": 1,
+              "recentSpawnedQuantity": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "weapon-m1911",
+      "gameItemId": "Weapon_M1911",
+      "quantity": 1,
+      "ok": true,
+      "verificationOk": true,
+      "code": "READY",
+      "proofType": "inventory-state",
+      "strategy": "world-spawn-delta",
+      "detail": "Game-state proof matched 1/1 expected item classes using post-baseline spawned entity delta",
+      "commandSummary": "#SpawnItem Weapon_M1911 1",
+      "outputs": [
+        {
+          "backend": "exec",
+          "command": "#SpawnItem Weapon_M1911 1",
+          "gameItemId": "Weapon_M1911",
+          "quantity": 1
+        }
+      ],
+      "evidence": {
+        "databasePath": "Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\SaveFiles\\SCUM.db",
+        "player": {
+          "steamId": "76561199274778326",
+          "playerName": "CokeTAMTHAI",
+          "userProfileId": 1,
+          "prisonerId": 1,
+          "prisonerEntityId": 40004,
+          "isAlive": true
+        },
+        "purchaseCode": "NPROOF-1773692309472-2",
+        "strategy": "world-spawn-delta",
+        "expected": [
+          {
+            "itemId": "weapon_m1911",
+            "quantity": 1
+          }
+        ],
+        "matched": [
+          {
+            "itemId": "weapon_m1911",
+            "expectedQuantity": 1,
+            "matchedQuantity": 1,
+            "mode": "world-spawn-delta",
+            "examples": [
+              {
+                "entityId": 60709,
+                "className": "Weapon_M1911_ES",
+                "owningEntityId": null,
+                "parentEntityId": null,
+                "lastAccessTime": 1773692314,
+                "recent": true
+              }
+            ]
+          }
+        ],
+        "missing": [],
+        "ambiguous": [],
+        "observed": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineObserved": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineEntityCursor": 60707,
+        "deltaVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "weapon_m1911",
+              "quantity": 1
+            }
+          ],
+          "baseline": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [
+            {
+              "itemId": "weapon_m1911",
+              "expectedQuantity": 1,
+              "beforeQuantity": 0,
+              "afterQuantity": 0,
+              "deltaQuantity": 0,
+              "deltaRecentSpawnedQuantity": 0
+            }
+          ],
+          "ambiguous": []
+        },
+        "spawnDeltaVerification": {
+          "ok": true,
+          "expected": [
+            {
+              "itemId": "weapon_m1911",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "weapon_m1911",
+              "count": 1,
+              "examples": [
+                {
+                  "entityId": 60709,
+                  "className": "Weapon_M1911_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692314,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "matched": [
+            {
+              "itemId": "weapon_m1911",
+              "expectedQuantity": 1,
+              "matchedQuantity": 1,
+              "mode": "world-spawn-delta",
+              "examples": [
+                {
+                  "entityId": 60709,
+                  "className": "Weapon_M1911_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692314,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "missing": [],
+          "ambiguous": []
+        },
+        "recentSpawnVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "weapon_m1911",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [
+            {
+              "itemId": "weapon_m1911",
+              "expectedQuantity": 1,
+              "totalQuantity": 0,
+              "recentSpawnedQuantity": 0
+            }
+          ],
+          "ambiguous": []
+        }
+      }
+    },
+    {
+      "label": "magazine-m1911",
+      "gameItemId": "Magazine_M1911",
+      "quantity": 1,
+      "ok": true,
+      "verificationOk": true,
+      "code": "READY",
+      "proofType": "inventory-state",
+      "strategy": "world-spawn-delta",
+      "detail": "Game-state proof matched 1/1 expected item classes using post-baseline spawned entity delta",
+      "commandSummary": "#SpawnItem Magazine_M1911 1 StackCount 100",
+      "outputs": [
+        {
+          "backend": "exec",
+          "command": "#SpawnItem Magazine_M1911 1 StackCount 100",
+          "gameItemId": "Magazine_M1911",
+          "quantity": 1
+        }
+      ],
+      "evidence": {
+        "databasePath": "Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\SaveFiles\\SCUM.db",
+        "player": {
+          "steamId": "76561199274778326",
+          "playerName": "CokeTAMTHAI",
+          "userProfileId": 1,
+          "prisonerId": 1,
+          "prisonerEntityId": 40004,
+          "isAlive": true
+        },
+        "purchaseCode": "NPROOF-1773692317487-3",
+        "strategy": "world-spawn-delta",
+        "expected": [
+          {
+            "itemId": "magazine_m1911",
+            "quantity": 1
+          }
+        ],
+        "matched": [
+          {
+            "itemId": "magazine_m1911",
+            "expectedQuantity": 1,
+            "matchedQuantity": 1,
+            "mode": "world-spawn-delta",
+            "examples": [
+              {
+                "entityId": 60710,
+                "className": "Magazine_M1911_ES",
+                "owningEntityId": null,
+                "parentEntityId": null,
+                "lastAccessTime": 1773692322,
+                "recent": true
+              }
+            ]
+          }
+        ],
+        "missing": [],
+        "ambiguous": [],
+        "observed": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineObserved": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineEntityCursor": 60709,
+        "deltaVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "magazine_m1911",
+              "quantity": 1
+            }
+          ],
+          "baseline": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [],
+          "ambiguous": [
+            {
+              "itemId": "magazine_m1911",
+              "expectedQuantity": 1,
+              "beforeQuantity": 1,
+              "afterQuantity": 1,
+              "deltaQuantity": 0,
+              "deltaRecentSpawnedQuantity": 0
+            }
+          ]
+        },
+        "spawnDeltaVerification": {
+          "ok": true,
+          "expected": [
+            {
+              "itemId": "magazine_m1911",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "magazine_m1911",
+              "count": 1,
+              "examples": [
+                {
+                  "entityId": 60710,
+                  "className": "Magazine_M1911_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692322,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "matched": [
+            {
+              "itemId": "magazine_m1911",
+              "expectedQuantity": 1,
+              "matchedQuantity": 1,
+              "mode": "world-spawn-delta",
+              "examples": [
+                {
+                  "entityId": 60710,
+                  "className": "Magazine_M1911_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692322,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "missing": [],
+          "ambiguous": []
+        },
+        "recentSpawnVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "magazine_m1911",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [],
+          "ambiguous": [
+            {
+              "itemId": "magazine_m1911",
+              "expectedQuantity": 1,
+              "totalQuantity": 1,
+              "recentSpawnedQuantity": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "weapon-ak47",
+      "gameItemId": "Weapon_AK47",
+      "quantity": 1,
+      "ok": true,
+      "verificationOk": true,
+      "code": "READY",
+      "proofType": "inventory-state",
+      "strategy": "world-spawn-delta",
+      "detail": "Game-state proof matched 1/1 expected item classes using post-baseline spawned entity delta",
+      "commandSummary": "#SpawnItem Weapon_AK47 1",
+      "outputs": [
+        {
+          "backend": "exec",
+          "command": "#SpawnItem Weapon_AK47 1",
+          "gameItemId": "Weapon_AK47",
+          "quantity": 1
+        }
+      ],
+      "evidence": {
+        "databasePath": "Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\SaveFiles\\SCUM.db",
+        "player": {
+          "steamId": "76561199274778326",
+          "playerName": "CokeTAMTHAI",
+          "userProfileId": 1,
+          "prisonerId": 1,
+          "prisonerEntityId": 40004,
+          "isAlive": true
+        },
+        "purchaseCode": "NPROOF-1773692325346-4",
+        "strategy": "world-spawn-delta",
+        "expected": [
+          {
+            "itemId": "weapon_ak47",
+            "quantity": 1
+          }
+        ],
+        "matched": [
+          {
+            "itemId": "weapon_ak47",
+            "expectedQuantity": 1,
+            "matchedQuantity": 1,
+            "mode": "world-spawn-delta",
+            "examples": [
+              {
+                "entityId": 60712,
+                "className": "Weapon_AK47_ES",
+                "owningEntityId": null,
+                "parentEntityId": null,
+                "lastAccessTime": 1773692330,
+                "recent": true
+              }
+            ]
+          }
+        ],
+        "missing": [],
+        "ambiguous": [],
+        "observed": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineObserved": [
+          {
+            "itemId": "f_bra_supporter_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50113,
+                "className": "F_Bra_Supporter_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "hightop_shoes",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50110,
+                "className": "HighTop_Shoes_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_pants",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50108,
+                "className": "Inmate_pants_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "inmate_shirt_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50106,
+                "className": "Inmate_shirt_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "magazine_m1911",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50154,
+                "className": "Magazine_M1911_ES",
+                "quantity": 1,
+                "depth": 1,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417226
+              }
+            ]
+          },
+          {
+            "itemId": "sock_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50111,
+                "className": "Sock_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "underpants_01",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50112,
+                "className": "Underpants_01_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": false,
+                "lastAccessTime": 1773412604
+              }
+            ]
+          },
+          {
+            "itemId": "water_05l",
+            "totalQuantity": 1,
+            "recentQuantity": 0,
+            "recentSpawnedQuantity": 0,
+            "examples": [
+              {
+                "entityId": 50171,
+                "className": "Water_05l_ES",
+                "quantity": 1,
+                "depth": 0,
+                "recent": false,
+                "spawnedViaAdminCommand": true,
+                "lastAccessTime": 1773417211
+              }
+            ]
+          }
+        ],
+        "baselineEntityCursor": 60710,
+        "deltaVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "weapon_ak47",
+              "quantity": 1
+            }
+          ],
+          "baseline": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [
+            {
+              "itemId": "weapon_ak47",
+              "expectedQuantity": 1,
+              "beforeQuantity": 0,
+              "afterQuantity": 0,
+              "deltaQuantity": 0,
+              "deltaRecentSpawnedQuantity": 0
+            }
+          ],
+          "ambiguous": []
+        },
+        "spawnDeltaVerification": {
+          "ok": true,
+          "expected": [
+            {
+              "itemId": "weapon_ak47",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "weapon_ak47",
+              "count": 1,
+              "examples": [
+                {
+                  "entityId": 60712,
+                  "className": "Weapon_AK47_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692330,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "matched": [
+            {
+              "itemId": "weapon_ak47",
+              "expectedQuantity": 1,
+              "matchedQuantity": 1,
+              "mode": "world-spawn-delta",
+              "examples": [
+                {
+                  "entityId": 60712,
+                  "className": "Weapon_AK47_ES",
+                  "owningEntityId": null,
+                  "parentEntityId": null,
+                  "lastAccessTime": 1773692330,
+                  "recent": true
+                }
+              ]
+            }
+          ],
+          "missing": [],
+          "ambiguous": []
+        },
+        "recentSpawnVerification": {
+          "ok": false,
+          "expected": [
+            {
+              "itemId": "weapon_ak47",
+              "quantity": 1
+            }
+          ],
+          "observed": [
+            {
+              "itemId": "f_bra_supporter_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50113,
+                  "className": "F_Bra_Supporter_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "hightop_shoes",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50110,
+                  "className": "HighTop_Shoes_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_pants",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50108,
+                  "className": "Inmate_pants_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "inmate_shirt_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50106,
+                  "className": "Inmate_shirt_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "magazine_m1911",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50154,
+                  "className": "Magazine_M1911_ES",
+                  "quantity": 1,
+                  "depth": 1,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417226
+                }
+              ]
+            },
+            {
+              "itemId": "sock_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50111,
+                  "className": "Sock_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "underpants_01",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50112,
+                  "className": "Underpants_01_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": false,
+                  "lastAccessTime": 1773412604
+                }
+              ]
+            },
+            {
+              "itemId": "water_05l",
+              "totalQuantity": 1,
+              "recentQuantity": 0,
+              "recentSpawnedQuantity": 0,
+              "examples": [
+                {
+                  "entityId": 50171,
+                  "className": "Water_05l_ES",
+                  "quantity": 1,
+                  "depth": 0,
+                  "recent": false,
+                  "spawnedViaAdminCommand": true,
+                  "lastAccessTime": 1773417211
+                }
+              ]
+            }
+          ],
+          "matched": [],
+          "missing": [
+            {
+              "itemId": "weapon_ak47",
+              "expectedQuantity": 1,
+              "totalQuantity": 0,
+              "recentSpawnedQuantity": 0
+            }
+          ],
+          "ambiguous": []
+        }
+      }
+    }
+  ]
+}

@@ -5,11 +5,20 @@
 
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const codes = new Map(); // code -> { type, amount, itemId, usedBy, usedAt }
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getRedeemDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeCode(value) {
   return String(value || '').trim().toUpperCase();
@@ -87,7 +96,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.redeemCode.findMany({
+    const rows = await getRedeemDb().redeemCode.findMany({
       orderBy: [{ code: 'asc' }],
     });
 
@@ -96,7 +105,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const [code, value] of codes.entries()) {
-              await prisma.redeemCode.upsert({
+              await getRedeemDb().redeemCode.upsert({
                 where: { code },
                 update: {
                   type: value.type,
@@ -192,7 +201,7 @@ function markUsed(code, userId) {
 
   queueDbWrite(
     async () => {
-      await prisma.redeemCode.upsert({
+      await getRedeemDb().redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -237,7 +246,7 @@ function setCode(code, payload) {
 
   queueDbWrite(
     async () => {
-      await prisma.redeemCode.upsert({
+      await getRedeemDb().redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -273,7 +282,7 @@ function deleteCode(code) {
 
   queueDbWrite(
     async () => {
-      await prisma.redeemCode.deleteMany({
+      await getRedeemDb().redeemCode.deleteMany({
         where: { code: normalized },
       });
     },
@@ -294,7 +303,7 @@ function resetCodeUsage(code) {
 
   queueDbWrite(
     async () => {
-      await prisma.redeemCode.upsert({
+      await getRedeemDb().redeemCode.upsert({
         where: { code: normalized },
         update: {
           type: value.type,
@@ -349,9 +358,9 @@ function replaceCodes(nextCodes = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.redeemCode.deleteMany({});
+      await getRedeemDb().redeemCode.deleteMany({});
       for (const [code, value] of codes.entries()) {
-        await prisma.redeemCode.create({
+        await getRedeemDb().redeemCode.create({
           data: {
             code,
             type: value.type,

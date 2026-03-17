@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "id": "admin-sec-1773693439448-ff829063",
+    "at": "2026-03-16T20:37:19.448Z",
+    "type": "login-succeeded",
+    "severity": "info",
+    "actor": "platform_owner_test",
+    "targetUser": "platform_owner_test",
+    "role": null,
+    "authMethod": "password-db",
+    "sessionId": null,
+    "ip": "127.0.0.1",
+    "path": "/admin/api/login",
+    "reason": null,
+    "detail": "Admin login succeeded",
+    "data": null
+  },
+  {
+    "id": "admin-sec-1773693439450-628dcd20",
+    "at": "2026-03-16T20:37:19.451Z",
+    "type": "session-created",
+    "severity": "info",
+    "actor": "platform_owner_test",
+    "targetUser": "platform_owner_test",
+    "role": "owner",
+    "authMethod": "password-db",
+    "sessionId": "4699a0d8d3f7ca94a71f92c407a87effc0b9f610fe29e380",
+    "ip": "127.0.0.1",
+    "path": null,
+    "reason": "login",
+    "detail": "Admin session created",
+    "data": null
+  }
+]

@@ -71,7 +71,9 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/me' && method === 'GET') {
       const [account, link] = await Promise.all([
-        getPlayerAccount(session.discordId),
+        getPlayerAccount(session.discordId, {
+          tenantId: session?.tenantId || undefined,
+        }),
         resolveSessionSteamLink(session.discordId),
       ]);
       sendJson(res, 200, {
@@ -250,7 +252,9 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/profile' && method === 'GET') {
       const [account, link] = await Promise.all([
-        getPlayerAccount(session.discordId),
+        getPlayerAccount(session.discordId, {
+          tenantId: session?.tenantId || undefined,
+        }),
         resolveSessionSteamLink(session.discordId),
       ]);
       sendJson(res, 200, {
@@ -378,8 +382,12 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/wallet/ledger' && method === 'GET') {
       const limit = asInt(urlObj.searchParams.get('limit'), 50, 1, 500);
-      const wallet = await getWallet(session.discordId);
-      const rows = await listWalletLedger(session.discordId, limit);
+      const wallet = await getWallet(session.discordId, {
+        tenantId: session?.tenantId || undefined,
+      });
+      const rows = await listWalletLedger(session.discordId, limit, {
+        tenantId: session?.tenantId || undefined,
+      });
       const items = rows.map((row) => ({
         id: row.id,
         delta: normalizeAmount(row.delta, 0) * (Number(row.delta || 0) < 0 ? -1 : 1),
@@ -634,7 +642,9 @@ function createPlayerGeneralRoutes(deps) {
       const limit = asInt(urlObj.searchParams.get('limit'), 30, 1, 100);
       const [purchasesRaw, ledgerRaw, rentLink] = await Promise.all([
         deps.listUserPurchases(session.discordId),
-        listWalletLedger(session.discordId, limit),
+        listWalletLedger(session.discordId, limit, {
+          tenantId: session?.tenantId || undefined,
+        }),
         resolveSessionSteamLink(session.discordId),
       ]);
       let rentalRaw = [];
@@ -882,7 +892,9 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/dashboard' && method === 'GET') {
-      const dashboard = await getPlayerDashboard(session.discordId);
+      const dashboard = await getPlayerDashboard(session.discordId, {
+        tenantId: session?.tenantId || undefined,
+      });
       if (!dashboard?.ok) {
         sendJson(res, 400, {
           ok: false,

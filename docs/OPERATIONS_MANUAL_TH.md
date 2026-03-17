@@ -58,7 +58,7 @@
 
 ค่าหลัก:
 
-- `DELIVERY_EXECUTION_MODE=rcon`
+- `DELIVERY_EXECUTION_MODE=agent`
 - `RCON_HOST`
 - `RCON_PORT`
 - `RCON_PASSWORD`
@@ -224,9 +224,9 @@ npm run pm2:reload:prod
 
 ## 9. ข้อจำกัดปัจจุบัน
 
-- current `.env` บนเครื่องนี้ใช้ `DELIVERY_EXECUTION_MODE=rcon`
+- current `.env` บนเครื่องนี้ใช้ `DELIVERY_EXECUTION_MODE=agent`
 - `agent mode` ยังพึ่ง Windows session และ SCUM admin client จริง
-- tenant isolation ยังไม่ใช่ database-per-tenant
+- tenant isolation มี PostgreSQL RLS foundation แล้วสำหรับตาราง tenant-scoped บางส่วน แต่ยังไม่ใช่ database-per-tenant
 - admin web ยังไม่ครอบทุก setting ในระบบ
 
 ## 10. หลักฐานที่ควรใช้เวลาอ้างอิง

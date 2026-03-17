@@ -75,10 +75,13 @@ test('control panel env policy summary matches catalog totals and exposes import
   assert.equal(keys.has('ADMIN_WEB_LOGIN_MAX_ATTEMPTS'), true);
   assert.equal(keys.has('ADMIN_WEB_SSO_DISCORD_OWNER_ROLE_NAMES'), true);
   assert.equal(keys.has('DISCORD_TOKEN'), true);
+  assert.equal(keys.has('TENANT_DB_TOPOLOGY_MODE'), true);
   assert.equal(keys.has('SCUM_WATCHER_ENABLED'), true);
   assert.equal(keys.has('SCUM_WATCHER_REQUIRED'), true);
   assert.equal(keys.has('SCUM_WATCHER_HEALTH_PORT'), true);
   assert.equal(keys.has('DELIVERY_AGENT_PRE_COMMANDS_JSON'), true);
+  assert.equal(keys.has('DELIVERY_NATIVE_PROOF_MODE'), true);
+  assert.equal(keys.has('DELIVERY_NATIVE_PROOF_SCRIPT'), true);
   assert.equal(keys.has('WEB_PORTAL_ENFORCE_ORIGIN_CHECK'), true);
   assert.equal(keys.has('WEB_PORTAL_DISCORD_CLIENT_SECRET'), true);
   assert.equal(keys.has('WEB_PORTAL_MAP_EMBED_ENABLED'), true);

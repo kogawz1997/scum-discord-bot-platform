@@ -53,6 +53,7 @@ async function cleanupPlatformTables() {
       },
     }),
   ]);
+  await prisma.$executeRawUnsafe('DELETE FROM platform_tenant_configs').catch(() => null);
 }
 
 function randomPort() {
@@ -171,6 +172,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
     data: [
       {
         code: 'PLATFORM-TEST-DELIVERED',
+        tenantId: tenant.tenant.id,
         userId: 'user-platform-1',
         itemId: 'platform-test-item-1',
         price: 100,
@@ -178,6 +180,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
       },
       {
         code: 'PLATFORM-TEST-FAILED',
+        tenantId: tenant.tenant.id,
         userId: 'user-platform-1',
         itemId: 'platform-test-item-1',
         price: 100,
@@ -185,6 +188,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
       },
       {
         code: 'PLATFORM-TEST-STUCK',
+        tenantId: tenant.tenant.id,
         userId: 'user-platform-2',
         itemId: 'platform-test-item-2',
         price: 100,
@@ -224,6 +228,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
   await prisma.purchase.create({
     data: {
       code: 'PLATFORM-TEST-VIP-PENDING',
+      tenantId: tenant.tenant.id,
       userId: 'platform-test-vip-user',
       itemId: 'platform-test-vip',
       price: 500,
@@ -233,15 +238,22 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
     },
   });
 
-  const analytics = await getPlatformAnalyticsOverview();
+  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
   assert.equal(Number(analytics.tenants.total || 0) >= 1, true);
   assert.equal(Number(analytics.subscriptions.total || 0) >= 1, true);
   assert.equal(Number(analytics.licenses.acceptedLegal || 0) >= 1, true);
   assert.equal(Number(analytics.marketplace.offers || 0) >= 1, true);
   assert.equal(Number(analytics.delivery.purchaseCount30d || 0) >= 3, true);
 
+  const scopedAnalytics = await getPlatformAnalyticsOverview({ tenantId: tenant.tenant.id });
+  assert.equal(String(scopedAnalytics.scope?.tenantId || ''), tenant.tenant.id);
+  assert.equal(Number(scopedAnalytics.tenants.total || 0), 1);
+  assert.equal(Number(scopedAnalytics.subscriptions.total || 0), 1);
+  assert.equal(Number(scopedAnalytics.delivery.purchaseCount30d || 0), 4);
+
   const reconcile = await reconcileDeliveryState({
     pendingOverdueMs: 5 * 60 * 1000,
+    allowGlobal: true,
   });
   assert.equal(Number(reconcile.summary.anomalies || 0) >= 3, true);
   assert.ok(
@@ -254,9 +266,46 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
     !reconcile.anomalies.some((entry) => String(entry.code || '') === 'PLATFORM-TEST-VIP-PENDING'),
   );
 
+  const scopedReconcile = await reconcileDeliveryState({
+    tenantId: tenant.tenant.id,
+    pendingOverdueMs: 5 * 60 * 1000,
+  });
+  assert.equal(String(scopedReconcile.scope?.tenantId || ''), tenant.tenant.id);
+  assert.ok(
+    scopedReconcile.anomalies.every((entry) =>
+      String(entry.code || '').startsWith('PLATFORM-TEST-') || String(entry.code || '') === tenant.tenant.id || String(entry.type || '').startsWith('agent-') || String(entry.type || '').startsWith('webhook-')),
+  );
+
   const publicOverview = await getPlatformPublicOverview();
   assert.equal(Boolean(publicOverview.trial?.enabled), true);
   assert.ok(Array.isArray(publicOverview.billing?.plans));
   assert.ok(Array.isArray(publicOverview.legal?.docs));
   assert.match(String(publicOverview.legal.docs?.[0]?.url || ''), /^\/docs\//);
+});
+
+test('platform service strict mode requires explicit global access for tenant-scoped analytics and reconcile', async (t) => {
+  const previousMode = process.env.TENANT_DB_ISOLATION_MODE;
+  process.env.TENANT_DB_ISOLATION_MODE = 'postgres-rls-strict';
+  t.after(() => {
+    if (previousMode == null) {
+      delete process.env.TENANT_DB_ISOLATION_MODE;
+      return;
+    }
+    process.env.TENANT_DB_ISOLATION_MODE = previousMode;
+  });
+
+  await assert.rejects(
+    () => getPlatformAnalyticsOverview(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => reconcileDeliveryState(),
+    /requires tenantId/i,
+  );
+
+  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
+  assert.equal(Boolean(analytics.generatedAt), true);
+
+  const reconcile = await reconcileDeliveryState({ allowGlobal: true });
+  assert.equal(Boolean(reconcile.generatedAt), true);
 });

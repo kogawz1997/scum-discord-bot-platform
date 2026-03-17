@@ -55,6 +55,6 @@ npm run smoke:postdeploy
 
 ## ข้อจำกัดที่ยังอยู่
 
-- current `.env` บนเครื่องนี้ใช้ `DELIVERY_EXECUTION_MODE=rcon`
+- current `.env` บนเครื่องนี้ใช้ `DELIVERY_EXECUTION_MODE=agent`
 - agent mode ยังต้องพึ่ง Windows session และ SCUM admin client จริง
-- tenant isolation ยังไม่ใช่ per-tenant database isolation
+- tenant isolation มี PostgreSQL RLS foundation แล้วสำหรับตาราง tenant-scoped บางส่วน แต่ยังไม่ใช่ per-tenant database isolation

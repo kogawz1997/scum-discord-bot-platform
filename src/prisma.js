@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { PrismaClient } = require('@prisma/client');
+const { resolveTenantDatabaseTarget } = require('./utils/tenantDatabaseTopology');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -65,10 +66,11 @@ function ensureTestDatabaseDefaults() {
 
 let cachedClient = null;
 let cachedKey = '';
+const scopedClientCache = new Map();
 
-function buildManagedDatasourceUrl() {
+function buildManagedDatasourceUrl(rawInput = process.env.DATABASE_URL) {
   ensureTestDatabaseDefaults();
-  const rawUrl = normalizeText(process.env.DATABASE_URL);
+  const rawUrl = normalizeText(rawInput || process.env.DATABASE_URL);
   if (!/^postgres(?:ql)?:\/\//i.test(rawUrl) && !/^mysql:\/\//i.test(rawUrl)) {
     return rawUrl;
   }
@@ -122,6 +124,20 @@ function createPrismaClient() {
   });
 }
 
+function createScopedPrismaClient(databaseUrl) {
+  const managedUrl = buildManagedDatasourceUrl(databaseUrl);
+  if (!managedUrl) {
+    return new PrismaClient();
+  }
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: managedUrl,
+      },
+    },
+  });
+}
+
 function getPrismaClient() {
   const nextKey = getClientKey();
   if (!cachedClient || cachedKey !== nextKey) {
@@ -134,12 +150,71 @@ function getPrismaClient() {
   return cachedClient;
 }
 
+function getScopedPrismaClient(databaseUrl) {
+  const managedUrl = buildManagedDatasourceUrl(databaseUrl);
+  const cacheKey = managedUrl || '__default__';
+  if (!scopedClientCache.has(cacheKey)) {
+    scopedClientCache.set(cacheKey, createScopedPrismaClient(managedUrl));
+  }
+  return scopedClientCache.get(cacheKey);
+}
+
+function resolveTenantScopedDatasourceUrl(tenantId, options = {}) {
+  const id = normalizeText(tenantId);
+  if (!id) return buildManagedDatasourceUrl();
+  const env = options.env || process.env;
+  const target = resolveTenantDatabaseTarget({
+    tenantId: id,
+    env,
+    databaseUrl: options.databaseUrl || env.DATABASE_URL,
+    mode: options.mode || env.TENANT_DB_TOPOLOGY_MODE,
+    provider: options.provider || env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  return buildManagedDatasourceUrl(target.datasourceUrl || env.DATABASE_URL);
+}
+
+function resolveDefaultTenantId(options = {}) {
+  const env = options.env || process.env;
+  const direct = normalizeText(options.tenantId || options.defaultTenantId);
+  if (direct) return direct;
+  return normalizeText(env.PLATFORM_DEFAULT_TENANT_ID || env.DEFAULT_TENANT_ID);
+}
+
+function getTenantScopedPrismaClient(tenantId, options = {}) {
+  const id = normalizeText(tenantId);
+  if (!id) return getPrismaClient();
+  const datasourceUrl = resolveTenantScopedDatasourceUrl(id, options);
+  const defaultDatasourceUrl = buildManagedDatasourceUrl(options.databaseUrl || process.env.DATABASE_URL);
+  if (!datasourceUrl || datasourceUrl === defaultDatasourceUrl) {
+    return getPrismaClient();
+  }
+  return getScopedPrismaClient(datasourceUrl);
+}
+
+function getDefaultTenantScopedPrismaClient(options = {}) {
+  const tenantId = resolveDefaultTenantId(options);
+  if (!tenantId) return getPrismaClient();
+  return getTenantScopedPrismaClient(tenantId, options);
+}
+
 async function disconnectPrismaClient() {
   if (!cachedClient) return;
   const client = cachedClient;
   cachedClient = null;
   cachedKey = '';
   await client.$disconnect();
+}
+
+async function disconnectAllPrismaClients() {
+  const disconnects = [];
+  if (cachedClient) {
+    disconnects.push(disconnectPrismaClient());
+  }
+  for (const client of scopedClientCache.values()) {
+    disconnects.push(client.$disconnect().catch(() => {}));
+  }
+  scopedClientCache.clear();
+  await Promise.all(disconnects);
 }
 
 const prisma = new Proxy({}, {
@@ -175,5 +250,10 @@ const prisma = new Proxy({}, {
 module.exports = {
   prisma,
   getPrismaClient,
+  getDefaultTenantScopedPrismaClient,
+  getTenantScopedPrismaClient,
+  resolveDefaultTenantId,
+  resolveTenantScopedDatasourceUrl,
   disconnectPrismaClient,
+  disconnectAllPrismaClients,
 };

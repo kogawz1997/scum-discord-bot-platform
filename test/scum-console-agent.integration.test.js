@@ -145,3 +145,47 @@ test('scum console agent: window-script preflight exposes actionable stderr deta
     await runtime.close();
   }
 });
+
+test('scum console agent: successful preflight clears stale health error state', async () => {
+  const runtime = startScumConsoleAgent({
+    env: {
+      SCUM_CONSOLE_AGENT_HOST: '127.0.0.1',
+      SCUM_CONSOLE_AGENT_PORT: '3316',
+      SCUM_CONSOLE_AGENT_TOKEN: 'window-agent-token-healthy',
+      SCUM_CONSOLE_AGENT_BACKEND: 'exec',
+      SCUM_CONSOLE_AGENT_EXEC_TEMPLATE: `node "${path.join(
+        process.cwd(),
+        'scripts',
+        'agent-echo.js',
+      )}" "{command}"`,
+    },
+  });
+
+  try {
+    await runtime.ready;
+    const execRes = await fetchJson('http://127.0.0.1:3316/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer window-agent-token-healthy',
+      },
+      body: JSON.stringify({
+        command: '#Announce fail-once',
+      }),
+    });
+    assert.equal(execRes.res.status, 200);
+
+    const preflight = await fetchJson('http://127.0.0.1:3316/preflight');
+    assert.equal(preflight.res.status, 200);
+    assert.equal(preflight.payload.ok, true);
+    assert.equal(preflight.payload.ready, true);
+
+    const health = await fetchJson('http://127.0.0.1:3316/healthz');
+    assert.equal(health.res.status, 200);
+    assert.equal(health.payload.ready, true);
+    assert.equal(health.payload.statusCode, 'READY');
+    assert.equal(health.payload.lastErrorCode, null);
+  } finally {
+    await runtime.close();
+  }
+});

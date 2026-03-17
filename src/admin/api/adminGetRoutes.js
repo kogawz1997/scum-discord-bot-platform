@@ -325,7 +325,7 @@ function createAdminGetRoutes(deps) {
       sendJson(res, 200, {
         ok: true,
         data: {
-          analytics: await getPlatformAnalyticsOverview(tenantId ? { tenantId } : {}),
+          analytics: await getPlatformAnalyticsOverview(tenantId ? { tenantId } : { allowGlobal: true }),
           publicOverview: await getPlatformPublicOverview(),
           permissionCatalog: getPlatformPermissionCatalog(),
           plans: getPlanCatalog(),
@@ -427,6 +427,7 @@ function createAdminGetRoutes(deps) {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -446,6 +447,7 @@ function createAdminGetRoutes(deps) {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -465,6 +467,7 @@ function createAdminGetRoutes(deps) {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -484,6 +487,7 @@ function createAdminGetRoutes(deps) {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
           tenantId,
           eventType: requiredString(urlObj.searchParams.get('eventType')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -503,6 +507,7 @@ function createAdminGetRoutes(deps) {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -523,6 +528,7 @@ function createAdminGetRoutes(deps) {
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
           locale: requiredString(urlObj.searchParams.get('locale')),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -542,6 +548,7 @@ function createAdminGetRoutes(deps) {
           tenantId,
           windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
           pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
+          allowGlobal: !tenantId,
         }),
       });
       return true;
@@ -699,11 +706,18 @@ function createAdminGetRoutes(deps) {
       const q = String(urlObj.searchParams.get('q') || '').trim();
       const kind = String(urlObj.searchParams.get('kind') || 'all').trim();
       const limit = asInt(urlObj.searchParams.get('limit'), 200) || 200;
-      const rows = await listShopItems();
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        String(urlObj.searchParams.get('tenantId') || '').trim(),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
+      const rows = await listShopItems({ tenantId });
       const items = filterShopItems(rows, { q, kind, limit });
       sendJson(res, 200, {
         ok: true,
-        data: { query: q, kind, total: items.length, items },
+        data: { query: q, kind, tenantId, total: items.length, items },
       });
       return true;
     }
@@ -720,16 +734,23 @@ function createAdminGetRoutes(deps) {
         1,
         Math.min(1000, asInt(urlObj.searchParams.get('limit'), 100) || 100),
       );
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        String(urlObj.searchParams.get('tenantId') || '').trim(),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const statusFilter = normalizePurchaseStatus(
         String(urlObj.searchParams.get('status') || ''),
       );
-      const rows = await listUserPurchases(userId);
+      const rows = await listUserPurchases(userId, { tenantId });
       const items = rows
         .filter((row) => !statusFilter || normalizePurchaseStatus(row.status) === statusFilter)
         .slice(0, limit);
       sendJson(res, 200, {
         ok: true,
-        data: { userId, total: items.length, items },
+        data: { userId, tenantId, total: items.length, items },
       });
       return true;
     }
@@ -737,7 +758,9 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/portal/player/dashboard') {
       const portal = ensurePortalTokenAuth(req, urlObj, res);
       if (!portal) return true;
-      const dashboard = await getPlayerDashboard(portal.discordId);
+      const dashboard = await getPlayerDashboard(portal.discordId, {
+        tenantId: getAuthTenantId(portal.auth) || undefined,
+      });
       if (!dashboard.ok) {
         sendJson(res, 400, {
           ok: false,
@@ -755,11 +778,12 @@ function createAdminGetRoutes(deps) {
       const q = String(urlObj.searchParams.get('q') || '').trim();
       const kind = String(urlObj.searchParams.get('kind') || 'all').trim();
       const limit = asInt(urlObj.searchParams.get('limit'), 120) || 120;
-      const rows = await listShopItems();
+      const tenantId = getAuthTenantId(portal.auth);
+      const rows = await listShopItems({ tenantId });
       const items = filterShopItems(rows, { q, kind, limit });
       sendJson(res, 200, {
         ok: true,
-        data: { query: q, kind, total: items.length, items },
+        data: { query: q, kind, tenantId, total: items.length, items },
       });
       return true;
     }
@@ -771,20 +795,22 @@ function createAdminGetRoutes(deps) {
         1,
         Math.min(200, asInt(urlObj.searchParams.get('limit'), 40) || 40),
       );
+      const tenantId = getAuthTenantId(portal.auth);
       const statusFilter = normalizePurchaseStatus(
         String(urlObj.searchParams.get('status') || ''),
       );
-      const rows = await listUserPurchases(portal.discordId);
+      const rows = await listUserPurchases(portal.discordId, { tenantId });
       const items = rows
         .filter((row) => !statusFilter || normalizePurchaseStatus(row.status) === statusFilter)
         .slice(0, limit);
       sendJson(res, 200, {
-        ok: true,
-        data: {
-          userId: portal.discordId,
-          total: items.length,
-          items,
-        },
+          ok: true,
+          data: {
+            userId: portal.discordId,
+            tenantId,
+            total: items.length,
+            items,
+          },
       });
       return true;
     }
@@ -803,12 +829,18 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/delivery/queue') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: listFilteredDeliveryQueue({
           limit: asInt(urlObj.searchParams.get('limit'), 500) || 500,
           errorCode: String(urlObj.searchParams.get('errorCode') || '').trim(),
           q: String(urlObj.searchParams.get('q') || '').trim(),
+          tenantId: tenantId || getAuthTenantId(auth) || undefined,
         }),
       });
       return true;
@@ -817,12 +849,18 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/delivery/dead-letter') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: listFilteredDeliveryDeadLetters({
           limit: asInt(urlObj.searchParams.get('limit'), 500) || 500,
           errorCode: String(urlObj.searchParams.get('errorCode') || '').trim(),
           q: String(urlObj.searchParams.get('q') || '').trim(),
+          tenantId: tenantId || getAuthTenantId(auth) || undefined,
         }),
       });
       return true;
@@ -880,10 +918,18 @@ function createAdminGetRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'code is required' });
         return true;
       }
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        String(urlObj.searchParams.get('tenantId') || '').trim(),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       try {
         const data = await getDeliveryDetailsByPurchaseCode(
           purchaseCode,
           asInt(urlObj.searchParams.get('limit'), 50) || 50,
+          { tenantId },
         );
         const hasData = Boolean(
           data?.purchase
@@ -954,11 +1000,17 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const refreshRaw = String(urlObj.searchParams.get('refresh') || '').trim().toLowerCase();
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await buildAdminDashboardCards({
           prisma,
           client,
+          tenantId,
           forceRefresh: refreshRaw === '1' || refreshRaw === 'true',
         }),
       });
@@ -968,9 +1020,17 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/player/accounts') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listPlayerAccounts(asInt(urlObj.searchParams.get('limit'), 200) || 200),
+        data: await listPlayerAccounts(
+          asInt(urlObj.searchParams.get('limit'), 200) || 200,
+          tenantId ? { tenantId } : {},
+        ),
       });
       return true;
     }
@@ -983,7 +1043,12 @@ function createAdminGetRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const dashboard = await getPlayerDashboard(userId);
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
+      const dashboard = await getPlayerDashboard(userId, tenantId ? { tenantId } : {});
       if (!dashboard.ok) {
         sendJson(res, 400, {
           ok: false,

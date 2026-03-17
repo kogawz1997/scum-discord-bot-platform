@@ -1,6 +1,12 @@
 ﻿const crypto = require('node:crypto');
 
+const { getTenantScopedPrismaClient } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
+const {
+  normalizeTenantId,
+  readAcrossDeliveryPersistenceScopes,
+} = require('./deliveryPersistenceDb');
 
 const REWARD_REASON_TOKENS = Object.freeze([
   'daily',
@@ -90,6 +96,17 @@ function normalizeAuditTimestamp(value) {
   if (!value) return 0;
   const ts = new Date(value).getTime();
   return Number.isFinite(ts) ? ts : 0;
+}
+
+function shouldAggregateAuditAcrossTopology(options = {}) {
+  return !normalizeTenantId(options.tenantId)
+    && getTenantDatabaseTopologyMode() !== 'shared';
+}
+
+function getAuditScopedPrisma(options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
+  if (!tenantId) return options.prisma;
+  return getTenantScopedPrismaClient(tenantId);
 }
 
 function stringifyAuditValue(value) {
@@ -511,6 +528,25 @@ async function buildWalletCards(prisma, where, windowMs) {
   ];
 }
 
+function buildWalletCardsFromRows(rows = [], windowMs) {
+  const total = rows.length;
+  const credits = rows.reduce((sum, row) => {
+    const delta = Number(row?.delta || 0);
+    return delta > 0 ? sum + delta : sum;
+  }, 0);
+  const debits = rows.reduce((sum, row) => {
+    const delta = Number(row?.delta || 0);
+    return delta < 0 ? sum + Math.abs(delta) : sum;
+  }, 0);
+
+  return [
+    ['รายการที่ตรงเงื่อนไข', total],
+    ['เครดิตรวม', credits],
+    ['เดบิตรวม', debits],
+    ['ช่วงเวลา', getAuditWindowLabel(windowMs)],
+  ];
+}
+
 async function buildRewardCards(prisma, where, windowMs) {
   const [total, creditsAgg, reasons] = await Promise.all([
     prisma.walletLedger.count({ where }),
@@ -533,6 +569,26 @@ async function buildRewardCards(prisma, where, windowMs) {
   ];
 }
 
+function buildRewardCardsFromRows(rows = [], windowMs) {
+  const total = rows.length;
+  const credits = rows.reduce((sum, row) => {
+    const delta = Number(row?.delta || 0);
+    return delta > 0 ? sum + delta : sum;
+  }, 0);
+  const reasonCount = new Set(
+    rows
+      .map((row) => String(row?.reason || '').trim())
+      .filter(Boolean),
+  ).size;
+
+  return [
+    ['reward ledger ที่ตรงเงื่อนไข', total],
+    ['เครดิต reward รวม', credits],
+    ['ประเภทรางวัล', reasonCount],
+    ['ช่วงเวลา', getAuditWindowLabel(windowMs)],
+  ];
+}
+
 async function buildEventCards(prisma, eventWhere, rewardWhere, windowMs) {
   const [total, active, rewardRows] = await Promise.all([
     prisma.guildEvent.count({ where: eventWhere }),
@@ -543,6 +599,23 @@ async function buildEventCards(prisma, eventWhere, rewardWhere, windowMs) {
     }),
   ]);
   const eventRewardCount = rewardRows.filter((row) => String(row?.reason || '') === 'event_reward').length;
+
+  return [
+    ['กิจกรรมที่ตรงเงื่อนไข', total],
+    ['กิจกรรมที่ยังเปิดอยู่', active],
+    ['event_reward ใน ledger', eventRewardCount],
+    ['ช่วงเวลา', getAuditWindowLabel(windowMs)],
+  ];
+}
+
+function buildEventCardsFromRows(eventRows = [], rewardRows = [], windowMs) {
+  const total = eventRows.length;
+  const active = eventRows
+    .filter((row) => String(row?.status || '').trim() !== 'ended')
+    .length;
+  const eventRewardCount = rewardRows
+    .filter((row) => String(row?.reason || '').trim() === 'event_reward')
+    .length;
 
   return [
     ['กิจกรรมที่ตรงเงื่อนไข', total],
@@ -572,7 +645,49 @@ async function buildWalletLikeDataset(prisma, view, options, { rewardOnly = fals
     Number.isFinite(Number(options.page)) ? Math.trunc(Number(options.page)) : 1,
   );
   const exportAll = options.exportAll === true;
-  const total = await prisma.walletLedger.count({ where });
+  const scopedPrisma = getAuditScopedPrisma({ ...options, prisma });
+  const aggregateAcrossTopology = shouldAggregateAuditAcrossTopology(options);
+
+  if (aggregateAcrossTopology) {
+    const allRows = await readAcrossDeliveryPersistenceScopes((db) => db.walletLedger.findMany({ where }));
+    const sortedRows = sortAuditRows(allRows, view, sortBy, sortOrder);
+    const total = sortedRows.length;
+    const paging = buildPaginationState({
+      total,
+      pageSize,
+      requestedPage,
+      cursor: options.cursor,
+      exportAll,
+    });
+    const rows = exportAll
+      ? sortedRows
+      : sortedRows.slice(paging.normalizedStartIndex, paging.normalizedStartIndex + pageSize);
+    const cards = view === 'reward'
+      ? buildRewardCardsFromRows(allRows, normalizeAuditWindowMs(options.windowMs))
+      : buildWalletCardsFromRows(allRows, normalizeAuditWindowMs(options.windowMs));
+
+    return {
+      view,
+      total,
+      returned: rows.length,
+      page: paging.page,
+      pageSize,
+      totalPages: paging.totalPages,
+      sortBy,
+      sortOrder,
+      paginationMode: paging.usingCursor ? 'cursor' : 'page',
+      cursor: paging.cursor,
+      nextCursor: paging.nextCursor,
+      prevCursor: paging.prevCursor,
+      hasPrev: paging.hasPrev,
+      hasNext: paging.hasNext,
+      cards,
+      rows,
+      tableRows: view === 'reward' ? rows.map(mapRewardAuditRow) : rows.map(mapWalletAuditRow),
+    };
+  }
+
+  const total = await scopedPrisma.walletLedger.count({ where });
   const paging = buildPaginationState({
     total,
     pageSize,
@@ -580,14 +695,14 @@ async function buildWalletLikeDataset(prisma, view, options, { rewardOnly = fals
     cursor: options.cursor,
     exportAll,
   });
-  const rows = await prisma.walletLedger.findMany({
+  const rows = await scopedPrisma.walletLedger.findMany({
     where,
     orderBy: buildWalletOrderBy(sortBy, sortOrder),
     ...(exportAll ? {} : { skip: paging.normalizedStartIndex, take: pageSize }),
   });
   const cards = view === 'reward'
-    ? await buildRewardCards(prisma, where, normalizeAuditWindowMs(options.windowMs))
-    : await buildWalletCards(prisma, where, normalizeAuditWindowMs(options.windowMs));
+    ? await buildRewardCards(scopedPrisma, where, normalizeAuditWindowMs(options.windowMs))
+    : await buildWalletCards(scopedPrisma, where, normalizeAuditWindowMs(options.windowMs));
 
   return {
     view,
@@ -632,7 +747,62 @@ async function buildEventDataset(prisma, options) {
     Number.isFinite(Number(options.page)) ? Math.trunc(Number(options.page)) : 1,
   );
   const exportAll = options.exportAll === true;
-  const total = await prisma.guildEvent.count({ where });
+  const scopedPrisma = getAuditScopedPrisma({ ...options, prisma });
+  const aggregateAcrossTopology = shouldAggregateAuditAcrossTopology(options);
+
+  if (aggregateAcrossTopology) {
+    const allRows = await readAcrossDeliveryPersistenceScopes((db) =>
+      db.guildEvent.findMany({
+        where,
+        include: {
+          participants: { select: { userId: true } },
+        },
+      }));
+    const normalizedRows = allRows.map(normalizeEventRow);
+    const sortedRows = sortAuditRows(normalizedRows, view, sortBy, sortOrder);
+    const total = sortedRows.length;
+    const paging = buildPaginationState({
+      total,
+      pageSize,
+      requestedPage,
+      cursor: options.cursor,
+      exportAll,
+    });
+    const rows = exportAll
+      ? sortedRows
+      : sortedRows.slice(paging.normalizedStartIndex, paging.normalizedStartIndex + pageSize);
+    const rewardRows = await readAcrossDeliveryPersistenceScopes((db) =>
+      db.walletLedger.findMany({
+        where: combineWhere(rewardWhere, buildRewardOnlyWhere()),
+        select: { reason: true },
+      }));
+
+    return {
+      view,
+      total,
+      returned: rows.length,
+      page: paging.page,
+      pageSize,
+      totalPages: paging.totalPages,
+      sortBy,
+      sortOrder,
+      paginationMode: paging.usingCursor ? 'cursor' : 'page',
+      cursor: paging.cursor,
+      nextCursor: paging.nextCursor,
+      prevCursor: paging.prevCursor,
+      hasPrev: paging.hasPrev,
+      hasNext: paging.hasNext,
+      cards: buildEventCardsFromRows(
+        normalizedRows,
+        rewardRows,
+        normalizeAuditWindowMs(options.windowMs),
+      ),
+      rows,
+      tableRows: rows.map(mapEventAuditRow),
+    };
+  }
+
+  const total = await scopedPrisma.guildEvent.count({ where });
   const paging = buildPaginationState({
     total,
     pageSize,
@@ -651,13 +821,13 @@ async function buildEventDataset(prisma, options) {
 
   let rows;
   if (shouldSortInMemory) {
-    const allRows = await prisma.guildEvent.findMany(baseQuery);
+    const allRows = await scopedPrisma.guildEvent.findMany(baseQuery);
     const sorted = sortAuditRows(allRows.map(normalizeEventRow), view, sortBy, sortOrder);
     rows = exportAll
       ? sorted
       : sorted.slice(paging.normalizedStartIndex, paging.normalizedStartIndex + pageSize);
   } else {
-    const dbRows = await prisma.guildEvent.findMany({
+    const dbRows = await scopedPrisma.guildEvent.findMany({
       ...baseQuery,
       orderBy: buildEventOrderBy(sortBy, sortOrder) || [{ createdAt: sortOrder }, { id: sortOrder }],
       ...(exportAll ? {} : { skip: paging.normalizedStartIndex, take: pageSize }),
@@ -674,15 +844,15 @@ async function buildEventDataset(prisma, options) {
     totalPages: paging.totalPages,
     sortBy,
     sortOrder,
-    paginationMode: paging.usingCursor ? 'cursor' : 'page',
-    cursor: paging.cursor,
-    nextCursor: paging.nextCursor,
-    prevCursor: paging.prevCursor,
-    hasPrev: paging.hasPrev,
-    hasNext: paging.hasNext,
-    cards: await buildEventCards(prisma, where, rewardWhere, normalizeAuditWindowMs(options.windowMs)),
-    rows,
-    tableRows: rows.map(mapEventAuditRow),
+      paginationMode: paging.usingCursor ? 'cursor' : 'page',
+      cursor: paging.cursor,
+      nextCursor: paging.nextCursor,
+      prevCursor: paging.prevCursor,
+      hasPrev: paging.hasPrev,
+      hasNext: paging.hasNext,
+      cards: await buildEventCards(scopedPrisma, where, rewardWhere, normalizeAuditWindowMs(options.windowMs)),
+      rows,
+      tableRows: rows.map(mapEventAuditRow),
   };
 }
 

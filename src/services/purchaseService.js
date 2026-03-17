@@ -30,7 +30,9 @@ async function updatePurchaseStatusForActor(params = {}) {
     };
   }
 
-  const purchase = await findPurchaseByCode(code);
+  const purchase = await findPurchaseByCode(code, {
+    tenantId: params.tenantId || null,
+  });
   if (!purchase) {
     return { ok: false, reason: 'not-found' };
   }
@@ -57,6 +59,7 @@ async function updatePurchaseStatusForActor(params = {}) {
       force: params.force === true,
       actor,
       reason,
+      tenantId: params.tenantId || purchase?.tenantId || null,
       meta: params.meta && typeof params.meta === 'object' ? params.meta : {},
       recordIfSame: params.recordIfSame === true,
     });
@@ -75,7 +78,9 @@ async function updatePurchaseStatusForActor(params = {}) {
     return { ok: false, reason: 'not-found' };
   }
 
-  const history = await listPurchaseStatusHistory(updated.code, historyLimit);
+  const history = await listPurchaseStatusHistory(updated.code, historyLimit, {
+    tenantId: params.tenantId || updated?.tenantId || purchase?.tenantId || null,
+  });
   return {
     ok: true,
     purchase: updated,
@@ -94,7 +99,9 @@ async function refundPurchaseForActor(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const purchase = await findPurchaseByCode(code);
+  const purchase = await findPurchaseByCode(code, {
+    tenantId: params.tenantId || null,
+  });
   if (!purchase) {
     return { ok: false, reason: 'not-found' };
   }
@@ -124,6 +131,7 @@ async function refundPurchaseForActor(params = {}) {
     reason,
     meta: params.meta && typeof params.meta === 'object' ? params.meta : {},
     historyLimit: Number(params.historyLimit || 20),
+    tenantId: params.tenantId || purchase?.tenantId || null,
   });
   if (!statusResult.ok) {
     return statusResult;

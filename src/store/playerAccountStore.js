@@ -1,4 +1,9 @@
-const { prisma } = require('../prisma');
+const {
+  prisma,
+  getTenantScopedPrismaClient,
+  resolveDefaultTenantId,
+  resolveTenantScopedDatasourceUrl,
+} = require('../prisma');
 
 function normalizeDiscordId(value) {
   const id = String(value || '').trim();
@@ -18,15 +23,32 @@ function normalizeText(value) {
   return text || null;
 }
 
-async function upsertPlayerAccount(input = {}) {
+function resolveStoreScope(options = {}) {
+  const tenantId = resolveDefaultTenantId(options);
+  if (!tenantId) {
+    return {
+      tenantId: null,
+      datasourceKey: '__default__',
+      db: prisma,
+    };
+  }
+  return {
+    tenantId,
+    datasourceKey: resolveTenantScopedDatasourceUrl(tenantId, options) || tenantId,
+    db: getTenantScopedPrismaClient(tenantId, options),
+  };
+}
+
+async function upsertPlayerAccount(input = {}, options = {}) {
   const discordId = normalizeDiscordId(input.discordId || input.userId);
   if (!discordId) {
     return { ok: false, reason: 'invalid-discord-id' };
   }
 
   const steamId = normalizeSteamId(input.steamId);
+  const { db } = resolveStoreScope(options);
   try {
-    const row = await prisma.playerAccount.upsert({
+    const row = await db.playerAccount.upsert({
       where: { discordId },
       update: {
         username: normalizeText(input.username),
@@ -53,7 +75,7 @@ async function upsertPlayerAccount(input = {}) {
   }
 }
 
-async function bindPlayerSteamId(discordId, steamId) {
+async function bindPlayerSteamId(discordId, steamId, options = {}) {
   const did = normalizeDiscordId(discordId);
   const sid = normalizeSteamId(steamId);
   if (!did || !sid) {
@@ -63,14 +85,15 @@ async function bindPlayerSteamId(discordId, steamId) {
     discordId: did,
     steamId: sid,
     isActive: true,
-  });
+  }, options);
 }
 
-async function unbindPlayerSteamId(discordId) {
+async function unbindPlayerSteamId(discordId, options = {}) {
   const did = normalizeDiscordId(discordId);
   if (!did) return { ok: false, reason: 'invalid-discord-id' };
+  const { db } = resolveStoreScope(options);
 
-  const row = await prisma.playerAccount.upsert({
+  const row = await db.playerAccount.upsert({
     where: { discordId: did },
     update: {
       steamId: null,
@@ -84,35 +107,38 @@ async function unbindPlayerSteamId(discordId) {
   return { ok: true, data: row };
 }
 
-async function getPlayerAccount(discordId) {
+async function getPlayerAccount(discordId, options = {}) {
   const did = normalizeDiscordId(discordId);
   if (!did) return null;
-  return prisma.playerAccount.findUnique({
+  const { db } = resolveStoreScope(options);
+  return db.playerAccount.findUnique({
     where: { discordId: did },
   });
 }
 
-async function listPlayerAccounts(limit = 100) {
+async function listPlayerAccounts(limit = 100, options = {}) {
   const take = Math.max(1, Math.min(1000, Math.trunc(Number(limit || 100))));
-  return prisma.playerAccount.findMany({
+  const { db } = resolveStoreScope(options);
+  return db.playerAccount.findMany({
     orderBy: { updatedAt: 'desc' },
     take,
   });
 }
 
-async function getPlayerDashboard(discordId) {
+async function getPlayerDashboard(discordId, options = {}) {
   const did = normalizeDiscordId(discordId);
   if (!did) {
     return { ok: false, reason: 'invalid-discord-id' };
   }
+  const { db } = resolveStoreScope(options);
 
   const [account, wallet, stats, vip, links, recentPurchases] = await Promise.all([
-    prisma.playerAccount.findUnique({ where: { discordId: did } }),
-    prisma.userWallet.findUnique({ where: { userId: did } }),
-    prisma.stats.findUnique({ where: { userId: did } }),
-    prisma.vipMembership.findUnique({ where: { userId: did } }),
-    prisma.link.findMany({ where: { userId: did }, take: 1 }),
-    prisma.purchase.findMany({
+    db.playerAccount.findUnique({ where: { discordId: did } }),
+    db.userWallet.findUnique({ where: { userId: did } }),
+    db.stats.findUnique({ where: { userId: did } }),
+    db.vipMembership.findUnique({ where: { userId: did } }),
+    db.link.findMany({ where: { userId: did }, take: 1 }),
+    db.purchase.findMany({
       where: { userId: did },
       orderBy: { createdAt: 'desc' },
       take: 20,

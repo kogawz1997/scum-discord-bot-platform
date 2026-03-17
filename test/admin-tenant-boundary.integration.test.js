@@ -16,6 +16,11 @@ const {
 const {
   resetPlatformOpsState,
 } = require('../src/store/platformOpsStateStore');
+const {
+  replaceDeliveryQueue,
+  replaceDeliveryDeadLetters,
+  flushDeliveryPersistenceWrites,
+} = require('../src/services/rconDelivery');
 
 const adminWebServerPath = path.resolve(__dirname, '../src/adminWebServer.js');
 
@@ -70,6 +75,9 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   const tenantOwnerUser = `tenant_owner_${Date.now()}`;
   const tenantId = `tenant-boundary-${Date.now()}`;
   const otherTenantId = `tenant-boundary-other-${Date.now()}`;
+  const scopedPurchaseUserId = `tenant_purchase_user_${Date.now()}`;
+  const sameTenantPurchaseCode = `P-TENANT-${Date.now()}`;
+  const otherTenantPurchaseCode = `P-OTHER-${Date.now()}`;
 
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -90,12 +98,29 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   }
 
   t.after(async () => {
+    replaceDeliveryQueue([]);
+    replaceDeliveryDeadLetters([]);
+    await flushDeliveryPersistenceWrites().catch(() => null);
     await new Promise((resolve) => server.close(resolve));
     await prisma.platformMarketplaceOffer.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => null);
     await prisma.platformApiKey.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => null);
     await prisma.platformLicense.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => null);
     await prisma.platformSubscription.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => null);
     await prisma.platformWebhookEndpoint.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => null);
+    await prisma.purchaseStatusHistory.deleteMany({
+      where: {
+        purchaseCode: {
+          in: [sameTenantPurchaseCode, otherTenantPurchaseCode],
+        },
+      },
+    }).catch(() => null);
+    await prisma.purchase.deleteMany({
+      where: {
+        code: {
+          in: [sameTenantPurchaseCode, otherTenantPurchaseCode],
+        },
+      },
+    }).catch(() => null);
     await prisma.platformTenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } }).catch(() => null);
     await prisma.$executeRawUnsafe(
       'DELETE FROM admin_web_users WHERE username IN ($1, $2, $3)',
@@ -188,8 +213,240 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   }, ownerCookie);
   assert.equal(tenantConfigUpsert.res.status, 200);
 
+  await prisma.purchase.createMany({
+    data: [
+      {
+        code: sameTenantPurchaseCode,
+        tenantId,
+        userId: scopedPurchaseUserId,
+        itemId: 'tenant-boundary-item',
+        price: 100,
+        status: 'pending',
+      },
+      {
+        code: otherTenantPurchaseCode,
+        tenantId: otherTenantId,
+        userId: scopedPurchaseUserId,
+        itemId: 'tenant-boundary-item',
+        price: 100,
+        status: 'pending',
+      },
+    ],
+  });
+  await prisma.purchaseStatusHistory.createMany({
+    data: [
+      {
+        purchaseCode: sameTenantPurchaseCode,
+        fromStatus: null,
+        toStatus: 'pending',
+        reason: 'seed',
+        actor: 'test-suite',
+      },
+      {
+        purchaseCode: otherTenantPurchaseCode,
+        fromStatus: null,
+        toStatus: 'pending',
+        reason: 'seed',
+        actor: 'test-suite',
+      },
+    ],
+  });
+
+  replaceDeliveryQueue([
+    {
+      purchaseCode: sameTenantPurchaseCode,
+      tenantId,
+      userId: scopedPurchaseUserId,
+      itemId: 'tenant-boundary-item',
+      attempts: 1,
+      nextAttemptAt: Date.now() + 60_000,
+    },
+    {
+      purchaseCode: otherTenantPurchaseCode,
+      tenantId: otherTenantId,
+      userId: scopedPurchaseUserId,
+      itemId: 'tenant-boundary-item',
+      attempts: 1,
+      nextAttemptAt: Date.now() + 60_000,
+    },
+  ]);
+  replaceDeliveryDeadLetters([
+    {
+      purchaseCode: sameTenantPurchaseCode,
+      tenantId,
+      userId: scopedPurchaseUserId,
+      itemId: 'tenant-boundary-item',
+      attempts: 1,
+      reason: 'tenant-test',
+    },
+    {
+      purchaseCode: otherTenantPurchaseCode,
+      tenantId: otherTenantId,
+      userId: scopedPurchaseUserId,
+      itemId: 'tenant-boundary-item',
+      attempts: 1,
+      reason: 'tenant-test',
+    },
+  ]);
+  await flushDeliveryPersistenceWrites();
+
   const scopedQuota = await request(`/admin/api/platform/quota?tenantId=${encodeURIComponent(tenantId)}`, 'GET', null, tenantCookie);
   assert.equal(scopedQuota.res.status, 200);
+
+  const scopedPurchaseList = await request(
+    `/admin/api/purchase/list?userId=${encodeURIComponent(scopedPurchaseUserId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(scopedPurchaseList.res.status, 200);
+  assert.ok(
+    Array.isArray(scopedPurchaseList.data.data?.items)
+      && scopedPurchaseList.data.data.items.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const scopedQueue = await request('/admin/api/delivery/queue', 'GET', null, tenantCookie);
+  assert.equal(scopedQueue.res.status, 200);
+  assert.deepEqual(
+    Array.isArray(scopedQueue.data.data) ? scopedQueue.data.data.map((row) => String(row?.tenantId || '')) : [],
+    [tenantId],
+  );
+
+  const scopedDeadLetter = await request('/admin/api/delivery/dead-letter', 'GET', null, tenantCookie);
+  assert.equal(scopedDeadLetter.res.status, 200);
+  assert.deepEqual(
+    Array.isArray(scopedDeadLetter.data.data) ? scopedDeadLetter.data.data.map((row) => String(row?.tenantId || '')) : [],
+    [tenantId],
+  );
+
+  const crossTenantPurchaseDetail = await request(
+    `/admin/api/delivery/detail?code=${encodeURIComponent(otherTenantPurchaseCode)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantPurchaseDetail.res.status, 404);
+
+  const crossTenantPurchaseStatus = await request('/admin/api/purchase/status', 'POST', {
+    code: otherTenantPurchaseCode,
+    status: 'delivered',
+  }, tenantCookie);
+  assert.equal(crossTenantPurchaseStatus.res.status, 404);
+
+  const crossTenantRetry = await request('/admin/api/delivery/retry', 'POST', {
+    code: otherTenantPurchaseCode,
+  }, tenantCookie);
+  assert.equal(crossTenantRetry.res.status, 404);
+
+  const crossTenantDeadLetterDelete = await request('/admin/api/delivery/dead-letter/delete', 'POST', {
+    code: otherTenantPurchaseCode,
+  }, tenantCookie);
+  assert.equal(crossTenantDeadLetterDelete.res.status, 404);
+
+  const sameTenantSubscription = await request('/admin/api/platform/subscription', 'POST', {
+    tenantId,
+    id: `sub-${tenantId}`,
+    planId: 'platform-starter',
+    amountCents: 490000,
+  }, ownerCookie);
+  assert.equal(sameTenantSubscription.res.status, 200);
+
+  const otherTenantSubscription = await request('/admin/api/platform/subscription', 'POST', {
+    tenantId: otherTenantId,
+    id: `sub-${otherTenantId}`,
+    planId: 'platform-starter',
+    amountCents: 490000,
+  }, ownerCookie);
+  assert.equal(otherTenantSubscription.res.status, 200);
+
+  const sameTenantLicense = await request('/admin/api/platform/license', 'POST', {
+    tenantId,
+    id: `license-${tenantId}`,
+    licenseKey: `LIC-${tenantId}`,
+    seats: 2,
+  }, ownerCookie);
+  assert.equal(sameTenantLicense.res.status, 200);
+
+  const otherTenantLicense = await request('/admin/api/platform/license', 'POST', {
+    tenantId: otherTenantId,
+    id: `license-${otherTenantId}`,
+    licenseKey: `LIC-${otherTenantId}`,
+    seats: 2,
+  }, ownerCookie);
+  assert.equal(otherTenantLicense.res.status, 200);
+
+  const sameTenantApiKey = await request('/admin/api/platform/apikey', 'POST', {
+    tenantId,
+    id: `apikey-${tenantId}`,
+    name: `key-${tenantId}`,
+    scopes: ['tenant:read'],
+  }, ownerCookie);
+  assert.equal(sameTenantApiKey.res.status, 200);
+
+  const otherTenantApiKey = await request('/admin/api/platform/apikey', 'POST', {
+    tenantId: otherTenantId,
+    id: `apikey-${otherTenantId}`,
+    name: `key-${otherTenantId}`,
+    scopes: ['tenant:read'],
+  }, ownerCookie);
+  assert.equal(otherTenantApiKey.res.status, 200);
+
+  const sameTenantWebhook = await request('/admin/api/platform/webhook', 'POST', {
+    tenantId,
+    id: `webhook-${tenantId}`,
+    name: `hook-${tenantId}`,
+    eventType: 'platform.boundary.test',
+    targetUrl: 'https://example.com/tenant-a',
+    secretValue: 'secret-a',
+  }, ownerCookie);
+  assert.equal(sameTenantWebhook.res.status, 200);
+
+  const otherTenantWebhook = await request('/admin/api/platform/webhook', 'POST', {
+    tenantId: otherTenantId,
+    id: `webhook-${otherTenantId}`,
+    name: `hook-${otherTenantId}`,
+    eventType: 'platform.boundary.test',
+    targetUrl: 'https://example.com/tenant-b',
+    secretValue: 'secret-b',
+  }, ownerCookie);
+  assert.equal(otherTenantWebhook.res.status, 200);
+
+  const sameTenantMarketplace = await request('/admin/api/platform/marketplace', 'POST', {
+    tenantId,
+    id: `offer-${tenantId}`,
+    title: `offer-${tenantId}`,
+    kind: 'service',
+    priceCents: 1000,
+  }, ownerCookie);
+  assert.equal(sameTenantMarketplace.res.status, 200);
+
+  const otherTenantMarketplace = await request('/admin/api/platform/marketplace', 'POST', {
+    tenantId: otherTenantId,
+    id: `offer-${otherTenantId}`,
+    title: `offer-${otherTenantId}`,
+    kind: 'service',
+    priceCents: 1000,
+  }, ownerCookie);
+  assert.equal(otherTenantMarketplace.res.status, 200);
+
+  await prisma.platformAgentRuntime.createMany({
+    data: [
+      {
+        id: `agent-${tenantId}`,
+        tenantId,
+        runtimeKey: `runtime-${tenantId}`,
+        version: '1.0.0',
+        status: 'online',
+      },
+      {
+        id: `agent-${otherTenantId}`,
+        tenantId: otherTenantId,
+        runtimeKey: `runtime-${otherTenantId}`,
+        version: '1.0.0',
+        status: 'online',
+      },
+    ],
+  });
 
   const crossQuota = await request(`/admin/api/platform/quota?tenantId=${encodeURIComponent(otherTenantId)}`, 'GET', null, tenantCookie);
   assert.equal(crossQuota.res.status, 403);
@@ -300,6 +557,10 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
     tenantOwnerCookie,
   );
   assert.equal(sameTenantWebhookList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantWebhookList.data.data)
+      && sameTenantWebhookList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
 
   const crossTenantWebhookList = await request(
     `/admin/api/platform/webhooks?tenantId=${encodeURIComponent(otherTenantId)}`,
@@ -309,6 +570,129 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   );
   assert.equal(crossTenantWebhookList.res.status, 403);
   assert.equal(String(crossTenantWebhookList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantSubscriptionList = await request(
+    `/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(sameTenantSubscriptionList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantSubscriptionList.data.data)
+      && sameTenantSubscriptionList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const crossTenantSubscriptionList = await request(
+    `/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantSubscriptionList.res.status, 403);
+  assert.equal(String(crossTenantSubscriptionList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantLicenseList = await request(
+    `/admin/api/platform/licenses?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(sameTenantLicenseList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantLicenseList.data.data)
+      && sameTenantLicenseList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const crossTenantLicenseList = await request(
+    `/admin/api/platform/licenses?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantLicenseList.res.status, 403);
+  assert.equal(String(crossTenantLicenseList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantApiKeyList = await request(
+    `/admin/api/platform/apikeys?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantOwnerCookie,
+  );
+  assert.equal(sameTenantApiKeyList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantApiKeyList.data.data)
+      && sameTenantApiKeyList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const crossTenantApiKeyList = await request(
+    `/admin/api/platform/apikeys?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantOwnerCookie,
+  );
+  assert.equal(crossTenantApiKeyList.res.status, 403);
+  assert.equal(String(crossTenantApiKeyList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantAgentList = await request(
+    `/admin/api/platform/agents?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(sameTenantAgentList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantAgentList.data.data)
+      && sameTenantAgentList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const crossTenantAgentList = await request(
+    `/admin/api/platform/agents?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantAgentList.res.status, 403);
+  assert.equal(String(crossTenantAgentList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantMarketplaceList = await request(
+    `/admin/api/platform/marketplace?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(sameTenantMarketplaceList.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantMarketplaceList.data.data)
+      && sameTenantMarketplaceList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const crossTenantMarketplaceList = await request(
+    `/admin/api/platform/marketplace?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantMarketplaceList.res.status, 403);
+  assert.equal(String(crossTenantMarketplaceList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const sameTenantReconcile = await request(
+    `/admin/api/platform/reconcile?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(sameTenantReconcile.res.status, 200);
+  assert.equal(String(sameTenantReconcile.data.data?.scope?.tenantId || ''), tenantId);
+
+  const crossTenantReconcile = await request(
+    `/admin/api/platform/reconcile?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantReconcile.res.status, 403);
+  assert.equal(String(crossTenantReconcile.data.error || ''), 'Forbidden: tenant scope mismatch');
 
   const monitoringRes = await request('/admin/api/platform/monitoring/run', 'POST', {
   }, tenantCookie);

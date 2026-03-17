@@ -151,10 +151,10 @@ function getDeliveryStatusText(result) {
   return result?.reason || 'ไม่ทราบสถานะ';
 }
 
-async function findShopItemByQuery(query) {
+async function findShopItemByQuery(query, options = {}) {
   const text = String(query || '').trim();
   if (!text) return null;
-  return (await getShopItemById(text)) || (await getShopItemByName(text));
+  return (await getShopItemById(text, options)) || (await getShopItemByName(text, options));
 }
 
 async function createQueuedPurchase(params = {}) {
@@ -168,12 +168,11 @@ async function createQueuedPurchase(params = {}) {
   const enqueuePurchaseDeliveryFn =
     params.enqueuePurchaseDeliveryFn || enqueuePurchaseDelivery;
 
-  const purchase = await createPurchaseFn(userId, item, {
-    tenantId: params.tenantId || item?.tenantId || null,
-  });
+  const tenantId = params.tenantId || item?.tenantId || null;
+  const purchase = await createPurchaseFn(userId, item, { tenantId });
   const delivery = await enqueuePurchaseDeliveryFn(purchase, {
     guildId: params.guildId || null,
-    tenantId: params.tenantId || item?.tenantId || purchase?.tenantId || null,
+    tenantId: tenantId || purchase?.tenantId || null,
     ...(params.deliveryOptions && typeof params.deliveryOptions === 'object'
       ? params.deliveryOptions
       : {}),
@@ -209,9 +208,8 @@ async function createVipPurchase(params = {}) {
     throw new Error('vip-plan-not-found');
   }
 
-  const purchase = await createPurchaseFn(userId, item, {
-    tenantId: params.tenantId || item?.tenantId || null,
-  });
+  const tenantId = params.tenantId || item?.tenantId || null;
+  const purchase = await createPurchaseFn(userId, item, { tenantId });
 
   const previousMembership = getMembershipFn(userId);
   const now = params.now instanceof Date ? params.now : new Date();
@@ -232,6 +230,7 @@ async function createVipPurchase(params = {}) {
     const completedPurchase = await setPurchaseStatusByCodeFn(purchase.code, 'delivered', {
       actor,
       reason: 'vip-activated',
+      tenantId: tenantId || purchase?.tenantId || null,
       meta: {
         source,
         planId: vipPlan.id,
@@ -270,7 +269,9 @@ async function purchaseShopItemForUser(params = {}) {
     return { ok: false, reason: 'invalid-user-id' };
   }
 
-  const item = params.item || (await findShopItemByQuery(params.query));
+  const item = params.item || (await findShopItemByQuery(params.query, {
+    tenantId: params.tenantId || null,
+  }));
   if (!item) {
     return { ok: false, reason: 'item-not-found' };
   }
@@ -441,6 +442,8 @@ async function addShopItemForAdmin(params = {}) {
       deliveryPreCommands: isGameItemShopKind(kind) ? deliveryPreCommands : [],
       deliveryPostCommands: isGameItemShopKind(kind) ? deliveryPostCommands : [],
       deliveryReturnTarget: isGameItemShopKind(kind) ? deliveryReturnTarget : null,
+    }, {
+      tenantId: params.tenantId || null,
     });
     return { ok: true, item };
   } catch (error) {
@@ -458,7 +461,9 @@ async function setShopItemPriceForAdmin(params = {}) {
   if (!idOrName || !Number.isFinite(price) || price <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const item = await setShopItemPrice(idOrName, Math.trunc(price));
+  const item = await setShopItemPrice(idOrName, Math.trunc(price), {
+    tenantId: params.tenantId || null,
+  });
   if (!item) {
     return { ok: false, reason: 'not-found' };
   }
@@ -470,7 +475,9 @@ async function deleteShopItemForAdmin(params = {}) {
   if (!idOrName) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const item = await deleteShopItem(idOrName);
+  const item = await deleteShopItem(idOrName, {
+    tenantId: params.tenantId || null,
+  });
   if (!item) {
     return { ok: false, reason: 'not-found' };
   }

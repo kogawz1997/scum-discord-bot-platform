@@ -3,6 +3,8 @@
 /** Runtime profiles used by entrypoints, health, and topology logs. */
 
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { getTenantDbIsolationMode } = require('../utils/tenantDbIsolation');
+const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
 const { getBotFeatureFlags, getWorkerFeatureFlags } = require('./featureFlags');
 const {
   parseBooleanEnv,
@@ -20,6 +22,8 @@ function getBotRuntimeProfile(env = process.env) {
       databaseUrl: env.DATABASE_URL,
       provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
     }),
+    tenantDbIsolationMode: getTenantDbIsolationMode(env),
+    tenantDbTopologyMode: getTenantDatabaseTopologyMode(env),
     features: getBotFeatureFlags(env, { isTestRuntime }),
     health: Object.freeze({
       host: parseTextEnv(env.BOT_HEALTH_HOST, '127.0.0.1'),
@@ -36,6 +40,8 @@ function getWorkerRuntimeProfile(env = process.env) {
       databaseUrl: env.DATABASE_URL,
       provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
     }),
+    tenantDbIsolationMode: getTenantDbIsolationMode(env),
+    tenantDbTopologyMode: getTenantDatabaseTopologyMode(env),
     features,
     heartbeatMs: parseIntegerEnv(env.WORKER_HEARTBEAT_MS, 60_000, 10_000),
     health: Object.freeze({
@@ -43,6 +49,7 @@ function getWorkerRuntimeProfile(env = process.env) {
       port: parseIntegerEnv(env.WORKER_HEALTH_PORT, 0, 0),
     }),
     executionMode: parseTextEnv(env.DELIVERY_EXECUTION_MODE, 'rcon').toLowerCase(),
+    deliveryNativeProofMode: parseTextEnv(env.DELIVERY_NATIVE_PROOF_MODE, 'disabled').toLowerCase(),
     tenantMode: parseTextEnv(
       env.PLATFORM_TENANT_MODE || env.PLATFORM_DEFAULT_TENANT_ID ? 'scoped' : 'single',
       'single',

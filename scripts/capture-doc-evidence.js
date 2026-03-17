@@ -138,6 +138,7 @@ async function main() {
   process.env.WEB_PORTAL_LEGACY_ADMIN_URL = `http://127.0.0.1:${adminPort}/admin`;
   process.env.WEB_PORTAL_PLAYER_OPEN_ACCESS = 'true';
   process.env.WEB_PORTAL_SECURE_COOKIE = 'false';
+  process.env.WEB_PORTAL_CAPTURE_TOKEN = process.env.WEB_PORTAL_CAPTURE_TOKEN || 'capture_portal_token';
   process.env.WEB_PORTAL_DISCORD_CLIENT_ID =
     process.env.WEB_PORTAL_DISCORD_CLIENT_ID || 'capture_portal_client_id';
   process.env.WEB_PORTAL_DISCORD_CLIENT_SECRET =
@@ -201,6 +202,12 @@ async function main() {
       `http://127.0.0.1:${playerPort}/player/login`,
       path.join(outputDir, 'player-login.png'),
       { virtualTimeBudgetMs: 2500 },
+    );
+    await captureScreenshot(
+      edgePath,
+      `http://127.0.0.1:${playerPort}/player/capture-auth?token=${encodeURIComponent(process.env.WEB_PORTAL_CAPTURE_TOKEN)}`,
+      path.join(outputDir, 'player-dashboard.png'),
+      { virtualTimeBudgetMs: 7000 },
     );
     await captureScreenshot(
       edgePath,

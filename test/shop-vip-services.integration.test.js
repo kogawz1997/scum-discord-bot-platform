@@ -9,6 +9,10 @@ const {
   getShopItemById,
   listWalletLedger,
   createPurchase,
+  findPurchaseByCode,
+  listPurchaseStatusHistory,
+  listUserPurchases,
+  setPurchaseStatusByCode,
 } = require('../src/store/memoryStore');
 const { addCartItem, clearCart, flushCartStoreWrites } = require('../src/store/cartStore');
 const { purchaseShopItemForUser } = require('../src/services/shopService');
@@ -267,6 +271,79 @@ test('updatePurchaseStatusForActor validates transitions and returns history', a
     await prisma.purchase.deleteMany({
       where: {
         userId,
+      },
+    }).catch(() => null);
+    await deleteShopItem(itemId).catch(() => null);
+  }
+});
+
+test('purchase store honors tenant-scoped lookups and status writes when tenantId is provided', async () => {
+  const userId = uniqueId('tenant-purchase-user');
+  const itemId = uniqueId('tenant-purchase-item');
+  let purchaseA = null;
+  let purchaseB = null;
+
+  try {
+    await addShopItem(itemId, 'Tenant Purchase Item', 50, 'tenant item', {
+      kind: 'item',
+      deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
+    });
+
+    purchaseA = await createPurchase(userId, {
+      id: itemId,
+      price: 50,
+    }, {
+      tenantId: 'tenant-alpha',
+    });
+    purchaseB = await createPurchase(userId, {
+      id: itemId,
+      price: 50,
+    }, {
+      tenantId: 'tenant-beta',
+    });
+
+    const tenantAPurchases = await listUserPurchases(userId, {
+      tenantId: 'tenant-alpha',
+    });
+    assert.equal(tenantAPurchases.length, 1);
+    assert.equal(String(tenantAPurchases[0]?.code || ''), purchaseA.code);
+
+    const wrongTenantPurchase = await findPurchaseByCode(purchaseA.code, {
+      tenantId: 'tenant-beta',
+    });
+    assert.equal(wrongTenantPurchase, null);
+
+    const wrongTenantStatus = await setPurchaseStatusByCode(purchaseA.code, 'delivered', {
+      tenantId: 'tenant-beta',
+      actor: 'test-suite',
+      reason: 'wrong-tenant-should-not-match',
+    });
+    assert.equal(wrongTenantStatus, null);
+
+    const updated = await setPurchaseStatusByCode(purchaseA.code, 'delivered', {
+      tenantId: 'tenant-alpha',
+      actor: 'test-suite',
+      reason: 'tenant-scoped-update',
+    });
+    assert.equal(String(updated?.status || ''), 'delivered');
+
+    const history = await listPurchaseStatusHistory(purchaseA.code, 10, {
+      tenantId: 'tenant-alpha',
+    });
+    assert.ok(history.some((row) => String(row?.reason || '') === 'tenant-scoped-update'));
+  } finally {
+    await prisma.purchaseStatusHistory.deleteMany({
+      where: {
+        purchaseCode: {
+          in: [purchaseA?.code || '', purchaseB?.code || ''],
+        },
+      },
+    }).catch(() => null);
+    await prisma.purchase.deleteMany({
+      where: {
+        code: {
+          in: [purchaseA?.code || '', purchaseB?.code || ''],
+        },
       },
     }).catch(() => null);
     await deleteShopItem(itemId).catch(() => null);

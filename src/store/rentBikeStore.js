@@ -1,5 +1,14 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
+function getRentBikeDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
+
 async function ensureTables() {
   // Tables are managed by Prisma migrations.
   return true;
@@ -33,7 +42,7 @@ function normalizeRental(row) {
 
 async function getDailyRent(userKey, date) {
   await ensureTables();
-  const row = await prisma.dailyRent.findUnique({
+  const row = await getRentBikeDb().dailyRent.findUnique({
     where: {
       userKey_date: {
         userKey: String(userKey || ''),
@@ -46,7 +55,7 @@ async function getDailyRent(userKey, date) {
 
 async function markDailyRentUsed(userKey, date) {
   await ensureTables();
-  await prisma.dailyRent.upsert({
+  await getRentBikeDb().dailyRent.upsert({
     where: {
       userKey_date: {
         userKey: String(userKey || ''),
@@ -68,7 +77,7 @@ async function markDailyRentUsed(userKey, date) {
 
 async function createRentalOrder({ orderId, userKey, guildId = null }) {
   await ensureTables();
-  await prisma.rentalVehicle.create({
+  await getRentBikeDb().rentalVehicle.create({
     data: {
       orderId: String(orderId || ''),
       userKey: String(userKey || ''),
@@ -85,7 +94,7 @@ async function createRentalOrder({ orderId, userKey, guildId = null }) {
 
 async function getRentalOrder(orderId) {
   await ensureTables();
-  const row = await prisma.rentalVehicle.findUnique({
+  const row = await getRentBikeDb().rentalVehicle.findUnique({
     where: { orderId: String(orderId || '') },
   });
   return normalizeRental(row);
@@ -96,7 +105,7 @@ async function setRentalOrderStatus(orderId, status, extra = {}) {
   const current = await getRentalOrder(orderId);
   if (!current) return null;
 
-  await prisma.rentalVehicle.update({
+  await getRentBikeDb().rentalVehicle.update({
     where: { orderId: String(orderId || '') },
     data: {
       status: String(status || current.status || 'pending'),
@@ -127,7 +136,7 @@ async function setRentalOrderStatus(orderId, status, extra = {}) {
 
 async function updateRentalAttempt(orderId, attemptCount, lastError = null) {
   await ensureTables();
-  await prisma.rentalVehicle.updateMany({
+  await getRentBikeDb().rentalVehicle.updateMany({
     where: { orderId: String(orderId || '') },
     data: {
       attemptCount: Number(attemptCount || 0),
@@ -147,7 +156,7 @@ async function listRentalVehiclesByStatuses(statuses, limit = 5000) {
     : [];
   if (values.length === 0) return [];
 
-  const rows = await prisma.rentalVehicle.findMany({
+  const rows = await getRentBikeDb().rentalVehicle.findMany({
     where: {
       status: { in: values },
     },
@@ -159,7 +168,7 @@ async function listRentalVehiclesByStatuses(statuses, limit = 5000) {
 
 async function listRentalVehicles(limit = 500) {
   await ensureTables();
-  const rows = await prisma.rentalVehicle.findMany({
+  const rows = await getRentBikeDb().rentalVehicle.findMany({
     orderBy: { createdAt: 'desc' },
     take: Math.max(1, Number(limit || 500)),
   });
@@ -168,7 +177,7 @@ async function listRentalVehicles(limit = 500) {
 
 async function listDailyRents(limit = 1000) {
   await ensureTables();
-  const rows = await prisma.dailyRent.findMany({
+  const rows = await getRentBikeDb().dailyRent.findMany({
     orderBy: [{ date: 'desc' }, { updatedAt: 'desc' }],
     take: Math.max(1, Number(limit || 1000)),
   });
@@ -177,7 +186,7 @@ async function listDailyRents(limit = 1000) {
 
 async function getLatestRentalByUser(userKey) {
   await ensureTables();
-  const row = await prisma.rentalVehicle.findFirst({
+  const row = await getRentBikeDb().rentalVehicle.findFirst({
     where: { userKey: String(userKey || '') },
     orderBy: { createdAt: 'desc' },
   });
@@ -187,7 +196,7 @@ async function getLatestRentalByUser(userKey) {
 async function replaceRentBikeData(nextDailyRents = [], nextRentalVehicles = []) {
   await ensureTables();
 
-  await prisma.$transaction(async (tx) => {
+  await getRentBikeDb().$transaction(async (tx) => {
     await tx.dailyRent.deleteMany();
     await tx.rentalVehicle.deleteMany();
 

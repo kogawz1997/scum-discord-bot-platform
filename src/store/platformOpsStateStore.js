@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 
-const { getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath } = require('./_persist');
 
 const FILE_PATH = getFilePath('platform-ops-state.json');
 
@@ -65,9 +65,7 @@ function normalizeState(next = {}) {
 
 function writeStateToDisk() {
   const snapshot = normalizeState(state || {});
-  const tmpPath = `${FILE_PATH}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8');
-  fs.renameSync(tmpPath, FILE_PATH);
+  atomicWriteJson(FILE_PATH, snapshot);
 }
 
 function initPlatformOpsStateStore() {

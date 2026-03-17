@@ -30,6 +30,18 @@ const {
   executeCommandTemplate,
   validateCommandTemplate,
 } = require('../utils/commandTemplate');
+const {
+  captureNativeProofBaseline,
+  normalizeDeliveryNativeProofMode,
+  resolveConfiguredNativeProofScript,
+  runDeliveryNativeProof,
+} = require('./deliveryNativeProof');
+const {
+  normalizeTenantId,
+  runWithDeliveryPersistenceScope,
+  readAcrossDeliveryPersistenceScopes,
+  groupRowsByTenant,
+} = require('./deliveryPersistenceDb');
 
 // In-memory delivery state is shared across bot, worker, and admin code paths and
 // mirrored to Prisma so split-runtime deployments behave the same as single-process mode.
@@ -383,6 +395,20 @@ function getSettings() {
       asNumber(
         process.env.DELIVERY_VERIFY_OBSERVER_WINDOW_MS,
         auto.verifyObserverWindowMs || 60 * 1000,
+      ),
+    ),
+    nativeProofMode: normalizeDeliveryNativeProofMode(
+      process.env.DELIVERY_NATIVE_PROOF_MODE || auto.nativeProofMode || '',
+      'disabled',
+    ),
+    nativeProofScript: String(
+      process.env.DELIVERY_NATIVE_PROOF_SCRIPT || auto.nativeProofScript || '',
+    ).trim(),
+    nativeProofTimeoutMs: Math.max(
+      1000,
+      asNumber(
+        process.env.DELIVERY_NATIVE_PROOF_TIMEOUT_MS,
+        auto.nativeProofTimeoutMs || 10000,
       ),
     ),
   };
@@ -953,6 +979,15 @@ function resolveItemCommandPlan(itemId, gameItemId = null) {
     }
   }
 
+  const normalizedGameItemId = String(gameItemId || '').trim();
+  if (/^(?:ammo|cal)_[a-z0-9_]+$/i.test(normalizedGameItemId)) {
+    return {
+      source: 'generic-ammo-fallback',
+      lookupKey: normalizedGameItemId || null,
+      commands: ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+    };
+  }
+
   return {
     source: 'none',
     lookupKey: String(itemId || gameItemId || '').trim() || null,
@@ -1006,9 +1041,13 @@ async function previewDeliveryCommands(options = {}) {
 
   let shopItem = null;
   if (requestedItemId) {
-    shopItem = await getShopItemById(requestedItemId).catch(() => null);
+    shopItem = await getShopItemById(requestedItemId, {
+      tenantId: String(options.tenantId || '').trim() || null,
+    }).catch(() => null);
     if (!shopItem) {
-      shopItem = await getShopItemByName(requestedItemId).catch(() => null);
+      shopItem = await getShopItemByName(requestedItemId, {
+        tenantId: String(options.tenantId || '').trim() || null,
+      }).catch(() => null);
     }
   }
 
@@ -1167,6 +1206,19 @@ async function sendTestDeliveryCommand(options = {}) {
     },
   );
 
+  const nativeProofBaseline = settings.nativeProofMode !== 'disabled'
+    ? await captureNativeProofBaseline(
+      {
+        purchaseCode: purchaseCode || 'TEST-SEND',
+        userId,
+        steamId,
+        itemId: preview.itemId || preview.gameItemId || null,
+        itemName: preview.itemName || preview.itemId || preview.gameItemId || null,
+      },
+      settings,
+    )
+    : null;
+
   for (const deliveryItem of preview.deliveryItems || []) {
     const vars = {
       steamId,
@@ -1201,6 +1253,12 @@ async function sendTestDeliveryCommand(options = {}) {
 
   const verification = await verifyDeliveryExecution(outputs, settings, {
     purchaseCode: purchaseCode || 'TEST-SEND',
+    userId,
+    steamId,
+    itemId: preview.itemId || preview.gameItemId || null,
+    itemName: preview.itemName || preview.itemId || preview.gameItemId || null,
+    expectedItems: Array.isArray(preview.deliveryItems) ? preview.deliveryItems : [],
+    baselineInventory: nativeProofBaseline?.ok ? nativeProofBaseline : null,
   });
   const commandSummary = summarizeCommandOutputs(outputs, 700);
   addDeliveryAudit({
@@ -1821,14 +1879,26 @@ function getLatestWatcherActivityIso(watch = {}) {
   return timestamps.sort().slice(-1)[0] || null;
 }
 
+function normalizeWatcherCommandText(value) {
+  const text = String(value || '').trim().replace(/^#/, '');
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function buildVerificationPlan(settings) {
   const mode = normalizeDeliveryVerificationMode(settings?.verifyMode, 'basic');
+  const nativeProofMode = normalizeDeliveryNativeProofMode(settings?.nativeProofMode, 'disabled');
+  const resolvedNativeProofScript = resolveConfiguredNativeProofScript(settings?.nativeProofScript);
   return {
     mode,
     successPatternConfigured: Boolean(String(settings?.verifySuccessPattern || '').trim()),
     failurePatternConfigured: Boolean(String(settings?.verifyFailurePattern || '').trim()),
     observerWindowMs: Math.max(5000, Number(settings?.verifyObserverWindowMs || 60 * 1000)),
     observerRequired: mode === 'observer' || mode === 'strict',
+    nativeProofMode,
+    nativeProofConfigured: Boolean(resolvedNativeProofScript),
+    nativeProofScript: resolvedNativeProofScript || null,
+    nativeProofRequired: nativeProofMode === 'required',
+    nativeProofTimeoutMs: Math.max(1000, Number(settings?.nativeProofTimeoutMs || 10000)),
   };
 }
 
@@ -1931,9 +2001,15 @@ async function verifyDeliveryExecution(outputs = [], settings = getSettings(), o
   }
 
   let watcher = null;
+  let nativeProof = null;
   if (plan.observerRequired) {
     watcher = await fetchWatcherHealth(settings);
     const watch = watcher?.data?.watch || watcher?.watch || null;
+    const recentEvents = Array.isArray(watcher?.recentEvents)
+      ? watcher.recentEvents
+      : Array.isArray(watcher?.data?.recentEvents)
+        ? watcher.data.recentEvents
+        : [];
     const latestActivityAt = getLatestWatcherActivityIso(watch || {});
     const freshnessAgeMs = latestActivityAt
       ? Math.max(0, Date.now() - new Date(latestActivityAt).getTime())
@@ -1973,6 +2049,101 @@ async function verifyDeliveryExecution(outputs = [], settings = getSettings(), o
         freshnessAgeMs,
       },
     }));
+
+    if (settings?.executionMode === 'agent' && Array.isArray(outputs) && outputs.length > 0) {
+      const expectedCommands = outputs
+        .map((entry) => normalizeWatcherCommandText(entry?.command))
+        .filter(Boolean);
+      const loggedCommands = recentEvents
+        .filter((entry) => String(entry?.type || '').trim() === 'admin-command')
+        .map((entry) => normalizeWatcherCommandText(entry?.command))
+        .filter(Boolean);
+      const matchedCommands = expectedCommands.filter((command) => loggedCommands.includes(command));
+      const matchedAll = expectedCommands.length > 0 && matchedCommands.length === expectedCommands.length;
+      const matchedAny = matchedCommands.length > 0;
+
+      checks.push(buildPreflightCheck({
+        key: 'verify-observer-command-log',
+        label: 'Watcher command log',
+        ok: plan.mode === 'strict' ? matchedAll : matchedAny,
+        required: plan.mode === 'strict',
+        severity: plan.mode === 'strict' ? 'error' : 'warn',
+        scope: 'verify',
+        code:
+          plan.mode === 'strict'
+            ? matchedAll
+              ? 'READY'
+              : 'WATCHER_COMMAND_LOG_MISMATCH'
+            : matchedAny
+              ? 'READY'
+              : 'WATCHER_COMMAND_LOG_MISSING',
+        detail:
+          matchedCommands.length > 0
+            ? `Watcher observed ${matchedCommands.length}/${expectedCommands.length} command log entries`
+            : 'Watcher did not expose matching admin command log entries yet',
+        meta: {
+          expectedCommands,
+          matchedCommands,
+          recentEvents: recentEvents.slice(-10),
+        },
+      }));
+    }
+  }
+
+  if (plan.nativeProofMode !== 'disabled') {
+    nativeProof = await runDeliveryNativeProof(
+      {
+        purchaseCode: String(options.purchaseCode || '').trim() || null,
+        tenantId: String(options.tenantId || '').trim() || null,
+        userId: String(options.userId || '').trim() || null,
+        steamId: String(options.steamId || '').trim() || null,
+        itemId: String(options.itemId || '').trim() || null,
+        itemName: String(options.itemName || '').trim() || null,
+        expectedItems: Array.isArray(options.expectedItems)
+          ? options.expectedItems.map((entry) => ({
+            gameItemId: String(entry?.gameItemId || '').trim() || null,
+            quantity: Math.max(1, Math.trunc(Number(entry?.quantity || 1) || 1)),
+          }))
+          : [],
+        executionMode: String(settings?.executionMode || '').trim() || null,
+        outputs: Array.isArray(outputs)
+          ? outputs.map((entry) => ({
+            command: String(entry?.command || '').trim() || null,
+            stdout: trimText(entry?.stdout || '', 4000) || null,
+            stderr: trimText(entry?.stderr || '', 4000) || null,
+          }))
+          : [],
+        baselineInventory:
+          options?.baselineInventory
+          && typeof options.baselineInventory === 'object'
+            ? options.baselineInventory
+            : null,
+        watcher,
+        verificationPlan: plan,
+      },
+      settings,
+    );
+
+    checks.push(buildPreflightCheck({
+      key: 'verify-native-proof',
+      label: 'Native inventory proof',
+      ok: nativeProof.ok === true,
+      required: plan.nativeProofRequired,
+      severity: plan.nativeProofRequired ? 'error' : 'warn',
+      scope: 'verify',
+      code:
+        nativeProof.ok === true
+          ? 'READY'
+          : nativeProof.code || 'DELIVERY_NATIVE_PROOF_FAILED',
+      detail:
+        nativeProof.detail
+          || (
+            nativeProof.ok === true
+              ? 'Native delivery proof passed'
+              : 'Native delivery proof did not confirm item state'
+          ),
+      meta: nativeProof,
+    }));
   }
 
   const summary = summarizePreflightChecks(checks);
@@ -1985,6 +2156,7 @@ async function verifyDeliveryExecution(outputs = [], settings = getSettings(), o
     warnings: summary.warnings,
     plan,
     watcher,
+    nativeProof,
     combinedOutput,
   };
 }
@@ -2533,6 +2705,27 @@ async function getDeliveryPreflightReport(options = {}) {
               : 'Set DELIVERY_VERIFY_SUCCESS_REGEX for output-match verification',
     meta: verificationPlan,
   }));
+  if (verificationPlan.nativeProofMode !== 'disabled') {
+    checks.push(buildPreflightCheck({
+      key: 'delivery-native-proof',
+      label: 'Native delivery proof backend',
+      ok: verificationPlan.nativeProofConfigured,
+      required: verificationPlan.nativeProofRequired,
+      severity: verificationPlan.nativeProofRequired ? 'error' : 'warn',
+      scope: 'verify',
+      code: verificationPlan.nativeProofConfigured
+        ? 'READY'
+        : 'DELIVERY_NATIVE_PROOF_NOT_CONFIGURED',
+      detail: verificationPlan.nativeProofConfigured
+        ? `Native delivery proof backend ready (${verificationPlan.nativeProofMode})`
+        : 'Set DELIVERY_NATIVE_PROOF_SCRIPT or configure SCUM savefile access for inventory/state proof',
+      meta: {
+        mode: verificationPlan.nativeProofMode,
+        timeoutMs: verificationPlan.nativeProofTimeoutMs,
+        scriptPath: verificationPlan.nativeProofScript,
+      },
+    }));
+  }
 
   const summary = summarizePreflightChecks(checks);
   let failures = summary.failures;
@@ -3012,6 +3205,19 @@ async function testScumAdminCommandCapability(options = {}) {
     return result;
   }
 
+  const nativeProofBaseline = settings.nativeProofMode !== 'disabled'
+    ? await captureNativeProofBaseline(
+      {
+        purchaseCode: vars.purchaseCode || null,
+        userId: vars.userId || null,
+        steamId: vars.steamId || null,
+        itemId: vars.itemId || null,
+        itemName: vars.itemName || vars.itemId || null,
+      },
+      settings,
+    )
+    : null;
+
   let executionError = null;
   for (let index = 0; index < renderedCommands.length; index += 1) {
     const command = renderedCommands[index];
@@ -3064,6 +3270,15 @@ async function testScumAdminCommandCapability(options = {}) {
   if (!executionError) {
     result.verification = await verifyDeliveryExecution(result.outputs, settings, {
       purchaseCode: vars.purchaseCode || null,
+      userId: vars.userId || null,
+      steamId: vars.steamId || null,
+      itemId: vars.itemId || null,
+      itemName: vars.itemName || vars.itemId || null,
+      expectedItems: [{
+        gameItemId: vars.gameItemId || null,
+        quantity: vars.quantity || 1,
+      }],
+      baselineInventory: nativeProofBaseline?.ok ? nativeProofBaseline : null,
     });
     result.timeline.push(normalizeTimelineEvent({
       id: createEventId('capability'),
@@ -3423,27 +3638,39 @@ function getDeliveryRuntimeSnapshotSync() {
   };
 }
 
-async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
+async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50, options = {}) {
   const code = String(purchaseCode || '').trim();
   if (!code) {
     throw new Error('purchaseCode is required');
   }
+  const tenantId = String(options.tenantId || '').trim() || null;
 
   const [purchase, statusHistory] = await Promise.all([
-    findPurchaseByCode(code),
-    listPurchaseStatusHistory(code, Math.max(1, Math.min(200, Number(limit || 50)))).catch(() => []),
+    findPurchaseByCode(code, { tenantId }),
+    listPurchaseStatusHistory(
+      code,
+      Math.max(1, Math.min(200, Number(limit || 50))),
+      { tenantId },
+    ).catch(() => []),
   ]);
   const queueJob = jobs.has(code) ? { ...jobs.get(code) } : null;
   const deadLetter = deadLetters.has(code) ? { ...deadLetters.get(code) } : null;
+  const scopedQueueJob =
+    queueJob && tenantId && normalizeTenantId(queueJob.tenantId) !== tenantId ? null : queueJob;
+  const scopedDeadLetter =
+    deadLetter && tenantId && normalizeTenantId(deadLetter.tenantId) !== tenantId ? null : deadLetter;
   const link = purchase?.userId ? getLinkByUserId(purchase.userId) : null;
   const auditRows = listDeliveryAudit(1000)
+    .filter((row) => !tenantId || normalizeTenantId(row?.tenantId) === tenantId)
     .filter((row) => String(row?.purchaseCode || '').trim() === code)
     .sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0))
     .slice(0, Math.max(1, Math.min(200, Number(limit || 50))));
 
   let preview = null;
   if (purchase?.itemId) {
-    const shopItem = await getShopItemById(purchase.itemId).catch(() => null);
+    const shopItem = await getShopItemById(purchase.itemId, {
+      tenantId: tenantId || purchase?.tenantId || null,
+    }).catch(() => null);
     preview = await previewDeliveryCommands({
       itemId: purchase.itemId,
       gameItemId: shopItem?.gameItemId || purchase.itemId,
@@ -3455,6 +3682,7 @@ async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
       deliveryItems: shopItem?.deliveryItems || undefined,
       iconUrl: shopItem?.iconUrl || undefined,
       itemKind: shopItem?.kind || undefined,
+      tenantId: tenantId || purchase?.tenantId || null,
     }).catch((error) => ({
       error: String(error?.message || error),
     }));
@@ -3492,8 +3720,8 @@ async function getDeliveryDetailsByPurchaseCode(purchaseCode, limit = 50) {
   return {
     purchaseCode: code,
     purchase,
-    queueJob,
-    deadLetter,
+    queueJob: scopedQueueJob,
+    deadLetter: scopedDeadLetter,
     link,
     statusHistory,
     auditRows,
@@ -3692,6 +3920,180 @@ function parseJsonObject(raw, fallback) {
   }
 }
 
+function buildTenantWhere(tenantId) {
+  const normalized = normalizeTenantId(tenantId);
+  return normalized ? { tenantId: normalized } : {};
+}
+
+async function readPersistedQueueRows(options = {}) {
+  const rows = await readAcrossDeliveryPersistenceScopes((db, scope) =>
+    db.deliveryQueueJob.findMany({
+      where: scope.whereTenant,
+      orderBy: [{ nextAttemptAt: 'asc' }, { createdAt: 'asc' }],
+    }), options);
+  return rows.sort(
+    (left, right) =>
+      new Date(left?.nextAttemptAt || 0) - new Date(right?.nextAttemptAt || 0)
+      || new Date(left?.createdAt || 0) - new Date(right?.createdAt || 0),
+  );
+}
+
+async function readPersistedDeadLetterRows(options = {}) {
+  const rows = await readAcrossDeliveryPersistenceScopes((db, scope) =>
+    db.deliveryDeadLetter.findMany({
+      where: scope.whereTenant,
+      orderBy: [{ createdAt: 'desc' }],
+    }), options);
+  return rows.sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0));
+}
+
+async function upsertPersistedQueueJob(job) {
+  const data = toPrismaQueueJobData(job);
+  if (!data) return;
+  await runWithDeliveryPersistenceScope(data.tenantId, (db, scope) =>
+    db.deliveryQueueJob.upsert({
+      where: { purchaseCode: data.purchaseCode },
+      update: {
+        ...data,
+        ...(scope.usesIsolatedTopology ? {} : buildTenantWhere(data.tenantId)),
+      },
+      create: data,
+    }));
+}
+
+async function deletePersistedQueueJob(purchaseCode, tenantId = null) {
+  const code = String(purchaseCode || '').trim();
+  if (!code) return;
+  const where = {
+    purchaseCode: code,
+    ...buildTenantWhere(tenantId),
+  };
+  await runWithDeliveryPersistenceScope(tenantId, (db) => db.deliveryQueueJob.deleteMany({ where }));
+}
+
+async function backfillPersistedQueueJobs(queueRows = []) {
+  const groups = groupRowsByTenant(queueRows);
+  for (const [tenantId, tenantRows] of groups.entries()) {
+    await runWithDeliveryPersistenceScope(tenantId, async (db) => {
+      for (const job of tenantRows) {
+        const data = toPrismaQueueJobData(job);
+        if (!data) continue;
+        await db.deliveryQueueJob.upsert({
+          where: { purchaseCode: data.purchaseCode },
+          update: data,
+          create: data,
+        });
+      }
+    });
+  }
+}
+
+async function replacePersistedQueueJobs(queueRows = [], options = {}) {
+  const scopedTenantId = normalizeTenantId(options.tenantId);
+  if (scopedTenantId) {
+    await runWithDeliveryPersistenceScope(scopedTenantId, async (db) => {
+      await db.deliveryQueueJob.deleteMany({ where: { tenantId: scopedTenantId } });
+      for (const job of queueRows) {
+        const data = toPrismaQueueJobData(job);
+        if (!data || normalizeTenantId(data.tenantId) !== scopedTenantId) continue;
+        await db.deliveryQueueJob.create({ data });
+      }
+    });
+    return;
+  }
+  const groups = groupRowsByTenant(queueRows);
+  await prisma.deliveryQueueJob.deleteMany({});
+  for (const job of groups.get(null) || []) {
+    const data = toPrismaQueueJobData(job);
+    if (!data) continue;
+    await prisma.deliveryQueueJob.create({ data });
+  }
+  for (const [tenantId, tenantRows] of groups.entries()) {
+    if (!tenantId) continue;
+    await runWithDeliveryPersistenceScope(tenantId, async (db) => {
+      await db.deliveryQueueJob.deleteMany({ where: { tenantId } });
+      for (const job of tenantRows) {
+        const data = toPrismaQueueJobData(job);
+        if (!data) continue;
+        await db.deliveryQueueJob.create({ data });
+      }
+    });
+  }
+}
+
+async function upsertPersistedDeadLetter(rowInput) {
+  const data = toPrismaDeadLetterData(rowInput);
+  if (!data) return;
+  await runWithDeliveryPersistenceScope(data.tenantId, (db) =>
+    db.deliveryDeadLetter.upsert({
+      where: { purchaseCode: data.purchaseCode },
+      update: data,
+      create: data,
+    }));
+}
+
+async function deletePersistedDeadLetter(purchaseCode, tenantId = null) {
+  const code = String(purchaseCode || '').trim();
+  if (!code) return;
+  await runWithDeliveryPersistenceScope(tenantId, (db) =>
+    db.deliveryDeadLetter.deleteMany({
+      where: {
+        purchaseCode: code,
+        ...buildTenantWhere(tenantId),
+      },
+    }));
+}
+
+async function backfillPersistedDeadLetters(rows = []) {
+  const groups = groupRowsByTenant(rows);
+  for (const [tenantId, tenantRows] of groups.entries()) {
+    await runWithDeliveryPersistenceScope(tenantId, async (db) => {
+      for (const row of tenantRows) {
+        const data = toPrismaDeadLetterData(row);
+        if (!data) continue;
+        await db.deliveryDeadLetter.upsert({
+          where: { purchaseCode: data.purchaseCode },
+          update: data,
+          create: data,
+        });
+      }
+    });
+  }
+}
+
+async function replacePersistedDeadLetters(rows = [], options = {}) {
+  const scopedTenantId = normalizeTenantId(options.tenantId);
+  if (scopedTenantId) {
+    await runWithDeliveryPersistenceScope(scopedTenantId, async (db) => {
+      await db.deliveryDeadLetter.deleteMany({ where: { tenantId: scopedTenantId } });
+      for (const row of rows) {
+        const data = toPrismaDeadLetterData(row);
+        if (!data || normalizeTenantId(data.tenantId) !== scopedTenantId) continue;
+        await db.deliveryDeadLetter.create({ data });
+      }
+    });
+    return;
+  }
+  const groups = groupRowsByTenant(rows);
+  await prisma.deliveryDeadLetter.deleteMany({});
+  for (const row of groups.get(null) || []) {
+    const data = toPrismaDeadLetterData(row);
+    if (!data) continue;
+    await prisma.deliveryDeadLetter.create({ data });
+  }
+  for (const [tenantId, tenantRows] of groups.entries()) {
+    if (!tenantId) continue;
+    await runWithDeliveryPersistenceScope(tenantId, async (db) => {
+      await db.deliveryDeadLetter.deleteMany({ where: { tenantId } });
+      for (const row of tenantRows) {
+        const data = toPrismaDeadLetterData(row);
+        if (!data) continue;
+        await db.deliveryDeadLetter.create({ data });
+      }
+    });
+  }
+}
+
 function toPrismaQueueJobData(job) {
   const normalized = normalizeJob(job);
   if (!normalized) return null;
@@ -3777,28 +4179,14 @@ async function hydrateDeliveryPersistenceFromPrisma() {
   const startVersion = mutationVersion;
   try {
     const [queueRows, deadLetterRows] = await Promise.all([
-      prisma.deliveryQueueJob.findMany({
-        orderBy: [{ nextAttemptAt: 'asc' }, { createdAt: 'asc' }],
-      }),
-      prisma.deliveryDeadLetter.findMany({
-        orderBy: [{ createdAt: 'desc' }],
-      }),
+      readPersistedQueueRows(),
+      readPersistedDeadLetterRows(),
     ]);
 
     if (queueRows.length === 0) {
       if (jobs.size > 0) {
         queueDbWrite(
-          async () => {
-            for (const job of jobs.values()) {
-              const data = toPrismaQueueJobData(job);
-              if (!data) continue;
-              await prisma.deliveryQueueJob.upsert({
-                where: { purchaseCode: data.purchaseCode },
-                update: data,
-                create: data,
-              });
-            }
-          },
+          async () => backfillPersistedQueueJobs(Array.from(jobs.values())),
           'backfill-queue',
         );
       }
@@ -3825,17 +4213,7 @@ async function hydrateDeliveryPersistenceFromPrisma() {
     if (deadLetterRows.length === 0) {
       if (deadLetters.size > 0) {
         queueDbWrite(
-          async () => {
-            for (const row of deadLetters.values()) {
-              const data = toPrismaDeadLetterData(row);
-              if (!data) continue;
-              await prisma.deliveryDeadLetter.upsert({
-                where: { purchaseCode: data.purchaseCode },
-                update: data,
-                create: data,
-              });
-            }
-          },
+          async () => backfillPersistedDeadLetters(Array.from(deadLetters.values())),
           'backfill-dead-letter',
         );
       }
@@ -3900,16 +4278,18 @@ function initDeliveryPersistenceStore() {
 
 initDeliveryPersistenceStore();
 
-function listDeliveryQueue(limit = 500) {
+function listDeliveryQueue(limit = 500, options = {}) {
   const max = Math.max(1, Number(limit || 500));
+  const tenantId = normalizeTenantId(options.tenantId);
   const latestByCode = new Map();
-  for (const row of listDeliveryAudit(2000)) {
+  for (const row of listDeliveryAudit(2000, tenantId ? { tenantId } : undefined)) {
     const code = String(row?.purchaseCode || '').trim();
     if (!code || latestByCode.has(code)) continue;
     latestByCode.set(code, row);
   }
   return Array.from(jobs.values())
     .slice()
+    .filter((job) => !tenantId || normalizeTenantId(job?.tenantId) === tenantId)
     .sort((a, b) => a.nextAttemptAt - b.nextAttemptAt)
     .slice(0, max)
     .map((job) => {
@@ -3932,23 +4312,26 @@ function listDeliveryQueue(limit = 500) {
     });
 }
 
-function replaceDeliveryQueue(nextJobs = []) {
+function replaceDeliveryQueue(nextJobs = [], options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
   mutationVersion += 1;
-  jobs.clear();
+  if (!tenantId) {
+    jobs.clear();
+  } else {
+    for (const purchaseCode of Array.from(jobs.keys())) {
+      if (normalizeTenantId(jobs.get(purchaseCode)?.tenantId) === tenantId) {
+        jobs.delete(purchaseCode);
+      }
+    }
+  }
   for (const row of Array.isArray(nextJobs) ? nextJobs : []) {
     const normalized = normalizeJob(row);
     if (!normalized) continue;
+    if (tenantId && normalizeTenantId(normalized.tenantId) !== tenantId) continue;
     jobs.set(normalized.purchaseCode, normalized);
   }
   queueDbWrite(
-    async () => {
-      await prisma.deliveryQueueJob.deleteMany();
-      for (const job of jobs.values()) {
-        const data = toPrismaQueueJobData(job);
-        if (!data) continue;
-        await prisma.deliveryQueueJob.create({ data });
-      }
-    },
+    async () => replacePersistedQueueJobs(Array.from(jobs.values()), { tenantId }),
     'replace-queue',
   );
   maybeAlertQueuePressure();
@@ -3958,10 +4341,12 @@ function replaceDeliveryQueue(nextJobs = []) {
   return jobs.size;
 }
 
-function listDeliveryDeadLetters(limit = 500) {
+function listDeliveryDeadLetters(limit = 500, options = {}) {
   const max = Math.max(1, Number(limit || 500));
+  const tenantId = normalizeTenantId(options.tenantId);
   return Array.from(deadLetters.values())
     .slice()
+    .filter((row) => !tenantId || normalizeTenantId(row?.tenantId) === tenantId)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, max)
     .map((row) => ({
@@ -4009,47 +4394,60 @@ function filterDeliveryRows(rows, filters = {}) {
 
 function listFilteredDeliveryQueue(filters = {}) {
   const limit = Math.max(1, Number(filters.limit || 500));
-  return filterDeliveryRows(listDeliveryQueue(Math.max(limit, 2000)), filters).slice(0, limit);
+  return filterDeliveryRows(
+    listDeliveryQueue(Math.max(limit, 2000), {
+      tenantId: normalizeTenantId(filters.tenantId),
+    }),
+    filters,
+  ).slice(0, limit);
 }
 
 function listFilteredDeliveryDeadLetters(filters = {}) {
   const limit = Math.max(1, Number(filters.limit || 500));
-  return filterDeliveryRows(listDeliveryDeadLetters(Math.max(limit, 2000)), filters).slice(0, limit);
+  return filterDeliveryRows(
+    listDeliveryDeadLetters(Math.max(limit, 2000), {
+      tenantId: normalizeTenantId(filters.tenantId),
+    }),
+    filters,
+  ).slice(0, limit);
 }
 
-function replaceDeliveryDeadLetters(nextRows = []) {
+function replaceDeliveryDeadLetters(nextRows = [], options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
   mutationVersion += 1;
-  deadLetters.clear();
+  if (!tenantId) {
+    deadLetters.clear();
+  } else {
+    for (const purchaseCode of Array.from(deadLetters.keys())) {
+      if (normalizeTenantId(deadLetters.get(purchaseCode)?.tenantId) === tenantId) {
+        deadLetters.delete(purchaseCode);
+      }
+    }
+  }
   for (const row of Array.isArray(nextRows) ? nextRows : []) {
     const normalized = normalizeDeadLetter(row);
     if (!normalized) continue;
+    if (tenantId && normalizeTenantId(normalized.tenantId) !== tenantId) continue;
     deadLetters.set(normalized.purchaseCode, normalized);
   }
   queueDbWrite(
-    async () => {
-      await prisma.deliveryDeadLetter.deleteMany();
-      for (const row of deadLetters.values()) {
-        const data = toPrismaDeadLetterData(row);
-        if (!data) continue;
-        await prisma.deliveryDeadLetter.create({ data });
-      }
-    },
+    async () => replacePersistedDeadLetters(Array.from(deadLetters.values()), { tenantId }),
     'replace-dead-letter',
   );
   return deadLetters.size;
 }
 
-function removeDeliveryDeadLetter(purchaseCode) {
+function removeDeliveryDeadLetter(purchaseCode, options = {}) {
   const code = String(purchaseCode || '').trim();
   if (!code) return null;
   const existing = deadLetters.get(code);
   if (!existing) return null;
+  const tenantId = normalizeTenantId(options.tenantId);
+  if (tenantId && normalizeTenantId(existing.tenantId) !== tenantId) return null;
   mutationVersion += 1;
   deadLetters.delete(code);
   queueDbWrite(
-    async () => {
-      await prisma.deliveryDeadLetter.deleteMany({ where: { purchaseCode: code } });
-    },
+    async () => deletePersistedDeadLetter(code, tenantId || existing.tenantId || null),
     'delete-dead-letter',
   );
   return { ...existing };
@@ -4077,15 +4475,7 @@ function addDeliveryDeadLetter(job, reason, meta = null) {
   mutationVersion += 1;
   deadLetters.set(row.purchaseCode, row);
   queueDbWrite(
-    async () => {
-      const data = toPrismaDeadLetterData(row);
-      if (!data) return;
-      await prisma.deliveryDeadLetter.upsert({
-        where: { purchaseCode: data.purchaseCode },
-        update: data,
-        create: data,
-      });
-    },
+    async () => upsertPersistedDeadLetter(row),
     'upsert-dead-letter',
   );
   publishAdminLiveUpdate('delivery-dead-letter', {
@@ -4351,15 +4741,7 @@ function setJob(job) {
   mutationVersion += 1;
   jobs.set(normalized.purchaseCode, normalized);
   queueDbWrite(
-    async () => {
-      const data = toPrismaQueueJobData(normalized);
-      if (!data) return;
-      await prisma.deliveryQueueJob.upsert({
-        where: { purchaseCode: data.purchaseCode },
-        update: data,
-        create: data,
-      });
-    },
+    async () => upsertPersistedQueueJob(normalized),
     'upsert-queue-job',
   );
   maybeAlertQueuePressure();
@@ -4369,12 +4751,11 @@ function setJob(job) {
 function removeJob(purchaseCode) {
   const code = String(purchaseCode || '').trim();
   if (!code) return;
+  const existing = jobs.get(code) || null;
   mutationVersion += 1;
   jobs.delete(code);
   queueDbWrite(
-    async () => {
-      await prisma.deliveryQueueJob.deleteMany({ where: { purchaseCode: code } });
-    },
+    async () => deletePersistedQueueJob(code, existing?.tenantId || null),
     'delete-queue-job',
   );
 }
@@ -4461,6 +4842,7 @@ async function handleRetry(job, reasonInput) {
     await setPurchaseStatusByCode(job.purchaseCode, settings.failedStatus, {
       actor: 'delivery-worker',
       reason: 'delivery-max-retries',
+      tenantId: job?.tenantId || null,
       meta: {
         maxRetries: settings.maxRetries,
         attempts: nextAttempt,
@@ -4525,7 +4907,9 @@ async function processJob(job) {
 
   inFlightPurchaseCodes.add(purchaseCode);
   try {
-    const purchase = await findPurchaseByCode(purchaseCode);
+    const purchase = await findPurchaseByCode(purchaseCode, {
+      tenantId: job?.tenantId || null,
+    });
     if (!purchase) {
       queueAudit('error', 'missing-purchase', job, 'Purchase not found', {
         errorCode: 'DELIVERY_PURCHASE_NOT_FOUND',
@@ -4557,7 +4941,9 @@ async function processJob(job) {
       purchaseStatus: purchase.status || null,
     });
 
-    const shopItem = await getShopItemById(purchase.itemId).catch(() => null);
+    const shopItem = await getShopItemById(purchase.itemId, {
+      tenantId: job?.tenantId || purchase?.tenantId || null,
+    }).catch(() => null);
     const resolvedDeliveryItems = normalizeDeliveryItemsForJob(
       shopItem?.deliveryItems || job?.deliveryItems,
       {
@@ -4590,6 +4976,7 @@ async function processJob(job) {
       await setPurchaseStatusByCode(purchaseCode, 'pending', {
         actor: 'delivery-worker',
         reason: 'missing-item-commands',
+        tenantId: job?.tenantId || purchase?.tenantId || null,
       }).catch(() => null);
       removeJob(purchaseCode);
       return;
@@ -4698,6 +5085,19 @@ async function processJob(job) {
     });
 
     const executionSettings = preflightState?.settings || settings;
+    const nativeProofBaseline = executionSettings.nativeProofMode !== 'disabled'
+      ? await captureNativeProofBaseline(
+        {
+          purchaseCode,
+          tenantId: job?.tenantId || purchase?.tenantId || null,
+          userId: purchase?.userId || job?.userId || null,
+          steamId: link?.steamId || null,
+          itemId: purchase?.itemId || job?.itemId || null,
+          itemName: job?.itemName || shopItem?.name || purchase?.itemId || null,
+        },
+        executionSettings,
+      )
+      : null;
     if (
       executionSettings.executionMode !== settings.executionMode
       && preflightState?.failover?.ready
@@ -4959,6 +5359,13 @@ async function processJob(job) {
 
     const verification = await verifyDeliveryExecution(outputs, executionSettings, {
       purchaseCode,
+      tenantId: job?.tenantId || purchase?.tenantId || null,
+      userId: purchase?.userId || job?.userId || null,
+      steamId: link?.steamId || null,
+      itemId: purchase?.itemId || job?.itemId || null,
+      itemName: job?.itemName || shopItem?.name || purchase?.itemId || null,
+      expectedItems: Array.isArray(resolvedDeliveryItems) ? resolvedDeliveryItems : [],
+      baselineInventory: nativeProofBaseline?.ok ? nativeProofBaseline : null,
     });
     if (!verification.ok) {
     queueAudit('warn', 'verify-failed', job, `Delivery verification failed: ${verification.reason || 'verify failed'}`, {
@@ -5022,13 +5429,16 @@ async function processJob(job) {
     await setPurchaseStatusByCode(purchaseCode, 'delivered', {
       actor: 'delivery-worker',
       reason: 'delivery-success',
+      tenantId: job?.tenantId || purchase?.tenantId || null,
       meta: {
         deliveryItems: resolvedDeliveryItems,
       },
     }).catch(() => null);
     removeJob(purchaseCode);
     markRecentlyDelivered(purchaseCode);
-    removeDeliveryDeadLetter(purchaseCode);
+    removeDeliveryDeadLetter(purchaseCode, {
+      tenantId: job?.tenantId || purchase?.tenantId || null,
+    });
     recordDeliveryOutcome(true, { purchaseCode: purchaseCode });
     const commandSummary = summarizeCommandOutputs(outputs, 700);
     queueAudit(
@@ -5199,7 +5609,9 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     });
     return { queued: false, reason: 'terminal-status' };
   }
-  const shopItem = await getShopItemById(purchase.itemId).catch(() => null);
+  const shopItem = await getShopItemById(purchase.itemId, {
+    tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+  }).catch(() => null);
   const itemName = String(context.itemName || shopItem?.name || purchase.itemId);
   const fallbackDeliveryItems = normalizeDeliveryItemsForJob(shopItem?.deliveryItems, {
     gameItemId: shopItem?.gameItemId || purchase.itemId,
@@ -5469,11 +5881,14 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
 
   setJob(job);
   if (deadLetters.has(purchaseCode)) {
-    removeDeliveryDeadLetter(purchaseCode);
+    removeDeliveryDeadLetter(purchaseCode, {
+      tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+    });
   }
   await setPurchaseStatusByCode(purchaseCode, 'delivering', {
     actor: 'delivery-worker',
     reason: 'delivery-enqueued',
+    tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
   }).catch(() => null);
   queueAudit('info', 'queued', job, 'Queued purchase for auto-delivery', {
     step: 'queued',
@@ -5492,7 +5907,9 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
 }
 
 async function enqueuePurchaseDeliveryByCode(purchaseCode, context = {}) {
-  const purchase = await findPurchaseByCode(String(purchaseCode || ''));
+  const purchase = await findPurchaseByCode(String(purchaseCode || ''), {
+    tenantId: String(context.tenantId || '').trim() || null,
+  });
   if (!purchase) {
     return { ok: false, reason: 'purchase-not-found' };
   }
@@ -5500,10 +5917,12 @@ async function enqueuePurchaseDeliveryByCode(purchaseCode, context = {}) {
   return { ok: result.queued, ...result };
 }
 
-function retryDeliveryNow(purchaseCode) {
+function retryDeliveryNow(purchaseCode, options = {}) {
   const code = String(purchaseCode || '').trim();
   const job = jobs.get(code);
   if (!job) return null;
+  const tenantId = normalizeTenantId(options.tenantId);
+  if (tenantId && normalizeTenantId(job.tenantId) !== tenantId) return null;
   setJob({
     ...job,
     nextAttemptAt: Date.now(),
@@ -5527,13 +5946,17 @@ async function retryDeliveryDeadLetter(purchaseCode, context = {}) {
   if (!deadLetter) {
     return { ok: false, reason: 'dead-letter-not-found' };
   }
+  const tenantId = normalizeTenantId(context.tenantId);
+  if (tenantId && normalizeTenantId(deadLetter.tenantId) !== tenantId) {
+    return { ok: false, reason: 'dead-letter-not-found' };
+  }
 
   const result = await enqueuePurchaseDeliveryByCode(code, context);
   if (!result.ok) {
     return result;
   }
 
-  removeDeliveryDeadLetter(code);
+  removeDeliveryDeadLetter(code, { tenantId: tenantId || deadLetter.tenantId || null });
   queueAudit('info', 'dead-letter-retry', deadLetter, 'Retry dead-letter queued', {
     step: 'dead-letter-retry',
     stage: 'retry',
@@ -5549,13 +5972,13 @@ async function retryDeliveryDeadLetter(purchaseCode, context = {}) {
   return { ok: true, reason: 'queued', queueLength: jobs.size };
 }
 
-function retryDeliveryNowMany(purchaseCodes = []) {
+function retryDeliveryNowMany(purchaseCodes = [], options = {}) {
   const codes = Array.isArray(purchaseCodes)
     ? purchaseCodes.map((code) => String(code || '').trim()).filter(Boolean)
     : [];
   const results = [];
   for (const code of codes) {
-    const result = retryDeliveryNow(code);
+    const result = retryDeliveryNow(code, options);
     results.push({
       code,
       ok: Boolean(result),
@@ -5590,10 +6013,12 @@ async function retryDeliveryDeadLetterMany(purchaseCodes = [], context = {}) {
   };
 }
 
-function cancelDeliveryJob(purchaseCode, reason = 'manual-cancel') {
+function cancelDeliveryJob(purchaseCode, reason = 'manual-cancel', options = {}) {
   const code = String(purchaseCode || '').trim();
   const job = jobs.get(code);
   if (!job) return null;
+  const tenantId = normalizeTenantId(options.tenantId);
+  if (tenantId && normalizeTenantId(job.tenantId) !== tenantId) return null;
   removeJob(code);
   queueAudit('warn', 'manual-cancel', job, `Queue job cancelled: ${reason}`, {
     step: 'manual-cancel',

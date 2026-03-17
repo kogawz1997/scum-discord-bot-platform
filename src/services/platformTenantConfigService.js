@@ -1,9 +1,8 @@
 'use strict';
 
-const { prisma } = require('../prisma');
+const { prisma, getTenantScopedPrismaClient } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
-
-let ensurePromise = null;
+const { withTenantDbIsolation } = require('../utils/tenantDbIsolation');
 
 function getDatabaseEngine() {
   const runtime = resolveDatabaseRuntime();
@@ -33,90 +32,94 @@ function normalizeRow(row) {
   };
 }
 
-async function ensurePlatformTenantConfigTable() {
-  if (ensurePromise) return ensurePromise;
-  ensurePromise = (async () => {
-    const engine = getDatabaseEngine();
-    if (engine === 'postgresql') {
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS platform_tenant_configs (
-          tenant_id TEXT PRIMARY KEY,
-          config_patch_json TEXT,
-          portal_env_patch_json TEXT,
-          feature_flags_json TEXT,
-          updated_by TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
-    } else {
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS platform_tenant_configs (
-          tenant_id TEXT PRIMARY KEY,
-          config_patch_json TEXT,
-          portal_env_patch_json TEXT,
-          feature_flags_json TEXT,
-          updated_by TEXT,
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
-    }
-  })().catch((error) => {
-    ensurePromise = null;
-    throw error;
-  });
-  return ensurePromise;
+async function ensurePlatformTenantConfigTable(client = prisma) {
+  const engine = getDatabaseEngine();
+  if (engine === 'postgresql') {
+    await client.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS platform_tenant_configs (
+        tenant_id TEXT PRIMARY KEY,
+        config_patch_json TEXT,
+        portal_env_patch_json TEXT,
+        feature_flags_json TEXT,
+        updated_by TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    return;
+  }
+  await client.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS platform_tenant_configs (
+      tenant_id TEXT PRIMARY KEY,
+      config_patch_json TEXT,
+      portal_env_patch_json TEXT,
+      feature_flags_json TEXT,
+      updated_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 }
 
 async function getPlatformTenantConfig(tenantId) {
   const id = String(tenantId || '').trim();
   if (!id) return null;
-  await ensurePlatformTenantConfigTable();
-  const rows = await prisma.$queryRaw`
-    SELECT
-      tenant_id AS "tenantId",
-      config_patch_json AS "configPatchJson",
-      portal_env_patch_json AS "portalEnvPatchJson",
-      feature_flags_json AS "featureFlagsJson",
-      updated_by AS "updatedBy",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-    FROM platform_tenant_configs
-    WHERE tenant_id = ${id}
-    LIMIT 1
-  `;
-  const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-  return normalizeRow(row);
+  const tenantPrisma = getTenantScopedPrismaClient(id);
+  return withTenantDbIsolation(
+    tenantPrisma,
+    { tenantId: id, enforce: true },
+    async (db) => {
+      await ensurePlatformTenantConfigTable(db);
+      const rows = await db.$queryRaw`
+        SELECT
+          tenant_id AS "tenantId",
+          config_patch_json AS "configPatchJson",
+          portal_env_patch_json AS "portalEnvPatchJson",
+          feature_flags_json AS "featureFlagsJson",
+          updated_by AS "updatedBy",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM platform_tenant_configs
+        WHERE tenant_id = ${id}
+        LIMIT 1
+      `;
+      const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+      return normalizeRow(row);
+    },
+  );
 }
 
 async function listPlatformTenantConfigs(options = {}) {
-  await ensurePlatformTenantConfigTable();
   const tenantId = String(options.tenantId || '').trim();
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200) || 200));
-  let rows = await prisma.$queryRaw`
-    SELECT
-      tenant_id AS "tenantId",
-      config_patch_json AS "configPatchJson",
-      portal_env_patch_json AS "portalEnvPatchJson",
-      feature_flags_json AS "featureFlagsJson",
-      updated_by AS "updatedBy",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-    FROM platform_tenant_configs
-    ORDER BY tenant_id ASC
-    LIMIT ${limit}
-  `;
-  if (!Array.isArray(rows)) rows = [];
-  const normalized = rows.map(normalizeRow).filter(Boolean);
-  if (!tenantId) return normalized;
-  return normalized.filter((row) => row.tenantId === tenantId);
+  const runner = tenantId
+    ? (work) => withTenantDbIsolation(getTenantScopedPrismaClient(tenantId), { tenantId, enforce: true }, work)
+    : (work) => work(prisma);
+  return runner(async (db) => {
+    await ensurePlatformTenantConfigTable(db);
+    let rows = await db.$queryRaw`
+      SELECT
+        tenant_id AS "tenantId",
+        config_patch_json AS "configPatchJson",
+        portal_env_patch_json AS "portalEnvPatchJson",
+        feature_flags_json AS "featureFlagsJson",
+        updated_by AS "updatedBy",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM platform_tenant_configs
+      ORDER BY tenant_id ASC
+      LIMIT ${limit}
+    `;
+    if (!Array.isArray(rows)) rows = [];
+    const normalized = rows.map(normalizeRow).filter(Boolean);
+    if (!tenantId) return normalized;
+    return normalized.filter((row) => row.tenantId === tenantId);
+  });
 }
 
 async function upsertPlatformTenantConfig(input = {}) {
   const tenantId = String(input.tenantId || '').trim();
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
-  await ensurePlatformTenantConfigTable();
   const configPatch = input.configPatch && typeof input.configPatch === 'object' && !Array.isArray(input.configPatch)
     ? input.configPatch
     : {};
@@ -127,33 +130,41 @@ async function upsertPlatformTenantConfig(input = {}) {
     ? input.featureFlags
     : {};
   const updatedBy = String(input.updatedBy || '').trim() || null;
-  await prisma.$executeRaw`
-    INSERT INTO platform_tenant_configs (
-      tenant_id,
-      config_patch_json,
-      portal_env_patch_json,
-      feature_flags_json,
-      updated_by,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${tenantId},
-      ${JSON.stringify(configPatch)},
-      ${JSON.stringify(portalEnvPatch)},
-      ${JSON.stringify(featureFlags)},
-      ${updatedBy},
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT (tenant_id)
-    DO UPDATE SET
-      config_patch_json = EXCLUDED.config_patch_json,
-      portal_env_patch_json = EXCLUDED.portal_env_patch_json,
-      feature_flags_json = EXCLUDED.feature_flags_json,
-      updated_by = EXCLUDED.updated_by,
-      updated_at = CURRENT_TIMESTAMP
-  `;
+  const tenantPrisma = getTenantScopedPrismaClient(tenantId);
+  await withTenantDbIsolation(
+    tenantPrisma,
+    { tenantId, enforce: true },
+    async (db) => {
+      await ensurePlatformTenantConfigTable(db);
+      await db.$executeRaw`
+        INSERT INTO platform_tenant_configs (
+          tenant_id,
+          config_patch_json,
+          portal_env_patch_json,
+          feature_flags_json,
+          updated_by,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${tenantId},
+          ${JSON.stringify(configPatch)},
+          ${JSON.stringify(portalEnvPatch)},
+          ${JSON.stringify(featureFlags)},
+          ${updatedBy},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (tenant_id)
+        DO UPDATE SET
+          config_patch_json = EXCLUDED.config_patch_json,
+          portal_env_patch_json = EXCLUDED.portal_env_patch_json,
+          feature_flags_json = EXCLUDED.feature_flags_json,
+          updated_by = EXCLUDED.updated_by,
+          updated_at = CURRENT_TIMESTAMP
+      `;
+    },
+  );
   return {
     ok: true,
     data: await getPlatformTenantConfig(tenantId),

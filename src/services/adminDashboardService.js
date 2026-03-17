@@ -1,9 +1,13 @@
+const { getTenantScopedPrismaClient } = require('../prisma');
+const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
+const {
+  normalizeTenantId,
+  readAcrossDeliveryPersistenceScopes,
+} = require('./deliveryPersistenceDb');
+
 const DEFAULT_CACHE_WINDOW_MS = 15 * 1000;
 
-const dashboardCardsCache = {
-  value: null,
-  ts: 0,
-};
+const dashboardCardsCache = new Map();
 
 function getDashboardCardsCacheWindowMs() {
   const raw = Number(process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS || DEFAULT_CACHE_WINDOW_MS);
@@ -41,7 +45,92 @@ async function queryAdminDashboardMetrics(options = {}) {
     throw new Error('prisma dependency is required');
   }
 
+  const tenantId = normalizeTenantId(options.tenantId);
   const guildCount = client?.guilds?.cache?.size || 0;
+  const tenantTopologyMode = getTenantDatabaseTopologyMode();
+  const usesTenantTopology = tenantTopologyMode !== 'shared';
+  const scopedPrisma = tenantId ? getTenantScopedPrismaClient(tenantId) : prisma;
+
+  async function countRowsAcrossScopes(selectKey, modelName) {
+    const rows = await readAcrossDeliveryPersistenceScopes(
+      (db) => db?.[modelName]?.findMany({
+        select: { [selectKey]: true },
+      }),
+      tenantId ? { tenantId } : {},
+    );
+    return rows.length;
+  }
+
+  if (tenantId || !usesTenantTopology) {
+    const activePrisma = scopedPrisma;
+    const tenantScopedSharedWhere = tenantId && tenantTopologyMode === 'shared'
+      ? { tenantId }
+      : undefined;
+    const [
+      walletCount,
+      shopItemCount,
+      purchaseCount,
+      ticketCount,
+      eventCount,
+      bountyCount,
+      linkCount,
+      membershipCount,
+      redeemCodeCount,
+      statsCount,
+      weaponStatCount,
+      dailyRentCount,
+      rentalVehicleCount,
+      deliveryQueueCount,
+      deliveryDeadLetterCount,
+      deliveryAuditCount,
+    ] = await Promise.all([
+      activePrisma.userWallet.count(),
+      activePrisma.shopItem.count(),
+      activePrisma.purchase.count(
+        tenantScopedSharedWhere ? { where: tenantScopedSharedWhere } : undefined,
+      ),
+      activePrisma.ticketRecord.count(),
+      activePrisma.guildEvent.count(),
+      activePrisma.bounty.count(),
+      activePrisma.link.count(),
+      activePrisma.vipMembership.count(),
+      activePrisma.redeemCode.count(),
+      activePrisma.stats.count(),
+      activePrisma.weaponStat.count(),
+      activePrisma.dailyRent.count(),
+      activePrisma.rentalVehicle.count(),
+      activePrisma.deliveryQueueJob.count(
+        tenantScopedSharedWhere ? { where: tenantScopedSharedWhere } : undefined,
+      ),
+      activePrisma.deliveryDeadLetter.count(
+        tenantScopedSharedWhere ? { where: tenantScopedSharedWhere } : undefined,
+      ),
+      activePrisma.deliveryAudit.count(
+        tenantScopedSharedWhere ? { where: tenantScopedSharedWhere } : undefined,
+      ),
+    ]);
+
+    return {
+      guildCount,
+      walletCount,
+      shopItemCount,
+      purchaseCount,
+      ticketCount,
+      eventCount,
+      bountyCount,
+      linkCount,
+      membershipCount,
+      redeemCodeCount,
+      statsCount,
+      weaponStatCount,
+      dailyRentCount,
+      rentalVehicleCount,
+      deliveryQueueCount,
+      deliveryDeadLetterCount,
+      deliveryAuditCount,
+    };
+  }
+
   const [
     walletCount,
     shopItemCount,
@@ -60,22 +149,22 @@ async function queryAdminDashboardMetrics(options = {}) {
     deliveryDeadLetterCount,
     deliveryAuditCount,
   ] = await Promise.all([
-    prisma.userWallet.count(),
-    prisma.shopItem.count(),
-    prisma.purchase.count(),
-    prisma.ticketRecord.count(),
-    prisma.guildEvent.count(),
-    prisma.bounty.count(),
-    prisma.link.count(),
-    prisma.vipMembership.count(),
-    prisma.redeemCode.count(),
-    prisma.stats.count(),
-    prisma.weaponStat.count(),
-    prisma.dailyRent.count(),
-    prisma.rentalVehicle.count(),
-    prisma.deliveryQueueJob.count(),
-    prisma.deliveryDeadLetter.count(),
-    prisma.deliveryAudit.count(),
+    countRowsAcrossScopes('userId', 'userWallet'),
+    countRowsAcrossScopes('id', 'shopItem'),
+    countRowsAcrossScopes('code', 'purchase'),
+    countRowsAcrossScopes('channelId', 'ticketRecord'),
+    countRowsAcrossScopes('id', 'guildEvent'),
+    countRowsAcrossScopes('id', 'bounty'),
+    countRowsAcrossScopes('steamId', 'link'),
+    countRowsAcrossScopes('userId', 'vipMembership'),
+    countRowsAcrossScopes('code', 'redeemCode'),
+    countRowsAcrossScopes('userId', 'stats'),
+    countRowsAcrossScopes('weapon', 'weaponStat'),
+    countRowsAcrossScopes('userKey', 'dailyRent'),
+    countRowsAcrossScopes('orderId', 'rentalVehicle'),
+    countRowsAcrossScopes('purchaseCode', 'deliveryQueueJob'),
+    countRowsAcrossScopes('purchaseCode', 'deliveryDeadLetter'),
+    countRowsAcrossScopes('id', 'deliveryAudit'),
   ]);
 
   return {
@@ -103,17 +192,20 @@ async function buildAdminDashboardCards(options = {}) {
   const { forceRefresh = false } = options;
   const windowMs = getDashboardCardsCacheWindowMs();
   const now = Date.now();
+  const tenantId = normalizeTenantId(options.tenantId);
+  const cacheKey = tenantId || '__global__';
+  const cached = dashboardCardsCache.get(cacheKey);
 
   if (
     !forceRefresh
-    && dashboardCardsCache.value
-    && now - dashboardCardsCache.ts <= windowMs
+    && cached?.value
+    && now - cached.ts <= windowMs
   ) {
     return {
-      ...dashboardCardsCache.value,
+      ...cached.value,
       cache: {
         cached: true,
-        ageMs: now - dashboardCardsCache.ts,
+        ageMs: now - cached.ts,
         windowMs,
       },
     };
@@ -126,8 +218,10 @@ async function buildAdminDashboardCards(options = {}) {
     cards: buildDashboardCards(metrics),
   };
 
-  dashboardCardsCache.value = payload;
-  dashboardCardsCache.ts = now;
+  dashboardCardsCache.set(cacheKey, {
+    value: payload,
+    ts: now,
+  });
 
   return {
     ...payload,
@@ -140,8 +234,7 @@ async function buildAdminDashboardCards(options = {}) {
 }
 
 function clearAdminDashboardCardsCache() {
-  dashboardCardsCache.value = null;
-  dashboardCardsCache.ts = 0;
+  dashboardCardsCache.clear();
 }
 
 module.exports = {

@@ -1,10 +1,19 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const carts = new Map(); // userId -> { items: Map<itemId, quantity>, updatedAt }
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getCartDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeUserId(value) {
   return String(value || '').trim();
@@ -72,7 +81,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.cartEntry.findMany({
+    const rows = await getCartDb().cartEntry.findMany({
       orderBy: [{ updatedAt: 'desc' }],
     });
 
@@ -82,7 +91,7 @@ async function hydrateFromPrisma() {
           async () => {
             for (const [userId, cart] of carts.entries()) {
               for (const [itemId, quantity] of cart.items.entries()) {
-                await prisma.cartEntry.upsert({
+                await getCartDb().cartEntry.upsert({
                   where: {
                     userId_itemId: {
                       userId,
@@ -222,7 +231,7 @@ function addCartItem(userId, itemId, quantity = 1) {
   const updatedAt = normalizeIsoDate(cart.updatedAt);
   queueDbWrite(
     async () => {
-      await prisma.cartEntry.upsert({
+      await getCartDb().cartEntry.upsert({
         where: {
           userId_itemId: {
             userId: key,
@@ -278,7 +287,7 @@ function removeCartItem(userId, itemId, quantity = 1) {
   if (next <= 0) {
     queueDbWrite(
       async () => {
-        await prisma.cartEntry.deleteMany({
+        await getCartDb().cartEntry.deleteMany({
           where: {
             userId: key,
             itemId: itemKey,
@@ -291,7 +300,7 @@ function removeCartItem(userId, itemId, quantity = 1) {
     const updatedAt = normalizeIsoDate(cart.updatedAt);
     queueDbWrite(
       async () => {
-        await prisma.cartEntry.upsert({
+        await getCartDb().cartEntry.upsert({
           where: {
             userId_itemId: {
               userId: key,
@@ -331,7 +340,7 @@ function clearCart(userId) {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.cartEntry.deleteMany({
+      await getCartDb().cartEntry.deleteMany({
         where: {
           userId: key,
         },
@@ -359,11 +368,11 @@ function replaceCarts(nextCarts = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.cartEntry.deleteMany({});
+      await getCartDb().cartEntry.deleteMany({});
       for (const [userId, cart] of carts.entries()) {
         const updatedAt = normalizeIsoDate(cart.updatedAt);
         for (const [itemId, quantity] of cart.items.entries()) {
-          await prisma.cartEntry.create({
+          await getCartDb().cartEntry.create({
             data: {
               userId,
               itemId,

@@ -63,6 +63,9 @@ const DELIVERY_ENV_KEYS = [
   'DELIVERY_VERIFY_SUCCESS_REGEX',
   'DELIVERY_VERIFY_FAILURE_REGEX',
   'DELIVERY_VERIFY_OBSERVER_WINDOW_MS',
+  'DELIVERY_NATIVE_PROOF_MODE',
+  'DELIVERY_NATIVE_PROOF_SCRIPT',
+  'DELIVERY_NATIVE_PROOF_TIMEOUT_MS',
   'SCUM_WATCHER_HEALTH_HOST',
   'SCUM_WATCHER_HEALTH_PORT',
   'WORKER_ENABLE_DELIVERY',
@@ -364,6 +367,34 @@ function startFakeAgentServer(options = {}) {
   });
 }
 
+function startFakeWatcherServer(payloadFactory) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      if (req.method === 'GET' && req.url === '/healthz') {
+        const payload = typeof payloadFactory === 'function'
+          ? payloadFactory()
+          : payloadFactory;
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify(payload));
+        return;
+      }
+      res.writeHead(404);
+      res.end('not found');
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({
+        host: '127.0.0.1',
+        port: address.port,
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        close: () => new Promise((done) => server.close(done)),
+      });
+    });
+  });
+}
+
 test('purchase -> queue -> auto-delivery success for bundle item', async () => {
   process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
   const ctx = makeTestContext();
@@ -602,6 +633,148 @@ test('agent mode verification succeeds when output-match regex matches command o
   } finally {
     await agent.close();
   }
+});
+
+test('agent strict verification can use watcher command log proof', async () => {
+  const agent = await startFakeAgentServer();
+  const watcher = await startFakeWatcherServer(() => ({
+    ok: true,
+    ready: true,
+    status: 'ready',
+    watch: {
+      fileExists: true,
+      lastEventAt: new Date().toISOString(),
+      lastReadAt: new Date().toISOString(),
+      lastStatAt: new Date().toISOString(),
+    },
+    recentEvents: [
+      {
+        type: 'admin-command',
+        command: 'SpawnItem Weapon_AK47 1',
+      },
+    ],
+  }));
+  process.env.DELIVERY_EXECUTION_MODE = 'agent';
+  process.env.SCUM_CONSOLE_AGENT_BASE_URL = agent.baseUrl;
+  process.env.SCUM_CONSOLE_AGENT_TOKEN = 'agent-token-verify-watcher';
+  process.env.DELIVERY_VERIFY_MODE = 'strict';
+  process.env.DELIVERY_VERIFY_SUCCESS_REGEX = 'EXECUTED:#SpawnItem Weapon_AK47 1';
+  process.env.SCUM_WATCHER_HEALTH_HOST = watcher.host;
+  process.env.SCUM_WATCHER_HEALTH_PORT = String(watcher.port);
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'agent-watch-verify-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+
+  ctx.purchases.set('P-125W', {
+    code: 'P-125W',
+    userId: 'u-1',
+    itemId: 'agent-watch-verify-ak',
+    status: 'pending',
+  });
+  ctx.shopItems.set('agent-watch-verify-ak', {
+    id: 'agent-watch-verify-ak',
+    name: 'Agent Watch Verify AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  try {
+    const api = loadRconDeliveryWithMocks(ctx.mocks);
+    const queued = await api.enqueuePurchaseDeliveryByCode('P-125W', {
+      guildId: 'g-1',
+    });
+    assert.equal(queued.ok, true);
+
+    const processed = await api.processDeliveryQueueNow(5);
+    assert.equal(processed.processed, 1);
+    assert.equal(ctx.purchases.get('P-125W').status, 'delivered');
+
+    const verificationAudit = ctx.audits.find(
+      (entry) => entry.action === 'verify-ok' && entry.purchaseCode === 'P-125W',
+    );
+    assert.ok(verificationAudit, 'expected verify-ok audit entry');
+    const observerLogCheck = verificationAudit.meta.verification.checks.find(
+      (entry) => entry.key === 'verify-observer-command-log',
+    );
+    assert.equal(observerLogCheck?.ok, true);
+  } finally {
+    await watcher.close();
+    await agent.close();
+  }
+});
+
+test('manual test send can attach native delivery proof from external verifier', async () => {
+  process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
+  process.env.DELIVERY_NATIVE_PROOF_MODE = 'required';
+  process.env.DELIVERY_NATIVE_PROOF_SCRIPT = path.join(
+    rootDir,
+    'test',
+    'fixtures',
+    'delivery-native-proof.cjs',
+  );
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'native-proof-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+  ctx.shopItems.set('native-proof-ak', {
+    id: 'native-proof-ak',
+    name: 'Native Proof AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const result = await api.sendTestDeliveryCommand({
+    itemId: 'native-proof-ak',
+    steamId: '76561198000000001',
+    userId: 'u-1',
+    purchaseCode: 'P-NATIVE-OK',
+  });
+
+  assert.equal(result.verification.ok, true);
+  assert.equal(result.verification.nativeProof?.ok, true);
+  assert.equal(String(result.verification.nativeProof?.proofType || ''), 'inventory-state');
+});
+
+test('required native delivery proof can fail verification when external verifier rejects the payload', async () => {
+  process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
+  process.env.DELIVERY_NATIVE_PROOF_MODE = 'required';
+  process.env.DELIVERY_NATIVE_PROOF_SCRIPT = path.join(
+    rootDir,
+    'test',
+    'fixtures',
+    'delivery-native-proof.cjs',
+  );
+
+  const ctx = makeTestContext();
+  ctx.mocks.config.delivery.auto.itemCommands = {
+    'native-proof-fail-ak': ['#SpawnItem {steamId} {gameItemId} {quantity}'],
+  };
+  ctx.shopItems.set('native-proof-fail-ak', {
+    id: 'native-proof-fail-ak',
+    name: 'Native Proof Fail AK',
+    kind: 'item',
+    deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1, iconUrl: null }],
+  });
+
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+  const result = await api.sendTestDeliveryCommand({
+    itemId: 'native-proof-fail-ak',
+    steamId: '76561198000000001',
+    userId: 'u-1',
+    purchaseCode: 'P-FAIL-NATIVE',
+  });
+
+  assert.equal(result.verification.ok, false);
+  assert.equal(result.verification.nativeProof?.ok, false);
+  assert.equal(String(result.verification.reason || ''), 'DELIVERY_NATIVE_PROOF_FAILED');
+  assert.match(
+    String(result.verification.nativeProof?.detail || ''),
+    /inventory state mismatch/i,
+  );
 });
 
 test('agent mode verification failure moves job to dead-letter after command execution', async () => {

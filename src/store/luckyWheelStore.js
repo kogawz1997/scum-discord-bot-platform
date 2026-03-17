@@ -1,6 +1,15 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const MAX_HISTORY_PER_USER = 80;
+
+function getLuckyWheelDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeUserId(userId) {
   const id = String(userId || '').trim();
@@ -74,7 +83,7 @@ function toStateView(userId, row, limit = 20) {
 async function getUserWheelState(userId, limit = 20) {
   const id = normalizeUserId(userId);
   if (!id) return null;
-  const row = await prisma.luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb().luckyWheelState.findUnique({
     where: { userId: id },
   });
   return toStateView(id, row, limit);
@@ -89,7 +98,7 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now()) {
     return { ok: true, remainingMs: 0, lastSpinAt: null, nextSpinAt: null };
   }
 
-  const row = await prisma.luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb().luckyWheelState.findUnique({
     where: { userId: id },
     select: { lastSpinAt: true },
   });
@@ -130,7 +139,7 @@ async function recordWheelSpin(userId, rewardEntry) {
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await prisma.$transaction(async (tx) => {
+  const next = await getLuckyWheelDb().$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -175,7 +184,7 @@ async function rollbackWheelSpin(userId, rewardEntry) {
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await prisma.$transaction(async (tx) => {
+  const next = await getLuckyWheelDb().$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -222,7 +231,7 @@ async function rollbackWheelSpin(userId, rewardEntry) {
 }
 
 async function listLuckyWheelStates(limit = 1000) {
-  const rows = await prisma.luckyWheelState.findMany({
+  const rows = await getLuckyWheelDb().luckyWheelState.findMany({
     orderBy: { updatedAt: 'desc' },
     take: Math.max(1, Number(limit || 1000)),
   });
@@ -237,7 +246,7 @@ async function listLuckyWheelStates(limit = 1000) {
 }
 
 async function replaceLuckyWheelStates(nextRows = []) {
-  await prisma.$transaction(async (tx) => {
+  await getLuckyWheelDb().$transaction(async (tx) => {
     await tx.luckyWheelState.deleteMany();
     for (const row of Array.isArray(nextRows) ? nextRows : []) {
       if (!row || typeof row !== 'object') continue;

@@ -1,51 +1,67 @@
 # Delivery Capability Matrix
 
-เอกสารนี้ใช้แยกให้ชัดว่า feature ไหนใช้ `RCON`, feature ไหนต้องใช้ `agent mode`, และจุดไหนมี fallback
+This document states which delivery features use `RCON`, which require `agent mode`, and what proof exists after execution.
 
-| Capability                            | RCON    | Agent mode | Failover / Fallback                                  | Evidence                         |
-| ------------------------------------- | ------- | ---------- | ---------------------------------------------------- | -------------------------------- |
-| enqueue / queue / retry / dead-letter | yes     | yes        | ใช้ร่วมกัน                                           | audit + timeline                 |
-| preflight ก่อน enqueue                | partial | required   | agent fail => block หรือ failover ตาม policy         | audit + preflight report         |
-| teleport ไปหาผู้เล่น                  | no      | yes        | fallback เป็น RCON ได้เฉพาะ path ที่ไม่ต้อง teleport | timeline + outputs               |
-| teleport ไป vehicle target            | no      | yes        | same as above                                        | timeline + outputs               |
-| spawn item ปกติ                       | yes     | yes        | yes                                                  | outputs + latest command summary |
-| multi-item / bundle                   | yes     | yes        | yes                                                  | outputs + step log               |
-| magazine StackCount                   | yes     | yes        | yes                                                  | preview + outputs                |
-| post-spawn verification               | partial | yes        | verify fail => retry / dead-letter                   | verify audit + evidence bundle   |
-| capability test / simulate            | yes     | yes        | n/a                                                  | simulator + preview              |
-| command template override             | yes     | yes        | n/a                                                  | audit trail                      |
+| Capability                  | RCON    | Agent mode | Verification / Fallback                        | Evidence                       |
+| --------------------------- | ------- | ---------- | ---------------------------------------------- | ------------------------------ |
+| queue / retry / dead-letter | yes     | yes        | shared queue state                             | audit + timeline               |
+| preflight before enqueue    | partial | required   | agent failure can block or fail over by policy | audit + preflight report       |
+| teleport to player          | no      | yes        | no RCON equivalent for the same workflow       | timeline + outputs             |
+| teleport to vehicle target  | no      | yes        | same as above                                  | timeline + outputs             |
+| spawn item                  | yes     | yes        | native proof and command-log proof available   | outputs + evidence bundle      |
+| multi-item / bundle         | yes     | yes        | step-by-step verification path                 | step log + evidence bundle     |
+| magazine `StackCount`       | yes     | yes        | same delivery verifier                         | preview + outputs              |
+| post-spawn verification     | partial | yes        | retry / dead-letter on proof failure           | verify audit + evidence bundle |
+| capability test / simulate  | yes     | yes        | no proof required                              | simulator + preview            |
+| command template override   | yes     | yes        | no proof required                              | audit trail                    |
 
-## Metadata ที่ runtime บันทึกต่อ order
+## Per-order runtime metadata
 
 - `executionMode`
 - `backend`
 - `commandPath`
 - `retryCount`
 
-## หลักฐานต่อ order
+## Per-order evidence bundle
 
 - `deliveryAudit`
 - `statusHistory`
 - `timeline`
 - `stepLog`
 - `latestOutputs`
-- `evidence` bundle ต่อ `purchaseCode`
+- `evidence` bundle per `purchaseCode`
 
-## ไฟล์หลัก
+## Native proof status
+
+- `DELIVERY_NATIVE_PROOF_MODE=required` is active on this workstation
+- the first-party backend now reads `SCUM.db` directly
+- proof can succeed through either:
+  - inventory delta
+  - world-spawn delta
+- live proof on this workstation was confirmed with `#SpawnItem Water_05l 1`, `#SpawnItem Weapon_M1911 1`, `#SpawnItem Magazine_M1911 1 StackCount 100`, and `#SpawnItem Weapon_AK47 1`
+- `Ammo_762` currently has a generic command fallback but is still experimental on this workstation because native proof does not confirm a matching game-state delta yet
+- broader proof coverage across all item classes is still incomplete
+
+## Main files
 
 - `src/services/rconDelivery.js`
+- `src/services/deliveryNativeProof.js`
+- `src/services/deliveryNativeInventoryProof.js`
 - `src/store/deliveryAuditStore.js`
 - `src/store/deliveryEvidenceStore.js`
 - `src/services/scumConsoleAgent.js`
+- `scripts/delivery-native-proof-scum-savefile.js`
 
-## ชุดทดสอบอ้างอิง
+## Main tests
 
 - `test/rcon-delivery.integration.test.js`
+- `test/delivery-native-inventory-proof.test.js`
 - `test/admin-api.integration.test.js`
 
-## Policy ปัจจุบัน
+## Current policy
 
-- ถ้าใช้ `agent mode` ระบบจะทำ preflight ก่อน enqueue งานจริง
-- ถ้า agent ไม่พร้อมและเปิด failover policy ระบบจะ switch ไป `RCON`
-- ถ้า verify fail ระบบจะเข้า retry / dead-letter ตาม policy เดิม
-- idempotency guard ยังถูกใช้เพื่อกัน success ซ้ำ
+- `agent mode` always runs preflight before enqueue
+- if the agent is not ready and policy allows failover, runtime can switch to `RCON`
+- verify failure still routes to retry / dead-letter by policy
+- when native proof is enabled, the delivery pipeline calls the native verifier and attaches state evidence
+- idempotency guard still prevents duplicate success handling

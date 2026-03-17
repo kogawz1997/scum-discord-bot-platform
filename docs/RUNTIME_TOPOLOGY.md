@@ -43,7 +43,7 @@ This exists for local development and targeted verification.
 ## Current Constraints
 
 - Delivery can run in `rcon` or `agent` mode, but agent mode still depends on a live SCUM window and Windows session.
-- Tenant isolation is enforced at application and config scope, not as database-per-tenant isolation.
+- Tenant isolation is enforced through application/config scope plus PostgreSQL RLS strict mode on the current tenant-scoped platform tables; it is still not database-per-tenant isolation.
 - Watcher health is allowed to report `disabled` when the runtime is intentionally turned off.
 
 ## Review Checklist

@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 
-const { getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath } = require('./_persist');
 const {
   normalizeCapabilityEntry,
 } = require('../services/scumAdminCommandCatalog');
@@ -24,9 +24,7 @@ function queueWrite(work, label) {
 }
 
 function writeSnapshotToDisk() {
-  const tmpPath = `${FILE_PATH}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(presets, null, 2), 'utf8');
-  fs.renameSync(tmpPath, FILE_PATH);
+  atomicWriteJson(FILE_PATH, presets);
 }
 
 async function hydrateFromDisk() {

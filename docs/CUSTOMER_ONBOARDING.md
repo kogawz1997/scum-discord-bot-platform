@@ -185,7 +185,7 @@ npm run readiness:prod
 
 - `agent` execution depends on Windows session state and a live SCUM client
 - Admin web does not yet cover every env/config setting
-- Tenant isolation is not database-per-tenant
+- Tenant isolation has a PostgreSQL RLS foundation for selected tenant-scoped tables, but it is not database-per-tenant
 - Watcher readiness depends on a real `SCUM.log` path
 - Restore is guarded and should still be treated as a maintenance operation
 

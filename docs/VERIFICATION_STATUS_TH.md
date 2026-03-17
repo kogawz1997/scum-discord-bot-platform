@@ -1,17 +1,15 @@
 # Verification Status
 
-เอกสารนี้เป็นจุดอ้างอิงสำหรับสถานะการตรวจคุณภาพของ repo
-
-ให้ยึด artifact จาก CI และผลรันคำสั่งตรวจจริงเป็นหลัก ไม่ใช่ตัวเลข test count ที่เขียนค้างไว้ในเอกสารอื่น
+This file summarizes repository verification status without hardcoding test counts in many places.
 
 ## Source of Truth
 
-ใช้ข้อมูลจากชุดนี้ก่อนเสมอ:
+Use this set first:
 
-- GitHub Actions workflow: `.github/workflows/ci.yml`
-- GitHub Actions release workflow: `.github/workflows/release.yml`
+- `.github/workflows/ci.yml`
 - `artifacts/ci/verification-summary.json`
 - `artifacts/ci/verification-summary.md`
+- `artifacts/ci/verification-contract.json`
 - `artifacts/ci/lint.log`
 - `artifacts/ci/test.log`
 - `artifacts/ci/doctor.log`
@@ -21,7 +19,7 @@
 
 ## Local Command Set
 
-คำสั่งที่ใช้ตรวจบนเครื่องนี้:
+Commands used on this workstation:
 
 ```bash
 npm run lint
@@ -33,29 +31,33 @@ npm run readiness:prod
 npm run smoke:postdeploy
 ```
 
-ถ้าต้องการรันชุดที่ใกล้ CI ที่สุด ให้ใช้:
+Closest local equivalent to CI:
 
 ```bash
 npm run ci:verify
 ```
 
-## What This File Does Not Prove
+## Reading Rule
 
-เอกสารนี้ไม่ควรถูกใช้เพื่ออ้างว่า:
+- if a claim is backed by code path, test, and artifact, treat it as `verified`
+- if a claim is backed by code only, treat it as `implemented`
+- if a claim depends on SCUM client state, Windows session state, or external infrastructure, treat it as `runtime-dependent`
 
-- live SCUM runtime พร้อมใช้งานทุกกรณี
-- agent mode ผ่านบนทุกเครื่อง
-- watcher พร้อมใช้งาน แม้ไม่มี `SCUM.log` จริง
-- visual evidence มีครบ ถ้ายังไม่มีไฟล์ screenshot หรือ diagram export ใน repo
+## Current Local Runtime Notes
 
-## Current Reading Rule
+On this workstation as of `2026-03-17`:
 
-- ถ้า claim ผูกกับ code path, test file, และ artifact ได้ ให้ถือว่า `verified`
-- ถ้า claim มีแค่ code path แต่ยังไม่มี test หรือ artifact ให้ถือว่า `implemented`
-- ถ้า claim ขึ้นกับ SCUM client, Windows session, หรือ infrastructure ภายนอก ให้ถือว่า `runtime-dependent`
+- watcher is `ready` against the real `SCUM.log`
+- console-agent is `ready` and preflight passes against the live `SCUM` window
+- one live agent command was observed in `SCUM.log`
+- one live native delivery proof matrix was observed from `SCUM.db` for `Water_05l`, `Weapon_M1911`, `Magazine_M1911`, and `Weapon_AK47`
 
-## Notes
+Summary evidence:
 
-- ห้าม hardcode จำนวน test ไว้หลายไฟล์
-- ถ้าจำนวน test เปลี่ยน ให้ปล่อยให้ `verification-summary` เป็นตัวตอบแทน
-- badge ใน `README.md` และ `PROJECT_HQ.md` ต้องชี้ workflow จริงเท่านั้น
+- [assets/live-runtime-evidence.md](./assets/live-runtime-evidence.md)
+
+## What This File Still Does Not Prove
+
+- native proof coverage for every delivery item type or every SCUM server configuration
+- full database-per-tenant isolation beyond the current PostgreSQL RLS strict foundation and topology routing
+- behavior on another workstation without the same Windows session, SCUM client, `SCUM.db`, and `SCUM.log` paths

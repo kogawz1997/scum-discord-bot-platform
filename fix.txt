@@ -1,0 +1,79 @@
+สิ่งที่ควรแก้ก่อนสุด
+
+1) ปิดช่องโหว่เรื่อง admin web ยังคุม config ได้ไม่ครบ
+
+ตอนนี้ repo ระบุเองว่า admin web ยังไม่ครอบทุก .env และ config setting และใน worklist ก็เปิดงานนี้ค้างไว้ว่า setting สำคัญที่เหลือต้อง “เปิดให้แก้ผ่าน admin” หรืออย่างน้อย “ต้องประกาศชัดว่าแก้ได้เฉพาะ runtime/config file เท่านั้น” นี่เป็นงานอันดับต้นๆ เพราะถ้าระบบตั้งค่าได้ครึ่งเดียว คนดูแลก็ยังต้องวิ่งกลับไปแก้ env/manual อยู่ดี ซึ่งทำให้ UX ฝั่งแอดมินยังไม่จบจริง  ￼
+
+สิ่งที่ควรทำ
+•ทำ matrix ของ config ทั้งหมด: editable in admin / runtime-only / deploy-time only•หน้า admin ต้องโชว์เหตุผลของแต่ละค่าให้ชัด
+•เพิ่ม validation + audit log เวลามีคนแก้ค่า
+•ใส่ “apply mode” ให้ชัดว่า hot reload ได้ไหม หรือต้อง restart service  ￼
+
+⸻
+
+2) ทำ runtime status contract ให้จบจริง ไม่ใช่กึ่งๆ
+
+ใน worklist ระบุว่าเรื่องนี้ยัง partial แม้ตอนนี้ doctor, security:check, readiness, smoke, และ doctor:topology จะเริ่มปล่อย JSON รูปแบบเดียวกันแล้ว แต่ downstream หลายจุดยังพึ่งการ parse log อยู่เยอะ แปลว่าระบบตรวจสุขภาพยัง “ดูเหมือนรวมศูนย์” แต่ยังไม่รวมจริงทั้งหมด  ￼
+
+สิ่งที่ควรทำ•บังคับให้ทุก script ใช้ schema เดียว 100%
+•ให้ admin/dashboard อ่านจาก structured report เท่านั้น”•เลิกพึ่ง raw log parsing ใน flow สำคัญที่เหลือต้อง•เพิ่ม regression test สำหรับสถานะ ready / degraded / disabled / required ให้ semantic ตรงกันทุกจุด  ￼
+
+⸻
+
+3) ทำ restore / rollback ให้แข็งกว่านี้
+
+README บอกว่าตอนนี้มี restore preview และ guardrails แล้ว แต่ก็ยอมรับเองว่า restore ยังพึ่ง guarded maintenance flow ไม่ใช่ rollback อัตโนมัติเต็มรูปแบบ นี่แปลว่าเวลามีปัญหาจริง ยังต้องพึ่งขั้นตอนคนคุมค่อนข้างมาก ซึ่งในงาน ops นั่นคือแหล่งกำเนิดของความปวดหัวชั้นดี 🫠  ￼
+
+สิ่งที่ควรทำ•แยก restore plan, validation, execute, verify ให้ชัดว่า•เพิ่ม dry-run report ที่บอกว่าจะ restore อะไรบ้าง
+•ทำ post-restore verification อัตโนมัติเต็มรูปแบบ•มี one-click rollback path สำหรับกรณี deploy พังระดับ config/data migration  ￼
+
+⸻
+
+สิ่งที่ควรแก้เป็นก้อนถัดไป
+
+4) อุดจุดอ่อนเรื่อง tenant isolation
+
+ตอนนี้ repo ระบุชัดว่า multi-tenant ยังเป็นแค่ application-scoped และ worklist ก็ mark เรื่องนี้เป็น deferred โดย acceptance คือให้เลือกว่าจะไปทาง schema isolation, RLS, หรือ database-per-tenant นี่เป็นเรื่องใหญ่ ถ้าคิดจะโตหลายเซิร์ฟเวอร์หรือหลายชุมชนจริง เรื่องนี้ไม่ควรปล่อยลอยนานเกินไป  ￼
+
+สิ่งที่ควรทำ•ตัดสินใจ strategy ให้ชัดก่อน: RLS หรือแยก DB
+•audit ทุก query path ให้มี tenant context
+•เพิ่ม policy test กัน cross-tenant access
+•เขียนเอกสารผลกระทบด้าน backup, migration, analytics, support ให้ครบ  ￼
+
+⸻
+
+5) เพิ่ม หลักฐานการทำงานจริง ให้แน่นกว่านี้
+
+repo เขียนไว้ตรงๆ ว่า evidence ยังแข็งกว่าในฝั่ง logs/tests/diagrams มากกว่าฝั่ง authenticated walkthrough และ worklist ก็เปิดงาน “stronger visual evidence” ไว้ โดยยังขาด authenticated player screenshots และ live in-game evidence อยู่ ถ้าจะใช้ repo นี้เป็นของโชว์, ขายงาน, หรือรับทีมเพิ่ม จุดนี้สำคัญมาก เพราะคนดูโปรเจคมักเชื่อรูปกับ flow จริงเร็วกว่าข้อความยาวเป็นกำแพง 🤦  ￼
+
+สิ่งที่ควรทำ•ถ่าย screenshot flow จริงของ admin/player ที่ login แล้ว•ทำ evidence map ว่ารูปไหนยืนยันฟีเจอร์อะไร
+•เก็บ demo ของ live delivery / live watcher / live console-agent
+•ผูก asset evidence เข้ากับ docs index และ release notes ทุกครั้ง  ￼
+
+⸻
+
+6) เก็บงาน docs / encoding / consistency
+
+worklist บอกชัดว่ายังมีปัญหาเรื่องเอกสารบางส่วนผสมกันระหว่าง review notes กับ operator notes และงาน cleanup นี้ยัง partial อยู่ งานเอกสารดูเหมือนไม่เท่ แต่จริงๆ ถ้า platform เริ่มใหญ่ มันคือของที่ช่วยลดการงงเวลา debug และส่งต่องานได้มากกว่าที่มนุษย์ส่วนใหญ่ชอบยอมรับ  ￼
+
+สิ่งที่ควรทำ•แยกเอกสารเป็น 3 ประเภทชัดๆ: source of truth / operator guide / review notes•ตั้ง naming rule และ index กลาง
+•ตัดเอกสารที่ซ้ำกันหรือข้อมูลเก่าค้าง
+•บังคับ encoding consistency ทุกไฟล์เอกสาร  ￼
+
+⸻
+
+7) ทำ release notes ให้ต่อเนื่อง ไม่ใช่มีแค่บางช่วง
+
+worklist ระบุว่างาน release notes coverage ยัง partial และ acceptance คือทุก release ต่อไปต้องมี release notes ที่โยงกับ verification และ operator impact ตรงนี้สำคัญถ้าโปรเจคกำลังเปลี่ยนเร็ว เพราะไม่งั้นอีกไม่นานเจ้าของโปรเจคเองก็จะจำไม่ได้ว่า commit ไหนไปเปลี่ยน behavior อะไรบ้าง ซึ่งเป็นกีฬาโปรดของหลาย repo ที่อยากพังแบบมีศิลปะ 🎭  ￼
+
+สิ่งที่ควรทำ•ทุก release ต้องสรุป breaking changes, migration notes, ops impact•link ไป evidence / CI artifacts / smoke results
+•ทำ template เดียวกันทุก version  ￼
+
+⸻
+
+สิ่งที่ควรแก้เฉพาะสาย runtime จริงของ
+8) ปิดงาน watcher live readiness
+ใน worklist ระบุว่ายัง runtime-blocked เพราะต้องใช้ path ของ SCUM.log จริงและ format log จริง acceptance คือ watcher ต้องรายงาน ready ได้บนสภาพแวดล้อม live ถ้าตัวนี้ยังไม่โดน test กับของจริง ก็ยังถือว่าเป็นจุดเสี่ยงสำหรับระบบแจ้งเตือน/ติดตามเกมฝั่ง live  ￼
+
+9) ปิดงาน agent-mode live validation
+อีกงานที่ยัง runtime-blocked คือ console-agent/live command path ซึ่งต้องมี Windows session และ live SCUM client/process จริง ถึงจะพิสูจน์ได้ว่าพวก command delivery กับ capability run ใช้งานได้จริง นี่คือจุดที่ควรทดสอบบนเครื่องจริงให้ผ่านอย่างน้อย 1 flow เต็ม ไม่งั้นมันยังเป็น “พร้อมใน repo” มากกว่า “พร้อมในสนาม

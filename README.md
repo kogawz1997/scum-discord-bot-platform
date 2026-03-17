@@ -6,7 +6,7 @@
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 
-Last updated: **2026-03-16**
+Last updated: **2026-03-17**
 
 SCUM TH Platform is a control plane for a SCUM community stack built around:
 
@@ -64,6 +64,8 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Prisma generation and migration commands are provider-aware
 - SQLite-to-PostgreSQL cutover tooling exists in-repo
 - Tests run against isolated provider-specific databases or schemas instead of the live runtime database
+- Tenant DB topology resolver and provisioning script now exist for `shared`, `schema-per-tenant`, and `database-per-tenant`
+- Tenant-scoped platform, tenant-config, purchase/shop, delivery persistence, player wallet/account, cart/redeem/rent/wheel, and community/admin store paths now resolve Prisma datasource targets through the selected tenant DB topology where tenant context is available
 
 ### Admin and player surfaces
 
@@ -91,30 +93,33 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - `ci:verify` now writes `verification-contract.json` from the shared JSON contract instead of relying only on raw log parsing
 - `lint` now covers syntax, text-encoding scan, ESLint, and formatting checks for repo metadata/docs
 - Policy checks now include runtime profile, control-panel config registry, smoke behavior, readiness sequencing, and module docs
+- Live runtime proof now exists on this workstation for `console-agent` preflight/execute and watcher `ready` state against a real `SCUM.log`
+- Watcher health now exposes recent parsed `admin-command` events from the live server log
+- Delivery verification now supports a first-party native-proof backend that reads live SCUM save state from `SCUM.db`
+- Native proof now supports both inventory delta and world-spawn delta verification on this workstation
+- First-party native-proof scripts now exist at `scripts/delivery-native-proof-scum-savefile.js` and `scripts/delivery-native-proof-template.ps1`
 
 ## What Is Partial
 
 - Admin web still does not cover every `.env` or config setting
-- Multi-tenant isolation is application-scoped, not database-per-tenant or RLS-backed
+- Multi-tenant isolation now runs in PostgreSQL RLS strict mode for the current tenant-scoped platform, tenant-config, purchase/admin-commerce, and delivery persistence surface, and tenant-aware service paths now route through the selected schema/database-per-tenant topology when configured
 - Restore still relies on a guarded maintenance flow rather than fully automatic rollback
-- Evidence in the repository is still stronger in logs/tests and exported diagrams than in fully authenticated walkthrough capture
-- Real captures now exist for admin login, authenticated admin dashboard, player landing, player login, player showcase, and a simple demo GIF under `docs/assets/`
+- Real captures now exist for admin login, authenticated admin dashboard, player landing, player login, authenticated player dashboard, player showcase, and a simple demo GIF under `docs/assets/`
 - `src/adminWebServer.js` and `apps/web-portal-standalone/server.js` are now thin bootstrap/composition entrypoints
 - `src/admin/dashboard.html` is now a thinner shell, and the browser runtime is split across focused assets under `src/admin/assets/`, though the surface is still large
 
 ## What Is Runtime-Dependent
 
 - `agent` delivery execution depends on a live Windows session and a working SCUM client window
-- Watcher health depends on a real `SCUM.log` path being present
+- Watcher health depends on a real `SCUM.log` path being present and staying readable
 - Some SCUM command behavior still depends on the target server configuration and game patch level
 
 ## Known Limitations
 
 - SQLite remains in dev/import/compatibility paths, but it is no longer the target runtime path for this workstation
 - Admin web is not yet a full replacement for direct env/config editing
-- Tenant isolation is not yet database-level
-- Game-side verification is not inventory-native proof for every case
-- Visual evidence is still incomplete: authenticated player portal dashboard views and live in-game delivery evidence are still pending
+- Tenant DB isolation is still partial: tenant-scoped platform services can route to schema/database-per-tenant targets, but the whole application is not migrated to per-tenant databases or schemas
+- Native game-state proof is verified on this workstation through `SCUM.db` for representative spawn-item classes, but broader coverage across all delivery types and server environments is still incomplete
 - A capture checklist now exists at [docs/assets/CAPTURE_CHECKLIST.md](./docs/assets/CAPTURE_CHECKLIST.md)
 
 ## Evidence
@@ -143,7 +148,20 @@ npm run readiness:prod
 npm run smoke:postdeploy
 ```
 
-Latest local verification on this workstation completed on `2026-03-16` with all commands above passing.
+Latest local verification on this workstation completed on `2026-03-17` with all commands above passing.
+
+Additional live runtime evidence from this workstation:
+
+- watcher `ready` against the configured `SCUM.log`
+- console-agent `ready` with successful live preflight
+- one live `#Announce` command executed through the agent and observed in `SCUM.log`
+- live native proof matrix captured from `SCUM.db` for:
+  - `Water_05l`
+  - `Weapon_M1911`
+  - `Magazine_M1911`
+  - `Weapon_AK47`
+
+See [docs/assets/live-runtime-evidence.md](./docs/assets/live-runtime-evidence.md).
 
 ## Architecture Summary
 
@@ -208,8 +226,13 @@ ADMIN_WEB_STEP_UP_ENABLED=true
 DELIVERY_EXECUTION_MODE=agent
 SCUM_CONSOLE_AGENT_BASE_URL=http://127.0.0.1:3213
 SCUM_CONSOLE_AGENT_TOKEN=put_a_strong_agent_token_here
-SCUM_WATCHER_ENABLED=false
+SCUM_WATCHER_ENABLED=true
+SCUM_LOG_PATH=Z:\\SteamLibrary\\steamapps\\common\\SCUM Server\\SCUM\\Saved\\Logs\\SCUM.log
 SCUM_CONSOLE_AGENT_REQUIRED=false
+DELIVERY_NATIVE_PROOF_MODE=required
+DELIVERY_NATIVE_PROOF_TIMEOUT_MS=15000
+DELIVERY_NATIVE_PROOF_WAIT_FOR_STATE_MS=15000
+DELIVERY_NATIVE_PROOF_POLL_INTERVAL_MS=1500
 ```
 
 For the full env reference, see [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md).

@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 
-const { getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath } = require('./_persist');
 
 const MAX_NOTIFICATIONS = 500;
 const FILE_PATH = getFilePath('admin-notifications.json');
@@ -25,39 +25,6 @@ function createId(prefix = 'admin-note') {
     ? crypto.randomUUID()
     : `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
   return `${prefix}-${suffix}`;
-}
-
-function sleepMs(delayMs) {
-  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.trunc(delayMs));
-}
-
-function replaceFileWithRetry(tmpPath, targetPath) {
-  let lastError = null;
-  for (const delayMs of [0, 20, 80, 160]) {
-    try {
-      if (delayMs > 0) {
-        sleepMs(delayMs);
-      }
-      fs.renameSync(tmpPath, targetPath);
-      return;
-    } catch (error) {
-      lastError = error;
-      if (!['EPERM', 'EBUSY'].includes(String(error && error.code || ''))) {
-        throw error;
-      }
-    }
-  }
-
-  if (lastError && ['EPERM', 'EBUSY'].includes(String(lastError.code || ''))) {
-    fs.copyFileSync(tmpPath, targetPath);
-    fs.unlinkSync(tmpPath);
-    return;
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
 }
 
 function normalizeNotification(entry = {}) {
@@ -95,9 +62,7 @@ function queueWrite(work, label) {
 }
 
 function writeSnapshotToDisk() {
-  const tmpPath = `${FILE_PATH}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(notifications, null, 2), 'utf8');
-  replaceFileWithRetry(tmpPath, FILE_PATH);
+  atomicWriteJson(FILE_PATH, notifications);
 }
 
 async function hydrateFromDisk() {

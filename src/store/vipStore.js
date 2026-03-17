@@ -1,10 +1,19 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const memberships = new Map(); // userId -> { planId, expiresAt }
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getVipDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeUserId(value) {
   return String(value || '').trim();
@@ -43,13 +52,13 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.vipMembership.findMany();
+    const rows = await getVipDb().vipMembership.findMany();
     if (rows.length === 0) {
       if (memberships.size > 0) {
         await queueDbWrite(
           async () => {
             for (const [userId, value] of memberships.entries()) {
-              await prisma.vipMembership.upsert({
+              await getVipDb().vipMembership.upsert({
                 where: { userId },
                 update: {
                   planId: value.planId,
@@ -120,7 +129,7 @@ function setMembership(userId, planId, expiresAt) {
 
   queueDbWrite(
     async () => {
-      await prisma.vipMembership.upsert({
+      await getVipDb().vipMembership.upsert({
         where: { userId: parsed.userId },
         update: {
           planId: parsed.planId,
@@ -167,7 +176,7 @@ function removeMembership(userId) {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.vipMembership.deleteMany({
+      await getVipDb().vipMembership.deleteMany({
         where: { userId: key },
       });
     },
@@ -190,9 +199,9 @@ function replaceMemberships(nextMemberships = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.vipMembership.deleteMany({});
+      await getVipDb().vipMembership.deleteMany({});
       for (const [userId, value] of memberships.entries()) {
-        await prisma.vipMembership.create({
+        await getVipDb().vipMembership.create({
           data: {
             userId,
             planId: value.planId,

@@ -1,11 +1,20 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const tickets = new Map(); // channelId -> ticket
 let ticketCounter = 1;
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getTicketDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeDate(value, fallback = null) {
   if (!value) return fallback;
@@ -45,7 +54,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.ticketRecord.findMany({
+    const rows = await getTicketDb().ticketRecord.findMany({
       orderBy: [{ createdAt: 'desc' }],
     });
 
@@ -54,7 +63,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const value of tickets.values()) {
-              await prisma.ticketRecord.upsert({
+              await getTicketDb().ticketRecord.upsert({
                 where: { channelId: value.channelId },
                 update: {
                   id: value.id,
@@ -147,7 +156,7 @@ function createTicket({ guildId, userId, channelId, category, reason }) {
 
   queueDbWrite(
     async () => {
-      await prisma.ticketRecord.upsert({
+      await getTicketDb().ticketRecord.upsert({
         where: { channelId: t.channelId },
         update: {
           id: t.id,
@@ -192,7 +201,7 @@ function claimTicket(channelId, staffId) {
 
   queueDbWrite(
     async () => {
-      await prisma.ticketRecord.updateMany({
+      await getTicketDb().ticketRecord.updateMany({
         where: { channelId },
         data: {
           status: t.status,
@@ -214,7 +223,7 @@ function closeTicket(channelId) {
 
   queueDbWrite(
     async () => {
-      await prisma.ticketRecord.updateMany({
+      await getTicketDb().ticketRecord.updateMany({
         where: { channelId },
         data: {
           status: t.status,
@@ -245,9 +254,9 @@ function replaceTickets(nextTickets = [], nextCounter = null) {
 
   queueDbWrite(
     async () => {
-      await prisma.ticketRecord.deleteMany({});
+      await getTicketDb().ticketRecord.deleteMany({});
       for (const value of tickets.values()) {
-        await prisma.ticketRecord.create({
+        await getTicketDb().ticketRecord.create({
           data: {
             channelId: value.channelId,
             id: value.id,

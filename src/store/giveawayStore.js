@@ -1,11 +1,20 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const giveaways = new Map(); // messageId -> { prize, winnersCount, endsAt, channelId, guildId, entrants: Set<userId> }
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
 let isHydrating = false;
+
+function getGiveawayDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeDate(value) {
   const date = new Date(value);
@@ -51,7 +60,7 @@ async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   isHydrating = true;
   try {
-    const rows = await prisma.giveaway.findMany({
+    const rows = await getGiveawayDb().giveaway.findMany({
       include: {
         entrants: true,
       },
@@ -63,7 +72,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const g of giveaways.values()) {
-              await prisma.giveaway.upsert({
+              await getGiveawayDb().giveaway.upsert({
                 where: { messageId: g.messageId },
                 update: {
                   channelId: g.channelId,
@@ -82,7 +91,7 @@ async function hydrateFromPrisma() {
                 },
               });
               for (const userId of g.entrants) {
-                await prisma.giveawayEntrant.upsert({
+                await getGiveawayDb().giveawayEntrant.upsert({
                   where: {
                     messageId_userId: {
                       messageId: g.messageId,
@@ -162,7 +171,7 @@ function createGiveaway({ messageId, channelId, guildId, prize, winnersCount, en
 
   queueDbWrite(
     async () => {
-      await prisma.giveaway.upsert({
+      await getGiveawayDb().giveaway.upsert({
         where: { messageId: g.messageId },
         update: {
           channelId: g.channelId,
@@ -200,7 +209,7 @@ function addEntrant(messageId, userId) {
 
   queueDbWrite(
     async () => {
-      await prisma.giveawayEntrant.upsert({
+      await getGiveawayDb().giveawayEntrant.upsert({
         where: {
           messageId_userId: {
             messageId,
@@ -224,7 +233,7 @@ function removeGiveaway(messageId) {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.giveaway.deleteMany({
+      await getGiveawayDb().giveaway.deleteMany({
         where: { messageId },
       });
     },
@@ -244,10 +253,10 @@ function replaceGiveaways(nextGiveaways = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.giveawayEntrant.deleteMany({});
-      await prisma.giveaway.deleteMany({});
+      await getGiveawayDb().giveawayEntrant.deleteMany({});
+      await getGiveawayDb().giveaway.deleteMany({});
       for (const g of giveaways.values()) {
-        await prisma.giveaway.create({
+        await getGiveawayDb().giveaway.create({
           data: {
             messageId: g.messageId,
             channelId: g.channelId,
@@ -260,7 +269,7 @@ function replaceGiveaways(nextGiveaways = []) {
       }
       for (const g of giveaways.values()) {
         for (const userId of g.entrants) {
-          await prisma.giveawayEntrant.create({
+          await getGiveawayDb().giveawayEntrant.create({
             data: {
               messageId: g.messageId,
               userId,

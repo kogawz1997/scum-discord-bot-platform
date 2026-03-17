@@ -345,6 +345,7 @@ function createAdminPlatformPostRoutes(deps) {
           tenantId: scopedTenantId,
           windowMs: body.windowMs,
           pendingOverdueMs: body.pendingOverdueMs,
+          allowGlobal: !scopedTenantId,
         }),
       });
       return true;

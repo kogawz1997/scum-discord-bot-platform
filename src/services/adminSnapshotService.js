@@ -1017,37 +1017,37 @@ async function buildAdminSnapshot({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformSubscriptions({ limit: 500 }),
+      : listPlatformSubscriptions({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformLicense.findMany({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformLicenses({ limit: 500 }),
+      : listPlatformLicenses({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformApiKey.findMany({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformApiKeys({ limit: 500 }),
+      : listPlatformApiKeys({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformWebhookEndpoint.findMany({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformWebhookEndpoints({ limit: 500 }),
+      : listPlatformWebhookEndpoints({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformAgentRuntime.findMany({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformAgentRuntimes({ limit: 500 }),
+      : listPlatformAgentRuntimes({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformMarketplaceOffer.findMany({
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listMarketplaceOffers({ limit: 500 }),
+      : listMarketplaceOffers({ limit: 500, allowGlobal: true }),
   ]);
 
   const shopItemsWithIcon = shopItems.map((item) => ({

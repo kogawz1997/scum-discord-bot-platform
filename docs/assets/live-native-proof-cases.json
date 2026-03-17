@@ -1,0 +1,37 @@
+[
+  {
+    "label": "consumable-water",
+    "gameItemId": "Water_05l",
+    "quantity": 1
+  },
+  {
+    "label": "weapon-m1911",
+    "gameItemId": "Weapon_M1911",
+    "quantity": 1
+  },
+  {
+    "label": "magazine-m1911",
+    "gameItemId": "Magazine_M1911",
+    "quantity": 1
+  },
+  {
+    "label": "weapon-ak47",
+    "gameItemId": "Weapon_AK47",
+    "quantity": 1
+  },
+  {
+    "label": "medical-bandage",
+    "gameItemId": "Emergency_bandage",
+    "quantity": 1
+  },
+  {
+    "label": "food-bakedbeans",
+    "gameItemId": "BakedBeans",
+    "quantity": 1
+  },
+  {
+    "label": "gear-backpack",
+    "gameItemId": "Backpack_02_01",
+    "quantity": 1
+  }
+]

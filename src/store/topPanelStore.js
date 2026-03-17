@@ -1,5 +1,7 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const PANEL_TYPES = new Set([
   'topKiller',
   'topGunKill',
@@ -13,6 +15,13 @@ let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
 let isHydrating = false;
+
+function getTopPanelDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizePanelType(panelType) {
   const raw = String(panelType || '').trim();
@@ -74,7 +83,7 @@ async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   isHydrating = true;
   try {
-    const rows = await prisma.topPanelMessage.findMany({
+    const rows = await getTopPanelDb().topPanelMessage.findMany({
       orderBy: [{ guildId: 'asc' }, { panelType: 'asc' }],
     });
     if (rows.length === 0) {
@@ -85,7 +94,7 @@ async function hydrateFromPrisma() {
               for (const panelType of PANEL_TYPES.values()) {
                 const ref = state?.[panelType];
                 if (!ref) continue;
-                await prisma.topPanelMessage.upsert({
+                await getTopPanelDb().topPanelMessage.upsert({
                   where: {
                     guildId_panelType: {
                       guildId,
@@ -183,7 +192,7 @@ function setTopPanelMessage(guildId, panelType, channelId, messageId) {
   queueDbWrite(
     async () => {
       if (!ref) return;
-      await prisma.topPanelMessage.upsert({
+      await getTopPanelDb().topPanelMessage.upsert({
         where: {
           guildId_panelType: {
             guildId: guildKey,
@@ -228,7 +237,7 @@ function removeTopPanelMessage(guildId, panelType) {
   const guildKey = String(guildId || '').trim();
   queueDbWrite(
     async () => {
-      await prisma.topPanelMessage.deleteMany({
+      await getTopPanelDb().topPanelMessage.deleteMany({
         where: {
           guildId: guildKey,
           panelType: key,
@@ -283,12 +292,12 @@ function replaceTopPanels(nextPanels = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.topPanelMessage.deleteMany({});
+      await getTopPanelDb().topPanelMessage.deleteMany({});
       for (const [guildId, state] of panelsByGuild.entries()) {
         for (const panelType of PANEL_TYPES.values()) {
           const ref = state?.[panelType];
           if (!ref) continue;
-          await prisma.topPanelMessage.create({
+          await getTopPanelDb().topPanelMessage.create({
             data: {
               guildId,
               panelType,

@@ -8,6 +8,7 @@ function createAdminAuditRoutes(deps) {
     sendJson,
     sendDownload,
     requiredString,
+    resolveScopedTenantId,
     readJsonBody,
     buildAuditDatasetService,
     buildAuditExportPayloadService,
@@ -32,10 +33,16 @@ function createAdminAuditRoutes(deps) {
     if (req.method === 'GET' && pathname === '/admin/api/audit/query') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       const data = await buildAuditDatasetService({
         prisma,
         listEvents,
         getParticipants,
+        tenantId,
         view: urlObj.searchParams.get('view'),
         query: urlObj.searchParams.get('q'),
         userId: urlObj.searchParams.get('userId'),
@@ -131,11 +138,17 @@ function createAdminAuditRoutes(deps) {
     if (req.method === 'GET' && pathname === '/admin/api/audit/export') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
       const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
       const data = await buildAuditDatasetService({
         prisma,
         listEvents,
         getParticipants,
+        tenantId,
         view: urlObj.searchParams.get('view'),
         query: urlObj.searchParams.get('q'),
         userId: urlObj.searchParams.get('userId'),

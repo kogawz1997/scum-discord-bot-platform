@@ -1,11 +1,20 @@
 ﻿const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const bounties = new Map(); // id -> bounty
 
 let bountyCounter = 1;
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getBountyDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeBountyRow(row) {
   const id = Number(row?.id || 0);
@@ -35,7 +44,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.bounty.findMany({
+    const rows = await getBountyDb().bounty.findMany({
       orderBy: { id: 'asc' },
     });
 
@@ -44,7 +53,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const bounty of bounties.values()) {
-              await prisma.bounty.upsert({
+              await getBountyDb().bounty.upsert({
                 where: { id: bounty.id },
                 update: {
                   targetName: bounty.targetName,
@@ -120,7 +129,7 @@ async function createBounty({ targetName, amount, createdBy }) {
   }
 
   mutationVersion += 1;
-  const created = await prisma.bounty.create({
+  const created = await getBountyDb().bounty.create({
     data: {
       targetName: String(targetName || ''),
       amount: Number(amount || 0),
@@ -157,7 +166,7 @@ function cancelBounty(id, requesterId, isStaff) {
 
   queueDbWrite(
     async () => {
-      await prisma.bounty.updateMany({
+      await getBountyDb().bounty.updateMany({
         where: { id: bounty.id },
         data: {
           status: bounty.status,
@@ -181,7 +190,7 @@ function claimBounty(id, killerName) {
 
   queueDbWrite(
     async () => {
-      await prisma.bounty.updateMany({
+      await getBountyDb().bounty.updateMany({
         where: { id: bounty.id },
         data: {
           status: bounty.status,
@@ -214,9 +223,9 @@ function replaceBounties(nextBounties = [], nextCounter = null) {
 
   queueDbWrite(
     async () => {
-      await prisma.bounty.deleteMany();
+      await getBountyDb().bounty.deleteMany();
       for (const bounty of bounties.values()) {
-        await prisma.bounty.create({
+        await getBountyDb().bounty.create({
           data: {
             id: bounty.id,
             targetName: bounty.targetName,

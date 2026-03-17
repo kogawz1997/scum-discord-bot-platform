@@ -9,6 +9,8 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     requiredString,
     asInt,
     parseStringArray,
+    getAuthTenantId,
+    resolveScopedTenantId,
     listKnownPurchaseStatuses,
     setCoinsExact,
     creditCoins,
@@ -44,6 +46,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
   return async function handleAdminCommerceDeliveryPostRoute(context) {
     const {
       client,
+      req,
       pathname,
       body,
       res,
@@ -120,6 +123,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/shop/add') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const id = requiredString(body, 'id');
       const name = requiredString(body, 'name');
       const price = asInt(body.price);
@@ -154,6 +164,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
       }
 
       const result = await addShopItemForAdmin({
+        tenantId,
         id,
         name,
         price,
@@ -181,13 +192,20 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/shop/price') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const idOrName = requiredString(body, 'idOrName');
       const price = asInt(body.price);
       if (!idOrName || price == null) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await setShopItemPriceForAdmin({ idOrName, price });
+      const result = await setShopItemPriceForAdmin({ idOrName, price, tenantId });
       if (!result.ok && result.reason === 'not-found') {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -201,12 +219,19 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/shop/delete') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const idOrName = requiredString(body, 'idOrName');
       if (!idOrName) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await deleteShopItemForAdmin({ idOrName });
+      const result = await deleteShopItemForAdmin({ idOrName, tenantId });
       if (!result.ok && result.reason === 'not-found') {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -220,6 +245,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/purchase/status') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       const status = requiredString(body, 'status');
       if (!code || !status) {
@@ -232,6 +264,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         force: body?.force === true,
         actor: `admin-web:${auth?.user || 'unknown'}`,
         reason: requiredString(body, 'reason') || 'admin-manual-status-update',
+        tenantId,
         meta: { role: auth?.role || 'unknown' },
         recordIfSame: body?.recordIfSame === true,
         historyLimit: 20,
@@ -270,6 +303,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/enqueue') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -277,6 +317,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
       }
       const result = await enqueuePurchaseDeliveryByCode(code, {
         guildId: requiredString(body, 'guildId') || undefined,
+        tenantId: tenantId || undefined,
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'ไม่สามารถเพิ่มคิวส่งของได้' });
@@ -287,12 +328,19 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/retry') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = retryDeliveryNow(code);
+      const result = retryDeliveryNow(code, { tenantId: tenantId || undefined });
       if (!result) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -302,16 +350,33 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/retry-many') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const codes = parseStringArray(body?.codes);
       if (codes.length === 0) {
         sendJson(res, 400, { ok: false, error: 'codes is required' });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: retryDeliveryNowMany(codes) });
+      sendJson(res, 200, {
+        ok: true,
+        data: retryDeliveryNowMany(codes, { tenantId: tenantId || undefined }),
+      });
       return true;
     }
 
     if (pathname === '/admin/api/delivery/dead-letter/retry') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -319,6 +384,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
       }
       const result = await retryDeliveryDeadLetter(code, {
         guildId: requiredString(body, 'guildId') || undefined,
+        tenantId: tenantId || undefined,
       });
       if (!result?.ok) {
         sendJson(res, 400, {
@@ -332,6 +398,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/dead-letter/retry-many') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const codes = parseStringArray(body?.codes);
       if (codes.length === 0) {
         sendJson(res, 400, { ok: false, error: 'codes is required' });
@@ -341,18 +414,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         ok: true,
         data: await retryDeliveryDeadLetterMany(codes, {
           guildId: requiredString(body, 'guildId') || undefined,
+          tenantId: tenantId || undefined,
         }),
       });
       return true;
     }
 
     if (pathname === '/admin/api/delivery/dead-letter/delete') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const removed = removeDeliveryDeadLetter(code);
+      const removed = removeDeliveryDeadLetter(code, { tenantId: tenantId || undefined });
       if (!removed) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -362,12 +443,23 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/cancel') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = cancelDeliveryJob(code, requiredString(body, 'reason') || 'admin-web');
+      const result = cancelDeliveryJob(
+        code,
+        requiredString(body, 'reason') || 'admin-web',
+        { tenantId: tenantId || undefined },
+      );
       if (!result) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
@@ -377,6 +469,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/preview') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const itemId = requiredString(body, 'itemId');
       const gameItemId = requiredString(body, 'gameItemId');
       if (!itemId && !gameItemId) {
@@ -394,6 +493,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
             steamId: requiredString(body, 'steamId') || undefined,
             userId: requiredString(body, 'userId') || undefined,
             purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+            tenantId: tenantId || undefined,
           }),
         });
       } catch (error) {
@@ -406,6 +506,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/preflight') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       try {
         sendJson(res, 200, {
           ok: true,
@@ -421,6 +528,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
             teleportMode: requiredString(body, 'teleportMode') || undefined,
             teleportTarget: requiredString(body, 'teleportTarget') || undefined,
             returnTarget: requiredString(body, 'returnTarget') || undefined,
+            tenantId: tenantId || undefined,
           }),
         });
       } catch (error) {
@@ -433,6 +541,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/simulate') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const itemId = requiredString(body, 'itemId');
       const gameItemId = requiredString(body, 'gameItemId');
       if (!itemId && !gameItemId) {
@@ -454,6 +569,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
             teleportMode: requiredString(body, 'teleportMode') || undefined,
             teleportTarget: requiredString(body, 'teleportTarget') || undefined,
             returnTarget: requiredString(body, 'returnTarget') || undefined,
+            tenantId: tenantId || undefined,
           }),
         });
       } catch (error) {
@@ -489,6 +605,13 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/test-send') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
       const itemId = requiredString(body, 'itemId');
       const gameItemId = requiredString(body, 'gameItemId');
       if (!itemId && !gameItemId) {
@@ -506,6 +629,7 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
             steamId: requiredString(body, 'steamId') || undefined,
             userId: requiredString(body, 'userId') || undefined,
             purchaseCode: requiredString(body, 'purchaseCode') || undefined,
+            tenantId: tenantId || undefined,
           }),
         });
       } catch (error) {

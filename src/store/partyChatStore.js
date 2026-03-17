@@ -1,8 +1,17 @@
 const crypto = require('node:crypto');
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const MAX_MESSAGES_PER_GROUP = 300;
 const MAX_MESSAGE_LENGTH = 280;
+
+function getPartyChatDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizePartyKey(value) {
   const key = String(value || '')
@@ -62,7 +71,7 @@ async function listPartyMessages(partyKey, limit = 80) {
   if (!key) return [];
 
   const max = Math.max(1, Math.min(200, Math.trunc(Number(limit || 80))));
-  const rows = await prisma.partyChatMessage.findMany({
+  const rows = await getPartyChatDb().partyChatMessage.findMany({
     where: { partyKey: key },
     orderBy: { createdAt: 'desc' },
     take: max,
@@ -76,7 +85,7 @@ async function listPartyMessages(partyKey, limit = 80) {
 }
 
 async function trimPartyMessages(partyKey) {
-  const rows = await prisma.partyChatMessage.findMany({
+  const rows = await getPartyChatDb().partyChatMessage.findMany({
     where: { partyKey },
     orderBy: { createdAt: 'desc' },
     skip: MAX_MESSAGES_PER_GROUP,
@@ -84,7 +93,7 @@ async function trimPartyMessages(partyKey) {
   });
   if (rows.length === 0) return;
   const ids = rows.map((row) => row.id);
-  await prisma.partyChatMessage.deleteMany({
+  await getPartyChatDb().partyChatMessage.deleteMany({
     where: { id: { in: ids } },
   });
 }
@@ -107,7 +116,7 @@ async function addPartyMessage(partyKey, payload = {}) {
 
   if (!row) return { ok: false, reason: 'invalid-message' };
 
-  const created = await prisma.partyChatMessage.create({
+  const created = await getPartyChatDb().partyChatMessage.create({
     data: {
       id: row.id,
       partyKey: row.partyKey,
@@ -126,14 +135,14 @@ async function addPartyMessage(partyKey, payload = {}) {
 async function clearPartyMessages(partyKey) {
   const key = normalizePartyKey(partyKey);
   if (!key) return false;
-  const result = await prisma.partyChatMessage.deleteMany({
+  const result = await getPartyChatDb().partyChatMessage.deleteMany({
     where: { partyKey: key },
   });
   return result.count > 0;
 }
 
 async function listAllPartyMessages(limit = 5000) {
-  const rows = await prisma.partyChatMessage.findMany({
+  const rows = await getPartyChatDb().partyChatMessage.findMany({
     orderBy: { createdAt: 'desc' },
     take: Math.max(1, Number(limit || 5000)),
   });
@@ -141,7 +150,7 @@ async function listAllPartyMessages(limit = 5000) {
 }
 
 async function replacePartyMessages(nextRows = []) {
-  await prisma.$transaction(async (tx) => {
+  await getPartyChatDb().$transaction(async (tx) => {
     await tx.partyChatMessage.deleteMany();
     for (const row of Array.isArray(nextRows) ? nextRows : []) {
       const normalized = normalizeMessageEntry(row);

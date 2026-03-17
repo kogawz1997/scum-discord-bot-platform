@@ -24,6 +24,10 @@ function createMockRes() {
 
 function buildRoutes(overrides = {}) {
   return createPortalPageRoutes({
+    allowCaptureAuth: false,
+    captureAuthToken: '',
+    createCaptureSession: () => 'capture-session-id',
+    buildSessionCookie: () => 'scum_portal_session=capture-session-id; Path=/; HttpOnly',
     tryServeStaticScumIcon: async () => false,
     buildLegacyAdminUrl: (pathname) => `https://admin.example.com${pathname}`,
     getCanonicalRedirectUrl: () => null,
@@ -111,4 +115,27 @@ test('portal page routes serve landing html directly', async () => {
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body, '<landing/>');
+});
+
+test('portal page routes allow capture-only dashboard auth with a valid token', async () => {
+  const handler = buildRoutes({
+    allowCaptureAuth: true,
+    captureAuthToken: 'capture-token',
+    createCaptureSession: () => 'capture-session-id',
+    buildSessionCookie: () => 'scum_portal_session=capture-session-id; Path=/; HttpOnly',
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: {} },
+    res,
+    urlObj: new URL('https://player.example.com/player/capture-auth?token=capture-token'),
+    pathname: '/player/capture-auth',
+    method: 'GET',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/player');
+  assert.equal(res.headers['Set-Cookie'], 'scum_portal_session=capture-session-id; Path=/; HttpOnly');
 });

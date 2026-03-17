@@ -1,10 +1,19 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const claimed = new Set();
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getWelcomePackDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeUserId(value) {
   return String(value || '').trim();
@@ -24,7 +33,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.welcomeClaim.findMany({
+    const rows = await getWelcomePackDb().welcomeClaim.findMany({
       orderBy: { claimedAt: 'desc' },
     });
     if (rows.length === 0) {
@@ -32,7 +41,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const userId of claimed.values()) {
-              await prisma.welcomeClaim.upsert({
+              await getWelcomePackDb().welcomeClaim.upsert({
                 where: { userId },
                 update: {},
                 create: { userId },
@@ -95,7 +104,7 @@ function claim(userId) {
 
   queueDbWrite(
     async () => {
-      await prisma.welcomeClaim.upsert({
+      await getWelcomePackDb().welcomeClaim.upsert({
         where: { userId: id },
         update: {},
         create: { userId: id },
@@ -120,7 +129,7 @@ function revokeClaim(userId) {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.welcomeClaim.deleteMany({
+      await getWelcomePackDb().welcomeClaim.deleteMany({
         where: { userId: id },
       });
     },
@@ -134,7 +143,7 @@ function clearClaims() {
   mutationVersion += 1;
   queueDbWrite(
     async () => {
-      await prisma.welcomeClaim.deleteMany({});
+      await getWelcomePackDb().welcomeClaim.deleteMany({});
     },
     'clear-claims',
   );
@@ -151,9 +160,9 @@ function replaceClaims(nextClaims = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.welcomeClaim.deleteMany({});
+      await getWelcomePackDb().welcomeClaim.deleteMany({});
       for (const userId of claimed.values()) {
-        await prisma.welcomeClaim.create({
+        await getWelcomePackDb().welcomeClaim.create({
           data: { userId },
         });
       }

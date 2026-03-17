@@ -8,6 +8,7 @@ require('dotenv').config();
 
 const PROJECT_ROOT = process.cwd();
 const GENERATED_SCHEMA_PATH = path.join(PROJECT_ROOT, 'node_modules', '.prisma', 'client', 'schema.prisma');
+const TEST_ROOT = path.join(PROJECT_ROOT, 'test');
 
 function readGeneratedProvider() {
   if (!fs.existsSync(GENERATED_SCHEMA_PATH)) {
@@ -99,9 +100,41 @@ function buildTestRuntime() {
   };
 }
 
+function shouldIncludeTestFile(entryPath, rootDir = TEST_ROOT) {
+  const relativePath = path.relative(rootDir, entryPath);
+  if (!relativePath || relativePath.startsWith('..')) return false;
+  const normalized = relativePath.replace(/\\/g, '/');
+  if (normalized.startsWith('fixtures/')) return false;
+  return /\.test\.js$/i.test(path.basename(entryPath));
+}
+
+function collectTestFiles(rootDir) {
+  const results = [];
+  if (!fs.existsSync(rootDir)) return results;
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'fixtures') continue;
+        stack.push(fullPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      if (shouldIncludeTestFile(fullPath, rootDir)) {
+        results.push(path.relative(PROJECT_ROOT, fullPath));
+      }
+    }
+  }
+  return results.sort((left, right) => left.localeCompare(right));
+}
+
 function main() {
   const testRuntime = buildTestRuntime();
-  const args = process.argv.slice(2);
+  const requestedArgs = process.argv.slice(2);
+  const args = requestedArgs.length > 0 ? requestedArgs : collectTestFiles(TEST_ROOT);
   let result;
   try {
     result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...args], {
@@ -129,9 +162,16 @@ function main() {
   process.exit(result?.status || 0);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`[run-tests-with-provider] ${error.message}`);
-  process.exit(1);
+module.exports = {
+  collectTestFiles,
+  shouldIncludeTestFile,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`[run-tests-with-provider] ${error.message}`);
+    process.exit(1);
+  }
 }

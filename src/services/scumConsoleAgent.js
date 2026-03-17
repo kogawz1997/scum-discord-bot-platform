@@ -402,6 +402,8 @@ function startScumConsoleAgent(options = {}) {
           stderr: trimText(result.stderr),
           detail: parsed,
         };
+        lastError = null;
+        lastErrorCode = null;
         return lastPreflight;
       }
 
@@ -416,6 +418,8 @@ function startScumConsoleAgent(options = {}) {
           windowAware: false,
         },
       };
+      lastError = null;
+      lastErrorCode = null;
       return lastPreflight;
     }
 
@@ -437,6 +441,8 @@ function startScumConsoleAgent(options = {}) {
         check: 'managed-server',
         detail: getManagedServerState(),
       };
+      lastError = null;
+      lastErrorCode = null;
       return lastPreflight;
     }
 

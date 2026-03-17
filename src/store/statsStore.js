@@ -1,10 +1,19 @@
 ﻿const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const stats = new Map(); // userId -> stat
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getStatsDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeStatRow(row) {
   const userId = String(row?.userId || '').trim();
@@ -33,14 +42,14 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.stats.findMany();
+    const rows = await getStatsDb().stats.findMany();
 
     if (rows.length === 0) {
       if (stats.size > 0) {
         await queueDbWrite(
           async () => {
             for (const [userId, value] of stats.entries()) {
-              await prisma.stats.upsert({
+              await getStatsDb().stats.upsert({
                 where: { userId },
                 update: {
                   kills: value.kills,
@@ -109,7 +118,7 @@ function queueUpsertStat(userId, value, label) {
   if (!String(userId || '').trim()) return;
   queueDbWrite(
     async () => {
-      await prisma.stats.upsert({
+      await getStatsDb().stats.upsert({
         where: { userId },
         update: {
           kills: value.kills,
@@ -220,9 +229,9 @@ function replaceStats(nextStats = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.stats.deleteMany();
+      await getStatsDb().stats.deleteMany();
       for (const [userId, value] of stats.entries()) {
-        await prisma.stats.create({
+        await getStatsDb().stats.create({
           data: {
             userId,
             kills: value.kills,

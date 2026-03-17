@@ -1,10 +1,19 @@
 const { prisma } = require('../prisma');
 
+const { getDefaultTenantScopedPrismaClient } = require('../prisma');
+
 const weaponStats = new Map(); // weapon -> { kills, longestDistance, recordHolder }
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
 let initPromise = null;
+
+function getWeaponStatsDb() {
+  if (!prisma) {
+    return getDefaultTenantScopedPrismaClient();
+  }
+  return getDefaultTenantScopedPrismaClient();
+}
 
 function normalizeNumber(value, fallback = 0) {
   const num = Number(value);
@@ -37,7 +46,7 @@ function queueDbWrite(work, label) {
 async function hydrateFromPrisma() {
   const startVersion = mutationVersion;
   try {
-    const rows = await prisma.weaponStat.findMany({
+    const rows = await getWeaponStatsDb().weaponStat.findMany({
       orderBy: [{ kills: 'desc' }, { updatedAt: 'desc' }],
     });
 
@@ -46,7 +55,7 @@ async function hydrateFromPrisma() {
         await queueDbWrite(
           async () => {
             for (const [weapon, stat] of weaponStats.entries()) {
-              await prisma.weaponStat.upsert({
+              await getWeaponStatsDb().weaponStat.upsert({
                 where: { weapon },
                 update: {
                   kills: stat.kills,
@@ -129,7 +138,7 @@ function recordWeaponKill({ weapon, distance, killer }) {
 
   queueDbWrite(
     async () => {
-      await prisma.weaponStat.upsert({
+      await getWeaponStatsDb().weaponStat.upsert({
         where: { weapon: key },
         update: {
           kills: current.kills,
@@ -172,9 +181,9 @@ function replaceWeaponStats(nextStats = []) {
 
   queueDbWrite(
     async () => {
-      await prisma.weaponStat.deleteMany({});
+      await getWeaponStatsDb().weaponStat.deleteMany({});
       for (const [weapon, stat] of weaponStats.entries()) {
-        await prisma.weaponStat.create({
+        await getWeaponStatsDb().weaponStat.create({
           data: {
             weapon,
             kills: stat.kills,
