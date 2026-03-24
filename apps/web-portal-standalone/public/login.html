@@ -3,31 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM Player Portal | Login</title>
+  <title data-i18n="player.login.documentTitle">SCUM Player Portal | Login</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260322-player-login-primary-clean">
+  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260324-polish-6">
 </head>
 <body class="public-page public-login">
-  <div class="public-shell signin-layout">
-    <section class="signin-card public-panel">
-      <aside class="signin-side">
-        <span class="public-badge" data-i18n="player.login.badge">Player Portal</span>
-        <div class="signin-poster-note">
-          <strong data-i18n="player.login.hintPurchase">Safe purchase flow</strong>
-          <p class="muted" data-i18n="player.login.hintPurchaseDetail">Order status, delivery state, and Steam-link requirements are shown inside the portal after sign-in.</p>
+  <div class="site-shell">
+    <header class="site-topbar">
+      <a class="site-brand" href="/landing">
+        <span class="site-brand-mark">SC</span>
+        <div class="site-brand-copy">
+          <strong data-i18n="player.badge">Player Portal</strong>
+          <span data-i18n="player.login.subtitle">Use Discord sign-in to access wallet, purchases, redeem flow, Steam linking, and transaction history. Admin and platform controls stay in separate consoles.</span>
         </div>
-      </aside>
+      </a>
+      <div class="site-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="playerLoginLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
 
-      <div class="signin-form">
-        <div class="signin-toolbar">
-          <label class="language-picker">
-            <span data-i18n="common.language">Language</span>
-            <select id="playerLoginLanguageSelect" class="language-select"></select>
-          </label>
-        </div>
+    <section class="signin-shell">
+      <section class="signin-panel">
+        <span class="site-kicker" data-i18n="player.login.badge">Player Portal</span>
         <h3 data-i18n="player.login.enterTitle">Enter the portal</h3>
         <p class="muted" data-i18n="player.login.enterSubtitle">Continue with Discord to open the player-facing portal experience.</p>
         <button class="button button-primary" id="discordBtn" type="button" data-i18n="player.login.discord">Continue with Discord</button>
@@ -35,11 +35,22 @@
         <div class="signin-links">
           <a class="signin-admin-link" href="/admin" data-i18n="player.login.admin">Admin consoles</a>
         </div>
-      </div>
+      </section>
+
+      <aside class="signin-visual">
+        <img src="/player/assets/ui/visuals/scum/scene-announce.jpg" alt="SCUM player access">
+        <div class="signin-visual-copy">
+          <span class="site-badge" data-i18n="player.login.hintPlayer">Player only</span>
+          <div class="signin-note">
+            <strong data-i18n="player.login.hintPurchase">Safe purchase flow</strong>
+            <p class="muted" data-i18n="player.login.hintPurchaseDetail">Order status, delivery state, and Steam-link requirements are shown inside the portal after sign-in.</p>
+          </div>
+        </div>
+      </aside>
     </section>
   </div>
 
-  <script src="/player/assets/ui/portal-i18n.js?v=20260322-player-login-primary-clean"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
   <script>
     window.PortalUiI18n?.init(['playerLoginLanguageSelect']);
     document.getElementById('discordBtn').addEventListener('click', () => {

@@ -5,171 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="player.documentTitle">SCUM Player Portal</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/player/assets/ui/player-core.css?v=20260321-select-fix">
+  <link rel="stylesheet" href="/player/assets/ui/player-core.css?v=20260324-polish-6">
 </head>
 <body class="player-surface">
-  <div class="portal-shell portal-shell-redesign">
-    <section class="portal-hero-banner">
-      <div class="portal-hero-card">
-        <div class="portal-hero-toolbar">
-          <a class="portal-brand-mark" href="/player">
-            <span class="brand-emblem">SCUM</span>
-            <span class="brand-copy">
-              <strong data-i18n="player.badge">Player Portal</strong>
-              <span>Official Service Access</span>
-            </span>
-          </a>
-          <div class="portal-command-actions">
-            <label class="language-picker">
-              <span data-i18n="common.language">Language</span>
-              <select id="playerLanguageSelect" class="language-select"></select>
-            </label>
-            <button id="refreshBtn" class="button button-primary" type="button" data-i18n="common.refresh">Refresh</button>
-            <button id="logoutBtn" class="button" type="button" data-i18n="common.logout">Logout</button>
-          </div>
-        </div>
-        <nav class="portal-nav portal-nav-top portal-hero-nav" id="portalNav">
-          <button class="nav-btn active" data-tab="home" type="button" data-i18n="player.nav.home">Home</button>
-          <button class="nav-btn" data-tab="wallet" type="button" data-i18n="player.nav.wallet">Wallet</button>
-          <button class="nav-btn" data-tab="shop" type="button" data-i18n="player.nav.shop">Shop</button>
-          <button class="nav-btn" data-tab="orders" type="button" data-i18n="player.nav.orders">Orders</button>
-          <button class="nav-btn" data-tab="redeem" type="button" data-i18n="player.nav.redeem">Redeem</button>
-          <button class="nav-btn" data-tab="profile" type="button" data-i18n="player.nav.profile">Profile</button>
-        </nav>
-        <div class="portal-hero-copy">
-          <span class="portal-badge" data-i18n="player.badge">Player Portal</span>
-          <h1 data-i18n="player.title">Wallet, purchases, redeem, and account trust</h1>
-          <p data-i18n="player.subtitle">Player-facing portal for wallet visibility, purchase flow, redeem flow, profile review, and Steam linking. Admin operations live in separate consoles.</p>
-          <div id="portalMetaTags" class="tag-row"></div>
-        </div>
-        <div class="portal-hero-side">
-          <div class="hero-side-card">
-            <span class="kicker">Channel</span>
-            <strong>Player Service</strong>
-          </div>
-          <div class="hero-side-card">
-            <span class="kicker">Theme</span>
-            <strong>SCUM Field UI</strong>
-          </div>
+  <div class="portal-shell portal-shell-fiix">
+    <header class="portal-topbar">
+      <a class="portal-brand-mark" href="/player">
+        <span class="brand-emblem">SCUM</span>
+        <span class="brand-copy">
+          <strong data-i18n="player.badge">Player Portal</strong>
+          <span data-i18n="player.brandSubtitle">Trusted player service</span>
+        </span>
+      </a>
+      <nav class="portal-topnav" id="portalNav">
+        <button class="nav-btn active" data-tab="home" type="button" data-i18n="player.nav.home">Home</button>
+        <button class="nav-btn" data-tab="wallet" type="button" data-i18n="player.nav.wallet">Wallet</button>
+        <button class="nav-btn" data-tab="shop" type="button" data-i18n="player.nav.shop">Shop</button>
+        <button class="nav-btn" data-tab="orders" type="button" data-i18n="player.nav.orders">Orders</button>
+        <button class="nav-btn" data-tab="redeem" type="button" data-i18n="player.nav.redeem">Redeem</button>
+        <button class="nav-btn" data-tab="profile" type="button" data-i18n="player.nav.profile">Profile</button>
+      </nav>
+      <div class="portal-top-actions">
+        <label class="language-picker compact-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="playerLanguageSelect" class="language-select"></select>
+        </label>
+        <button id="refreshBtn" class="button" type="button" data-i18n="common.refresh">Refresh</button>
+        <button id="logoutBtn" class="button button-primary" type="button" data-i18n="common.logout">Logout</button>
+      </div>
+    </header>
+
+    <section class="portal-command-stage">
+      <div class="portal-command-copy">
+        <span class="portal-badge" data-i18n="player.badge">Player Portal</span>
+        <h1 data-i18n="player.title">Wallet, purchases, redeem, and account trust</h1>
+        <p data-i18n="player.subtitle">Player-facing portal for wallet visibility, purchase flow, redeem flow, profile review, and Steam linking. Admin operations live in separate consoles.</p>
+        <div id="portalMetaTags" class="tag-row"></div>
+      </div>
+      <div class="portal-command-visual">
+        <div class="command-visual-image" aria-hidden="true"></div>
+        <div class="signal-card">
+          <span class="kicker" data-i18n="player.home.accountOverview">Account Overview</span>
+          <strong data-i18n="player.home.notificationCenter">Player Signals</strong>
+          <p class="muted" data-i18n="player.home.notificationCenterDetail">Track wallet changes, order trust, and account requirements from one clear service view.</p>
         </div>
       </div>
     </section>
 
-    <div class="portal-layout">
-      <aside class="portal-dock">
-        <section class="dock-card">
-          <span class="portal-badge" data-i18n="player.badge">Player Portal</span>
-          <p class="muted" data-i18n="player.home.firstRunDetail">If you are new to this portal, follow these four steps first so wallet, delivery, and account trust stay predictable.</p>
-        </section>
-      </aside>
+    <section id="statusBanner" class="status-banner status-info">
+      <div>
+        <strong id="statusTitle" data-i18n="player.statusLoadingTitle">Preparing player portal...</strong>
+        <p id="statusDetail" data-i18n="player.statusLoadingDetail">Loading wallet, orders, and account state.</p>
+      </div>
+      <div class="tag-row" id="statusTags"></div>
+    </section>
 
-      <section class="portal-stage">
-
-      <section id="statusBanner" class="status-banner status-info">
-        <div>
-          <strong id="statusTitle" data-i18n="player.statusLoadingTitle">Preparing player portal...</strong>
-          <p id="statusDetail" data-i18n="player.statusLoadingDetail">Loading wallet, orders, and account state.</p>
-        </div>
-        <div class="tag-row" id="statusTags"></div>
-      </section>
-
-      <main class="portal-main">
+    <main class="portal-main">
       <!-- Home tab:
            keep the player snapshot and current trust state visible first.
            Secondary server context is available, but no longer competes with
            the purchase/account panels for first attention. -->
       <section class="tab-panel active" id="tab-home">
-        <div class="hero-grid">
-          <article class="hero-card profile-card">
-            <div class="profile-head">
-              <img id="profileAvatar" class="avatar" data-i18n-alt="player.profile.avatarAlt" alt="Profile avatar">
-              <div>
-            <strong id="profileName" data-i18n="player.profile.player">Player</strong>
-            <span id="profileMeta" class="muted" data-i18n="player.profile.discordAccount">Discord account</span>
+        <div class="portal-workbench player-home-workbench">
+          <div class="portal-workbench-main">
+            <section class="panel-card player-identity-stage">
+              <div class="section-head">
+                <div class="player-identity-head">
+                  <div class="profile-head">
+                    <img id="profileAvatar" class="avatar" data-i18n-alt="player.profile.avatarAlt" alt="Profile avatar">
+                    <div>
+                      <strong id="profileName" data-i18n="player.profile.player">Player</strong>
+                      <span id="profileMeta" class="muted" data-i18n="player.profile.discordAccount">Discord account</span>
+                    </div>
+                  </div>
+                  <div id="profileQuickMeta" class="tag-row"></div>
+                </div>
               </div>
-            </div>
-            <div id="profileQuickMeta" class="tag-row"></div>
-          </article>
 
-          <article class="hero-card">
-            <span class="kicker" data-i18n="player.home.walletKicker">Wallet</span>
-            <strong id="homeWalletBalance" class="metric-value">-</strong>
-            <p class="muted" data-i18n="player.home.walletDetail">Current balance, reward claims, and recent transaction state.</p>
-            <div class="button-row">
-              <button id="claimDailyBtn" class="button button-primary" type="button" data-i18n="player.home.claimDaily">Claim Daily</button>
-              <button id="claimWeeklyBtn" class="button" type="button" data-i18n="player.home.claimWeekly">Claim Weekly</button>
-            </div>
-          </article>
+              <div class="player-snapshot-grid">
+                <article class="snapshot-card">
+                  <span class="kicker" data-i18n="player.home.walletKicker">Wallet</span>
+                  <strong id="homeWalletBalance" class="metric-value">-</strong>
+                  <p class="muted" data-i18n="player.home.walletDetail">Current balance, reward claims, and recent transaction state.</p>
+                  <div class="button-row">
+                    <button id="claimDailyBtn" class="button button-primary" type="button" data-i18n="player.home.claimDaily">Claim Daily</button>
+                    <button id="claimWeeklyBtn" class="button" type="button" data-i18n="player.home.claimWeekly">Claim Weekly</button>
+                  </div>
+                </article>
 
-          <article class="hero-card">
-            <span class="kicker" data-i18n="player.home.latestOrderKicker">Latest Order</span>
-            <strong id="homeLatestOrder" class="metric-value">-</strong>
-            <p id="homeLatestOrderDetail" class="muted" data-i18n="player.home.noRecentOrder">No recent order yet.</p>
-            <div class="button-row">
-              <button id="homeLatestOrderBtn" class="button" type="button" data-i18n="player.home.viewOrder">View order details</button>
-            </div>
-          </article>
-        </div>
+                <article class="snapshot-card">
+                  <span class="kicker" data-i18n="player.home.latestOrderKicker">Latest Order</span>
+                  <strong id="homeLatestOrder" class="metric-value">-</strong>
+                  <p id="homeLatestOrderDetail" class="muted" data-i18n="player.home.noRecentOrder">No recent order yet.</p>
+                  <div class="button-row">
+                    <button id="homeLatestOrderBtn" class="button" type="button" data-i18n="player.home.viewOrder">View order details</button>
+                  </div>
+                </article>
+              </div>
+            </section>
 
-        <section class="panel-card">
-          <div class="section-head">
-            <div>
-              <h2 data-i18n="player.home.firstRunTitle">First Run Guide</h2>
-              <p class="muted" data-i18n="player.home.firstRunDetail">If you are new to this portal, follow these four steps first so wallet, delivery, and account trust stay predictable.</p>
-            </div>
+            <section class="panel-card player-service-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.home.accountOverview">Account Overview</h2>
+                  <p class="muted" data-i18n="player.home.accountOverviewDetail">Steam readiness, order pressure, mission claim state, and quick health indicators.</p>
+                </div>
+              </div>
+              <div id="homeOverviewStats" class="stats-grid"></div>
+            </section>
+
+            <section class="panel-card player-service-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.home.notificationCenter">Notification Center</h2>
+                  <p class="muted" data-i18n="player.home.notificationCenterDetail">Latest player-facing messages about purchases, delivery, wallet changes, and account requirements.</p>
+                </div>
+              </div>
+              <div id="homeNotificationStats" class="stats-grid compact"></div>
+              <div id="homeNotifications" class="feed-list"></div>
+            </section>
           </div>
-          <div id="homeFirstRunGuide" class="guide-grid"></div>
-        </section>
 
-        <div class="panel-grid two-col">
-          <section class="panel-card">
-            <div class="section-head">
-              <div>
-                <h2 data-i18n="player.home.accountOverview">Account Overview</h2>
-                <p class="muted" data-i18n="player.home.accountOverviewDetail">Steam readiness, order pressure, mission claim state, and quick health indicators.</p>
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.home.firstRunTitle">First Run Guide</h2>
+                  <p class="muted" data-i18n="player.home.firstRunDetail">If you are new to this portal, follow these four steps first so wallet, delivery, and account trust stay predictable.</p>
+                </div>
               </div>
-            </div>
-            <div id="homeOverviewStats" class="stats-grid"></div>
-          </section>
+              <div id="homeFirstRunGuide" class="guide-grid"></div>
+            </section>
 
-          <section class="panel-card">
-            <div class="section-head">
-              <div>
-                <h2 data-i18n="player.home.notificationCenter">Notification Center</h2>
-                <p class="muted" data-i18n="player.home.notificationCenterDetail">Latest player-facing messages about purchases, delivery, wallet changes, and account requirements.</p>
-              </div>
-            </div>
-            <div id="homeNotificationStats" class="stats-grid compact"></div>
-            <div id="homeNotifications" class="feed-list"></div>
-          </section>
-        </div>
-
-        <details class="task-cluster">
-          <summary data-i18n="player.home.serverSnapshotSummary">Server Snapshot</summary>
-          <div class="task-body">
-            <section class="panel-card">
+            <section class="panel-card player-side-panel">
               <div class="section-head">
                 <div>
                   <h2 data-i18n="player.home.serverSnapshot">Server Snapshot</h2>
-                    <p class="muted" data-i18n="player.home.serverSnapshotDetail">Current server presentation, player count, economy basics, and announcement context.</p>
+                  <p class="muted" data-i18n="player.home.serverSnapshotDetail">Current server presentation, player count, economy basics, and announcement context.</p>
                 </div>
               </div>
-              <div id="homeServerStats" class="stats-grid"></div>
+              <div id="homeServerStats" class="stats-grid compact"></div>
             </section>
-          </div>
-        </details>
+          </aside>
+        </div>
       </section>
 
       <!-- Wallet tab:
            ledger stays primary, while guidance is still available without
            taking over the whole page. -->
       <section class="tab-panel" id="tab-wallet">
-        <div class="focus-layout">
-          <div class="primary-stack">
-            <section class="panel-card">
+        <div class="portal-workbench">
+          <div class="portal-workbench-main">
+            <section class="panel-card player-service-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.wallet.ledger">Wallet Ledger</h2>
+                  <p class="muted" data-i18n="player.wallet.ledgerDetail">Recent wallet changes with deltas, ending balances, reasons, and references.</p>
+                </div>
+              </div>
+              <div id="walletLedgerTable"></div>
+            </section>
+          </div>
+
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel">
               <div class="section-head">
                 <div>
                   <h2 data-i18n="player.wallet.summary">Wallet Summary</h2>
@@ -179,79 +178,66 @@
               <div id="walletSummaryStats" class="stats-grid"></div>
             </section>
 
-            <section class="panel-card">
+            <section class="panel-card player-side-panel">
               <div class="section-head">
                 <div>
-                  <h2 data-i18n="player.wallet.ledger">Wallet Ledger</h2>
-                    <p class="muted" data-i18n="player.wallet.ledgerDetail">Recent wallet changes with deltas, ending balances, reasons, and references.</p>
+                  <h2 data-i18n="player.wallet.guidance">Wallet Guidance</h2>
+                  <p class="muted" data-i18n="player.wallet.guidanceDetail">Every balance change keeps a reason and reference so you can understand where coins came from or went.</p>
                 </div>
               </div>
-              <div id="walletLedgerTable"></div>
-            </section>
-          </div>
-
-          <aside class="secondary-stack">
-            <details class="task-cluster" open>
-              <summary data-i18n="player.wallet.guidanceSummary">Wallet Guidance</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.wallet.guidance">Wallet Guidance</h2>
-                      <p class="muted" data-i18n="player.wallet.guidanceDetail">Every balance change keeps a reason and reference so you can understand where coins came from or went.</p>
-                    </div>
-                  </div>
-                  <div class="tip-stack">
-                    <article class="tip-card">
-                      <strong data-i18n="player.wallet.tipRewardsTitle">Reward claims are explicit</strong>
-                      <p class="muted" data-i18n="player.wallet.tipRewardsDetail">Daily and weekly claim buttons will only activate when the cooldown is actually open.</p>
-                    </article>
-                    <article class="tip-card">
-                      <strong data-i18n="player.wallet.tipSteamTitle">Game items may require Steam</strong>
-                      <p class="muted" data-i18n="player.wallet.tipSteamDetail">The shop clearly flags items that need a Steam link before you can complete the purchase flow.</p>
-                    </article>
-                  </div>
-                </section>
+              <div class="tip-stack">
+                <article class="tip-card">
+                  <strong data-i18n="player.wallet.tipRewardsTitle">Reward claims are explicit</strong>
+                  <p class="muted" data-i18n="player.wallet.tipRewardsDetail">Daily and weekly claim buttons will only activate when the cooldown is actually open.</p>
+                </article>
+                <article class="tip-card">
+                  <strong data-i18n="player.wallet.tipSteamTitle">Game items may require Steam</strong>
+                  <p class="muted" data-i18n="player.wallet.tipSteamDetail">The shop clearly flags items that need a Steam link before you can complete the purchase flow.</p>
+                </article>
               </div>
-            </details>
+            </section>
           </aside>
         </div>
       </section>
 
       <section class="tab-panel" id="tab-shop">
-        <div class="panel-grid two-col shop-layout">
-          <section class="panel-card">
-            <div class="section-head">
-              <div>
-                <h2 data-i18n="player.shop.catalog">Catalog</h2>
-                <p class="muted" data-i18n="player.shop.catalogDetail">Inventory-style browsing for items, bundles, and VIP entries available from this tenant.</p>
+        <div class="portal-workbench player-shop-workbench">
+          <div class="portal-workbench-main">
+            <section class="panel-card player-service-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.shop.catalog">Catalog</h2>
+                  <p class="muted" data-i18n="player.shop.catalogDetail">Inventory-style browsing for items, bundles, and VIP entries available from this tenant.</p>
+                </div>
               </div>
-            </div>
-            <div class="toolbar">
-              <input id="shopSearchInput" type="text" data-i18n-placeholder="player.shop.searchPlaceholder" placeholder="Search items">
-              <select id="shopKindSelect">
-                <option value="all" data-i18n="player.shop.allKinds">All kinds</option>
-                <option value="item" data-i18n="player.shop.items">Items</option>
-                <option value="vip" data-i18n="player.shop.vip">VIP</option>
-              </select>
-            </div>
-            <div id="shopGrid" class="shop-grid"></div>
-          </section>
+              <div class="shop-filter-strip">
+                <input id="shopSearchInput" type="text" data-i18n-placeholder="player.shop.searchPlaceholder" placeholder="Search items">
+                <select id="shopKindSelect">
+                  <option value="all" data-i18n="player.shop.allKinds">All kinds</option>
+                  <option value="item" data-i18n="player.shop.items">Items</option>
+                  <option value="vip" data-i18n="player.shop.vip">VIP</option>
+                </select>
+              </div>
+              <div id="shopGrid" class="shop-grid shop-grid-command"></div>
+            </section>
+          </div>
 
-          <section class="panel-card cart-card">
-            <div class="section-head">
-              <div>
-                <h2 data-i18n="player.shop.cart">Cart</h2>
-                <p class="muted" data-i18n="player.shop.cartDetail">Review what will be charged, what needs Steam, and the current order total before checkout.</p>
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel player-cart-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.shop.cart">Cart</h2>
+                  <p class="muted" data-i18n="player.shop.cartDetail">Review what will be charged, what needs Steam, and the current order total before checkout.</p>
+                </div>
               </div>
-            </div>
-            <div id="cartSummary" class="stats-grid compact"></div>
-            <div id="cartRows" class="feed-list"></div>
-            <div class="button-row">
-              <button id="cartClearBtn" class="button" type="button" data-i18n="player.shop.clearCart">Clear Cart</button>
-              <button id="cartCheckoutBtn" class="button button-primary" type="button" data-i18n="player.shop.checkoutCart">Checkout Cart</button>
-            </div>
-          </section>
+              <div id="cartSummary" class="stats-grid compact"></div>
+              <div id="cartRows" class="feed-list"></div>
+              <div class="button-row">
+                <button id="cartClearBtn" class="button" type="button" data-i18n="player.shop.clearCart">Clear Cart</button>
+                <button id="cartCheckoutBtn" class="button button-primary" type="button" data-i18n="player.shop.checkoutCart">Checkout Cart</button>
+              </div>
+            </section>
+          </aside>
         </div>
       </section>
 
@@ -259,83 +245,71 @@
            order history is the main surface, while summary and trust guidance
            are available as lighter support panels. -->
       <section class="tab-panel" id="tab-orders">
-        <div class="focus-layout">
-          <div class="primary-stack">
-            <section class="panel-card">
+        <div class="portal-workbench player-orders-workbench">
+          <div class="portal-workbench-main">
+            <section class="panel-card player-service-panel">
               <div class="section-head">
                 <div>
                   <h2 data-i18n="player.orders.history">Purchase History</h2>
-                    <p class="muted" data-i18n="player.orders.historyDetail">Recent orders grouped into clear, mobile-friendly cards with a detail drawer for timeline, bundle contents, and next-step guidance.</p>
+                  <p class="muted" data-i18n="player.orders.historyDetail">Recent orders grouped into clear, mobile-friendly cards with a detail drawer for timeline, bundle contents, and next-step guidance.</p>
                 </div>
               </div>
               <div id="ordersFeed" class="order-grid"></div>
             </section>
           </div>
-          <aside class="secondary-stack">
-            <details class="task-cluster" open>
-              <summary data-i18n="player.orders.summarySummary">Order Summary</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.orders.summary">Order Summary</h2>
-                      <p class="muted" data-i18n="player.orders.summaryDetail">Pending, delivered, and failed order states remain visible without needing admin support.</p>
-                    </div>
-                  </div>
-                  <div id="ordersSummaryStats" class="stats-grid"></div>
-                </section>
-              </div>
-            </details>
 
-            <details class="task-cluster">
-              <summary data-i18n="player.orders.trustSummary">Trust Signals</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.orders.trustSignals">Trust Signals</h2>
-                      <p class="muted" data-i18n="player.orders.trustSignalsDetail">Transaction codes, readable states, next-step guidance, and recent sync state make each purchase easier to trust.</p>
-                    </div>
-                  </div>
-                  <div id="ordersTrustStats" class="stats-grid compact"></div>
-                  <div id="ordersTrustFeed" class="feed-list"></div>
-                </section>
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.orders.summary">Order Summary</h2>
+                  <p class="muted" data-i18n="player.orders.summaryDetail">Pending, delivered, and failed order states remain visible without needing admin support.</p>
+                </div>
               </div>
-            </details>
+              <div id="ordersSummaryStats" class="stats-grid"></div>
+            </section>
+
+            <section class="panel-card player-side-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.orders.trustSignals">Trust Signals</h2>
+                  <p class="muted" data-i18n="player.orders.trustSignalsDetail">Transaction codes, readable states, next-step guidance, and recent sync state make each purchase easier to trust.</p>
+                </div>
+              </div>
+              <div id="ordersTrustStats" class="stats-grid compact"></div>
+              <div id="ordersTrustFeed" class="feed-list"></div>
+            </section>
           </aside>
         </div>
       </section>
 
       <section class="tab-panel" id="tab-redeem">
-        <div class="focus-layout">
-          <form id="redeemForm" class="panel-card primary-stack">
-            <div class="section-head">
-              <div>
-                <h2 data-i18n="player.redeem.title">Redeem Code</h2>
-                <p class="muted" data-i18n="player.redeem.detail">Redeem coins or item entitlements from codes issued by the tenant.</p>
+        <div class="portal-workbench">
+          <div class="portal-workbench-main">
+            <form id="redeemForm" class="panel-card player-service-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.redeem.title">Redeem Code</h2>
+                  <p class="muted" data-i18n="player.redeem.detail">Redeem coins or item entitlements from codes issued by the tenant.</p>
+                </div>
               </div>
-            </div>
-            <div class="toolbar">
-              <input name="code" type="text" data-i18n-placeholder="player.redeem.placeholder" placeholder="Enter redeem code">
-              <button type="submit" class="button button-primary" data-i18n="player.redeem.button">Redeem</button>
-            </div>
-          </form>
+              <div class="toolbar">
+                <input name="code" type="text" data-i18n-placeholder="player.redeem.placeholder" placeholder="Enter redeem code">
+                <button type="submit" class="button button-primary" data-i18n="player.redeem.button">Redeem</button>
+              </div>
+            </form>
+          </div>
 
-          <aside class="secondary-stack">
-            <details class="task-cluster" open>
-              <summary data-i18n="player.redeem.historySummary">Redeem History</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.redeem.history">Redeem History</h2>
-                      <p class="muted" data-i18n="player.redeem.historyDetail">Review which codes were used and when.</p>
-                    </div>
-                  </div>
-                  <div id="redeemHistoryTable"></div>
-                </section>
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.redeem.history">Redeem History</h2>
+                  <p class="muted" data-i18n="player.redeem.historyDetail">Review which codes were used and when.</p>
+                </div>
               </div>
-            </details>
+              <div id="redeemHistoryTable"></div>
+            </section>
           </aside>
         </div>
       </section>
@@ -344,9 +318,9 @@
            identity and Steam link remain primary. Historical and legacy paths
            stay available, but no longer compete with the main account actions. -->
       <section class="tab-panel" id="tab-profile">
-        <div class="focus-layout">
-          <div class="primary-stack">
-            <section class="panel-card">
+        <div class="portal-workbench">
+          <div class="portal-workbench-main">
+            <section class="panel-card player-service-panel">
               <div class="section-head">
                 <div>
                   <h2 data-i18n="player.profile.title">Profile</h2>
@@ -356,7 +330,7 @@
               <div id="profileTable"></div>
             </section>
 
-            <form id="steamLinkForm" class="panel-card">
+            <form id="steamLinkForm" class="panel-card player-service-panel">
               <div class="section-head">
                 <div>
                   <h2 data-i18n="player.profile.steam">Steam Link</h2>
@@ -374,43 +348,20 @@
             </form>
           </div>
 
-          <aside class="secondary-stack">
-            <details class="task-cluster" open>
-              <summary data-i18n="player.profile.historySummary">Steam Link History</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.profile.steamHistory">Steam Link History</h2>
-                      <p class="muted" data-i18n="player.profile.steamHistoryDetail">Simple history view of the current Steam binding state.</p>
-                    </div>
-                  </div>
-                  <div id="steamHistoryTable"></div>
-                </section>
+          <aside class="portal-workbench-side">
+            <section class="panel-card player-side-panel">
+              <div class="section-head">
+                <div>
+                  <h2 data-i18n="player.profile.steamHistory">Steam Link History</h2>
+                  <p class="muted" data-i18n="player.profile.steamHistoryDetail">Simple history view of the current Steam binding state.</p>
+                </div>
               </div>
-            </details>
-
-            <details class="task-cluster">
-              <summary data-i18n="player.profile.legacySummary">Legacy Community Features</summary>
-              <div class="task-body">
-                <section class="panel-card">
-                  <div class="section-head">
-                    <div>
-                      <h2 data-i18n="player.profile.legacyTitle">Need legacy community features?</h2>
-                      <p class="muted" data-i18n="player.profile.legacyDetail">Map, wheel, missions, party chat, and older experimental flows remain available in the legacy portal without cluttering the main player journey.</p>
-                    </div>
-                    <div class="button-row">
-                      <a class="button" href="/player/legacy" data-i18n="player.profile.openLegacy">Open Legacy Portal</a>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </details>
+              <div id="steamHistoryTable"></div>
+            </section>
           </aside>
         </div>
       </section>
       </main>
-    </section>
   </div>
 
   <div id="orderDetailBackdrop" class="drawer-backdrop" hidden>
@@ -455,7 +406,7 @@
     </aside>
   </div>
 
-  <script src="/player/assets/ui/portal-i18n.js?v=20260321-warz-full"></script>
-  <script src="/player/assets/ui/player-core.js?v=20260321-warz-full"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
+  <script src="/player/assets/ui/player-core.js?v=20260324-polish-6"></script>
 </body>
 </html>

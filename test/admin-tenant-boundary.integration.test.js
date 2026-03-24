@@ -583,12 +583,24 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
     `/admin/api/platform/webhooks?tenantId=${encodeURIComponent(tenantId)}`,
     'GET',
     null,
-    tenantOwnerCookie,
+    tenantCookie,
   );
   assert.equal(sameTenantWebhookList.res.status, 200);
   assert.ok(
     Array.isArray(sameTenantWebhookList.data.data)
       && sameTenantWebhookList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const sameTenantWebhookListOwner = await request(
+    `/admin/api/platform/webhooks?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantOwnerCookie,
+  );
+  assert.equal(sameTenantWebhookListOwner.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantWebhookListOwner.data.data)
+      && sameTenantWebhookListOwner.data.data.every((row) => String(row?.tenantId || '') === tenantId),
   );
 
   const crossTenantWebhookList = await request(
@@ -646,12 +658,24 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
     `/admin/api/platform/apikeys?tenantId=${encodeURIComponent(tenantId)}`,
     'GET',
     null,
-    tenantOwnerCookie,
+    tenantCookie,
   );
   assert.equal(sameTenantApiKeyList.res.status, 200);
   assert.ok(
     Array.isArray(sameTenantApiKeyList.data.data)
       && sameTenantApiKeyList.data.data.every((row) => String(row?.tenantId || '') === tenantId),
+  );
+
+  const sameTenantApiKeyListOwner = await request(
+    `/admin/api/platform/apikeys?tenantId=${encodeURIComponent(tenantId)}`,
+    'GET',
+    null,
+    tenantOwnerCookie,
+  );
+  assert.equal(sameTenantApiKeyListOwner.res.status, 200);
+  assert.ok(
+    Array.isArray(sameTenantApiKeyListOwner.data.data)
+      && sameTenantApiKeyListOwner.data.data.every((row) => String(row?.tenantId || '') === tenantId),
   );
 
   const crossTenantApiKeyList = await request(

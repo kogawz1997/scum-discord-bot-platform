@@ -4,50 +4,61 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="owner.documentTitle">SCUM Platform Owner Console</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260322-legacy-fallback-cutover">
+  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260324-polish-10">
 </head>
 <body class="surface-owner">
   <div class="surface-root console-app-shell">
-    <section class="surface-masthead">
-      <div class="masthead-card owner-masthead">
-        <div class="masthead-copy">
-          <span class="surface-id" data-i18n="owner.surfaceId">Platform Owner Console</span>
-          <h1 data-i18n="owner.title">Global Operations</h1>
-          <p data-i18n="owner.subtitle">Owner-only control surface for tenant fleet health, runtime posture, platform security, audit visibility, and guarded system changes. Daily tenant operations stay in the tenant console.</p>
-          <div class="masthead-tags">
-            <a class="surface-role-chip active" href="/owner">Owner</a>
-            <a class="surface-role-chip" href="/tenant">Tenant</a>
-            <a class="surface-role-chip" href="/player">Player</a>
-          </div>
+    <section class="surface-command-header">
+      <div class="console-topbar">
+        <a class="console-brand" href="/owner">
+          <span class="brand-emblem">SCUM</span>
+          <span class="brand-copy">
+            <strong data-i18n="owner.surfaceId">Platform Owner Console</strong>
+            <span data-i18n="owner.brandSubtitle">Platform-wide oversight</span>
+          </span>
+        </a>
+        <nav class="surface-role-switch" aria-label="Surface switch">
+          <a class="surface-role-chip active" href="/owner" data-i18n="common.roleOwner">Owner</a>
+          <a class="surface-role-chip" href="/tenant" data-i18n="common.roleAdmin">Admin</a>
+          <a class="surface-role-chip" href="/player" data-i18n="common.rolePlayer">Player</a>
+        </nav>
+        <div class="surface-actions console-top-actions">
+          <button id="ownerSidebarToggleBtn" class="button" type="button" aria-controls="ownerSidebar" aria-expanded="true" data-i18n="common.menu">Menu</button>
+          <label class="language-picker compact-picker">
+            <span data-i18n="common.language">Language</span>
+            <select id="ownerLanguageSelect" class="language-select"></select>
+          </label>
+          <button id="ownerRefreshBtn" class="button button-primary" type="button" data-i18n="common.refreshConsole">Refresh Console</button>
+          <details class="action-menu">
+            <summary class="action-menu-button" data-i18n="common.more">More</summary>
+            <div class="action-menu-panel">
+              <button id="ownerPaletteBtn" class="button" type="button" data-i18n="common.commandPalette">Command Palette</button>
+              <button id="ownerMonitoringBtn" class="button button-warning" type="button" data-i18n="common.runMonitoring">Run Monitoring</button>
+              <button id="ownerClearAlertsBtn" class="button" type="button" data-i18n="common.clearAlerts">Clear Alerts</button>
+            </div>
+          </details>
         </div>
-        <div class="masthead-aside">
-          <div class="surface-actions masthead-actions">
-            <button id="ownerSidebarToggleBtn" class="button" type="button" aria-controls="ownerSidebar" aria-expanded="true" data-i18n="common.menu">Menu</button>
-            <label class="language-picker">
-              <span data-i18n="common.language">Language</span>
-              <select id="ownerLanguageSelect" class="language-select"></select>
-            </label>
-            <button id="ownerPaletteBtn" class="command-chip" type="button" data-i18n="common.commandPalette">Command Palette</button>
-            <button id="ownerRefreshBtn" class="button button-primary" type="button" data-i18n="common.refreshConsole">Refresh Console</button>
-            <details class="action-menu">
-              <summary class="action-menu-button" data-i18n="common.more">More</summary>
-              <div class="action-menu-panel">
-                <button id="ownerMonitoringBtn" class="button button-warning" type="button" data-i18n="common.runMonitoring">Run Monitoring</button>
-                <button id="ownerClearAlertsBtn" class="button" type="button" data-i18n="common.clearAlerts">Clear Alerts</button>
-                <a class="ghost-link" href="/admin/legacy?fallback=1" data-i18n="common.legacyWorkbench">Legacy Workbench</a>
-              </div>
-            </details>
-          </div>
-          <div class="masthead-stat">
-            <span class="section-kicker">Owner Scope</span>
-            <strong>Global</strong>
-          </div>
-          <div class="masthead-stat">
-            <span class="section-kicker">Style</span>
-            <strong>SCUM Ops</strong>
+      </div>
+      <div class="console-heading-shell">
+        <div class="console-heading-copy">
+          <span class="surface-id" data-i18n="owner.surfaceId">Platform Owner Console</span>
+          <h1 data-i18n="owner.title">Platform Mission Control</h1>
+          <p data-i18n="owner.subtitle">Track tenant health, platform runtime, security posture, and guarded platform changes from one owner-only command surface.</p>
+        </div>
+        <div class="console-heading-meta">
+          <div class="console-meta-grid">
+            <section class="command-side-card command-role-card">
+              <span class="section-kicker" data-i18n="common.surfaceRole">Surface role</span>
+              <strong data-i18n="owner.roleCardTitle">Owner-only oversight</strong>
+              <p class="compact-hint" data-i18n="owner.roleCardDetail">Use this surface to monitor tenants, help tenant admins, review platform incidents, and manage owner-only controls.</p>
+            </section>
+            <section class="command-side-card command-side-card-muted">
+              <span class="section-kicker" data-i18n="common.pages">Pages</span>
+              <strong data-i18n="owner.consoleAreasLead">Focused owner routes</strong>
+              <div id="ownerWorkspaceSwitch" class="workspace-switch compact-workspace-switch"></div>
+              <p id="ownerWorkspaceHint" class="hint compact-hint" data-i18n="owner.workspaceHintLoading">Loading owner workspace layout...</p>
+              <div id="ownerWorkspaceSummary" class="workspace-summary compact-workspace-summary"></div>
+            </section>
           </div>
         </div>
       </div>
@@ -55,16 +66,6 @@
 
     <div class="console-stage">
       <aside id="ownerSidebar" class="surface-sidebar">
-        <section class="nav-card rail-card">
-          <div class="nav-head">
-            <span class="section-kicker" data-i18n="owner.consoleAreasKicker">Console Areas</span>
-            <strong data-i18n="owner.consoleAreasLead">Focused control lanes</strong>
-          </div>
-          <div id="ownerWorkspaceSwitch" class="workspace-switch"></div>
-          <p id="ownerWorkspaceHint" class="hint" data-i18n="owner.workspaceHintLoading">Loading owner workspace layout...</p>
-          <div id="ownerWorkspaceSummary" class="workspace-summary rail-summary"></div>
-        </section>
-
         <nav class="nav-card">
           <div class="nav-head">
             <span class="section-kicker" data-i18n="common.pages">Pages</span>
@@ -84,15 +85,8 @@
             <a class="nav-link" href="#recovery" data-i18n="owner.nav.recovery">Recovery</a>
             <a class="nav-link" href="#control" data-i18n="owner.nav.control">Control Center</a>
           </div>
+          <p id="ownerSidebarHint" class="hook-sink" aria-hidden="true"></p>
         </nav>
-
-        <section class="nav-card nav-intel compact-intel">
-          <div class="nav-head">
-            <span class="section-kicker" data-i18n="owner.ownerOnlyAreas">Owner-only Areas</span>
-            <strong data-i18n="owner.metaFastKeysTitle">Ctrl/Cmd + K</strong>
-          </div>
-          <p id="ownerSidebarHint" class="hint" data-i18n="owner.ownerOnlyAreasDetail">Platform lifecycle, recovery, guarded config, audit, and runtime control belong here. Tenant day-to-day commerce and player support stay out of this surface.</p>
-        </section>
       </aside>
 
       <section class="surface-stage-main">
@@ -105,16 +99,42 @@
         </div>
 
         <main class="surface-grid">
-        <section class="surface-section" id="overview">
-          <div class="section-head">
-            <div class="section-copy">
-              <span class="section-kicker" data-i18n="owner.section.snapshot.kicker">Platform Snapshot</span>
-              <h2 class="section-title" data-i18n="owner.section.snapshot.title">Health, capacity, and incident load</h2>
-              <p data-i18n="owner.section.snapshot.detail">Fast-scanning summary of platform health, tenant scale, runtime readiness, delivery posture, and open incident pressure.</p>
-            </div>
+        <section class="surface-section surface-section-overview" id="overview">
+          <div class="overview-shell">
+            <section class="panel-card overview-lead-panel">
+              <div class="section-copy">
+                <span class="section-kicker" data-i18n="owner.section.snapshot.kicker">Platform Snapshot</span>
+                <h2 class="section-title" data-i18n="owner.section.snapshot.title">Health, capacity, and incident load</h2>
+                <p data-i18n="owner.section.snapshot.detail">Fast-scanning summary of platform health, tenant scale, runtime readiness, delivery posture, and open incident pressure.</p>
+              </div>
+              <div class="overview-route-grid">
+                <a class="overview-route-card" href="#fleet">
+                  <span class="section-kicker" data-i18n="owner.nav.fleet">Tenant Fleet</span>
+                  <strong data-i18n="owner.overview.routeFleetTitle">Review tenant posture</strong>
+                  <p data-i18n="owner.overview.routeFleetDetail">Move from the global snapshot into tenant health, onboarding, and support context.</p>
+                </a>
+                <a class="overview-route-card" href="#runtime">
+                  <span class="section-kicker" data-i18n="owner.nav.runtime">Runtime Control</span>
+                  <strong data-i18n="owner.overview.routeRuntimeTitle">Check live services</strong>
+                  <p data-i18n="owner.overview.routeRuntimeDetail">Open runtime readiness, agents, automation, and the current owner incident stream.</p>
+                </a>
+                <a class="overview-route-card" href="#security">
+                  <span class="section-kicker" data-i18n="owner.nav.security">Security + Audit</span>
+                  <strong data-i18n="owner.overview.routeSecurityTitle">Inspect trust posture</strong>
+                  <p data-i18n="owner.overview.routeSecurityDetail">Review sessions, admins, device footprints, and rotation readiness before changing access.</p>
+                </a>
+              </div>
+            </section>
+            <section class="panel-card overview-metrics-panel">
+              <div class="section-copy">
+                <span class="section-kicker" data-i18n="owner.overview.metricsKicker">Platform Pulse</span>
+                <h3 data-i18n="owner.overview.metricsTitle">Current owner signal</h3>
+                <p data-i18n="owner.overview.metricsDetail">Use these four cards first. If they look healthy, move into the deeper owner pages only when a task requires it.</p>
+              </div>
+              <div id="ownerOverviewStats" class="stats-grid stats-grid-emphasis"></div>
+            </section>
           </div>
-          <div id="ownerOverviewStats" class="stats-grid"></div>
-          <section class="panel-card inset-card">
+          <section class="panel-card overview-actions-panel">
             <div class="section-head">
               <div class="section-copy">
                 <span class="section-kicker" data-i18n="owner.quickActions.kicker">Quick Response</span>
@@ -196,257 +216,277 @@
               <p data-i18n="owner.section.assets.detail">Owner-only platform asset visibility for commercial state, integration surface, and tenant fleet provisioning posture.</p>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <details class="task-cluster">
-                <summary data-i18n="owner.assets.inventory">Asset Inventory</summary>
-                <div class="task-body">
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.assets.inventory">Asset Inventory</span>
+                    <h3 data-i18n="owner.section.assets.title">Subscriptions, licenses, keys, and webhook footprint</h3>
+                    <p class="hint" data-i18n="owner.section.assets.detail">Owner-only platform asset visibility for commercial state, integration surface, and tenant fleet provisioning posture.</p>
+                  </div>
+                </div>
+                <div class="mission-strip">
+                  <div class="mission-chip"><span data-i18n="owner.assets.subscriptions">Subscriptions</span></div>
+                  <div class="mission-chip"><span data-i18n="owner.assets.licenses">Licenses</span></div>
+                  <div class="mission-chip"><span data-i18n="owner.assets.apiKeys">API Keys</span></div>
+                  <div class="mission-chip"><span data-i18n="owner.assets.webhooks">Webhooks</span></div>
+                </div>
+                <div class="panel-grid two-col">
                   <section class="panel-card">
-                    <h3 data-i18n="owner.assets.inventory">Asset Inventory</h3>
-                    <div class="panel-grid two-col">
-                      <section class="panel-card">
-                        <h3 data-i18n="owner.assets.subscriptions">Subscriptions</h3>
-                        <div id="ownerSubscriptionTable"></div>
-                      </section>
-                      <section class="panel-card">
-                        <h3 data-i18n="owner.assets.licenses">Licenses</h3>
-                        <div id="ownerLicenseTable"></div>
-                      </section>
-                      <section class="panel-card">
-                        <h3 data-i18n="owner.assets.apiKeys">API Keys</h3>
-                        <div id="ownerApiKeyTable"></div>
-                      </section>
-                      <section class="panel-card">
-                        <h3 data-i18n="owner.assets.webhooks">Webhooks</h3>
-                        <div id="ownerWebhookTable"></div>
-                      </section>
-                    </div>
+                    <h3 data-i18n="owner.assets.subscriptions">Subscriptions</h3>
+                    <div id="ownerSubscriptionTable"></div>
+                  </section>
+                  <section class="panel-card">
+                    <h3 data-i18n="owner.assets.licenses">Licenses</h3>
+                    <div id="ownerLicenseTable"></div>
+                  </section>
+                  <section class="panel-card">
+                    <h3 data-i18n="owner.assets.apiKeys">API Keys</h3>
+                    <div id="ownerApiKeyTable"></div>
+                  </section>
+                  <section class="panel-card">
+                    <h3 data-i18n="owner.assets.webhooks">Webhooks</h3>
+                    <div id="ownerWebhookTable"></div>
                   </section>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.assets.latestOutput">Latest Provisioning Output</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.assets.latestOutput">Latest Provisioning Output</span>
                     <h3 data-i18n="owner.assets.latestOutput">Latest Provisioning Output</h3>
-                    <p class="hint">Newest secrets, webhook dispatch results, and asset creation summaries stay here so the main work area can stay quiet while you complete one task at a time.</p>
-                    <div id="ownerAssetResult" class="panel-grid"></div>
+                    <p class="hint" data-i18n="owner.assets.latestOutput.detail">Newest secrets, webhook dispatch results, and asset creation summaries stay here so the main work area can stay quiet while you complete one task at a time.</p>
+                  </div>
+                </div>
+                <div id="ownerAssetResult" class="panel-grid"></div>
+              </section>
+            </div>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.assets.subscriptionLicense">Subscription + License</span>
+                    <h3 data-i18n="owner.assets.subscriptionLicense">Subscription + License</h3>
+                    <p class="hint" data-i18n="owner.assets.subscriptionLicense.note">Start with agreement lifecycle, then issue or refresh the tenant license only when the commercial state really changed.</p>
+                  </div>
+                </div>
+                <div class="panel-grid two-col">
+                  <section class="panel-card">
+                    <form id="ownerSubscriptionForm" class="form-shell">
+                      <h3 data-i18n="owner.assets.createSubscription">Create Subscription</h3>
+                      <div class="form-grid">
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.tenant">Tenant</span>
+                          <select class="owner-tenant-select" name="tenantId">
+                            <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                          </select>
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.planId">Plan ID</span>
+                          <input name="planId" type="text" placeholder="starter-monthly" data-i18n-placeholder="owner.placeholder.planId">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.billingCycle">Billing Cycle</span>
+                          <select name="billingCycle">
+                            <option value="monthly" data-i18n="owner.option.monthly">monthly</option>
+                            <option value="quarterly" data-i18n="owner.option.quarterly">quarterly</option>
+                            <option value="yearly" data-i18n="owner.option.yearly">yearly</option>
+                            <option value="trial" data-i18n="owner.option.trial">trial</option>
+                          </select>
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.status">Status</span>
+                          <select name="status">
+                            <option value="active" data-i18n="owner.option.active">active</option>
+                            <option value="trialing" data-i18n="owner.option.trialing">trialing</option>
+                            <option value="paused" data-i18n="owner.option.paused">paused</option>
+                            <option value="past_due" data-i18n="owner.option.pastDue">past_due</option>
+                          </select>
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.currency">Currency</span>
+                          <input name="currency" type="text" placeholder="THB" data-i18n-placeholder="owner.placeholder.currency">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.amountCents">Amount Cents</span>
+                          <input name="amountCents" type="number" min="0" step="1" placeholder="9900">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.intervalDays">Interval Days</span>
+                          <input name="intervalDays" type="number" min="1" step="1" placeholder="30">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.externalRef">External Ref</span>
+                          <input name="externalRef" type="text" placeholder="stripe-sub-001" data-i18n-placeholder="owner.placeholder.externalRef">
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.startedAt">Started At</span>
+                          <input name="startedAt" type="datetime-local">
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.renewsAt">Renews At</span>
+                          <input name="renewsAt" type="datetime-local">
+                        </label>
+                      </div>
+                      <div class="button-row">
+                        <button type="submit" class="button button-primary" data-i18n="owner.assets.createSubscription">Create Subscription</button>
+                      </div>
+                    </form>
+                  </section>
+                  <section class="panel-card">
+                    <form id="ownerLicenseForm" class="form-shell">
+                      <h3 data-i18n="owner.assets.issueLicense">Issue License</h3>
+                      <div class="form-grid">
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.tenant">Tenant</span>
+                          <select class="owner-tenant-select" name="tenantId">
+                            <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                          </select>
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.status">Status</span>
+                          <select name="status">
+                            <option value="active" data-i18n="owner.option.active">active</option>
+                            <option value="trialing" data-i18n="owner.option.trialing">trialing</option>
+                            <option value="expired" data-i18n="owner.option.expired">expired</option>
+                            <option value="revoked" data-i18n="owner.option.revoked">revoked</option>
+                          </select>
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.seats">Seats</span>
+                          <input name="seats" type="number" min="1" step="1" value="1">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.licenseKey">License Key</span>
+                          <input name="licenseKey" type="text" placeholder="Leave blank to auto-generate" data-i18n-placeholder="owner.form.autoGenerateHint">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.legalDocVersion">Legal Doc Version</span>
+                          <input name="legalDocVersion" type="text" placeholder="v1" data-i18n-placeholder="owner.placeholder.legalDocVersion">
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.issuedAt">Issued At</span>
+                          <input name="issuedAt" type="datetime-local">
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.expiresAt">Expires At</span>
+                          <input name="expiresAt" type="datetime-local">
+                        </label>
+                      </div>
+                      <div class="button-row">
+                        <button type="submit" class="button button-primary" data-i18n="owner.assets.issueLicense">Issue License</button>
+                      </div>
+                    </form>
                   </section>
                 </div>
-              </details>
-            </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster">
-                <summary data-i18n="owner.assets.subscriptionLicense">Subscription + License</summary>
-                <div class="task-body">
-                    <p class="task-note" data-i18n="owner.assets.subscriptionLicense.note">Start with agreement lifecycle, then issue or refresh the tenant license only when the commercial state really changed.</p>
-                  <div class="task-grid">
-                    <form id="ownerSubscriptionForm" class="panel-card">
-                      <h3 data-i18n="owner.assets.createSubscription">Create Subscription</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                          <span data-i18n="owner.form.tenant">Tenant</span>
-                  <select class="owner-tenant-select" name="tenantId">
-                    <option value="">Choose tenant</option>
-                  </select>
-                </label>
-                <label class="field span-6">
-                          <span data-i18n="owner.form.planId">Plan ID</span>
-                  <input name="planId" type="text" placeholder="starter-monthly">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.billingCycle">Billing Cycle</span>
-                  <select name="billingCycle">
-                    <option value="monthly">monthly</option>
-                    <option value="quarterly">quarterly</option>
-                    <option value="yearly">yearly</option>
-                    <option value="trial">trial</option>
-                  </select>
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.status">Status</span>
-                  <select name="status">
-                    <option value="active">active</option>
-                    <option value="trialing">trialing</option>
-                    <option value="paused">paused</option>
-                    <option value="past_due">past_due</option>
-                  </select>
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.currency">Currency</span>
-                  <input name="currency" type="text" placeholder="THB">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.amountCents">Amount Cents</span>
-                  <input name="amountCents" type="number" min="0" step="1" placeholder="9900">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.intervalDays">Interval Days</span>
-                  <input name="intervalDays" type="number" min="1" step="1" placeholder="30">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.externalRef">External Ref</span>
-                  <input name="externalRef" type="text" placeholder="stripe-sub-001">
-                </label>
-                <label class="field span-6">
-                          <span data-i18n="owner.form.startedAt">Started At</span>
-                  <input name="startedAt" type="datetime-local">
-                </label>
-                <label class="field span-6">
-                          <span data-i18n="owner.form.renewsAt">Renews At</span>
-                  <input name="renewsAt" type="datetime-local">
-                </label>
-              </div>
-              <div class="button-row">
-                      <button type="submit" class="button button-primary" data-i18n="owner.assets.createSubscription">Create Subscription</button>
-              </div>
-            </form>
-
-                    <form id="ownerLicenseForm" class="panel-card">
-                      <h3 data-i18n="owner.assets.issueLicense">Issue License</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                  <span>Tenant</span>
-                  <select class="owner-tenant-select" name="tenantId">
-                    <option value="">Choose tenant</option>
-                  </select>
-                </label>
-                <label class="field span-6">
-                  <span>Status</span>
-                  <select name="status">
-                    <option value="active">active</option>
-                    <option value="trialing">trialing</option>
-                    <option value="expired">expired</option>
-                    <option value="revoked">revoked</option>
-                  </select>
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.seats">Seats</span>
-                  <input name="seats" type="number" min="1" step="1" value="1">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.licenseKey">License Key</span>
-                  <input name="licenseKey" type="text" placeholder="Leave blank to auto-generate">
-                </label>
-                <label class="field span-4">
-                          <span data-i18n="owner.form.legalDocVersion">Legal Doc Version</span>
-                  <input name="legalDocVersion" type="text" placeholder="v1">
-                </label>
-                <label class="field span-6">
-                          <span data-i18n="owner.form.issuedAt">Issued At</span>
-                  <input name="issuedAt" type="datetime-local">
-                </label>
-                <label class="field span-6">
-                          <span data-i18n="owner.form.expiresAt">Expires At</span>
-                  <input name="expiresAt" type="datetime-local">
-                </label>
-              </div>
-              <div class="button-row">
-                      <button type="submit" class="button button-primary" data-i18n="owner.assets.issueLicense">Issue License</button>
-              </div>
-            </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.assets.keysWebhooks">Keys + Webhooks</span>
+                    <h3 data-i18n="owner.assets.keysWebhooks">Keys + Webhooks</h3>
+                    <p class="hint" data-i18n="owner.assets.keysWebhooks.note">Create integration credentials only when a tenant actually needs them. Routine monitoring and day-to-day runtime review live in other owner areas.</p>
                   </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                  <summary data-i18n="owner.assets.keysWebhooks">Keys + Webhooks</summary>
-                <div class="task-body">
-                  <p class="task-note">Create integration credentials only when a tenant actually needs them. Routine monitoring and day-to-day runtime review live in other owner areas.</p>
-                  <div class="task-grid">
-                    <form id="ownerApiKeyForm" class="panel-card">
+                <div class="panel-grid two-col">
+                  <section class="panel-card">
+                    <form id="ownerApiKeyForm" class="form-shell">
                       <h3 data-i18n="owner.assets.createApiKey">Create API Key</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                  <span>Tenant</span>
-                  <select class="owner-tenant-select" name="tenantId">
-                    <option value="">Choose tenant</option>
-                  </select>
-                </label>
-                <label class="field span-6">
+                      <div class="form-grid">
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.tenant">Tenant</span>
+                          <select class="owner-tenant-select" name="tenantId">
+                            <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                          </select>
+                        </label>
+                        <label class="field span-6">
                           <span data-i18n="owner.form.name">Name</span>
-                  <input name="name" type="text" placeholder="portal-integrator">
-                </label>
-                <label class="field span-4">
-                  <span>Status</span>
-                  <select name="status">
-                    <option value="active">active</option>
-                    <option value="disabled">disabled</option>
-                    <option value="revoked">revoked</option>
-                  </select>
-                </label>
-                <label class="field span-8">
+                          <input name="name" type="text" placeholder="portal-integrator" data-i18n-placeholder="owner.placeholder.apiKeyName">
+                        </label>
+                        <label class="field span-4">
+                          <span data-i18n="owner.form.status">Status</span>
+                          <select name="status">
+                            <option value="active" data-i18n="owner.option.active">active</option>
+                            <option value="disabled" data-i18n="owner.option.disabled">disabled</option>
+                            <option value="revoked" data-i18n="owner.option.revoked">revoked</option>
+                          </select>
+                        </label>
+                        <label class="field span-8">
                           <span data-i18n="owner.form.scopes">Scopes</span>
-                  <input name="scopes" type="text" placeholder="platform.read, portal.player, webhook.dispatch">
-                </label>
-              </div>
-              <div class="button-row">
-                      <button type="submit" class="button button-primary" data-i18n="owner.assets.createApiKey">Create API Key</button>
-              </div>
-            </form>
-
-                    <form id="ownerWebhookForm" class="panel-card">
+                          <input name="scopes" type="text" placeholder="platform.read, portal.player, webhook.dispatch" data-i18n-placeholder="owner.placeholder.apiKeyScopes">
+                        </label>
+                      </div>
+                      <div class="button-row">
+                        <button type="submit" class="button button-primary" data-i18n="owner.assets.createApiKey">Create API Key</button>
+                      </div>
+                    </form>
+                  </section>
+                  <section class="panel-card">
+                    <form id="ownerWebhookForm" class="form-shell">
                       <h3 data-i18n="owner.assets.createWebhook">Create Webhook</h3>
-                <div class="form-grid">
-                  <label class="field span-12">
-                    <span>Tenant</span>
-                    <select class="owner-tenant-select" name="tenantId">
-                      <option value="">Choose tenant</option>
-                    </select>
-                  </label>
-                  <label class="field span-6">
-                    <span>Name</span>
-                    <input name="name" type="text" placeholder="ops-webhook">
-                  </label>
-                  <label class="field span-6">
+                      <div class="form-grid">
+                        <label class="field span-12">
+                          <span data-i18n="owner.form.tenant">Tenant</span>
+                          <select class="owner-tenant-select" name="tenantId">
+                            <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                          </select>
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.name">Name</span>
+                          <input name="name" type="text" placeholder="ops-webhook" data-i18n-placeholder="owner.placeholder.webhookName">
+                        </label>
+                        <label class="field span-6">
                           <span data-i18n="owner.form.eventType">Event Type</span>
-                    <input name="eventType" type="text" placeholder="platform.delivery.updated">
-                  </label>
-                  <label class="field span-12">
+                          <input name="eventType" type="text" placeholder="platform.delivery.updated" data-i18n-placeholder="owner.placeholder.webhookEventType">
+                        </label>
+                        <label class="field span-12">
                           <span data-i18n="owner.form.targetUrl">Target URL</span>
-                    <input name="targetUrl" type="text" placeholder="https://hooks.example.com/scum">
-                  </label>
-                  <label class="field span-8">
+                          <input name="targetUrl" type="text" placeholder="https://hooks.example.com/scum" data-i18n-placeholder="owner.placeholder.targetUrl">
+                        </label>
+                        <label class="field span-8">
                           <span data-i18n="owner.form.secret">Secret</span>
-                    <input name="secretValue" type="text" placeholder="Leave blank to auto-generate">
-                  </label>
-                  <label class="field span-4">
+                          <input name="secretValue" type="text" placeholder="Leave blank to auto-generate" data-i18n-placeholder="owner.form.autoGenerateHint">
+                        </label>
+                        <label class="field span-4">
                           <span data-i18n="owner.form.enabled">Enabled</span>
-                    <select name="enabled">
-                      <option value="true">true</option>
-                      <option value="false">false</option>
-                    </select>
-                  </label>
-                </div>
-                <div class="button-row">
-                      <button type="submit" class="button button-primary" data-i18n="owner.assets.createWebhook">Create Webhook</button>
-                </div>
-              </form>
-
-                    <form id="ownerWebhookTestForm" class="panel-card">
+                          <select name="enabled">
+                            <option value="true" data-i18n="common.enabled">true</option>
+                            <option value="false" data-i18n="common.disabled">false</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div class="button-row">
+                        <button type="submit" class="button button-primary" data-i18n="owner.assets.createWebhook">Create Webhook</button>
+                      </div>
+                    </form>
+                  </section>
+                  <section class="panel-card">
+                    <form id="ownerWebhookTestForm" class="form-shell">
                       <h3 data-i18n="owner.assets.testWebhook">Test Webhook Dispatch</h3>
-                <div class="form-grid">
-                  <label class="field span-6">
-                    <span>Tenant</span>
-                    <select class="owner-tenant-select" name="tenantId">
-                      <option value="">Choose tenant</option>
-                    </select>
-                  </label>
-                  <label class="field span-6">
-                    <span>Event Type</span>
-                    <input name="eventType" type="text" placeholder="platform.admin.test">
-                  </label>
-                  <label class="field span-12">
+                      <div class="form-grid">
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.tenant">Tenant</span>
+                          <select class="owner-tenant-select" name="tenantId">
+                            <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                          </select>
+                        </label>
+                        <label class="field span-6">
+                          <span data-i18n="owner.form.eventType">Event Type</span>
+                          <input name="eventType" type="text" placeholder="platform.admin.test" data-i18n-placeholder="owner.placeholder.webhookTestEventType">
+                        </label>
+                        <label class="field span-12">
                           <span data-i18n="owner.form.payloadJson">Payload JSON</span>
-                    <textarea name="payload" placeholder='{"source":"owner-console"}'></textarea>
-                  </label>
+                          <textarea name="payload" placeholder='{"source":"owner-console"}'></textarea>
+                        </label>
+                      </div>
+                      <div class="button-row">
+                        <button type="submit" class="button button-warning" data-i18n="owner.assets.dispatchTestEvent">Dispatch Test Event</button>
+                      </div>
+                    </form>
+                  </section>
                 </div>
-                <div class="button-row">
-                      <button type="submit" class="button button-warning" data-i18n="owner.assets.dispatchTestEvent">Dispatch Test Event</button>
-                </div>
-              </form>
-                  </div>
-                </div>
-              </details>
+              </section>
             </aside>
           </div>
         </section>
@@ -466,36 +506,68 @@
               <a class="action-link" href="/owner#observability" data-i18n="owner.section.runtime.linkMetrics">Metrics timeline</a>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <section class="panel-card">
-                <h3 data-i18n="owner.runtime.managedServices">Managed Runtime Services</h3>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.runtime.watchTitle">Runtime Watch</span>
+                    <h3 data-i18n="owner.runtime.managedServices">Managed Runtime Services</h3>
+                    <p class="hint" data-i18n="owner.runtime.watchDetail">Keep the platform runtimes visible first, then review agents and incident pressure from the side lane.</p>
+                  </div>
+                </div>
+                <div class="mission-strip">
+                  <div class="mission-chip"><span data-i18n="owner.runtime.watchChipOne">Platform runtimes</span></div>
+                  <div class="mission-chip"><span data-i18n="owner.runtime.watchChipTwo">Optional agents</span></div>
+                  <div class="mission-chip"><span data-i18n="owner.runtime.watchChipThree">Incident pressure</span></div>
+                </div>
                 <div id="ownerRuntimeTable"></div>
               </section>
+              <div class="panel-grid two-col">
+                <section class="panel-card">
+                  <div class="section-head">
+                    <div class="section-copy">
+                      <h3 data-i18n="owner.runtime.openAlerts">Open Alerts</h3>
+                      <p class="hint" data-i18n="owner.runtime.liveIssuesDetail">Current notifications that still need owner attention.</p>
+                    </div>
+                  </div>
+                  <div id="ownerNotificationFeed" class="list-feed"></div>
+                </section>
+                <section class="panel-card is-danger">
+                  <div class="section-head">
+                    <div class="section-copy">
+                      <h3 data-i18n="owner.runtime.requestAnomalies">Request Anomalies</h3>
+                      <p class="hint" data-i18n="owner.runtime.anomaliesDetail">Unexpected request patterns, queue drift, and pressure signatures collected for review.</p>
+                    </div>
+                  </div>
+                  <div id="ownerRequestFeed" class="list-feed"></div>
+                </section>
+              </div>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.runtime.inventorySummary">Runtime Inventory</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.runtime.inventorySummary">Runtime Inventory</span>
                     <h3 data-i18n="owner.runtime.agentInventory">Agent Runtime Inventory</h3>
-                    <div id="ownerAgentsTable"></div>
-                  </section>
+                    <p class="hint" data-i18n="owner.runtime.inventoryDetail">Inventory of optional execution nodes and helper runtimes that sit outside the core platform loop.</p>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.runtime.liveIssuesSummary">Live Issues</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.runtime.openAlerts">Open Alerts</h3>
-                    <div id="ownerNotificationFeed" class="list-feed"></div>
-                  </section>
-                  <section class="panel-card is-danger">
-                    <h3 data-i18n="owner.runtime.requestAnomalies">Request Anomalies</h3>
-                    <div id="ownerRequestFeed" class="list-feed"></div>
-                  </section>
+                <div id="ownerAgentsTable"></div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.runtime.playbookTitle">Operating Pattern</span>
+                    <h3 data-i18n="owner.runtime.playbookHeading">Review, then control</h3>
+                    <p class="hint" data-i18n="owner.runtime.playbookDetail">Owner work starts from live posture, then moves into metrics or service control without mixing in tenant workflows.</p>
+                  </div>
                 </div>
-              </details>
+                <div class="button-row">
+                  <a class="ghost-link" href="/owner#runtime" data-i18n="owner.section.runtime.linkControl">Service control</a>
+                  <a class="ghost-link" href="/owner#observability" data-i18n="owner.section.runtime.linkMetrics">Metrics timeline</a>
+                </div>
+              </section>
             </aside>
           </div>
         </section>
@@ -511,61 +583,69 @@
               <p data-i18n="owner.section.incidents.detail">Owner triage surface for current alerts and historical notifications. Filter by severity, switch between open and acknowledged incidents, export evidence, and keep operator response grouped in one place.</p>
             </div>
           </div>
-          <div id="ownerIncidentStats" class="stats-grid"></div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <section class="panel-card">
-                <h3 data-i18n="owner.incidents.inbox">Incident Inbox</h3>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.section.incidents.kicker">Incident Center</span>
+                    <h3 data-i18n="owner.incidents.inbox">Incident Inbox</h3>
+                    <p class="hint" data-i18n="owner.section.incidents.detail">Owner triage surface for current alerts and historical notifications. Filter by severity, switch between open and acknowledged incidents, export evidence, and keep operator response grouped in one place.</p>
+                  </div>
+                </div>
+                <div id="ownerIncidentStats" class="stats-grid"></div>
                 <div id="ownerIncidentFeed" class="list-feed"></div>
               </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.incidents.querySummary">Incident Query</summary>
-                <div class="task-body">
-                  <form id="ownerIncidentQueryForm" class="panel-card">
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.incidents.querySummary">Incident Query</span>
                     <h3 data-i18n="owner.incidents.query">Incident Query</h3>
-                    <div class="form-grid">
-                      <label class="field span-4">
-                        <span data-i18n="owner.form.severity">Severity</span>
-                        <select name="severity">
-                          <option value="">all</option>
-                          <option value="error">error</option>
-                          <option value="warn">warn</option>
-                          <option value="info">info</option>
-                        </select>
-                      </label>
-                      <label class="field span-4">
-                        <span data-i18n="owner.form.acknowledged">Acknowledged</span>
-                        <select name="acknowledged">
-                          <option value="false">open only</option>
-                          <option value="true">acknowledged only</option>
-                          <option value="">all</option>
-                        </select>
-                      </label>
-                      <label class="field span-4">
-                        <span data-i18n="owner.form.kind">Kind</span>
-                        <input name="kind" type="text" placeholder="queue-pressure">
-                      </label>
-                    </div>
-                    <div class="button-row">
-                      <button type="submit" class="button button-primary" data-i18n="owner.incidents.load">Load Incidents</button>
-                      <button id="ownerIncidentExportJsonBtn" type="button" class="button" data-i18n="owner.incidents.exportJson">Export JSON</button>
-                      <button id="ownerIncidentExportCsvBtn" type="button" class="button" data-i18n="owner.incidents.exportCsv">Export CSV</button>
-                      <button id="ownerClearAckedAlertsBtn" type="button" class="button button-warning" data-i18n="owner.incidents.clearAcked">Clear Acked</button>
-                    </div>
-                  </form>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.incidents.runbooksSummary">Operator Runbooks</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+                <form id="ownerIncidentQueryForm" class="form-shell">
+                  <div class="form-grid">
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.severity">Severity</span>
+                      <select name="severity">
+                        <option value="" data-i18n="owner.option.all">all</option>
+                        <option value="error" data-i18n="owner.option.error">error</option>
+                        <option value="warn" data-i18n="owner.option.warn">warn</option>
+                        <option value="info" data-i18n="owner.option.info">info</option>
+                      </select>
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.acknowledged">Acknowledged</span>
+                      <select name="acknowledged">
+                        <option value="false" data-i18n="owner.option.openOnly">open only</option>
+                        <option value="true" data-i18n="owner.option.acknowledgedOnly">acknowledged only</option>
+                        <option value="" data-i18n="owner.option.all">all</option>
+                      </select>
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.kind">Kind</span>
+                      <input name="kind" type="text" placeholder="queue-pressure" data-i18n-placeholder="owner.placeholder.incidentKind">
+                    </label>
+                  </div>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.incidents.load">Load Incidents</button>
+                    <button id="ownerIncidentExportJsonBtn" type="button" class="button" data-i18n="owner.incidents.exportJson">Export JSON</button>
+                    <button id="ownerIncidentExportCsvBtn" type="button" class="button" data-i18n="owner.incidents.exportCsv">Export CSV</button>
+                    <button id="ownerClearAckedAlertsBtn" type="button" class="button button-warning" data-i18n="owner.incidents.clearAcked">Clear Acked</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.incidents.runbooksSummary">Operator Runbooks</span>
                     <h3 data-i18n="owner.incidents.runbooks">Operator Runbooks</h3>
-                    <div id="ownerIncidentRunbooks" class="panel-grid"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerIncidentRunbooks" class="panel-grid"></div>
+              </section>
             </aside>
           </div>
         </section>
@@ -581,98 +661,114 @@
               <a class="action-link" href="/owner#commercial" data-i18n="owner.section.commercial.link">Open platform center</a>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <div id="ownerCommercialStats" class="stats-grid"></div>
-              <div class="surface-two-col">
-                <section class="panel-card is-warning">
-                  <h3 data-i18n="owner.commercial.quotaPressure">Quota Pressure</h3>
-                  <div id="ownerQuotaFeed" class="list-feed"></div>
-                </section>
-                <section class="panel-card">
-                  <h3 data-i18n="owner.commercial.guidance">Commercial Guidance</h3>
-                  <div id="ownerCommercialNotes" class="panel-grid"></div>
-                </section>
-              </div>
-              <details class="task-cluster">
-                <summary data-i18n="owner.commercial.planCatalog">Plan Catalog</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.commercial.planCatalog">Plan Catalog</h3>
-                    <div id="ownerPlanTable"></div>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.section.commercial.kicker">Commercial + Policy</span>
+                    <h3 data-i18n="owner.section.commercial.title">Plan posture, quota pressure, and tenant packaging</h3>
+                    <p class="hint" data-i18n="owner.section.commercial.detail">Keep subscription shape, quota pressure, and tenant-facing packages in one owner workspace without mixing them with runtime or support operations.</p>
+                  </div>
+                </div>
+                <div id="ownerCommercialStats" class="stats-grid"></div>
+                <div class="surface-two-col">
+                  <section class="panel-card inset-card is-warning">
+                    <h3 data-i18n="owner.commercial.quotaPressure">Quota Pressure</h3>
+                    <div id="ownerQuotaFeed" class="list-feed"></div>
+                  </section>
+                  <section class="panel-card inset-card">
+                    <h3 data-i18n="owner.commercial.guidance">Commercial Guidance</h3>
+                    <div id="ownerCommercialNotes" class="panel-grid"></div>
                   </section>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.commercial.marketplaceOffers">Marketplace Offers</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.commercial.marketplaceOffers">Marketplace Offers</h3>
-                    <div id="ownerMarketplaceTable"></div>
-                  </section>
-                </div>
-              </details>
-            </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.commercial.marketplaceSummary">Marketplace Offer</summary>
-                <div class="task-body">
-                  <p class="task-note" data-i18n="owner.commercial.marketplaceNote">Use this only for owner-managed commercial packaging. Tenant-facing operations and support tools stay outside this area.</p>
-                  <form id="ownerMarketplaceForm" class="panel-card">
-              <h3 data-i18n="owner.commercial.createOffer">Create Marketplace Offer</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                  <span>Tenant</span>
-                  <select class="owner-tenant-select" name="tenantId">
-                    <option value="">Choose tenant</option>
-                  </select>
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.offerTitle">Offer Title</span>
-                  <input name="title" type="text" placeholder="Premium bot management">
-                </label>
-                <label class="field span-4">
-                  <span data-i18n="owner.form.kind">Kind</span>
-                  <input name="kind" type="text" placeholder="service">
-                </label>
-                <label class="field span-4">
-                  <span data-i18n="owner.form.priceCents">Price Cents</span>
-                  <input name="priceCents" type="number" min="0" step="1" placeholder="9900">
-                </label>
-                <label class="field span-4">
-                  <span>Status</span>
-                  <select name="status">
-                    <option value="active">active</option>
-                    <option value="draft">draft</option>
-                    <option value="archived">archived</option>
-                  </select>
-                </label>
-                <label class="field span-6">
-                  <span>Currency</span>
-                  <input name="currency" type="text" placeholder="THB">
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.locale">Locale</span>
-                  <input name="locale" type="text" placeholder="th-TH">
-                </label>
-                <label class="field span-12">
-                  <span data-i18n="owner.form.metaJson">Meta JSON</span>
-                  <textarea name="meta" placeholder='{"tier":"pro","addons":["alerts","audit"]}'></textarea>
-                </label>
-              </div>
-              <p class="hint" data-i18n="owner.commercial.marketplaceHint">Use marketplace offers to present extension-style commercial packages without changing the tenant runtime model.</p>
-              <div class="button-row">
-                <button type="submit" class="button button-primary" data-i18n="owner.commercial.createOffer">Create Marketplace Offer</button>
-              </div>
-            </form>
-                </div>
-              </details>
+              </section>
               <section class="panel-card">
-                <h3 data-i18n="owner.commercial.policyHandoff">Policy Handoff</h3>
-                <p class="hint" data-i18n="owner.commercial.policyHint">Permission bundles and global access rules still live in the guarded security workbench so packaging stays separate from authentication policy.</p>
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.commercial.planCatalog">Plan Catalog</span>
+                    <h3 data-i18n="owner.commercial.planCatalog">Plan Catalog</h3>
+                  </div>
+                </div>
+                <div id="ownerPlanTable"></div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.commercial.marketplaceOffers">Marketplace Offers</span>
+                    <h3 data-i18n="owner.commercial.marketplaceOffers">Marketplace Offers</h3>
+                  </div>
+                </div>
+                <div id="ownerMarketplaceTable"></div>
+              </section>
+            </div>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.commercial.marketplaceSummary">Marketplace Offer</span>
+                    <h3 data-i18n="owner.commercial.createOffer">Create Marketplace Offer</h3>
+                    <p class="hint" data-i18n="owner.commercial.marketplaceNote">Use this only for owner-managed commercial packaging. Tenant-facing operations and support tools stay outside this area.</p>
+                  </div>
+                </div>
+                <form id="ownerMarketplaceForm" class="form-shell">
+                  <div class="form-grid">
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.tenant">Tenant</span>
+                      <select class="owner-tenant-select" name="tenantId">
+                        <option value="" data-i18n="owner.form.chooseTenant">Choose tenant</option>
+                      </select>
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.offerTitle">Offer Title</span>
+                      <input name="title" type="text" placeholder="Premium bot management" data-i18n-placeholder="owner.placeholder.offerTitle">
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.kind">Kind</span>
+                      <input name="kind" type="text" placeholder="service" data-i18n-placeholder="owner.placeholder.offerKind">
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.priceCents">Price Cents</span>
+                      <input name="priceCents" type="number" min="0" step="1" placeholder="9900">
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.status">Status</span>
+                      <select name="status">
+                        <option value="active" data-i18n="owner.option.active">active</option>
+                        <option value="draft" data-i18n="owner.option.draft">draft</option>
+                        <option value="archived" data-i18n="owner.option.archived">archived</option>
+                      </select>
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.currency">Currency</span>
+                      <input name="currency" type="text" placeholder="THB" data-i18n-placeholder="owner.placeholder.currency">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.locale">Locale</span>
+                      <input name="locale" type="text" placeholder="th-TH" data-i18n-placeholder="owner.placeholder.locale">
+                    </label>
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.metaJson">Meta JSON</span>
+                      <textarea name="meta" placeholder='{"tier":"pro","addons":["alerts","audit"]}'></textarea>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.commercial.marketplaceHint">Use marketplace offers to present extension-style commercial packages without changing the tenant runtime model.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.commercial.createOffer">Create Marketplace Offer</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.commercial.policyHandoff">Policy Handoff</span>
+                    <h3 data-i18n="owner.commercial.policyHandoff">Policy Handoff</h3>
+                    <p class="hint" data-i18n="owner.commercial.policyHint">Permission bundles and global access rules still live in the guarded security workbench so packaging stays separate from authentication policy.</p>
+                  </div>
+                </div>
                 <div class="button-row">
                   <a class="ghost-link" href="#security" data-i18n="owner.commercial.reviewSecurity">Review security posture</a>
-                <a class="ghost-link" href="/owner#security" data-i18n="owner.commercial.openSecurityWorkbench">Open full security workbench</a>
+                  <a class="ghost-link" href="/owner#security" data-i18n="owner.commercial.openSecurityWorkbench">Open full security workbench</a>
                 </div>
               </section>
             </aside>
@@ -694,9 +790,18 @@
               <a class="action-link" href="/owner#observability" data-i18n="owner.observability.openWorkbench">Open full metrics workbench</a>
             </div>
           </div>
-          <div id="ownerObservabilityStats" class="stats-grid"></div>
-          <div class="focus-layout">
-            <div class="primary-stack">
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.section.observability.kicker">Observability</span>
+                    <h3 data-i18n="owner.section.observability.title">Metrics, reconcile pressure, and monitoring state</h3>
+                    <p class="hint" data-i18n="owner.section.observability.detail">Owner-level system visibility for delivery health, webhook reliability, login spikes, request anomalies, and background monitoring cadence.</p>
+                  </div>
+                </div>
+                <div id="ownerObservabilityStats" class="stats-grid"></div>
+              </section>
               <!-- Keep delivery lifecycle visible here because owner operators
                    usually need one compact queue/dead-letter health read before
                    drilling into incidents or raw requests. -->
@@ -729,44 +834,48 @@
                 <h3 data-i18n="owner.observability.series">Time-Series Watch</h3>
                 <div id="ownerSeriesCards" class="series-grid"></div>
               </section>
-              <details class="task-cluster">
-                <summary data-i18n="owner.observability.requestFlow">Recent Request Flow</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.observability.requestFlow">Recent Request Flow</span>
                     <h3 data-i18n="owner.observability.requestFlow">Recent Request Flow</h3>
-                    <div id="ownerObservabilityRequestTable"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerObservabilityRequestTable"></div>
+              </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.observability.signalsSummary">Reconcile + Signals</summary>
-                <div class="task-body">
-                  <section class="panel-card is-warning">
+            <aside class="ops-side-stack">
+              <section class="panel-card is-warning">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.observability.signalsSummary">Reconcile + Signals</span>
                     <h3 data-i18n="owner.observability.reconcileSignals">Reconcile + Incident Signals</h3>
-                    <div id="ownerReconcileFeed" class="list-feed"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.observability.monitoringSummary">Monitoring + Automation</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+                <div id="ownerReconcileFeed" class="list-feed"></div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.observability.monitoringSummary">Monitoring + Automation</span>
                     <h3 data-i18n="owner.observability.monitoringState">Monitoring State</h3>
-                    <div id="ownerOpsStateStats" class="stats-grid"></div>
+                  </div>
+                </div>
+                <div id="ownerOpsStateStats" class="stats-grid"></div>
+                <div class="section-head">
+                  <div class="section-copy">
                     <h3 data-i18n="owner.observability.automation">Automation Control</h3>
                     <p class="hint" data-i18n="owner.observability.automationDetail">Review automated recovery state, inspect recent restart outcomes, then use dry run before triggering a guarded owner automation cycle.</p>
-                    <div id="ownerAutomationStats" class="stats-grid"></div>
-                    <div id="ownerAutomationPolicy" class="tag-row"></div>
-                    <div class="button-row">
-                      <button id="ownerAutomationDryRunBtn" type="button" class="button" data-i18n="owner.observability.automationDryRun">Dry Run Automation</button>
-                      <button id="ownerAutomationRunBtn" type="button" class="button button-warning" data-i18n="owner.observability.automationRunNow">Run Automation Now</button>
-                    </div>
-                    <div id="ownerAutomationFeed" class="list-feed"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerAutomationStats" class="stats-grid"></div>
+                <div id="ownerAutomationPolicy" class="tag-row"></div>
+                <div class="button-row">
+                  <button id="ownerAutomationDryRunBtn" type="button" class="button" data-i18n="owner.observability.automationDryRun">Dry Run Automation</button>
+                  <button id="ownerAutomationRunBtn" type="button" class="button button-warning" data-i18n="owner.observability.automationRunNow">Run Automation Now</button>
+                </div>
+                <div id="ownerAutomationFeed" class="list-feed"></div>
+              </section>
             </aside>
           </div>
         </section>
@@ -782,64 +891,89 @@
               <a class="action-link" href="/owner#security" data-i18n="owner.section.security.link">Full security workbench</a>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
               <div class="surface-two-col">
                 <section class="panel-card">
-                  <h3 data-i18n="owner.security.recentEvents">Recent Security Events</h3>
+                  <div class="section-head">
+                    <div class="section-copy">
+                      <span class="section-kicker" data-i18n="owner.security.signalTitle">Signal Watch</span>
+                      <h3 data-i18n="owner.security.recentEvents">Recent Security Events</h3>
+                      <p class="hint" data-i18n="owner.security.signalDetail">Review current events and compare them with the live policy posture before making access changes.</p>
+                    </div>
+                  </div>
                   <div id="ownerSecurityFeed" class="list-feed"></div>
                 </section>
                 <section class="panel-card">
-                  <h3 data-i18n="owner.security.policySummary">Policy Summary</h3>
+                  <div class="section-head">
+                    <div class="section-copy">
+                      <span class="section-kicker" data-i18n="owner.security.policyTitle">Policy Watch</span>
+                      <h3 data-i18n="owner.security.policySummary">Policy Summary</h3>
+                      <p class="hint" data-i18n="owner.security.policyDetail">See the active guardrails, thresholds, and access posture that shape owner-level review.</p>
+                    </div>
+                  </div>
                   <div id="ownerPolicyCards" class="panel-grid"></div>
                 </section>
               </div>
-              <div class="surface-two-col">
-                <section class="panel-card">
-                  <h3 data-i18n="owner.security.guardrails">Guardrails + Escalation</h3>
-                  <p class="hint" data-i18n="owner.security.guardrailsHint">Deep permission-path review is still available, but it is intentionally moved out of the daily owner console so this page stays readable and action-oriented.</p>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.security.rotationTitle">Rotation Readiness</span>
+                    <h3 data-i18n="owner.security.rotationReadiness">Secret Rotation Readiness</h3>
+                    <p class="hint" data-i18n="owner.security.rotationDetail">Check readiness, drift, and follow-up actions before rotating secrets across runtimes.</p>
+                  </div>
+                </div>
+                <div id="ownerRotationStats" class="stats-grid"></div>
+                <div id="ownerRotationMatrix"></div>
+                <section class="panel-card inset-card">
+                  <div class="section-head">
+                    <div class="section-copy">
+                      <h3 data-i18n="owner.security.rotationDrift">Rotation Drift + Follow-up</h3>
+                    </div>
+                  </div>
+                  <div id="ownerRotationIssues" class="list-feed"></div>
                   <div class="button-row">
-                    <a class="ghost-link" href="#access" data-i18n="owner.security.openAccess">Open access center</a>
-                    <a class="ghost-link" href="#audit" data-i18n="owner.security.openAudit">Open audit trail</a>
-                <a class="ghost-link" href="/owner#audit" data-i18n="owner.security.openPermissionReview">Open path-level permission review</a>
+                    <button id="ownerRotationRefreshBtn" type="button" class="button" data-i18n="owner.security.refreshRotationCheck">Refresh Rotation Check</button>
+                    <button id="ownerRotationExportJsonBtn" type="button" class="button" data-i18n="owner.security.exportRotationJson">Export JSON</button>
+                    <button id="ownerRotationExportCsvBtn" type="button" class="button" data-i18n="owner.security.exportRotationCsv">Export CSV</button>
                   </div>
                 </section>
-              </div>
-              <details class="task-cluster">
-                <summary data-i18n="owner.security.deviceFootprints">Recent Device Footprints</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.security.deviceTitle">Device View</span>
                     <h3 data-i18n="owner.security.deviceFootprints">Recent Device Footprints</h3>
                     <p class="hint" data-i18n="owner.security.deviceFootprintsHint">Built from recent authenticated request metadata so the owner can see who is operating from where, even when sessions only store IP and user-agent binding.</p>
-                    <div id="ownerDeviceTable"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.security.rotationReadiness">Secret Rotation Readiness</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.security.rotationReadiness">Secret Rotation Readiness</h3>
-                    <div id="ownerRotationStats" class="stats-grid"></div>
-                    <div id="ownerRotationMatrix"></div>
-                  </section>
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.security.rotationDrift">Rotation Drift + Follow-up</h3>
-                    <div id="ownerRotationIssues" class="list-feed"></div>
-                    <div class="button-row">
-                      <button id="ownerRotationRefreshBtn" type="button" class="button" data-i18n="owner.security.refreshRotationCheck">Refresh Rotation Check</button>
-                      <button id="ownerRotationExportJsonBtn" type="button" class="button" data-i18n="owner.security.exportRotationJson">Export JSON</button>
-                      <button id="ownerRotationExportCsvBtn" type="button" class="button" data-i18n="owner.security.exportRotationCsv">Export CSV</button>
-                    </div>
-                  </section>
-                </div>
-              </details>
+                <div id="ownerDeviceTable"></div>
+              </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.security.sessionPolicySummary">Session + Login Policy</summary>
-                <div class="task-body">
-                  <form id="ownerSecurityPolicyForm" class="panel-card">
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.security.guardrailsTitle">Guardrails</span>
+                    <h3 data-i18n="owner.security.guardrails">Guardrails + Escalation</h3>
+                    <p class="hint" data-i18n="owner.security.guardrailsHint">Deep permission-path review is still available, but it is intentionally moved out of the daily owner console so this page stays readable and action-oriented.</p>
+                  </div>
+                </div>
+                <div class="button-row">
+                  <a class="ghost-link" href="#access" data-i18n="owner.security.openAccess">Open access center</a>
+                  <a class="ghost-link" href="#audit" data-i18n="owner.security.openAudit">Open audit trail</a>
+                  <a class="ghost-link" href="/owner#audit" data-i18n="owner.security.openPermissionReview">Open path-level permission review</a>
+                </div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.security.controlTitle">Access Controls</span>
+                    <h3 data-i18n="owner.security.sessionPolicy">Session + Login Policy</h3>
+                    <p class="hint" data-i18n="owner.security.sessionPolicySummary">Control login window, TTL, session count, and idle timeout for admin access.</p>
+                  </div>
+                </div>
+                <form id="ownerSecurityPolicyForm" class="form-shell">
               <h3 data-i18n="owner.security.sessionPolicy">Session + Login Policy</h3>
               <div class="form-grid">
                 <label class="field span-4">
@@ -883,12 +1017,16 @@
                 <button type="submit" class="button button-primary" data-i18n="owner.security.saveSessionPolicy">Save Session + Login Policy</button>
               </div>
             </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.security.monitoringTitle">Monitoring Controls</span>
+                    <h3 data-i18n="owner.security.monitoringPolicy">Monitoring + Alert Policy</h3>
+                    <p class="hint" data-i18n="owner.security.monitoringPolicySummary">Tune threshold and cooldown values for request spikes, queues, and webhook failures.</p>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.security.monitoringPolicySummary">Monitoring + Alert Policy</summary>
-                <div class="task-body">
-                  <form id="ownerMonitoringPolicyForm" class="panel-card">
+                <form id="ownerMonitoringPolicyForm" class="form-shell">
               <h3 data-i18n="owner.security.monitoringPolicy">Monitoring + Alert Policy</h3>
               <div class="form-grid">
                 <label class="field span-4">
@@ -924,8 +1062,7 @@
                 <button type="submit" class="button button-primary" data-i18n="owner.security.saveMonitoringPolicy">Save Monitoring Policy</button>
               </div>
             </form>
-                </div>
-              </details>
+              </section>
             </aside>
           </div>
         </section>
@@ -938,101 +1075,106 @@
               <p data-i18n="owner.section.access.detail">Owner review area for who is signed in, what role they hold, which tenant scope they carry, and which admin accounts are active.</p>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <details class="task-cluster">
-                <summary data-i18n="owner.access.activeSessions">Active Sessions</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.section.access.kicker">Access Center</span>
                     <h3 data-i18n="owner.access.activeSessions">Active Sessions</h3>
-                    <div id="ownerSessionsTable"></div>
-                  </section>
+                    <p class="hint" data-i18n="owner.section.access.detail">Owner review area for who is signed in, what role they hold, which tenant scope they carry, and which admin accounts are active.</p>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.access.adminUsers">Admin Users</summary>
-                <div class="task-body">
-                  <section class="panel-card">
+                <div id="ownerSessionsTable"></div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.access.adminUsers">Admin Users</span>
                     <h3 data-i18n="owner.access.adminUsers">Admin Users</h3>
-                    <div id="ownerUsersTable"></div>
-                  </section>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerUsersTable"></div>
+              </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.access.sessionControlSummary">Session Control</summary>
-                <div class="task-body">
-                  <form id="ownerSessionRevokeForm" class="panel-card">
-              <h3 data-i18n="owner.access.sessionControl">Session Control</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                  <span data-i18n="owner.form.sessionId">Session ID</span>
-                  <input name="sessionId" type="text" placeholder="Paste a specific admin session id">
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.targetUser">Target User</span>
-                  <input name="targetUser" type="text" placeholder="Revoke all sessions for a username">
-                </label>
-                <label class="field span-8">
-                  <span data-i18n="owner.form.reason">Reason</span>
-                  <input name="reason" type="text" placeholder="suspicious-activity">
-                </label>
-                <label class="field span-4">
-                  <span data-i18n="owner.form.currentSession">Current Session</span>
-                  <select name="current">
-                    <option value="false">no</option>
-                    <option value="true">yes, if no target provided</option>
-                  </select>
-                </label>
-              </div>
-              <p class="hint">Use Session ID for one session, Target User for all sessions belonging to a user, or enable current session revoke when testing logout/recovery behavior.</p>
-              <div class="button-row">
-                <button type="submit" class="button button-warning" data-i18n="owner.access.revokeSessions">Revoke Session(s)</button>
-              </div>
-            </form>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.access.sessionControlSummary">Session Control</span>
+                    <h3 data-i18n="owner.access.sessionControl">Session Control</h3>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.access.adminUserProvisioningSummary">Admin User Provisioning</summary>
-                <div class="task-body">
-                  <form id="ownerAdminUserForm" class="panel-card">
-              <h3 data-i18n="owner.access.adminUserProvisioning">Admin User Provisioning</h3>
-              <div class="form-grid">
-                <label class="field span-6">
-                  <span>Username</span>
-                  <input name="username" type="text" placeholder="ops-admin">
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.role">Role</span>
-                  <select name="role">
-                    <option value="mod">moderator</option>
-                    <option value="admin">admin</option>
-                    <option value="owner">owner</option>
-                  </select>
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.tenantScope">Tenant Scope</span>
-                  <input name="tenantId" type="text" placeholder="Leave blank for global owner/admin">
-                </label>
-                <label class="field span-6">
-                  <span data-i18n="owner.form.active">Active</span>
-                  <select name="isActive">
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                </label>
-                <label class="field span-12">
-                  <span>Password</span>
-                  <input name="password" type="password" placeholder="Leave blank to keep current password">
-                </label>
-              </div>
-              <div class="button-row">
-                <button type="submit" class="button button-primary" data-i18n="owner.access.saveAdminUser">Save Admin User</button>
-              </div>
-            </form>
+                <form id="ownerSessionRevokeForm" class="form-shell">
+                  <div class="form-grid">
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.sessionId">Session ID</span>
+                      <input name="sessionId" type="text" data-i18n-placeholder="owner.placeholder.sessionId">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.targetUser">Target User</span>
+                      <input name="targetUser" type="text" data-i18n-placeholder="owner.placeholder.targetUser">
+                    </label>
+                    <label class="field span-8">
+                      <span data-i18n="owner.form.reason">Reason</span>
+                      <input name="reason" type="text" data-i18n-placeholder="owner.placeholder.reasonSlug">
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.currentSession">Current Session</span>
+                      <select name="current">
+                        <option value="false" data-i18n="owner.option.no">no</option>
+                        <option value="true" data-i18n="owner.option.yesIfNoTarget">yes, if no target provided</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.access.sessionControlHint">Use Session ID for one session, Target User for all sessions belonging to a user, or enable current session revoke when testing logout/recovery behavior.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-warning" data-i18n="owner.access.revokeSessions">Revoke Session(s)</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.access.adminUserProvisioningSummary">Admin User Provisioning</span>
+                    <h3 data-i18n="owner.access.adminUserProvisioning">Admin User Provisioning</h3>
+                  </div>
                 </div>
-              </details>
+                <form id="ownerAdminUserForm" class="form-shell">
+                  <div class="form-grid">
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.username">Username</span>
+                      <input name="username" type="text" data-i18n-placeholder="owner.placeholder.adminUsername">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.role">Role</span>
+                      <select name="role">
+                        <option value="mod" data-i18n="owner.option.moderator">moderator</option>
+                        <option value="admin" data-i18n="owner.option.admin">admin</option>
+                        <option value="owner" data-i18n="owner.option.owner">owner</option>
+                      </select>
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.tenantScope">Tenant Scope</span>
+                      <input name="tenantId" type="text" data-i18n-placeholder="owner.placeholder.globalTenantScope">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.active">Active</span>
+                      <select name="isActive">
+                        <option value="true" data-i18n="owner.option.true">true</option>
+                        <option value="false" data-i18n="owner.option.false">false</option>
+                      </select>
+                    </label>
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.password">Password</span>
+                      <input name="password" type="password" data-i18n-placeholder="owner.placeholder.keepPassword">
+                    </label>
+                  </div>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.access.saveAdminUser">Save Admin User</button>
+                  </div>
+                </form>
+              </section>
             </aside>
           </div>
         </section>
@@ -1045,66 +1187,74 @@
             <div class="section-copy">
               <span class="section-kicker" data-i18n="owner.section.audit.kicker">Audit Trail</span>
               <h2 class="section-title" data-i18n="owner.section.audit.title">Who changed what, when, and why</h2>
-              <p>Owner-level audit review across wallet, reward, and event views with export paths that stay compatible with the existing audit dataset service.</p>
+              <p data-i18n="owner.section.audit.detail">Owner-level audit review across wallet, reward, and event views with export paths that stay compatible with the existing audit dataset service.</p>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <section class="panel-card">
-                <h3 data-i18n="owner.audit.results">Audit Results</h3>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.section.audit.kicker">Audit Trail</span>
+                    <h3 data-i18n="owner.audit.results">Audit Results</h3>
+                    <p class="hint" data-i18n="owner.section.audit.detail">Owner-level audit review across wallet, reward, and event views with export paths that stay compatible with the existing audit dataset service.</p>
+                  </div>
+                </div>
                 <div id="ownerAuditTable"></div>
               </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.audit.querySummary">Audit Query</summary>
-                <div class="task-body">
-                  <form id="ownerAuditQueryForm" class="panel-card">
-                        <h3 data-i18n="owner.audit.query">Audit Query</h3>
-                    <div class="form-grid">
-                      <label class="field span-4">
-                            <span data-i18n="owner.form.view">View</span>
-                        <select name="view">
-                          <option value="wallet">wallet</option>
-                          <option value="reward">reward</option>
-                          <option value="event">event</option>
-                        </select>
-                      </label>
-                      <label class="field span-4">
-                            <span data-i18n="owner.form.userId">User ID</span>
-                        <input name="userId" type="text" placeholder="Optional Discord user id">
-                      </label>
-                      <label class="field span-4">
-                            <span data-i18n="owner.form.window">Window</span>
-                        <select name="windowMs">
-                          <option value="86400000">24h</option>
-                          <option value="604800000" selected>7d</option>
-                          <option value="2592000000">30d</option>
-                          <option value="">all</option>
-                        </select>
-                      </label>
-                      <label class="field span-12">
-                            <span data-i18n="owner.form.query">Query</span>
-                        <input name="query" type="text" placeholder="actor, reason, reference, or free-text query">
-                      </label>
-                    </div>
-                    <div class="button-row">
-                          <button type="submit" class="button button-primary" data-i18n="owner.audit.load">Load Audit View</button>
-                          <button id="ownerAuditExportJsonBtn" type="button" class="button" data-i18n="owner.audit.exportJson">Export JSON</button>
-                          <button id="ownerAuditExportCsvBtn" type="button" class="button" data-i18n="owner.audit.exportCsv">Export CSV</button>
-                    </div>
-                  </form>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.audit.querySummary">Audit Query</span>
+                    <h3 data-i18n="owner.audit.query">Audit Query</h3>
+                  </div>
                 </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.audit.summarySummary">Audit Summary</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                        <h3 data-i18n="owner.audit.summary">Audit Summary</h3>
-                    <div id="ownerAuditStats" class="stats-grid"></div>
-                  </section>
+                <form id="ownerAuditQueryForm" class="form-shell">
+                  <div class="form-grid">
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.view">View</span>
+                      <select name="view">
+                        <option value="wallet" data-i18n="owner.option.wallet">wallet</option>
+                        <option value="reward" data-i18n="owner.option.reward">reward</option>
+                        <option value="event" data-i18n="owner.option.event">event</option>
+                      </select>
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.userId">User ID</span>
+                      <input name="userId" type="text" data-i18n-placeholder="owner.placeholder.optionalDiscordUserId">
+                    </label>
+                    <label class="field span-4">
+                      <span data-i18n="owner.form.window">Window</span>
+                      <select name="windowMs">
+                        <option value="86400000">24h</option>
+                        <option value="604800000" selected>7d</option>
+                        <option value="2592000000">30d</option>
+                        <option value="" data-i18n="owner.option.all">all</option>
+                      </select>
+                    </label>
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.query">Query</span>
+                      <input name="query" type="text" data-i18n-placeholder="owner.placeholder.auditQuery">
+                    </label>
+                  </div>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.audit.load">Load Audit View</button>
+                    <button id="ownerAuditExportJsonBtn" type="button" class="button" data-i18n="owner.audit.exportJson">Export JSON</button>
+                    <button id="ownerAuditExportCsvBtn" type="button" class="button" data-i18n="owner.audit.exportCsv">Export CSV</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.audit.summarySummary">Audit Summary</span>
+                    <h3 data-i18n="owner.audit.summary">Audit Summary</h3>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerAuditStats" class="stats-grid"></div>
+              </section>
             </aside>
           </div>
         </section>
@@ -1114,75 +1264,79 @@
             <div class="section-copy">
               <span class="section-kicker" data-i18n="owner.section.recovery.kicker">Recovery</span>
               <h2 class="section-title" data-i18n="owner.section.recovery.title">Backup posture, dry-run restore preview, and recovery readiness</h2>
-              <p>Owner-only recovery tools stay explicit. This surface supports backup creation and restore preview without collapsing into an unsafe one-click restore flow.</p>
+              <p data-i18n="owner.section.recovery.detail">Owner-only recovery tools stay explicit. This surface supports backup creation and restore preview without collapsing into an unsafe one-click restore flow.</p>
             </div>
             <div class="section-tools">
               <a class="action-link" href="/owner#recovery" data-i18n="owner.section.recovery.link">Open full recovery workbench</a>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <section class="panel-card">
-                <h3 data-i18n="owner.recovery.restoreStatus">Restore Status</h3>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.recovery.restoreStatus">Restore Status</span>
+                    <h3 data-i18n="owner.section.recovery.title">Backup posture, dry-run restore preview, and recovery readiness</h3>
+                    <p class="hint" data-i18n="owner.section.recovery.detail">Owner-only recovery tools stay explicit. This surface supports backup creation and restore preview without collapsing into an unsafe one-click restore flow.</p>
+                  </div>
+                </div>
                 <div id="ownerRestoreStateStats" class="stats-grid"></div>
               </section>
-              <details class="task-cluster">
-                <summary data-i18n="owner.recovery.availableBackups">Available Backups</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.recovery.availableBackups">Available Backups</h3>
-                    <div id="ownerBackupTable"></div>
-                  </section>
+              <section class="panel-card">
+                <h3 data-i18n="owner.recovery.availableBackups">Available Backups</h3>
+                <div id="ownerBackupTable"></div>
+              </section>
+              <section class="panel-card">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.recovery.restorePreviewSummary">Restore Preview</span>
+                    <h3 data-i18n="owner.recovery.previewRestore">Preview Restore</h3>
+                    <p class="hint" data-i18n="owner.recovery.previewHint">Preview computes the restore diff, warnings, and verification plan without mutating live state.</p>
+                  </div>
                 </div>
-              </details>
+                <div id="ownerBackupPreviewResult" class="panel-grid"></div>
+              </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.recovery.createBackupSummary">Create Backup</summary>
-                <div class="task-body">
-                  <form id="ownerBackupCreateForm" class="panel-card">
-              <h3 data-i18n="owner.recovery.createBackup">Create Backup</h3>
-              <div class="form-grid">
-                <label class="field span-12">
-                  <span data-i18n="owner.form.operatorNote">Operator Note</span>
-                  <textarea name="note" placeholder="Optional note for why this backup was created"></textarea>
-                </label>
-                <label class="field span-12">
-                  <span data-i18n="owner.form.includeSnapshotData">Include Snapshot Data</span>
-                  <select name="includeSnapshot">
-                    <option value="true">Include full snapshot</option>
-                    <option value="false">Backup metadata only</option>
-                  </select>
-                </label>
-              </div>
-              <p class="hint" data-i18n="owner.recovery.backupHint">Use a note when the backup is tied to maintenance, incident response, or a risky config rollout.</p>
-              <div class="button-row">
-                <button type="submit" class="button button-primary" data-i18n="owner.recovery.createBackup">Create Backup</button>
-              </div>
-            </form>
-                </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.recovery.restorePreviewSummary">Restore Preview</summary>
-                <div class="task-body">
-                  <form id="ownerBackupPreviewForm" class="panel-card">
-              <h3 data-i18n="owner.recovery.previewRestore">Preview Restore</h3>
-              <div class="form-grid">
-                <label class="field span-12">
-                  <span data-i18n="owner.form.backup">Backup</span>
-                  <select id="ownerBackupSelect" name="backup">
-                    <option value="">Choose a backup</option>
-                  </select>
-                </label>
-              </div>
-              <p class="hint" data-i18n="owner.recovery.previewHint">Preview computes the restore diff, warnings, and verification plan without mutating live state.</p>
-              <div class="button-row">
-                <button type="submit" class="button button-warning" data-i18n="owner.recovery.runPreview">Run Dry-Run Preview</button>
-              </div>
-              <div id="ownerBackupPreviewResult" class="panel-grid"></div>
-            </form>
-                </div>
-              </details>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <form id="ownerBackupCreateForm" class="form-shell">
+                  <h3 data-i18n="owner.recovery.createBackup">Create Backup</h3>
+                  <div class="form-grid">
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.operatorNote">Operator Note</span>
+                      <textarea name="note" data-i18n-placeholder="owner.placeholder.backupNote"></textarea>
+                    </label>
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.includeSnapshotData">Include Snapshot Data</span>
+                      <select name="includeSnapshot">
+                        <option value="true" data-i18n="owner.option.includeFullSnapshot">Include full snapshot</option>
+                        <option value="false" data-i18n="owner.option.backupMetadataOnly">Backup metadata only</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.recovery.backupHint">Use a note when the backup is tied to maintenance, incident response, or a risky config rollout.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.recovery.createBackup">Create Backup</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <form id="ownerBackupPreviewForm" class="form-shell">
+                  <h3 data-i18n="owner.recovery.previewRestore">Preview Restore</h3>
+                  <div class="form-grid">
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.backup">Backup</span>
+                      <select id="ownerBackupSelect" name="backup">
+                        <option value="" data-i18n="owner.option.chooseBackup">Choose a backup</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.recovery.previewHint">Preview computes the restore diff, warnings, and verification plan without mutating live state.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-warning" data-i18n="owner.recovery.runPreview">Run Dry-Run Preview</button>
+                  </div>
+                </form>
+              </section>
             </aside>
           </div>
         </section>
@@ -1192,118 +1346,131 @@
             <div class="section-copy">
               <span class="section-kicker" data-i18n="owner.section.control.kicker">Control Center</span>
               <h2 class="section-title" data-i18n="owner.section.control.title">Service restart, tenant provisioning, and config handoff</h2>
-              <p>Keep the daily owner actions here: service restart, control summary, and new tenant creation. Deep environment editing stays in the guarded config workbench.</p>
+              <p data-i18n="owner.control.dailyDetail">Keep the daily owner actions here: service restart, control summary, and new tenant creation. Deep environment editing stays in the guarded config workbench.</p>
             </div>
             <div class="section-tools">
               <a class="action-link" href="/owner#control" data-i18n="owner.section.control.linkConfig">Open full config editor</a>
               <a class="action-link" href="/owner#fleet" data-i18n="owner.section.control.linkProvisioning">Open platform provisioning</a>
             </div>
           </div>
-          <div class="focus-layout">
-            <div class="primary-stack">
-              <section class="panel-card">
-                <h3 data-i18n="owner.control.summary">Control Summary</h3>
+          <div class="ops-workbench">
+            <div class="ops-main-grid">
+              <section class="panel-card mission-panel">
+                <div class="section-head">
+                  <div class="section-copy">
+                    <span class="section-kicker" data-i18n="owner.control.summary">Control Summary</span>
+                    <h3 data-i18n="owner.section.control.title">Service restart, tenant provisioning, and config handoff</h3>
+                    <p class="hint" data-i18n="owner.control.dailyDetail">Keep the daily owner actions here: service restart, control summary, and new tenant creation. Deep environment editing stays in the guarded config workbench.</p>
+                  </div>
+                </div>
                 <div id="ownerControlSummaryStats" class="stats-grid"></div>
               </section>
-              <details class="task-cluster">
-                <summary data-i18n="owner.control.summary">Managed Services</summary>
-                <div class="task-body">
-                  <section class="panel-card">
-                    <h3 data-i18n="owner.control.summary">Managed Services</h3>
-                    <div id="ownerManagedServiceTable"></div>
-                  </section>
-                </div>
-              </details>
+              <section class="panel-card">
+                <h3 data-i18n="owner.control.summary">Managed Services</h3>
+                <div id="ownerManagedServiceTable"></div>
+              </section>
             </div>
-            <aside class="secondary-stack">
-              <details class="task-cluster" open>
-                <summary data-i18n="owner.control.restartServiceSummary">Restart Service</summary>
-                <div class="task-body">
-                  <form id="ownerRestartForm" class="panel-card">
-              <h3 data-i18n="owner.control.restartService">Restart Managed Service</h3>
-                <div class="form-grid">
-                  <label class="field span-12">
-                  <span data-i18n="owner.form.serviceTarget">Service Target</span>
-                    <select id="ownerRestartTarget" name="service">
-                      <option value="">Select a runtime service</option>
-                    </select>
-                  </label>
-                </div>
-                <div class="button-row">
-                <button type="submit" class="button button-warning" data-i18n="owner.control.restartSelectedService">Restart Selected Service</button>
-                </div>
-              </form>
-                </div>
-              </details>
-              <details class="task-cluster">
-                <summary data-i18n="owner.control.createTenantSummary">Create Tenant</summary>
-                <div class="task-body">
-                  <form id="ownerTenantCreateForm" class="panel-card">
-              <h3 data-i18n="owner.control.createTenant">Create Tenant</h3>
-                <div class="form-grid">
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.tenantId">Tenant ID</span>
-                    <input name="id" type="text" placeholder="tenant-prod-001">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.slug">Slug</span>
-                    <input name="slug" type="text" placeholder="scum-th-renter">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.displayName">Display Name</span>
-                    <input name="name" type="text" placeholder="SCUM TH Renter">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.type">Type</span>
-                    <select name="type">
-                      <option value="direct">direct</option>
-                      <option value="reseller">reseller</option>
-                      <option value="trial">trial</option>
-                    </select>
-                  </label>
-                  <label class="field span-6">
-                    <span>Status</span>
-                    <select name="status">
-                      <option value="active">active</option>
-                      <option value="trialing">trialing</option>
-                      <option value="suspended">suspended</option>
-                    </select>
-                  </label>
-                  <label class="field span-6">
-                    <span>Locale</span>
-                    <input name="locale" type="text" placeholder="th-TH">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.ownerName">Owner Name</span>
-                    <input name="ownerName" type="text" placeholder="Tenant Owner">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.ownerEmail">Owner Email</span>
-                    <input name="ownerEmail" type="email" placeholder="owner@example.com">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.parentTenantId">Parent Tenant ID</span>
-                    <input name="parentTenantId" type="text" placeholder="Optional reseller parent">
-                  </label>
-                  <label class="field span-6">
-                  <span data-i18n="owner.form.metadataJson">Metadata JSON</span>
-                    <input name="metadata" type="text" placeholder='{"region":"ap-southeast"}'>
-                  </label>
-                </div>
-              <p class="hint" data-i18n="owner.control.createTenantHint">Create the tenant record here, then move into the platform center for deeper subscription, license, and webhook setup.</p>
-                <div class="button-row">
-                <button type="submit" class="button button-primary" data-i18n="owner.control.createTenant">Create Tenant</button>
-                </div>
-              </form>
-                </div>
-              </details>
+            <aside class="ops-side-stack">
+              <section class="panel-card">
+                <form id="ownerRestartForm" class="form-shell">
+                  <h3 data-i18n="owner.control.restartService">Restart Managed Service</h3>
+                  <div class="form-grid">
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.serviceTarget">Service Target</span>
+                      <select id="ownerRestartTarget" name="service">
+                        <option value="" data-i18n="owner.option.chooseService">Select a runtime service</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="button-row">
+                    <button type="submit" class="button button-warning" data-i18n="owner.control.restartSelectedService">Restart Selected Service</button>
+                  </div>
+                </form>
+              </section>
+              <section class="panel-card">
+                <form id="ownerTenantCreateForm" class="form-shell">
+                  <h3 data-i18n="owner.control.createTenant">Create Tenant</h3>
+                  <div class="form-grid">
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.tenantId">Tenant ID</span>
+                      <input name="id" type="text" data-i18n-placeholder="owner.placeholder.tenantRecordId">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.slug">Slug</span>
+                      <input name="slug" type="text" data-i18n-placeholder="owner.placeholder.tenantSlug">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.displayName">Display Name</span>
+                      <input name="name" type="text" data-i18n-placeholder="owner.placeholder.tenantDisplayName">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.type">Type</span>
+                      <select name="type">
+                        <option value="direct" data-i18n="owner.option.direct">direct</option>
+                        <option value="reseller" data-i18n="owner.option.reseller">reseller</option>
+                        <option value="trial" data-i18n="owner.option.trial">trial</option>
+                      </select>
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.status">Status</span>
+                      <select name="status">
+                        <option value="active" data-i18n="owner.option.active">active</option>
+                        <option value="trialing" data-i18n="owner.option.trialing">trialing</option>
+                        <option value="suspended" data-i18n="owner.option.suspended">suspended</option>
+                      </select>
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.locale">Locale</span>
+                      <input name="locale" type="text" data-i18n-placeholder="owner.placeholder.locale">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.ownerName">Owner Name</span>
+                      <input name="ownerName" type="text" data-i18n-placeholder="owner.placeholder.ownerName">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.ownerEmail">Owner Email</span>
+                      <input name="ownerEmail" type="email" data-i18n-placeholder="owner.placeholder.ownerEmail">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.parentTenantId">Parent Tenant ID</span>
+                      <input name="parentTenantId" type="text" data-i18n-placeholder="owner.placeholder.parentTenantId">
+                    </label>
+                    <label class="field span-6">
+                      <span data-i18n="owner.form.metadataJson">Metadata JSON</span>
+                      <input name="metadata" type="text" placeholder='{"region":"ap-southeast"}'>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.control.createTenantHint">Create the tenant record here, then move into the platform center for deeper subscription, license, and webhook setup.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.control.createTenant">Create Tenant</button>
+                  </div>
+                </form>
+              </section>
               <section class="panel-card">
                 <h3 data-i18n="owner.control.configHandoff">Global Config Handoff</h3>
-                <p class="hint">Environment flags, access policy, RCON routing, and portal wiring still belong in the guarded config workbench. This keeps the primary owner console focused on safe operational control instead of raw env editing.</p>
+                <p class="hint" data-i18n="owner.control.configHandoffHint">Environment flags, access policy, RCON routing, and portal wiring still belong in the guarded config workbench. This keeps the primary owner console focused on safe operational control instead of raw env editing.</p>
                 <div class="button-row">
-                <a class="ghost-link" href="/owner#control" data-i18n="owner.control.openConfigEditor">Open full config editor</a>
-                <a class="ghost-link" href="/owner#observability" data-i18n="owner.control.openMetricsWorkbench">Open metrics workbench</a>
+                  <a class="ghost-link" href="/owner#control" data-i18n="owner.control.openConfigEditor">Open full config editor</a>
+                  <a class="ghost-link" href="/owner#observability" data-i18n="owner.control.openMetricsWorkbench">Open metrics workbench</a>
                 </div>
+              </section>
+              <section class="panel-card">
+                <form id="ownerOpsLogLanguageForm" class="form-shell">
+                  <h3 data-i18n="owner.control.discordLogLanguage">Discord Admin Log Language</h3>
+                  <div class="form-grid">
+                    <label class="field span-12">
+                      <span data-i18n="owner.form.discordLogLanguage">Discord admin-log language</span>
+                      <select name="ADMIN_LOG_LANGUAGE">
+                        <option value="th">ไทย</option>
+                        <option value="en" data-i18n="owner.option.langEnglish">English</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="hint" data-i18n="owner.control.discordLogLanguageHint">Choose the language used for platform operational alerts in the Discord #admin-log channel.</p>
+                  <div class="button-row">
+                    <button type="submit" class="button button-primary" data-i18n="owner.control.saveDiscordLogLanguage">Save log language</button>
+                  </div>
+                </form>
               </section>
             </aside>
           </div>
@@ -1331,9 +1498,9 @@
     </div>
   </div>
 
-    <script src="/admin/assets/admin-i18n.js?v=20260321-scum-shell-rebuild"></script>
-    <script src="/admin/assets/console-shared.js?v=20260321-scum-shell-rebuild"></script>
-    <script src="/admin/assets/operational-state-model.js?v=20260321-scum-shell-rebuild"></script>
-    <script src="/admin/assets/owner-console.js?v=20260321-scum-shell-rebuild"></script>
+  <script src="/admin/assets/admin-i18n.js?v=20260324-polish-10"></script>
+  <script src="/admin/assets/console-shared.js?v=20260324-polish-10"></script>
+  <script src="/admin/assets/operational-state-model.js?v=20260324-polish-10"></script>
+  <script src="/admin/assets/owner-console.js?v=20260324-polish-10"></script>
 </body>
 </html>

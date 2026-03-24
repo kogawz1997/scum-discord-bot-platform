@@ -3,127 +3,150 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM Platform Showcase</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260321-select-fix">
+  <title data-i18n="showcase.documentTitle">SCUM Platform Showcase</title>
+  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260324-polish-6">
 </head>
 <body class="public-page public-showcase">
-  <div class="public-shell">
-    <header class="public-header">
-      <div class="public-brand">
-        <span class="public-badge" data-i18n="showcase.badge">Feature Showcase</span>
-        <h1 data-i18n="showcase.title">Role-based platform surfaces</h1>
-        <p data-i18n="showcase.subtitle">Overview of how the platform is structured across owner, tenant, and player experiences while staying compatible with the current runtime.</p>
-      </div>
-      <div class="public-actions">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <a class="site-brand" href="/landing">
+        <span class="site-brand-mark">SC</span>
+        <div class="site-brand-copy">
+          <strong data-i18n="showcase.title">Role-based platform surfaces</strong>
+          <span data-i18n="showcase.subtitle">Owner, tenant, and player experiences with one shared runtime spine.</span>
+        </div>
+      </a>
+      <nav class="site-nav">
+        <a href="/landing" data-i18n="showcase.backLanding">Landing</a>
+        <a class="is-active" href="/showcase" data-i18n="landing.openShowcase">Showcase</a>
+        <a href="/trial" data-i18n="landing.heroTrial">Review trial readiness</a>
+      </nav>
+      <div class="site-tools">
         <label class="language-picker">
           <span data-i18n="common.language">Language</span>
           <select id="showcaseLanguageSelect" class="language-select"></select>
         </label>
-        <a class="button" href="/landing" data-i18n="showcase.backLanding">Landing</a>
-        <a class="button button-primary" href="/player/login" data-i18n="showcase.openPlayer">Player Portal</a>
         <a class="button" href="/admin" data-i18n="showcase.openAdmin">Admin Web</a>
       </div>
     </header>
 
-    <section class="public-panel section">
-      <div class="section-head">
+    <section class="site-hero">
+      <section class="site-panel site-hero-copy">
+        <span class="site-kicker" data-i18n="showcase.badge">Feature Showcase</span>
+        <h1 data-i18n="showcase.title">Role-based platform surfaces</h1>
+        <p data-i18n="showcase.subtitle">Overview of how the platform is structured across owner, tenant, and player experiences while staying compatible with the current runtime.</p>
+        <div class="button-row">
+          <a class="button button-primary" href="/player/login" data-i18n="showcase.openPlayer">Player Portal</a>
+          <a class="button-secondary" href="/admin" data-i18n="showcase.openAdmin">Admin Web</a>
+        </div>
+      </section>
+      <section class="site-panel site-hero-media">
+        <img src="/player/assets/ui/visuals/scum/scene-support.jpg" alt="Identity and role separation">
+        <div class="site-overlay-card">
+          <span class="site-kicker" data-i18n="public.showcase.surfacesEyebrow">Owner / Tenant / Player</span>
+          <h3 data-i18n="showcase.surfaceTitle">Surface responsibilities</h3>
+          <p data-i18n="public.showcase.surfacesDetail">Each surface uses the same product language but serves a different user with different risk and information density.</p>
+        </div>
+      </section>
+    </section>
+
+    <section class="site-panel">
+      <div class="site-section-head">
         <div>
-            <span class="eyebrow" data-i18n="public.showcase.surfacesEyebrow">Owner / Tenant / Player</span>
+          <span class="site-kicker" data-i18n="showcase.surfaceTitle">Surface responsibilities</span>
           <h2 class="section-title" data-i18n="showcase.surfaceTitle">Surface responsibilities</h2>
-            <p class="muted" data-i18n="public.showcase.surfacesDetail">Each surface uses the same product language but serves a different user with different risk and information density.</p>
         </div>
       </div>
-      <div class="card-grid">
-        <article class="surface-card">
-            <span class="eyebrow" data-i18n="public.showcase.ownerEyebrow">Owner Console</span>
-            <h3 data-i18n="public.showcase.ownerTitle">Dense, operational, global</h3>
-          <ul>
-            <li>System health, runtime posture, and tenant fleet visibility</li>
-            <li>Security center, audit feed, request anomalies, and incident stream</li>
-            <li>Guarded paths into global config, backup, and recovery</li>
-            <li>Command palette for owner-only navigation and actions</li>
-          </ul>
+      <div class="site-feature-grid">
+        <article class="site-card">
+          <div class="promo-card"><img src="/player/assets/ui/visuals/scum/scene-radio.jpg" alt="Owner operations"></div>
+          <div class="card-copy">
+            <span class="site-kicker" data-i18n="public.showcase.ownerEyebrow">Owner Console</span>
+            <strong data-i18n="public.showcase.ownerTitle">Dense, operational, global</strong>
+            <p data-i18n="showcase.ownerCardDetail">System health, runtime posture, tenant fleet visibility, audit, security, backup, and guarded configuration belong here.</p>
+          </div>
         </article>
-        <article class="surface-card">
-            <span class="eyebrow" data-i18n="public.showcase.tenantEyebrow">Tenant Console</span>
-            <h3 data-i18n="public.showcase.tenantTitle">Scoped, guided, safer</h3>
-          <ul>
-            <li>Server and delivery posture inside tenant scope</li>
-            <li>Shop, economy, wallet, and delivery recovery grouped logically</li>
-            <li>Scoped config patches with validation and confirm-first flow</li>
-            <li>Tenant alert stream and support-facing player activity</li>
-          </ul>
+        <article class="site-card">
+          <div class="promo-card"><img src="/player/assets/ui/visuals/scum/scene-map.jpg" alt="Tenant operations"></div>
+          <div class="card-copy">
+            <span class="site-kicker" data-i18n="public.showcase.tenantEyebrow">Tenant Console</span>
+            <strong data-i18n="public.showcase.tenantTitle">Scoped, guided, safer</strong>
+            <p data-i18n="showcase.tenantCardDetail">Shop, delivery, wallet, support, and guarded tenant config stay grouped without exposing platform-wide owner tools.</p>
+          </div>
         </article>
-        <article class="surface-card">
-            <span class="eyebrow" data-i18n="public.showcase.playerEyebrow">Player Portal</span>
-            <h3 data-i18n="public.showcase.playerTitle">Simple, trusted, mobile-first</h3>
-          <ul>
-            <li>Wallet balance and clear transaction history</li>
-            <li>Inventory-style shop UI and order state clarity</li>
-            <li>Redeem flow, profile, and Steam-link guidance</li>
-            <li>Legacy community features moved out of the main journey</li>
-          </ul>
+        <article class="site-card">
+          <div class="promo-card"><img src="/player/assets/ui/visuals/scum/scene-announce.jpg" alt="Player portal"></div>
+          <div class="card-copy">
+            <span class="site-kicker" data-i18n="public.showcase.playerEyebrow">Player Portal</span>
+            <strong data-i18n="public.showcase.playerTitle">Simple, trusted, mobile-first</strong>
+            <p data-i18n="showcase.playerCardDetail">Wallet, shop, orders, redeem, and profile stay practical while still feeling like an official game service.</p>
+          </div>
         </article>
       </div>
     </section>
 
-    <section class="public-grid two-col">
-      <section class="public-panel section">
-        <div class="section-head">
+    <section class="site-grid two-col">
+      <section class="site-panel">
+        <div class="site-section-head">
           <div>
-            <span class="eyebrow" data-i18n="public.showcase.designEyebrow">Design Language</span>
-          <h2 class="section-title" data-i18n="showcase.designTitle">Shared but role-appropriate</h2>
-            <p class="muted" data-i18n="public.showcase.designDetail">The redesign keeps a tactical dark SaaS tone without turning the platform into a flashy game-themed dashboard.</p>
+            <span class="site-kicker" data-i18n="showcase.designTitle">Shared but role-appropriate</span>
+            <h2 class="section-title" data-i18n="showcase.designTitle">Shared but role-appropriate</h2>
           </div>
         </div>
-        <div class="step-grid">
-          <article class="step-card">
-            <span class="eyebrow">Typography</span>
-            <h3>Barlow + IBM Plex Sans Thai + JetBrains Mono</h3>
-            <p class="muted">Condensed headings for scanning, clean Thai-friendly body copy, and monospace for ids, statuses, and runtime data.</p>
+        <div class="site-step-grid">
+          <article class="site-step">
+            <span class="site-kicker" data-i18n="showcase.design.typographyKicker">Typography</span>
+            <strong data-i18n="showcase.design.typographyTitle">Condensed headline + readable body</strong>
+            <p data-i18n="showcase.design.typographyDetail">Barlow Condensed leads the hierarchy while IBM Plex Sans Thai keeps dense UI readable in both English and Thai.</p>
           </article>
-          <article class="step-card">
-            <span class="eyebrow">Status grammar</span>
-            <h3>Green / amber / red / ice</h3>
-            <p class="muted">Success, warning, danger, and info states stay consistent across every surface and alert pattern.</p>
+          <article class="site-step">
+            <span class="site-kicker" data-i18n="showcase.design.toneKicker">Tone</span>
+            <strong data-i18n="showcase.design.toneTitle">Dark tactical premium</strong>
+            <p data-i18n="showcase.design.toneDetail">Charcoal, gunmetal, amber, muted green, and controlled red create a serious operational tone without neon overload.</p>
           </article>
-          <article class="step-card">
-            <span class="eyebrow">Layout</span>
-            <h3>Panels first, ornament second</h3>
-            <p class="muted">Low-shadow panels, clean borders, and strong grouping keep the UI professional and readable under load.</p>
+          <article class="site-step">
+            <span class="site-kicker" data-i18n="showcase.design.hierarchyKicker">Hierarchy</span>
+            <strong data-i18n="showcase.design.hierarchyTitle">Panels first, ornament second</strong>
+            <p data-i18n="showcase.design.hierarchyDetail">Every surface prioritizes scanning, grouping, and controlled action placement over decorative density.</p>
+          </article>
+          <article class="site-step">
+            <span class="site-kicker" data-i18n="showcase.design.securityKicker">Security</span>
+            <strong data-i18n="showcase.design.securityTitle">Risk stays obvious</strong>
+            <p data-i18n="showcase.design.securityDetail">Owner-only actions, tenant-scoped tools, and player-facing flows remain clearly separated so misuse stays harder.</p>
           </article>
         </div>
       </section>
 
-      <section class="public-panel section">
-        <div class="section-head">
+      <section class="site-panel">
+        <div class="site-section-head">
           <div>
-            <span class="eyebrow">Compatibility</span>
-          <h2 class="section-title" data-i18n="showcase.compatTitle">What stays intact</h2>
-            <p class="muted">This redesign is front-end-first. Existing backend flows, authentication, tenant routing, and runtime behavior remain untouched.</p>
+            <span class="site-kicker" data-i18n="showcase.compatTitle">What stays intact</span>
+            <h2 class="section-title" data-i18n="showcase.compatTitle">What stays intact</h2>
           </div>
         </div>
-        <div class="flow-list">
-          <article class="flow-step">
-            <strong>Routes preserved</strong>
-            <p class="muted">Owner, tenant, player, legacy admin, and legacy player routes keep their existing behavior.</p>
+        <div class="site-check-grid">
+          <article class="site-step">
+            <strong data-i18n="showcase.compat.routesTitle">Routes preserved</strong>
+            <p data-i18n="showcase.compat.routesDetail">Owner, tenant, player, and fallback paths keep their route behavior and runtime boundaries.</p>
           </article>
-          <article class="flow-step">
-            <strong>Business logic preserved</strong>
-            <p class="muted">Purchase, redeem, delivery, auth, and tenant logic continue to run through the same backend contracts.</p>
+          <article class="site-step">
+            <strong data-i18n="showcase.compat.apiTitle">API and auth preserved</strong>
+            <p data-i18n="showcase.compat.apiDetail">Request/response contracts, sessions, Discord SSO, TOTP, and SSE behavior stay intact.</p>
           </article>
-          <article class="flow-step">
-            <strong>Legacy access preserved</strong>
-            <p class="muted">Detailed workbench flows remain available when operators need the older high-density tooling.</p>
+          <article class="site-step">
+            <strong data-i18n="showcase.compat.domTitle">DOM hooks preserved</strong>
+            <p data-i18n="showcase.compat.domDetail">Critical ids, names, and JS bindings remain in place so the redesign changes structure without breaking behavior.</p>
+          </article>
+          <article class="site-step">
+            <strong data-i18n="showcase.compat.legacyTitle">Legacy preserved as fallback</strong>
+            <p data-i18n="showcase.compat.legacyDetail">High-density emergency workbench flows remain reachable, but no longer drive the primary user experience.</p>
           </article>
         </div>
       </section>
     </section>
   </div>
-  <script src="/player/assets/ui/portal-i18n.js?v=20260321-select-fix"></script>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
   <script>
     window.PortalUiI18n?.init(['showcaseLanguageSelect']);
   </script>

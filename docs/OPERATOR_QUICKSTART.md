@@ -13,11 +13,14 @@ Use it when you need to answer one of these questions quickly:
 
 ## 1. Open The Right Surface
 
-- Platform owner: `/owner`
-- Tenant operator: `/tenant`
-- Player-facing checks: `/player`
+- Platform owner login: `/owner/login`
+- Platform owner console: `/owner`
+- Tenant admin login: `/tenant/login`
+- Tenant admin console: `/tenant`
+- Player-facing checks and login: `/player` / `/player/login`
 
 Do not use legacy pages first unless the main surface clearly does not expose the workflow you need.
+Treat `/admin/legacy` as compatibility fallback only.
 
 ## 2. Five-Minute Health Check
 
@@ -84,6 +87,21 @@ Read next:
 
 - [SPLIT_ORIGIN_AND_2FA_GUIDE.md](./SPLIT_ORIGIN_AND_2FA_GUIDE.md)
 - [SECRET_ROTATION_RUNBOOK.md](./SECRET_ROTATION_RUNBOOK.md)
+
+### Discord admin-log output language or readability issue
+
+Open:
+
+- Owner: `Control Center`
+
+Use:
+
+- `Discord admin-log language`
+
+What it changes:
+
+- owner-facing Discord ops alerts between Thai and English
+- persisted control-panel env state for `ADMIN_LOG_LANGUAGE`
 
 ### Backup / restore / rollback incident
 

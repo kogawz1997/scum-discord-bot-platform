@@ -3,33 +3,54 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM Admin Access</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <title>ทางเข้าแอดมิน SCUM</title>
   <style>
     :root {
-      --bg: #0a0d09;
-      --bg-alt: #11150f;
-      --panel: rgba(16, 20, 15, 0.94);
-      --panel-soft: rgba(20, 26, 19, 0.88);
-      --line: rgba(214, 221, 154, 0.14);
-      --line-strong: rgba(229, 235, 183, 0.26);
-      --text: #f1f2e7;
-      --muted: #b8be9a;
-      --accent: #d5dc93;
-      --success: #90c27b;
-      --warning: #d2a463;
-      --danger: #cc7760;
+      --bg: #090c09;
+      --bg-soft: #121712;
+      --panel: rgba(16, 20, 17, 0.94);
+      --panel-soft: rgba(20, 26, 21, 0.9);
+      --line: rgba(208, 214, 176, 0.14);
+      --line-strong: rgba(232, 236, 206, 0.24);
+      --text: #f0eee6;
+      --muted: #b6b09d;
+      --accent: #d5bf79;
+      --accent-strong: #f0da8f;
+      --danger: #ca7d6d;
+      --radius-xl: 28px;
       --radius-lg: 22px;
       --radius-md: 16px;
-      --shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+      --shadow: 0 28px 78px rgba(0, 0, 0, 0.42);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-    html {
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--text);
       color-scheme: dark;
+      font-family: "IBM Plex Sans Thai", "Segoe UI", sans-serif;
+      background:
+        linear-gradient(180deg, rgba(5, 6, 5, 0.8), rgba(5, 6, 5, 0.92)),
+        radial-gradient(circle at 14% 16%, rgba(213, 191, 121, 0.09), transparent 28%),
+        radial-gradient(circle at 84% 78%, rgba(114, 131, 92, 0.08), transparent 34%),
+        url("/admin/assets/visuals/scum/bg-dark-texture.jpg") center/cover no-repeat,
+        linear-gradient(180deg, #080b08, #111611 58%, #161d16);
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    select,
+    input,
+    button {
+      font: inherit;
     }
 
     select,
@@ -40,77 +61,49 @@
 
     select option,
     select optgroup {
-      background: #121212 !important;
+      background: #151713 !important;
       color: #f4f1e8 !important;
     }
 
     select option:checked,
     select option:hover,
     select option:focus {
-      background: #2d61a8 !important;
+      background: #7c6331 !important;
       color: #ffffff !important;
     }
 
-    select option:disabled,
-    select optgroup {
-      color: #b6b6b6 !important;
-    }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        padding: 18px;
-        color: var(--text);
-        background:
-          radial-gradient(980px 640px at 100% 0%, rgba(173, 84, 48, 0.16), transparent 52%),
-          radial-gradient(900px 620px at 0% 100%, rgba(169, 180, 87, 0.09), transparent 58%),
-          linear-gradient(165deg, #060806, var(--bg) 48%, #111510);
-      font-family: "IBM Plex Sans Thai", "Segoe UI", sans-serif;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 52px 52px;
-      opacity: 0.12;
-    }
-
-    .page {
-      width: min(1440px, calc(100% - 8px));
+    .admin-login-shell {
+      width: min(1360px, calc(100% - 8px));
       margin: 0 auto;
       display: grid;
-      gap: 16px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .commandbar {
-      position: sticky;
-      top: 12px;
-      z-index: 20;
-    }
-
-    .commandbar-inner {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: center;
       gap: 18px;
-      padding: 14px 18px;
+    }
+
+    .topbar,
+    .login-stage,
+    .auth-panel,
+    .visual-panel,
+    .surface-card {
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-        linear-gradient(180deg, rgba(18, 24, 18, 0.96), rgba(9, 12, 9, 0.95));
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+        var(--panel);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
     }
 
-    .brand-mark {
+    .topbar {
+      min-height: 76px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .brand {
       display: inline-flex;
       align-items: center;
       gap: 12px;
@@ -118,195 +111,203 @@
       color: inherit;
     }
 
-    .emblem {
+    .brand-mark {
       min-width: 54px;
       min-height: 54px;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      border: 1px solid rgba(214, 221, 154, 0.18);
-      background: linear-gradient(180deg, rgba(98, 107, 55, 0.42), rgba(27, 33, 22, 0.92));
-      color: var(--text);
+      border-radius: 18px;
+      border: 1px solid rgba(240, 218, 143, 0.22);
+      background: linear-gradient(180deg, rgba(240, 218, 143, 0.2), rgba(105, 88, 42, 0.26));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-family: "Barlow Condensed", sans-serif;
-      font-size: 23px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-size: 1.4rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: #fff2c5;
     }
 
     .brand-copy {
       display: grid;
-      gap: 2px;
+      gap: 4px;
     }
 
     .brand-copy strong {
-      font-size: 18px;
+      font-family: "Barlow Condensed", sans-serif;
+      font-size: 1.2rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
     .brand-copy span {
-      color: rgba(233, 238, 208, 0.62);
-      font-size: 12px;
-      letter-spacing: 0.13em;
-      text-transform: uppercase;
+      color: var(--muted);
+      font-size: 0.88rem;
     }
 
-    .role-nav {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .role-chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 38px;
-      padding: 0 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.03);
-      color: rgba(240, 243, 222, 0.76);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-decoration: none;
-      text-transform: uppercase;
-    }
-
-    .role-chip.active {
-      border-color: rgba(216, 226, 136, 0.28);
-      background: linear-gradient(180deg, rgba(110, 124, 62, 0.44), rgba(29, 34, 24, 0.92));
-      color: #fbfcf0;
-    }
-
-    .screen {
-      width: min(1180px, 100%);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background:
-        radial-gradient(circle at right top, rgba(166, 77, 49, 0.15), transparent 28%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
-        var(--panel);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
+    .login-stage {
+      display: grid;
+      grid-template-columns: minmax(340px, 0.78fr) minmax(420px, 1.22fr);
       overflow: hidden;
-      display: grid;
-      grid-template-columns: 1.04fr 0.96fr;
     }
 
-    .hero,
-    .auth {
-      padding: 24px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .hero {
+    .visual-panel {
+      border: 0;
       border-right: 1px solid var(--line);
-      align-content: start;
+      border-radius: 0;
+      min-height: 700px;
+      padding: 28px;
       background:
-        linear-gradient(180deg, rgba(9, 11, 9, 0.58), rgba(9, 11, 9, 0.86)),
-        url("/admin/assets/visuals/tunnel/tunnel_512.jpg") center/cover;
+        linear-gradient(180deg, rgba(9, 12, 9, 0.46), rgba(9, 12, 9, 0.86)),
+        linear-gradient(90deg, rgba(9, 12, 9, 0.1), rgba(9, 12, 9, 0.38)),
+        url("/admin/assets/visuals/scum/hero-public.jpg") center/cover no-repeat;
+      display: block;
     }
 
-    .tag {
+    .surface-tag {
       width: fit-content;
       min-height: 30px;
       padding: 0 12px;
-      display: inline-flex;
-      align-items: center;
       border-radius: 999px;
       border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
       color: var(--accent);
-      background: rgba(255, 255, 255, 0.05);
+      display: inline-flex;
+      align-items: center;
       font-family: "JetBrains Mono", monospace;
       font-size: 12px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    h1,
-    h2 {
+    .visual-panel h1,
+    .auth-panel h2 {
       margin: 0;
       font-family: "Barlow Condensed", sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      line-height: 0.92;
+      line-height: 0.9;
     }
 
-    h1 { font-size: clamp(44px, 6vw, 68px); }
-    h2 { font-size: 42px; }
+    .visual-panel h1 {
+      max-width: 8ch;
+      font-size: clamp(3rem, 5.4vw, 5.6rem);
+    }
 
-    p,
+    .visual-panel p,
+    .auth-panel p,
     .hint,
     label span {
       margin: 0;
       color: var(--muted);
-      line-height: 1.55;
+      line-height: 1.68;
     }
 
-    .specs {
+    .visual-grid {
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }
 
-    .spec {
+    .surface-card {
+      padding: 18px;
+      background:
+        linear-gradient(180deg, rgba(14, 18, 15, 0.72), rgba(14, 18, 15, 0.84)),
+        rgba(14, 18, 15, 0.82);
+    }
+
+    .surface-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-family: "Barlow Condensed", sans-serif;
+      font-size: 1.32rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .auth-panel {
+      border: 0;
+      border-radius: 0;
+      padding: 30px;
+      display: grid;
+      align-content: center;
+      gap: 18px;
+      background:
+        linear-gradient(180deg, rgba(12, 15, 12, 0.92), rgba(15, 19, 15, 0.9)),
+        var(--panel-soft);
+    }
+
+    .auth-panel h2 {
+      font-size: clamp(2.8rem, 5vw, 4.8rem);
+    }
+
+    .auth-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .surface-switch {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .surface-link {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
       border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.04);
-      display: grid;
-      gap: 4px;
-    }
-
-    .spec .k {
-      color: var(--accent);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
     }
 
-    .spec .v {
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .auth-topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
+    .surface-link:hover,
+    .surface-link.is-active {
+      border-color: rgba(240, 218, 143, 0.24);
+      background: rgba(240, 218, 143, 0.08);
+      color: #fff4cb;
     }
 
     .language-picker {
       display: grid;
       gap: 6px;
-      min-width: 172px;
+      min-width: 170px;
     }
 
     .language-picker span {
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--muted);
-      user-select: none;
-      -webkit-user-select: none;
     }
 
-    .language-select {
-      min-height: 40px;
-      border-radius: 12px;
+    .language-select,
+    input {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 14px;
       border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
       color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
-      padding: 0 12px;
-      color-scheme: dark;
-      appearance: none;
+      padding: 0 14px;
+      outline: none;
+    }
+
+    input:focus,
+    .language-select:focus {
+      border-color: rgba(240, 218, 143, 0.34);
+      box-shadow: 0 0 0 2px rgba(240, 218, 143, 0.08);
     }
 
     form {
@@ -319,39 +320,27 @@
       gap: 6px;
     }
 
-    input,
     button {
+      appearance: none;
       width: 100%;
+      min-height: 48px;
       border-radius: 14px;
-      padding: 12px 14px;
       border: 1px solid var(--line);
-      outline: none;
-      font: inherit;
+      background: rgba(255, 255, 255, 0.04);
       color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    input:focus {
-      border-color: rgba(148, 208, 255, 0.58);
-      box-shadow: 0 0 0 2px rgba(84, 181, 255, 0.12);
-    }
-
-    #loginBtn,
-    #discordSsoBtn {
       cursor: pointer;
-      transition: transform 140ms ease, border-color 140ms ease;
+      transition: transform 0.14s ease, border-color 0.14s ease;
     }
 
-    #loginBtn:hover,
-    #discordSsoBtn:hover {
+    button:hover {
       transform: translateY(-1px);
       border-color: var(--line-strong);
     }
 
     #loginBtn {
-      background: linear-gradient(135deg, rgba(190, 198, 111, 0.96), rgba(229, 234, 176, 0.88));
-      color: #10150d;
-      border-color: transparent;
+      border-color: rgba(240, 218, 143, 0.22);
+      background: linear-gradient(180deg, rgba(240, 218, 143, 0.96), rgba(186, 151, 74, 0.92));
+      color: #181205;
       font-weight: 700;
     }
 
@@ -365,245 +354,142 @@
       font-weight: 700;
     }
 
-    @media (max-width: 920px) {
-      .commandbar {
-        position: static;
-      }
+    .auth-context {
+      display: grid;
+      gap: 10px;
+    }
 
-      .commandbar-inner {
+    .route-pill {
+      width: fit-content;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(240, 218, 143, 0.18);
+      background: rgba(240, 218, 143, 0.06);
+      color: #fff1bc;
+      display: inline-flex;
+      align-items: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .switch-note {
+      padding: 12px 14px;
+      border: 1px solid rgba(240, 218, 143, 0.12);
+      border-radius: 14px;
+      background: rgba(240, 218, 143, 0.05);
+      color: #f3ead0;
+      line-height: 1.6;
+    }
+
+    .switch-note[hidden] {
+      display: none;
+    }
+
+    .source-note {
+      max-width: 48ch;
+    }
+
+    @media (max-width: 1080px) {
+      .topbar,
+      .login-stage {
         grid-template-columns: 1fr;
       }
 
-      .role-nav {
-        justify-content: flex-start;
-      }
-
-      .screen {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
+      .visual-panel {
+        min-height: 320px;
         border-right: 0;
         border-bottom: 1px solid var(--line);
       }
     }
 
-    @media (max-width: 620px) {
-      .hero,
-      .auth {
-        padding: 18px;
+    @media (max-width: 720px) {
+      body {
+        padding: 10px;
       }
 
-      h2 {
-        font-size: 34px;
-      }
-    }
-
-    /* Cinematic admin login pass:
-       keep auth and routes intact, but push the page toward a flatter
-       black navigation and game-style split login/promo layout. */
-    body.admin-login-screen {
-      padding: 0;
-      background:
-        linear-gradient(180deg, rgba(4, 4, 4, 0.68), rgba(4, 4, 4, 0.94)),
-        url("/admin/assets/visuals/tunnel/tunnel_512.jpg") center top / cover fixed;
-    }
-
-    body.admin-login-screen::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(238, 186, 94, 0.14), transparent 22%),
-        radial-gradient(circle at 0% 100%, rgba(118, 128, 70, 0.12), transparent 24%);
-    }
-
-    .page {
-      width: 100%;
-      min-height: 100vh;
-      gap: 0;
-    }
-
-    .commandbar {
-      top: 0;
-      margin: 0;
-      padding: 0;
-    }
-
-    .commandbar-inner {
-      width: min(1600px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 14px 24px;
-      border-radius: 0 0 20px 20px;
-      border-top: 0;
-      border-color: rgba(255, 255, 255, 0.08);
-      background: linear-gradient(180deg, rgba(6, 6, 6, 0.96), rgba(10, 10, 10, 0.94));
-      box-shadow: 0 20px 52px rgba(0, 0, 0, 0.44);
-    }
-
-    .emblem {
-      min-width: 46px;
-      min-height: 46px;
-      border-radius: 999px;
-      border-color: rgba(255, 255, 255, 0.14);
-      background: radial-gradient(circle at 30% 30%, rgba(219, 63, 35, 0.96), rgba(89, 12, 11, 0.98));
-      font-size: 17px;
-    }
-
-    .role-chip {
-      min-height: 40px;
-      padding: 0 18px;
-      border-radius: 10px;
-      border-color: transparent;
-      background: transparent;
-      color: rgba(255, 255, 255, 0.86);
-      font-family: "Barlow Condensed", sans-serif;
-      font-size: 16px;
-      letter-spacing: 0.02em;
-      text-transform: none;
-    }
-
-    .role-chip.active,
-    .role-chip:hover {
-      border-color: rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.08);
-      color: #fffdf4;
-    }
-
-    .screen {
-      width: min(1120px, calc(100% - 40px));
-      margin: 76px auto 0;
-      grid-template-columns: minmax(0, 0.96fr) minmax(0, 0.84fr);
-      border-radius: 28px;
-      border-color: rgba(255, 255, 255, 0.08);
-      background: linear-gradient(180deg, rgba(10, 10, 10, 0.82), rgba(12, 12, 12, 0.9));
-      box-shadow: 0 32px 72px rgba(0, 0, 0, 0.48);
-    }
-
-    .hero,
-    .auth {
-      padding: 34px;
-    }
-
-    .hero {
-      order: 2;
-      min-height: 620px;
-      align-content: end;
-      border-right: 0;
-      border-left: 1px solid rgba(255, 255, 255, 0.08);
-      background:
-        linear-gradient(180deg, rgba(42, 32, 12, 0.28), rgba(10, 10, 10, 0.56)),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.48)),
-        url("/admin/assets/visuals/scum/scum_512.jpg") center / cover;
-    }
-
-    .auth {
-      order: 1;
-      align-content: center;
-      background: linear-gradient(180deg, rgba(14, 14, 14, 0.88), rgba(20, 20, 20, 0.82));
-    }
-
-    .auth-footer {
-      display: flex;
-      justify-content: flex-start;
-      margin-top: 4px;
-    }
-
-    .auth-footer .login-language-picker {
-      min-width: 148px;
-    }
-
-    .auth-footer .login-language-picker span {
-      display: none;
-    }
-
-    .auth-footer .language-select {
-      min-height: 40px;
-    }
-
-    .hero h1 {
-      font-size: clamp(46px, 6vw, 72px);
-    }
-
-    .auth h2 {
-      font-size: 54px;
-    }
-
-    .spec {
-      background: rgba(8, 8, 8, 0.48);
-      border-color: rgba(255, 255, 255, 0.08);
-    }
-
-    input,
-    .language-select {
-      border-color: rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    #loginBtn {
-      background: linear-gradient(135deg, #d1b06a, #efe0a7);
-      color: #111;
-    }
-
-    @media (max-width: 980px) {
-      .commandbar-inner,
-      .screen {
-        width: min(100%, calc(100% - 20px));
+      .admin-login-shell {
+        width: min(100%, calc(100% - 4px));
       }
 
-      .screen {
-        grid-template-columns: 1fr;
+      .topbar,
+      .visual-panel,
+      .auth-panel {
+        padding: 16px;
       }
 
-      .hero {
-        min-height: 360px;
-        border-left: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      .visual-panel h1 {
+        font-size: clamp(2.3rem, 13vw, 3.8rem);
+      }
+
+      .auth-panel h2 {
+        font-size: clamp(2.2rem, 12vw, 3.8rem);
       }
     }
   </style>
 </head>
 <body class="admin-login-screen">
-  <div class="page">
-    <section class="screen">
-    <!-- Keep the left rail as a pure visual panel so the login form stays focused. -->
-    <aside class="hero" aria-hidden="true"></aside>
+  <div class="admin-login-shell">
+    <header class="topbar">
+      <a class="brand" href="/admin">
+        <span class="brand-mark">SCUM</span>
+        <span class="brand-copy">
+          <strong data-i18n="login.brandTitle">Admin Access</strong>
+          <span data-i18n="login.brandSubtitle">Owner and admin consoles</span>
+        </span>
+      </a>
+      <nav class="surface-switch" aria-label="Admin surfaces">
+        <a id="ownerLoginRoute" class="surface-link" href="/owner/login" data-i18n="common.roleOwner">Owner</a>
+        <a id="tenantLoginRoute" class="surface-link" href="/tenant/login" data-i18n="common.roleAdmin">Admin</a>
+      </nav>
+    </header>
 
-    <div class="auth">
-      <h2 data-i18n="login.enterTitle">ADMIN WEB</h2>
-      <p data-i18n="login.enterSubtitle">Use your admin account to open the correct console automatically after authentication.</p>
+    <section class="login-stage">
+      <aside class="visual-panel" aria-hidden="true"></aside>
 
-      <form id="loginForm" autocomplete="on">
-        <label>
-          <span data-i18n="common.username">Username</span>
-          <input id="usernameInput" name="username" autocomplete="username" placeholder="admin-owner" required>
-        </label>
-        <label>
-          <span data-i18n="common.password">Password</span>
-          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <label>
-          <span data-i18n="common.twoFactorOptional">2FA Code (optional)</span>
-          <input id="otpInput" name="otp" inputmode="numeric" pattern="\\d{6}" maxlength="6" placeholder="123456">
-        </label>
-        <button id="loginBtn" type="submit" data-i18n="login.signIn">Sign In</button>
-      </form>
+      <section class="auth-panel">
+        <div class="auth-topline">
+          <span id="routePill" class="route-pill" data-i18n="login.enterTitle">ADMIN WEB</span>
+          <label class="language-picker">
+            <span data-i18n="common.language">Language</span>
+            <select id="adminLanguageSelect" class="language-select"></select>
+          </label>
+        </div>
 
-      <button id="discordSsoBtn" type="button">Continue with Discord SSO</button>
-      <div id="errorText" class="error"></div>
-      <p id="sourceHint" class="hint" data-i18n="login.sourceHint">Admin users are read from the database first. Session policy, 2FA, and rate limiting remain enforced after the redesign.</p>
-      <div class="auth-footer">
-        <label class="language-picker login-language-picker">
-          <span data-i18n="common.language">Language</span>
-          <select id="adminLanguageSelect" class="language-select"></select>
-        </label>
-      </div>
-    </div>
+        <div class="auth-context">
+          <h2 id="loginHeading" data-i18n="login.enterTitle">ADMIN WEB</h2>
+          <p id="loginSubtitle" data-i18n="login.enterSubtitle">Use your admin account to open the correct console automatically after authentication.</p>
+          <p id="switchNotice" class="switch-note" hidden></p>
+        </div>
+
+        <form id="loginForm" autocomplete="on">
+          <label>
+            <span data-i18n="common.username">Username</span>
+            <input id="usernameInput" name="username" autocomplete="username" data-i18n-placeholder="login.adminUsernamePlaceholder" required>
+          </label>
+          <label>
+            <span data-i18n="common.password">Password</span>
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <label>
+            <span data-i18n="common.twoFactorOptional">2FA Code (optional)</span>
+            <input id="otpInput" name="otp" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456">
+          </label>
+          <button id="loginBtn" type="submit" data-i18n="login.signIn">Sign In</button>
+        </form>
+
+        <button id="discordSsoBtn" type="button" data-i18n="login.discordSso">Continue with Discord SSO</button>
+        <div id="errorText" class="error"></div>
+
+        <p id="sourceHint" class="hint source-note" data-i18n="login.sourceHint">Admin users are read from the database first. Session policy, 2FA, and rate limiting remain enforced after the redesign.</p>
+      </section>
     </section>
   </div>
 
-    <script src="/admin/assets/admin-i18n.js?v=20260321-select-fix"></script>
+  <script src="/admin/assets/admin-i18n.js?v=20260324-deep-rebuild-3"></script>
   <script>
     const form = document.getElementById('loginForm');
     const usernameInput = document.getElementById('usernameInput');
@@ -613,6 +499,12 @@
     const discordSsoBtn = document.getElementById('discordSsoBtn');
     const errorText = document.getElementById('errorText');
     const sourceHint = document.getElementById('sourceHint');
+    const loginHeading = document.getElementById('loginHeading');
+    const loginSubtitle = document.getElementById('loginSubtitle');
+    const routePill = document.getElementById('routePill');
+    const switchNotice = document.getElementById('switchNotice');
+    const ownerLoginRoute = document.getElementById('ownerLoginRoute');
+    const tenantLoginRoute = document.getElementById('tenantLoginRoute');
 
     async function api(path, method = 'GET', body = null) {
       const headers = {};
@@ -635,12 +527,29 @@
     }
 
     async function ensureNotLoggedIn() {
+      if (!document.cookie.split(';').some((entry) => entry.trim().startsWith('scum_admin_session='))) {
+        return;
+      }
       try {
-        await api('/admin/api/me');
+        const me = await api('/admin/api/me');
+        const params = new URLSearchParams(window.location.search);
+        const switchMode = String(params.get('switch') || '').trim() === '1';
+        const requestedSurface = getRequestedLoginSurface();
+        const sessionSurface = me?.data?.tenantId ? 'tenant' : 'owner';
+        if (switchMode && requestedSurface !== 'admin' && requestedSurface !== sessionSurface) {
+          return;
+        }
         window.location.replace(getPostLoginTarget());
       } catch {
         // not logged in
       }
+    }
+
+    function getRequestedLoginSurface() {
+      const path = String(window.location.pathname || '').trim().toLowerCase();
+      if (path === '/owner/login' || path === '/owner/login/') return 'owner';
+      if (path === '/tenant/login' || path === '/tenant/login/') return 'tenant';
+      return 'admin';
     }
 
     function getPostLoginTarget() {
@@ -654,14 +563,68 @@
       return '/admin';
     }
 
+    function getSurfaceTargetFromSession(result) {
+      const tenantId = result?.data?.tenantId || null;
+      return tenantId ? '/tenant' : '/owner';
+    }
+
+    function applySurfacePresentation() {
+      const requestedSurface = getRequestedLoginSurface();
+      const params = new URLSearchParams(window.location.search);
+      const switchMode = String(params.get('switch') || '').trim() === '1';
+      const t = window.AdminUiI18n?.t || ((key, fallback) => fallback);
+      const surfaceContent = {
+        owner: {
+          pill: t('login.ownerRoutePill', 'Owner Console'),
+          heading: t('login.ownerHeading', 'Owner access'),
+          subtitle: t('login.ownerSubtitle', 'Use an owner-level admin account for platform health, security, audit, and guarded global changes.'),
+          hint: t('login.ownerSourceHint', 'Owner accounts open the platform-wide control surface. Tenant-scoped accounts are redirected to the tenant console after sign-in.'),
+          placeholder: t('login.ownerUsernamePlaceholder', 'owner-admin'),
+          title: t('login.ownerDocumentTitle', 'SCUM Owner Login'),
+        },
+        tenant: {
+          pill: t('login.tenantRoutePill', 'Tenant Console'),
+          heading: t('login.tenantHeading', 'Tenant access'),
+          subtitle: t('login.tenantSubtitle', 'Use a tenant-scoped admin account for delivery, wallet support, scoped config, and player operations.'),
+          hint: t('login.tenantSourceHint', 'Tenant accounts open the scoped admin surface. Owner accounts are redirected to the owner console after sign-in.'),
+          placeholder: t('login.tenantUsernamePlaceholder', 'tenant-admin'),
+          title: t('login.tenantDocumentTitle', 'SCUM Tenant Login'),
+        },
+        admin: {
+          pill: t('login.enterTitle', 'ADMIN WEB'),
+          heading: t('login.enterTitle', 'ADMIN WEB'),
+          subtitle: t('login.enterSubtitle', 'Use your admin account to open the correct console automatically after authentication.'),
+          hint: t('login.sourceHint', 'Database-backed admin accounts remain the primary login source. Session, 2FA, and rate limit policy are unchanged.'),
+          placeholder: t('login.adminUsernamePlaceholder', 'admin-owner'),
+          title: t('login.documentTitle', 'SCUM Admin Access'),
+        },
+      };
+      const current = surfaceContent[requestedSurface] || surfaceContent.admin;
+      document.title = current.title;
+      routePill.textContent = current.pill;
+      loginHeading.textContent = current.heading;
+      loginSubtitle.textContent = current.subtitle;
+      sourceHint.textContent = current.hint;
+      usernameInput.placeholder = current.placeholder;
+      ownerLoginRoute.classList.toggle('is-active', requestedSurface === 'owner');
+      tenantLoginRoute.classList.toggle('is-active', requestedSurface === 'tenant');
+      if (switchMode && requestedSurface === 'tenant') {
+        switchNotice.hidden = false;
+        switchNotice.textContent = t('login.switchTenant', 'You are switching from an owner session. Sign in with a tenant-scoped account to continue into the tenant console.');
+      } else if (switchMode && requestedSurface === 'owner') {
+        switchNotice.hidden = false;
+        switchNotice.textContent = t('login.switchOwner', 'You are switching from a tenant session. Sign in with an owner-level account to continue into the owner console.');
+      } else {
+        switchNotice.hidden = true;
+        switchNotice.textContent = '';
+      }
+    }
+
     async function loadAuthProviders() {
       try {
         const providers = await api('/admin/api/auth/providers', 'GET');
         if (providers?.data?.discordSso) {
           discordSsoBtn.style.display = 'block';
-        }
-        if (providers?.data?.loginSource === 'database' && sourceHint) {
-          sourceHint.textContent = 'Database-backed admin accounts remain the primary login source. Session, 2FA, and rate limit policy are unchanged.';
         }
       } catch {
         // ignore
@@ -683,12 +646,13 @@
       const originalText = loginBtn.textContent;
       loginBtn.textContent = window.AdminUiI18n?.t('login.signingIn', 'Signing in...') || 'Signing in...';
       try {
-        await api('/admin/api/login', 'POST', {
+        const result = await api('/admin/api/login', 'POST', {
           username: usernameInput.value.trim(),
           password: passwordInput.value,
           otp: otpInput.value.trim() || undefined,
         });
-        window.location.replace(getPostLoginTarget());
+        const sessionTarget = getSurfaceTargetFromSession(result);
+        window.location.replace(sessionTarget);
       } catch (error) {
         errorText.textContent = error.message || (window.AdminUiI18n?.t('login.signInFailed', 'Sign in failed') || 'Sign in failed');
         if (/2FA|OTP/i.test(errorText.textContent)) {
@@ -707,6 +671,8 @@
     });
 
     window.AdminUiI18n?.init(['adminLanguageSelect']);
+    applySurfacePresentation();
+    window.addEventListener('ui-language-change', applySurfacePresentation);
     showErrorFromQuery();
     loadAuthProviders();
     ensureNotLoggedIn();

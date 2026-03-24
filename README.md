@@ -6,7 +6,7 @@
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 
-Last updated: **2026-03-20**
+Last updated: **2026-03-24**
 
 SCUM TH Platform is a control plane for a SCUM community stack built around:
 
@@ -84,10 +84,16 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Discord SSO for admin
 - TOTP 2FA and step-up auth for sensitive routes
 - Session revoke, security events, request trail, audit, and restore preview
+- Primary role-separated routes now use:
+  - `/owner` for platform owner oversight
+  - `/tenant` for tenant-scoped server administration
+  - `/player` for player-facing portal flows
+- `/admin/legacy` now exists as a compatibility fallback only, not the primary operator path
 - Player portal with wallet, purchase history, redeem, profile, and Steam link flows
 - Control panel for a growing subset of runtime and bot settings
 - Control panel env metadata now classifies keys by policy and apply mode
 - Control panel env writes now return per-key apply summaries and restart guidance instead of a blanket restart-required response
+- Owner control now also exposes `Discord admin-log` language selection so ops alerts can be switched between Thai and English from the web UI
 - Backup restore preview/live status now include post-restore verification and persisted rollback status
 - Bot and worker entrypoints are now mostly bootstrap/runtime composition
 - Admin browser shell/common helpers now live under `src/admin/assets/dashboard-shell.js`
@@ -105,6 +111,7 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Tenant console now exposes delivery lifecycle signals, action planner guidance, bulk recovery prep, and per-case phase visibility from the scoped surface
 - Secret rotation now has a dedicated readiness/check matrix via `npm run security:rotation:check` so operators can see reload targets, validation steps, and split-origin drift before reopening traffic
 - Restore, delivery, and guarded config flows now expose explicit operator-facing lifecycle phases in the web UI without changing the underlying business logic
+- Discord ops alert formatting now supports web-selected Thai or English output for the owner-facing `#admin-log` workflow
 - Backup / restore preview and restore guardrails
 - CI artifacts for lint, tests, doctor, security checks, readiness, and smoke
 - `doctor`, `security:check`, `readiness`, `smoke`, and `doctor:topology` now share one machine-readable report contract when called with `--json`

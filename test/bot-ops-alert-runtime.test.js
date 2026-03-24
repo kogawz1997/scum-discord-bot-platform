@@ -95,6 +95,67 @@ test('ops alert embed payload renders severity card with structured fields', () 
   assert.ok(embed.fields.some((field) => field.name === 'Sample Codes' && /Pd7fbabc0-148b/.test(field.value)));
 });
 
+test('platform auto restart alerts render readable structured summaries', () => {
+  const message = formatOpsAlertMessage({
+    source: 'platform-automation',
+    kind: 'platform-auto-restart-succeeded',
+    runtimeKey: 'player-portal',
+    runtimeLabel: 'Player Portal',
+    serviceKey: 'player-portal',
+    reason: 'fetch failed',
+    exitCode: 0,
+  });
+
+  assert.match(message, /^\[OPS\]\[INFO\] Platform Auto Recovery Succeeded/m);
+  assert.match(message, /runtime=Player Portal/);
+  assert.match(message, /service=player-portal/);
+  assert.match(message, /reason=fetch failed/);
+  assert.match(message, /exitCode=0/);
+  assert.doesNotMatch(message, /\{"source":"platform-automation"/);
+});
+
+test('ops alert embed payload can render thai labels from owner-selected language', () => {
+  const message = formatOpsAlertDiscordPayload({
+    source: 'platform-automation',
+    kind: 'platform-auto-restart-succeeded',
+    runtimeKey: 'player-portal',
+    runtimeLabel: 'Player Portal',
+    serviceKey: 'player-portal',
+    reason: 'fetch failed',
+    exitCode: 0,
+  }, {
+    at: '2026-03-24T07:10:00.000Z',
+    locale: 'th',
+  });
+
+  const embed = message.embeds[0].toJSON();
+  assert.equal(embed.title, 'กู้คืนอัตโนมัติของแพลตฟอร์มสำเร็จ');
+  assert.equal(embed.description, undefined);
+  assert.ok(embed.fields.some((field) => field.name === 'รันไทม์' && field.value === 'Player Portal'));
+  assert.ok(embed.fields.some((field) => field.name === 'บริการ' && field.value === 'player-portal'));
+  assert.ok(embed.fields.some((field) => field.name === 'สาเหตุ' && field.value === 'fetch failed'));
+});
+
+test('agent circuit alerts render structured summaries instead of raw payloads', () => {
+  const message = formatOpsAlertMessage({
+    source: 'delivery',
+    kind: 'agent-circuit-open',
+    consecutiveFailures: 3,
+    threshold: 2,
+    lastFailureCode: 'AGENT_EXEC_FAILED',
+    lastFailureMessage: 'Agent execution failed',
+    circuitOpenedAt: '2026-03-24T07:20:00.000Z',
+    circuitOpenUntil: '2026-03-24T07:25:00.000Z',
+  });
+
+  assert.match(message, /^\[OPS\]\[ERROR\] Agent Circuit Open/m);
+  assert.match(message, /consecutiveFailures=3/);
+  assert.match(message, /threshold=2/);
+  assert.match(message, /lastFailureCode=AGENT_EXEC_FAILED/);
+  assert.match(message, /lastFailureMessage=Agent execution failed/);
+  assert.doesNotMatch(message, /\{"source":"delivery"/);
+});
+
 test('ops alert route sends embeds to the admin-log channel', async () => {
   const adminLiveBus = new EventEmitter();
   const sent = [];

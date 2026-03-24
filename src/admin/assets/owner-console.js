@@ -7,6 +7,7 @@
     escapeHtml,
     formatDateTime,
     formatNumber,
+    localizeAdminNotification,
     makePill,
     renderList,
     renderStats,
@@ -674,13 +675,16 @@
           time: item.at || item.createdAt,
         }))
       : [];
-    const notificationItems = state.notifications.map((item) => ({
-      source: 'alerts',
-      severity: item.severity || 'warning',
-      title: item.title || item.type || 'Notification',
-      detail: item.detail || item.message || '',
-      time: item.createdAt || item.at,
-    }));
+    const notificationItems = state.notifications.map((item) => {
+      const localized = localizeAdminNotification(item);
+      return {
+        source: 'alerts',
+        severity: item.severity || 'warning',
+        title: localized.title,
+        detail: localized.detail,
+        time: item.createdAt || item.at,
+      };
+    });
     const securityItems = state.securityEvents.map((item) => ({
       source: 'security',
       severity: item.severity || 'info',
@@ -1374,15 +1378,18 @@
     renderList(
       document.getElementById('ownerIncidentFeed'),
       inboxRows,
-      (item) => [
+      (item) => {
+        const localized = localizeAdminNotification(item);
+        return [
         '<article class="feed-item">',
         `<div class="feed-meta">${makePill(item.severity || 'info')} ${item.kind ? `<span class="code">${escapeHtml(item.kind)}</span>` : ''}</div>`,
-        `<strong>${escapeHtml(item.title || 'Incident')}</strong>`,
-        item.message ? `<div class="muted">${escapeHtml(item.message)}</div>` : '',
-        `<div class="feed-meta"><span>${escapeHtml(formatDateTime(item.createdAt))}</span>${item.acknowledgedAt ? `<span>${escapeHtml(`ack ${formatDateTime(item.acknowledgedAt)}`)}</span>` : '<span>open</span>'}</div>`,
+        `<strong>${escapeHtml(localized.title || t('owner.incidents.itemDefault', 'Incident'))}</strong>`,
+        localized.detail ? `<div class="muted">${escapeHtml(localized.detail)}</div>` : '',
+        `<div class="feed-meta"><span>${escapeHtml(formatDateTime(item.createdAt))}</span>${item.acknowledgedAt ? `<span>${escapeHtml(t('owner.incidents.ackAt', 'ack {value}', { value: formatDateTime(item.acknowledgedAt) }))}</span>` : `<span>${escapeHtml(t('owner.incidents.open', 'open'))}</span>`}</div>`,
         '</article>',
-      ].join(''),
-      'No incidents matched the current query.'
+      ].join('');
+      },
+      t('owner.incidents.emptyQuery', 'No incidents matched the current query.')
     );
 
     const runbookKinds = kinds.slice(0, 3);
@@ -1586,63 +1593,63 @@
 
     renderStats(document.getElementById('ownerObservabilityStats'), [
       {
-        kicker: 'Delivery',
+        kicker: t('owner.observability.deliveryKicker', 'Delivery'),
         value: formatMetricValue(delivery.queueLength, 'integer'),
-        title: 'Queue depth',
-        detail: 'Current queue depth across delivery execution paths.',
+        title: t('owner.observability.deliveryTitle', 'Queue depth'),
+        detail: t('owner.observability.deliveryDetail', 'Current queue depth across delivery execution paths.'),
         tags: [
-          `fail ${formatMetricValue(delivery.failRate, 'percent')}`,
-          `dead ${formatMetricValue(data.deliveryRuntime?.deadLetterCount, 'integer')}`,
+          t('owner.observability.deliveryFailTag', 'fail {value}', { value: formatMetricValue(delivery.failRate, 'percent') }),
+          t('owner.observability.deliveryDeadTag', 'dead {value}', { value: formatMetricValue(data.deliveryRuntime?.deadLetterCount, 'integer') }),
         ],
       },
       {
-        kicker: 'Webhook',
+        kicker: t('owner.observability.webhookKicker', 'Webhook'),
         value: formatMetricValue(webhook.errorRate, 'percent'),
-        title: 'Webhook error rate',
-        detail: 'Recent SCUM webhook delivery error ratio.',
+        title: t('owner.observability.webhookTitle', 'Webhook error rate'),
+        detail: t('owner.observability.webhookDetail', 'Recent SCUM webhook delivery error ratio.'),
         tags: [
-          `attempts ${formatMetricValue(webhook.attempts, 'integer')}`,
-          `errors ${formatMetricValue(webhook.errors, 'integer')}`,
+          t('owner.observability.webhookAttemptsTag', 'attempts {value}', { value: formatMetricValue(webhook.attempts, 'integer') }),
+          t('owner.observability.webhookErrorsTag', 'errors {value}', { value: formatMetricValue(webhook.errors, 'integer') }),
         ],
       },
       {
-        kicker: 'Security',
+        kicker: t('owner.observability.securityKicker', 'Security'),
         value: formatMetricValue(login.failures, 'integer'),
-        title: 'Login failures',
-        detail: 'Admin login failure pressure in the current observation window.',
+        title: t('owner.observability.securityTitle', 'Login failures'),
+        detail: t('owner.observability.securityDetail', 'Admin login failure pressure in the current observation window.'),
         tags: [
-          `hot IPs ${formatMetricValue(Array.isArray(login.hotIps) ? login.hotIps.length : 0, 'integer')}`,
-          `window ${formatMetricValue(Math.round(Number(login.windowMs || 0) / 60000), 'integer')} min`,
+          t('owner.observability.securityHotIpsTag', 'hot IPs {value}', { value: formatMetricValue(Array.isArray(login.hotIps) ? login.hotIps.length : 0, 'integer') }),
+          t('owner.observability.windowMinutesTag', 'window {value} min', { value: formatMetricValue(Math.round(Number(login.windowMs || 0) / 60000), 'integer') }),
         ],
       },
       {
-        kicker: 'Requests',
+        kicker: t('owner.observability.requestsKicker', 'Requests'),
         value: formatMetricValue(requestLog.errors, 'integer'),
-        title: 'Admin request errors',
-        detail: 'Recent request-log anomaly count.',
+        title: t('owner.observability.requestsTitle', 'Admin request errors'),
+        detail: t('owner.observability.requestsDetail', 'Recent request-log anomaly count.'),
         tags: [
-          `5xx ${formatMetricValue(requestLog.serverErrors, 'integer')}`,
-          `401 ${formatMetricValue(requestLog.unauthorized, 'integer')}`,
+          t('owner.observability.requests5xxTag', '5xx {value}', { value: formatMetricValue(requestLog.serverErrors, 'integer') }),
+          t('owner.observability.requests401Tag', '401 {value}', { value: formatMetricValue(requestLog.unauthorized, 'integer') }),
         ],
       },
       {
-        kicker: 'Runtime',
+        kicker: t('owner.observability.runtimeKicker', 'Runtime'),
         value: formatMetricValue(Number(runtimeCounts.degraded || 0) + Number(runtimeCounts.offline || 0), 'integer'),
-        title: 'Degraded or offline services',
-        detail: 'Managed runtime supervision state.',
+        title: t('owner.observability.runtimeTitle', 'Degraded or offline services'),
+        detail: t('owner.observability.runtimeDetail', 'Managed runtime supervision state.'),
         tags: [
-          `degraded ${formatMetricValue(runtimeCounts.degraded, 'integer')}`,
-          `offline ${formatMetricValue(runtimeCounts.offline, 'integer')}`,
+          t('owner.observability.runtimeDegradedTag', 'degraded {value}', { value: formatMetricValue(runtimeCounts.degraded, 'integer') }),
+          t('owner.observability.runtimeOfflineTag', 'offline {value}', { value: formatMetricValue(runtimeCounts.offline, 'integer') }),
         ],
       },
       {
-        kicker: 'Reconcile',
+        kicker: t('owner.observability.reconcileKicker', 'Reconcile'),
         value: formatMetricValue(reconcile.summary?.anomalies, 'integer'),
-        title: 'Platform anomalies',
-        detail: 'Latest delivery reconcile findings and abuse heuristics.',
+        title: t('owner.observability.reconcileTitle', 'Platform anomalies'),
+        detail: t('owner.observability.reconcileDetail', 'Latest delivery reconcile findings and abuse heuristics.'),
         tags: [
-          `abuse ${formatMetricValue(reconcile.summary?.abuseFindings, 'integer')}`,
-          `window ${formatMetricValue(Math.round(Number(reconcile.summary?.windowMs || 0) / 60000), 'integer')} min`,
+          t('owner.observability.reconcileAbuseTag', 'abuse {value}', { value: formatMetricValue(reconcile.summary?.abuseFindings, 'integer') }),
+          t('owner.observability.windowMinutesTag', 'window {value} min', { value: formatMetricValue(Math.round(Number(reconcile.summary?.windowMs || 0) / 60000), 'integer') }),
         ],
       },
     ]);
@@ -1674,39 +1681,39 @@
         item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : '',
         '</article>',
       ].join(''),
-      'No reconcile anomalies or abuse signals right now.'
+      t('owner.observability.reconcileEmpty', 'No reconcile anomalies or abuse signals right now.')
     );
 
     renderStats(document.getElementById('ownerOpsStateStats'), [
       {
-        kicker: 'Monitoring',
-        value: state.opsState?.lastMonitoringAt ? 'recent' : 'idle',
-        title: 'Last monitoring cycle',
+        kicker: t('owner.observability.monitoringKicker', 'Monitoring'),
+        value: state.opsState?.lastMonitoringAt ? t('owner.observability.stateRecent', 'recent') : t('owner.observability.stateIdle', 'idle'),
+        title: t('owner.observability.monitoringTitle', 'Last monitoring cycle'),
         detail: state.opsState?.lastMonitoringAt
           ? formatDateTime(state.opsState.lastMonitoringAt)
-          : 'No monitoring cycle recorded yet.',
+          : t('owner.observability.monitoringEmpty', 'No monitoring cycle recorded yet.'),
       },
       {
-        kicker: 'Backup',
-        value: state.opsState?.lastAutoBackupAt ? 'created' : 'pending',
-        title: 'Last auto backup',
+        kicker: t('owner.observability.backupKicker', 'Backup'),
+        value: state.opsState?.lastAutoBackupAt ? t('owner.observability.stateCreated', 'created') : t('owner.observability.statePending', 'pending'),
+        title: t('owner.observability.backupTitle', 'Last auto backup'),
         detail: state.opsState?.lastAutoBackupAt
           ? formatDateTime(state.opsState.lastAutoBackupAt)
-          : 'No automatic backup recorded yet.',
+          : t('owner.observability.backupEmpty', 'No automatic backup recorded yet.'),
       },
       {
-        kicker: 'Reconcile',
-        value: state.opsState?.lastReconcileAt ? 'run' : 'pending',
-        title: 'Last reconcile cycle',
+        kicker: t('owner.observability.reconcileKicker', 'Reconcile'),
+        value: state.opsState?.lastReconcileAt ? t('owner.observability.stateRun', 'run') : t('owner.observability.statePending', 'pending'),
+        title: t('owner.observability.reconcileCycleTitle', 'Last reconcile cycle'),
         detail: state.opsState?.lastReconcileAt
           ? formatDateTime(state.opsState.lastReconcileAt)
-          : 'Reconcile has not run yet in ops state.',
+          : t('owner.observability.reconcileCycleEmpty', 'Reconcile has not run yet in ops state.'),
       },
       {
-        kicker: 'Alerts',
+        kicker: t('owner.observability.alertsKicker', 'Alerts'),
         value: formatMetricValue(Object.keys(state.opsState?.lastAlertAtByKey || {}).length, 'integer'),
-        title: 'Tracked alert keys',
-        detail: 'Cooldown state retained by the platform monitoring service.',
+        title: t('owner.observability.alertsTitle', 'Tracked alert keys'),
+        detail: t('owner.observability.alertsDetail', 'Cooldown state retained by the platform monitoring service.'),
       },
     ]);
 
@@ -1834,57 +1841,57 @@
 
     renderStats(document.getElementById('ownerCommercialStats'), [
       {
-        kicker: 'Plans',
+        kicker: t('owner.commercial.plansKicker', 'Plans'),
         value: formatNumber(plans.length, '0'),
-        title: 'Cataloged billing plans',
-        detail: 'Long-lived plan definitions used by tenant subscriptions and allowance snapshots.',
+        title: t('owner.commercial.plansTitle', 'Cataloged billing plans'),
+        detail: t('owner.commercial.plansDetail', 'Long-lived plan definitions used by tenant subscriptions and allowance snapshots.'),
         tags: plans.slice(0, 3).map((plan) => plan.id || plan.name || '-'),
       },
       {
-        kicker: 'Subscriptions',
+        kicker: t('owner.commercial.subscriptionsKicker', 'Subscriptions'),
         value: formatNumber(state.subscriptions.length, '0'),
-        title: 'Tracked tenant subscriptions',
-        detail: 'Lifecycle view across trialing, active, paused, and past-due tenant agreements.',
+        title: t('owner.commercial.subscriptionsTitle', 'Tracked tenant subscriptions'),
+        detail: t('owner.commercial.subscriptionsDetail', 'Lifecycle view across trialing, active, paused, and past-due tenant agreements.'),
         tags: Array.from(subscriptionsByStatus.entries()).slice(0, 3).map(([key, count]) => `${key} ${count}`),
       },
       {
-        kicker: 'Marketplace',
+        kicker: t('owner.commercial.marketplaceKicker', 'Marketplace'),
         value: formatNumber(marketplace.length, '0'),
-        title: 'Visible extension offers',
-        detail: 'Tenant-facing offers for commercial upsell, extensions, and service bundles.',
+        title: t('owner.commercial.marketplaceTitle', 'Visible extension offers'),
+        detail: t('owner.commercial.marketplaceDetail', 'Tenant-facing offers for commercial upsell, extensions, and service bundles.'),
         tags: [
-          `draft ${formatNumber(marketplace.filter((row) => row.status === 'draft').length, '0')}`,
-          `active ${formatNumber(marketplace.filter((row) => row.status === 'active').length, '0')}`,
+          t('owner.commercial.draftTag', 'draft {value}', { value: formatNumber(marketplace.filter((row) => row.status === 'draft').length, '0') }),
+          t('owner.commercial.activeTag', 'active {value}', { value: formatNumber(marketplace.filter((row) => row.status === 'active').length, '0') }),
         ],
       },
       {
-        kicker: 'Quota',
+        kicker: t('owner.commercial.quotaKicker', 'Quota'),
         value: formatNumber(pressuredTenants, '0'),
-        title: 'Tenants under quota pressure',
-        detail: 'Top visible tenants where allowance usage is nearing or exceeding plan limits.',
+        title: t('owner.commercial.quotaTitle', 'Tenants under quota pressure'),
+        detail: t('owner.commercial.quotaDetail', 'Top visible tenants where allowance usage is nearing or exceeding plan limits.'),
         tags: [
-          `sample ${formatNumber(state.tenantQuotaSnapshots.length, '0')}`,
-          `pressured ${formatNumber(pressuredTenants, '0')}`,
+          t('owner.commercial.sampleTag', 'sample {value}', { value: formatNumber(state.tenantQuotaSnapshots.length, '0') }),
+          t('owner.commercial.pressuredTag', 'pressured {value}', { value: formatNumber(pressuredTenants, '0') }),
         ],
       },
     ]);
 
     renderTable(document.getElementById('ownerPlanTable'), {
-      emptyText: 'No plan catalog entries found.',
+      emptyText: t('owner.commercial.planEmpty', 'No plan catalog entries found.'),
       columns: [
         {
-          label: 'Plan',
+          label: t('owner.commercial.tablePlan', 'Plan'),
           render: (row) => [
             `<strong>${escapeHtml(row.name || row.id || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.id || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Billing',
+          label: t('owner.commercial.tableBilling', 'Billing'),
           render: (row) => escapeHtml(row.billingCycle || '-'),
         },
         {
-          label: 'Quotas',
+          label: t('owner.commercial.tableQuotas', 'Quotas'),
           render: (row) => `<div class="muted">${escapeHtml(summarizePlanQuotas(row))}</div>`,
         },
       ],
@@ -1897,31 +1904,35 @@
       (row) => [
         '<article class="feed-item">',
         `<div class="feed-meta">${makePill(row.planName || 'plan', 'info')} <span class="code">${escapeHtml(row.tenantId || '-')}</span></div>`,
-        `<strong>${escapeHtml(row.tenantName || 'Tenant')}</strong>`,
+          `<strong>${escapeHtml(row.tenantName || t('owner.commercial.tenantLabel', 'Tenant'))}</strong>`,
         row.hot.length
           ? `<div class="tag-row">${row.hot.slice(0, 4).map(([key, value]) => {
               const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
               return makePill(`${label} ${summarizeQuotaEntry(value)}`, quotaEntryTone(value));
             }).join('')}</div>`
-          : '<div class="muted">No active quota pressure in the sampled allowance set.</div>',
+          : `<div class="muted">${escapeHtml(t('owner.commercial.noQuotaPressure', 'No active quota pressure in the sampled allowance set.'))}</div>`,
         '</article>',
       ].join(''),
-      'No quota pressure found in the sampled tenant allowance set.'
+      t('owner.commercial.quotaEmpty', 'No quota pressure found in the sampled tenant allowance set.')
     );
 
+    const permissionCatalog = Array.isArray(state.overview?.permissionCatalog)
+      ? state.overview.permissionCatalog
+      : [];
+
     renderTable(document.getElementById('ownerPermissionCatalogTable'), {
-      emptyText: 'No permission catalog entries found.',
+      emptyText: t('owner.commercial.permissionCatalogEmpty', 'No permission catalog entries found.'),
       shellClass: 'compact-scroll catalog-table',
       columns: [
         {
-          label: 'Scope Group',
+          label: t('owner.commercial.tableScopeGroup', 'Scope Group'),
           render: (row) => [
             `<strong>${escapeHtml(row.title || row.key || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.key || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Scopes',
+          label: t('owner.commercial.tableScopes', 'Scopes'),
           render: (row) => escapeHtml(Array.isArray(row.scopes) ? row.scopes.join(', ') : '-'),
         },
       ],
@@ -1929,25 +1940,25 @@
     });
 
     renderTable(document.getElementById('ownerMarketplaceTable'), {
-      emptyText: 'No marketplace offers found.',
+      emptyText: t('owner.commercial.marketplaceEmpty', 'No marketplace offers found.'),
       columns: [
         {
-          label: 'Offer',
+          label: t('owner.commercial.tableOffer', 'Offer'),
           render: (row) => [
             `<strong>${escapeHtml(row.title || row.id || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.id || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Tenant',
+          label: t('owner.commercial.tableTenant', 'Tenant'),
           render: (row) => escapeHtml(row.tenantName || row.tenantId || '-'),
         },
         {
-          label: 'Status',
+          label: t('owner.commercial.tableStatus', 'Status'),
           render: (row) => makePill(row.status || 'unknown'),
         },
         {
-          label: 'Price',
+          label: t('owner.commercial.tablePrice', 'Price'),
           render: (row) => escapeHtml(`${formatNumber(row.priceCents, '0')} ${row.currency || ''}`.trim()),
         },
       ],
@@ -1956,16 +1967,16 @@
 
     document.getElementById('ownerCommercialNotes').innerHTML = [
       {
-        title: 'Commercial separation',
-        text: 'Billing lifecycle and plan allowances stay in the owner console so tenants can see their plan posture without editing global plan definitions.',
+        title: t('owner.commercial.noteSeparationTitle', 'Commercial separation'),
+        text: t('owner.commercial.noteSeparationText', 'Billing lifecycle and plan allowances stay in the owner console so tenants can see their plan posture without editing global plan definitions.'),
       },
       {
-        title: 'Extension readiness',
-        text: 'Marketplace offers act as a scalable extension surface without changing the tenant runtime contract or introducing a new plugin engine.',
+        title: t('owner.commercial.noteExtensionTitle', 'Extension readiness'),
+        text: t('owner.commercial.noteExtensionText', 'Marketplace offers act as a scalable extension surface without changing the tenant runtime contract or introducing a new plugin engine.'),
       },
       {
-        title: 'Permission governance',
-        text: 'Scope-group visibility keeps API, webhook, and future extension access aligned with the existing role and tenant separation model.',
+        title: t('owner.commercial.noteGovernanceTitle', 'Permission governance'),
+        text: t('owner.commercial.noteGovernanceText', 'Scope-group visibility keeps API, webhook, and future extension access aligned with the existing role and tenant separation model.'),
       },
     ].map((card) => [
       '<article class="kv-card">',
@@ -1987,7 +1998,7 @@
         `<div class="feed-meta"><span>${escapeHtml(formatDateTime(item.time))}</span></div>`,
         '</article>',
       ].join(''),
-      'No open incidents.'
+      t('owner.notifications.empty', 'No open incidents.')
     );
   }
 
@@ -2042,16 +2053,16 @@
     const permissions = Array.isArray(state.roleMatrix?.permissions) ? state.roleMatrix.permissions.length : 0;
     document.getElementById('ownerPolicyCards').innerHTML = [
       {
-        title: 'Role Matrix',
-        text: `Visible permission entries: ${formatNumber(permissions, '0')}. Use the owner surface for role posture, elevated access review, and security-sensitive controls.`,
+        title: t('owner.security.roleMatrixTitle', 'Role Matrix'),
+        text: t('owner.security.roleMatrixText', 'Visible permission entries: {count}. Use the owner surface for role posture, elevated access review, and security-sensitive controls.', { count: formatNumber(permissions, '0') }),
       },
       {
-        title: 'Tenant Separation',
-        text: 'Tenant-scoped admins are redirected into /tenant. Owner-only views keep platform security and governance outside the tenant workflow.',
+        title: t('owner.security.tenantSeparationTitle', 'Tenant Separation'),
+        text: t('owner.security.tenantSeparationText', 'Tenant-scoped admins are redirected into /tenant. Owner-only views keep platform security and governance outside the tenant workflow.'),
       },
       {
-        title: 'Session + Step-up',
-        text: 'Role matrix summary loaded. Step-up and session policy stay inside the owner security and access pages.',
+        title: t('owner.security.sessionStepupTitle', 'Session + Step-up'),
+        text: t('owner.security.sessionStepupText', 'Role matrix summary loaded. Step-up and session policy stay inside the owner security and access pages.'),
       },
     ].map((card) => [
       '<article class="panel-card">',
@@ -2140,32 +2151,32 @@
     );
 
     renderTable(document.getElementById('ownerDeviceTable'), {
-      emptyText: 'No recent request footprints available.',
+      emptyText: t('owner.security.deviceEmpty', 'No recent request footprints available.'),
       shellClass: 'compact-scroll',
       columns: [
         {
-          label: 'Actor',
+          label: t('owner.security.tableActor', 'Actor'),
           render: (row) => [
             `<strong>${escapeHtml(row.user || '-')}</strong>`,
             `<div class="muted">${escapeHtml(row.role || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Device',
+          label: t('owner.security.tableDevice', 'Device'),
           render: (row) => [
-            `<div>${escapeHtml(row.deviceLabel || 'Unknown device')}</div>`,
+            `<div>${escapeHtml(row.deviceLabel || t('owner.security.unknownDevice', 'Unknown device'))}</div>`,
             row.userAgent ? `<div class="muted">${escapeHtml(row.userAgent)}</div>` : '',
           ].join(''),
         },
         {
-          label: 'IP',
+          label: t('owner.security.tableIp', 'IP'),
           render: (row) => `<span class="code">${escapeHtml(row.ip || '-')}</span>`,
         },
         {
-          label: 'Seen',
+          label: t('owner.security.tableSeen', 'Seen'),
           render: (row) => [
             `<div>${escapeHtml(formatDateTime(row.lastSeenAt))}</div>`,
-            `<div class="muted">${escapeHtml(formatMetricValue(row.hits, 'integer'))} hits</div>`,
+            `<div class="muted">${escapeHtml(t('owner.security.hitsValue', '{count} hits', { count: formatMetricValue(row.hits, 'integer') }))}</div>`,
           ].join(''),
         },
       ],
@@ -2173,26 +2184,26 @@
     });
 
     renderTable(document.getElementById('ownerPermissionTable'), {
-      emptyText: 'No permission matrix entries found.',
+      emptyText: t('owner.security.permissionEmpty', 'No permission matrix entries found.'),
       shellClass: 'compact-scroll policy-table',
       columns: [
         {
-          label: 'Path',
+          label: t('owner.security.tablePath', 'Path'),
           render: (row) => `<span class="code">${escapeHtml(row.path || '-')}</span>`,
         },
         {
-          label: 'Permission',
+          label: t('owner.security.tablePermission', 'Permission'),
           render: (row) => escapeHtml(row.permission || '-'),
         },
         {
-          label: 'Role',
+          label: t('owner.security.tableRole', 'Role'),
           render: (row) => makePill(row.minRole || 'mod', row.minRole === 'owner' ? 'danger' : row.minRole === 'admin' ? 'warning' : 'info'),
         },
         {
-          label: 'Flags',
+          label: t('owner.security.tableFlags', 'Flags'),
           render: (row) => [
             makePill(row.category || 'general', 'neutral'),
-            row.stepUp ? makePill('step-up', 'warning') : '',
+            row.stepUp ? makePill(t('owner.security.stepUp', 'step-up'), 'warning') : '',
           ].filter(Boolean).join(' '),
         },
       ],
@@ -2202,25 +2213,25 @@
 
   function renderAccessCenter() {
     renderTable(document.getElementById('ownerSessionsTable'), {
-      emptyText: 'No admin sessions reported.',
+      emptyText: t('owner.access.sessionsEmpty', 'No admin sessions reported.'),
       columns: [
         {
-          label: 'Session',
+          label: t('owner.access.tableSession', 'Session'),
           render: (row) => [
             `<strong>${escapeHtml(row.username || row.user || row.actor || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.id || row.sessionId || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Role',
+          label: t('owner.access.tableRole', 'Role'),
           render: (row) => makePill(row.role || 'unknown'),
         },
         {
-          label: 'Tenant',
-          render: (row) => escapeHtml(row.tenantId || 'global'),
+          label: t('owner.access.tableTenant', 'Tenant'),
+          render: (row) => escapeHtml(row.tenantId || t('owner.access.globalTenant', 'global')),
         },
         {
-          label: 'Updated',
+          label: t('owner.access.tableUpdated', 'Updated'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.updatedAt || row.lastSeenAt || row.createdAt))}</span>`,
         },
       ],
@@ -2228,26 +2239,26 @@
     });
 
     renderTable(document.getElementById('ownerUsersTable'), {
-      emptyText: 'No admin users found.',
+      emptyText: t('owner.access.usersEmpty', 'No admin users found.'),
       columns: [
         {
-          label: 'User',
+          label: t('owner.access.tableUser', 'User'),
           render: (row) => [
             `<strong>${escapeHtml(row.username || row.user || '-')}</strong>`,
             row.id ? `<div class="muted code">${escapeHtml(row.id)}</div>` : '',
           ].join(''),
         },
         {
-          label: 'Role',
+          label: t('owner.access.tableRole', 'Role'),
           render: (row) => makePill(row.role || 'unknown'),
         },
         {
-          label: 'Tenant',
-          render: (row) => escapeHtml(row.tenantId || 'global'),
+          label: t('owner.access.tableTenant', 'Tenant'),
+          render: (row) => escapeHtml(row.tenantId || t('owner.access.globalTenant', 'global')),
         },
         {
-          label: 'Status',
-          render: (row) => makePill(row.isActive === false ? 'inactive' : 'active'),
+          label: t('owner.access.tableStatus', 'Status'),
+          render: (row) => makePill(row.isActive === false ? t('owner.access.inactive', 'inactive') : t('owner.access.active', 'active')),
         },
       ],
       rows: state.users.slice(0, 16),
@@ -2270,15 +2281,18 @@
       (Array.isArray(dataset.cards) ? dataset.cards : []).map(([label, value]) => ({
         kicker: String(dataset.view || 'audit').toUpperCase(),
         value: String(value ?? '-'),
-        title: String(label || 'Audit summary'),
-        detail: `Returned ${formatMetricValue(dataset.returned, 'integer')} of ${formatMetricValue(dataset.total, 'integer')} rows.`,
+        title: String(label || t('owner.audit.summaryTitle', 'Audit summary')),
+        detail: t('owner.audit.summaryDetail', 'Returned {returned} of {total} rows.', {
+          returned: formatMetricValue(dataset.returned, 'integer'),
+          total: formatMetricValue(dataset.total, 'integer'),
+        }),
       }))
     );
 
     const rows = Array.isArray(dataset.tableRows) ? dataset.tableRows : [];
     const keys = rows.length > 0 ? Object.keys(rows[0]).slice(0, 6) : [];
     renderTable(document.getElementById('ownerAuditTable'), {
-      emptyText: 'No audit rows matched the current filters.',
+      emptyText: t('owner.audit.empty', 'No audit rows matched the current filters.'),
       columns: keys.map((key) => ({
         label: key,
         render: (row) => `<span class="${/(?:id|code|reference)/i.test(key) ? 'code' : ''}">${escapeHtml(formatAuditCell(key, row?.[key]))}</span>`,
@@ -2332,21 +2346,21 @@
     ]);
 
     renderTable(document.getElementById('ownerBackupTable'), {
-      emptyText: 'No backup files found.',
+      emptyText: t('owner.recovery.backupEmptyTable', 'No backup files found.'),
       columns: [
         {
-          label: 'Backup',
+          label: t('owner.recovery.tableBackup', 'Backup'),
           render: (row) => [
             `<strong>${escapeHtml(row.id || row.file || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.file || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Size',
+          label: t('owner.recovery.tableSize', 'Size'),
           render: (row) => `${formatNumber(Math.round(Number(row.sizeBytes || 0) / 1024), '0')} KB`,
         },
         {
-          label: 'Updated',
+          label: t('owner.recovery.tableUpdated', 'Updated'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.updatedAt || row.createdAt))}</span>`,
         },
       ],
@@ -2357,7 +2371,7 @@
     if (backupSelect) {
       const current = String(backupSelect.value || '').trim();
       const options = [
-        '<option value="">Choose a backup</option>',
+        `<option value="">${escapeHtml(t('owner.recovery.chooseBackup', 'Choose a backup'))}</option>`,
         ...state.backupFiles.map((row) => {
           const file = String(row.file || row.id || '').trim();
           const selected = file && file === current ? ' selected' : '';
@@ -2374,7 +2388,7 @@
     const preview = state.restorePreview;
     if (!previewWrap) return;
     if (!preview) {
-      previewWrap.innerHTML = '<div class="empty-state">Run a dry-run restore preview to inspect counts, warnings, and verification checks.</div>';
+      previewWrap.innerHTML = `<div class="empty-state">${escapeHtml(t('owner.recovery.previewEmpty', 'Run a dry-run restore preview to inspect counts, warnings, and verification checks.'))}</div>`;
       return;
     }
 
@@ -2382,35 +2396,35 @@
     const verificationChecks = Array.isArray(preview.verificationPlan?.checks) ? preview.verificationPlan.checks : [];
     previewWrap.innerHTML = [
       '<article class="panel-card">',
-      `<h3>${escapeHtml(preview.backup || 'Restore preview')}</h3>`,
-      `<p>${escapeHtml(preview.note || 'Dry-run preview generated from the selected backup.')}</p>`,
+      `<h3>${escapeHtml(preview.backup || t('owner.recovery.previewTitleFallback', 'Restore preview'))}</h3>`,
+      `<p>${escapeHtml(preview.note || t('owner.recovery.previewGenerated', 'Dry-run preview generated from the selected backup.'))}</p>`,
       `<div class="tag-row">${[
-        `schema ${preview.schemaVersion || '-'}`,
+        t('owner.recovery.schemaTag', 'schema {value}', { value: preview.schemaVersion || '-' }),
         preview.compatibilityMode || 'current',
-        preview.previewExpiresAt ? `expires ${formatDateTime(preview.previewExpiresAt)}` : 'preview ready',
+        preview.previewExpiresAt ? t('owner.recovery.expiresTag', 'expires {value}', { value: formatDateTime(preview.previewExpiresAt) }) : t('owner.recovery.previewReadyTag', 'preview ready'),
       ].map((tag) => makePill(tag, 'info')).join('')}</div>`,
       '</article>',
       '<article class="panel-card">',
-      '<h3>Preview Counts</h3>',
+      `<h3>${escapeHtml(t('owner.recovery.previewCounts', 'Preview Counts'))}</h3>`,
       `<div class="tag-row">${[
-        `target ${formatNumber(Object.keys(preview.counts || {}).length, '0')} groups`,
-        `current ${formatNumber(Object.keys(preview.currentCounts || {}).length, '0')} groups`,
-        `warnings ${formatNumber(warningItems.length, '0')}`,
+        t('owner.recovery.targetGroupsTag', 'target {value} groups', { value: formatNumber(Object.keys(preview.counts || {}).length, '0') }),
+        t('owner.recovery.currentGroupsTag', 'current {value} groups', { value: formatNumber(Object.keys(preview.currentCounts || {}).length, '0') }),
+        t('owner.recovery.warningsCountTag', 'warnings {value}', { value: formatNumber(warningItems.length, '0') }),
       ].map((tag) => makePill(tag)).join('')}</div>`,
       warningItems.length
         ? `<div class="list-feed">${warningItems.slice(0, 6).map((item) => `<article class="feed-item"><strong>${escapeHtml(item)}</strong></article>`).join('')}</div>`
-        : '<div class="empty-state">No preview warnings.</div>',
+        : `<div class="empty-state">${escapeHtml(t('owner.recovery.noPreviewWarnings', 'No preview warnings.'))}</div>`,
       '</article>',
       '<article class="panel-card">',
-      '<h3>Verification Plan</h3>',
+      `<h3>${escapeHtml(t('owner.recovery.verificationPlan', 'Verification Plan'))}</h3>`,
       verificationChecks.length
         ? `<div class="list-feed">${verificationChecks.slice(0, 8).map((item) => [
             '<article class="feed-item">',
-            `<strong>${escapeHtml(item.label || item.id || 'check')}</strong>`,
+            `<strong>${escapeHtml(item.label || item.id || t('owner.recovery.checkFallback', 'check'))}</strong>`,
             item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : '',
             '</article>',
           ].join('')).join('')}</div>`
-        : '<div class="empty-state">No verification plan entries were returned.</div>',
+        : `<div class="empty-state">${escapeHtml(t('owner.recovery.noVerificationEntries', 'No verification plan entries were returned.'))}</div>`,
       '</article>',
     ].join('');
   }
@@ -2471,6 +2485,12 @@
       monitoringForm.elements.SCUM_WEBHOOK_ERROR_ALERT_THRESHOLD.value = getControlEnvValue('root', 'SCUM_WEBHOOK_ERROR_ALERT_THRESHOLD', '');
       monitoringForm.elements.SCUM_WEBHOOK_ERROR_ALERT_MIN_ATTEMPTS.value = getControlEnvValue('root', 'SCUM_WEBHOOK_ERROR_ALERT_MIN_ATTEMPTS', '');
       monitoringForm.elements.SCUM_WEBHOOK_ERROR_ALERT_WINDOW_MS.value = getControlEnvValue('root', 'SCUM_WEBHOOK_ERROR_ALERT_WINDOW_MS', '');
+    }
+
+    const opsLogLanguageForm = document.getElementById('ownerOpsLogLanguageForm');
+    if (opsLogLanguageForm) {
+      opsLogLanguageForm.elements.ADMIN_LOG_LANGUAGE.value =
+        getControlEnvValue('root', 'ADMIN_LOG_LANGUAGE', 'th') || 'th';
     }
   }
 
@@ -3658,6 +3678,35 @@
     }
   }
 
+  async function handleOpsLogLanguageSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    const nextLanguage =
+      String(form.elements.ADMIN_LOG_LANGUAGE.value || 'th').trim().toLowerCase() === 'en'
+        ? 'en'
+        : 'th';
+    try {
+      if (!window.confirm(t('owner.control.discordLogLanguageConfirm', 'Save Discord admin-log language?'))) return;
+      setBusy(button, true, t('common.saving', 'Saving...'));
+      await saveControlEnvPatch({
+        root: {
+          ADMIN_LOG_LANGUAGE: nextLanguage,
+        },
+      }, t('owner.control.discordLogLanguageContext', 'Discord Admin Log Language'));
+      await refreshSurface();
+    } catch (error) {
+      setBanner(
+        t('owner.banner.discordLogLanguageFailed', 'Discord admin-log language save failed'),
+        String(error.message || error),
+        ['control'],
+        'danger',
+      );
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
   async function handleSessionRevokeSubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -3834,9 +3883,9 @@
     ],
     sectionsByWorkspace: {
       command: ['overview', 'fleet', 'fleet-assets'],
-      runtime: ['incidents', 'runtime', 'observability'],
+      runtime: ['runtime', 'incidents', 'observability'],
       security: ['security', 'access', 'audit'],
-      governance: ['commercial', 'recovery', 'control'],
+      governance: ['control', 'commercial', 'recovery'],
     },
   });
   sidebarController = wireSidebarShell({
@@ -4070,6 +4119,7 @@
   document.getElementById('ownerRconAgentForm')?.addEventListener('submit', handleRconAgentSubmit);
   document.getElementById('ownerSecurityPolicyForm').addEventListener('submit', handleSecurityPolicySubmit);
   document.getElementById('ownerMonitoringPolicyForm').addEventListener('submit', handleMonitoringPolicySubmit);
+  document.getElementById('ownerOpsLogLanguageForm')?.addEventListener('submit', handleOpsLogLanguageSubmit);
   document.getElementById('ownerSessionRevokeForm').addEventListener('submit', handleSessionRevokeSubmit);
   document.getElementById('ownerAdminUserForm').addEventListener('submit', handleAdminUserSubmit);
   document.getElementById('ownerAuditQueryForm').addEventListener('submit', handleAuditQuerySubmit);

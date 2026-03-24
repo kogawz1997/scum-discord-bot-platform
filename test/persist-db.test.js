@@ -72,6 +72,40 @@ test('db-only mode disables legacy snapshots cleanly', () => {
   assert.equal(fs.existsSync(path.join(tempDir, 'legacy-data', 'unit.json')), false);
 });
 
+test('public persistence status redacts connection strings and storage paths', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  const originalBotDataDir = process.env.BOT_DATA_DIR;
+  const originalPersistRequireDb = process.env.PERSIST_REQUIRE_DB;
+  const originalLegacySnapshots = process.env.PERSIST_LEGACY_SNAPSHOTS;
+  process.env.NODE_ENV = 'test';
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scumdb-public-status-'));
+  process.env.DATABASE_URL = `file:${path.join(tempDir, 'public-status.db')}`;
+  process.env.BOT_DATA_DIR = path.join(tempDir, 'legacy-data');
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  delete process.env.PERSIST_LEGACY_SNAPSHOTS;
+
+  const persist = freshPersistModule();
+  const status = persist.getPublicPersistenceStatus();
+  assert.equal(status.mode, 'db-only');
+  assert.equal(status.requireDb, true);
+  assert.equal(status.databaseUrlRedacted, true);
+  assert.equal(status.storagePathsRedacted, true);
+  assert.equal('databaseUrl' in status, false);
+  assert.equal('dbPath' in status, false);
+  assert.equal('dataDir' in status, false);
+
+  process.env.NODE_ENV = originalNodeEnv;
+  if (originalDatabaseUrl == null) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = originalDatabaseUrl;
+  if (originalBotDataDir == null) delete process.env.BOT_DATA_DIR;
+  else process.env.BOT_DATA_DIR = originalBotDataDir;
+  if (originalPersistRequireDb == null) delete process.env.PERSIST_REQUIRE_DB;
+  else process.env.PERSIST_REQUIRE_DB = originalPersistRequireDb;
+  if (originalLegacySnapshots == null) delete process.env.PERSIST_LEGACY_SNAPSHOTS;
+  else process.env.PERSIST_LEGACY_SNAPSHOTS = originalLegacySnapshots;
+});
+
 test('production still fails fast when PERSIST_REQUIRE_DB=false', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scumdb-required-'));
   const modulePath = path.resolve(__dirname, '../src/store/_persist.js');

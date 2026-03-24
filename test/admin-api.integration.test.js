@@ -366,6 +366,12 @@ test('admin API auth + validation integration flow', async (t) => {
   assert.equal(healthz.res.status, 200);
   assert.equal(healthz.data.ok, true);
   assert.equal(healthz.data.data.service, 'admin-web');
+  assert.equal(typeof healthz.data.data?.persistence?.mode, 'string');
+  assert.equal(healthz.data.data?.persistence?.databaseUrlRedacted, true);
+  assert.equal(healthz.data.data?.persistence?.storagePathsRedacted, true);
+  assert.equal('databaseUrl' in (healthz.data.data?.persistence || {}), false);
+  assert.equal('dbPath' in (healthz.data.data?.persistence || {}), false);
+  assert.equal('dataDir' in (healthz.data.data?.persistence || {}), false);
 
   const adminHealth = await request('/admin/api/health', 'GET', null, cookie);
   assert.equal(adminHealth.res.status, 200);

@@ -22,6 +22,7 @@ function createAdminPublicRoutes(deps) {
     getTenantConsoleHtml,
     getDashboardHtml,
     getPersistenceStatus,
+    getPublicPersistenceStatus,
     getDeliveryMetricsSnapshot,
     ensurePlatformApiKey,
     requiredString,
@@ -138,6 +139,19 @@ function createAdminPublicRoutes(deps) {
     return '/admin/login';
   }
 
+  function getRequestedSurface(pathname) {
+    const raw = String(pathname || '').trim().toLowerCase();
+    if (raw.startsWith('/owner')) return 'owner';
+    if (raw.startsWith('/tenant')) return 'tenant';
+    return 'admin';
+  }
+
+  function getAuthSurface(auth) {
+    if (auth?.tenantId) return 'tenant';
+    if (auth?.role) return 'owner';
+    return 'admin';
+  }
+
   return async function handleAdminPublicRoute(context) {
     const {
       client,
@@ -176,7 +190,10 @@ function createAdminPublicRoutes(deps) {
           now: new Date().toISOString(),
           service: 'admin-web',
           uptimeSec: Math.round(process.uptime()),
-          persistence: getPersistenceStatus(),
+          persistence:
+            typeof getPublicPersistenceStatus === 'function'
+              ? getPublicPersistenceStatus()
+              : getPersistenceStatus(),
           delivery: typeof getDeliveryMetricsSnapshot === 'function'
             ? getDeliveryMetricsSnapshot()
             : null,
@@ -215,10 +232,14 @@ function createAdminPublicRoutes(deps) {
     ) {
       if (isAuthorized(req, urlObj)) {
         const auth = getAuthContext(req, urlObj);
+        const requestedSurface = getRequestedSurface(pathname);
+        const authSurface = getAuthSurface(auth);
         const target = auth?.tenantId ? '/tenant' : '/owner';
-        res.writeHead(302, { Location: target });
-        res.end();
-        return true;
+        if (requestedSurface === authSurface || requestedSurface === 'admin') {
+          res.writeHead(302, { Location: target });
+          res.end();
+          return true;
+        }
       }
       sendHtml(res, 200, getLoginHtml());
       return true;
@@ -263,7 +284,7 @@ function createAdminPublicRoutes(deps) {
       }
       const auth = getAuthContext(req, urlObj);
       if (auth?.tenantId) {
-        res.writeHead(302, { Location: '/tenant' });
+        res.writeHead(302, { Location: '/owner/login?switch=1' });
         res.end();
         return true;
       }
@@ -279,7 +300,7 @@ function createAdminPublicRoutes(deps) {
       }
       const auth = getAuthContext(req, urlObj);
       if (!auth?.tenantId) {
-        res.writeHead(302, { Location: '/owner' });
+        res.writeHead(302, { Location: '/tenant/login?switch=1' });
         res.end();
         return true;
       }

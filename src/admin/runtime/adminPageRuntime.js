@@ -41,13 +41,8 @@ function createAdminPageRuntime(options = {}) {
   } = options;
   const resolvedVisualAssetsDirPath = visualAssetsDirPath
     || path.resolve(
-      process.cwd(),
-      '_compare',
-      'WirecutterClientAPP_20260306_181425',
-      'data',
-      'flutter_assets',
-      'assets',
-      'images',
+      assetsDirPath,
+      'visuals',
     );
 
   let cachedDashboardHtml = null;

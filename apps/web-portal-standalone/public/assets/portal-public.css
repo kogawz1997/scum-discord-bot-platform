@@ -1,23 +1,25 @@
 :root {
-  --bg: #090b08;
-  --bg-alt: #11150f;
-  --bg-soft: #1a2118;
-  --panel: rgba(14, 18, 14, 0.94);
-  --panel-soft: rgba(19, 25, 18, 0.9);
-  --line: rgba(214, 221, 154, 0.14);
-  --line-strong: rgba(229, 235, 183, 0.26);
-  --text: #f1f2e7;
-  --muted: #b8be9a;
-  --accent: #d5dc93;
-  --accent-strong: #eef3b7;
-  --success: #90c27b;
-  --warning: #d2a463;
-  --danger: #cc7760;
-  --info: #a7be84;
-  --radius-lg: 24px;
-  --radius-md: 18px;
-  --radius-sm: 14px;
-  --shadow: 0 30px 84px rgba(0, 0, 0, 0.4);
+  --bg-0: #070907;
+  --bg-1: #0b100c;
+  --bg-2: #151b15;
+  --surface: rgba(12, 16, 13, 0.9);
+  --surface-strong: rgba(10, 12, 10, 0.95);
+  --surface-soft: rgba(22, 27, 22, 0.82);
+  --line: rgba(206, 214, 159, 0.14);
+  --line-strong: rgba(221, 226, 178, 0.26);
+  --text: #f4f2e8;
+  --muted: #b9b69e;
+  --accent: #cbb16a;
+  --accent-strong: #ecd18d;
+  --success: #86b57d;
+  --warning: #cb9964;
+  --danger: #ba6855;
+  --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
 }
 
 * {
@@ -30,27 +32,70 @@ body {
   min-height: 100%;
   color: var(--text);
   color-scheme: dark;
-  background:
-    radial-gradient(980px 640px at 100% 0%, rgba(173, 84, 48, 0.16), transparent 52%),
-    radial-gradient(900px 620px at 0% 100%, rgba(169, 180, 87, 0.09), transparent 58%),
-    linear-gradient(165deg, #060806, var(--bg) 48%, #111510);
   font-family: "IBM Plex Sans Thai", "Segoe UI", sans-serif;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.78)),
+    radial-gradient(circle at top, rgba(170, 110, 52, 0.14), transparent 28%),
+    linear-gradient(160deg, var(--bg-0), var(--bg-1) 54%, #101510);
 }
 
 body::before {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 52px 52px;
-  opacity: 0.12;
+  background:
+    linear-gradient(180deg, rgba(5, 6, 5, 0.16), rgba(5, 6, 5, 0.78)),
+    url("/player/assets/ui/visuals/scum/bg-dark-texture.jpg") center / cover;
+  opacity: 0.24;
+}
+
+body.public-landing::after,
+body.public-showcase::after,
+body.public-trial::after,
+body.public-login::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.44), rgba(0, 0, 0, 0.84)),
+    radial-gradient(circle at 80% 0%, rgba(214, 147, 80, 0.18), transparent 34%);
+}
+
+@keyframes shell-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes visual-drift {
+  from {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: scale(1.06) translate3d(0, -8px, 0);
+  }
 }
 
 a {
   color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 select,
@@ -61,988 +106,1071 @@ select optgroup {
 
 select option,
 select optgroup {
-  background: #121212 !important;
-  color: #f4f1e8 !important;
+  background: #131313 !important;
+  color: #f3f2ea !important;
 }
 
 select option:checked,
 select option:hover,
 select option:focus {
-  background: #2d61a8 !important;
+  background: #816233 !important;
   color: #ffffff !important;
 }
 
-select option:disabled,
-select optgroup {
-  color: #b6b6b6 !important;
+.public-page {
+  position: relative;
 }
 
-button,
-input,
-select {
-  font: inherit;
-}
-
-select {
-  color-scheme: dark;
-}
-
-.public-commandbar {
-  position: sticky;
-  top: 12px;
-  z-index: 20;
-  width: min(1440px, calc(100% - 28px));
+.site-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1360px, calc(100% - 32px));
   margin: 0 auto;
-  padding-top: 12px;
+  padding: 20px 0 44px;
+  display: grid;
+  gap: 24px;
 }
 
-.public-commandbar-inner {
+.site-panel,
+.site-card,
+.site-step,
+.signin-shell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    var(--surface);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.site-topbar {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-areas: "brand nav tools";
   gap: 18px;
+  align-items: center;
+  min-height: 74px;
   padding: 14px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-    linear-gradient(180deg, rgba(18, 24, 18, 0.96), rgba(9, 12, 9, 0.95));
-  box-shadow: var(--shadow);
+    linear-gradient(180deg, rgba(8, 10, 8, 0.74), rgba(8, 10, 8, 0.9)),
+    rgba(8, 10, 8, 0.84);
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(10px);
+  animation: shell-fade-up 0.52s ease both;
 }
 
-.public-brand-mark {
+.site-brand {
+  grid-area: brand;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
   text-decoration: none;
 }
 
-.public-emblem {
-  min-width: 54px;
-  min-height: 54px;
+.site-brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  border: 1px solid rgba(214, 221, 154, 0.18);
-  background: linear-gradient(180deg, rgba(98, 107, 55, 0.42), rgba(27, 33, 22, 0.92));
-  color: var(--text);
+  border: 1px solid rgba(238, 208, 147, 0.22);
+  background:
+    linear-gradient(180deg, rgba(175, 126, 69, 0.28), rgba(43, 37, 22, 0.88)),
+    rgba(20, 16, 11, 0.8);
+  color: #fff7de;
   font-family: "Barlow Condensed", sans-serif;
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
-.public-brand-copy {
+.site-brand-copy {
+  min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.public-brand-copy strong {
-  color: var(--text);
+.site-brand-copy strong {
+  font-family: "Barlow Condensed", sans-serif;
   font-size: 18px;
+  line-height: 0.96;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.public-brand-copy span {
-  color: rgba(233, 238, 208, 0.62);
-  font-size: 12px;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+.site-brand-copy span {
+  color: rgba(244, 242, 232, 0.68);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  max-width: 44ch;
 }
 
-.public-role-nav {
+.site-nav {
+  grid-area: nav;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
-.public-role-chip {
+.site-nav a {
+  min-height: 40px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(244, 242, 232, 0.78);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(240, 243, 222, 0.76);
+  text-decoration: none;
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.site-nav a.is-active,
+.site-nav a:hover {
+  border-color: rgba(236, 209, 141, 0.22);
+  background: rgba(236, 209, 141, 0.08);
+  color: #fff6dc;
+}
+
+.site-tools,
+.button-row,
+.section-actions,
+.signin-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-tools {
+  grid-area: tools;
+  justify-self: end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.language-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 152px;
+}
+
+.language-picker span {
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 232, 0.68);
+}
+
+.site-topbar .language-picker {
+  min-width: 138px;
+  width: 138px;
+}
+
+.site-topbar .language-picker span {
+  display: none;
+}
+
+.language-select,
+.site-input,
+.site-select {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  padding: 0 14px;
+}
+
+.button,
+.button-secondary,
+.button-link {
+  appearance: none;
+  border-radius: 14px;
+  min-height: 46px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   text-decoration: none;
+  font-weight: 700;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.button {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.button:hover,
+.button-secondary:hover,
+.button-link:hover {
+  transform: translateY(-1px);
+}
+
+.site-topbar .button,
+.site-topbar .button-secondary,
+.site-topbar .button-link,
+.site-topbar .language-select {
+  min-height: 40px;
+}
+
+.site-topbar .button,
+.site-topbar .button-secondary {
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.button.button-primary,
+.button-primary {
+  border: 1px solid rgba(236, 209, 141, 0.22);
+  background: linear-gradient(180deg, rgba(212, 180, 104, 0.94), rgba(163, 121, 61, 0.94));
+  color: #17140f;
+}
+
+.button-secondary {
+  border: 1px solid rgba(236, 209, 141, 0.16);
+  background: rgba(236, 209, 141, 0.06);
+  color: #f8f3df;
+}
+
+.button-link {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.site-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.site-hero-landing {
+  align-items: stretch;
+}
+
+.site-hero-copy,
+.site-hero-media,
+.signin-panel,
+.signin-visual {
+  min-width: 0;
+}
+
+.site-hero-copy {
+  padding: 34px;
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(180deg, rgba(8, 10, 8, 0.82), rgba(8, 10, 8, 0.92)),
+    rgba(10, 12, 10, 0.88);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+  animation: shell-fade-up 0.58s ease both;
+}
+
+.site-kicker,
+.site-badge {
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(236, 209, 141, 0.18);
+  background: rgba(236, 209, 141, 0.06);
+  color: #f3dc9f;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
-.public-role-chip.active {
-  border-color: rgba(216, 226, 136, 0.28);
-  background: linear-gradient(180deg, rgba(110, 124, 62, 0.44), rgba(29, 34, 24, 0.92));
-  color: #fbfcf0;
+.site-hero-copy h1,
+.site-hero-copy h2,
+.site-section h2,
+.signin-panel h1,
+.signin-panel h2,
+.signin-panel h3 {
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  text-transform: uppercase;
+  line-height: 0.9;
+  letter-spacing: 0.03em;
 }
 
-.public-shell {
+.site-hero-copy h1,
+.site-hero-copy h2 {
+  font-size: clamp(42px, 5.2vw, 74px);
+  max-width: 8ch;
+}
+
+.site-hero-copy p,
+.site-copy,
+.muted {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.site-hero-media {
   position: relative;
-  z-index: 1;
-  width: min(1440px, calc(100% - 28px));
-  margin: 0 auto;
-  padding: 12px 0 36px;
-  display: grid;
-  gap: 16px;
-}
-
-.public-panel,
-.public-header,
-.public-nav,
-.public-card,
-.metric-card,
-.surface-card,
-.step-card {
+  overflow: hidden;
+  min-height: 620px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
-    var(--panel);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  animation: shell-fade-up 0.68s ease both;
 }
 
-.public-header {
-  padding: 22px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  background:
-    linear-gradient(180deg, rgba(10, 12, 9, 0.88), rgba(10, 12, 9, 0.92)),
-    url("/player/assets/ui/visuals/tunnel/tunnel_512.jpg") center/cover;
+.site-hero-media img,
+.signin-visual img,
+.promo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: visual-drift 14s ease-in-out infinite alternate;
 }
 
-.public-brand {
+.site-hero-media::after,
+.signin-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.62)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.28));
+}
+
+.site-overlay-card {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1;
   display: grid;
-  gap: 6px;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(7, 8, 7, 0.68), rgba(7, 8, 7, 0.84));
+  backdrop-filter: blur(12px);
 }
 
-.public-brand h1,
-.public-hero h2,
-.section-title,
-.signin-side h2,
-.signin-form h3 {
+.site-overlay-card h3,
+.site-panel h2,
+.site-panel h3,
+.promo-card h3 {
   margin: 0;
   font-family: "Barlow Condensed", sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
-.public-brand h1 {
-  font-size: clamp(34px, 4vw, 46px);
-  line-height: 0.95;
-}
-
-.public-brand p,
-.muted {
-  margin: 0;
+.site-overlay-card p,
+.site-panel p,
+.site-panel li,
+.promo-card p {
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-.public-badge,
-.pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  width: fit-content;
-  padding: 0 12px;
-  border-radius: 999px;
+.site-summary-grid,
+.metric-grid,
+.site-feature-grid,
+.site-step-grid,
+.site-check-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.site-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.site-summary-card,
+.metric-card,
+.promo-card,
+.site-card,
+.site-step {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(17, 22, 18, 0.86);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 
-.public-badge {
-  color: var(--accent);
-  font-family: "JetBrains Mono", monospace;
-  letter-spacing: 0.08em;
+.site-summary-card {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.site-summary-card strong,
+.metric-value {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 0.9;
+  letter-spacing: 0.03em;
+}
+
+.site-panel {
+  padding: 26px;
+  animation: shell-fade-up 0.62s ease both;
+}
+
+.site-grid.two-col > *,
+.surface-strip > *,
+.site-feature-grid > *,
+.site-steps > * {
+  animation: shell-fade-up 0.48s ease both;
+}
+
+.site-grid.two-col > *:nth-child(2),
+.surface-strip > *:nth-child(2),
+.site-feature-grid > *:nth-child(2),
+.site-steps > *:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.site-grid.two-col > *:nth-child(3),
+.surface-strip > *:nth-child(3),
+.site-feature-grid > *:nth-child(3),
+.site-steps > *:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.site-grid.two-col > *:nth-child(4),
+.surface-strip > *:nth-child(4),
+.site-feature-grid > *:nth-child(4),
+.site-steps > *:nth-child(4) {
+  animation-delay: 0.18s;
+}
+
+.site-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.site-grid.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.site-feature-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.site-card {
+  display: grid;
+  grid-template-rows: 200px auto;
+  animation: shell-fade-up 0.72s ease both;
+}
+
+.promo-card {
+  position: relative;
+  min-height: 220px;
+}
+
+.promo-card .card-copy,
+.site-step,
+.metric-card {
+  padding: 16px;
+  animation: shell-fade-up 0.78s ease both;
+}
+
+.site-step-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.site-step strong,
+.metric-card strong,
+.site-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.surface-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.surface-lane {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 16px 16px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+}
+
+.surface-lane:last-child {
+  border-right: 0;
+}
+
+.surface-lane strong {
+  display: block;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 28px;
+  line-height: 0.94;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
-.button,
-button,
-a.button {
-  appearance: none;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  min-height: 44px;
-  padding: 0 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-}
-
-.button:hover,
-button:hover,
-a.button:hover {
-  transform: translateY(-1px);
-  border-color: var(--line-strong);
-}
-
-.button-primary {
-  background: linear-gradient(135deg, rgba(190, 198, 111, 0.96), rgba(229, 234, 176, 0.88));
-  color: #10150d;
-  border-color: transparent;
-  font-weight: 700;
-}
-
-select:not([multiple]) {
-  -webkit-appearance: none;
-  appearance: none;
-  padding-right: 42px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10' fill='none'%3E%3Cpath d='M2 2.25L7 7.25L12 2.25' stroke='%23d5dc93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 14px 10px;
-}
-
-select option,
-select optgroup {
-  color: var(--text);
-  background: #121812;
-}
-
-select option:disabled,
-select optgroup {
+.surface-lane p {
+  margin: 0;
   color: var(--muted);
+  line-height: 1.62;
 }
 
-.public-actions,
-.button-row,
-.tag-row,
-.links {
-  display: flex;
-  flex-wrap: wrap;
+.metric-card span,
+.site-step .site-kicker,
+.site-card .site-kicker {
+  margin-bottom: 10px;
+}
+
+.site-check-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.site-checklist {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
   gap: 10px;
-  align-items: center;
+}
+
+.signin-shell {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
+  overflow: hidden;
+  min-height: 620px;
+  animation: shell-fade-up 0.58s ease both;
+}
+
+.signin-panel {
+  padding: 34px 36px;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  background:
+    linear-gradient(180deg, rgba(6, 8, 6, 0.9), rgba(10, 12, 10, 0.97)),
+    rgba(10, 12, 10, 0.96);
+}
+
+.signin-panel h1,
+.signin-panel h2,
+.signin-panel h3 {
+  font-size: clamp(46px, 5.8vw, 68px);
+  max-width: 5.2ch;
+}
+
+.signin-panel .muted {
+  max-width: 34ch;
 }
 
 .signin-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
 }
 
-.language-picker {
+.signin-toolbar .language-picker span {
+  display: none;
+}
+
+.signin-visual {
+  position: relative;
+  min-height: 620px;
+}
+
+.signin-visual-copy {
+  position: absolute;
+  inset: auto 26px 26px 26px;
+  z-index: 1;
   display: grid;
-  gap: 6px;
-  min-width: 170px;
+  gap: 12px;
 }
 
-.language-picker span {
+.signin-visual-copy h2 {
+  font-size: clamp(44px, 6vw, 76px);
+  max-width: 7ch;
+}
+
+.signin-note {
+  width: min(100%, 320px);
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(6, 7, 6, 0.4);
+  backdrop-filter: blur(12px);
+}
+
+.signin-links {
+  margin-top: 2px;
+}
+
+.signin-admin-link {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  user-select: none;
-  -webkit-user-select: none;
+  font-size: 14px;
+  text-decoration: none;
 }
 
-.language-select {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0 12px;
+.signin-admin-link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.public-hero {
-  padding: 24px;
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
-  background:
-    linear-gradient(90deg, rgba(8, 10, 8, 0.64), rgba(8, 10, 8, 0.88)),
-    url("/player/assets/ui/visuals/scum/scum_512.jpg") center/cover;
-}
-
-.public-hero h2 {
-  font-size: clamp(44px, 6vw, 82px);
-  line-height: 0.92;
-}
-
-.public-hero p {
-  max-width: 72ch;
-}
-
-.hero-side,
-.public-grid,
-.card-grid,
-.step-grid,
-.metric-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.hero-side {
-  align-content: start;
-}
-
-.metric-grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.metric-card,
-.surface-card,
-.step-card,
-.public-card {
-  padding: 18px;
-  display: grid;
-  gap: 10px;
-}
-
-.metric-card strong,
-.surface-card h3,
-.step-card h3 {
-  margin: 0;
-}
-
-.metric-value {
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 42px;
-  line-height: 0.92;
-}
-
-.eyebrow {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.public-grid.two-col {
-  grid-template-columns: 1.1fr 0.9fr;
-}
-
-.card-grid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.step-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.section {
-  padding: 20px;
-}
-
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.section-title {
-  font-size: 32px;
-}
-
-.surface-card ul,
-.step-card ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.signin-layout {
-  min-height: calc(100vh - 54px);
-  display: grid;
-  place-items: center;
-}
-
-.signin-card {
-  width: min(1120px, 100%);
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 0;
-}
-
-.signin-card > * {
-  padding: 24px;
-}
-
-.signin-side {
-  border-right: 1px solid var(--line);
-  display: grid;
-  gap: 12px;
-  background:
-    linear-gradient(180deg, rgba(9, 11, 9, 0.54), rgba(9, 11, 9, 0.86)),
-    url("/player/assets/ui/visuals/survivor_announce/survivor_announce_512.jpg") center/cover;
-}
-
-.signin-side h2 {
-  font-size: clamp(42px, 6vw, 64px);
-  line-height: 0.92;
-}
-
-.signin-form {
-  display: grid;
-  gap: 14px;
-  align-content: center;
-}
-
-.signin-form h3 {
-  font-size: 40px;
-  line-height: 0.92;
-}
-
-.hint-list {
-  display: grid;
-  gap: 8px;
-}
-
-.hint-card {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .error {
-  min-height: 22px;
-  color: var(--danger);
-  font-weight: 700;
+  min-height: 20px;
+  color: #f0b0a0;
+  font-size: 14px;
 }
 
-.pill-success {
-  color: #13200c;
-  background: rgba(144, 194, 123, 0.96);
+.public-login .site-topbar {
+  grid-template-areas: "brand tools";
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 
-.pill-warning {
-  color: #2c1c08;
-  background: rgba(210, 164, 99, 0.96);
+.public-login .site-brand-copy strong {
+  font-size: 20px;
 }
 
-.pill-danger {
-  color: #32110a;
-  background: rgba(204, 119, 96, 0.96);
+.public-login .site-brand-copy span {
+  max-width: 38ch;
 }
 
-.pill-info {
-  color: #1b2411;
-  background: rgba(167, 190, 132, 0.96);
+.public-login .site-nav {
+  display: none;
 }
 
-.pill-neutral {
-  color: var(--text);
-}
-
-.flow-list {
-  display: grid;
-  gap: 10px;
-}
-
-.flow-step {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  display: grid;
-  gap: 6px;
-}
-
-.empty-state {
-  min-height: 110px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-@media (max-width: 980px) {
-  .public-commandbar {
-    position: static;
-  }
-
-  .public-commandbar-inner,
-  .public-hero,
-  .public-grid.two-col,
-  .signin-card {
-    grid-template-columns: 1fr;
-  }
-
-  .public-role-nav {
-    justify-content: flex-start;
-  }
-
-  .signin-side {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-}
-
-@media (max-width: 720px) {
-  .public-commandbar,
-  .public-shell {
-    width: min(100%, calc(100% - 14px));
-  }
-
-  .public-commandbar-inner,
-  .public-header,
-  .public-hero,
-  .section,
-  .signin-card > * {
-    padding: 16px;
-  }
-
-  .public-brand h1 {
-    font-size: 28px;
-  }
-
-  .section-title {
-    font-size: 28px;
-  }
-}
-
-/* Cinematic public portal pass:
-   reshape the public and sign-in surfaces around a flatter black navigation bar,
-   full-stage hero imagery, and a more game-like split login card. */
-body.public-page {
-  background:
-    linear-gradient(180deg, rgba(4, 4, 4, 0.66), rgba(4, 4, 4, 0.92)),
-    url("/player/assets/ui/visuals/tunnel/tunnel_512.jpg") center top / cover fixed;
-}
-
-body.public-page::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(235, 173, 92, 0.16), transparent 24%),
-    radial-gradient(circle at 100% 100%, rgba(126, 137, 74, 0.14), transparent 28%);
-  opacity: 0.92;
-}
-
-.public-commandbar {
-  position: sticky;
-  top: 0;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.public-commandbar-inner {
-  width: min(1600px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 14px 24px;
-  border-radius: 0 0 20px 20px;
-  border-top: 0;
-  border-color: rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(6, 6, 6, 0.96), rgba(12, 12, 12, 0.94));
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(8px);
-}
-
-.public-brand-mark {
-  gap: 14px;
-}
-
-.public-emblem {
-  min-width: 46px;
-  min-height: 46px;
-  border-radius: 999px;
-  border-color: rgba(255, 255, 255, 0.14);
-  background:
-    radial-gradient(circle at 30% 30%, rgba(229, 67, 38, 0.96), rgba(98, 15, 12, 0.98));
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
-  font-size: 17px;
-  letter-spacing: 0.08em;
-}
-
-.public-brand-copy strong {
-  font-size: 17px;
-}
-
-.public-brand-copy span {
-  color: rgba(255, 255, 255, 0.56);
-}
-
-.public-role-chip {
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border-color: transparent;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.86);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
-.public-role-chip.active,
-.public-role-chip:hover {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fffdf4;
-}
-
-.public-shell {
-  width: min(1600px, calc(100% - 32px));
-  padding: 18px 0 48px;
-  gap: 24px;
-}
-
-.public-header {
-  min-height: 84px;
-  padding: 18px 24px;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(8, 8, 8, 0.74), rgba(10, 10, 10, 0.9));
-}
-
-body.public-landing .public-header,
-body.public-showcase .public-header,
-body.public-trial .public-header {
-  min-height: 92px;
-}
-
-.public-hero {
-  min-height: 72vh;
-  align-items: end;
-  padding: 42px;
-  border-radius: 28px;
-  border-color: rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.78)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0.22)),
-    url("/player/assets/ui/visuals/scum/scum_512.jpg") center / cover;
-}
-
-body.public-showcase .public-hero,
-body.public-trial .public-hero {
-  min-height: auto;
-}
-
-.public-hero > div:first-child {
-  max-width: 760px;
-  padding: 28px 30px;
-  border-radius: 24px;
-  background: rgba(8, 8, 8, 0.56);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
-}
-
-.public-hero h2 {
-  font-size: clamp(58px, 8vw, 106px);
-}
-
-.public-hero p {
-  color: rgba(245, 246, 232, 0.82);
-}
-
-.hero-side {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-self: end;
-}
-
-.hero-side .surface-card {
-  min-height: 170px;
-  align-content: end;
-  background:
-    linear-gradient(180deg, rgba(12, 12, 12, 0.44), rgba(10, 10, 10, 0.9));
-}
-
-body.public-login .public-shell {
-  min-height: calc(100vh - 92px);
-  display: grid;
-  place-items: center;
-}
-
-body.public-login .signin-layout {
-  min-height: auto;
-}
-
-body.public-login .signin-card {
-  width: min(1040px, 100%);
-  border-radius: 28px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(6, 6, 6, 0.82), rgba(12, 12, 12, 0.9));
-  box-shadow: 0 32px 72px rgba(0, 0, 0, 0.46);
-}
-
-body.public-login .signin-card > * {
-  padding: 34px 34px;
-}
-
-body.public-login .signin-side {
-  order: 2;
-  min-height: 560px;
-  border-right: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  align-content: end;
-  background:
-    linear-gradient(180deg, rgba(30, 24, 10, 0.28), rgba(10, 10, 10, 0.54)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.48)),
-    url("/player/assets/ui/visuals/survivor_announce/survivor_announce_512.jpg") center / cover;
-}
-
-body.public-login .signin-side h2 {
-  font-size: clamp(46px, 6vw, 74px);
-}
-
-body.public-login .signin-form {
-  order: 1;
-  align-content: center;
-  background:
-    linear-gradient(180deg, rgba(14, 14, 14, 0.88), rgba(20, 20, 20, 0.82));
-}
-
-body.public-login .signin-form h3 {
-  font-size: 52px;
-}
-
-body.public-login .signin-form .button-primary {
-  min-height: 52px;
-}
-
-body.public-login .links .button {
-  min-height: 42px;
-}
-
-.public-panel,
-.public-card,
-.surface-card,
-.metric-card,
-.step-card {
-  border-color: rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(12, 12, 12, 0.78), rgba(10, 10, 10, 0.92));
-}
-
-.button-primary {
-  background: linear-gradient(135deg, #d1b06a, #efe0a7);
-  color: #111;
-}
-
-.button,
-button,
-a.button,
-.language-select {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-@media (max-width: 1100px) {
-  .public-hero {
-    min-height: 58vh;
-    padding: 28px;
-  }
-
-  .hero-side {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 980px) {
-  .public-commandbar-inner,
-  .public-hero,
-  .public-grid.two-col,
-  body.public-login .signin-card {
-    grid-template-columns: 1fr;
-  }
-
-  body.public-login .signin-side {
-    order: 2;
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    min-height: 360px;
-  }
-}
-
-@media (max-width: 720px) {
-  .public-commandbar-inner,
-  .public-header,
-  .public-hero,
-  .section,
-  body.public-login .signin-card > * {
-    padding: 16px;
-  }
-
-  .public-role-chip {
-    font-size: 15px;
-  }
-
-  .public-hero h2,
-  body.public-login .signin-form h3 {
-    font-size: 34px;
-  }
-
-  .public-shell {
-    width: min(100%, calc(100% - 12px));
-  }
-}
-
-body.public-login .signin-card {
-  width: min(940px, calc(100% - 18px));
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
-  min-height: 660px;
-}
-
-body.public-login .signin-card > * {
-  padding: 38px 34px;
-}
-
-body.public-login .signin-form {
-  gap: 16px;
-  align-content: center;
-  padding-right: 28px;
-  grid-auto-rows: min-content;
-}
-
-body.public-login .signin-form h3 {
-  font-size: clamp(30px, 3.8vw, 52px);
-  line-height: 0.94;
-  max-width: 6ch;
-}
-
-body.public-login .signin-form > .muted {
-  max-width: 30ch;
-  font-size: 15px;
-  line-height: 1.55;
-}
-
-body.public-login .signin-form .button-primary {
-  width: 100%;
-  min-height: 56px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #140f09;
-  border-color: rgba(233, 204, 125, 0.3);
-  background:
-    linear-gradient(180deg, rgba(244, 209, 122, 0.98), rgba(204, 162, 83, 0.96));
-  box-shadow: 0 10px 26px rgba(174, 122, 42, 0.18);
-}
-
-body.public-login .signin-toolbar {
-  justify-content: flex-end;
-  margin-bottom: 2px;
-}
-
-body.public-login .language-picker {
-  min-width: 138px;
+.public-login .site-tools {
+  width: auto;
   justify-self: end;
 }
 
-body.public-login .language-picker span {
+.public-login .signin-shell {
+  grid-template-columns: minmax(360px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.public-login .signin-panel h3 {
+  font-size: clamp(44px, 4.8vw, 62px);
+  max-width: 4.6ch;
+}
+
+.public-login .signin-panel .muted {
+  max-width: 30ch;
+}
+
+.public-login .signin-visual-copy {
+  gap: 10px;
+}
+
+.public-login .signin-visual-copy h2 {
   display: none;
 }
 
-body.public-login .signin-side {
-  min-height: 660px;
-  align-content: space-between;
+.public-login .signin-note {
+  width: min(100%, 320px);
+}
+
+.public-login .site-tools {
   gap: 12px;
-  padding: 28px 28px;
-  background:
-    linear-gradient(180deg, rgba(13, 11, 7, 0.04), rgba(7, 7, 7, 0.34)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.2)),
-    url("/player/assets/ui/visuals/survivor_announce/survivor_announce_512.jpg") center / cover;
 }
 
-body.public-login .signin-side .public-badge {
-  align-self: start;
+.public-login .language-picker {
+  min-width: 176px;
 }
 
-body.public-login .signin-poster-note {
-  display: grid;
-  gap: 6px;
-  margin-top: auto;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  background: rgba(10, 10, 10, 0.36);
-  backdrop-filter: blur(6px);
+.public-login .signin-admin-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
 }
 
-body.public-login .signin-poster-note strong {
-  color: #f4efcb;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+@media (max-width: 1180px) {
+  .site-topbar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "nav"
+      "tools";
+    justify-items: stretch;
+  }
 
-body.public-login .signin-poster-note p {
-  max-width: none;
-  color: rgba(238, 239, 228, 0.78);
-}
+  .site-nav {
+    justify-content: flex-start;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
 
-body.public-login .signin-side h2,
-body.public-login .signin-side > p,
-body.public-login .signin-side .hint-list,
-body.public-login .signin-side .hint-card {
-  display: none;
-}
+  .site-tools {
+    width: 100%;
+    justify-self: stretch;
+    justify-content: flex-start;
+  }
 
-body.public-login .signin-links {
-  margin-top: 8px;
-}
+  .public-login .site-topbar {
+    grid-template-areas:
+      "brand"
+      "tools";
+  }
 
-body.public-login .signin-admin-link {
-  color: rgba(236, 238, 227, 0.74);
-  font-size: 14px;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  padding-bottom: 2px;
-}
+  .public-login .site-tools {
+    width: 100%;
+    justify-self: stretch;
+  }
 
-body.public-login .signin-admin-link:hover {
-  color: #fff8da;
-  border-bottom-color: rgba(244, 209, 122, 0.62);
-}
-
-body.public-login #errorText:empty {
-  display: none;
-}
-
-@media (max-width: 980px) {
-  body.public-login .signin-card {
-    width: min(100%, calc(100% - 16px));
-    min-height: auto;
+  .site-hero,
+  .signin-shell,
+  .site-grid.two-col {
     grid-template-columns: 1fr;
   }
 
-  body.public-login .signin-form,
-  body.public-login .signin-side {
-    padding: 28px 24px;
+  .surface-strip,
+  .site-feature-grid,
+  .site-step-grid,
+  .metric-grid,
+  .site-check-grid,
+  .site-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  body.public-login .signin-side {
-    min-height: 360px;
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  .signin-visual {
+    min-height: 420px;
+    order: -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-shell {
+    width: min(100%, calc(100% - 20px));
+    padding: 12px 0 24px;
+  }
+
+  .site-topbar,
+  .site-panel,
+  .signin-panel,
+  .site-hero-copy {
+    padding: 18px;
+  }
+
+  .surface-strip,
+  .site-feature-grid,
+  .site-step-grid,
+  .metric-grid,
+  .site-check-grid,
+  .site-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .site-hero-copy h1,
+  .site-hero-copy h2,
+  .signin-panel h1,
+  .signin-panel h2,
+  .signin-panel h3,
+  .signin-visual-copy h2 {
+    font-size: clamp(40px, 18vw, 58px);
+    max-width: none;
+  }
+
+  .site-hero-copy,
+  .signin-panel {
+    padding: 22px;
+  }
+
+  .site-hero-media,
+  .signin-visual {
+    min-height: 320px;
+  }
+
+  .button,
+  .button-secondary,
+  .button-link {
+    width: 100%;
+  }
+
+  .site-tools,
+  .button-row,
+  .section-actions,
+  .signin-links {
+    width: 100%;
+  }
+
+  .language-picker {
+    width: 100%;
+  }
+
+  .site-topbar .language-picker {
+    width: 100%;
+  }
+
+  .site-nav {
+    padding-top: 8px;
+  }
+
+  .public-login .signin-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 20260323 shell rebuild override */
+.public-page .site-shell {
+  width: min(1440px, calc(100% - 32px));
+  padding: 24px 0 52px;
+  gap: 28px;
+}
+
+.public-page .site-topbar {
+  min-height: 72px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  gap: 14px;
+}
+
+.public-page .site-brand-copy strong {
+  font-size: 1.15rem;
+}
+
+.public-page .site-brand-copy span {
+  font-size: 0.72rem;
+  max-width: 48ch;
+}
+
+.public-page .site-nav {
+  gap: 8px;
+}
+
+.public-page .site-nav a {
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.public-page .site-topbar .language-picker {
+  width: 132px;
+  min-width: 132px;
+}
+
+.public-page .site-topbar .language-picker span {
+  display: none;
+}
+
+.public-page .site-hero,
+.public-page .signin-shell {
+  overflow: hidden;
+  border-radius: 30px;
+}
+
+.public-page .site-hero {
+  min-height: 600px;
+  align-items: stretch;
+}
+
+.public-page .site-hero-copy,
+.public-page .site-hero-media,
+.public-page .signin-panel,
+.public-page .signin-visual {
+  min-height: 100%;
+}
+
+.public-page .site-hero-copy {
+  padding: 40px;
+  justify-content: end;
+}
+
+.public-page .site-hero-copy h1,
+.public-page .site-hero-copy h2 {
+  max-width: 11ch;
+  font-size: clamp(3rem, 5.4vw, 5.7rem);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.public-page .site-hero-copy p {
+  max-width: 44ch;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.public-page .site-hero-media img,
+.public-page .signin-visual img {
+  animation: visual-drift 14s ease-in-out infinite alternate;
+}
+
+.public-page .surface-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.public-page .surface-lane,
+.public-page .site-card,
+.public-page .site-step,
+.public-page .metric-card {
+  border-radius: 18px;
+}
+
+.public-page .site-panel {
+  padding: 22px;
+  border-radius: 26px;
+}
+
+.public-page .metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.public-page .site-grid.two-col {
+  gap: 18px;
+}
+
+.public-page .site-feature-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.public-page .site-step-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.public-login .site-topbar {
+  grid-template-columns: auto auto;
+  grid-template-areas: "brand tools";
+}
+
+.public-login .signin-shell {
+  grid-template-columns: minmax(0, 0.88fr) minmax(380px, 0.92fr);
+  min-height: 620px;
+}
+
+.public-login .signin-panel {
+  padding: 42px 36px;
+  justify-content: center;
+  gap: 16px;
+}
+
+.public-login .signin-panel h3 {
+  max-width: 8ch;
+  font-size: clamp(2.7rem, 4.8vw, 4.8rem);
+  line-height: 0.92;
+}
+
+.public-login .signin-panel .muted {
+  max-width: 30ch;
+  line-height: 1.8;
+}
+
+.public-login .signin-visual {
+  min-height: 620px;
+}
+
+.public-login .signin-visual-copy {
+  padding: 28px;
+  justify-content: end;
+}
+
+.public-login .signin-links {
+  margin-top: 2px;
+}
+
+.public-login .signin-admin-link {
+  color: rgba(244, 242, 232, 0.72);
+  font-size: 0.94rem;
+}
+
+@media (max-width: 1100px) {
+  .public-page .site-topbar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "nav"
+      "tools";
+  }
+
+  .public-page .site-tools {
+    justify-self: start;
+    justify-content: flex-start;
+  }
+
+  .public-page .metric-grid,
+  .public-page .site-feature-grid,
+  .public-page .site-step-grid,
+  .public-page .surface-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .public-page .site-shell {
+    width: min(100%, calc(100% - 18px));
+    gap: 18px;
+  }
+
+  .public-page .site-hero-copy,
+  .public-page .signin-panel {
+    padding: 22px;
+  }
+
+  .public-page .site-hero-copy h1,
+  .public-page .site-hero-copy h2,
+  .public-login .signin-panel h3 {
+    max-width: none;
+    font-size: clamp(2.3rem, 12vw, 4rem);
+  }
+
+  .public-page .metric-grid,
+  .public-page .site-feature-grid,
+  .public-page .site-step-grid,
+  .public-page .surface-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .public-login .signin-shell {
+    grid-template-columns: 1fr;
+    min-height: 0;
   }
 }

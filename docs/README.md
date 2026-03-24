@@ -21,6 +21,7 @@ Use this index to find the right document set by audience instead of scanning th
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [RUNTIME_BOUNDARY_EXPLAINER.md](./RUNTIME_BOUNDARY_EXPLAINER.md)
+- [../apps/web-portal-standalone/README.md](../apps/web-portal-standalone/README.md)
 - [assets/README.md](./assets/README.md)
 - [RUNTIME_TOPOLOGY.md](./RUNTIME_TOPOLOGY.md)
 - [WORKLIST.md](./WORKLIST.md)
@@ -43,6 +44,13 @@ Use this index to find the right document set by audience instead of scanning th
 - [ADMIN_SSO_ROLE_MAPPING_TH.md](./ADMIN_SSO_ROLE_MAPPING_TH.md)
 - [SPLIT_ORIGIN_AND_2FA_GUIDE.md](./SPLIT_ORIGIN_AND_2FA_GUIDE.md)
 - [SHOWCASE_TH.md](./SHOWCASE_TH.md)
+
+## Current Primary Routes
+
+- `/owner` and `/owner/login` for platform owner operations
+- `/tenant` and `/tenant/login` for tenant-scoped admin work
+- `/player` and `/player/login` for player-facing portal flows
+- `/admin/legacy` is retained for compatibility only and should not be the first operator path
 
 ## Product / Release Docs
 

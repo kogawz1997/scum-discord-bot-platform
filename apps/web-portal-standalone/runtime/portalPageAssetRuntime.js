@@ -50,13 +50,8 @@ function createPortalPageAssetRuntime(options = {}) {
   const resolvedPublicAssetsDirPath = publicAssetsDirPath || path.join(path.dirname(playerHtmlPath), 'assets');
   const resolvedVisualAssetsDirPath = visualAssetsDirPath
     || path.resolve(
-      process.cwd(),
-      '_compare',
-      'WirecutterClientAPP_20260306_181425',
-      'data',
-      'flutter_assets',
-      'assets',
-      'images',
+      resolvedPublicAssetsDirPath,
+      'visuals',
     );
 
   let cachedLoginHtml = null;

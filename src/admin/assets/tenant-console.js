@@ -7,6 +7,7 @@
     escapeHtml,
     formatDateTime,
     formatNumber,
+    localizeAdminNotification,
     makePill,
     renderList,
     renderStats,
@@ -298,16 +299,19 @@
   function buildTenantIncidentRows() {
     const reconcileGeneratedAt = state.reconcile?.generatedAt || new Date().toISOString();
     const rows = [
-      ...getTenantScopedNotifications().map((item) => ({
-        id: item.id || null,
-        source: 'notification',
-        kind: item.kind || item.type || 'notification',
-        severity: normalizeIncidentSeverity(item.severity),
-        title: item.title || item.detail || item.message || t('tenant.incident.notification', 'Tenant notification'),
-        detail: item.detail || item.message || '',
-        code: item.entityKey || item.id || '-',
-        at: item.createdAt || item.at || reconcileGeneratedAt,
-      })),
+      ...getTenantScopedNotifications().map((item) => {
+        const localized = localizeAdminNotification(item);
+        return {
+          id: item.id || null,
+          source: 'notification',
+          kind: item.kind || item.type || 'notification',
+          severity: normalizeIncidentSeverity(item.severity),
+          title: localized.title || t('tenant.incident.notification', 'Tenant notification'),
+          detail: localized.detail || '',
+          code: item.entityKey || item.id || '-',
+          at: item.createdAt || item.at || reconcileGeneratedAt,
+        };
+      }),
       ...(Array.isArray(state.reconcile?.anomalies) ? state.reconcile.anomalies : []).map((item) => ({
         id: null,
         source: 'reconcile',
@@ -467,7 +471,7 @@
   function renderResultPanel(container, result, emptyText) {
     if (!container) return;
     if (!result) {
-      container.innerHTML = `<div class="empty-state">${escapeHtml(emptyText || 'No result yet.')}</div>`;
+      container.innerHTML = `<div class="empty-state">${escapeHtml(emptyText || t('tenant.result.empty', 'No result yet.'))}</div>`;
       return;
     }
     const rows = Array.isArray(result.rows) ? result.rows : [];
@@ -484,7 +488,7 @@
             `<div class="${row.code ? 'code muted' : 'muted'}">${escapeHtml(row.value || '-')}</div>`,
             '</article>',
           ].join(''))
-        : ['<div class="empty-state">No result details.</div>']),
+        : [`<div class="empty-state">${escapeHtml(t('tenant.result.detailsEmpty', 'No result details.'))}</div>`]),
     ].join('');
   }
 
@@ -806,26 +810,29 @@
       findingRows,
       (item) => [
         `<article class="timeline-item ${escapeHtml(item.tone || 'info')}">`,
-        `<div class="feed-meta">${makePill(item.title || 'finding')} <span class="code">${escapeHtml(formatDateTime(item.at))}</span></div>`,
-        `<strong>${escapeHtml(item.title || 'Finding')}</strong>`,
+        `<div class="feed-meta">${makePill(item.title || t('tenant.insights.findingTag', 'finding'))} <span class="code">${escapeHtml(formatDateTime(item.at))}</span></div>`,
+        `<strong>${escapeHtml(item.title || t('tenant.insights.findingTitle', 'Finding'))}</strong>`,
         item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : '',
         '</article>',
       ].join(''),
-      'No reconcile anomalies or abuse signals for this tenant right now.'
+      t('tenant.insights.empty', 'No reconcile anomalies or abuse signals for this tenant right now.')
     );
 
     document.getElementById('tenantInsightCards').innerHTML = [
       {
-        title: 'Queue Health',
-        text: `Queue jobs: ${formatNumber(summary.queueJobs, '0')}. Dead letters: ${formatNumber(summary.deadLetters, '0')}. Use Delivery Recovery for direct intervention.`,
+        title: t('tenant.insights.queueHealthTitle', 'Queue Health'),
+        text: t('tenant.insights.queueHealthText', 'Queue jobs: {queue}. Dead letters: {dead}. Use Delivery Recovery for direct intervention.', {
+          queue: formatNumber(summary.queueJobs, '0'),
+          dead: formatNumber(summary.deadLetters, '0'),
+        }),
       },
       {
-        title: 'Audit Posture',
-        text: `Delivered-without-audit and stuck-without-runtime-state are treated as tenant attention items so operators can react before players escalate.`,
+        title: t('tenant.insights.auditPostureTitle', 'Audit Posture'),
+        text: t('tenant.insights.auditPostureText', 'Delivered-without-audit and stuck-without-runtime-state are treated as tenant attention items so operators can react before players escalate.'),
       },
       {
-        title: 'Quota Context',
-        text: `API key, webhook, and agent-runtime quota posture stays visible on this surface without exposing platform-wide tenancy data.`,
+        title: t('tenant.insights.quotaContextTitle', 'Quota Context'),
+        text: t('tenant.insights.quotaContextText', 'API key, webhook, and agent-runtime quota posture stays visible on this surface without exposing platform-wide tenancy data.'),
       },
     ].map((card) => [
       '<article class="kv-card">',
@@ -1294,25 +1301,25 @@
 
   function renderTables() {
     renderTable(document.getElementById('tenantShopTable'), {
-      emptyText: 'No shop items in this tenant.',
+      emptyText: t('tenant.table.shopEmpty', 'No shop items in this tenant.'),
       columns: [
         {
-          label: 'Item',
+          label: t('tenant.table.item', 'Item'),
           render: (row) => [
             `<strong>${escapeHtml(row.name || row.id || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.id || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Kind',
+          label: t('tenant.table.kind', 'Kind'),
           render: (row) => makePill(row.kind || 'item', row.kind === 'vip' ? 'info' : 'neutral'),
         },
         {
-          label: 'Price',
+          label: t('tenant.table.price', 'Price'),
           render: (row) => formatNumber(row.price, '0'),
         },
         {
-          label: 'Delivery',
+          label: t('tenant.table.delivery', 'Delivery'),
           render: (row) => escapeHtml(row.deliveryProfile || row.gameItemId || '-'),
         },
       ],
@@ -1320,25 +1327,25 @@
     });
 
     renderTable(document.getElementById('tenantQueueTable'), {
-      emptyText: 'Delivery queue is empty.',
+      emptyText: t('tenant.table.queueEmpty', 'Delivery queue is empty.'),
       columns: [
         {
-          label: 'Purchase',
+          label: t('tenant.table.purchase', 'Purchase'),
           render: (row) => [
             `<strong class="code">${escapeHtml(row.purchaseCode || row.code || '-')}</strong>`,
             row.userId ? `<div class="muted">${escapeHtml(row.userId)}</div>` : '',
           ].join(''),
         },
         {
-          label: 'Status',
+          label: t('tenant.table.status', 'Status'),
           render: (row) => makePill(row.status || 'queued'),
         },
         {
-          label: 'Attempts',
+          label: t('tenant.table.attempts', 'Attempts'),
           render: (row) => formatNumber(row.attempts, '0'),
         },
         {
-          label: 'Updated',
+          label: t('tenant.table.updated', 'Updated'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.updatedAt || row.createdAt))}</span>`,
         },
       ],
@@ -1346,22 +1353,22 @@
     });
 
     renderTable(document.getElementById('tenantDeadLetterTable'), {
-      emptyText: 'No dead-letter entries.',
+      emptyText: t('tenant.table.deadLetterEmpty', 'No dead-letter entries.'),
       columns: [
         {
-          label: 'Purchase',
+          label: t('tenant.table.purchase', 'Purchase'),
           render: (row) => `<strong class="code">${escapeHtml(row.purchaseCode || row.code || '-')}</strong>`,
         },
         {
-          label: 'Reason',
+          label: t('tenant.form.reason', 'Reason'),
           render: (row) => escapeHtml(row.reason || row.errorCode || '-'),
         },
         {
-          label: 'Attempts',
+          label: t('tenant.table.attempts', 'Attempts'),
           render: (row) => formatNumber(row.attempts, '0'),
         },
         {
-          label: 'Updated',
+          label: t('tenant.table.updated', 'Updated'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.updatedAt || row.createdAt))}</span>`,
         },
       ],
@@ -1369,25 +1376,25 @@
     });
 
     renderTable(document.getElementById('tenantPlayersTable'), {
-      emptyText: 'No player accounts found.',
+      emptyText: t('tenant.table.playersEmpty', 'No player accounts found.'),
       columns: [
         {
-          label: 'Player',
+          label: t('tenant.table.player', 'Player'),
           render: (row) => [
             `<strong>${escapeHtml(row.displayName || row.username || row.user || row.discordId || '-')}</strong>`,
             `<div class="muted code">${escapeHtml(row.discordId || row.userId || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Steam',
+          label: t('tenant.table.steam', 'Steam'),
           render: (row) => escapeHtml(row.steamId || row.inGameName || '-'),
         },
         {
-          label: 'Status',
+          label: t('tenant.table.status', 'Status'),
           render: (row) => makePill(row.isActive === false ? 'inactive' : 'active'),
         },
         {
-          label: 'Updated',
+          label: t('tenant.table.updated', 'Updated'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.updatedAt || row.createdAt))}</span>`,
         },
       ],
@@ -1404,7 +1411,7 @@
     if (filterSelect) {
       const current = String(filterSelect.value || state.purchaseLookup.status || '').trim();
       filterSelect.innerHTML = [
-        '<option value="">All statuses</option>',
+        `<option value="">${escapeHtml(t('tenant.transactions.allStatuses', 'All statuses'))}</option>`,
         ...knownStatuses.map((status) => {
           const normalized = String(status || '').trim();
           const selected = normalized && normalized === current ? ' selected' : '';
@@ -1416,7 +1423,7 @@
     if (targetSelect) {
       const current = String(targetSelect.value || '').trim();
       targetSelect.innerHTML = [
-        '<option value="">Choose a status</option>',
+        `<option value="">${escapeHtml(t('tenant.transactions.chooseStatus', 'Choose a status'))}</option>`,
         ...knownStatuses.map((status) => {
           const normalized = String(status || '').trim();
           const selected = normalized && normalized === current ? ' selected' : '';
@@ -1436,40 +1443,40 @@
     }
     renderTable(document.getElementById('tenantPurchaseTable'), {
       emptyText: state.purchaseLookup.userId
-        ? 'No purchases found for this player and filter.'
-        : 'Load purchases for a player to review transaction state.',
+        ? t('tenant.transactions.emptyFiltered', 'No purchases found for this player and filter.')
+        : t('tenant.transactions.emptyPrompt', 'Load purchases for a player to review transaction state.'),
       columns: [
         {
-          label: 'Purchase',
+          label: t('tenant.table.purchase', 'Purchase'),
           render: (row) => [
             `<strong class="code">${escapeHtml(row.code || row.purchaseCode || '-')}</strong>`,
             `<div class="muted">${escapeHtml(row.itemName || row.itemId || row.productName || '-')}</div>`,
           ].join(''),
         },
         {
-          label: 'Status',
+          label: t('tenant.table.status', 'Status'),
           render: (row) => makePill(row.statusText || row.status || 'unknown'),
         },
         {
-          label: 'Player',
+          label: t('tenant.table.player', 'Player'),
           render: (row) => [
             `<div>${escapeHtml(row.userId || row.discordId || state.purchaseLookup.userId || '-')}</div>`,
             row.username ? `<div class="muted">${escapeHtml(row.username)}</div>` : '',
           ].join(''),
         },
         {
-          label: 'Amount',
+          label: t('tenant.form.amount', 'Amount'),
           render: (row) => escapeHtml(formatNumber(row.totalPrice || row.price || row.amount, '-')),
         },
         {
-          label: 'Created',
+          label: t('tenant.table.created', 'Created'),
           render: (row) => `<span class="code">${escapeHtml(formatDateTime(row.createdAt || row.updatedAt))}</span>`,
         },
         {
           label: t('tenant.table.actions', 'Actions'),
           render: (row) => {
             const code = String(row.code || row.purchaseCode || '').trim();
-            if (!code) return '<span class="muted">-</span>';
+            if (!code) return `<span class="muted">${escapeHtml(t('common.none', '-'))}</span>`;
             return `<button type="button" class="button table-inline-action" data-delivery-case-code="${escapeHtml(code)}">${escapeHtml(t('tenant.deliveryCase.openInline', 'Open Case'))}</button>`;
           },
         },
@@ -1618,8 +1625,8 @@
       '</article>',
       '<article class="panel-card">',
       `<h3>${escapeHtml(t('tenant.deliveryCase.meta.runtime', 'Runtime Artifacts'))}</h3>`,
-      `<div class="feed-item"><strong>${escapeHtml(t('tenant.deliveryCase.meta.queue', 'Queue Job'))}</strong><div class="muted">${escapeHtml(detail.queueJob ? (detail.queueJob.status || detail.queueJob.purchaseCode || 'queued') : '-')}</div></div>`,
-      `<div class="feed-item"><strong>${escapeHtml(t('tenant.deliveryCase.meta.deadLetter', 'Dead Letter'))}</strong><div class="muted">${escapeHtml(detail.deadLetter ? (detail.deadLetter.reason || detail.deadLetter.errorCode || 'present') : '-')}</div></div>`,
+      `<div class="feed-item"><strong>${escapeHtml(t('tenant.deliveryCase.meta.queue', 'Queue Job'))}</strong><div class="muted">${escapeHtml(detail.queueJob ? (detail.queueJob.status || detail.queueJob.purchaseCode || t('tenant.deliveryCase.meta.queued', 'queued')) : '-')}</div></div>`,
+      `<div class="feed-item"><strong>${escapeHtml(t('tenant.deliveryCase.meta.deadLetter', 'Dead Letter'))}</strong><div class="muted">${escapeHtml(detail.deadLetter ? (detail.deadLetter.reason || detail.deadLetter.errorCode || t('tenant.deliveryCase.meta.present', 'present')) : '-')}</div></div>`,
       `<div class="feed-item"><strong>${escapeHtml(t('tenant.deliveryCase.meta.evidence', 'Evidence'))}</strong><div class="muted">${escapeHtml(detail.latestCommandSummary || '-')}</div></div>`,
       '</article>',
     ].join('');
@@ -1657,15 +1664,18 @@
     renderList(
       document.getElementById('tenantNotificationFeed'),
       notifications,
-      (item) => [
+      (item) => {
+        const localized = localizeAdminNotification(item);
+        return [
         '<article class="feed-item">',
         `<div class="feed-meta">${makePill(item.severity || 'info')} ${item.type ? `<span class="code">${escapeHtml(item.type)}</span>` : ''}</div>`,
-        `<strong>${escapeHtml(item.title || item.detail || item.message || 'Notification')}</strong>`,
-        item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : '',
+        `<strong>${escapeHtml(localized.title || t('admin.notifications.defaultTitle', 'Notification'))}</strong>`,
+        localized.detail ? `<div class="muted">${escapeHtml(localized.detail)}</div>` : '',
         `<div class="feed-meta"><span>${escapeHtml(formatDateTime(item.createdAt || item.at))}</span></div>`,
         '</article>',
-      ].join(''),
-      'No active notifications for this tenant.'
+      ].join('');
+      },
+      t('tenant.notifications.empty', 'No active notifications for this tenant.')
     );
   }
 
@@ -1686,49 +1696,49 @@
 
     renderStats(document.getElementById('tenantIncidentStats'), [
       {
-        kicker: 'Inbox',
+        kicker: t('tenant.incidents.inboxKicker', 'Inbox'),
         value: formatNumber(filteredRows.length, '0'),
-        title: 'Visible incidents after filters',
-        detail: `${formatNumber(allRows.length, '0')} total tenant-safe incident rows are currently available.`,
+        title: t('tenant.incidents.inboxTitle', 'Visible incidents after filters'),
+        detail: t('tenant.incidents.inboxDetail', '{count} total tenant-safe incident rows are currently available.', { count: formatNumber(allRows.length, '0') }),
       },
       {
-        kicker: 'Errors',
+        kicker: t('tenant.incidents.errorsKicker', 'Errors'),
         value: formatNumber(errorCount, '0'),
-        title: 'High severity incidents',
-        detail: 'Dead letters and hard runtime failures are counted here first.',
+        title: t('tenant.incidents.errorsTitle', 'High severity incidents'),
+        detail: t('tenant.incidents.errorsDetail', 'Dead letters and hard runtime failures are counted here first.'),
       },
       {
-        kicker: 'Queue',
+        kicker: t('tenant.incidents.queueKicker', 'Queue'),
         value: formatNumber(queueCount, '0'),
-        title: 'Queued deliveries under review',
-        detail: `${formatNumber(deadLetterCount, '0')} dead letters are currently visible.`,
+        title: t('tenant.incidents.queueTitle', 'Queued deliveries under review'),
+        detail: t('tenant.incidents.queueDetail', '{count} dead letters are currently visible.', { count: formatNumber(deadLetterCount, '0') }),
       },
       {
-        kicker: 'Alerts',
+        kicker: t('tenant.incidents.alertsKicker', 'Alerts'),
         value: formatNumber(notificationCount, '0'),
-        title: 'Tenant-tagged notifications',
-        detail: 'Only notifications explicitly tagged to this tenant are shown here.',
+        title: t('tenant.incidents.alertsTitle', 'Tenant-tagged notifications'),
+        detail: t('tenant.incidents.alertsDetail', 'Only notifications explicitly tagged to this tenant are shown here.'),
       },
     ]);
 
     document.getElementById('tenantIncidentRunbooks').innerHTML = [
       {
-        title: 'Queue Pressure',
+        title: t('tenant.incidents.runbookQueueTitle', 'Queue Pressure'),
         text: queueCount > 0
-          ? 'Open Commerce + Delivery to inspect queued purchases, then use Delivery Lab or bulk retry only after the runtime looks healthy.'
-          : 'Queue pressure is quiet right now. Keep watching the delivery lab before making live changes.',
+          ? t('tenant.incidents.runbookQueueActive', 'Open Commerce + Delivery to inspect queued purchases, then use Delivery Lab or bulk retry only after the runtime looks healthy.')
+          : t('tenant.incidents.runbookQueueQuiet', 'Queue pressure is quiet right now. Keep watching the delivery lab before making live changes.'),
       },
       {
-        title: 'Dead Letter Response',
+        title: t('tenant.incidents.runbookDeadLetterTitle', 'Dead Letter Response'),
         text: deadLetterCount > 0
-          ? 'Dead letters are visible. Review the reason, verify Steam link or player data, then use scoped retry only after the root cause is understood.'
-          : 'No dead letters are currently visible for this tenant.',
+          ? t('tenant.incidents.runbookDeadLetterActive', 'Dead letters are visible. Review the reason, verify Steam link or player data, then use scoped retry only after the root cause is understood.')
+          : t('tenant.incidents.runbookDeadLetterQuiet', 'No dead letters are currently visible for this tenant.'),
       },
       {
-        title: 'Reconcile + Trust',
+        title: t('tenant.incidents.runbookTrustTitle', 'Reconcile + Trust'),
         text: Number(state.reconcile?.summary?.anomalies || 0) > 0
-          ? 'Reconcile findings are active. Cross-check purchase codes against audit and player support tools before editing any config.'
-          : 'No active reconcile anomalies are reported in the current window.',
+          ? t('tenant.incidents.runbookTrustActive', 'Reconcile findings are active. Cross-check purchase codes against audit and player support tools before editing any config.')
+          : t('tenant.incidents.runbookTrustQuiet', 'No active reconcile anomalies are reported in the current window.'),
       },
     ].map((card) => [
       '<article class="kv-card">',
@@ -1752,7 +1762,7 @@
           '</article>',
         ].join('');
       },
-      'No tenant incidents match the current filters.'
+      t('tenant.incidents.empty', 'No tenant incidents match the current filters.')
     );
   }
 
@@ -1765,10 +1775,10 @@
         document.getElementById('tenantDeliveryLabFeed'),
         [],
         () => '',
-        'Run a preview, preflight, simulate, or test-send request to inspect delivery behavior.'
+        t('tenant.lab.empty', 'Run a preview, preflight, simulate, or test-send request to inspect delivery behavior.')
       );
       if (raw) {
-        raw.textContent = 'Run a lab action to inspect checks, timeline, and raw payload.';
+        raw.textContent = t('tenant.lab.rawEmpty', 'Run a lab action to inspect checks, timeline, and raw payload.');
       }
       return;
     }
@@ -1781,19 +1791,19 @@
     const outputs = Array.isArray(data.outputs) ? data.outputs : [];
     const feedItems = [
       ...checks.map((item) => ({
-        title: item.label || item.id || 'check',
+        title: item.label || item.id || t('tenant.lab.check', 'check'),
         detail: item.detail || item.reason || '',
         tone: item.ok === false ? 'danger' : item.ready === false ? 'warning' : 'success',
         tag: 'check',
       })),
       ...warnings.map((item) => ({
-        title: 'warning',
+        title: t('tenant.lab.warning', 'warning'),
         detail: String(item || ''),
         tone: 'warning',
         tag: 'warning',
       })),
       ...timeline.map((item) => ({
-        title: item.label || item.step || item.type || 'timeline',
+        title: item.label || item.step || item.type || t('tenant.lab.timeline', 'timeline'),
         detail: item.detail || item.message || item.status || '',
         tone: String(item.status || '').toLowerCase() === 'failed' ? 'danger' : 'info',
         tag: 'timeline',
@@ -1802,32 +1812,32 @@
 
     renderStats(document.getElementById('tenantDeliveryLabStats'), [
       {
-        kicker: 'Action',
+        kicker: t('tenant.lab.statAction', 'Action'),
         value: result.action || '-',
-        title: 'Lab mode',
+        title: t('tenant.lab.statActionTitle', 'Lab mode'),
         detail: result.action === 'test-send'
-          ? 'Live command execution path.'
-          : 'Safe validation path.',
+          ? t('tenant.lab.statActionDetailLive', 'Live command execution path.')
+          : t('tenant.lab.statActionDetailSafe', 'Safe validation path.'),
       },
       {
-        kicker: 'Checks',
+        kicker: t('tenant.lab.statChecks', 'Checks'),
         value: formatNumber(checks.length, '0'),
-        title: 'Preflight / validation checks',
-        detail: 'Present for preflight and similar report-like responses.',
+        title: t('tenant.lab.statChecksTitle', 'Preflight / validation checks'),
+        detail: t('tenant.lab.statChecksDetail', 'Present for preflight and similar report-like responses.'),
       },
       {
-        kicker: 'Commands',
+        kicker: t('tenant.lab.statCommands', 'Commands'),
         value: formatNumber(commands.length || outputs.length, '0'),
-        title: 'Commands or outputs',
-        detail: 'Preview returns commands, test-send returns outputs.',
+        title: t('tenant.lab.statCommandsTitle', 'Commands or outputs'),
+        detail: t('tenant.lab.statCommandsDetail', 'Preview returns commands, test-send returns outputs.'),
       },
       {
-        kicker: 'Warnings',
+        kicker: t('tenant.lab.statWarnings', 'Warnings'),
         value: formatNumber(warnings.length, '0'),
-        title: 'Warnings',
+        title: t('tenant.lab.statWarningsTitle', 'Warnings'),
         detail: timeline.length > 0
-          ? `${formatNumber(timeline.length, '0')} timeline entries`
-          : 'No timeline returned.',
+          ? t('tenant.lab.timelineCount', '{count} timeline entries', { count: formatNumber(timeline.length, '0') })
+          : t('tenant.lab.noTimeline', 'No timeline returned.'),
       },
     ]);
 
@@ -1837,11 +1847,11 @@
       (item) => [
         `<article class="timeline-item ${escapeHtml(item.tone || 'info')}">`,
         `<div class="feed-meta">${makePill(item.tag || 'detail')} ${item.tone ? makePill(item.tone) : ''}</div>`,
-        `<strong>${escapeHtml(item.title || 'Result')}</strong>`,
+        `<strong>${escapeHtml(item.title || t('tenant.lab.resultTitle', 'Result'))}</strong>`,
         item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : '',
         '</article>',
       ].join(''),
-      'No structured checks, warnings, or timeline entries were returned.'
+      t('tenant.lab.emptyStructured', 'No structured checks, warnings, or timeline entries were returned.')
     );
 
     if (raw) {
@@ -1865,8 +1875,11 @@
       (Array.isArray(dataset.cards) ? dataset.cards : []).map(([label, value]) => ({
         kicker: String(dataset.view || 'audit').toUpperCase(),
         value: String(value ?? '-'),
-        title: String(label || 'Audit summary'),
-        detail: `Returned ${formatNumber(dataset.returned, '0')} of ${formatNumber(dataset.total, '0')} rows.`,
+        title: String(label || t('tenant.audit.postureTitle', 'Audit Posture')),
+        detail: t('tenant.audit.summaryDetail', 'Returned {returned} of {total} rows.', {
+          returned: formatNumber(dataset.returned, '0'),
+          total: formatNumber(dataset.total, '0'),
+        }),
       }))
     );
 
@@ -1879,7 +1892,7 @@
         render: (row) => `<span class="${/(?:id|code|reference)/i.test(key) ? 'code' : ''}">${escapeHtml(formatAuditCell(key, row?.[key]))}</span>`,
       })),
       rows,
-      'No audit rows matched the current tenant-scoped filters.'
+      t('tenant.audit.emptyScoped', 'No audit rows matched the current tenant-scoped filters.')
     );
   }
 
@@ -2022,21 +2035,21 @@
     const queued = state.queueItems.slice(0, 4).map((item) => ({
       tone: 'warning',
       type: 'queue',
-      title: item.purchaseCode || item.code || 'Queue job',
-      detail: item.status || 'queued',
+      title: item.purchaseCode || item.code || t('tenant.activity.queueJob', 'Queue job'),
+      detail: item.status || t('tenant.activity.queued', 'queued'),
       at: item.updatedAt || item.createdAt,
     }));
     const dead = state.deadLetters.slice(0, 4).map((item) => ({
       tone: 'danger',
       type: 'dead-letter',
-      title: item.purchaseCode || item.code || 'Dead letter',
+      title: item.purchaseCode || item.code || t('tenant.activity.deadLetter', 'Dead letter'),
       detail: item.reason || item.errorCode || '',
       at: item.updatedAt || item.createdAt,
     }));
     const alerts = scopedNotifications.slice(0, 4).map((item) => ({
       tone: item.severity === 'error' ? 'danger' : item.severity || 'warning',
       type: item.type || 'alert',
-      title: item.title || item.detail || 'Tenant alert',
+      title: item.title || item.detail || t('tenant.activity.alertFallback', 'Tenant alert'),
       detail: item.detail || item.message || '',
       at: item.createdAt || item.at,
     }));
@@ -2164,13 +2177,13 @@
       onOpen() {
         pushLiveEvent('connected', {
           at: new Date().toISOString(),
-          payload: { summary: 'Tenant live stream connected' },
+          payload: { summary: t('tenant.live.connected', 'Tenant live stream connected') },
         });
       },
       onError() {
         pushLiveEvent('ops-alert', {
           at: new Date().toISOString(),
-          payload: { summary: 'Live stream interrupted, falling back to refresh.' },
+          payload: { summary: t('tenant.live.interrupted', 'Live stream interrupted, falling back to refresh.') },
         });
       },
     });
@@ -2274,9 +2287,9 @@
       connectLive();
     } catch (error) {
       setBanner(
-        'Tenant console failed to load',
+        t('tenant.banner.loadFailedTitle', 'Tenant console failed to load'),
         String(error.message || error),
-        ['retry available'],
+        [t('tenant.banner.retryAvailable', 'retry available')],
         'danger'
       );
     } finally {
@@ -2292,7 +2305,7 @@
     try {
       return JSON.parse(text);
     } catch {
-      throw new Error(`${fieldLabel} must be valid JSON`);
+      throw new Error(t('tenant.error.validJson', '{field} must be valid JSON', { field: fieldLabel }));
     }
   }
 
@@ -2301,13 +2314,13 @@
     const form = event.currentTarget;
     const button = form.querySelector('button[type="submit"]');
     try {
-      const featureFlags = parseOptionalJson(form.elements.featureFlags.value, 'Feature Flags');
-      const configPatch = parseOptionalJson(form.elements.configPatch.value, 'Config Patch');
-      const portalEnvPatch = parseOptionalJson(form.elements.portalEnvPatch.value, 'Portal Env Patch');
+      const featureFlags = parseOptionalJson(form.elements.featureFlags.value, t('tenant.config.fieldFeatureFlags', 'Feature Flags'));
+      const configPatch = parseOptionalJson(form.elements.configPatch.value, t('tenant.config.fieldConfigPatch', 'Config Patch'));
+      const portalEnvPatch = parseOptionalJson(form.elements.portalEnvPatch.value, t('tenant.config.fieldPortalEnvPatch', 'Portal Env Patch'));
       if (!featureFlags && !configPatch && !portalEnvPatch) {
-        throw new Error('Provide at least one JSON patch before saving');
+        throw new Error(t('tenant.config.requirePatch', 'Provide at least one JSON patch before saving'));
       }
-      if (!window.confirm('Save tenant configuration changes for this tenant?')) {
+      if (!window.confirm(t('tenant.confirm.saveConfig', 'Save tenant configuration changes for this tenant?'))) {
         return;
       }
       setBusy(button, true, t('common.saving', 'Saving...'));
@@ -2325,7 +2338,7 @@
       showToast(t('tenant.toast.configSaved', 'Tenant configuration saved.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Tenant config update failed', String(error.message || error), ['config'], 'danger');
+      setBanner(t('tenant.banner.configUpdateFailed', 'Tenant config update failed'), String(error.message || error), [t('tenant.tag.config', 'config')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2337,7 +2350,7 @@
       renderConfigPreview();
       showToast(t('tenant.toast.configPreviewUpdated', 'Config preview updated.'), 'info');
     } catch (error) {
-      setBanner('Config preview failed', String(error.message || error), ['config'], 'danger');
+      setBanner(t('tenant.banner.configPreviewFailed', 'Config preview failed'), String(error.message || error), [t('tenant.tag.config', 'config')], 'danger');
     }
   }
 
@@ -2353,7 +2366,7 @@
     const userId = String(form.elements.userId.value || '').trim();
     const amount = Number(form.elements.amount.value);
     if (!userId || !Number.isFinite(amount)) {
-      setBanner('Wallet action is incomplete', 'Provide a Discord user ID and a numeric amount.', ['wallet'], 'danger');
+      setBanner(t('tenant.banner.walletIncompleteTitle', 'Wallet action is incomplete'), t('tenant.banner.walletIncompleteDetail', 'Provide a Discord user ID and a numeric amount.'), [t('tenant.tag.wallet', 'wallet')], 'danger');
       return;
     }
     const endpoint = action === 'set'
@@ -2361,7 +2374,7 @@
       : action === 'remove'
         ? '/admin/api/wallet/remove'
         : '/admin/api/wallet/add';
-    if (!window.confirm(`Confirm ${action} for user ${userId}?`)) return;
+    if (!window.confirm(t('tenant.confirm.walletAction', 'Confirm {action} for user {userId}?', { action, userId }))) return;
     const button = form.querySelector('button[type="submit"]');
     try {
       setBusy(button, true, t('common.applying', 'Applying...'));
@@ -2375,7 +2388,7 @@
       showToast(t('tenant.toast.walletApplied', 'Wallet action applied.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Wallet action failed', String(error.message || error), ['wallet'], 'danger');
+      setBanner(t('tenant.banner.walletFailed', 'Wallet action failed'), String(error.message || error), [t('tenant.tag.wallet', 'wallet')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2387,7 +2400,7 @@
     const code = String(form.elements.code.value || '').trim();
     const action = String(form.elements.action.value || '').trim();
     if (!code) {
-      setBanner('Delivery action is incomplete', 'Provide a purchase code before running a recovery action.', ['delivery'], 'danger');
+      setBanner(t('tenant.banner.deliveryIncompleteTitle', 'Delivery action is incomplete'), t('tenant.banner.deliveryIncompleteDetail', 'Provide a purchase code before running a recovery action.'), [t('tenant.tag.delivery', 'delivery')], 'danger');
       return;
     }
     const endpoint = action === 'dead-letter-retry'
@@ -2395,7 +2408,7 @@
       : action === 'cancel'
         ? '/admin/api/delivery/cancel'
         : '/admin/api/delivery/retry';
-    if (!window.confirm(`Run ${action} for ${code}?`)) return;
+    if (!window.confirm(t('tenant.confirm.deliveryAction', 'Run {action} for {code}?', { action, code }))) return;
     const button = form.querySelector('button[type="submit"]');
     try {
       setBusy(button, true, t('common.running', 'Running...'));
@@ -2407,7 +2420,7 @@
       showToast(t('tenant.toast.deliveryRecoveryCompleted', 'Delivery recovery action completed.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Delivery action failed', String(error.message || error), ['delivery'], 'danger');
+      setBanner(t('tenant.banner.deliveryFailed', 'Delivery action failed'), String(error.message || error), [t('tenant.tag.delivery', 'delivery')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2430,14 +2443,14 @@
       iconUrl: String(form.elements.iconUrl.value || '').trim(),
     };
     if (!payload.id || !payload.name || !Number.isFinite(payload.price)) {
-      setBanner('Catalog entry is incomplete', 'Provide kind, item ID, display name, and a numeric price before saving.', ['catalog'], 'danger');
+      setBanner(t('tenant.banner.catalogIncompleteTitle', 'Catalog entry is incomplete'), t('tenant.banner.catalogIncompleteDetail', 'Provide kind, item ID, display name, and a numeric price before saving.'), [t('tenant.tag.catalog', 'catalog')], 'danger');
       return;
     }
     if (kind === 'item' && !payload.gameItemId) {
-      setBanner('Game Item ID required', 'Item catalog entries need a SCUM game item id so delivery can be resolved.', ['catalog'], 'danger');
+      setBanner(t('tenant.banner.gameItemRequiredTitle', 'Game Item ID required'), t('tenant.banner.gameItemRequiredDetail', 'Item catalog entries need a SCUM game item id so delivery can be resolved.'), [t('tenant.tag.catalog', 'catalog')], 'danger');
       return;
     }
-    if (!window.confirm(`Add catalog entry ${payload.id}?`)) return;
+    if (!window.confirm(t('tenant.confirm.catalogCreate', 'Add catalog entry {id}?', { id: payload.id }))) return;
     try {
       setBusy(button, true, t('common.saving', 'Saving...'));
       await api('/admin/api/shop/add', {
@@ -2450,7 +2463,7 @@
       showToast(t('tenant.toast.catalogCreated', 'Catalog entry created.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Catalog create failed', String(error.message || error), ['catalog'], 'danger');
+      setBanner(t('tenant.banner.catalogCreateFailed', 'Catalog create failed'), String(error.message || error), [t('tenant.tag.catalog', 'catalog')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2463,10 +2476,10 @@
     const idOrName = String(form.elements.idOrName.value || '').trim();
     const price = Math.trunc(Number(form.elements.price.value || 0));
     if (!idOrName || !Number.isFinite(price)) {
-      setBanner('Price update is incomplete', 'Provide a catalog id/name and a numeric price.', ['catalog'], 'danger');
+      setBanner(t('tenant.banner.priceIncompleteTitle', 'Price update is incomplete'), t('tenant.banner.priceIncompleteDetail', 'Provide a catalog id/name and a numeric price.'), [t('tenant.tag.catalog', 'catalog')], 'danger');
       return;
     }
-    if (!window.confirm(`Update price for ${idOrName}?`)) return;
+    if (!window.confirm(t('tenant.confirm.priceUpdate', 'Update price for {idOrName}?', { idOrName }))) return;
     try {
       setBusy(button, true, t('common.updating', 'Updating...'));
       await api('/admin/api/shop/price', {
@@ -2481,7 +2494,7 @@
       showToast(t('tenant.toast.catalogPriceUpdated', 'Catalog price updated.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Price update failed', String(error.message || error), ['catalog'], 'danger');
+      setBanner(t('tenant.banner.priceUpdateFailed', 'Price update failed'), String(error.message || error), [t('tenant.tag.catalog', 'catalog')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2493,10 +2506,10 @@
     const button = form.querySelector('button[type="submit"]');
     const idOrName = String(form.elements.idOrName.value || '').trim();
     if (!idOrName) {
-      setBanner('Delete target missing', 'Provide the catalog id or name to remove.', ['catalog'], 'danger');
+      setBanner(t('tenant.banner.deleteTargetMissingTitle', 'Delete target missing'), t('tenant.banner.deleteTargetMissingDetail', 'Provide the catalog id or name to remove.'), [t('tenant.tag.catalog', 'catalog')], 'danger');
       return;
     }
-    if (!window.confirm(`Delete catalog entry ${idOrName}?`)) return;
+    if (!window.confirm(t('tenant.confirm.catalogDelete', 'Delete catalog entry {idOrName}?', { idOrName }))) return;
     try {
       setBusy(button, true, t('common.deleting', 'Deleting...'));
       await api('/admin/api/shop/delete', {
@@ -2510,7 +2523,7 @@
       showToast(t('tenant.toast.catalogRemoved', 'Catalog entry removed.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Catalog delete failed', String(error.message || error), ['catalog'], 'danger');
+      setBanner(t('tenant.banner.catalogDeleteFailed', 'Catalog delete failed'), String(error.message || error), [t('tenant.tag.catalog', 'catalog')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2522,11 +2535,11 @@
     const button = form.querySelector('button[type="submit"]');
     const name = String(form.elements.name.value || '').trim();
     if (!name) {
-      setBanner('API key form is incomplete', 'Provide a key name before creating a tenant API key.', ['integrations'], 'danger');
+      setBanner(t('tenant.banner.apiKeyIncompleteTitle', 'API key form is incomplete'), t('tenant.banner.apiKeyIncompleteDetail', 'Provide a key name before creating a tenant API key.'), [t('tenant.tag.integrations', 'integrations')], 'danger');
       return;
     }
     try {
-      if (!window.confirm(`Create tenant API key ${name}?`)) return;
+      if (!window.confirm(t('tenant.confirm.apiKeyCreate', 'Create tenant API key {name}?', { name }))) return;
       setBusy(button, true, t('common.creating', 'Creating...'));
       const result = await api('/admin/api/platform/apikey', {
         method: 'POST',
@@ -2540,13 +2553,13 @@
       });
       state.integrationResult = {
         kind: 'api-key',
-        title: 'Tenant API key created',
-        detail: 'Store the raw key now. Listing endpoints will not show the secret again.',
+        title: t('tenant.integrationResult.apiKeyCreatedTitle', 'Tenant API key created'),
+        detail: t('tenant.integrationResult.apiKeyCreatedDetail', 'Store the raw key now. Listing endpoints will not show the secret again.'),
         createdAt: new Date().toISOString(),
         rows: [
-          { label: 'Key ID', value: result.apiKey?.id || result.id || '-', code: true },
-          { label: 'Raw Key', value: result.rawKey || '-', code: true },
-          { label: 'Scopes', value: Array.isArray(result.apiKey?.scopes) ? result.apiKey.scopes.join(', ') : String(form.elements.scopes.value || '').trim() || '-', code: false },
+          { label: t('tenant.integrationResult.keyId', 'Key ID'), value: result.apiKey?.id || result.id || '-', code: true },
+          { label: t('tenant.integrationResult.rawKey', 'Raw Key'), value: result.rawKey || '-', code: true },
+          { label: t('tenant.form.scopes', 'Scopes'), value: Array.isArray(result.apiKey?.scopes) ? result.apiKey.scopes.join(', ') : String(form.elements.scopes.value || '').trim() || '-', code: false },
         ],
       };
       form.reset();
@@ -2554,7 +2567,7 @@
       showToast(t('tenant.toast.apiKeyCreated', 'Tenant API key created.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('API key create failed', String(error.message || error), ['integrations'], 'danger');
+      setBanner(t('tenant.banner.apiKeyCreateFailed', 'API key create failed'), String(error.message || error), [t('tenant.tag.integrations', 'integrations')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2567,11 +2580,11 @@
     const name = String(form.elements.name.value || '').trim();
     const targetUrl = String(form.elements.targetUrl.value || '').trim();
     if (!name || !targetUrl) {
-      setBanner('Webhook form is incomplete', 'Provide both name and target URL before creating a tenant webhook.', ['integrations'], 'danger');
+      setBanner(t('tenant.banner.webhookIncompleteTitle', 'Webhook form is incomplete'), t('tenant.banner.webhookIncompleteDetail', 'Provide both name and target URL before creating a tenant webhook.'), [t('tenant.tag.integrations', 'integrations')], 'danger');
       return;
     }
     try {
-      if (!window.confirm(`Create tenant webhook ${name}?`)) return;
+      if (!window.confirm(t('tenant.confirm.webhookCreate', 'Create tenant webhook {name}?', { name }))) return;
       setBusy(button, true, t('common.creating', 'Creating...'));
       const result = await api('/admin/api/platform/webhook', {
         method: 'POST',
@@ -2587,14 +2600,14 @@
       });
       state.integrationResult = {
         kind: 'webhook',
-        title: 'Tenant webhook created',
-        detail: 'If a raw secret was returned, store it now.',
+        title: t('tenant.integrationResult.webhookCreatedTitle', 'Tenant webhook created'),
+        detail: t('tenant.integrationResult.webhookCreatedDetail', 'If a raw secret was returned, store it now.'),
         createdAt: new Date().toISOString(),
         rows: [
-          { label: 'Webhook ID', value: result.id || '-', code: true },
-          { label: 'Event Type', value: result.eventType || '-', code: false },
-          { label: 'Target URL', value: result.targetUrl || targetUrl, code: false },
-          { label: 'Secret', value: result.secretValue || String(form.elements.secretValue.value || '').trim() || '(generated and hidden)', code: true },
+          { label: t('tenant.integrationResult.webhookId', 'Webhook ID'), value: result.id || '-', code: true },
+          { label: t('tenant.form.eventType', 'Event Type'), value: result.eventType || '-', code: false },
+          { label: t('tenant.form.targetUrl', 'Target URL'), value: result.targetUrl || targetUrl, code: false },
+          { label: t('tenant.form.secret', 'Secret'), value: result.secretValue || String(form.elements.secretValue.value || '').trim() || t('tenant.integrationResult.generatedHidden', '(generated and hidden)'), code: true },
         ],
       };
       form.reset();
@@ -2602,7 +2615,7 @@
       showToast(t('tenant.toast.webhookCreated', 'Tenant webhook created.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Webhook create failed', String(error.message || error), ['integrations'], 'danger');
+      setBanner(t('tenant.banner.webhookCreateFailed', 'Webhook create failed'), String(error.message || error), [t('tenant.tag.integrations', 'integrations')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2613,7 +2626,7 @@
     const form = event.currentTarget;
     const button = form.querySelector('button[type="submit"]');
     try {
-      if (!window.confirm('Dispatch tenant webhook test event?')) return;
+      if (!window.confirm(t('tenant.confirm.webhookTest', 'Dispatch tenant webhook test event?'))) return;
       setBusy(button, true, t('common.dispatching', 'Dispatching...'));
       const payloadText = String(form.elements.payload.value || '').trim();
       const result = await api('/admin/api/platform/webhook/test', {
@@ -2621,23 +2634,23 @@
         body: {
           tenantId: state.me?.tenantId,
           eventType: String(form.elements.eventType.value || 'platform.admin.test').trim() || 'platform.admin.test',
-          payload: payloadText ? parseOptionalJson(payloadText, 'Webhook payload') : null,
+          payload: payloadText ? parseOptionalJson(payloadText, t('tenant.form.webhookPayload', 'Webhook payload')) : null,
         },
       });
       state.integrationResult = {
         kind: 'webhook-test',
-        title: 'Webhook test dispatched',
-        detail: 'The tenant-scoped webhook dispatch completed.',
+        title: t('tenant.integrationResult.webhookTestTitle', 'Webhook test dispatched'),
+        detail: t('tenant.integrationResult.webhookTestDetail', 'The tenant-scoped webhook dispatch completed.'),
         createdAt: new Date().toISOString(),
         rows: [
-          { label: 'Event Type', value: result.eventType || '-', code: false },
-          { label: 'Result Count', value: String(Array.isArray(result.results) ? result.results.length : 0), code: false },
+          { label: t('tenant.form.eventType', 'Event Type'), value: result.eventType || '-', code: false },
+          { label: t('tenant.integrationResult.resultCount', 'Result Count'), value: String(Array.isArray(result.results) ? result.results.length : 0), code: false },
         ],
       };
       showToast(t('tenant.toast.webhookTestDispatched', 'Tenant webhook test dispatched.'), 'success');
       renderPlanIntegrations();
     } catch (error) {
-      setBanner('Webhook test failed', String(error.message || error), ['integrations'], 'danger');
+      setBanner(t('tenant.banner.webhookTestFailed', 'Webhook test failed'), String(error.message || error), [t('tenant.tag.integrations', 'integrations')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2659,14 +2672,19 @@
     const action = String(form.elements.action.value || 'retry-many').trim();
     const codes = parseCodesInput(form.elements.codes.value);
     if (codes.length === 0) {
-      setBanner('Bulk delivery action is incomplete', 'Provide at least one purchase code before running a batch action.', ['delivery'], 'danger');
+      setBanner(
+        t('tenant.banner.bulkDeliveryIncompleteTitle', 'Bulk delivery action is incomplete'),
+        t('tenant.banner.bulkDeliveryIncompleteDetail', 'Provide at least one purchase code before running a batch action.'),
+        [t('tenant.tag.delivery', 'delivery')],
+        'danger'
+      );
       return;
     }
     const endpoint = action === 'dead-letter-retry-many'
       ? '/admin/api/delivery/dead-letter/retry-many'
       : '/admin/api/delivery/retry-many';
     try {
-      if (!window.confirm(`Run ${action} for ${codes.length} purchase codes?`)) return;
+      if (!window.confirm(t('tenant.confirm.bulkDelivery', 'Run {action} for {count} purchase codes?', { action, count: String(codes.length) }))) return;
       setBusy(button, true, t('common.running', 'Running...'));
       const result = await api(endpoint, {
         method: 'POST',
@@ -2678,19 +2696,19 @@
       const count = Array.isArray(result) ? result.length : Array.isArray(result?.results) ? result.results.length : codes.length;
       state.bulkDeliveryResult = {
         kind: action,
-        title: 'Bulk delivery action completed',
-        detail: `Processed ${count} code(s) inside the current tenant scope.`,
+        title: t('tenant.actions.bulkCompletedTitle', 'Bulk delivery action completed'),
+        detail: t('tenant.actions.bulkCompletedDetail', 'Processed {count} code(s) inside the current tenant scope.', { count: String(count) }),
         createdAt: new Date().toISOString(),
         rows: [
-          { label: 'Action', value: action, code: false },
-          { label: 'Codes', value: codes.join(', '), code: true },
-          { label: 'Processed', value: String(count), code: false },
+          { label: t('tenant.form.action', 'Action'), value: action, code: false },
+          { label: t('tenant.actions.codes', 'Codes'), value: codes.join(', '), code: true },
+          { label: t('tenant.actions.processed', 'Processed'), value: String(count), code: false },
         ],
       };
       showToast(t('tenant.toast.bulkDeliveryCompleted', 'Bulk delivery action completed.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Bulk delivery action failed', String(error.message || error), ['delivery'], 'danger');
+      setBanner(t('tenant.banner.bulkDeliveryFailed', 'Bulk delivery action failed'), String(error.message || error), [t('tenant.tag.delivery', 'delivery')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2699,7 +2717,12 @@
   async function loadPurchases(userId, status, options = {}) {
     const { button = null, showSuccess = false } = options;
     if (!userId) {
-      setBanner('Purchase lookup is incomplete', 'Provide a Discord user ID before loading purchase history.', ['purchase'], 'danger');
+      setBanner(
+        t('tenant.banner.purchaseLookupIncompleteTitle', 'Purchase lookup is incomplete'),
+        t('tenant.banner.purchaseLookupIncompleteDetail', 'Provide a Discord user ID before loading purchase history.'),
+        [t('tenant.tag.purchase', 'purchase')],
+        'danger'
+      );
       return false;
     }
     try {
@@ -2723,7 +2746,7 @@
     } catch (error) {
       state.purchaseLookup = { userId, status, items: [] };
       renderPurchaseInspector();
-      setBanner('Purchase lookup failed', String(error.message || error), ['purchase'], 'danger');
+      setBanner(t('tenant.banner.purchaseLookupFailed', 'Purchase lookup failed'), String(error.message || error), [t('tenant.tag.purchase', 'purchase')], 'danger');
       return false;
     } finally {
       if (button) {
@@ -2754,7 +2777,7 @@
     } catch (error) {
       state.deliveryCase = null;
       renderDeliveryCase();
-      setBanner('Delivery case failed to load', String(error.message || error), ['delivery-case'], 'danger');
+      setBanner(t('tenant.banner.deliveryCaseFailed', 'Delivery case failed to load'), String(error.message || error), [t('tenant.tag.deliveryCase', 'delivery-case')], 'danger');
       return false;
     } finally {
       if (button) setBusy(button, false);
@@ -2778,10 +2801,15 @@
     const status = String(form.elements.status.value || '').trim();
     const reason = String(form.elements.reason.value || '').trim() || 'tenant-console-manual-update';
     if (!code || !status) {
-      setBanner('Status update is incomplete', 'Provide both purchase code and target status before applying a change.', ['purchase'], 'danger');
+      setBanner(
+        t('tenant.banner.statusUpdateIncompleteTitle', 'Status update is incomplete'),
+        t('tenant.banner.statusUpdateIncompleteDetail', 'Provide both purchase code and target status before applying a change.'),
+        [t('tenant.tag.purchase', 'purchase')],
+        'danger'
+      );
       return;
     }
-    if (!window.confirm(`Set ${code} to ${status}?`)) return;
+    if (!window.confirm(t('tenant.confirm.setPurchaseStatus', 'Set {code} to {status}?', { code, status }))) return;
     try {
       setBusy(button, true, t('common.applying', 'Applying...'));
       await api('/admin/api/purchase/status', {
@@ -2803,7 +2831,7 @@
         await refreshSurface();
       }
     } catch (error) {
-      setBanner('Status update failed', String(error.message || error), ['purchase'], 'danger');
+      setBanner(t('tenant.banner.statusUpdateFailed', 'Status update failed'), String(error.message || error), [t('tenant.tag.purchase', 'purchase')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2818,14 +2846,24 @@
     const steamId = String(form.elements.steamId.value || '').trim();
     const inGameName = String(form.elements.inGameName.value || '').trim();
     if (!userId) {
-      setBanner('Steam link action is incomplete', 'Provide a Discord user ID before running support link actions.', ['support'], 'danger');
+      setBanner(
+        t('tenant.banner.steamLinkIncompleteTitle', 'Steam link action is incomplete'),
+        t('tenant.banner.steamLinkIncompleteDetail', 'Provide a Discord user ID before running support link actions.'),
+        [t('tenant.tag.support', 'support')],
+        'danger'
+      );
       return;
     }
     if (action === 'set' && !steamId) {
-      setBanner('Steam ID required', 'Set action requires a Steam ID.', ['support'], 'danger');
+      setBanner(
+        t('tenant.banner.steamIdRequiredTitle', 'Steam ID required'),
+        t('tenant.banner.steamIdRequiredDetail', 'Set action requires a Steam ID.'),
+        [t('tenant.tag.support', 'support')],
+        'danger'
+      );
       return;
     }
-    if (!window.confirm(`Run ${action} steam link support action for ${userId}?`)) return;
+    if (!window.confirm(t('tenant.confirm.steamLinkAction', 'Run {action} steam link support action for {userId}?', { action, userId }))) return;
     try {
       setBusy(button, true, t('common.applying', 'Applying...'));
       await api(action === 'remove' ? '/admin/api/link/remove' : '/admin/api/link/set', {
@@ -2839,7 +2877,7 @@
       showToast(t('tenant.toast.steamLinkCompleted', 'Steam link support action completed.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Steam link support failed', String(error.message || error), ['support'], 'danger');
+      setBanner(t('tenant.banner.steamLinkFailed', 'Steam link support failed'), String(error.message || error), [t('tenant.tag.support', 'support')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2854,14 +2892,24 @@
     const planId = String(form.elements.planId.value || '').trim();
     const durationDays = Math.trunc(Number(form.elements.durationDays.value || 0));
     if (!userId) {
-      setBanner('VIP action is incomplete', 'Provide a Discord user ID before updating VIP state.', ['support'], 'danger');
+      setBanner(
+        t('tenant.banner.vipIncompleteTitle', 'VIP action is incomplete'),
+        t('tenant.banner.vipIncompleteDetail', 'Provide a Discord user ID before updating VIP state.'),
+        [t('tenant.tag.support', 'support')],
+        'danger'
+      );
       return;
     }
     if (action === 'set' && (!planId || !Number.isFinite(durationDays) || durationDays <= 0)) {
-      setBanner('VIP grant is incomplete', 'Grant action requires both plan id and duration days.', ['support'], 'danger');
+      setBanner(
+        t('tenant.banner.vipGrantIncompleteTitle', 'VIP grant is incomplete'),
+        t('tenant.banner.vipGrantIncompleteDetail', 'Grant action requires both plan id and duration days.'),
+        [t('tenant.tag.support', 'support')],
+        'danger'
+      );
       return;
     }
-    if (!window.confirm(`Run ${action} VIP action for ${userId}?`)) return;
+    if (!window.confirm(t('tenant.confirm.vipAction', 'Run {action} VIP action for {userId}?', { action, userId }))) return;
     try {
       setBusy(button, true, t('common.applying', 'Applying...'));
       await api(action === 'remove' ? '/admin/api/vip/remove' : '/admin/api/vip/set', {
@@ -2876,7 +2924,7 @@
       showToast(t('tenant.toast.vipCompleted', 'VIP action completed.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('VIP action failed', String(error.message || error), ['support'], 'danger');
+      setBanner(t('tenant.banner.vipFailed', 'VIP action failed'), String(error.message || error), [t('tenant.tag.support', 'support')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2892,24 +2940,44 @@
     const amountText = String(form.elements.amount.value || '').trim();
     const itemId = String(form.elements.itemId.value || '').trim();
     if (!code) {
-      setBanner('Redeem action is incomplete', 'Provide the redeem code before applying support changes.', ['support'], 'danger');
+      setBanner(
+        t('tenant.banner.redeemIncompleteTitle', 'Redeem action is incomplete'),
+        t('tenant.banner.redeemIncompleteDetail', 'Provide the redeem code before applying support changes.'),
+        [t('tenant.tag.support', 'support')],
+        'danger'
+      );
       return;
     }
     if (action === 'add') {
       if (!type) {
-        setBanner('Redeem type required', 'Choose a redeem code type before creating the code.', ['support'], 'danger');
+        setBanner(
+          t('tenant.banner.redeemTypeRequiredTitle', 'Redeem type required'),
+          t('tenant.banner.redeemTypeRequiredDetail', 'Choose a redeem code type before creating the code.'),
+          [t('tenant.tag.support', 'support')],
+          'danger'
+        );
         return;
       }
       if (type === 'coins' && !amountText) {
-        setBanner('Redeem amount required', 'Coin redeem codes require an amount.', ['support'], 'danger');
+        setBanner(
+          t('tenant.banner.redeemAmountRequiredTitle', 'Redeem amount required'),
+          t('tenant.banner.redeemAmountRequiredDetail', 'Coin redeem codes require an amount.'),
+          [t('tenant.tag.support', 'support')],
+          'danger'
+        );
         return;
       }
       if (type === 'item' && !itemId) {
-        setBanner('Redeem item required', 'Item redeem codes require an item id.', ['support'], 'danger');
+        setBanner(
+          t('tenant.banner.redeemItemRequiredTitle', 'Redeem item required'),
+          t('tenant.banner.redeemItemRequiredDetail', 'Item redeem codes require an item id.'),
+          [t('tenant.tag.support', 'support')],
+          'danger'
+        );
         return;
       }
     }
-    if (!window.confirm(`Run redeem action ${action} for ${code}?`)) return;
+    if (!window.confirm(t('tenant.confirm.redeemAction', 'Run redeem action {action} for {code}?', { action, code }))) return;
     try {
       setBusy(button, true, t('common.applying', 'Applying...'));
       const endpoint = action === 'delete'
@@ -2934,7 +3002,7 @@
       form.elements.type.value = 'coins';
       showToast(t('tenant.toast.redeemCompleted', 'Redeem support action completed.'), 'success');
     } catch (error) {
-      setBanner('Redeem support action failed', String(error.message || error), ['support'], 'danger');
+      setBanner(t('tenant.banner.redeemFailed', 'Redeem support action failed'), String(error.message || error), [t('tenant.tag.support', 'support')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -2971,15 +3039,25 @@
     };
     if (action === 'preview' || action === 'simulate' || action === 'test-send') {
       if (!itemId && !gameItemId) {
-        setBanner('Delivery lab is incomplete', 'Preview, simulate, and test-send require item id or game item id.', ['delivery-lab'], 'danger');
+        setBanner(
+          t('tenant.banner.deliveryLabIncompleteTitle', 'Delivery lab is incomplete'),
+          t('tenant.banner.deliveryLabItemDetail', 'Preview, simulate, and test-send require item id or game item id.'),
+          [t('tenant.tag.deliveryLab', 'delivery-lab')],
+          'danger'
+        );
         return;
       }
     }
     if (action === 'preflight' && !itemId && !gameItemId && !purchaseCode) {
-      setBanner('Delivery lab is incomplete', 'Preflight requires purchase code or item/game item context.', ['delivery-lab'], 'danger');
+      setBanner(
+        t('tenant.banner.deliveryLabIncompleteTitle', 'Delivery lab is incomplete'),
+        t('tenant.banner.deliveryLabPreflightDetail', 'Preflight requires purchase code or item/game item context.'),
+        [t('tenant.tag.deliveryLab', 'delivery-lab')],
+        'danger'
+      );
       return;
     }
-    if (action === 'test-send' && !window.confirm('Run live test-send against the delivery runtime?')) {
+    if (action === 'test-send' && !window.confirm(t('tenant.confirm.deliveryLabTestSend', 'Run live test-send against the delivery runtime?'))) {
       return;
     }
     try {
@@ -2999,7 +3077,7 @@
     } catch (error) {
       state.deliveryLabResult = { action, data: { error: String(error.message || error) } };
       renderDeliveryLab();
-      setBanner('Delivery lab failed', String(error.message || error), ['delivery-lab'], 'danger');
+      setBanner(t('tenant.banner.deliveryLabFailed', 'Delivery lab failed'), String(error.message || error), [t('tenant.tag.deliveryLab', 'delivery-lab')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -3036,7 +3114,7 @@
     } catch (error) {
       state.audit = { cards: [], tableRows: [] };
       renderAudit();
-      setBanner('Tenant audit query failed', String(error.message || error), ['audit'], 'danger');
+      setBanner(t('tenant.banner.auditQueryFailed', 'Tenant audit query failed'), String(error.message || error), [t('tenant.tag.audit', 'audit')], 'danger');
       return false;
     } finally {
       if (button) setBusy(button, false);
@@ -3074,7 +3152,7 @@
       showToast(t('tenant.toast.noAlertsToAcknowledge', 'No alerts to acknowledge.'), 'info');
       return;
     }
-    if (!window.confirm('Acknowledge current tenant notifications?')) {
+    if (!window.confirm(t('tenant.confirm.acknowledgeAlerts', 'Acknowledge current tenant notifications?'))) {
       return;
     }
       setBusy(button, true, t('common.acknowledging', 'Acknowledging...'));
@@ -3086,7 +3164,7 @@
       showToast(t('tenant.toast.alertsAcknowledged', 'Tenant alerts acknowledged.'), 'success');
       await refreshSurface();
     } catch (error) {
-      setBanner('Acknowledge alerts failed', String(error.message || error), ['alerts'], 'danger');
+      setBanner(t('tenant.banner.acknowledgeAlertsFailed', 'Acknowledge alerts failed'), String(error.message || error), [t('tenant.tag.alerts', 'alerts')], 'danger');
     } finally {
       setBusy(button, false);
     }
@@ -3140,9 +3218,9 @@
     ],
     sectionsByWorkspace: {
       operations: ['overview', 'operations', 'incidents', 'insights'],
-      commerce: ['plan-integrations', 'commerce', 'catalog-tools', 'transactions'],
-      support: ['players', 'support-tools', 'audit'],
-      config: ['sandbox', 'config', 'actions'],
+      commerce: ['commerce', 'plan-integrations', 'catalog-tools', 'transactions'],
+      support: ['support-tools', 'players', 'audit'],
+      config: ['config', 'sandbox', 'actions'],
     },
   });
   sidebarController = wireSidebarShell({

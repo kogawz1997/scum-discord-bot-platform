@@ -257,7 +257,10 @@ const {
   addPlaytimeForUser,
 } = require('./services/statsService');
 const { updateScumStatusForAdmin } = require('./services/scumStatusService');
-const { getPersistenceStatus } = require('./store/_persist');
+const {
+  getPersistenceStatus,
+  getPublicPersistenceStatus,
+} = require('./store/_persist');
 const {
   isAdminRestoreMaintenanceActive,
 } = require('./store/adminRestoreStateStore');
@@ -731,6 +734,7 @@ const handleAdminPublicRoute = createAdminPublicRoutes({
   getTenantConsoleHtml,
   getDashboardHtml,
   getPersistenceStatus,
+  getPublicPersistenceStatus,
   getDeliveryMetricsSnapshot,
   ensurePlatformApiKey,
   requiredString,

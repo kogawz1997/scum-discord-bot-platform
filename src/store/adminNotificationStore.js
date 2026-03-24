@@ -218,6 +218,7 @@ function buildNotificationFromLiveEvent(type, payload = {}) {
         || kind === 'consecutive-failures'
         || kind === 'runtime-offline'
         || kind === 'runtime-degraded'
+        || kind === 'agent-circuit-open'
         || kind === 'platform-webhook-failed'
         || kind === 'platform-auto-backup-failed'
         || kind === 'platform-auto-restart-failed'
@@ -281,6 +282,12 @@ function buildNotificationFromLiveEvent(type, payload = {}) {
       message =
         `${String(data.tenantId || 'tenant')} / ${String(data.runtimeKey || 'runtime')}`
         + ` lastSeenAt=${String(data.lastSeenAt || '-')}`;
+    } else if (kind === 'agent-circuit-open') {
+      title = 'Agent Circuit Open';
+      message =
+        `consecutiveFailures=${Number(data.consecutiveFailures || 0)} threshold=${Number(data.threshold || 0)}`
+        + `${data.lastFailureCode ? ` lastFailureCode=${String(data.lastFailureCode)}` : ''}`
+        + `${data.lastFailureMessage ? ` lastFailureMessage=${trimText(data.lastFailureMessage, 120)}` : ''}`;
     } else if (kind === 'delivery-reconcile-anomaly') {
       title = 'Delivery Reconcile Anomaly';
       message =

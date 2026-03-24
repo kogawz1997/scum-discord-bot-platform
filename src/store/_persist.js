@@ -175,6 +175,20 @@ function getPersistenceStatus() {
   };
 }
 
+function getPublicPersistenceStatus() {
+  const status = getPersistenceStatus();
+  return {
+    mode: status.mode,
+    requireDb: status.requireDb,
+    databaseEngine: status.databaseEngine,
+    databaseProvider: status.databaseProvider,
+    legacySnapshotsEnabled: status.legacySnapshotsEnabled,
+    fallbackReason: status.fallbackReason,
+    databaseUrlRedacted: Boolean(status.databaseUrl),
+    storagePathsRedacted: true,
+  };
+}
+
 module.exports = {
   DATA_DIR,
   DB_PATH,
@@ -185,4 +199,5 @@ module.exports = {
   getFilePath,
   isDbPersistenceEnabled,
   getPersistenceStatus,
+  getPublicPersistenceStatus,
 };

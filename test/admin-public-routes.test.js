@@ -45,6 +45,7 @@ function buildRoutes(overrides = {}) {
     getTenantConsoleHtml: () => '<tenant/>',
     getDashboardHtml: () => '<legacy/>',
     getPersistenceStatus: () => ({ ok: true }),
+    getPublicPersistenceStatus: () => ({ ok: true, databaseUrlRedacted: true }),
     getDeliveryMetricsSnapshot: () => ({ ok: true }),
     ensurePlatformApiKey: async () => null,
     requiredString: (value) => String(value || '').trim(),
@@ -138,7 +139,28 @@ test('admin public routes block tenant-scoped admins from owner console page', a
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, '/tenant');
+  assert.equal(res.headers.Location, '/owner/login?switch=1');
+});
+
+test('owner-scoped session hitting tenant page is redirected to tenant login for account switch', async () => {
+  const handler = buildRoutes({
+    getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant'),
+    pathname: '/tenant',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant/login?switch=1');
 });
 
 test('admin public routes serve tenant console html for tenant-scoped admins', async () => {
@@ -244,6 +266,66 @@ test('tenant login route serves login html when unauthenticated', async () => {
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body, '<login/>');
+});
+
+test('tenant login route serves login html for owner session so accounts can be switched', async () => {
+  const handler = buildRoutes({
+    isAuthorized: () => true,
+    getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/login'),
+    pathname: '/tenant/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<login/>');
+});
+
+test('admin public healthz uses the redacted persistence payload', async () => {
+  const handler = buildRoutes({
+    getPersistenceStatus: () => ({
+      mode: 'db-only',
+      databaseUrl: 'postgresql://secret:secret@example.invalid:5432/app',
+      dbPath: '/secret/db',
+      dataDir: '/secret/data',
+    }),
+    getPublicPersistenceStatus: () => ({
+      mode: 'db-only',
+      databaseUrlRedacted: true,
+      storagePathsRedacted: true,
+    }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/healthz'),
+    pathname: '/healthz',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.service, 'admin-web');
+  assert.equal(payload.data.persistence.databaseUrlRedacted, true);
+  assert.equal(payload.data.persistence.storagePathsRedacted, true);
+  assert.equal('databaseUrl' in payload.data.persistence, false);
+  assert.equal('dbPath' in payload.data.persistence, false);
+  assert.equal('dataDir' in payload.data.persistence, false);
 });
 
 test('admin legacy tab routes owner auth traffic into the owner security page', async () => {

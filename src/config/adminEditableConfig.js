@@ -136,6 +136,13 @@ const CONTROL_PANEL_ENV_FIELDS = Object.freeze([
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_MAX_BODY_BYTES', type: 'number', policy: 'runtime-only', description: 'Max admin request body size in bytes' }),
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_ENFORCE_ORIGIN_CHECK', type: 'boolean', description: 'Reject cross-site admin writes' }),
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_ALLOWED_ORIGINS', type: 'text', description: 'Comma-separated trusted admin origins' }),
+  defineEnvField({
+    file: 'root',
+    key: 'ADMIN_LOG_LANGUAGE',
+    type: 'text',
+    applyMode: 'reload-safe',
+    description: 'Language used for Discord admin-log operational alerts',
+  }),
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_LOGIN_WINDOW_MS', type: 'number', description: 'Admin login rate-limit window in milliseconds' }),
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_LOGIN_MAX_ATTEMPTS', type: 'number', description: 'Admin login rate-limit attempts per window' }),
   defineEnvField({ file: 'root', key: 'ADMIN_WEB_LOGIN_SPIKE_WINDOW_MS', type: 'number', description: 'Admin login spike detection window in milliseconds' }),

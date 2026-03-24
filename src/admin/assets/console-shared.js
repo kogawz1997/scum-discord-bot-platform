@@ -88,21 +88,222 @@
     return `<span class="pill pill-${escapeHtml(resolvedTone)}">${escapeHtml(label || '-')}</span>`;
   }
 
+  function joinNotificationParts(parts = []) {
+    return parts.filter(Boolean).join(' • ');
+  }
+
+  function localizeAdminNotification(item = {}) {
+    const data = item?.data && typeof item.data === 'object' ? item.data : {};
+    const kind = String(item?.kind || item?.type || '').trim().toLowerCase();
+    const runtime = String(data.runtimeLabel || data.runtimeKey || 'runtime').trim() || t('admin.notifications.runtimeFallback', 'runtime');
+    const service = String(data.serviceKey || data.runtimeKey || data.runtimeLabel || '-').trim() || '-';
+    const backup = String(data.backup || '-').trim() || '-';
+    const reason = String(data.reason || '').trim();
+    const error = String(data.error || data.stderr || '').trim();
+    const note = String(data.note || '').trim();
+    const targetUrl = String(data.targetUrl || '').trim();
+    const eventType = String(data.eventType || '').trim();
+    const tenantId = String(data.tenantId || '').trim();
+    const version = String(data.version || '').trim();
+    const minimumVersion = String(data.minimumVersion || '').trim();
+    const lastSeenAt = String(data.lastSeenAt || '').trim();
+    const rollbackBackup = String(data.rollbackBackup || data.rollbackStatus || '').trim();
+    const sampleType = Array.isArray(data.sample) && data.sample.length > 0
+      ? String(data.sample[0]?.type || '').trim()
+      : '';
+    const count = Number.isFinite(Number(data.count)) ? formatNumber(data.count, '0') : '';
+    const threshold = Number.isFinite(Number(data.threshold)) ? formatNumber(data.threshold, '0') : '';
+    const failures = Number.isFinite(Number(data.failures)) ? formatNumber(data.failures, '0') : '';
+    const windowMs = Number.isFinite(Number(data.windowMs)) ? formatNumber(data.windowMs, '0') : '';
+    const exitCode = Number.isFinite(Number(data.exitCode)) ? formatNumber(data.exitCode, '0') : '';
+    const lastPurchaseCode = String(data.lastPurchaseCode || data.purchaseCode || '').trim();
+
+    let title = String(item?.title || item?.type || t('admin.notifications.defaultTitle', 'Notification')).trim();
+    let detail = String(item?.detail || item?.message || '').trim();
+
+    if (kind === 'dead-letter-threshold') {
+      title = t('admin.notifications.deadLetterThreshold.title', 'Dead-letter threshold reached');
+      detail = joinNotificationParts([
+        t('admin.notifications.deadLetterThreshold.detail', 'Dead letters reached the configured threshold.'),
+        count ? t('admin.notifications.meta.count', 'count {value}', { value: count }) : '',
+        threshold ? t('admin.notifications.meta.threshold', 'threshold {value}', { value: threshold }) : '',
+      ]);
+    } else if (kind === 'consecutive-failures') {
+      title = t('admin.notifications.consecutiveFailures.title', 'Consecutive delivery failures');
+      detail = joinNotificationParts([
+        t('admin.notifications.consecutiveFailures.detail', 'Delivery failures crossed the configured threshold.'),
+        failures ? t('admin.notifications.meta.failures', 'failures {value}', { value: failures }) : '',
+        threshold ? t('admin.notifications.meta.threshold', 'threshold {value}', { value: threshold }) : '',
+        lastPurchaseCode ? t('admin.notifications.meta.code', 'code {value}', { value: lastPurchaseCode }) : '',
+      ]);
+    } else if (kind === 'login-failure-spike') {
+      title = t('admin.notifications.loginFailureSpike.title', 'Admin login failure spike');
+      detail = joinNotificationParts([
+        t('admin.notifications.loginFailureSpike.detail', 'Admin login failures spiked in the current window.'),
+        failures ? t('admin.notifications.meta.failures', 'failures {value}', { value: failures }) : '',
+        windowMs ? t('admin.notifications.meta.windowMs', 'window {value} ms', { value: windowMs }) : '',
+      ]);
+    } else if (kind === 'runtime-offline') {
+      title = t('admin.notifications.runtimeOffline.title', 'Runtime offline');
+      detail = joinNotificationParts([
+        t('admin.notifications.runtimeOffline.detail', '{runtime} is offline.', { runtime }),
+        reason ? t('admin.notifications.meta.reason', 'reason {value}', { value: reason }) : '',
+      ]);
+    } else if (kind === 'runtime-degraded') {
+      title = t('admin.notifications.runtimeDegraded.title', 'Runtime degraded');
+      detail = joinNotificationParts([
+        t('admin.notifications.runtimeDegraded.detail', '{runtime} needs attention.', { runtime }),
+        reason ? t('admin.notifications.meta.reason', 'reason {value}', { value: reason }) : '',
+      ]);
+    } else if (kind === 'platform-webhook-failed') {
+      title = t('admin.notifications.platformWebhookFailed.title', 'Platform webhook failed');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformWebhookFailed.detail', 'A platform webhook dispatch failed.'),
+        eventType ? t('admin.notifications.meta.event', 'event {value}', { value: eventType }) : '',
+        targetUrl ? t('admin.notifications.meta.target', 'target {value}', { value: targetUrl }) : '',
+        error ? t('admin.notifications.meta.error', 'error {value}', { value: error }) : '',
+      ]);
+    } else if (kind === 'agent-version-outdated') {
+      title = t('admin.notifications.agentVersionOutdated.title', 'Agent version outdated');
+      detail = joinNotificationParts([
+        t('admin.notifications.agentVersionOutdated.detail', 'An agent runtime is below the minimum version.'),
+        tenantId ? t('admin.notifications.meta.tenant', 'tenant {value}', { value: tenantId }) : '',
+        version ? t('admin.notifications.meta.version', 'version {value}', { value: version }) : '',
+        minimumVersion ? t('admin.notifications.meta.minimum', 'min {value}', { value: minimumVersion }) : '',
+      ]);
+    } else if (kind === 'agent-runtime-stale') {
+      title = t('admin.notifications.agentRuntimeStale.title', 'Agent runtime stale');
+      detail = joinNotificationParts([
+        t('admin.notifications.agentRuntimeStale.detail', 'An agent runtime stopped checking in recently.'),
+        tenantId ? t('admin.notifications.meta.tenant', 'tenant {value}', { value: tenantId }) : '',
+        lastSeenAt ? t('admin.notifications.meta.lastSeen', 'last seen {value}', { value: formatDateTime(lastSeenAt, lastSeenAt) }) : '',
+      ]);
+    } else if (kind === 'agent-circuit-open') {
+      const consecutiveFailures = Number.isFinite(Number(data.consecutiveFailures))
+        ? formatNumber(data.consecutiveFailures, '0')
+        : '';
+      const circuitOpenUntil = String(data.circuitOpenUntil || '').trim();
+      const lastFailureCode = String(data.lastFailureCode || '').trim();
+      const lastFailureMessage = String(data.lastFailureMessage || '').trim();
+      title = t('admin.notifications.agentCircuitOpen.title', 'Agent circuit open');
+      detail = joinNotificationParts([
+        t('admin.notifications.agentCircuitOpen.detail', 'The delivery agent opened its circuit breaker after repeated failures.'),
+        consecutiveFailures ? t('admin.notifications.meta.failures', 'failures {value}', { value: consecutiveFailures }) : '',
+        threshold ? t('admin.notifications.meta.threshold', 'threshold {value}', { value: threshold }) : '',
+        lastFailureCode ? t('admin.notifications.meta.lastCode', 'last code {value}', { value: lastFailureCode }) : '',
+        lastFailureMessage ? t('admin.notifications.meta.lastMessage', 'last message {value}', { value: lastFailureMessage }) : '',
+        circuitOpenUntil ? t('admin.notifications.meta.openUntil', 'open until {value}', { value: formatDateTime(circuitOpenUntil, circuitOpenUntil) }) : '',
+      ]);
+    } else if (kind === 'delivery-reconcile-anomaly') {
+      title = t('admin.notifications.deliveryReconcileAnomaly.title', 'Delivery reconcile anomaly');
+      detail = joinNotificationParts([
+        t('admin.notifications.deliveryReconcileAnomaly.detail', 'Reconcile found delivery rows that need review.'),
+        count ? t('admin.notifications.meta.count', 'count {value}', { value: count }) : '',
+        sampleType ? t('admin.notifications.meta.sample', 'sample {value}', { value: sampleType }) : '',
+      ]);
+    } else if (kind === 'delivery-abuse-suspected') {
+      title = t('admin.notifications.deliveryAbuseSuspected.title', 'Delivery abuse suspected');
+      detail = joinNotificationParts([
+        t('admin.notifications.deliveryAbuseSuspected.detail', 'Abuse heuristics flagged recent delivery activity.'),
+        count ? t('admin.notifications.meta.count', 'count {value}', { value: count }) : '',
+        sampleType ? t('admin.notifications.meta.sample', 'sample {value}', { value: sampleType }) : '',
+      ]);
+    } else if (kind === 'platform-auto-backup-created') {
+      title = t('admin.notifications.platformAutoBackupCreated.title', 'Platform auto backup created');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoBackupCreated.detail', 'The automatic platform backup completed successfully.'),
+        t('admin.notifications.meta.backup', 'backup {value}', { value: backup }),
+        note ? t('admin.notifications.meta.note', 'note {value}', { value: note }) : '',
+      ]);
+    } else if (kind === 'platform-auto-backup-failed') {
+      title = t('admin.notifications.platformAutoBackupFailed.title', 'Platform auto backup failed');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoBackupFailed.detail', 'The automatic platform backup failed.'),
+        error ? t('admin.notifications.meta.error', 'error {value}', { value: error }) : '',
+      ]);
+    } else if (kind === 'platform-auto-restart-started') {
+      title = t('admin.notifications.platformAutoRestartStarted.title', 'Platform auto recovery started');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoRestartStarted.detail', 'Automatic recovery started for {runtime}.', { runtime }),
+        t('admin.notifications.meta.service', 'service {value}', { value: service }),
+        reason ? t('admin.notifications.meta.reason', 'reason {value}', { value: reason }) : '',
+      ]);
+    } else if (kind === 'platform-auto-restart-succeeded') {
+      title = t('admin.notifications.platformAutoRestartSucceeded.title', 'Platform auto recovery succeeded');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoRestartSucceeded.detail', '{runtime} recovered successfully.', { runtime }),
+        t('admin.notifications.meta.service', 'service {value}', { value: service }),
+        exitCode ? t('admin.notifications.meta.exit', 'exit {value}', { value: exitCode }) : '',
+      ]);
+    } else if (kind === 'platform-auto-restart-failed') {
+      title = t('admin.notifications.platformAutoRestartFailed.title', 'Platform auto recovery failed');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoRestartFailed.detail', '{runtime} could not be recovered automatically.', { runtime }),
+        t('admin.notifications.meta.service', 'service {value}', { value: service }),
+        exitCode ? t('admin.notifications.meta.exit', 'exit {value}', { value: exitCode }) : '',
+        error ? t('admin.notifications.meta.error', 'error {value}', { value: error }) : '',
+      ]);
+    } else if (kind === 'platform-auto-monitoring-followup-failed') {
+      title = t('admin.notifications.platformAutoMonitoringFollowupFailed.title', 'Post-recovery monitoring failed');
+      detail = joinNotificationParts([
+        t('admin.notifications.platformAutoMonitoringFollowupFailed.detail', 'Follow-up monitoring failed after recovering {runtime}.', { runtime }),
+        error ? t('admin.notifications.meta.error', 'error {value}', { value: error }) : '',
+      ]);
+    } else if (kind === 'restore') {
+      title = t('admin.notifications.backupRestoreComplete.title', 'Backup restore complete');
+      detail = joinNotificationParts([
+        t('admin.notifications.backupRestoreComplete.detail', 'Backup restore completed.'),
+        t('admin.notifications.meta.backup', 'backup {value}', { value: backup }),
+      ]);
+    } else if (kind === 'restore-started') {
+      title = t('admin.notifications.backupRestoreStarted.title', 'Backup restore started');
+      detail = joinNotificationParts([
+        t('admin.notifications.backupRestoreStarted.detail', 'Backup restore started.'),
+        t('admin.notifications.meta.backup', 'backup {value}', { value: backup }),
+        rollbackBackup ? t('admin.notifications.meta.rollback', 'rollback {value}', { value: rollbackBackup }) : '',
+      ]);
+    } else if (kind === 'restore-failed') {
+      title = t('admin.notifications.backupRestoreFailed.title', 'Backup restore failed');
+      detail = joinNotificationParts([
+        t('admin.notifications.backupRestoreFailed.detail', 'Backup restore failed.'),
+        t('admin.notifications.meta.backup', 'backup {value}', { value: backup }),
+        rollbackBackup ? t('admin.notifications.meta.rollback', 'rollback {value}', { value: rollbackBackup }) : '',
+        error ? t('admin.notifications.meta.error', 'error {value}', { value: error }) : '',
+      ]);
+    } else if (kind === 'restore-rollback') {
+      title = t('admin.notifications.backupRestoreRollback.title', 'Backup restore rolled back');
+      detail = joinNotificationParts([
+        t('admin.notifications.backupRestoreRollback.detail', 'Restore rollback completed.'),
+        t('admin.notifications.meta.backup', 'backup {value}', { value: backup }),
+        rollbackBackup ? t('admin.notifications.meta.rollback', 'rollback {value}', { value: rollbackBackup }) : '',
+      ]);
+    }
+
+    return {
+      title: title || t('admin.notifications.defaultTitle', 'Notification'),
+      detail,
+    };
+  }
+
   function renderStats(container, cards) {
     if (!container) return;
     const rows = Array.isArray(cards) ? cards.filter(Boolean) : [];
     container.innerHTML = rows.length
-      ? rows.map((card) => [
-          '<article class="stat-card">',
-          `<span class="stat-kicker">${escapeHtml(card.kicker || '')}</span>`,
-          `<strong class="stat-value">${escapeHtml(card.value || '-')}</strong>`,
-          `<h3 class="stat-title">${escapeHtml(card.title || '')}</h3>`,
-          card.detail ? `<p class="stat-detail">${escapeHtml(card.detail)}</p>` : '',
-          Array.isArray(card.tags) && card.tags.length
-            ? `<div class="tag-row">${card.tags.map((tag) => makePill(tag)).join('')}</div>`
-            : '',
-          '</article>',
-        ].join('')).join('')
+      ? rows.map((card) => {
+          const valueText = String(card.value ?? '-');
+          const valueClass = valueText.length > 14 ? 'stat-value is-long' : 'stat-value';
+          return [
+            '<article class="stat-card">',
+            `<span class="stat-kicker">${escapeHtml(card.kicker || '')}</span>`,
+            `<strong class="${valueClass}">${escapeHtml(valueText)}</strong>`,
+            `<h3 class="stat-title">${escapeHtml(card.title || '')}</h3>`,
+            card.detail ? `<p class="stat-detail">${escapeHtml(card.detail)}</p>` : '',
+            Array.isArray(card.tags) && card.tags.length
+              ? `<div class="tag-row">${card.tags.map((tag) => makePill(tag)).join('')}</div>`
+              : '',
+            '</article>',
+          ].join('');
+        }).join('')
       : `<div class="empty-state">${escapeHtml(t('shared.emptySummary', 'No summary available.'))}</div>`;
   }
 
@@ -389,15 +590,12 @@
       const sectionCount = (sectionsByWorkspace[active.key] || []).length;
       const tags = [
         currentSectionId ? `<span class="pill pill-success">${escapeHtml(getSectionLabel(currentSectionId))}</span>` : '',
-        active.tag ? `<span class="pill pill-info">${escapeHtml(active.tag)}</span>` : '',
-        sectionCount ? `<span class="pill pill-neutral">${escapeHtml(`${sectionCount} sections`)}</span>` : '',
+        sectionCount ? `<span class="pill pill-neutral">${escapeHtml(t('shared.pageCount', '{count} pages', { count: sectionCount }))}</span>` : '',
       ].filter(Boolean).join('');
       summaryRoot.innerHTML = [
         `<div class="workspace-summary-copy">`,
         `<span class="section-kicker">${escapeHtml(active.label || active.title || 'Workspace')}</span>`,
         `<strong>${escapeHtml(active.title || active.label || active.key)}</strong>`,
-        currentSectionId ? `<p class="muted">${escapeHtml(t('shared.currentPage', 'Current page: {page}', { page: getSectionLabel(currentSectionId) }))}</p>` : '',
-        active.description ? `<p class="muted">${escapeHtml(active.description)}</p>` : '',
         `</div>`,
         tags ? `<div class="tag-row">${tags}</div>` : '',
       ].join('');
@@ -408,7 +606,6 @@
       switchRoot.innerHTML = workspaceList.map((workspace) => [
         `<button type="button" class="workspace-tab${workspace.key === currentWorkspace ? ' active' : ''}" data-workspace="${escapeHtml(workspace.key)}" aria-pressed="${workspace.key === currentWorkspace ? 'true' : 'false'}">`,
         `<span class="workspace-tab-label">${escapeHtml(workspace.label || workspace.title || workspace.key)}</span>`,
-        workspace.short ? `<span class="workspace-tab-meta">${escapeHtml(workspace.short)}</span>` : '',
         '</button>',
       ].join('')).join('');
       Array.from(switchRoot.querySelectorAll('[data-workspace]')).forEach((button) => {
@@ -505,6 +702,13 @@
     if (initialHash && sectionWorkspace.has(initialHash)) {
       openSection(initialHash, { block: 'start' });
     }
+    window.addEventListener('hashchange', () => {
+      const nextHash = String(window.location.hash || '').replace(/^#/, '');
+      if (!nextHash || !sectionWorkspace.has(nextHash) || nextHash === currentSectionId) {
+        return;
+      }
+      openSection(nextHash, { block: 'start', skipHash: true });
+    });
 
     return {
       getWorkspace() {
@@ -660,6 +864,7 @@
     formatDateTime,
     formatNumber,
     formatStatusTone,
+    localizeAdminNotification,
     makePill,
     renderList,
     renderStats,

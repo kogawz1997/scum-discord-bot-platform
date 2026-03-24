@@ -676,7 +676,10 @@ function createAdminGetRoutes(deps) {
     }
 
     if (pathname === '/admin/api/platform/apikeys') {
-      const auth = ensureRole(req, urlObj, 'owner', res);
+      // Tenant-scoped operators already create scoped API keys via the matching
+      // POST route. Keep the read path aligned and rely on tenant scope
+      // enforcement below instead of forcing owner role here.
+      const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
@@ -696,7 +699,9 @@ function createAdminGetRoutes(deps) {
     }
 
     if (pathname === '/admin/api/platform/webhooks') {
-      const auth = ensureRole(req, urlObj, 'owner', res);
+      // Same reasoning as platform/apikeys above: scoped tenant operators need
+      // to inspect their own webhook endpoints without crossing tenant bounds.
+      const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {

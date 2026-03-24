@@ -31,6 +31,7 @@ test('owner console template keeps owner-only incident and commercial controls',
   assert.match(html, /id="ownerSupportCaseActions"/);
   assert.match(html, /id="ownerSupportToolkit"/);
   assert.match(html, /id="ownerQuickActions"/);
+  assert.match(html, /id="ownerOpsLogLanguageForm"/);
   assert.match(html, /id="ownerLanguageSelect"/);
   assert.match(html, /admin-i18n\.js/);
   assert.match(html, /operational-state-model\.js/);
@@ -103,13 +104,13 @@ test('login entry pages keep language selectors and surface-specific i18n runtim
   assert.match(playerLogin, /portal-i18n\.js/);
 });
 
-test('admin i18n runtime keeps multilingual labels and owner/tenant translations intact', () => {
+test('admin i18n runtime keeps multilingual labels and owner/admin translations intact', () => {
   const i18n = read(path.join('src', 'admin', 'assets', 'admin-i18n.js'));
-  assert.match(i18n, /'ไทย'/);
-  assert.match(i18n, /'日本語'/);
-  assert.match(i18n, /'한국어'/);
-  assert.match(i18n, /'简体中文'/);
-  assert.match(i18n, /'Español'/);
-  assert.match(i18n, /'owner\.surfaceId': 'คอนโซลเจ้าของแพลตฟอร์ม'/);
-  assert.match(i18n, /'tenant\.surfaceId': 'คอนโซลผู้ดูแล Tenant'/);
+  assert.match(i18n, /SUPPORTED_LANGUAGES/);
+  assert.match(i18n, /'common\.roleOwner': 'Owner'/);
+  assert.match(i18n, /'common\.roleAdmin': 'Admin'/);
+  assert.match(i18n, /'common\.rolePlayer': 'Player'/);
+  assert.match(i18n, /'owner\.surfaceId': 'Platform Owner Console'/);
+  assert.match(i18n, /'tenant\.surfaceId': 'Server Admin Console'/);
+  assert.match(i18n, /'login\.tenantRoutePill': 'Admin Console'/);
 });

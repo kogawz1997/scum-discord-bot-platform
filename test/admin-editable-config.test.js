@@ -47,6 +47,21 @@ test('control panel env patch ignores empty secret updates', () => {
   });
 });
 
+test('control panel env patch accepts discord admin-log language writes', () => {
+  const patch = buildControlPanelEnvPatch({
+    root: {
+      ADMIN_LOG_LANGUAGE: 'th',
+    },
+  });
+
+  assert.deepEqual(patch, {
+    root: {
+      ADMIN_LOG_LANGUAGE: 'th',
+    },
+    portal: {},
+  });
+});
+
 test('control panel env catalog exposes policy metadata for every field', () => {
   const catalog = buildControlPanelEnvCatalog();
 
@@ -70,6 +85,7 @@ test('control panel env policy summary matches catalog totals and exposes import
   assert.equal(summary.reloadSafe + summary.restartRequired, summary.total);
   assert.equal(keys.has('ADMIN_WEB_2FA_ENABLED'), true);
   assert.equal(keys.has('ADMIN_WEB_STEP_UP_ENABLED'), true);
+  assert.equal(keys.has('ADMIN_LOG_LANGUAGE'), true);
   assert.equal(keys.has('ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET'), true);
   assert.equal(keys.has('ADMIN_WEB_2FA_SECRET'), true);
   assert.equal(keys.has('ADMIN_WEB_LOGIN_MAX_ATTEMPTS'), true);
