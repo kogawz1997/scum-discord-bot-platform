@@ -84,15 +84,16 @@ function normalizeAgentRegistrationInput(input = {}) {
       || 'hybrid',
     'hybrid',
   );
+  const requestedScopeSource = input.scope
+    || meta.scope
+    || meta.agentScope
+    || (requestedRole === 'sync'
+      ? 'sync_only'
+      : requestedRole === 'execute'
+        ? 'execute_only'
+        : 'sync_execute');
   const requestedScope = normalizeScope(
-    input.scope
-      || meta.scope
-      || meta.agentScope
-      || requestedRole === 'sync'
-        ? 'sync_only'
-        : requestedRole === 'execute'
-          ? 'execute_only'
-          : 'sync_execute',
+    requestedScopeSource,
     'sync_execute',
   );
   return {

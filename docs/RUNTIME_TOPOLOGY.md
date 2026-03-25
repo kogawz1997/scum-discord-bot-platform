@@ -35,8 +35,13 @@ This document describes the runtime split that the repository currently supports
 The centralized HTTP layer now terminates agent traffic instead of allowing Discord/web to talk to game-side machines directly.
 
 - `POST /platform/api/v1/agent/register`
+  - used after activation
   - scoped registration
   - binds agent identity to tenant/server/guild/runtime context
+- `POST /platform/api/v1/agent/activate`
+  - one-time setup token activation
+  - binds a machine fingerprint to one agent device
+  - issues the long-lived scoped credential used after install
 - `POST /platform/api/v1/agent/session`
   - heartbeat/session refresh
   - updates online/offline freshness
@@ -48,12 +53,19 @@ Admin-side control-plane routes now also expose:
 
 - `POST /admin/api/platform/server`
 - `POST /admin/api/platform/server-discord-link`
+- `POST /admin/api/platform/agent-provision`
 - `POST /admin/api/platform/agent-token`
 - `POST /admin/api/platform/agent-token/revoke`
 - `POST /admin/api/platform/agent-token/rotate`
+- `GET /admin/api/platform/packages`
+- `GET /admin/api/platform/features`
+- `GET /admin/api/platform/tenant-feature-access`
 - `GET /admin/api/platform/servers`
 - `GET /admin/api/platform/server-discord-links`
 - `GET /admin/api/platform/agent-registry`
+- `GET /admin/api/platform/agent-provisioning`
+- `GET /admin/api/platform/agent-devices`
+- `GET /admin/api/platform/agent-credentials`
 - `GET /admin/api/platform/agent-sessions`
 - `GET /admin/api/platform/sync-runs`
 - `GET /admin/api/platform/sync-events`
@@ -97,10 +109,13 @@ This exists for local development and targeted verification.
 
 - Delivery can run in `rcon` or `agent` mode, but agent mode still depends on a live SCUM window and Windows session.
 - Read/sync and write/execute are now split by role and scope, but a `hybrid` agent identity remains supported as a compatibility bridge.
+- Agent provisioning now uses a one-time setup token plus device binding before the long-lived credential is issued.
 - Tenant-aware application paths are topology-ready through selected schema/database-per-tenant routing plus PostgreSQL RLS strict mode; this workstation now boots with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` and default tenant `1259096998045421672`.
 - Watcher health is allowed to report `disabled` when the runtime is intentionally turned off.
 - Runtime state should not be tracked inside the repository in production or DB-only mode; persistence now defaults to external OS-managed state paths unless explicitly overridden.
 - Owner/admin runtime views now expose `sync`, `execute`, and `hybrid` agent role/scope hints so operator responsibility is visible from the control plane.
+
+See [PLATFORM_PACKAGE_AND_AGENT_MODEL.md](./PLATFORM_PACKAGE_AND_AGENT_MODEL.md) for the package catalog, feature gating model, setup-token activation, and device-binding flow.
 
 ## Review Checklist
 

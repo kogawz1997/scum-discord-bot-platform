@@ -74,6 +74,9 @@ function createAdminGetRoutes(deps) {
     getPlatformPublicOverview,
     getPlatformPermissionCatalog,
     getPlanCatalog,
+    getPackageCatalog,
+    getFeatureCatalog,
+    getTenantFeatureAccess,
     getPlatformOpsState,
     getPlatformAutomationState,
     getPlatformAutomationConfig,
@@ -89,6 +92,9 @@ function createAdminGetRoutes(deps) {
     listPlatformServerRegistry,
     listPlatformServerLinks,
     listPlatformAgentRegistry,
+    listPlatformAgentProvisioningTokens,
+    listPlatformAgentDevices,
+    listPlatformAgentCredentials,
     listPlatformAgentSessions,
     listPlatformSyncRuns,
     listPlatformSyncEvents,
@@ -423,11 +429,36 @@ function createAdminGetRoutes(deps) {
           publicOverview: await getPlatformPublicOverview(),
           permissionCatalog: getPlatformPermissionCatalog(),
           plans: getPlanCatalog(),
+          packages: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+          features: typeof getFeatureCatalog === 'function' ? getFeatureCatalog() : [],
+          tenantFeatureAccess: tenantId && typeof getTenantFeatureAccess === 'function'
+            ? await getTenantFeatureAccess(tenantId)
+            : null,
           opsState: getPlatformOpsState(),
           automationState: getPlatformAutomationState(),
           automationConfig: getPlatformAutomationConfig(),
           tenantConfig: tenantId ? await getPlatformTenantConfig(tenantId) : null,
         },
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/packages') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/features') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: typeof getFeatureCatalog === 'function' ? getFeatureCatalog() : [],
       });
       return true;
     }
@@ -446,6 +477,26 @@ function createAdminGetRoutes(deps) {
       sendJson(res, 200, {
         ok: true,
         data: await getTenantQuotaSnapshot(tenantId),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/tenant-feature-access') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: typeof getTenantFeatureAccess === 'function'
+          ? await getTenantFeatureAccess(tenantId)
+          : await getTenantQuotaSnapshot(tenantId),
       });
       return true;
     }
@@ -536,6 +587,74 @@ function createAdminGetRoutes(deps) {
         data: await listPlatformAgentRegistry({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
+        }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/agent-provisioning') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')),
+        { required: false },
+      );
+      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await listPlatformAgentProvisioningTokens({
+          tenantId,
+          serverId: requiredString(urlObj.searchParams.get('serverId')),
+          agentId: requiredString(urlObj.searchParams.get('agentId')),
+          status: requiredString(urlObj.searchParams.get('status')),
+        }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/agent-devices') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')),
+        { required: false },
+      );
+      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await listPlatformAgentDevices({
+          tenantId,
+          serverId: requiredString(urlObj.searchParams.get('serverId')),
+          agentId: requiredString(urlObj.searchParams.get('agentId')),
+          status: requiredString(urlObj.searchParams.get('status')),
+        }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/agent-credentials') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')),
+        { required: false },
+      );
+      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await listPlatformAgentCredentials({
+          tenantId,
+          serverId: requiredString(urlObj.searchParams.get('serverId')),
+          agentId: requiredString(urlObj.searchParams.get('agentId')),
         }),
       });
       return true;

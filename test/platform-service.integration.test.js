@@ -12,6 +12,7 @@ const {
   createPlatformWebhookEndpoint,
   createSubscription,
   createTenant,
+  getTenantQuotaSnapshot,
   getPlatformAnalyticsOverview,
   getPlatformPublicOverview,
   issuePlatformLicense,
@@ -259,6 +260,12 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
   assert.equal(Number(scopedAnalytics.subscriptions.total || 0), 1);
   assert.equal(Number(scopedAnalytics.delivery.purchaseCount30d || 0), 4);
 
+  const quota = await getTenantQuotaSnapshot(tenant.tenant.id);
+  assert.equal(quota.ok, true);
+  assert.equal(String(quota.package?.id || ''), 'BOT_LOG_DELIVERY');
+  assert.ok(quota.enabledFeatureKeys.includes('sync_agent'));
+  assert.ok(quota.enabledFeatureKeys.includes('execute_agent'));
+
   const reconcile = await reconcileDeliveryState({
     pendingOverdueMs: 5 * 60 * 1000,
     allowGlobal: true,
@@ -287,6 +294,10 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
   const publicOverview = await getPlatformPublicOverview();
   assert.equal(Boolean(publicOverview.trial?.enabled), true);
   assert.ok(Array.isArray(publicOverview.billing?.plans));
+  assert.ok(Array.isArray(publicOverview.billing?.packages));
+  assert.ok(Array.isArray(publicOverview.billing?.features));
+  assert.ok(publicOverview.billing.packages.some((entry) => String(entry?.id || '') === 'FULL_OPTION'));
+  assert.ok(publicOverview.billing.features.some((entry) => String(entry?.key || '') === 'sync_agent'));
   assert.ok(Array.isArray(publicOverview.legal?.docs));
   assert.match(String(publicOverview.legal.docs?.[0]?.url || ''), /^\/docs\//);
 });

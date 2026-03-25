@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const {
   deriveScopesForAgent,
   normalizeAgentRegistrationInput,
@@ -8,11 +10,18 @@ const {
 } = require('../../contracts/agent/agentContracts');
 const {
   listAgents,
+  listAgentCredentials,
+  listAgentDevices,
+  listAgentProvisioningTokens,
   listAgentSessions,
   listAgentTokenBindings,
+  listServers,
   recordAgentSession,
   revokeAgentTokenBinding,
   upsertAgent,
+  upsertAgentCredential,
+  upsertAgentDevice,
+  upsertAgentProvisioningToken,
   upsertAgentTokenBinding,
 } = require('../../data/repositories/controlPlaneRegistryRepository');
 
@@ -29,6 +38,32 @@ function createAgentRegistryService(deps = {}) {
 
   const tenantApiKeyCache = new Map();
   const tenantRuntimeCache = new Map();
+
+  function sha256(value) {
+    return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
+  }
+
+  function createOneTimeSetupToken() {
+    const prefix = `stp_${crypto.randomBytes(6).toString('hex')}`;
+    const secret = crypto.randomBytes(24).toString('hex');
+    return `${prefix}.${secret}`;
+  }
+
+  function buildDeviceId(agentId, machineFingerprint) {
+    return [
+      trimText(agentId, 120) || 'agent',
+      sha256(machineFingerprint).slice(0, 12),
+    ].join('-');
+  }
+
+  function findProvisioningTokenByRawToken(rawToken) {
+    const token = trimText(rawToken, 500);
+    if (!token) return null;
+    const tokenPrefix = token.slice(0, 16);
+    const tokenHash = sha256(token);
+    const matches = listAgentProvisioningTokens({ tokenPrefix });
+    return matches.find((row) => String(row?.tokenHash || '') === tokenHash) || null;
+  }
 
   async function assertTenantExists(tenantId) {
     const tenant = await getPlatformTenantById?.(tenantId);
@@ -74,6 +109,196 @@ function createAgentRegistryService(deps = {}) {
       binding: bindingResult.binding,
       apiKey: tokenResult.apiKey,
       rawKey: tokenResult.rawKey,
+    };
+  }
+
+  async function createAgentProvisioningToken(input = {}, actor = 'system') {
+    const normalized = normalizeAgentRegistrationInput(input);
+    if (!normalized.tenantId || !normalized.serverId || !normalized.agentId) {
+      return { ok: false, reason: 'invalid-agent-provisioning-token' };
+    }
+    const tenantCheck = await assertTenantExists(normalized.tenantId);
+    if (!tenantCheck.ok) return tenantCheck;
+    const server = listServers({
+      tenantId: normalized.tenantId,
+      serverId: normalized.serverId,
+    })[0] || null;
+    if (!server) return { ok: false, reason: 'server-not-found' };
+
+    const rawSetupToken = createOneTimeSetupToken();
+    const tokenResult = upsertAgentProvisioningToken({
+      id: trimText(input.tokenId, 120) || trimText(input.id, 120) || normalized.id,
+      tenantId: normalized.tenantId,
+      serverId: normalized.serverId,
+      guildId: normalized.guildId || server.guildId || null,
+      agentId: normalized.agentId,
+      runtimeKey: normalized.runtimeKey,
+      role: normalized.role,
+      scope: normalized.scope,
+      tokenPrefix: rawSetupToken.slice(0, 16),
+      tokenHash: sha256(rawSetupToken),
+      minVersion: normalized.minimumVersion,
+      expiresAt: trimText(input.expiresAt, 80) || new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+      metadata: input.metadata,
+      status: 'pending_activation',
+    }, actor);
+    if (!tokenResult.ok) return tokenResult;
+
+    const agentResult = upsertAgent({
+      ...normalized,
+      guildId: normalized.guildId || server.guildId || null,
+      status: 'pending',
+    }, actor);
+
+    return {
+      ok: true,
+      token: tokenResult.token,
+      rawSetupToken,
+      bootstrap: {
+        setupToken: rawSetupToken,
+        tenantId: normalized.tenantId,
+        serverId: normalized.serverId,
+        guildId: normalized.guildId || server.guildId || null,
+        agentId: normalized.agentId,
+        agentType: normalized.role,
+        role: normalized.role,
+        scope: normalized.scope,
+        runtimeKey: normalized.runtimeKey || null,
+      },
+      agent: agentResult.agent,
+    };
+  }
+
+  async function activateAgent(input = {}, actor = 'platform-agent') {
+    const rawSetupToken = trimText(input.setupToken || input.setup_token, 500);
+    const machineFingerprint = trimText(input.machineFingerprint || input.machine_fingerprint, 240);
+    if (!rawSetupToken || !machineFingerprint) {
+      return { ok: false, reason: 'invalid-agent-activation' };
+    }
+    const provisioningToken = findProvisioningTokenByRawToken(rawSetupToken);
+    if (!provisioningToken) return { ok: false, reason: 'invalid-setup-token' };
+    if (String(provisioningToken.status || '') === 'revoked') {
+      return { ok: false, reason: 'setup-token-revoked' };
+    }
+    if (String(provisioningToken.status || '') === 'consumed') {
+      return { ok: false, reason: 'setup-token-consumed' };
+    }
+    if (provisioningToken.expiresAt && new Date(provisioningToken.expiresAt).getTime() < Date.now()) {
+      return { ok: false, reason: 'setup-token-expired' };
+    }
+
+    const server = listServers({
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+    })[0] || null;
+    if (!server) return { ok: false, reason: 'server-not-found' };
+
+    const machineFingerprintHash = sha256(machineFingerprint);
+    const existingDevices = listAgentDevices({
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      agentId: provisioningToken.agentId,
+    });
+    const boundDevice = existingDevices.find((row) => String(row?.status || '') !== 'revoked') || null;
+    if (boundDevice && String(boundDevice.machineFingerprintHash || '') !== machineFingerprintHash) {
+      return { ok: false, reason: 'agent-device-already-bound' };
+    }
+
+    const credential = await createPlatformApiKey({
+      tenantId: provisioningToken.tenantId,
+      name: trimText(input.name, 160) || `agent-${provisioningToken.agentId}-${provisioningToken.scope}`,
+      status: 'active',
+      scopes: deriveScopesForAgent(provisioningToken.role, provisioningToken.scope),
+    }, actor);
+    if (!credential.ok) return credential;
+
+    const now = new Date().toISOString();
+    const deviceId = boundDevice?.id || buildDeviceId(provisioningToken.agentId, machineFingerprint);
+    const deviceResult = upsertAgentDevice({
+      id: deviceId,
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      guildId: provisioningToken.guildId || server.guildId || null,
+      agentId: provisioningToken.agentId,
+      runtimeKey: trimText(input.runtimeKey, 160) || provisioningToken.runtimeKey || null,
+      machineFingerprintHash,
+      hostname: trimText(input.hostname, 160) || null,
+      status: 'online',
+      credentialId: credential.apiKey?.id || null,
+      metadata: input.metadata,
+      firstSeenAt: boundDevice?.firstSeenAt || now,
+      lastSeenAt: now,
+    }, actor);
+    if (!deviceResult.ok) return deviceResult;
+
+    const credentialResult = upsertAgentCredential({
+      id: credential.apiKey?.id,
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      guildId: provisioningToken.guildId || server.guildId || null,
+      agentId: provisioningToken.agentId,
+      apiKeyId: credential.apiKey?.id,
+      keyPrefix: String(credential.rawKey || '').slice(0, 16),
+      role: provisioningToken.role,
+      scope: provisioningToken.scope,
+      minVersion: provisioningToken.minVersion,
+      deviceId,
+      lastIssuedAt: now,
+      metadata: {
+        activatedFromSetupTokenId: provisioningToken.id,
+      },
+    }, actor);
+    if (!credentialResult.ok) return credentialResult;
+
+    const bindingResult = upsertAgentTokenBinding({
+      id: credential.apiKey?.id,
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      guildId: provisioningToken.guildId || server.guildId || null,
+      agentId: provisioningToken.agentId,
+      apiKeyId: credential.apiKey?.id,
+      role: provisioningToken.role,
+      scope: provisioningToken.scope,
+      minVersion: provisioningToken.minVersion,
+      status: 'active',
+    }, actor);
+    if (!bindingResult.ok) return bindingResult;
+
+    const agentResult = upsertAgent({
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      guildId: provisioningToken.guildId || server.guildId || null,
+      agentId: provisioningToken.agentId,
+      runtimeKey: trimText(input.runtimeKey, 160) || provisioningToken.runtimeKey || `${provisioningToken.agentId}-runtime`,
+      displayName: trimText(input.displayName, 160) || null,
+      role: provisioningToken.role,
+      scope: provisioningToken.scope,
+      channel: trimText(input.channel, 80) || null,
+      version: trimText(input.version, 80) || null,
+      minimumVersion: provisioningToken.minVersion,
+      baseUrl: trimText(input.baseUrl, 400) || null,
+      hostname: trimText(input.hostname, 160) || null,
+      metadata: input.metadata,
+      status: 'pending',
+    }, actor);
+    if (!agentResult.ok) return agentResult;
+
+    upsertAgentProvisioningToken({
+      ...provisioningToken,
+      status: 'consumed',
+      consumedAt: now,
+      activatedDeviceId: deviceId,
+      activatedCredentialId: credential.apiKey?.id || null,
+    }, actor);
+
+    return {
+      ok: true,
+      agent: agentResult.agent,
+      device: deviceResult.device,
+      credential: credentialResult.credential,
+      apiKey: credential.apiKey,
+      rawKey: credential.rawKey,
+      binding: bindingResult.binding,
     };
   }
 
@@ -301,9 +526,38 @@ function createAgentRegistryService(deps = {}) {
     }));
   }
 
+  async function listProvisioningTokens(options = {}) {
+    return listAgentProvisioningTokens(options);
+  }
+
+  async function listManagedAgentDevices(options = {}) {
+    return listAgentDevices(options);
+  }
+
+  async function listManagedAgentCredentials(options = {}) {
+    const credentials = listAgentCredentials(options);
+    const grouped = new Map();
+    for (const row of credentials) {
+      if (!grouped.has(row.tenantId)) {
+        grouped.set(row.tenantId, await (typeof listPlatformApiKeys === 'function'
+          ? listPlatformApiKeys({ tenantId: row.tenantId, limit: 500 })
+          : []));
+      }
+    }
+    return credentials.map((row) => ({
+      ...row,
+      apiKey: (grouped.get(row.tenantId) || []).find((entry) => String(entry?.id || '') === String(row.apiKeyId || '')) || null,
+    }));
+  }
+
   return {
+    activateAgent,
+    createAgentProvisioningToken,
     createAgentToken,
     listAgentRegistry,
+    listManagedAgentCredentials,
+    listManagedAgentDevices,
+    listProvisioningTokens,
     recordSession,
     registerAgent,
     revokeAgentToken,

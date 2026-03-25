@@ -24,6 +24,7 @@ function createAdminPlatformPostRoutes(deps) {
     createPlatformApiKey,
     createPlatformWebhookEndpoint,
     createPlatformAgentToken,
+    createPlatformAgentProvisioningToken,
     revokePlatformAgentToken,
     rotatePlatformAgentToken,
     dispatchPlatformWebhookEvent,
@@ -341,6 +342,39 @@ function createAdminPlatformPostRoutes(deps) {
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-token-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/agent-provision') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const result = await createPlatformAgentProvisioningToken?.({
+        id: requiredString(body, 'id'),
+        tokenId: requiredString(body, 'tokenId'),
+        tenantId,
+        serverId: requiredString(body, 'serverId'),
+        guildId: requiredString(body, 'guildId'),
+        agentId: requiredString(body, 'agentId'),
+        runtimeKey: requiredString(body, 'runtimeKey'),
+        role: requiredString(body, 'role'),
+        scope: requiredString(body, 'scope'),
+        name: requiredString(body, 'name'),
+        displayName: requiredString(body, 'displayName'),
+        minimumVersion: requiredString(body, 'minimumVersion'),
+        expiresAt: requiredString(body, 'expiresAt'),
+        metadata: body.metadata,
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-provision-failed' });
         return true;
       }
       sendJson(res, 200, { ok: true, data: result });

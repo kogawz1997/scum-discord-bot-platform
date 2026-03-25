@@ -1,6 +1,6 @@
 # Fix Master List Status
 
-Last updated: `2026-03-24`
+Last updated: `2026-03-25`
 
 This document maps the original `fix.txt` master list from [../artifacts/root-quarantine/2026-03-20/fix.txt](../artifacts/root-quarantine/2026-03-20/fix.txt) to the current repository state.
 
@@ -56,6 +56,11 @@ Use this file when the question is "how far have we gone against the original fi
 ## Practical Read
 
 - Against the current repository validation bar, the required repo-local backlog is closed.
+- The repository now also includes:
+  - package-driven feature access resolution
+  - one-time setup-token agent activation
+  - device binding and long-lived scoped agent credentials
+  - explicit read routes for package, feature, provisioning, device, and credential visibility
 - The remaining hard blockers are runtime and infrastructure proof items, not missing local code edits.
 - The strongest still-open `fix.txt` items are:
   1. console-agent dependency on Windows and SCUM session reality

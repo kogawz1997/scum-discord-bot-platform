@@ -23,6 +23,7 @@ Use this index to find the right document set by audience instead of scanning th
 - [FIIX_BRIEF.md](./FIIX_BRIEF.md)
 - [fiix.txt](./fiix.txt)
 - [FIX_MASTERLIST_STATUS.md](./FIX_MASTERLIST_STATUS.md)
+- [PLATFORM_PACKAGE_AND_AGENT_MODEL.md](./PLATFORM_PACKAGE_AND_AGENT_MODEL.md)
 - [RUNTIME_BOUNDARY_EXPLAINER.md](./RUNTIME_BOUNDARY_EXPLAINER.md)
 - [../apps/web-portal-standalone/README.md](../apps/web-portal-standalone/README.md)
 - [assets/README.md](./assets/README.md)

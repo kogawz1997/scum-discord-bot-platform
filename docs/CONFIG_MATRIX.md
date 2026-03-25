@@ -97,6 +97,40 @@ Operator rule:
 - use separate tokens for sync/read and execute/write when possible
 - `hybrid` remains supported as a compatibility bridge, not the preferred long-term posture
 - Discord/web/admin must still route through the control plane; these keys are for game-side agents only
+- initial provisioning should use a one-time setup token plus bootstrap payload from owner control, then switch to the long-lived scoped credential issued during activation
+
+## Package / Feature Access
+
+The managed-service surface now resolves access by feature rather than by raw package name alone.
+
+Current package ids:
+
+- `BOT_LOG`
+- `BOT_LOG_DELIVERY`
+- `FULL_OPTION`
+- `SERVER_ONLY`
+
+Current feature keys:
+
+- `server_hosting`
+- `server_settings`
+- `server_status`
+- `bot_log`
+- `bot_delivery`
+- `discord_integration`
+- `log_dashboard`
+- `delivery_dashboard`
+- `shop_module`
+- `orders_module`
+- `player_module`
+- `sync_agent`
+- `execute_agent`
+
+Practical operator rule:
+
+- package implies the default feature set
+- tenant feature overrides can enable or disable specific features without changing the underlying plan id
+- read access is exposed through the control plane, not by direct runtime probing
 
 ## Admin Web
 

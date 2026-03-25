@@ -28,10 +28,14 @@ function createAdminPublicRoutes(deps) {
     requiredString,
     readJsonBody,
     getTenantQuotaSnapshot,
+    getTenantFeatureAccess,
     getPlatformPublicOverview,
     getPlatformAnalyticsOverview,
+    getPackageCatalog,
+    getFeatureCatalog,
     recordPlatformAgentHeartbeat,
     verifyPlatformApiKey,
+    activatePlatformAgent,
     registerPlatformAgent,
     recordPlatformAgentSession,
     ingestPlatformAgentSync,
@@ -378,6 +382,17 @@ function createAdminPublicRoutes(deps) {
       return true;
     }
 
+    if (req.method === 'GET' && pathname === '/platform/api/v1/public/packages') {
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          packages: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+          features: typeof getFeatureCatalog === 'function' ? getFeatureCatalog() : [],
+        },
+      });
+      return true;
+    }
+
     if (pathname.startsWith('/platform/api/v1/')) {
       try {
         if (req.method === 'GET' && pathname === '/platform/api/v1/tenant/self') {
@@ -401,6 +416,18 @@ function createAdminPublicRoutes(deps) {
           sendJson(res, 200, {
             ok: true,
             data: await getTenantQuotaSnapshot(platformAuth.tenant?.id),
+          });
+          return true;
+        }
+
+        if (req.method === 'GET' && pathname === '/platform/api/v1/features/self') {
+          const platformAuth = await ensurePlatformApiKey(req, res, ['tenant:read']);
+          if (!platformAuth) return true;
+          sendJson(res, 200, {
+            ok: true,
+            data: typeof getTenantFeatureAccess === 'function'
+              ? await getTenantFeatureAccess(platformAuth.tenant?.id)
+              : await getTenantQuotaSnapshot(platformAuth.tenant?.id),
           });
           return true;
         }
@@ -435,6 +462,32 @@ function createAdminPublicRoutes(deps) {
             return true;
           }
           sendJson(res, 200, { ok: true, data: result.runtime });
+          return true;
+        }
+
+        if (req.method === 'POST' && pathname === '/platform/api/v1/agent/activate') {
+          const body = await readJsonBody(req);
+          const result = await activatePlatformAgent?.({
+            setupToken: requiredString(body, 'setupToken'),
+            setup_token: requiredString(body, 'setup_token'),
+            machineFingerprint: requiredString(body, 'machineFingerprint'),
+            machine_fingerprint: requiredString(body, 'machine_fingerprint'),
+            runtimeKey: requiredString(body, 'runtimeKey'),
+            displayName: requiredString(body, 'displayName') || requiredString(body, 'name'),
+            hostname: requiredString(body, 'hostname'),
+            version: requiredString(body, 'version'),
+            channel: requiredString(body, 'channel'),
+            baseUrl: requiredString(body, 'baseUrl'),
+            metadata: body.metadata,
+          }, 'platform-api');
+          if (!result?.ok) {
+            sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-activate-failed' });
+            return true;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            data: result,
+          });
           return true;
         }
 

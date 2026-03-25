@@ -34,6 +34,7 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - Runtime boundary explainer: [docs/RUNTIME_BOUNDARY_EXPLAINER.md](./docs/RUNTIME_BOUNDARY_EXPLAINER.md)
 - Runtime topology: [docs/RUNTIME_TOPOLOGY.md](./docs/RUNTIME_TOPOLOGY.md)
+- Package and agent model: [docs/PLATFORM_PACKAGE_AND_AGENT_MODEL.md](./docs/PLATFORM_PACKAGE_AND_AGENT_MODEL.md)
 - Worklist: [docs/WORKLIST.md](./docs/WORKLIST.md)
 - Product-ready gap matrix: [docs/PRODUCT_READY_GAP_MATRIX.md](./docs/PRODUCT_READY_GAP_MATRIX.md)
 - Fix master list status: [docs/FIX_MASTERLIST_STATUS.md](./docs/FIX_MASTERLIST_STATUS.md)
@@ -71,8 +72,10 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Player portal page routing and canonical redirects now live under `apps/web-portal-standalone/runtime/portalPageRoutes.js`
 - Player portal page/static loading, response/security helpers, reward/wheel helpers, and HTTP lifecycle wiring now live under `apps/web-portal-standalone/runtime/`
 - Control-plane agent contracts now live under `src/contracts/agent/`
+- Package/feature gating now resolves through `src/domain/billing/packageCatalogService.js`
 - Control-plane registry/domain services now live under `src/data/repositories/controlPlaneRegistryRepository.js`, `src/domain/servers/`, `src/domain/agents/`, `src/domain/sync/`, and `src/domain/delivery/`
 - Centralized control-plane routes now accept agent registration, session heartbeat, and sync ingestion through `/platform/api/v1/agent/*`
+- Owner control can now mint one-time setup tokens and bootstrap payloads for scoped agent activation
 
 ### Persistence
 
@@ -99,6 +102,7 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - `/admin/legacy` now exists as a compatibility fallback only, not the primary operator path
 - Player portal with wallet, purchase history, redeem, profile, and Steam link flows
 - Control panel for a growing subset of runtime and bot settings
+- Package catalog, feature catalog, and tenant feature access are now exposed from the control plane
 - Control panel env metadata now classifies keys by policy and apply mode
 - Control panel env writes now return per-key apply summaries and restart guidance instead of a blanket restart-required response
 - Owner control now also exposes `Discord admin-log` language selection so ops alerts can be switched between Thai and English from the web UI
@@ -115,6 +119,7 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 
 - Runtime supervisor with per-role status
 - Control-plane registry now persists explicit tenant/server/guild/agent relationships for agent routing and sync freshness
+- Agent provisioning now records setup tokens, devices, credentials, and bound machine fingerprints in the control-plane registry
 - Notification center and reconcile findings in admin
 - Owner console now supports one-click tenant diagnostics export so support can gather tenant runtime, delivery, request-error, and commercial context from one place
 - Owner console now also exposes tenant support-case context, delivery lifecycle reporting, and guarded automation control from the primary surface
@@ -220,6 +225,8 @@ Additional live runtime evidence from this workstation:
 - representative `ammo` proof now passes with `Cal_7_62x39mm_Ammobox`; loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still did not yield a confirmed `SCUM.db` delta on `2026-03-17`
 
 See [docs/assets/live-runtime-evidence.md](./docs/assets/live-runtime-evidence.md).
+
+Package and activation details are summarized in [docs/PLATFORM_PACKAGE_AND_AGENT_MODEL.md](./docs/PLATFORM_PACKAGE_AND_AGENT_MODEL.md).
 
 Environment coverage status is summarized in [docs/assets/live-native-proof-coverage-summary.md](./docs/assets/live-native-proof-coverage-summary.md).
 

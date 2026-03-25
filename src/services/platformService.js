@@ -18,6 +18,15 @@ const {
   mergeAgentRuntimeProfile,
   normalizeAgentRuntimeProfile,
 } = require('../utils/agentRuntimeProfile');
+const {
+  getFeatureCatalog,
+  getPackageCatalog,
+  resolveFeatureAccess,
+  resolvePackageForPlan,
+} = require('../domain/billing/packageCatalogService');
+const {
+  getPlatformTenantConfig,
+} = require('./platformTenantConfigService');
 
 const PLATFORM_SCOPE_GROUPS = Object.freeze([
   {
@@ -379,6 +388,14 @@ function getPlanCatalog() {
     : [];
 }
 
+function getFeatureCatalogSummary() {
+  return getFeatureCatalog();
+}
+
+function getPackageCatalogSummary() {
+  return getPackageCatalog();
+}
+
 function findPlanById(planId) {
   const requested = trimText(planId, 120);
   if (!requested) return null;
@@ -635,6 +652,7 @@ async function getTenantOperationalState(tenantId, options = {}) {
 
 async function getTenantQuotaSnapshotInternal(db, tenantId) {
   const id = trimText(tenantId, 120);
+  const tenantConfig = id ? await getPlatformTenantConfig(id).catch(() => null) : null;
   if (!id) {
     return {
       ok: false,
@@ -643,6 +661,10 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
       plan: null,
       subscription: null,
       license: null,
+      package: null,
+      features: [],
+      enabledFeatureKeys: [],
+      featureOverrides: { enabled: [], disabled: [] },
       quotas: {},
     };
   }
@@ -673,6 +695,11 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
     })();
 
   if (!activeState.tenant) {
+    const featureAccess = resolveFeatureAccess({
+      planId: activeState.subscription?.planId || null,
+      featureFlags: tenantConfig?.featureFlags || null,
+      metadata: activeState.subscription?.metadata || null,
+    });
     return {
       ok: false,
       reason: activeState.reason || 'tenant-not-found',
@@ -681,11 +708,20 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
       plan: null,
       subscription: null,
       license: null,
+      package: featureAccess.package,
+      features: featureAccess.catalog,
+      enabledFeatureKeys: featureAccess.enabledFeatureKeys,
+      featureOverrides: featureAccess.overrides,
       quotas: {},
     };
   }
 
   const plan = findPlanById(activeState.subscription?.planId);
+  const featureAccess = resolveFeatureAccess({
+    planId: activeState.subscription?.planId || null,
+    featureFlags: tenantConfig?.featureFlags || null,
+    metadata: activeState.subscription?.metadata || null,
+  });
   const quotas = normalizePlanQuotas(plan?.quotas);
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [
@@ -744,6 +780,10 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
     } : null,
     subscription: activeState.subscription || null,
     license: activeState.license || null,
+    package: featureAccess.package,
+    features: featureAccess.catalog,
+    enabledFeatureKeys: featureAccess.enabledFeatureKeys,
+    featureOverrides: featureAccess.overrides,
     quotas: {
       apiKeys: buildQuotaEntry(quotas.apiKeys, apiKeysUsed),
       webhooks: buildQuotaEntry(quotas.webhooks, webhooksUsed),
@@ -764,6 +804,10 @@ async function getTenantQuotaSnapshot(tenantId, options = {}) {
       plan: null,
       subscription: null,
       license: null,
+      package: null,
+      features: [],
+      enabledFeatureKeys: [],
+      featureOverrides: { enabled: [], disabled: [] },
       quotas: {},
     };
   }
@@ -1001,6 +1045,14 @@ async function createSubscription(input = {}, actor = 'system') {
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
   const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
     const plan = findPlanById(input.planId);
+    const baseMetadata = input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+      ? input.metadata
+      : {};
+    const resolvedPackage = resolvePackageForPlan(input.planId, baseMetadata);
+    const metadata = {
+      ...baseMetadata,
+      packageId: trimText(input.packageId, 120) || resolvedPackage?.id || baseMetadata.packageId || null,
+    };
     const startedAt = parseDateOrNull(input.startedAt) || new Date();
     const cycle = normalizeBillingCycle(input.billingCycle || plan?.billingCycle);
     const intervalDays = asInt(
@@ -1022,7 +1074,7 @@ async function createSubscription(input = {}, actor = 'system') {
         renewsAt,
         canceledAt: parseDateOrNull(input.canceledAt),
         externalRef: trimText(input.externalRef, 180) || null,
-        metadataJson: stringifyMeta(input.metadata),
+        metadataJson: stringifyMeta(metadata),
       },
     });
   });
@@ -2299,6 +2351,8 @@ async function getPlatformPublicOverview() {
     billing: {
       currency: config.platform?.billing?.currency || 'THB',
       plans: getPlanCatalog(),
+      packages: getPackageCatalogSummary(),
+      features: getFeatureCatalogSummary(),
     },
     trial: config.platform?.demo?.trialEnabled === true ? { enabled: true, cta: '/trial' } : { enabled: false },
     marketplace: {
@@ -2332,11 +2386,24 @@ module.exports = {
   createTenant,
   dispatchPlatformWebhookEvent,
   emitPlatformEvent,
+  getFeatureCatalog: getFeatureCatalogSummary,
   getPlanCatalog,
+  getPackageCatalog: getPackageCatalogSummary,
   getPlatformAnalyticsOverview,
   getPlatformPermissionCatalog,
   getPlatformPublicOverview,
   getPlatformTenantById,
+  getTenantFeatureAccess: async (tenantId) => {
+    const snapshot = await getTenantQuotaSnapshot(tenantId);
+    return {
+      tenantId: snapshot?.tenantId || trimText(tenantId, 120) || null,
+      package: snapshot?.package || null,
+      features: Array.isArray(snapshot?.features) ? snapshot.features : [],
+      enabledFeatureKeys: Array.isArray(snapshot?.enabledFeatureKeys) ? snapshot.enabledFeatureKeys : [],
+      featureOverrides: snapshot?.featureOverrides || { enabled: [], disabled: [] },
+      plan: snapshot?.plan || null,
+    };
+  },
   getTenantQuotaSnapshot,
   getTenantOperationalState,
   issuePlatformLicense,

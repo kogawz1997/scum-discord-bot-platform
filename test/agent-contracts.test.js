@@ -25,6 +25,26 @@ test('normalizeAgentRegistrationInput derives role and scope defaults safely', (
   });
   assert.equal(executeAgent.role, 'execute');
   assert.equal(executeAgent.scope, 'execute_only');
+
+  const explicitHybridScope = normalizeAgentRegistrationInput({
+    tenantId: 'tenant-a',
+    serverId: 'server-a',
+    runtimeKey: 'hybrid-a',
+    role: 'hybrid',
+    scope: 'sync_execute',
+  });
+  assert.equal(explicitHybridScope.role, 'hybrid');
+  assert.equal(explicitHybridScope.scope, 'sync_execute');
+
+  const explicitExecuteScope = normalizeAgentRegistrationInput({
+    tenantId: 'tenant-a',
+    serverId: 'server-a',
+    runtimeKey: 'explicit-exec',
+    role: 'execute',
+    scope: 'execute_only',
+  });
+  assert.equal(explicitExecuteScope.role, 'execute');
+  assert.equal(explicitExecuteScope.scope, 'execute_only');
 });
 
 test('deriveScopesForAgent separates read/sync and execute scopes', () => {
