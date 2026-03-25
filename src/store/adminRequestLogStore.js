@@ -42,6 +42,81 @@ function normalizeStatusCode(value) {
   return Math.max(0, Math.trunc(parsed));
 }
 
+function averageFromValues(values = []) {
+  const numbers = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value));
+  if (numbers.length === 0) return null;
+  const total = numbers.reduce((sum, value) => sum + value, 0);
+  return total / numbers.length;
+}
+
+function percentileFromValues(values = [], percentile = 95) {
+  const numbers = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value)).sort((left, right) => left - right);
+  if (numbers.length === 0) return null;
+  const normalizedPercentile = Math.max(0, Math.min(100, Number(percentile) || 0));
+  const rank = Math.max(0, Math.min(numbers.length - 1, Math.ceil((normalizedPercentile / 100) * numbers.length) - 1));
+  return numbers[rank];
+}
+
+function summarizeRouteHotspots(entriesToSummarize = [], limit = 5) {
+  const grouped = new Map();
+  for (const entry of entriesToSummarize) {
+    const routeGroup = normalizeString(entry?.routeGroup, 120) || 'unknown';
+    const samplePath = normalizeString(entry?.path, 260) || '/';
+    const key = routeGroup;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        routeGroup,
+        samplePath,
+        requests: 0,
+        errors: 0,
+        serverErrors: 0,
+        unauthorized: 0,
+        slowRequests: 0,
+        latencies: [],
+        latestAt: null,
+      });
+    }
+    const bucket = grouped.get(key);
+    bucket.requests += 1;
+    if (Number(entry?.statusCode || 0) >= 400) bucket.errors += 1;
+    if (Number(entry?.statusCode || 0) >= 500) bucket.serverErrors += 1;
+    if (Number(entry?.statusCode || 0) === 401 || Number(entry?.statusCode || 0) === 403) {
+      bucket.unauthorized += 1;
+    }
+    const latencyMs = Math.max(0, Math.trunc(Number(entry?.latencyMs || 0) || 0));
+    bucket.latencies.push(latencyMs);
+    if (latencyMs >= 1000) bucket.slowRequests += 1;
+    const at = normalizeIso(entry?.at);
+    if (at && (!bucket.latestAt || at > bucket.latestAt)) {
+      bucket.latestAt = at;
+    }
+    if (bucket.samplePath === '/' && samplePath !== '/') {
+      bucket.samplePath = samplePath;
+    }
+  }
+
+  return Array.from(grouped.values())
+    .map((bucket) => ({
+      routeGroup: bucket.routeGroup,
+      samplePath: bucket.samplePath,
+      requests: bucket.requests,
+      errors: bucket.errors,
+      serverErrors: bucket.serverErrors,
+      unauthorized: bucket.unauthorized,
+      slowRequests: bucket.slowRequests,
+      avgLatencyMs: averageFromValues(bucket.latencies),
+      p95LatencyMs: percentileFromValues(bucket.latencies, 95),
+      latestAt: bucket.latestAt,
+    }))
+    .sort((left, right) => {
+      if (right.errors !== left.errors) return right.errors - left.errors;
+      if (right.slowRequests !== left.slowRequests) return right.slowRequests - left.slowRequests;
+      if (right.requests !== left.requests) return right.requests - left.requests;
+      return Number(right.p95LatencyMs || 0) - Number(left.p95LatencyMs || 0);
+    })
+    .slice(0, Math.max(1, Math.min(20, Math.trunc(Number(limit) || 5))));
+}
+
 function buildDefaultEntries() {
   return [];
 }
@@ -130,6 +205,10 @@ function recordAdminRequestLog(entry = {}) {
 function listAdminRequestLogs(options = {}) {
   initAdminRequestLogStore();
   const limit = Math.max(1, Math.min(MAX_ENTRIES, Math.trunc(Number(options.limit || 200) || 200)));
+  const windowMs = Number.isFinite(Number(options.windowMs))
+    ? Math.max(60 * 1000, Math.trunc(Number(options.windowMs) || 0))
+    : null;
+  const cutoff = windowMs == null ? null : Date.now() - windowMs;
   const statusClass = normalizeString(options.statusClass, 8);
   const routeGroup = normalizeString(options.routeGroup, 120);
   const authMode = normalizeString(options.authMode, 80);
@@ -140,6 +219,10 @@ function listAdminRequestLogs(options = {}) {
 
   return entries
     .filter((entry) => {
+      if (cutoff != null) {
+        const at = Number(new Date(entry.at).getTime());
+        if (!Number.isFinite(at) || at < cutoff) return false;
+      }
       if (statusClass && entry.statusClass !== statusClass) return false;
       if (routeGroup && entry.routeGroup !== routeGroup) return false;
       if (authMode && entry.authMode !== authMode) return false;
@@ -176,6 +259,15 @@ function getAdminRequestLogMetrics(options = {}) {
     errors: recent.filter((entry) => entry.statusCode >= 400).length,
     serverErrors: recent.filter((entry) => entry.statusCode >= 500).length,
     unauthorized: recent.filter((entry) => entry.statusCode === 401 || entry.statusCode === 403).length,
+    slowRequests: recent.filter((entry) => Number(entry.latencyMs || 0) >= 1000).length,
+    avgLatencyMs: averageFromValues(recent.map((entry) => entry.latencyMs)),
+    p95LatencyMs: percentileFromValues(recent.map((entry) => entry.latencyMs), 95),
+    routeHotspots: summarizeRouteHotspots(recent, 5),
+    statusCounts: {
+      success: recent.filter((entry) => entry.statusCode >= 200 && entry.statusCode < 400).length,
+      clientError: recent.filter((entry) => entry.statusCode >= 400 && entry.statusCode < 500).length,
+      serverError: recent.filter((entry) => entry.statusCode >= 500).length,
+    },
     latestRequestAt: recent[recent.length - 1]?.at || null,
   };
 }

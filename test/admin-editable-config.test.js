@@ -21,6 +21,7 @@ test('control panel env section hides secrets and normalizes booleans', () => {
   const section = buildControlPanelEnvSection('root', {
     BOT_ENABLE_ADMIN_WEB: 'true',
     RCON_PASSWORD: 'secret-value',
+    SCUM_SYNC_AGENT_TOKEN: 'sync-secret-value',
   });
 
   assert.equal(section.BOT_ENABLE_ADMIN_WEB.value, true);
@@ -29,6 +30,9 @@ test('control panel env section hides secrets and normalizes booleans', () => {
   assert.equal(section.RCON_PASSWORD.configured, true);
   assert.equal(section.RCON_PASSWORD.policy, 'secret-only');
   assert.equal(section.RCON_PASSWORD.value, '');
+  assert.equal(section.SCUM_SYNC_AGENT_TOKEN.configured, true);
+  assert.equal(section.SCUM_SYNC_AGENT_TOKEN.policy, 'secret-only');
+  assert.equal(section.SCUM_SYNC_AGENT_TOKEN.value, '');
 });
 
 test('control panel env patch ignores empty secret updates', () => {
@@ -100,6 +104,17 @@ test('control panel env policy summary matches catalog totals and exposes import
   assert.equal(keys.has('SCUM_WATCHER_ENABLED'), true);
   assert.equal(keys.has('SCUM_WATCHER_REQUIRED'), true);
   assert.equal(keys.has('SCUM_WATCHER_HEALTH_PORT'), true);
+  assert.equal(keys.has('SCUM_SYNC_TRANSPORT'), true);
+  assert.equal(keys.has('SCUM_SYNC_CONTROL_PLANE_URL'), true);
+  assert.equal(keys.has('SCUM_SYNC_AGENT_TOKEN'), true);
+  assert.equal(keys.has('SCUM_TENANT_ID'), true);
+  assert.equal(keys.has('SCUM_SERVER_ID'), true);
+  assert.equal(keys.has('SCUM_SYNC_AGENT_ID'), true);
+  assert.equal(keys.has('SCUM_SYNC_RUNTIME_KEY'), true);
+  assert.equal(keys.has('SCUM_SYNC_AGENT_VERSION'), true);
+  assert.equal(keys.has('SCUM_AGENT_CHANNEL'), true);
+  assert.equal(keys.has('PLATFORM_API_BASE_URL'), true);
+  assert.equal(keys.has('PLATFORM_AGENT_TOKEN'), true);
   assert.equal(keys.has('DELIVERY_AGENT_PRE_COMMANDS_JSON'), true);
   assert.equal(keys.has('DELIVERY_NATIVE_PROOF_MODE'), true);
   assert.equal(keys.has('DELIVERY_NATIVE_PROOF_SCRIPT'), true);

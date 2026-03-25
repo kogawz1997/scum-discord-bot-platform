@@ -1096,6 +1096,7 @@ function createAdminGetRoutes(deps) {
           }),
           items: listAdminRequestLogs({
             limit: asInt(urlObj.searchParams.get('limit'), 200) || 200,
+            windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
             statusClass: requiredString(urlObj.searchParams.get('statusClass')),
             routeGroup: requiredString(urlObj.searchParams.get('routeGroup')),
             authMode: requiredString(urlObj.searchParams.get('authMode')),

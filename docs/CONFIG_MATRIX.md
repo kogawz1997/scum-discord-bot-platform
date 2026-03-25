@@ -80,15 +80,15 @@ This document is the operator-facing matrix for core configuration. It is not a 
 
 | Key                           | Required | Production-only | Used by | UI scope | Notes                                                                                          |
 | ----------------------------- | -------- | --------------- | ------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `SYNC_TRANSPORT`              | Optional | No              | watcher | restart  | `webhook`, `control-plane`, or `dual`; use `control-plane` or `dual` for scoped sync ingestion |
+| `SCUM_SYNC_TRANSPORT`         | Optional | No              | watcher | restart  | `webhook`, `control-plane`, or `dual`; use `control-plane` or `dual` for scoped sync ingestion |
 | `SCUM_SYNC_CONTROL_PLANE_URL` | Optional | Yes             | watcher | env-only | canonical control-plane origin for sync payload posts                                          |
 | `SCUM_SYNC_AGENT_TOKEN`       | Optional | Yes             | watcher | no-ui    | scoped agent token for read/sync path                                                          |
-| `SYNC_TENANT_ID`              | Optional | Yes             | watcher | env-only | explicit tenant scope for sync payloads                                                        |
-| `SYNC_SERVER_ID`              | Optional | Yes             | watcher | env-only | explicit server scope for sync payloads                                                        |
-| `SYNC_AGENT_ID`               | Optional | Yes             | watcher | env-only | stable agent identity for sync path                                                            |
-| `SYNC_RUNTIME_KEY`            | Optional | Yes             | watcher | env-only | runtime identity associated with the sync agent                                                |
-| `SYNC_AGENT_VERSION`          | Optional | No              | watcher | env-only | agent version reported to control plane                                                        |
-| `SYNC_AGENT_CHANNEL`          | Optional | No              | watcher | env-only | optional channel or workstation label                                                          |
+| `SCUM_TENANT_ID`              | Optional | Yes             | watcher | env-only | explicit tenant scope for sync payloads                                                        |
+| `SCUM_SERVER_ID`              | Optional | Yes             | watcher | env-only | explicit server scope for sync payloads                                                        |
+| `SCUM_SYNC_AGENT_ID`          | Optional | Yes             | watcher | env-only | stable agent identity for sync path                                                            |
+| `SCUM_SYNC_RUNTIME_KEY`       | Optional | Yes             | watcher | env-only | runtime identity associated with the sync agent                                                |
+| `SCUM_SYNC_AGENT_VERSION`     | Optional | No              | watcher | env-only | agent version reported to control plane                                                        |
+| `SCUM_AGENT_CHANNEL`          | Optional | No              | watcher | env-only | optional channel or workstation label                                                          |
 | `PLATFORM_API_BASE_URL`       | Optional | Yes             | agent   | env-only | fallback control-plane base URL for staged agent clients                                       |
 | `PLATFORM_AGENT_TOKEN`        | Optional | Yes             | agent   | no-ui    | fallback scoped agent token for staged agent clients                                           |
 
@@ -170,9 +170,9 @@ Practical operator rule:
 
 Current state:
 
-- some runtime, bot, delivery, and feature settings are editable through admin UI
+- some runtime, bot, delivery, sync-routing, and feature settings are editable through admin UI
 - some env-backed settings can be edited but still require restart
-- admin env metadata now covers runtime identity and bind settings, persistence flags, bot and watcher health settings, SSO role mapping, login/rate-limit settings, cookie/origin policy, agent tuning, tenant DB topology settings, native delivery proof settings, and portal OAuth/map settings
+- admin env metadata now covers runtime identity and bind settings, persistence flags, bot and watcher health settings, SSO role mapping, login/rate-limit settings, cookie/origin policy, sync/control-plane routing keys, agent tuning, tenant DB topology settings, native delivery proof settings, and portal OAuth/map settings
 - owner control now also covers `ADMIN_LOG_LANGUAGE` for the Discord `#admin-log` workflow
 - secrets and low-level bind/topology settings remain env-only by design
 

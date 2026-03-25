@@ -3530,13 +3530,24 @@
     'owner.observability.requestsKicker': 'Requests',
     'owner.observability.requestsTitle': 'Admin request errors',
     'owner.observability.requestsDetail': 'Recent request-log anomaly count.',
+    'owner.observability.requestsHotspotDetail': 'Top hotspot {route} with {count} requests in the current window.',
     'owner.observability.requests5xxTag': '5xx {value}',
     'owner.observability.requests401Tag': '401 {value}',
+    'owner.observability.requestsP95Tag': 'p95 {value} ms',
+    'owner.observability.requestsSlowTag': 'slow {value}',
     'owner.observability.runtimeKicker': 'Runtime',
     'owner.observability.runtimeTitle': 'Degraded or offline services',
     'owner.observability.runtimeDetail': 'Managed runtime supervision state.',
     'owner.observability.runtimeDegradedTag': 'degraded {value}',
     'owner.observability.runtimeOfflineTag': 'offline {value}',
+    'owner.observability.agentsKicker': 'Agents',
+    'owner.observability.agentsTitle': 'Tracked control-plane agents',
+    'owner.observability.agentsDetail': 'Sync and execute runtimes visible through control-plane heartbeats.',
+    'owner.observability.agentsDetailRecent': 'Latest heartbeat {value}',
+    'owner.observability.agentsOnlineTag': 'online {value}',
+    'owner.observability.agentsOutdatedTag': 'outdated {value}',
+    'owner.observability.agentsOfflineTag': 'offline {value}',
+    'owner.observability.agentsRolesTag': 'sync {sync} / execute {execute}',
     'owner.observability.reconcileKicker': 'Reconcile',
     'owner.observability.reconcileTitle': 'Platform anomalies',
     'owner.observability.reconcileDetail': 'Latest delivery reconcile findings and abuse heuristics.',
@@ -4542,6 +4553,34 @@
     'login.ownerUsernamePlaceholder': 'owner-admin',
     'login.tenantUsernamePlaceholder': 'tenant-admin',
     'login.discordSso': '\u0e40\u0e02\u0e49\u0e32\u0e2a\u0e39\u0e48\u0e23\u0e30\u0e1a\u0e1a\u0e14\u0e49\u0e27\u0e22 Discord SSO'
+  });
+
+  Object.assign(DICTIONARY.en, {
+    'owner.observability.requestsHotspotDetail': 'Top hotspot {route} with {count} requests in the current window.',
+    'owner.observability.requestsP95Tag': 'p95 {value} ms',
+    'owner.observability.requestsSlowTag': 'slow {value}',
+    'owner.observability.agentsKicker': 'Agents',
+    'owner.observability.agentsTitle': 'Tracked control-plane agents',
+    'owner.observability.agentsDetail': 'Sync and execute runtimes visible through control-plane heartbeats.',
+    'owner.observability.agentsDetailRecent': 'Latest heartbeat {value}',
+    'owner.observability.agentsOnlineTag': 'online {value}',
+    'owner.observability.agentsOutdatedTag': 'outdated {value}',
+    'owner.observability.agentsOfflineTag': 'offline {value}',
+    'owner.observability.agentsRolesTag': 'sync {sync} / execute {execute}'
+  });
+
+  Object.assign(DICTIONARY.th, {
+    'owner.observability.requestsHotspotDetail': '\u0e08\u0e38\u0e14\u0e23\u0e49\u0e2d\u0e19\u0e2a\u0e39\u0e07\u0e2a\u0e38\u0e14 {route} \u0e21\u0e35 {count} \u0e04\u0e33\u0e02\u0e2d\u0e43\u0e19\u0e0a\u0e48\u0e27\u0e07\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19',
+    'owner.observability.requestsP95Tag': 'p95 {value} \u0e21\u0e34\u0e25\u0e25\u0e34\u0e27\u0e34\u0e19\u0e32\u0e17\u0e35',
+    'owner.observability.requestsSlowTag': '\u0e0a\u0e49\u0e32 {value}',
+    'owner.observability.agentsKicker': '\u0e40\u0e2d\u0e40\u0e08\u0e19\u0e15\u0e4c',
+    'owner.observability.agentsTitle': '\u0e40\u0e2d\u0e40\u0e08\u0e19\u0e15\u0e4c\u0e17\u0e35\u0e48\u0e15\u0e34\u0e14\u0e15\u0e32\u0e21\u0e43\u0e19\u0e04\u0e2d\u0e19\u0e42\u0e17\u0e23\u0e25\u0e40\u0e1e\u0e25\u0e19',
+    'owner.observability.agentsDetail': '\u0e21\u0e2d\u0e07\u0e40\u0e2b\u0e47\u0e19\u0e23\u0e31\u0e19\u0e44\u0e17\u0e21\u0e4c\u0e41\u0e1a\u0e1a\u0e0b\u0e34\u0e07\u0e01\u0e4c\u0e41\u0e25\u0e30\u0e2a\u0e31\u0e48\u0e07\u0e07\u0e32\u0e19\u0e1c\u0e48\u0e32\u0e19 heartbeat \u0e02\u0e2d\u0e07\u0e04\u0e2d\u0e19\u0e42\u0e17\u0e23\u0e25\u0e40\u0e1e\u0e25\u0e19',
+    'owner.observability.agentsDetailRecent': 'heartbeat \u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14 {value}',
+    'owner.observability.agentsOnlineTag': '\u0e2d\u0e2d\u0e19\u0e44\u0e25\u0e19\u0e4c {value}',
+    'owner.observability.agentsOutdatedTag': '\u0e40\u0e27\u0e2d\u0e23\u0e4c\u0e0a\u0e31\u0e19\u0e40\u0e01\u0e48\u0e32 {value}',
+    'owner.observability.agentsOfflineTag': '\u0e2d\u0e2d\u0e1f\u0e44\u0e25\u0e19\u0e4c {value}',
+    'owner.observability.agentsRolesTag': '\u0e0b\u0e34\u0e07\u0e01\u0e4c {sync} / \u0e2a\u0e31\u0e48\u0e07\u0e07\u0e32\u0e19 {execute}'
   });
 
   function initSelector(selectId) {

@@ -1,6 +1,6 @@
 # Two-Machine Agent Topology
 
-Last updated: `2026-03-21`
+Last updated: `2026-03-25`
 
 Use this topology when you want the control plane and the SCUM execution node
 to live on different machines:
@@ -112,6 +112,25 @@ Machine B expects:
 - `SCUM_WEBHOOK_URL` pointing back to Machine A
 - `SCUM_CONSOLE_AGENT_TOKEN` matching the token Machine A uses
 
+## Agent Activation on Machine B
+
+Recommended flow:
+
+1. Owner creates a one-time setup token from the control plane
+2. Machine B receives bootstrap containing:
+   - `setupToken`
+   - `tenantId`
+   - `serverId`
+   - `guildId`
+   - `agentId`
+   - `role`
+   - `scope`
+3. Agent activates against Machine A
+4. Machine B receives a long-lived scoped credential
+5. Only then should heartbeat, session, sync, or execute traffic start
+
+Do not reuse a setup token across machines. Device binding is intentionally one-machine-only.
+
 ## Validation
 
 ### Machine A
@@ -143,6 +162,18 @@ Then confirm:
 - this split reduces operational blast radius but does not remove the SCUM client / Windows-session dependency
 - native proof across multiple workstations is still a separate evidence task
 - Machine B should not own PostgreSQL migrations or platform schema upgrades
+
+## Minimum Evidence Before Calling This Topology "Ready"
+
+- Machine A validation passes:
+  - `npm run doctor`
+  - `npm run security:check`
+  - `npm run readiness:prod`
+- Machine B validation passes:
+  - `npm run doctor:topology:prod`
+- one end-to-end execute flow is captured from Machine A to Machine B
+- one sync flow is captured from Machine B back to Machine A
+- an operator note exists confirming that Windows session remained interactive during the test
 
 ## Related Docs
 

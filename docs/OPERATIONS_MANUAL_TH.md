@@ -1,6 +1,6 @@
 # คู่มือปฏิบัติการ SCUM TH Platform
 
-อัปเดตล่าสุด: **2026-03-24**
+อัปเดตล่าสุด: **2026-03-25**
 
 เอกสารนี้เป็นคู่มือปฏิบัติการหลักสำหรับ owner และ operator ที่ต้องดูแลระบบจริงบนเครื่องหรือ environment เป้าหมาย
 
@@ -204,7 +204,57 @@ npm run pm2:reload:prod
 - restore/rollback ยังเป็น guarded flow ไม่ใช่ automatic rollback เต็มรูปแบบ
 - admin config control ยังครอบคลุมไม่ทุก setting
 
-## 13. เช็กลิสต์ก่อนประกาศว่า production พร้อม
+## 13. สิ่งที่ต้องทำต่อสำหรับ 4 ก้อนใหญ่ที่ยังไม่ปิด
+
+### 13.1 Native proof หลาย environment
+
+- ต้องมีอย่างน้อย:
+  - environment ปัจจุบันที่ผ่านแล้ว
+  - server configuration อีกชุดที่ยืนยันซ้ำได้จริง
+  - workstation/runtime อีกเครื่องที่มี live capture จริง
+- ใช้เอกสารหลัก:
+  - [DELIVERY_NATIVE_PROOF_COVERAGE.md](./DELIVERY_NATIVE_PROOF_COVERAGE.md)
+  - [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
+- ห้ามเคลมว่า proof ครบหลาย environment ถ้ายังไม่มีหลักฐานเพิ่มใน `docs/assets/live-native-proof-*`
+
+### 13.2 Console-agent dependency
+
+- ให้ถือเป็นข้อเท็จจริงเชิง runtime ว่า execute path ยังพึ่ง:
+  - Windows interactive session
+  - SCUM client หรือหน้าต่างที่เกี่ยวข้อง
+- สิ่งที่ควรทำให้ครบใน environment จริง:
+  - health endpoint ตอบได้
+  - token ถูกตั้งถูกต้อง
+  - preflight ผ่าน
+  - operator รู้ว่าห้าม lock session
+  - มีการเก็บ evidence ของการ recover หลัง agent/offline event
+
+### 13.3 Restore / rollback maturity
+
+- ก่อนถือว่าพร้อมระดับ production ต้องมี:
+  - preview diff
+  - maintenance gate
+  - rollback backup
+  - post-restore validation
+  - restore drill ที่มีบันทึกหลักฐาน
+- เอกสารหลัก:
+  - [MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
+  - [GO_LIVE_CHECKLIST_TH.md](./GO_LIVE_CHECKLIST_TH.md)
+
+### 13.4 Centralized config coverage
+
+- ตอนนี้ owner control ครอบคลุม env หลักของ:
+  - admin
+  - portal
+  - delivery
+  - watcher
+  - sync/control-plane routing
+- แต่ยังไม่ควรถือว่าครอบคลุม “ทุก key” จนกว่าจะ:
+  - มี policy ชัดทุก key
+  - มี validation/restart guidance ครบ
+  - ผ่าน review ว่า key นั้นปลอดภัยพอจะเปิดใน UI
+
+## 14. เช็กลิสต์ก่อนประกาศว่า production พร้อม
 
 1. `doctor`, `security:check`, `readiness:prod`, `smoke:postdeploy` ผ่าน
 2. ใช้ PostgreSQL runtime จริง
@@ -212,3 +262,12 @@ npm run pm2:reload:prod
 4. เปิด 2FA และ step-up
 5. ใช้ HTTPS origins จริง
 6. เก็บ evidence ของ delivery/runtime/restore ตาม environment เป้าหมาย
+7. ถ้าใช้ `SCUM_SYNC_TRANSPORT=control-plane` หรือ `dual` ต้องยืนยัน:
+   - `SCUM_SYNC_CONTROL_PLANE_URL`
+   - `SCUM_SYNC_AGENT_TOKEN`
+   - `SCUM_TENANT_ID`
+   - `SCUM_SERVER_ID`
+8. ถ้าใช้ `DELIVERY_EXECUTION_MODE=agent` ต้องยืนยัน:
+   - `SCUM_CONSOLE_AGENT_BASE_URL`
+   - `SCUM_CONSOLE_AGENT_TOKEN`
+   - live Windows session พร้อมใช้งานจริง

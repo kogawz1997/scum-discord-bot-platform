@@ -394,6 +394,60 @@
     return formatNumber(number, '0');
   }
 
+  function normalizeOwnerAgentRole(role) {
+    const value = String(role || '').trim().toLowerCase();
+    if (value === 'sync' || value === 'execute' || value === 'hybrid') return value;
+    return 'unknown';
+  }
+
+  function buildOwnerAgentObservabilitySummary() {
+    return (Array.isArray(state.agents) ? state.agents : []).reduce((summary, row) => {
+      const status = String(row?.status || '').trim().toLowerCase() || 'unknown';
+      if (Object.prototype.hasOwnProperty.call(summary.statuses, status)) {
+        summary.statuses[status] += 1;
+      } else {
+        summary.statuses.unknown += 1;
+      }
+      const role = normalizeOwnerAgentRole(row?.meta?.agentRole);
+      if (Object.prototype.hasOwnProperty.call(summary.roles, role)) {
+        summary.roles[role] += 1;
+      } else {
+        summary.roles.unknown += 1;
+      }
+      if (row?.lastSeenAt && (!summary.latestSeenAt || row.lastSeenAt > summary.latestSeenAt)) {
+        summary.latestSeenAt = row.lastSeenAt;
+      }
+      return summary;
+    }, {
+      statuses: {
+        online: 0,
+        degraded: 0,
+        outdated: 0,
+        offline: 0,
+        unknown: 0,
+      },
+      roles: {
+        sync: 0,
+        execute: 0,
+        hybrid: 0,
+        unknown: 0,
+      },
+      latestSeenAt: null,
+    });
+  }
+
+  function buildRequestHotspotSummary(requestLog) {
+    const hotspot = Array.isArray(requestLog?.routeHotspots) ? requestLog.routeHotspots[0] : null;
+    if (!hotspot) return null;
+    return {
+      routeGroup: hotspot.routeGroup || 'unknown',
+      samplePath: hotspot.samplePath || '/',
+      requests: Number(hotspot.requests || 0),
+      errors: Number(hotspot.errors || 0),
+      p95LatencyMs: Number(hotspot.p95LatencyMs || 0),
+    };
+  }
+
   function getAutomationState() {
     const opsAutomation = state.opsState?.automation;
     if (opsAutomation && typeof opsAutomation === 'object') return opsAutomation;
@@ -1545,6 +1599,8 @@
     const requestLog = data.requestLog || {};
     const runtimeCounts = state.runtimeSupervisor?.counts || data.runtimeSupervisor?.counts || {};
     const reconcile = state.reconcile || {};
+    const requestHotspot = buildRequestHotspotSummary(requestLog);
+    const agentSummary = buildOwnerAgentObservabilitySummary();
     const latestAutomationReport = state.automationReport;
     const automationConfig =
       latestAutomationReport?.automationConfig
@@ -1628,10 +1684,17 @@
         kicker: t('owner.observability.requestsKicker', 'Requests'),
         value: formatMetricValue(requestLog.errors, 'integer'),
         title: t('owner.observability.requestsTitle', 'Admin request errors'),
-        detail: t('owner.observability.requestsDetail', 'Recent request-log anomaly count.'),
+        detail: requestHotspot
+          ? t('owner.observability.requestsHotspotDetail', 'Top hotspot {route} with {count} requests in the current window.', {
+              route: requestHotspot.routeGroup,
+              count: formatMetricValue(requestHotspot.requests, 'integer'),
+            })
+          : t('owner.observability.requestsDetail', 'Recent request-log anomaly count.'),
         tags: [
           t('owner.observability.requests5xxTag', '5xx {value}', { value: formatMetricValue(requestLog.serverErrors, 'integer') }),
           t('owner.observability.requests401Tag', '401 {value}', { value: formatMetricValue(requestLog.unauthorized, 'integer') }),
+          t('owner.observability.requestsP95Tag', 'p95 {value} ms', { value: formatMetricValue(requestLog.p95LatencyMs, 'integer') }),
+          t('owner.observability.requestsSlowTag', 'slow {value}', { value: formatMetricValue(requestLog.slowRequests, 'integer') }),
         ],
       },
       {
@@ -1642,6 +1705,25 @@
         tags: [
           t('owner.observability.runtimeDegradedTag', 'degraded {value}', { value: formatMetricValue(runtimeCounts.degraded, 'integer') }),
           t('owner.observability.runtimeOfflineTag', 'offline {value}', { value: formatMetricValue(runtimeCounts.offline, 'integer') }),
+        ],
+      },
+      {
+        kicker: t('owner.observability.agentsKicker', 'Agents'),
+        value: formatMetricValue(state.agents.length, 'integer'),
+        title: t('owner.observability.agentsTitle', 'Tracked control-plane agents'),
+        detail: agentSummary.latestSeenAt
+          ? t('owner.observability.agentsDetailRecent', 'Latest heartbeat {value}', {
+              value: formatDateTime(agentSummary.latestSeenAt),
+            })
+          : t('owner.observability.agentsDetail', 'Sync and execute runtimes visible through control-plane heartbeats.'),
+        tags: [
+          t('owner.observability.agentsOnlineTag', 'online {value}', { value: formatMetricValue(agentSummary.statuses.online, 'integer') }),
+          t('owner.observability.agentsOutdatedTag', 'outdated {value}', { value: formatMetricValue(agentSummary.statuses.outdated, 'integer') }),
+          t('owner.observability.agentsOfflineTag', 'offline {value}', { value: formatMetricValue(agentSummary.statuses.offline, 'integer') }),
+          t('owner.observability.agentsRolesTag', 'sync {sync} / execute {execute}', {
+            sync: formatMetricValue(agentSummary.roles.sync, 'integer'),
+            execute: formatMetricValue(agentSummary.roles.execute + agentSummary.roles.hybrid, 'integer'),
+          }),
         ],
       },
       {
@@ -1799,7 +1881,9 @@
           label: 'Request',
           render: (row) => [
             `<strong>${escapeHtml(row.method || 'GET')} ${escapeHtml(row.path || '-')}</strong>`,
-            row.requestId ? `<div class="muted code">${escapeHtml(row.requestId)}</div>` : '',
+            (row.routeGroup || row.id)
+              ? `<div class="muted code">${escapeHtml([row.routeGroup, row.id].filter(Boolean).join(' | '))}</div>`
+              : '',
           ].join(''),
         },
         {

@@ -195,10 +195,10 @@ function buildAdminObservabilitySnapshot(options = {}) {
     ? getWebhookMetricsSnapshot()
     : { attempts: 0, errors: 0, errorRate: 0 };
   const requestLogMetrics = typeof getAdminRequestLogMetrics === 'function'
-    ? getAdminRequestLogMetrics()
+    ? getAdminRequestLogMetrics({ windowMs: effectiveWindowMs })
     : { total: 0, errors: 0, serverErrors: 0, unauthorized: 0 };
   const recentRequests = typeof listAdminRequestLogs === 'function'
-    ? listAdminRequestLogs({ limit: 100 })
+    ? listAdminRequestLogs({ limit: 100, windowMs: effectiveWindowMs })
     : [];
 
   return {
@@ -241,6 +241,10 @@ function buildObservabilityCsv(data = {}) {
     { metric: 'webhook.errorRate', value: Number(data?.webhook?.errorRate || 0) },
     { metric: 'requestLog.errors', value: Number(data?.requestLog?.errors || 0) },
     { metric: 'requestLog.serverErrors', value: Number(data?.requestLog?.serverErrors || 0) },
+    { metric: 'requestLog.unauthorized', value: Number(data?.requestLog?.unauthorized || 0) },
+    { metric: 'requestLog.slowRequests', value: Number(data?.requestLog?.slowRequests || 0) },
+    { metric: 'requestLog.avgLatencyMs', value: Number(data?.requestLog?.avgLatencyMs || 0) },
+    { metric: 'requestLog.p95LatencyMs', value: Number(data?.requestLog?.p95LatencyMs || 0) },
     { metric: 'runtimeSupervisor.degraded', value: Number(data?.runtimeSupervisor?.counts?.degraded || 0) },
     { metric: 'runtimeSupervisor.offline', value: Number(data?.runtimeSupervisor?.counts?.offline || 0) },
   ];
@@ -289,6 +293,34 @@ function buildObservabilityCsv(data = {}) {
       toCsvValue(row?.role || ''),
       toCsvValue(row?.tenantId || ''),
       toCsvValue(row?.error || ''),
+    ].join(','));
+  }
+
+  lines.push('');
+  lines.push([
+    toCsvValue('routeGroup'),
+    toCsvValue('samplePath'),
+    toCsvValue('requests'),
+    toCsvValue('errors'),
+    toCsvValue('serverErrors'),
+    toCsvValue('unauthorized'),
+    toCsvValue('slowRequests'),
+    toCsvValue('avgLatencyMs'),
+    toCsvValue('p95LatencyMs'),
+    toCsvValue('latestAt'),
+  ].join(','));
+  for (const row of Array.isArray(data?.requestLog?.routeHotspots) ? data.requestLog.routeHotspots : []) {
+    lines.push([
+      toCsvValue(row?.routeGroup || ''),
+      toCsvValue(row?.samplePath || ''),
+      toCsvValue(row?.requests || ''),
+      toCsvValue(row?.errors || ''),
+      toCsvValue(row?.serverErrors || ''),
+      toCsvValue(row?.unauthorized || ''),
+      toCsvValue(row?.slowRequests || ''),
+      toCsvValue(row?.avgLatencyMs || ''),
+      toCsvValue(row?.p95LatencyMs || ''),
+      toCsvValue(row?.latestAt || ''),
     ].join(','));
   }
 

@@ -2,7 +2,9 @@
 
 This file is the source of truth for work that is still open after the current validation pass.
 
-Repo-side review and hardening backlog is closed for the current bar. The remaining item is runtime evidence coverage, not failing repo validation.
+Last updated: `2026-03-25`
+
+Repo-side review and hardening backlog is closed for the current bar. The remaining items below are runtime evidence and operator-maturity tracks, not failing repo validation.
 
 ## Status Labels
 
@@ -64,6 +66,67 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
   - coverage is documented per delivery class
   - proof remains based on game state
   - operator docs explain where inventory delta vs world-spawn delta is expected
+
+### 2. Reduce console-agent dependency to an operationally manageable baseline
+
+- Status: `runtime-blocked`
+- Current state:
+  - the control plane, scoped agent registration, setup-token activation, device binding, and long-lived credential flow now exist in-repo
+  - two-machine guidance is documented in [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
+  - classified health/preflight diagnostics, heartbeat/session tracking, and failover/circuit-breaker logic exist for the current console-agent boundary
+  - execution still depends on a live Windows session and SCUM client window on the execution workstation
+- What is still open:
+  - repeated proof on more than one real execution workstation
+  - operator evidence showing how the platform behaves through client/window interruption and recovery
+  - a stronger non-interactive execution path, if the platform ever claims to remove this dependency
+- Main files:
+  - [src/integrations/scum/adapters/consoleAgentClient.js](../src/integrations/scum/adapters/consoleAgentClient.js)
+  - [src/domain/agents/agentRegistryService.js](../src/domain/agents/agentRegistryService.js)
+  - [src/domain/delivery/agentExecutionRoutingService.js](../src/domain/delivery/agentExecutionRoutingService.js)
+  - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
+  - [docs/TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
+- Acceptance:
+  - limitation remains documented honestly
+  - machine-binding, scoped credentials, and heartbeat visibility stay intact
+  - operator runbooks describe what "ready" evidence looks like
+
+### 3. Mature restore / rollback from controlled tooling to repeatable operator recovery
+
+- Status: `runtime-blocked`
+- Current state:
+  - restore preview, rollback backup, guarded maintenance gates, and operator-facing recovery phases exist
+  - maturity ladder and rollback guidance are documented in [MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
+- What is still open:
+  - repeatable rehearsal evidence run by another operator
+  - explicit recovery timing/SLO evidence on more than one environment
+  - a stronger "restore under stress" story for production-grade incidents
+- Main files:
+  - [docs/MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
+  - [docs/OPERATIONS_MANUAL_TH.md](./OPERATIONS_MANUAL_TH.md)
+  - [src/services/platformService.js](../src/services/platformService.js)
+- Acceptance:
+  - restore phases remain auditable
+  - rollback prerequisites are documented
+  - operator rehearsal evidence exists outside the repo
+
+### 4. Expand centralized config control until the highest-value runtime keys are covered from admin
+
+- Status: `runtime-blocked`
+- Current state:
+  - admin control now covers a broader env catalog, including sync/control-plane routing, delivery, webhook, and runtime ownership keys
+  - current coverage is documented in [CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
+- What is still open:
+  - full long-tail coverage of every env/config switch is still incomplete
+  - some low-level topology/runtime keys remain intentionally runtime-only rather than safely editable from the web
+  - production proof still needs operator validation that the covered set is enough for real environment changes without ad-hoc `.env` editing
+- Main files:
+  - [src/config/adminEditableConfig.js](../src/config/adminEditableConfig.js)
+  - [docs/CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
+  - [docs/OPERATIONS_MANUAL_TH.md](./OPERATIONS_MANUAL_TH.md)
+- Acceptance:
+  - highest-value keys for runtime routing and control-plane ownership are covered
+  - unsafe keys remain explicitly runtime-only
+  - any remaining manual-only keys are documented, not hidden
 
 ## Deferred Process Items
 

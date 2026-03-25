@@ -2,7 +2,7 @@
 
 เอกสารนี้ใช้เป็น policy กลางสำหรับการย้าย schema, การ deploy migration, การ rollback release, และการ restore snapshot ใน production โดยแยกสถานะให้ชัดว่าอะไร `implemented`, อะไร `verified`, และอะไรยัง `experimental`
 
-อัปเดตล่าสุด: **2026-03-15**
+อัปเดตล่าสุด: **2026-03-25**
 
 ---
 
@@ -141,3 +141,37 @@ compatibility matrix ปัจจุบัน:
 - เก็บผล diff / warning ที่ preview แจ้ง
 - บันทึกเวลาที่เริ่มและจบ
 - เช็ก runtime supervisor, notification center, และ auth security events ว่าปกติ
+
+---
+
+## 7. Restore / Rollback Maturity Ladder
+
+ให้ใช้กรอบนี้เวลาอธิบายว่า restore/rollback ไปถึงระดับไหนแล้ว:
+
+### Level 1: Guarded manual restore
+
+มีแล้วใน repo ปัจจุบัน:
+
+- preview token
+- maintenance gate
+- rollback backup อัตโนมัติ
+- status ติดตามย้อนหลังได้
+- post-restore validation ผ่านคำสั่งมาตรฐาน
+
+### Level 2: Rehearsed operator restore
+
+สิ่งที่ควรมีเพิ่มก่อนเรียกว่าแข็งแรงระดับ production มากขึ้น:
+
+- restore drill ที่ทำจริงบน environment ซ้อม
+- evidence ของเวลาเริ่ม/จบ
+- evidence ของ post-restore checks
+- operator คนอื่นทำตาม runbook เดียวกันได้โดยไม่ต้องเดาเอง
+
+### Level 3: Mature recovery posture
+
+ยังไม่ควรอ้างว่าปิดแล้วจนกว่าจะมี:
+
+- repeated restore drills หลายรอบ
+- rollback decision tree ที่ใช้กับ incident จริง
+- acceptance เกี่ยวกับ queue, wallet, delivery, และ tenant config หลัง restore
+- clear RTO/RPO evidence ต่อ environment

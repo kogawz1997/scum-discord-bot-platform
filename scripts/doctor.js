@@ -637,6 +637,70 @@ function addRconChecks() {
   }
 }
 
+function addAgentSyncControlPlaneChecks() {
+  const transport = String(
+    process.env.SCUM_SYNC_TRANSPORT || 'webhook',
+  ).trim().toLowerCase() || 'webhook';
+  if (!['webhook', 'control-plane', 'dual'].includes(transport)) {
+    throw new Error(
+      `SCUM_SYNC_TRANSPORT must be webhook, control-plane, or dual (current=${transport})`,
+    );
+  }
+
+  if (transport === 'webhook') return;
+
+  const baseUrl = String(
+    process.env.SCUM_SYNC_CONTROL_PLANE_URL
+      || process.env.PLATFORM_API_BASE_URL
+      || process.env.ADMIN_WEB_BASE_URL
+      || '',
+  ).trim();
+  const token = String(
+    process.env.SCUM_SYNC_AGENT_TOKEN
+      || process.env.PLATFORM_AGENT_TOKEN
+      || process.env.SCUM_AGENT_TOKEN
+      || '',
+  ).trim();
+  const tenantId = String(
+    process.env.SCUM_TENANT_ID
+      || process.env.TENANT_ID
+      || process.env.PLATFORM_TENANT_ID
+      || '',
+  ).trim();
+  const serverId = String(
+    process.env.SCUM_SERVER_ID
+      || process.env.PLATFORM_SERVER_ID
+      || '',
+  ).trim();
+
+  if (!baseUrl) {
+    throw new Error(
+      'SCUM_SYNC_CONTROL_PLANE_URL or PLATFORM_API_BASE_URL is required when SCUM_SYNC_TRANSPORT=control-plane|dual',
+    );
+  }
+  const parsed = parseUrlOrThrow(baseUrl, 'SCUM_SYNC_CONTROL_PLANE_URL');
+  if (isProduction && parsed.protocol !== 'https:' && !isLoopbackHost(parsed.hostname)) {
+    throw new Error(
+      'SCUM_SYNC_CONTROL_PLANE_URL must use https in production when not loopback',
+    );
+  }
+  if (!token || token.length < 16) {
+    throw new Error(
+      'SCUM_SYNC_AGENT_TOKEN or PLATFORM_AGENT_TOKEN is required and should be at least 16 chars when SCUM_SYNC_TRANSPORT=control-plane|dual',
+    );
+  }
+  if (!tenantId) {
+    throw new Error(
+      'SCUM_TENANT_ID (or TENANT_ID / PLATFORM_TENANT_ID) is required when SCUM_SYNC_TRANSPORT=control-plane|dual',
+    );
+  }
+  if (!serverId) {
+    throw new Error(
+      'SCUM_SERVER_ID (or PLATFORM_SERVER_ID) is required when SCUM_SYNC_TRANSPORT=control-plane|dual',
+    );
+  }
+}
+
 runCheck('load dotenv', () => {
   require('dotenv');
 });
@@ -722,6 +786,10 @@ runCheck('tracked mutable artifact hygiene', () => {
 
 runCheck('RCON runtime consistency', () => {
   addRconChecks();
+});
+
+runCheck('sync control-plane routing consistency', () => {
+  addAgentSyncControlPlaneChecks();
 });
 
 runCheck('port matrix has no conflicts', () => {

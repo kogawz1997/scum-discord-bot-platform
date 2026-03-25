@@ -51,3 +51,25 @@ The current verified environment is the local workstation only. Pending environm
 - more server configurations must be sampled because strategy selection can change with SCUM patch level and server behavior
 - more than one workstation/runtime must be sampled before claiming environment-independent coverage
 - item IDs without a passing representative case on this workstation remain experimental until a live matrix capture proves them
+
+## Multi-Environment Completion Checklist
+
+Do not mark native proof as "complete across environments" until all of the following are true:
+
+1. one baseline environment has a current representative matrix
+2. one additional SCUM server configuration has a full verified matrix, not just a partial sample
+3. one additional workstation/runtime has a verified matrix capture
+4. each target environment has:
+   - environment metadata in `docs/assets/live-native-proof-environments.json`
+   - matrix output in `docs/assets/live-native-proof-*.md`
+   - machine-readable summary in `docs/assets/live-native-proof-*.json`
+5. at least one representative case exists for every delivery class you claim to support there
+
+## Practical Acceptance
+
+For operator sign-off, keep the acceptance bar simple:
+
+- proof must remain game-state based
+- command logs alone are not enough
+- a second environment must be independently repeatable by another operator
+- if an environment only has partial or experimental evidence, document it as partial instead of passing
