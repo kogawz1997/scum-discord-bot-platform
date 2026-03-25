@@ -2216,3 +2216,1055 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
     grid-template-columns: 1fr;
   }
 }
+
+/* 20260325 usability pass: simplify top navigation and expose current-page context */
+.console-app-shell .command-page-card {
+  padding: 16px 18px;
+  gap: 12px;
+}
+
+.console-app-shell .command-page-card > .compact-hint {
+  margin: 0;
+  max-width: 64ch;
+  color: rgba(243, 239, 228, 0.74);
+}
+
+.console-app-shell .surface-primary-grid,
+.console-app-shell .surface-primary-grid-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.console-app-shell .surface-primary-link {
+  min-height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  gap: 0;
+}
+
+.console-app-shell .surface-primary-link p {
+  display: none;
+}
+
+.console-app-shell .surface-primary-label {
+  font-size: 0.94rem;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+.surface-pagebar {
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.014);
+  box-shadow: var(--shadow-soft);
+}
+
+.surface-pagebar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.surface-pagebar-copy strong {
+  font-family: "Barlow Condensed", "IBM Plex Sans Thai", sans-serif;
+  font-size: 1.2rem;
+  line-height: 0.95;
+  letter-spacing: 0.03em;
+}
+
+.surface-pagebar-copy p {
+  margin: 0;
+  max-width: 74ch;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > .compact-hint {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .surface-pagebar {
+  padding: 12px 16px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .surface-pagebar-copy strong {
+  font-size: 1.04rem;
+}
+
+@media (max-width: 1180px) {
+  .surface-pagebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 20260325 final information-architecture + visual cleanup */
+.console-app-shell .command-visual-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 186px;
+  align-content: end;
+  isolation: isolate;
+  border-color: rgba(233, 225, 183, 0.14);
+  background:
+    linear-gradient(180deg, rgba(6, 8, 6, 0.12), rgba(6, 8, 6, 0.8)),
+    rgba(11, 14, 11, 0.8);
+}
+
+.console-app-shell .command-visual-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.54;
+  transform: scale(1.03);
+}
+
+.surface-owner .command-visual-card-owner::before {
+  background-image:
+    linear-gradient(180deg, rgba(8, 10, 8, 0.18), rgba(8, 10, 8, 0.88)),
+    url("/admin/assets/visuals/scum/feature-identity.jpg");
+}
+
+.surface-tenant .command-visual-card-tenant::before {
+  background-image:
+    linear-gradient(180deg, rgba(8, 10, 8, 0.2), rgba(8, 10, 8, 0.88)),
+    url("/admin/assets/visuals/scum/feature-loot.jpg");
+}
+
+.console-app-shell .command-visual-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.console-app-shell .command-visual-card strong {
+  font-size: 1.28rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.console-app-shell .command-visual-card .compact-hint {
+  max-width: 34ch;
+  color: rgba(243, 239, 228, 0.82);
+  line-height: 1.58;
+}
+
+.console-app-shell .surface-primary-link p,
+.console-app-shell .overview-route-card p,
+.console-app-shell .quick-action-card p,
+.console-app-shell .panel-card .muted,
+.console-app-shell .panel-card .hint {
+  text-wrap: pretty;
+}
+
+.console-app-shell .surface-primary-link p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy {
+  min-height: 0;
+  max-width: 72ch;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-visual-card {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-meta {
+  grid-column: 1;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > .section-kicker,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > strong,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > .compact-hint {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid-wide {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 8px;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link p {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-label {
+  font-size: 0.88rem;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-stage {
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
+@media (max-width: 1180px) {
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-stage {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-sidebar {
+    position: static;
+  }
+}
+
+/* Image-led polish for owner/admin surfaces */
+.surface-owner .console-heading-shell,
+.surface-tenant .console-heading-shell {
+  overflow: hidden;
+}
+
+.surface-owner .console-heading-shell {
+  background:
+    linear-gradient(90deg, rgba(7, 9, 7, 0.95) 0%, rgba(7, 9, 7, 0.82) 44%, rgba(7, 9, 7, 0.92) 100%),
+    url("/admin/assets/visuals/scum/hero-public.jpg") right center / 46% auto no-repeat,
+    linear-gradient(180deg, rgba(240, 218, 144, 0.04), transparent 42%),
+    var(--surface);
+}
+
+.surface-tenant .console-heading-shell {
+  background:
+    linear-gradient(90deg, rgba(7, 9, 7, 0.95) 0%, rgba(7, 9, 7, 0.84) 42%, rgba(7, 9, 7, 0.92) 100%),
+    url("/admin/assets/visuals/scum/feature-loot.jpg") right center / 42% auto no-repeat,
+    linear-gradient(180deg, rgba(240, 218, 144, 0.04), transparent 42%),
+    var(--surface);
+}
+
+.surface-owner .console-heading-copy,
+.surface-tenant .console-heading-copy {
+  max-width: min(560px, 100%);
+}
+
+.surface-owner .command-role-card,
+.surface-owner .command-page-card,
+.surface-tenant .command-role-card,
+.surface-tenant .command-page-card,
+.surface-owner #fleet > .panel-card:nth-of-type(2),
+.surface-tenant #plan-integrations .mission-panel,
+.surface-tenant #commerce .mission-panel {
+  background-position: right center;
+  background-repeat: no-repeat;
+}
+
+.surface-owner .command-role-card {
+  background:
+    linear-gradient(90deg, rgba(9, 11, 9, 0.92), rgba(9, 11, 9, 0.78)),
+    linear-gradient(180deg, rgba(214, 189, 112, 0.1), rgba(255, 255, 255, 0.01)),
+    url("/admin/assets/visuals/scum/feature-support.jpg") right center / 220px auto no-repeat,
+    rgba(14, 17, 14, 0.8);
+}
+
+.surface-owner .command-page-card {
+  background:
+    linear-gradient(90deg, rgba(9, 11, 9, 0.94), rgba(9, 11, 9, 0.82)),
+    linear-gradient(180deg, rgba(214, 189, 112, 0.06), rgba(255, 255, 255, 0.01)),
+    url("/admin/assets/visuals/scum/feature-identity.jpg") right center / 240px auto no-repeat,
+    rgba(14, 17, 14, 0.78);
+}
+
+.surface-tenant .command-role-card {
+  background:
+    linear-gradient(90deg, rgba(9, 11, 9, 0.92), rgba(9, 11, 9, 0.8)),
+    linear-gradient(180deg, rgba(214, 189, 112, 0.08), rgba(255, 255, 255, 0.01)),
+    url("/admin/assets/visuals/scum/feature-loot.jpg") right center / 220px auto no-repeat,
+    rgba(14, 17, 14, 0.8);
+}
+
+.surface-tenant .command-page-card {
+  background:
+    linear-gradient(90deg, rgba(9, 11, 9, 0.94), rgba(9, 11, 9, 0.82)),
+    linear-gradient(180deg, rgba(214, 189, 112, 0.06), rgba(255, 255, 255, 0.01)),
+    url("/admin/assets/visuals/scum/feature-wallet.jpg") right center / 220px auto no-repeat,
+    rgba(14, 17, 14, 0.78);
+}
+
+.surface-owner #fleet > .panel-card:nth-of-type(2) {
+  background:
+    linear-gradient(90deg, rgba(10, 12, 10, 0.96), rgba(10, 12, 10, 0.84)),
+    url("/admin/assets/visuals/scum/feature-support.jpg") right top / 240px auto no-repeat,
+    rgba(255, 255, 255, 0.012);
+}
+
+.surface-tenant #plan-integrations .mission-panel {
+  background:
+    linear-gradient(90deg, rgba(10, 12, 10, 0.96), rgba(10, 12, 10, 0.84)),
+    url("/admin/assets/visuals/scum/feature-wallet.jpg") right top / 220px auto no-repeat,
+    rgba(255, 255, 255, 0.012);
+}
+
+.surface-tenant #commerce .mission-panel {
+  background:
+    linear-gradient(90deg, rgba(10, 12, 10, 0.96), rgba(10, 12, 10, 0.84)),
+    url("/admin/assets/visuals/scum/feature-loot.jpg") right top / 240px auto no-repeat,
+    rgba(255, 255, 255, 0.012);
+}
+
+.surface-owner .surface-primary-link,
+.surface-tenant .surface-primary-link,
+.surface-owner .overview-route-card,
+.surface-tenant .overview-route-card {
+  overflow: hidden;
+}
+
+.surface-owner .surface-primary-link p,
+.surface-tenant .surface-primary-link p,
+.surface-owner .overview-route-card p,
+.surface-tenant .overview-route-card p {
+  max-width: 32ch;
+}
+
+@media (max-width: 1280px) {
+  .surface-owner .console-heading-shell,
+  .surface-tenant .console-heading-shell,
+  .surface-owner .command-role-card,
+  .surface-owner .command-page-card,
+  .surface-tenant .command-role-card,
+  .surface-tenant .command-page-card,
+  .surface-owner #fleet > .panel-card:nth-of-type(2),
+  .surface-tenant #plan-integrations .mission-panel,
+  .surface-tenant #commerce .mission-panel {
+    background-size: cover;
+    background-position: center;
+  }
+}
+
+/* Final premium pass for deep admin pages:
+   - remove oversized hero feel
+   - turn page chooser into a compact command strip
+   - bring working content closer to the top */
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-command-header {
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
+    linear-gradient(180deg, rgba(214, 189, 112, 0.024), transparent 26%),
+    rgba(12, 14, 12, 0.96);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-topbar {
+  min-height: 54px;
+  padding: 8px 14px;
+  gap: 14px;
+  border-bottom-color: rgba(233, 225, 183, 0.1);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-brand {
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .brand-emblem {
+  min-width: 48px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 1.45rem;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .brand-copy strong {
+  font-size: 0.96rem;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .brand-copy span {
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
+  grid-template-columns: minmax(220px, 0.52fr) minmax(0, 1.48fr);
+  padding: 10px 14px 12px;
+  gap: 14px;
+  align-items: center;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy {
+  gap: 5px;
+  justify-content: center;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-id {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy h1 {
+  max-width: 12ch;
+  font-size: clamp(1.45rem, 1.75vw, 1.92rem);
+  line-height: 0.94;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-meta {
+  gap: 0;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-meta-grid.console-meta-grid-pages {
+  gap: 0;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
+  min-height: 0;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.008)),
+    rgba(10, 12, 10, 0.82);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card .section-kicker {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > strong {
+  margin: 0;
+  font-size: 0.94rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > .compact-hint {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.024);
+  box-shadow: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link-active {
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 218, 144, 0.16),
+    0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-label {
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-stage {
+  gap: 12px;
+  align-items: start;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-sidebar .nav-card {
+  position: sticky;
+  top: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-stage-main {
+  gap: 10px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .status-banner {
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-section {
+  border-radius: 20px;
+  padding: 16px 16px 18px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .section-head {
+  gap: 10px 14px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card {
+  border-radius: 18px;
+  padding: 16px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
+  grid-template-columns: minmax(0, 1.48fr) minmax(340px, 0.74fr);
+  align-items: start;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-main-grid,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-side-stack {
+  gap: 14px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .stat-card,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .series-card,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .quick-action-card,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .guide-card,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .kv-card {
+  min-height: 0;
+  padding: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-section,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .status-banner,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .nav-link {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+@media (max-width: 1380px) {
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Premium polish pass: sharper topbar, calmer deep pages, restrained motion */
+.console-app-shell .surface-role-switch {
+  padding: 4px;
+  border: 1px solid rgba(233, 225, 183, 0.12);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
+    rgba(7, 9, 7, 0.64);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.console-app-shell .surface-role-switch .surface-role-chip {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: rgba(243, 239, 228, 0.82);
+}
+
+.console-app-shell .surface-role-switch .surface-role-chip:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.console-app-shell .surface-role-switch .surface-role-chip.active {
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 218, 144, 0.2),
+    0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.console-app-shell .console-top-actions {
+  padding: 4px;
+  border: 1px solid rgba(233, 225, 183, 0.08);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.006)),
+    rgba(8, 10, 8, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.console-app-shell .console-top-actions > .button,
+.console-app-shell .console-top-actions > .action-menu > summary,
+.console-app-shell .console-top-actions > .compact-picker {
+  min-height: 38px;
+}
+
+.console-app-shell .compact-picker select {
+  min-height: 38px;
+  border-color: rgba(233, 225, 183, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.console-app-shell .surface-section-active {
+  animation: console-fade-up 0.36s ease both;
+}
+
+body[data-current-section="security"] .console-app-shell .surface-two-col,
+body[data-current-section="audit"] .console-app-shell .surface-two-col,
+body[data-current-section="control"] .console-app-shell .surface-two-col {
+  grid-template-columns: minmax(0, 1.16fr) minmax(360px, 0.84fr);
+  align-items: start;
+}
+
+body[data-current-section="security"] .console-app-shell .ops-side-stack .stats-grid,
+body[data-current-section="audit"] .console-app-shell .ops-side-stack .stats-grid,
+body[data-current-section="control"] .console-app-shell .ops-side-stack .stats-grid {
+  grid-template-columns: 1fr;
+}
+
+body[data-current-section="security"] .console-app-shell .ops-side-stack .panel-card,
+body[data-current-section="audit"] .console-app-shell .ops-side-stack .panel-card,
+body[data-current-section="control"] .console-app-shell .ops-side-stack .panel-card {
+  padding: 16px;
+}
+
+body[data-current-section="security"] .console-app-shell .panel-grid.two-col,
+body[data-current-section="audit"] .console-app-shell .panel-grid.two-col,
+body[data-current-section="control"] .console-app-shell .panel-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body[data-current-section="security"] .console-app-shell .stat-card,
+body[data-current-section="audit"] .console-app-shell .stat-card,
+body[data-current-section="control"] .console-app-shell .stat-card {
+  gap: 8px;
+  padding: 14px;
+}
+
+body[data-current-section="security"] .console-app-shell .stat-value,
+body[data-current-section="audit"] .console-app-shell .stat-value,
+body[data-current-section="control"] .console-app-shell .stat-value {
+  font-size: clamp(1.6rem, 2vw, 2.3rem);
+}
+
+@media (max-width: 1280px) {
+  body[data-current-section="security"] .console-app-shell .surface-two-col,
+  body[data-current-section="audit"] .console-app-shell .surface-two-col,
+  body[data-current-section="control"] .console-app-shell .surface-two-col,
+  body[data-current-section="security"] .console-app-shell .panel-grid.two-col,
+  body[data-current-section="audit"] .console-app-shell .panel-grid.two-col,
+  body[data-current-section="control"] .console-app-shell .panel-grid.two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-command-header,
+  .panel-card,
+  .nav-card,
+  .status-banner,
+  .surface-section,
+  .task-cluster,
+  .palette-card,
+  .surface-section-active,
+  .ops-main-grid > *,
+  .ops-side-stack > *,
+  .console-app-shell .surface-primary-link,
+  .console-app-shell .nav-link {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Final readability pass */
+.console-app-shell .console-heading-copy h1,
+.console-app-shell .section-title,
+.console-app-shell .surface-primary-label,
+.console-app-shell .brand-copy strong {
+  font-weight: 700;
+  text-rendering: optimizeLegibility;
+}
+
+.console-app-shell .section-title,
+.console-app-shell .panel-card h3,
+.console-app-shell .surface-primary-label {
+  letter-spacing: 0.035em;
+  text-wrap: balance;
+}
+
+.console-app-shell .section-copy p,
+.console-app-shell .panel-card .hint,
+.console-app-shell .panel-card .muted,
+.console-app-shell .panel-card .panel-subtitle {
+  color: rgba(243, 239, 228, 0.66);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .section-head .section-copy p,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .status-banner strong + p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 54ch;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card .hint,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card .muted {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .nav-link {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell th {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell td {
+  font-size: 0.88rem;
+  line-height: 1.48;
+}
+
+.console-app-shell {
+  width: min(1840px, calc(100vw - 40px));
+  max-width: none;
+}
+
+.console-app-shell .console-heading-shell {
+  grid-template-columns: minmax(0, 1.12fr) minmax(460px, 0.88fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.console-app-shell .console-heading-copy {
+  min-height: 260px;
+  justify-content: end;
+}
+
+.console-app-shell .console-heading-copy h1 {
+  max-width: 8ch;
+}
+
+.console-app-shell .console-heading-copy p {
+  max-width: 62ch;
+}
+
+.console-app-shell .console-meta-grid.console-meta-grid-pages {
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-content: stretch;
+}
+
+.console-app-shell .command-page-card {
+  min-height: 100%;
+  padding: 22px 22px 20px;
+  gap: 16px;
+}
+
+.console-app-shell .surface-hidden-workspace {
+  display: none !important;
+}
+
+.console-app-shell .surface-primary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.console-app-shell .surface-primary-grid-wide {
+  grid-template-columns: repeat(auto-fit, minmax(154px, 1fr));
+}
+
+.console-app-shell .surface-primary-link {
+  min-height: 104px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.014);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.console-app-shell .surface-primary-link:hover {
+  border-color: var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.014)),
+    rgba(255, 255, 255, 0.02);
+  transform: translateY(-1px);
+}
+
+.console-app-shell .surface-primary-link-active {
+  border-color: rgba(240, 218, 144, 0.38);
+  background:
+    linear-gradient(180deg, rgba(240, 218, 144, 0.11), rgba(240, 218, 144, 0.05)),
+    rgba(255, 255, 255, 0.018);
+  box-shadow: inset 0 0 0 1px rgba(240, 218, 144, 0.14);
+}
+
+.console-app-shell .surface-primary-label {
+  font-family: "Barlow Condensed", "IBM Plex Sans Thai", sans-serif;
+  font-size: 1.42rem;
+  line-height: 0.92;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.console-app-shell .surface-primary-link p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.console-app-shell .console-stage {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.console-app-shell .surface-sidebar .nav-card {
+  padding: 14px 12px;
+  gap: 10px;
+}
+
+.console-app-shell .surface-sidebar .nav-head {
+  margin-bottom: 2px;
+}
+
+.console-app-shell .surface-sidebar .nav-head strong {
+  font-size: 0.98rem;
+}
+
+.console-app-shell .surface-sidebar .nav-link {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
+  grid-template-columns: minmax(0, 0.92fr) minmax(400px, 1.08fr);
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
+  padding: 16px 18px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link {
+  min-height: 88px;
+  padding: 14px;
+}
+
+@media (max-width: 1480px) {
+  .console-app-shell .console-heading-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .console-app-shell .console-meta-grid.console-meta-grid-pages {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .console-app-shell {
+    width: min(100%, calc(100vw - 20px));
+  }
+
+  .console-app-shell .console-stage,
+  .console-app-shell .console-heading-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .console-app-shell .surface-primary-grid,
+  .console-app-shell .surface-primary-grid-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .console-app-shell .surface-primary-grid,
+  .console-app-shell .surface-primary-grid-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .console-app-shell .console-heading-copy {
+    min-height: 0;
+  }
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-command-header {
+  padding: 8px 10px 12px;
+  gap: 10px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-topbar {
+  padding: 8px 12px;
+  min-height: 52px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  padding: 8px 12px 10px;
+  gap: 12px;
+  align-items: start;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy {
+  min-height: 0;
+  align-content: start;
+  gap: 4px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-id {
+  min-height: 24px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy h1 {
+  max-width: none;
+  font-size: clamp(1.5rem, 1.8vw, 2.05rem);
+  line-height: 0.94;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-copy p {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
+  padding: 12px 14px;
+  gap: 10px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card > .compact-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-grid-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link {
+  min-height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  gap: 0;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-link p {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-primary-label {
+  font-size: 0.92rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-stage {
+  grid-template-columns: 198px minmax(0, 1fr);
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-sidebar .nav-card {
+  padding: 12px 10px;
+  gap: 8px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-sidebar .nav-link {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-section {
+  padding: 16px;
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-stage-main,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-main-grid,
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-side-stack {
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-two-col {
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card {
+  padding: 14px;
+  gap: 10px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1220px) {
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell,
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-stage,
+  body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
+    grid-template-columns: 1fr;
+  }
+}

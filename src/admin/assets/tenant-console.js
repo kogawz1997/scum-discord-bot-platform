@@ -85,12 +85,48 @@
     return encodeURIComponent(String(state.me?.tenantId || '').trim());
   }
 
+  const TENANT_PAGE_CONTEXT_DETAIL = {
+    overview: () => t('tenant.pagebar.overview', 'เริ่มที่ภาพรวมเพื่อดูสุขภาพผู้เช่า ปัญหาที่ค้างอยู่ และทางลัดที่ใช้ช่วยงานประจำวัน'),
+    operations: () => t('tenant.pagebar.operations', 'ใช้หน้านี้ดูสถานะเซิร์ฟเวอร์ การแจ้งเตือน และกิจกรรมสดก่อนลงไปจัดการคำสั่งซื้อหรือการตั้งค่า'),
+    incidents: () => t('tenant.pagebar.incidents', 'รวมเหตุขัดข้องที่เกี่ยวกับผู้เช่ารายนี้ เช่น dead-letter ปัญหาคิว และสัญญาณที่ต้องรีบตามต่อ'),
+    insights: () => t('tenant.pagebar.insights', 'ใช้ดูสรุประบบ ผลตรวจสอบ และความกดดันของโควตา เพื่อเลือกว่าควรไปต่อที่หมวดไหน'),
+    'plan-integrations': () => t('tenant.pagebar.plan', 'รวมแพ็กเกจ สิทธิ์ใช้งาน เอเจนต์ คีย์ API และเว็บฮุกไว้ในจุดเดียวสำหรับผู้ดูแลเซิร์ฟเวอร์'),
+    commerce: () => t('tenant.pagebar.commerce', 'ใช้จัดการคิวส่งของ คำสั่งซื้อที่ติดค้าง และภาระงานของหน้าร้านโดยไม่ต้องเปิดหลายหน้า'),
+    sandbox: () => t('tenant.pagebar.sandbox', 'ใช้ห้องทดสอบเพื่อลองส่งของ ตรวจพรีวิว และจำลองผลก่อนแตะรายการจริง'),
+    'catalog-tools': () => t('tenant.pagebar.catalog', 'รวมเครื่องมือจัดการร้านค้า รายการสินค้า และข้อเสนอที่แสดงให้ผู้เล่นเห็น'),
+    transactions: () => t('tenant.pagebar.transactions', 'ใช้ค้นคำสั่งซื้อ ดูสถานะการส่งของ และสรุปประวัติการชำระเงินอย่างเป็นลำดับ'),
+    players: () => t('tenant.pagebar.players', 'ใช้ตรวจตัวตนผู้เล่น การเชื่อม Steam และปัญหาหลังการซื้อในขอบเขตผู้เช่ารายนี้'),
+    'support-tools': () => t('tenant.pagebar.support', 'รวมงานซัพพอร์ตที่ใช้บ่อย เช่น Steam, สิทธิพิเศษ, โค้ดแลกรับ และการแจ้งรีสตาร์ต'),
+    config: () => t('tenant.pagebar.config', 'ใช้แก้การตั้งค่าของผู้เช่ารายนี้แบบมี guard และเตรียมค่าก่อนบันทึกจริง'),
+    audit: () => t('tenant.pagebar.audit', 'ใช้ค้นหลักฐานย้อนหลังเพื่อตอบเคสซัพพอร์ตและตรวจขั้นตอนการเปลี่ยนแปลงของผู้ดูแล'),
+    actions: () => t('tenant.pagebar.actions', 'รวมการกระทำที่มีความเสี่ยงหรือส่งผลต่อระบบไว้ท้ายสุดเพื่อแยกจากงานประจำวัน'),
+  };
+
   async function safeApi(path, fallback) {
     try {
       return await api(path);
     } catch {
       return fallback;
     }
+  }
+
+  function renderTenantPageContext() {
+    const titleEl = document.getElementById('tenantPageContextTitle');
+    const detailEl = document.getElementById('tenantPageContextDetail');
+    const tagsEl = document.getElementById('tenantPageContextTags');
+    if (!titleEl || !detailEl || !tagsEl) return;
+    const activeSection = String(document.body.dataset.currentSection || workspaceController?.getSection?.() || 'overview').trim() || 'overview';
+    const navLink = document.querySelector(`#tenantNavList a[href="#${activeSection}"]`);
+    const activePrimary = document.querySelector('.surface-primary-link-active .surface-primary-label');
+    const sectionLabel = String(navLink?.textContent || '').trim() || t('tenant.nav.overview', 'ภาพรวม');
+    const primaryLabel = String(activePrimary?.textContent || '').trim() || t('tenant.primary.dashboard', 'ภาพรวม');
+    const detailFactory = TENANT_PAGE_CONTEXT_DETAIL[activeSection] || TENANT_PAGE_CONTEXT_DETAIL.overview;
+    titleEl.textContent = sectionLabel;
+    detailEl.textContent = detailFactory();
+    tagsEl.innerHTML = [
+      makePill(t('common.pageGroupLabel', 'หมวด {value}', { value: primaryLabel }), 'neutral'),
+      makePill(t('common.currentPageLabel', 'หน้าปัจจุบัน {value}', { value: sectionLabel }), 'success'),
+    ].join('');
   }
 
   function listFromPayload(payload) {
@@ -3224,6 +3260,17 @@
       support: ['support-tools', 'players', 'audit'],
       config: ['config', 'sandbox', 'actions'],
     },
+    sectionAliases: {
+      dashboard: 'overview',
+      servers: 'operations',
+      agents: 'plan-integrations',
+      logs: 'incidents',
+      shop: 'catalog-tools',
+      orders: 'transactions',
+      delivery: 'commerce',
+      subscription: 'plan-integrations',
+      settings: 'config',
+    },
   });
   sidebarController = wireSidebarShell({
     sidebarId: 'tenantSidebar',
@@ -3232,6 +3279,7 @@
     backdropId: 'tenantSidebarBackdrop',
   });
   document.getElementById('tenantSidebarHint').textContent = t('tenant.sidebarHint', 'Use the area tabs above to switch context. The menu on the left only shows the pages that belong to the active tenant area.');
+  renderTenantPageContext();
 
   const palette = wireCommandPalette({
     openButtonId: 'tenantPaletteBtn',
@@ -3520,8 +3568,13 @@
   window.addEventListener('ui-language-change', () => {
     workspaceController?.refresh?.();
     sidebarController?.refresh?.();
+    renderTenantPageContext();
     palette.refresh();
     renderAll();
+  });
+
+  window.addEventListener('surface-section-change', () => {
+    renderTenantPageContext();
   });
 
   refreshSurface();

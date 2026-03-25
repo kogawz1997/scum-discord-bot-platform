@@ -628,6 +628,7 @@
       defaultWorkspace,
       workspaces = [],
       sectionsByWorkspace = {},
+      sectionAliases = {},
     } = options;
     const switchRoot = switchId ? document.getElementById(switchId) : null;
     const summaryRoot = summaryId ? document.getElementById(summaryId) : null;
@@ -640,14 +641,32 @@
       });
     });
     const workspaceList = Array.isArray(workspaces) ? workspaces.filter((item) => item?.key) : [];
+    const aliasLookup = Object.entries(sectionAliases || {}).reduce((lookup, [aliasId, sectionId]) => {
+      const normalizedAliasId = String(aliasId || '').trim();
+      const normalizedSectionId = String(sectionId || '').trim();
+      if (normalizedAliasId && normalizedSectionId) {
+        lookup.set(normalizedAliasId, normalizedSectionId);
+      }
+      return lookup;
+    }, new Map());
     let currentWorkspace = workspaceList.some((item) => item.key === defaultWorkspace)
       ? defaultWorkspace
       : (workspaceList[0]?.key || '');
     let currentSectionId = ((sectionsByWorkspace[currentWorkspace] || []).find((sectionId) => document.getElementById(sectionId)) || '');
 
+    function resolveSectionId(sectionId) {
+      const normalizedSectionId = String(sectionId || '').trim();
+      return aliasLookup.get(normalizedSectionId) || normalizedSectionId;
+    }
+
+    function getResolvedCurrentSectionId() {
+      return resolveSectionId(currentSectionId);
+    }
+
     function getSectionLabel(sectionId) {
       if (!navList || !sectionId) return sectionId;
-      const link = navList.querySelector(`a[href="#${sectionId}"]`);
+      const resolvedSectionId = resolveSectionId(sectionId);
+      const link = navList.querySelector(`a[href="#${sectionId}"]`) || navList.querySelector(`a[href="#${resolvedSectionId}"]`);
       return String(link?.textContent || '').trim() || sectionId;
     }
 
@@ -676,6 +695,17 @@
       ].join('');
     }
 
+    function emitSurfaceChange() {
+      window.dispatchEvent(new CustomEvent('surface-section-change', {
+        detail: {
+          workspace: currentWorkspace || '',
+          section: getResolvedCurrentSectionId() || '',
+          rawSection: currentSectionId || '',
+          label: getSectionLabel(currentSectionId) || '',
+        },
+      }));
+    }
+
     function renderSwitch() {
       if (!switchRoot) return;
       switchRoot.innerHTML = workspaceList.map((workspace) => [
@@ -691,22 +721,23 @@
     }
 
     function applyWorkspace() {
+      const resolvedCurrentSectionId = getResolvedCurrentSectionId();
       document.body.dataset.currentWorkspace = currentWorkspace || '';
       document.body.dataset.currentSection = currentSectionId || '';
       sectionWorkspace.forEach((workspaceKey, sectionId) => {
         const section = document.getElementById(sectionId);
         if (!section) return;
-        const isActive = !(Boolean(currentWorkspace) && (workspaceKey !== currentWorkspace || sectionId !== currentSectionId));
+        const isActive = !(Boolean(currentWorkspace) && (workspaceKey !== currentWorkspace || sectionId !== resolvedCurrentSectionId));
         section.hidden = !isActive;
         section.classList.toggle('surface-section-active', isActive);
       });
       if (navList) {
         Array.from(navList.querySelectorAll('a[href^="#"]')).forEach((link) => {
           const sectionId = String(link.getAttribute('href') || '').replace(/^#/, '');
-          const workspaceKey = sectionWorkspace.get(sectionId);
+          const workspaceKey = sectionWorkspace.get(resolveSectionId(sectionId));
           link.dataset.workspace = workspaceKey || '';
           link.hidden = Boolean(workspaceKey) && workspaceKey !== currentWorkspace;
-          const isActive = sectionId === currentSectionId;
+          const isActive = sectionId === currentSectionId || resolveSectionId(sectionId) === resolvedCurrentSectionId;
           link.classList.toggle('nav-link-active', isActive);
           if (isActive) {
             link.setAttribute('aria-current', 'page');
@@ -715,8 +746,26 @@
           }
         });
       }
+      Array.from(document.querySelectorAll('[data-primary-section],[data-primary-sections]')).forEach((link) => {
+        const sections = String(
+          link.getAttribute('data-primary-sections')
+          || link.getAttribute('data-primary-section')
+          || ''
+        )
+          .split(',')
+          .map((value) => String(value || '').trim())
+          .filter(Boolean);
+        const isActive = sections.includes(currentSectionId) || sections.includes(resolvedCurrentSectionId);
+        link.classList.toggle('surface-primary-link-active', isActive);
+        if (isActive) {
+          link.setAttribute('aria-current', 'page');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
       renderSummary();
       renderSwitch();
+      emitSurfaceChange();
     }
 
     function setWorkspace(workspaceKey, options = {}) {
@@ -724,7 +773,7 @@
         return;
       }
       currentWorkspace = workspaceKey;
-      if (!currentSectionId || sectionWorkspace.get(currentSectionId) !== workspaceKey) {
+      if (!currentSectionId || sectionWorkspace.get(getResolvedCurrentSectionId()) !== workspaceKey) {
         currentSectionId = (sectionsByWorkspace[currentWorkspace] || []).find((sectionId) => document.getElementById(sectionId)) || '';
       }
       applyWorkspace();
@@ -737,7 +786,8 @@
     }
 
     function openSection(sectionId, options = {}) {
-      const workspaceKey = sectionWorkspace.get(sectionId);
+      const resolvedSectionId = resolveSectionId(sectionId);
+      const workspaceKey = sectionWorkspace.get(resolvedSectionId);
       currentSectionId = sectionId;
       if (workspaceKey && workspaceKey !== currentWorkspace) {
         currentWorkspace = workspaceKey;
@@ -745,7 +795,7 @@
       } else {
         applyWorkspace();
       }
-      const targetId = options.targetId || sectionId;
+      const targetId = options.targetId || resolvedSectionId;
       const block = options.block || 'start';
       if (!options.skipHash) {
         window.history.replaceState(null, '', `#${sectionId}`);
@@ -774,12 +824,12 @@
     renderSwitch();
     applyWorkspace();
     const initialHash = String(window.location.hash || '').replace(/^#/, '');
-    if (initialHash && sectionWorkspace.has(initialHash)) {
+    if (initialHash && (sectionWorkspace.has(initialHash) || aliasLookup.has(initialHash))) {
       openSection(initialHash, { block: 'start' });
     }
     window.addEventListener('hashchange', () => {
       const nextHash = String(window.location.hash || '').replace(/^#/, '');
-      if (!nextHash || !sectionWorkspace.has(nextHash) || nextHash === currentSectionId) {
+      if (!nextHash || (!(sectionWorkspace.has(nextHash) || aliasLookup.has(nextHash))) || nextHash === currentSectionId) {
         return;
       }
       openSection(nextHash, { block: 'start', skipHash: true });

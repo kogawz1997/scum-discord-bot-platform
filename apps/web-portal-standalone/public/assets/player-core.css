@@ -260,6 +260,47 @@ select option:focus {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.portal-pagebar {
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.014);
+  box-shadow: var(--shadow-soft);
+  animation: portal-fade-up 0.44s ease both;
+}
+
+.portal-pagebar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.portal-pagebar-copy strong {
+  font-family: "Barlow Condensed", "IBM Plex Sans Thai", sans-serif;
+  font-size: 1.24rem;
+  line-height: 0.95;
+  letter-spacing: 0.03em;
+}
+
+.portal-pagebar-copy p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.58;
+}
+
+@media (max-width: 1040px) {
+  .portal-pagebar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .button:disabled,
 .nav-btn:disabled {
   opacity: 0.56;
@@ -1076,4 +1117,334 @@ tr:last-child td {
   .portal-shell-workbench .shop-filter-strip {
     grid-template-columns: 1fr;
   }
+}
+
+.portal-shell-workbench {
+  width: min(1700px, calc(100vw - 36px));
+  max-width: none;
+}
+
+.portal-shell-workbench .portal-topbar {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+}
+
+.portal-shell-workbench .portal-topnav {
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.portal-shell-workbench .portal-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
+
+.portal-shell-workbench .portal-utility-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.portal-shell-workbench .nav-btn-utility {
+  min-width: 118px;
+}
+
+.portal-shell-workbench .portal-command-stage {
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.portal-shell-workbench .portal-command-copy h1 {
+  max-width: 10ch;
+}
+
+.portal-shell-workbench .portal-service-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.portal-shell-workbench .portal-service-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.015);
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.portal-shell-workbench .portal-service-card strong {
+  font-family: "Barlow Condensed", "IBM Plex Sans Thai", sans-serif;
+  font-size: 1.38rem;
+  line-height: 0.92;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.portal-shell-workbench .portal-service-card p {
+  margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .portal-shell-workbench {
+    width: min(100%, calc(100vw - 20px));
+  }
+
+  .portal-shell-workbench .portal-topbar,
+  .portal-shell-workbench .portal-command-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-shell-workbench .portal-top-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .portal-shell-workbench .portal-service-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-shell-workbench .portal-utility-nav,
+  .portal-shell-workbench .portal-topnav {
+    width: 100%;
+  }
+
+  .portal-shell-workbench .nav-btn-utility {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+}
+
+/* Premium finish pass: align player surface with owner/admin visual system */
+.portal-shell-workbench .portal-topnav {
+  padding: 4px;
+  border: 1px solid rgba(233, 225, 183, 0.12);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
+    rgba(7, 9, 7, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.portal-shell-workbench .portal-topnav .nav-btn {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: rgba(242, 238, 229, 0.84);
+}
+
+.portal-shell-workbench .portal-topnav .nav-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.portal-shell-workbench .portal-topnav .nav-btn.active {
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 218, 144, 0.2),
+    0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.portal-shell-workbench .portal-top-actions {
+  padding: 4px;
+  border: 1px solid rgba(233, 225, 183, 0.08);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.006)),
+    rgba(8, 10, 8, 0.54);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.portal-shell-workbench .portal-utility-nav {
+  padding-right: 6px;
+  margin-right: 2px;
+  border-right: 1px solid rgba(233, 225, 183, 0.08);
+}
+
+.portal-shell-workbench .nav-btn-utility {
+  min-height: 34px;
+  min-width: 0;
+  border-radius: 999px;
+}
+
+.portal-shell-workbench .portal-command-copy h1,
+.portal-shell-workbench .section-head h2,
+.portal-shell-workbench .shop-card h3,
+.portal-shell-workbench .brand-copy strong {
+  font-weight: 700;
+  text-rendering: optimizeLegibility;
+}
+
+.portal-shell-workbench .portal-command-copy h1 {
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.portal-shell-workbench .brand-copy strong {
+  letter-spacing: 0.05em;
+}
+
+.portal-shell-workbench .brand-copy span,
+.portal-shell-workbench .portal-command-copy p,
+.portal-shell-workbench .muted {
+  color: rgba(242, 238, 229, 0.68);
+}
+
+.portal-shell-workbench .portal-command-copy p {
+  max-width: 42ch;
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
+.portal-shell-workbench .portal-service-card p,
+.portal-shell-workbench .player-service-panel .section-head p,
+.portal-shell-workbench .player-side-panel .section-head p,
+.portal-shell-workbench .snapshot-card p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.portal-shell-workbench .portal-service-card {
+  gap: 6px;
+}
+
+.portal-shell-workbench .portal-service-card strong {
+  font-size: 1.28rem;
+  letter-spacing: 0.03em;
+}
+
+.portal-shell-workbench .signal-card {
+  padding: 16px;
+  max-width: 320px;
+  border: 1px solid rgba(233, 225, 183, 0.12);
+}
+
+.portal-shell-workbench .panel-card,
+.portal-shell-workbench .snapshot-card,
+.portal-shell-workbench .shop-card,
+.portal-shell-workbench .order-card,
+.portal-shell-workbench .guide-card,
+.portal-shell-workbench .tip-card {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.portal-shell-workbench .panel-card:hover,
+.portal-shell-workbench .snapshot-card:hover,
+.portal-shell-workbench .shop-card:hover,
+.portal-shell-workbench .order-card:hover {
+  border-color: rgba(240, 221, 155, 0.18);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.24);
+}
+
+.portal-shell-workbench .section-head h2 {
+  letter-spacing: 0.03em;
+  text-wrap: balance;
+}
+
+.portal-shell-workbench .table-shell th {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+}
+
+.portal-shell-workbench .table-shell td {
+  font-size: 0.88rem;
+  line-height: 1.48;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-topbar,
+  .portal-command-stage,
+  .panel-card,
+  .hero-card,
+  .status-banner,
+  .task-cluster,
+  .drawer-card,
+  .signal-card,
+  .guide-card,
+  .tip-card,
+  .order-card,
+  .shop-card,
+  .toast,
+  .tab-panel.active,
+  .portal-shell-workbench .portal-workbench-main > *,
+  .portal-shell-workbench .portal-workbench-side > * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .command-visual-image {
+    animation: none !important;
+  }
+}
+
+/* Image-led polish for player surface */
+.portal-shell-workbench .portal-command-stage {
+  background:
+    linear-gradient(90deg, rgba(8, 10, 9, 0.94) 0%, rgba(8, 10, 9, 0.76) 48%, rgba(8, 10, 9, 0.88) 100%),
+    url("/player/assets/ui/visuals/scum/hero-player.jpg") right center / cover no-repeat;
+}
+
+.portal-shell-workbench .command-visual-image {
+  background:
+    linear-gradient(180deg, rgba(7, 8, 7, 0.12), rgba(7, 8, 7, 0.42)),
+    url("/player/assets/ui/visuals/scum/scene-support.jpg") center/cover no-repeat;
+}
+
+.portal-shell-workbench .portal-service-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 148px;
+}
+
+.portal-shell-workbench .portal-service-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  transition: opacity 180ms ease, transform 240ms ease;
+}
+
+.portal-shell-workbench .portal-service-card:nth-child(1)::before {
+  background-image: url("/player/assets/ui/visuals/scum/feature-wallet.jpg");
+}
+
+.portal-shell-workbench .portal-service-card:nth-child(2)::before {
+  background-image: url("/player/assets/ui/visuals/scum/feature-loot.jpg");
+}
+
+.portal-shell-workbench .portal-service-card:nth-child(3)::before {
+  background-image: url("/player/assets/ui/visuals/scum/scene-support.jpg");
+}
+
+.portal-shell-workbench .portal-service-card:nth-child(4)::before {
+  background-image: url("/player/assets/ui/visuals/scum/feature-identity.jpg");
+}
+
+.portal-shell-workbench .portal-service-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.portal-shell-workbench .portal-service-card:hover::before {
+  opacity: 0.24;
+  transform: scale(1.03);
 }

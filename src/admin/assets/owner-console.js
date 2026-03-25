@@ -250,12 +250,47 @@
     return [];
   }
 
+  const OWNER_PAGE_CONTEXT_DETAIL = {
+    overview: () => t('owner.pagebar.overview', 'เริ่มที่ภาพรวมเพื่อดูสุขภาพแพลตฟอร์ม ผู้เช่า แพ็กเกจ และสัญญาณเร่งด่วนก่อนลงมือในหน้าลึก'),
+    fleet: () => t('owner.pagebar.fleet', 'ใช้หน้านี้เพื่อตรวจรายชื่อผู้เช่า งานเริ่มต้นใช้งาน และเปิดเคสซัพพอร์ตโดยไม่ต้องสลับหลายหน้า'),
+    'fleet-assets': () => t('owner.pagebar.fleetAssets', 'รวมแพ็กเกจ การสมัครใช้ คีย์ และเว็บฮุกไว้ในจุดเดียวสำหรับจัดการสิทธิ์เชิงพาณิชย์'),
+    runtime: () => t('owner.pagebar.runtime', 'ใช้ติดตามเอเจนต์และบริการหลักของแพลตฟอร์ม เพื่อดูความพร้อมของเส้นทาง sync และ execute'),
+    incidents: () => t('owner.pagebar.incidents', 'รวมเหตุขัดข้องที่เจ้าของระบบควรเห็นก่อน ทั้งสัญญาณคิว การตรวจสอบ และการแจ้งเตือนระดับแพลตฟอร์ม'),
+    observability: () => t('owner.pagebar.observability', 'ดูความสดของข้อมูล ความหนาแน่นของคำขอ และแนวโน้มความผิดปกติจากมุมมองรวมของแพลตฟอร์ม'),
+    security: () => t('owner.pagebar.security', 'ใช้หน้านี้ตรวจเหตุการณ์ความปลอดภัย นโยบายป้องกัน และสัญญาณที่อาจกระทบทั้งแพลตฟอร์ม'),
+    access: () => t('owner.pagebar.access', 'ดูเซสชันของผู้ดูแลและเส้นทางเข้าถึง เพื่อยืนยันว่าการเข้าระบบยังอยู่ในขอบเขตที่ควบคุมได้'),
+    audit: () => t('owner.pagebar.audit', 'ใช้ค้นหลักฐานการเปลี่ยนแปลงและเหตุการณ์ย้อนหลังเมื่อจำเป็นต้องตรวจสอบหรือส่งต่อทีม'),
+    commercial: () => t('owner.pagebar.commercial', 'จัดการนโยบายแพ็กเกจ ข้อเสนอ และภาพรวมเชิงพาณิชย์ของผู้เช่าจากมุมมองเจ้าของระบบ'),
+    recovery: () => t('owner.pagebar.recovery', 'ใช้สำหรับสำรองข้อมูล ตรวจพรีวิวการกู้คืน และเตรียมเส้นทาง rollback แบบมีการควบคุม'),
+    control: () => t('owner.pagebar.control', 'ใช้เปลี่ยนค่าระดับแพลตฟอร์ม สร้างผู้เช่า และสั่งงานที่มี guard โดยแยกจากงานตรวจสอบทั่วไป'),
+  };
+
   async function safeApi(path, fallback) {
     try {
       return await api(path);
     } catch {
       return fallback;
     }
+  }
+
+  function renderOwnerPageContext() {
+    const titleEl = document.getElementById('ownerPageContextTitle');
+    const detailEl = document.getElementById('ownerPageContextDetail');
+    const tagsEl = document.getElementById('ownerPageContextTags');
+    if (!titleEl || !detailEl || !tagsEl) return;
+    const activeSection = String(document.body.dataset.currentSection || workspaceController?.getSection?.() || 'overview').trim() || 'overview';
+    const resolvedSection = activeSection;
+    const navLink = document.querySelector(`#ownerNavList a[href="#${resolvedSection}"]`);
+    const activePrimary = document.querySelector('.surface-primary-link-active .surface-primary-label');
+    const sectionLabel = String(navLink?.textContent || '').trim() || t('owner.nav.overview', 'ภาพรวม');
+    const primaryLabel = String(activePrimary?.textContent || '').trim() || t('owner.primary.dashboard', 'ภาพรวม');
+    const detailFactory = OWNER_PAGE_CONTEXT_DETAIL[resolvedSection] || OWNER_PAGE_CONTEXT_DETAIL.overview;
+    titleEl.textContent = sectionLabel;
+    detailEl.textContent = detailFactory();
+    tagsEl.innerHTML = [
+      makePill(t('common.pageGroupLabel', 'หมวด {value}', { value: primaryLabel }), 'neutral'),
+      makePill(t('common.currentPageLabel', 'หน้าปัจจุบัน {value}', { value: sectionLabel }), 'success'),
+    ].join('');
   }
 
   function openTenantSupportCaseExport(tenantId, format = 'json') {
@@ -3973,6 +4008,14 @@
       security: ['security', 'access', 'audit'],
       governance: ['control', 'commercial', 'recovery'],
     },
+    sectionAliases: {
+      dashboard: 'overview',
+      tenants: 'fleet',
+      packages: 'fleet-assets',
+      agents: 'runtime',
+      billing: 'commercial',
+      logs: 'observability',
+    },
   });
   sidebarController = wireSidebarShell({
     sidebarId: 'ownerSidebar',
@@ -3981,6 +4024,7 @@
     backdropId: 'ownerSidebarBackdrop',
   });
   document.getElementById('ownerSidebarHint').textContent = t('owner.sidebarHint', 'Use the area tabs above to switch context. The menu on the left only shows the pages that belong to the active owner area.');
+  renderOwnerPageContext();
 
   const palette = wireCommandPalette({
     openButtonId: 'ownerPaletteBtn',
@@ -4239,8 +4283,13 @@
   window.addEventListener('ui-language-change', () => {
     workspaceController?.refresh?.();
     sidebarController?.refresh?.();
+    renderOwnerPageContext();
     palette.refresh();
     renderAll();
+  });
+
+  window.addEventListener('surface-section-change', () => {
+    renderOwnerPageContext();
   });
 
   refreshSurface();

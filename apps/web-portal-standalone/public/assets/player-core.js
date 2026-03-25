@@ -281,6 +281,30 @@
       panel.classList.toggle('active', isActive);
       panel.hidden = !isActive;
     });
+    renderPlayerPageContext(tabKey);
+  }
+
+  function renderPlayerPageContext(tabKey = state.activeTab || 'home') {
+    const titleEl = $('playerPageContextTitle');
+    const detailEl = $('playerPageContextDetail');
+    const tagsEl = $('playerPageContextTags');
+    if (!titleEl || !detailEl || !tagsEl) return;
+    const activeButton = document.querySelector(`.nav-btn[data-tab="${tabKey}"]`);
+    const sectionLabel = String(activeButton?.textContent || '').trim() || t('player.nav.home', 'คลังของฉัน');
+    const detailMap = {
+      home: t('player.pagebar.home', 'เริ่มที่หน้านี้เพื่อดูภาพรวมบัญชี กระเป๋าเงิน คำสั่งซื้อล่าสุด และการแจ้งเตือนสำคัญ'),
+      wallet: t('player.pagebar.wallet', 'ใช้ดูยอดคงเหลือ เหตุผลของแต่ละรายการ และรอบรับรางวัลในรูปแบบที่อ่านง่าย'),
+      shop: t('player.pagebar.shop', 'ใช้เลือกซื้อสินค้า ตรวจสิ่งที่ต้องเชื่อม Steam และดูยอดรวมก่อนชำระเงิน'),
+      orders: t('player.pagebar.orders', 'ใช้ติดตามสถานะคำสั่งซื้อ ตรวจหลักฐานการส่งของ และดูว่าควรทำอะไรต่อ'),
+      redeem: t('player.pagebar.redeem', 'ใช้กรอกโค้ดแลกรับและดูประวัติการใช้โค้ดจากหน้าเดียว'),
+      profile: t('player.pagebar.profile', 'ใช้จัดการบัญชี การเชื่อม Steam และดูสถานะล่าสุดของโปรไฟล์'),
+    };
+    titleEl.textContent = sectionLabel;
+    detailEl.textContent = detailMap[tabKey] || detailMap.home;
+    tagsEl.innerHTML = [
+      pill(t('common.currentPageLabel', 'หน้าปัจจุบัน {value}', { value: sectionLabel }), 'success'),
+      pill(tabKey === 'shop' || tabKey === 'orders' ? t('player.pagebar.tagCommerce', 'งานซื้อขาย') : t('player.pagebar.tagAccount', 'งานบัญชี'), 'neutral'),
+    ].join('');
   }
 
   function filteredShopItems() {
@@ -1188,7 +1212,9 @@
   });
 
   window.PortalUiI18n?.init?.(['playerLanguageSelect']);
+  renderPlayerPageContext(state.activeTab);
   window.addEventListener('ui-language-change', () => {
+    renderPlayerPageContext();
     renderAll();
   });
 
