@@ -1,0 +1,324 @@
+:root {
+  --auth-bg: #080b08;
+  --auth-panel: rgba(15, 19, 15, 0.92);
+  --auth-panel-soft: rgba(19, 24, 20, 0.88);
+  --auth-line: rgba(214, 220, 188, 0.14);
+  --auth-line-strong: rgba(233, 237, 213, 0.2);
+  --auth-text: #f0eee6;
+  --auth-muted: #b8b39f;
+  --auth-accent: #d6be74;
+  --auth-shadow: 0 28px 60px rgba(0, 0, 0, 0.4);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--auth-text);
+  color-scheme: dark;
+  font-family: "IBM Plex Sans Thai", "Segoe UI", sans-serif;
+  background:
+    linear-gradient(180deg, rgba(5, 6, 5, 0.78), rgba(5, 6, 5, 0.92)),
+    radial-gradient(circle at 15% 16%, rgba(214, 190, 116, 0.11), transparent 28%),
+    radial-gradient(circle at 82% 74%, rgba(92, 108, 76, 0.1), transparent 34%),
+    url("/admin/assets/visuals/scum/bg-dark-texture.jpg") center/cover no-repeat,
+    linear-gradient(180deg, #080b08, #111611 58%, #161d16);
+}
+
+body.console-auth-v2 {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+a,
+button,
+input,
+select {
+  font: inherit;
+}
+
+.auth-shell-v2 {
+  width: min(1400px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.auth-topbar {
+  min-height: 76px;
+  padding: 16px 20px;
+}
+
+.auth-topbar .console-brand {
+  color: inherit;
+  text-decoration: none;
+}
+
+.auth-surface-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.auth-stage {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.86fr) minmax(460px, 1.14fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.auth-visual-panel,
+.auth-workspace-panel,
+.auth-facts-panel {
+  border: 1px solid var(--auth-line);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
+    var(--auth-panel);
+  box-shadow: var(--auth-shadow);
+  backdrop-filter: blur(14px);
+}
+
+.auth-visual-panel {
+  padding: 28px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 22px;
+  min-height: 720px;
+  background:
+    linear-gradient(180deg, rgba(8, 10, 8, 0.38), rgba(8, 10, 8, 0.84)),
+    linear-gradient(90deg, rgba(8, 10, 8, 0.08), rgba(8, 10, 8, 0.46)),
+    url("/admin/assets/visuals/scum/hero-public.jpg") center/cover no-repeat;
+}
+
+.auth-kicker {
+  width: fit-content;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 190, 116, 0.18);
+  background: rgba(214, 190, 116, 0.08);
+  color: #fff0b2;
+  display: inline-flex;
+  align-items: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-visual-copy {
+  display: grid;
+  gap: 14px;
+  align-content: end;
+}
+
+.auth-visual-copy h1,
+.auth-workspace-head h2,
+.auth-facts-panel h3 {
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 0.94;
+}
+
+.auth-visual-copy h1 {
+  max-width: 9ch;
+  font-size: clamp(3.2rem, 5vw, 5.6rem);
+}
+
+.auth-visual-copy p,
+.auth-workspace-head p,
+.auth-note,
+.auth-field span,
+.auth-field input::placeholder,
+.auth-facts-panel p {
+  margin: 0;
+  color: var(--auth-muted);
+  line-height: 1.65;
+}
+
+.auth-visual-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-visual-card {
+  padding: 18px;
+  border: 1px solid var(--auth-line);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(17, 22, 18, 0.72), rgba(17, 22, 18, 0.84)),
+    var(--auth-panel-soft);
+}
+
+.auth-visual-card strong {
+  display: block;
+  margin: 0 0 6px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.12rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-workspace-panel {
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.auth-workspace-head {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-headbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.auth-language {
+  min-width: 170px;
+}
+
+.auth-field-grid,
+#loginForm {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-field span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-input,
+#usernameInput,
+#passwordInput,
+#otpInput {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid var(--auth-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text);
+  padding: 0 14px;
+  outline: none;
+}
+
+#usernameInput:focus,
+#passwordInput:focus,
+#otpInput:focus,
+.language-select:focus {
+  border-color: rgba(214, 190, 116, 0.34);
+  box-shadow: 0 0 0 2px rgba(214, 190, 116, 0.08);
+}
+
+.auth-note {
+  padding: 14px 16px;
+  border: 1px solid rgba(214, 190, 116, 0.12);
+  border-radius: 16px;
+  background: rgba(214, 190, 116, 0.05);
+}
+
+.auth-note[hidden] {
+  display: none;
+}
+
+.auth-error {
+  min-height: 22px;
+  color: #d89887;
+  font-weight: 700;
+}
+
+.auth-action-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-facts-panel {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.auth-facts-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.auth-fact {
+  padding: 16px;
+  border: 1px solid var(--auth-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.auth-fact .auth-kicker {
+  margin-bottom: 8px;
+}
+
+.auth-fact strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.04rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1120px) {
+  .auth-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-visual-panel {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.console-auth-v2 {
+    padding: 12px;
+  }
+
+  .auth-topbar,
+  .auth-workspace-panel,
+  .auth-facts-panel,
+  .auth-visual-panel {
+    padding: 18px;
+  }
+
+  .auth-facts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-visual-copy h1,
+  .auth-workspace-head h2 {
+    font-size: clamp(2.4rem, 12vw, 3.8rem);
+  }
+}

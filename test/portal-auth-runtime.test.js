@@ -80,6 +80,22 @@ test('portal auth runtime enforces origin on unsafe methods', () => {
   assert.equal(denied, false);
 });
 
+test('portal auth runtime allows loopback origin when request host is local', () => {
+  const runtime = createRuntime();
+  const allowed = runtime.verifyOrigin({
+    method: 'POST',
+    headers: {
+      host: '127.0.0.1:3300',
+      origin: 'http://127.0.0.1:3300',
+    },
+    socket: {
+      encrypted: false,
+    },
+  });
+
+  assert.equal(allowed, true);
+});
+
 test('portal auth runtime builds canonical redirect for mismatched host/proto', () => {
   const runtime = createRuntime();
   const url = runtime.getCanonicalRedirectUrl({
@@ -109,4 +125,21 @@ test('portal auth runtime allows local loopback access without canonical redirec
   });
 
   assert.equal(url, null);
+});
+
+test('portal auth runtime builds local-safe cookie for loopback hosts', () => {
+  const runtime = createRuntime({
+    sessionCookieDomain: 'player.example.com',
+    secureCookie: true,
+  });
+
+  const cookie = runtime.buildSessionCookie('session-1', {
+    headers: {
+      host: '127.0.0.1:3300',
+    },
+  });
+
+  assert.match(cookie, /portal_session=session-1/);
+  assert.doesNotMatch(cookie, /Domain=/);
+  assert.doesNotMatch(cookie, /Secure/);
 });

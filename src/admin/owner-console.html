@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="owner.documentTitle">SCUM Platform Owner Console</title>
-  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260325-usability-1">
+  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260325-shell-cutover-1">
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v2.css?v=20260325-shell-cutover-1">
 </head>
 <body class="surface-owner">
-  <div class="surface-root console-app-shell">
-    <section class="surface-command-header">
-      <div class="console-topbar">
+  <div class="surface-root surface-root-v2 console-app-shell">
+    <header class="console-topbar cp-shell-topbar">
         <a class="console-brand" href="/owner">
           <span class="brand-emblem">SCUM</span>
           <span class="brand-copy">
@@ -38,68 +38,63 @@
             </div>
           </details>
         </div>
-      </div>
-      <div class="console-heading-shell">
-        <div class="console-heading-copy">
-          <span class="surface-id" data-i18n="owner.surfaceId">Platform Owner Console</span>
-          <h1 data-i18n="owner.title">Owner Control Plane</h1>
-          <p data-i18n="owner.subtitle">Track tenants, global agents, package posture, billing, platform logs, and guarded control-plane changes from one owner-only surface.</p>
-        </div>
-        <div class="console-heading-meta">
-          <div class="console-meta-grid console-meta-grid-pages">
-            <section class="command-side-card command-visual-card command-visual-card-owner">
-              <span class="section-kicker" data-i18n="common.surfaceRole">Surface role</span>
-              <strong data-i18n="owner.roleCardTitle">Provider command</strong>
-              <p class="compact-hint" data-i18n="owner.roleCardDetail">Owner is for platform-wide oversight only: tenant health, package gating, global agent posture, commercial control, audit, and guarded system changes.</p>
-            </section>
-            <section class="command-side-card command-page-card">
-              <span class="section-kicker" data-i18n="owner.primary.kicker">Owner pages</span>
-              <strong data-i18n="owner.primary.title">Platform systems</strong>
-              <p class="compact-hint" data-i18n="owner.primary.detail">Choose the system you want to manage first. Secondary tools for the active page stay in the left rail.</p>
-              <nav class="surface-primary-grid" aria-label="Owner primary pages">
-                <a class="surface-primary-link" href="#dashboard" data-primary-sections="dashboard,overview">
-                  <span class="surface-primary-label" data-i18n="owner.primary.dashboard">Dashboard</span>
-                  <p data-i18n="owner.primary.dashboardDetail">Global status, tenant pressure, and high-priority operator signals.</p>
-                </a>
-                <a class="surface-primary-link" href="#tenants" data-primary-sections="tenants,fleet">
-                  <span class="surface-primary-label" data-i18n="owner.primary.tenants">Tenants</span>
-                  <p data-i18n="owner.primary.tenantsDetail">Tenant roster, onboarding, support context, and owner follow-up.</p>
-                </a>
-                <a class="surface-primary-link" href="#packages" data-primary-sections="packages,fleet-assets">
-                  <span class="surface-primary-label" data-i18n="owner.primary.packages">Packages</span>
-                  <p data-i18n="owner.primary.packagesDetail">Subscriptions, licenses, API keys, webhooks, and package footprint.</p>
-                </a>
-                <a class="surface-primary-link" href="#agents" data-primary-sections="agents,runtime">
-                  <span class="surface-primary-label" data-i18n="owner.primary.agents">Agents</span>
-                  <p data-i18n="owner.primary.agentsDetail">Global sync and execute runtimes, health, freshness, and routing posture.</p>
-                </a>
-                <a class="surface-primary-link" href="#billing" data-primary-sections="billing,commercial">
-                  <span class="surface-primary-label" data-i18n="owner.primary.billing">Billing</span>
-                  <p data-i18n="owner.primary.billingDetail">Commercial plan control, package policy, and owner-side offers.</p>
-                </a>
-                <a class="surface-primary-link" href="#logs" data-primary-sections="logs,incidents,observability,security,access,audit">
-                  <span class="surface-primary-label" data-i18n="owner.primary.logs">Logs</span>
-                  <p data-i18n="owner.primary.logsDetail">Incidents, telemetry, security events, access sessions, and audit evidence.</p>
-                </a>
-                <a class="surface-primary-link" href="#control" data-primary-sections="control,recovery">
-                  <span class="surface-primary-label" data-i18n="owner.primary.control">Control</span>
-                  <p data-i18n="owner.primary.controlDetail">Recovery, config guardrails, restart handoff, and owner-only changes.</p>
-                </a>
-              </nav>
-              <div class="surface-hidden-workspace">
-                <div id="ownerWorkspaceSwitch" class="workspace-switch compact-workspace-switch"></div>
-                <p id="ownerWorkspaceHint" class="hint compact-hint" data-i18n="owner.workspaceHintLoading">Loading owner workspace layout...</p>
-                <div id="ownerWorkspaceSummary" class="workspace-summary compact-workspace-summary"></div>
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    </section>
+    </header>
 
-    <div class="console-stage">
-      <aside id="ownerSidebar" class="surface-sidebar">
-        <nav class="nav-card">
+    <div class="cp-shell-layout">
+      <aside id="ownerSidebar" class="surface-sidebar cp-sidebar">
+        <section class="cp-sidebar-panel visual-owner">
+          <div class="cp-sidebar-heading">
+            <span class="section-kicker" data-i18n="common.surfaceRole">Surface role</span>
+            <strong data-i18n="owner.roleCardTitle">Provider command</strong>
+            <p data-i18n="owner.roleCardDetail">Owner is for platform-wide oversight only: tenant health, package gating, global agent posture, commercial control, audit, and guarded system changes.</p>
+          </div>
+        </section>
+        <section class="cp-sidebar-panel">
+          <div class="cp-sidebar-heading">
+            <span class="section-kicker" data-i18n="owner.primary.kicker">Owner pages</span>
+            <strong data-i18n="owner.primary.title">Platform systems</strong>
+            <p data-i18n="owner.primary.detail">Choose the system you want to manage first. Secondary tools for the active page stay in the left rail.</p>
+          </div>
+          <div class="cp-nav-group">
+            <h2 class="cp-nav-group-title" data-i18n="owner.primary.kicker">Owner pages</h2>
+            <nav class="cp-primary-links" aria-label="Owner primary pages">
+              <a class="surface-primary-link" href="#dashboard" data-primary-sections="dashboard,overview">
+                <span class="surface-primary-label" data-i18n="owner.primary.dashboard">Dashboard</span>
+                <p data-i18n="owner.primary.dashboardDetail">Global status, tenant pressure, and high-priority operator signals.</p>
+              </a>
+              <a class="surface-primary-link" href="#tenants" data-primary-sections="tenants,fleet">
+                <span class="surface-primary-label" data-i18n="owner.primary.tenants">Tenants</span>
+                <p data-i18n="owner.primary.tenantsDetail">Tenant roster, onboarding, support context, and owner follow-up.</p>
+              </a>
+              <a class="surface-primary-link" href="#packages" data-primary-sections="packages,fleet-assets">
+                <span class="surface-primary-label" data-i18n="owner.primary.packages">Packages</span>
+                <p data-i18n="owner.primary.packagesDetail">Subscriptions, licenses, API keys, webhooks, and package footprint.</p>
+              </a>
+              <a class="surface-primary-link" href="#agents" data-primary-sections="agents,runtime">
+                <span class="surface-primary-label" data-i18n="owner.primary.agents">Agents</span>
+                <p data-i18n="owner.primary.agentsDetail">Global sync and execute runtimes, health, freshness, and routing posture.</p>
+              </a>
+              <a class="surface-primary-link" href="#billing" data-primary-sections="billing,commercial">
+                <span class="surface-primary-label" data-i18n="owner.primary.billing">Billing</span>
+                <p data-i18n="owner.primary.billingDetail">Commercial plan control, package policy, and owner-side offers.</p>
+              </a>
+              <a class="surface-primary-link" href="#logs" data-primary-sections="logs,incidents,observability,security,access,audit">
+                <span class="surface-primary-label" data-i18n="owner.primary.logs">Logs</span>
+                <p data-i18n="owner.primary.logsDetail">Incidents, telemetry, security events, access sessions, and audit evidence.</p>
+              </a>
+              <a class="surface-primary-link" href="#control" data-primary-sections="control,recovery">
+                <span class="surface-primary-label" data-i18n="owner.primary.control">Control</span>
+                <p data-i18n="owner.primary.controlDetail">Recovery, config guardrails, restart handoff, and owner-only changes.</p>
+              </a>
+            </nav>
+            <div class="cp-hidden-workspace">
+              <div id="ownerWorkspaceSwitch" class="workspace-switch compact-workspace-switch"></div>
+              <p id="ownerWorkspaceHint" class="hint compact-hint" data-i18n="owner.workspaceHintLoading">Loading owner workspace layout...</p>
+              <div id="ownerWorkspaceSummary" class="workspace-summary compact-workspace-summary"></div>
+            </div>
+          </div>
+        </section>
+        <nav class="nav-card cp-sidebar-panel">
           <div class="nav-head">
             <span class="section-kicker" data-i18n="owner.subnav.kicker">Inside page</span>
             <strong data-i18n="owner.subnav.title">Secondary routes</strong>
@@ -122,24 +117,33 @@
         </nav>
       </aside>
 
-      <section class="surface-stage-main">
-        <div id="ownerStatusBanner" class="status-banner banner-info">
-          <div>
-            <strong id="ownerStatusTitle" data-i18n="owner.statusLoadingTitle">Loading owner console...</strong>
-            <p id="ownerStatusDetail" data-i18n="owner.statusLoadingDetail">Preparing platform-wide runtime, tenant, security, and incident state.</p>
+      <section class="surface-stage-main cp-shell-main">
+        <section class="cp-pagehead">
+          <div class="cp-pagehead-copy">
+            <span class="surface-id" data-i18n="owner.surfaceId">Platform Owner Console</span>
+            <h1 data-i18n="owner.title">Owner Control Plane</h1>
+            <p data-i18n="owner.subtitle">Track tenants, global agents, package posture, billing, platform logs, and guarded control-plane changes from one owner-only surface.</p>
           </div>
-          <div id="ownerStatusTags" class="tag-row"></div>
-        </div>
-        <section id="ownerPageContext" class="surface-pagebar">
-          <div class="surface-pagebar-copy">
-            <span id="ownerPageContextKicker" class="section-kicker" data-i18n="common.currentPage">Current page</span>
-            <strong id="ownerPageContextTitle" data-i18n="owner.pagebar.loadingTitle">Preparing page context</strong>
-            <p id="ownerPageContextDetail" data-i18n="owner.pagebar.loadingDetail">Loading the active owner page, its purpose, and the next action path.</p>
+          <div class="cp-pagehead-panels">
+            <div id="ownerStatusBanner" class="status-banner banner-info">
+              <div>
+                <strong id="ownerStatusTitle" data-i18n="owner.statusLoadingTitle">Loading owner console...</strong>
+                <p id="ownerStatusDetail" data-i18n="owner.statusLoadingDetail">Preparing platform-wide runtime, tenant, security, and incident state.</p>
+              </div>
+              <div id="ownerStatusTags" class="tag-row"></div>
+            </div>
+            <section id="ownerPageContext" class="surface-pagebar">
+              <div class="surface-pagebar-copy">
+                <span id="ownerPageContextKicker" class="section-kicker" data-i18n="common.currentPage">Current page</span>
+                <strong id="ownerPageContextTitle" data-i18n="owner.pagebar.loadingTitle">Preparing page context</strong>
+                <p id="ownerPageContextDetail" data-i18n="owner.pagebar.loadingDetail">Loading the active owner page, its purpose, and the next action path.</p>
+              </div>
+              <div id="ownerPageContextTags" class="tag-row"></div>
+            </section>
           </div>
-          <div id="ownerPageContextTags" class="tag-row"></div>
         </section>
 
-        <main class="surface-grid">
+        <main class="surface-grid cp-shell-content">
         <section class="surface-section surface-section-overview" id="overview">
           <div class="overview-shell">
             <section class="panel-card overview-lead-panel">
@@ -1539,9 +1543,9 @@
     </div>
   </div>
 
-<script src="/admin/assets/admin-i18n.js?v=20260325-usability-1"></script>
-  <script src="/admin/assets/console-shared.js?v=20260325-usability-1"></script>
+<script src="/admin/assets/admin-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script src="/admin/assets/console-shared.js?v=20260325-shell-cutover-1"></script>
   <script src="/admin/assets/operational-state-model.js?v=20260325-role-shell-1"></script>
-  <script src="/admin/assets/owner-console.js?v=20260325-usability-1"></script>
+  <script src="/admin/assets/owner-console.js?v=20260325-shell-cutover-1"></script>
 </body>
 </html>

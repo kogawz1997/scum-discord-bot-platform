@@ -30,10 +30,18 @@ function getVisualAssetContentType(ext) {
 function createPortalPageAssetRuntime(options = {}) {
   const {
     isProduction,
-    loginHtmlPath,
+    authLoginHtmlPath,
+    playerLoginHtmlPath,
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    pricingHtmlPath,
+    signupHtmlPath,
+    forgotPasswordHtmlPath,
+    verifyEmailHtmlPath,
+    checkoutHtmlPath,
+    paymentResultHtmlPath,
+    previewHtmlPath,
     trialHtmlPath,
     showcaseHtmlPath,
     publicAssetsDirPath,
@@ -54,16 +62,32 @@ function createPortalPageAssetRuntime(options = {}) {
       'visuals',
     );
 
-  let cachedLoginHtml = null;
+  let cachedAuthLoginHtml = null;
+  let cachedPlayerLoginHtml = null;
   let cachedPlayerHtml = null;
   let cachedLegacyPlayerHtml = null;
   let cachedLandingHtml = null;
+  let cachedPricingHtml = null;
+  let cachedSignupHtml = null;
+  let cachedForgotPasswordHtml = null;
+  let cachedVerifyEmailHtml = null;
+  let cachedCheckoutHtml = null;
+  let cachedPaymentResultHtml = null;
+  let cachedPreviewHtml = null;
   let cachedTrialHtml = null;
   let cachedShowcaseHtml = null;
-  let cachedLoginHtmlMtimeMs = 0;
+  let cachedAuthLoginHtmlMtimeMs = 0;
+  let cachedPlayerLoginHtmlMtimeMs = 0;
   let cachedPlayerHtmlMtimeMs = 0;
   let cachedLegacyPlayerHtmlMtimeMs = 0;
   let cachedLandingHtmlMtimeMs = 0;
+  let cachedPricingHtmlMtimeMs = 0;
+  let cachedSignupHtmlMtimeMs = 0;
+  let cachedForgotPasswordHtmlMtimeMs = 0;
+  let cachedVerifyEmailHtmlMtimeMs = 0;
+  let cachedCheckoutHtmlMtimeMs = 0;
+  let cachedPaymentResultHtmlMtimeMs = 0;
+  let cachedPreviewHtmlMtimeMs = 0;
   let cachedTrialHtmlMtimeMs = 0;
   let cachedShowcaseHtmlMtimeMs = 0;
 
@@ -318,27 +342,107 @@ function createPortalPageAssetRuntime(options = {}) {
     return true;
   }
 
-  function renderLoginPage(message) {
-    const mtimeMs = getFileMtimeMs(loginHtmlPath);
-    if (!cachedLoginHtml || !isProduction || mtimeMs > cachedLoginHtmlMtimeMs) {
-      cachedLoginHtml = loadHtmlTemplate(loginHtmlPath);
-      cachedLoginHtmlMtimeMs = mtimeMs;
+  function getAuthLoginHtml() {
+    const mtimeMs = getFileMtimeMs(authLoginHtmlPath);
+    if (!cachedAuthLoginHtml || !isProduction || mtimeMs > cachedAuthLoginHtmlMtimeMs) {
+      cachedAuthLoginHtml = loadHtmlTemplate(authLoginHtmlPath);
+      cachedAuthLoginHtmlMtimeMs = mtimeMs;
+    }
+    return cachedAuthLoginHtml;
+  }
+
+  function renderPlayerLoginPage(message) {
+    const mtimeMs = getFileMtimeMs(playerLoginHtmlPath);
+    if (!cachedPlayerLoginHtml || !isProduction || mtimeMs > cachedPlayerLoginHtmlMtimeMs) {
+      cachedPlayerLoginHtml = loadHtmlTemplate(playerLoginHtmlPath);
+      cachedPlayerLoginHtmlMtimeMs = mtimeMs;
     }
     const safe = escapeHtml(String(message || ''));
-    return cachedLoginHtml.replace('__ERROR_MESSAGE__', safe);
+    return cachedPlayerLoginHtml.replace('__ERROR_MESSAGE__', safe);
+  }
+
+  function getPricingHtml() {
+    const mtimeMs = getFileMtimeMs(pricingHtmlPath);
+    if (!cachedPricingHtml || !isProduction || mtimeMs > cachedPricingHtmlMtimeMs) {
+      cachedPricingHtml = loadHtmlTemplate(pricingHtmlPath);
+      cachedPricingHtmlMtimeMs = mtimeMs;
+    }
+    return cachedPricingHtml;
+  }
+
+  function getSignupHtml() {
+    const mtimeMs = getFileMtimeMs(signupHtmlPath);
+    if (!cachedSignupHtml || !isProduction || mtimeMs > cachedSignupHtmlMtimeMs) {
+      cachedSignupHtml = loadHtmlTemplate(signupHtmlPath);
+      cachedSignupHtmlMtimeMs = mtimeMs;
+    }
+    return cachedSignupHtml;
+  }
+
+  function getForgotPasswordHtml() {
+    const mtimeMs = getFileMtimeMs(forgotPasswordHtmlPath);
+    if (!cachedForgotPasswordHtml || !isProduction || mtimeMs > cachedForgotPasswordHtmlMtimeMs) {
+      cachedForgotPasswordHtml = loadHtmlTemplate(forgotPasswordHtmlPath);
+      cachedForgotPasswordHtmlMtimeMs = mtimeMs;
+    }
+    return cachedForgotPasswordHtml;
+  }
+
+  function getVerifyEmailHtml() {
+    const mtimeMs = getFileMtimeMs(verifyEmailHtmlPath);
+    if (!cachedVerifyEmailHtml || !isProduction || mtimeMs > cachedVerifyEmailHtmlMtimeMs) {
+      cachedVerifyEmailHtml = loadHtmlTemplate(verifyEmailHtmlPath);
+      cachedVerifyEmailHtmlMtimeMs = mtimeMs;
+    }
+    return cachedVerifyEmailHtml;
+  }
+
+  function getCheckoutHtml() {
+    const mtimeMs = getFileMtimeMs(checkoutHtmlPath);
+    if (!cachedCheckoutHtml || !isProduction || mtimeMs > cachedCheckoutHtmlMtimeMs) {
+      cachedCheckoutHtml = loadHtmlTemplate(checkoutHtmlPath);
+      cachedCheckoutHtmlMtimeMs = mtimeMs;
+    }
+    return cachedCheckoutHtml;
+  }
+
+  function getPaymentResultHtml() {
+    const mtimeMs = getFileMtimeMs(paymentResultHtmlPath);
+    if (!cachedPaymentResultHtml || !isProduction || mtimeMs > cachedPaymentResultHtmlMtimeMs) {
+      cachedPaymentResultHtml = loadHtmlTemplate(paymentResultHtmlPath);
+      cachedPaymentResultHtmlMtimeMs = mtimeMs;
+    }
+    return cachedPaymentResultHtml;
+  }
+
+  function getPreviewHtml() {
+    const mtimeMs = getFileMtimeMs(previewHtmlPath);
+    if (!cachedPreviewHtml || !isProduction || mtimeMs > cachedPreviewHtmlMtimeMs) {
+      cachedPreviewHtml = loadHtmlTemplate(previewHtmlPath);
+      cachedPreviewHtmlMtimeMs = mtimeMs;
+    }
+    return cachedPreviewHtml;
   }
 
   return {
     sendFavicon,
     tryServePortalStaticAsset,
     tryServeStaticScumIcon,
+    getAuthLoginHtml,
+    renderPlayerLoginPage,
     getPlayerHtml,
     getLegacyPlayerHtml,
     getLandingHtml,
+    getPricingHtml,
+    getSignupHtml,
+    getForgotPasswordHtml,
+    getVerifyEmailHtml,
+    getCheckoutHtml,
+    getPaymentResultHtml,
+    getPreviewHtml,
     getTrialHtml,
     getShowcaseHtml,
     tryServePublicDoc,
-    renderLoginPage,
   };
 }
 

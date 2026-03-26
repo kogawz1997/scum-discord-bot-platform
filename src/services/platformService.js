@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 
 const config = require('../config');
-const { prisma, getTenantScopedPrismaClient } = require('../prisma');
+const { prisma, getTenantScopedPrismaClient, withTenantScopedPrismaClient } = require('../prisma');
 const {
   withTenantDbIsolation,
   assertTenantDbIsolationScope,
@@ -10,7 +10,9 @@ const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopolo
 const {
   buildScopedRowKey,
   dedupeScopedRows,
+  isMissingScopedRelationError,
   readAcrossDeliveryPersistenceScopes,
+  readAcrossDeliveryPersistenceScopeBatch,
 } = require('./deliveryPersistenceDb');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 const { ensureTenantDatabaseTargetProvisioned } = require('../utils/tenantDatabaseProvisioning');
@@ -74,7 +76,7 @@ const PLATFORM_SCOPE_GROUPS = Object.freeze([
   },
 ]);
 
-async function runWithOptionalTenantDbIsolation(tenantId, work) {
+async function runWithOptionalTenantDbIsolation(tenantId, work, options = {}) {
   const scopedTenantId = trimText(tenantId, 120) || null;
   if (!scopedTenantId) {
     return work(prisma, {
@@ -85,11 +87,38 @@ async function runWithOptionalTenantDbIsolation(tenantId, work) {
       mode: 'application',
     });
   }
-  const tenantPrisma = getTenantScopedPrismaClient(scopedTenantId);
-  return withTenantDbIsolation(
+  const executeWithTenantClient = typeof withTenantScopedPrismaClient === 'function'
+    ? (callback) => withTenantScopedPrismaClient(
+      scopedTenantId,
+      {
+        ...options,
+        cache: options.cache === false ? false : options.cache,
+        transient: options.transient === true,
+      },
+      callback,
+    )
+    : (callback) => callback(getTenantScopedPrismaClient(scopedTenantId, options));
+  return executeWithTenantClient((tenantPrisma) => withTenantDbIsolation(
     tenantPrisma,
     { tenantId: scopedTenantId, enforce: true },
     (db, context) => work(db, context),
+  ));
+}
+
+function shouldUseTransientTenantClient(tenantId, options = {}) {
+  if (options.cache === false || options.transient === true) {
+    return true;
+  }
+  return isPreviewTenantId(tenantId);
+}
+
+async function runWithTenantScopePreference(tenantId, work, options = {}) {
+  return runWithOptionalTenantDbIsolation(
+    tenantId,
+    work,
+    shouldUseTransientTenantClient(tenantId, options)
+      ? { ...options, cache: false }
+      : options,
   );
 }
 
@@ -275,6 +304,18 @@ function dedupeDeliveryScopeRows(rows, fields) {
   );
 }
 
+async function runTaskSequence(tasks = []) {
+  const results = [];
+  for (const task of Array.isArray(tasks) ? tasks : []) {
+    if (typeof task !== 'function') {
+      results.push(task);
+      continue;
+    }
+    results.push(await task());
+  }
+  return results;
+}
+
 function sortRowsByTimestampDesc(rows, fields = ['updatedAt', 'createdAt']) {
   const candidates = Array.isArray(fields) ? fields : [fields];
   return (Array.isArray(rows) ? rows : []).slice().sort((left, right) => {
@@ -309,12 +350,63 @@ async function readAcrossPlatformTenantScopes(readWork, options = {}) {
     const scopedRows = await runWithOptionalTenantDbIsolation(
       tenantId,
       (db) => readWork(db, tenantId),
+      { cache: false },
     ).catch(() => []);
     if (Array.isArray(scopedRows)) {
       rows.push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
     }
   }
   return dedupePlatformRows(rows, options.buildKey);
+}
+
+async function readAcrossPlatformTenantScopesBatch(taskEntries, options = {}) {
+  const entries = Object.entries(taskEntries || {})
+    .filter(([key, task]) => trimText(key, 120) && typeof task === 'function');
+  const results = Object.fromEntries(entries.map(([key]) => [key, []]));
+  if (entries.length === 0) {
+    return results;
+  }
+
+  if (options.includeShared !== false) {
+    for (const [key, task] of entries) {
+      const sharedRows = await task(prisma, null).catch(() => []);
+      if (Array.isArray(sharedRows)) {
+        results[key].push(...sharedRows.map((row) => annotatePlatformScopeRow(row, null)));
+      }
+    }
+  }
+
+  const tenantRows = await prisma.platformTenant.findMany({
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  }).catch(() => []);
+  const seenTenantIds = new Set();
+  for (const tenant of tenantRows) {
+    const tenantId = trimText(tenant?.id, 120);
+    if (!tenantId || seenTenantIds.has(tenantId)) continue;
+    seenTenantIds.add(tenantId);
+    const scopedResults = await runWithOptionalTenantDbIsolation(
+      tenantId,
+      async (db) => {
+        const scopedRows = {};
+        for (const [key, task] of entries) {
+          const rows = await task(db, tenantId);
+          scopedRows[key] = Array.isArray(rows) ? rows : [];
+        }
+        return scopedRows;
+      },
+      { cache: false },
+    ).catch(() => null);
+    if (!scopedResults || typeof scopedResults !== 'object') continue;
+    for (const [key] of entries) {
+      const scopedRows = Array.isArray(scopedResults[key]) ? scopedResults[key] : [];
+      if (scopedRows.length > 0) {
+        results[key].push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
+      }
+    }
+  }
+
+  return results;
 }
 
 async function listPlatformApiKeyCandidates(options = {}) {
@@ -341,7 +433,7 @@ async function listPlatformApiKeyCandidates(options = {}) {
     const scopedRows = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
       where: { keyPrefix },
       take,
-    })).catch(() => []);
+    }), { cache: false }).catch(() => []);
     if (Array.isArray(scopedRows)) {
       rows.push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
     }
@@ -581,6 +673,51 @@ function isLicenseOperational(row) {
   return !expiresAt || expiresAt.getTime() >= Date.now();
 }
 
+function isPreviewTenantId(tenantId) {
+  const id = trimText(tenantId, 120).toLowerCase();
+  return id.startsWith('tenant-preview-') || id.startsWith('preview-');
+}
+
+function shouldUsePreviewScopedFallback(error, tenantId) {
+  return isPreviewTenantId(tenantId) && isMissingScopedRelationError(error, tenantId);
+}
+
+async function loadTenantSubscriptionAndLicense(db, tenantId) {
+  const id = trimText(tenantId, 120);
+  if (!id) {
+    return { subscription: null, license: null, missingScopedSchema: false };
+  }
+  try {
+    const [subscription, license] = await Promise.all([
+      db.platformSubscription.findFirst({
+        where: { tenantId: id },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+      db.platformLicense.findFirst({
+        where: { tenantId: id },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+    return { subscription, license, missingScopedSchema: false };
+  } catch (error) {
+    if (shouldUsePreviewScopedFallback(error, id)) {
+      return { subscription: null, license: null, missingScopedSchema: true };
+    }
+    throw error;
+  }
+}
+
+async function safePreviewScopedCount(db, modelName, args, tenantId) {
+  try {
+    return await db[modelName].count(args);
+  } catch (error) {
+    if (shouldUsePreviewScopedFallback(error, tenantId)) {
+      return 0;
+    }
+    throw error;
+  }
+}
+
 async function getTenantOperationalStateInternal(db, tenantId) {
   const id = trimText(tenantId, 120);
   if (!id) {
@@ -591,16 +728,11 @@ async function getTenantOperationalStateInternal(db, tenantId) {
     return { ok: false, reason: 'tenant-not-found', tenant: null, subscription: null, license: null };
   }
 
-  const [subscription, license] = await Promise.all([
-    db.platformSubscription.findFirst({
-      where: { tenantId: id },
-      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-    }),
-    db.platformLicense.findFirst({
-      where: { tenantId: id },
-      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-    }),
-  ]);
+  const {
+    subscription,
+    license,
+    missingScopedSchema,
+  } = await loadTenantSubscriptionAndLicense(db, id);
 
   if (!isTenantRuntimeStatusAllowed(tenant.status)) {
     return {
@@ -609,6 +741,15 @@ async function getTenantOperationalStateInternal(db, tenantId) {
       tenant: sanitizeTenantRow(tenant),
       subscription: sanitizeSubscriptionRow(subscription),
       license: sanitizeLicenseRow(license),
+    };
+  }
+  if (missingScopedSchema) {
+    return {
+      ok: false,
+      reason: 'tenant-preview-provisioning-pending',
+      tenant: sanitizeTenantRow(tenant),
+      subscription: null,
+      license: null,
     };
   }
   if (!isSubscriptionOperational(subscription)) {
@@ -647,7 +788,7 @@ async function getTenantOperationalState(tenantId, options = {}) {
   if (options.db) {
     return getTenantOperationalStateInternal(options.db, id);
   }
-  return runWithOptionalTenantDbIsolation(id, (db) => getTenantOperationalStateInternal(db, id));
+  return runWithTenantScopePreference(id, (db) => getTenantOperationalStateInternal(db, id), options);
 }
 
 async function getTenantQuotaSnapshotInternal(db, tenantId) {
@@ -675,16 +816,7 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
     : await (async () => {
       const tenant = await getSharedTenantRegistryRow(id);
       if (!tenant) return tenantState;
-      const [subscription, license] = await Promise.all([
-        db.platformSubscription.findFirst({
-          where: { tenantId: id },
-          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        }),
-        db.platformLicense.findFirst({
-          where: { tenantId: id },
-          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        }),
-      ]);
+      const { subscription, license } = await loadTenantSubscriptionAndLicense(db, id);
       return {
         ok: false,
         reason: tenantState.reason || 'tenant-not-ready',
@@ -731,40 +863,40 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
     marketplaceOffersUsed,
     purchases30dUsed,
   ] = await Promise.all([
-    db.platformApiKey.count({
+    safePreviewScopedCount(db, 'platformApiKey', {
       where: {
         tenantId: id,
         status: 'active',
         revokedAt: null,
       },
-    }),
-    db.platformWebhookEndpoint.count({
+    }, id),
+    safePreviewScopedCount(db, 'platformWebhookEndpoint', {
       where: {
         tenantId: id,
         enabled: true,
       },
-    }),
-    db.platformAgentRuntime.count({
+    }, id),
+    safePreviewScopedCount(db, 'platformAgentRuntime', {
       where: {
         tenantId: id,
       },
-    }),
-    db.platformMarketplaceOffer.count({
+    }, id),
+    safePreviewScopedCount(db, 'platformMarketplaceOffer', {
       where: {
         tenantId: id,
         status: {
           not: 'archived',
         },
       },
-    }),
-    db.purchase.count({
+    }, id),
+    safePreviewScopedCount(db, 'purchase', {
       where: {
         tenantId: id,
         createdAt: {
           gte: since30d,
         },
       },
-    }),
+    }, id),
   ]);
 
   return {
@@ -814,7 +946,7 @@ async function getTenantQuotaSnapshot(tenantId, options = {}) {
   if (options.db) {
     return getTenantQuotaSnapshotInternal(options.db, id);
   }
-  return runWithOptionalTenantDbIsolation(id, (db) => getTenantQuotaSnapshotInternal(db, id));
+  return runWithTenantScopePreference(id, (db) => getTenantQuotaSnapshotInternal(db, id), options);
 }
 
 async function assertTenantQuotaAvailable(tenantId, quotaKey, nextUsageIncrement = 1) {
@@ -1766,32 +1898,24 @@ async function getPlatformAnalyticsOverview(options = {}) {
     aggregatedAgentRows,
     aggregatedOfferRows,
   ] = aggregateTenantCommerce
-    ? await Promise.all([
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformSubscription.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformLicense.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformApiKey.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformWebhookEndpoint.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformAgentRuntime.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-      readAcrossPlatformTenantScopes(
-        (db) => db.platformMarketplaceOffer.findMany({ where: tenantWhere }),
-        { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
-      ),
-    ])
+    ? await (async () => {
+      const rows = await readAcrossPlatformTenantScopesBatch({
+        subscriptionRows: (db) => db.platformSubscription.findMany({ where: tenantWhere }),
+        licenseRows: (db) => db.platformLicense.findMany({ where: tenantWhere }),
+        apiKeyRows: (db) => db.platformApiKey.findMany({ where: tenantWhere }),
+        webhookRows: (db) => db.platformWebhookEndpoint.findMany({ where: tenantWhere }),
+        agentRows: (db) => db.platformAgentRuntime.findMany({ where: tenantWhere }),
+        offerRows: (db) => db.platformMarketplaceOffer.findMany({ where: tenantWhere }),
+      });
+      return [
+        dedupePlatformRows(rows.subscriptionRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+        dedupePlatformRows(rows.licenseRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+        dedupePlatformRows(rows.apiKeyRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+        dedupePlatformRows(rows.webhookRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+        dedupePlatformRows(rows.agentRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+        dedupePlatformRows(rows.offerRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
+      ];
+    })()
     : [
       subscriptionRows,
       licenseRows,
@@ -1809,35 +1933,45 @@ async function getPlatformAnalyticsOverview(options = {}) {
     deadLetters,
     auditRows,
   ] = aggregateTenantCommerce
-    ? await Promise.all([
-      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
-        where: purchaseWhere,
-        select: { code: true, tenantId: true },
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
-        where: {
-          ...purchaseWhere,
-          status: 'delivered',
-        },
-        select: { code: true, tenantId: true },
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
-        where: {
-          ...purchaseWhere,
-          status: 'delivery_failed',
-        },
-        select: { code: true, tenantId: true },
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany({
-        select: { purchaseCode: true, tenantId: true },
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany({
-        select: { purchaseCode: true, tenantId: true },
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({
-        select: { id: true, tenantId: true },
-      })),
-    ])
+    ? await (async () => {
+      const rows = await readAcrossDeliveryPersistenceScopeBatch({
+        purchaseRows30d: (db) => db.purchase.findMany({
+          where: purchaseWhere,
+          select: { code: true, tenantId: true },
+        }),
+        deliveredRows30d: (db) => db.purchase.findMany({
+          where: {
+            ...purchaseWhere,
+            status: 'delivered',
+          },
+          select: { code: true, tenantId: true },
+        }),
+        failedRows30d: (db) => db.purchase.findMany({
+          where: {
+            ...purchaseWhere,
+            status: 'delivery_failed',
+          },
+          select: { code: true, tenantId: true },
+        }),
+        queueJobs: (db) => db.deliveryQueueJob.findMany({
+          select: { purchaseCode: true, tenantId: true },
+        }),
+        deadLetters: (db) => db.deliveryDeadLetter.findMany({
+          select: { purchaseCode: true, tenantId: true },
+        }),
+        auditRows: (db) => db.deliveryAudit.findMany({
+          select: { id: true, tenantId: true },
+        }),
+      });
+      return [
+        rows.purchaseRows30d,
+        rows.deliveredRows30d,
+        rows.failedRows30d,
+        rows.queueJobs,
+        rows.deadLetters,
+        rows.auditRows,
+      ];
+    })()
     : [null, null, null, null, null, null];
 
   const dedupedPurchaseRows30d = aggregateTenantCommerce
@@ -2153,18 +2287,26 @@ async function reconcileDeliveryState(options = {}) {
   }
 
   const [purchases, queueJobs, deadLetters, auditRows] = aggregateTenantCommerce
-    ? await Promise.all([
-      readAcrossDeliveryPersistenceScopes((db) => db.purchase.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-      })),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryQueueJob.findMany()),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryDeadLetter.findMany()),
-      readAcrossDeliveryPersistenceScopes((db) => db.deliveryAudit.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 2000,
-      })),
-    ])
+    ? await (async () => {
+      const rows = await readAcrossDeliveryPersistenceScopeBatch({
+        purchases: (db) => db.purchase.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        }),
+        queueJobs: (db) => db.deliveryQueueJob.findMany(),
+        deadLetters: (db) => db.deliveryDeadLetter.findMany(),
+        auditRows: (db) => db.deliveryAudit.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 2000,
+        }),
+      });
+      return [
+        rows.purchases,
+        rows.queueJobs,
+        rows.deadLetters,
+        rows.auditRows,
+      ];
+    })()
     : await Promise.all([
       prisma.purchase.findMany({
         orderBy: { createdAt: 'desc' },
@@ -2326,7 +2468,34 @@ async function reconcileDeliveryState(options = {}) {
 }
 
 async function getPlatformPublicOverview() {
-  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
+  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true }).catch(() => ({
+    overview: {
+      activeTenants: 0,
+      activeSubscriptions: 0,
+      activeLicenses: 0,
+      activeApiKeys: 0,
+      activeWebhooks: 0,
+      onlineAgentRuntimes: 0,
+      totalAgentRuntimes: 0,
+      totalEvents: 0,
+      totalActivity: 0,
+      totalTickets: 0,
+      totalRevenueCents: 0,
+      currency: config.platform?.billing?.currency || 'THB',
+    },
+    trends: {
+      windowDays: 7,
+      timeline: [],
+    },
+    posture: {
+      expiringSubscriptions: [],
+      expiringLicenses: [],
+      recentlyRevokedApiKeys: [],
+      failedWebhooks: [],
+      unresolvedTickets: [],
+      offlineAgentRuntimes: [],
+    },
+  }));
   const legalDocs = Array.isArray(config.platform?.legal?.docs)
     ? config.platform.legal.docs.map((doc) => {
       const pathValue = trimText(doc.path, 260) || null;
@@ -2357,7 +2526,7 @@ async function getPlatformPublicOverview() {
     trial: config.platform?.demo?.trialEnabled === true ? { enabled: true, cta: '/trial' } : { enabled: false },
     marketplace: {
       enabled: config.platform?.marketplace?.enabled === true,
-      offers: await listMarketplaceOffers({ status: 'active', limit: 20, allowGlobal: true }),
+      offers: await listMarketplaceOffers({ status: 'active', limit: 20, allowGlobal: true }).catch(() => []),
     },
     analytics,
     legal: {
@@ -2393,8 +2562,8 @@ module.exports = {
   getPlatformPermissionCatalog,
   getPlatformPublicOverview,
   getPlatformTenantById,
-  getTenantFeatureAccess: async (tenantId) => {
-    const snapshot = await getTenantQuotaSnapshot(tenantId);
+  getTenantFeatureAccess: async (tenantId, options = {}) => {
+    const snapshot = await getTenantQuotaSnapshot(tenantId, options);
     return {
       tenantId: snapshot?.tenantId || trimText(tenantId, 120) || null,
       package: snapshot?.package || null,

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="public.preview.documentTitle">SCUM TH Platform | Preview Mode</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-preview-flow-1">
+</head>
+<body class="public-v2 public-preview-page">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a class="is-active" href="/preview" data-i18n="public.nav.preview">Preview</a>
+        <a href="/checkout" data-i18n="public.nav.checkout">Checkout</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="previewLanguageSelect" class="language-select"></select>
+        </label>
+        <button id="previewLogoutBtn" class="button" type="button" data-i18n="common.logout">Logout</button>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="preview-shell">
+        <aside class="preview-sidebar">
+          <div class="preview-sidebar-head">
+            <span class="marketing-kicker" data-i18n="public.preview.kicker">Preview Mode</span>
+            <h1 data-i18n="public.preview.title">Inspect the tenant panel before purchase.</h1>
+            <p data-i18n="public.preview.detail">This preview mirrors the structure of the tenant admin panel with real feature locks, package boundaries, and guided next steps.</p>
+          </div>
+          <nav id="previewSidebarNav" class="preview-sidebar-nav"></nav>
+          <div class="preview-state">
+            <strong data-i18n="public.preview.accountCardTitle">Preview identity</strong>
+            <p id="previewAccountSummary" data-i18n="public.preview.loading">Loading preview account...</p>
+          </div>
+        </aside>
+
+        <section class="preview-main">
+          <section class="marketing-panel preview-pagehead">
+            <div class="marketing-panel-head">
+              <span class="marketing-kicker" data-i18n="public.preview.pageheadKicker">Tenant Preview</span>
+              <h2 id="previewCommunityName">SCUM Preview</h2>
+              <p id="previewPageLead" data-i18n="public.preview.pageLead">Loading package posture and preview access.</p>
+            </div>
+            <div class="button-row">
+              <a id="previewUpgradeBtn" class="button button-primary" href="/checkout" data-i18n="public.preview.upgrade">Upgrade Package</a>
+              <a class="button" href="/pricing" data-i18n="public.preview.compare">Compare Packages</a>
+            </div>
+          </section>
+
+          <section id="previewStatsGrid" class="detail-grid"></section>
+
+          <section class="marketing-grid two-col">
+            <section class="marketing-panel">
+              <div class="marketing-panel-head">
+                <span class="marketing-kicker" data-i18n="public.preview.enabledKicker">Enabled now</span>
+                <h2 data-i18n="public.preview.enabledTitle">What this preview package exposes</h2>
+                <p data-i18n="public.preview.enabledDetail">The preview environment uses real entitlement resolution. Locked areas stay visible so operators can understand the product before activation.</p>
+              </div>
+              <ul id="previewFeatureList" class="feature-list"></ul>
+            </section>
+
+            <section class="marketing-panel">
+              <div class="marketing-panel-head">
+                <span class="marketing-kicker" data-i18n="public.preview.lockedKicker">Locked actions</span>
+                <h2 data-i18n="public.preview.lockedTitle">What stays guarded until activation</h2>
+                <p data-i18n="public.preview.lockedDetail">These steps remain blocked until the package is active or the missing runtime dependencies are online.</p>
+              </div>
+              <ul id="previewLockedList" class="feature-list"></ul>
+            </section>
+          </section>
+
+          <section class="marketing-grid two-col">
+            <section class="marketing-panel">
+              <div class="marketing-panel-head">
+                <span class="marketing-kicker" data-i18n="public.preview.identityKicker">Linked identities</span>
+                <h2 data-i18n="public.preview.identityTitle">Verification and account linking</h2>
+                <p data-i18n="public.preview.identityDetail">Discord, Steam, and in-game profile matching are shown here so the user understands trust posture before going live.</p>
+              </div>
+              <ul id="previewIdentityList" class="feature-list"></ul>
+            </section>
+
+            <section class="marketing-panel">
+              <div class="marketing-panel-head">
+                <span class="marketing-kicker" data-i18n="public.preview.nextKicker">Next steps</span>
+                <h2 data-i18n="public.preview.nextTitle">Move from preview to activation</h2>
+                <p data-i18n="public.preview.nextDetail">Follow the product path in order: review package, provision the right runtime, then activate the tenant with the correct feature set.</p>
+              </div>
+              <ul id="previewNextSteps" class="feature-list"></ul>
+            </section>
+          </section>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-preview-flow-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260325-preview-flow-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['previewLanguageSelect']);
+  </script>
+</body>
+</html>

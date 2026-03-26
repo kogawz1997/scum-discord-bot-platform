@@ -273,6 +273,30 @@
     }
   }
 
+  async function mapWithConcurrency(items, limit, worker) {
+    const queue = Array.isArray(items) ? items : [];
+    const concurrency = Math.max(1, Math.min(Number(limit) || 1, queue.length || 1));
+    const results = new Array(queue.length);
+    let cursor = 0;
+    async function runWorker() {
+      while (cursor < queue.length) {
+        const index = cursor;
+        cursor += 1;
+        results[index] = await worker(queue[index], index);
+      }
+    }
+    await Promise.all(Array.from({ length: concurrency }, () => runWorker()));
+    return results;
+  }
+
+  async function loadOwnerRequestMap(requests, concurrency = 3) {
+    const entries = await mapWithConcurrency(requests, concurrency, async (request) => ({
+      key: request.key,
+      data: await request.load(),
+    }));
+    return Object.fromEntries(entries.map((entry) => [entry.key, entry.data]));
+  }
+
   function renderOwnerPageContext() {
     const titleEl = document.getElementById('ownerPageContextTitle');
     const detailEl = document.getElementById('ownerPageContextDetail');
@@ -2915,7 +2939,53 @@
         return;
       }
 
-      const [
+      const ownerRequests = await loadOwnerRequestMap([
+        { key: 'overview', load: () => safeApi('/admin/api/platform/overview', {}) },
+        { key: 'observability', load: () => safeApi('/admin/api/observability?windowMs=21600000', {}) },
+        { key: 'deliveryLifecycle', load: () => safeApi('/admin/api/delivery/lifecycle?limit=120&pendingOverdueMs=1200000', {}) },
+        { key: 'reconcile', load: () => safeApi('/admin/api/platform/reconcile?windowMs=3600000&pendingOverdueMs=1200000', {}) },
+        { key: 'opsState', load: () => safeApi('/admin/api/platform/ops-state', {}) },
+        { key: 'tenants', load: () => safeApi('/admin/api/platform/tenants?limit=20', []) },
+        { key: 'subscriptions', load: () => safeApi('/admin/api/platform/subscriptions?limit=12', []) },
+        { key: 'licenses', load: () => safeApi('/admin/api/platform/licenses?limit=12', []) },
+        { key: 'apiKeys', load: () => safeApi('/admin/api/platform/apikeys?limit=12', []) },
+        { key: 'webhooks', load: () => safeApi('/admin/api/platform/webhooks?limit=12', []) },
+        { key: 'agents', load: () => safeApi('/admin/api/platform/agents?limit=20', []) },
+        { key: 'marketplace', load: () => safeApi('/admin/api/platform/marketplace?limit=12', []) },
+        { key: 'notifications', load: () => safeApi('/admin/api/notifications?acknowledged=false&limit=10', { items: [] }) },
+        {
+          key: 'incidentInbox',
+          load: () => safeApi(`/admin/api/notifications?${buildIncidentQueryString({
+            limit: 20,
+            severity: state.incidentFilters.severity,
+            acknowledged: state.incidentFilters.acknowledged,
+            kind: state.incidentFilters.kind,
+          })}`, { items: [] }),
+        },
+        { key: 'securityEvents', load: () => safeApi('/admin/api/auth/security-events?limit=10', []) },
+        { key: 'runtimeSupervisor', load: () => safeApi('/admin/api/runtime/supervisor', null) },
+        { key: 'dashboardCards', load: () => safeApi('/admin/api/dashboard/cards', null) },
+        { key: 'requestLogs', load: () => safeApi('/admin/api/observability/requests?limit=8&onlyErrors=true', { metrics: {}, items: [] }) },
+        { key: 'roleMatrix', load: () => safeApi('/admin/api/auth/role-matrix', { summary: {}, permissions: [] }) },
+        { key: 'rotationReport', load: () => safeApi('/admin/api/security/rotation-check', { data: { secrets: [], reloadMatrix: [] }, warnings: [], errors: [] }) },
+        { key: 'controlPanelSettings', load: () => safeApi('/admin/api/control-panel/settings', {}) },
+        { key: 'restoreState', load: () => safeApi('/admin/api/backup/restore/status', {}) },
+        { key: 'backupFiles', load: () => safeApi('/admin/api/backup/list', []) },
+        { key: 'sessions', load: () => safeApi('/admin/api/auth/sessions', []) },
+        { key: 'users', load: () => safeApi('/admin/api/auth/users', []) },
+        {
+          key: 'audit',
+          load: () => safeApi(`/admin/api/audit/query?${buildAuditQueryString({
+            view: state.auditFilters.view,
+            userId: state.auditFilters.userId,
+            q: state.auditFilters.query,
+            windowMs: state.auditFilters.windowMs,
+            pageSize: 8,
+          })}`, { cards: [], tableRows: [] }),
+        },
+      ], 3);
+
+      const {
         overview,
         observability,
         deliveryLifecycle,
@@ -2942,45 +3012,7 @@
         sessions,
         users,
         audit,
-      ] = await Promise.all([
-        safeApi('/admin/api/platform/overview', {}),
-        safeApi('/admin/api/observability?windowMs=21600000', {}),
-        safeApi('/admin/api/delivery/lifecycle?limit=120&pendingOverdueMs=1200000', {}),
-        safeApi('/admin/api/platform/reconcile?windowMs=3600000&pendingOverdueMs=1200000', {}),
-        safeApi('/admin/api/platform/ops-state', {}),
-        safeApi('/admin/api/platform/tenants?limit=20', []),
-        safeApi('/admin/api/platform/subscriptions?limit=12', []),
-        safeApi('/admin/api/platform/licenses?limit=12', []),
-        safeApi('/admin/api/platform/apikeys?limit=12', []),
-        safeApi('/admin/api/platform/webhooks?limit=12', []),
-        safeApi('/admin/api/platform/agents?limit=20', []),
-        safeApi('/admin/api/platform/marketplace?limit=12', []),
-        safeApi('/admin/api/notifications?acknowledged=false&limit=10', { items: [] }),
-        safeApi(`/admin/api/notifications?${buildIncidentQueryString({
-          limit: 20,
-          severity: state.incidentFilters.severity,
-          acknowledged: state.incidentFilters.acknowledged,
-          kind: state.incidentFilters.kind,
-        })}`, { items: [] }),
-        safeApi('/admin/api/auth/security-events?limit=10', []),
-        safeApi('/admin/api/runtime/supervisor', null),
-        safeApi('/admin/api/dashboard/cards', null),
-        safeApi('/admin/api/observability/requests?limit=8&onlyErrors=true', { metrics: {}, items: [] }),
-        safeApi('/admin/api/auth/role-matrix', { summary: {}, permissions: [] }),
-        safeApi('/admin/api/security/rotation-check', { data: { secrets: [], reloadMatrix: [] }, warnings: [], errors: [] }),
-        safeApi('/admin/api/control-panel/settings', {}),
-        safeApi('/admin/api/backup/restore/status', {}),
-        safeApi('/admin/api/backup/list', []),
-        safeApi('/admin/api/auth/sessions', []),
-        safeApi('/admin/api/auth/users', []),
-        safeApi(`/admin/api/audit/query?${buildAuditQueryString({
-          view: state.auditFilters.view,
-          userId: state.auditFilters.userId,
-          q: state.auditFilters.query,
-          windowMs: state.auditFilters.windowMs,
-          pageSize: 8,
-        })}`, { cards: [], tableRows: [] }),
-      ]);
+      } = ownerRequests;
 
       state.me = me;
       state.overview = overview || {};
@@ -3009,15 +3041,17 @@
       state.sessions = Array.isArray(sessions) ? sessions : [];
       state.users = Array.isArray(users) ? users : [];
       state.audit = audit || { cards: [], tableRows: [] };
-      state.tenantQuotaSnapshots = await Promise.all(
-        state.tenants.slice(0, 8).map((row) => safeApi(
+      state.tenantQuotaSnapshots = await mapWithConcurrency(
+        state.tenants.slice(0, 8),
+        1,
+        (row) => safeApi(
           `/admin/api/platform/quota?tenantId=${encodeURIComponent(String(row.id || '').trim())}`,
           {
             tenantId: row.id || '',
             tenant: { id: row.id || '', name: row.name || row.slug || row.id || '' },
             quotas: {},
           },
-        )),
+        ),
       );
       {
         const selectedSupportTenantId = String(

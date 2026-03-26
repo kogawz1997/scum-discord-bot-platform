@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="public.checkout.documentTitle">SCUM TH Platform | Checkout</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-preview-flow-1">
+</head>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a class="is-active" href="/checkout" data-i18n="public.nav.checkout">Checkout</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="checkoutLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="auth-layout">
+        <section class="auth-card">
+          <span class="marketing-kicker" data-i18n="public.checkout.kicker">Checkout</span>
+          <h1 data-i18n="public.checkout.title">Review package and move into trial or activation.</h1>
+          <p data-i18n="public.checkout.detail">This checkout page is part of the new public product path. Package choice, preview state, and future payment result routes live here instead of inside the admin surfaces.</p>
+          <div class="preview-state">
+            <strong data-i18n="public.checkout.packageLabel">Selected package</strong>
+            <p id="checkoutSelectedPackage">FULL_OPTION</p>
+          </div>
+          <p id="checkoutPackageDetail" data-i18n="public.checkout.signupPrompt">Create a preview account first, then upgrade or activate from inside the preview dashboard.</p>
+          <div class="button-row">
+            <a id="checkoutSignupCta" class="button button-primary" href="/signup" data-i18n="public.checkout.activate">Continue</a>
+            <a class="button" href="/pricing" data-i18n="public.checkout.backPricing">Back to Pricing</a>
+          </div>
+        </section>
+
+        <aside class="auth-side">
+          <section class="auth-card">
+            <span class="marketing-kicker" data-i18n="public.checkout.previewKicker">Preview + trial</span>
+            <h2 data-i18n="public.checkout.previewTitle">Use preview mode before full activation.</h2>
+            <p data-i18n="public.checkout.previewDetail">The public flow separates evaluation, activation, and payment result states so operators understand what happens next.</p>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-preview-flow-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260325-preview-flow-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['checkoutLanguageSelect']);
+  </script>
+</body>
+</html>

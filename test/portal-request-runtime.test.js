@@ -99,3 +99,27 @@ test('portal request runtime converts player api exceptions into 500 responses',
     error: 'Internal server error',
   });
 });
+
+test('portal request runtime rejects cross-site public api writes', async () => {
+  const res = createResponse();
+  const runtime = createPortalRequestRuntime({
+    sendJson: createSendJson(res),
+    verifyOrigin: () => false,
+    getSession: () => null,
+    isDiscordId: () => false,
+    handlePublicApiRoute: async () => true,
+    handlePortalPageRoute: async () => false,
+    handlePlayerGeneralRoute: async () => false,
+    handlePlayerCommerceRoute: async () => false,
+    cleanupRuntimeState: () => {},
+    cleanupIntervalMs: 1000,
+  });
+
+  await runtime.requestHandler({ method: 'POST', url: '/api/public/signup' }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.deepEqual(res.payload, {
+    ok: false,
+    error: 'Cross-site request denied',
+  });
+});

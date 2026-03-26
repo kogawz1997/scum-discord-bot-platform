@@ -1,0 +1,627 @@
+:root {
+  --site-bg: #070a08;
+  --site-surface: rgba(15, 19, 16, 0.9);
+  --site-surface-strong: rgba(18, 22, 18, 0.96);
+  --site-border: rgba(214, 195, 138, 0.14);
+  --site-border-strong: rgba(214, 195, 138, 0.28);
+  --site-text: #f2eee6;
+  --site-text-muted: rgba(242, 238, 230, 0.72);
+  --site-accent: #d4ba71;
+  --site-accent-soft: rgba(212, 186, 113, 0.14);
+  --site-success: #89b86c;
+  --site-danger: #d36d60;
+  --site-radius: 24px;
+  --site-shadow: 0 24px 56px rgba(0, 0, 0, 0.28);
+}
+
+body.public-v2 {
+  margin: 0;
+  color: var(--site-text);
+  font-family: "IBM Plex Sans Thai", "IBM Plex Sans", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(191, 168, 102, 0.14), transparent 24%),
+    linear-gradient(180deg, #060806 0%, #0a0d0b 44%, #060806 100%);
+}
+
+.marketing-shell {
+  min-height: 100vh;
+}
+
+.marketing-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--site-border);
+  background: rgba(7, 10, 8, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.marketing-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.marketing-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(212, 186, 113, 0.16);
+  border: 1px solid rgba(212, 186, 113, 0.24);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.marketing-brand-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.marketing-brand-copy strong {
+  font-size: 15px;
+}
+
+.marketing-brand-copy span {
+  color: var(--site-text-muted);
+  font-size: 12px;
+}
+
+.marketing-nav,
+.marketing-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--site-text-muted);
+  font-size: 13px;
+}
+
+.language-select,
+.button {
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--site-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text);
+  font-size: 14px;
+}
+
+.language-select {
+  min-width: 120px;
+  padding: 0 12px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button.button-primary {
+  background: var(--site-accent);
+  border-color: rgba(212, 186, 113, 0.4);
+  color: #14110c;
+  font-weight: 700;
+}
+
+.marketing-nav a,
+.marketing-inline-link {
+  color: var(--site-text-muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.marketing-nav a.is-active,
+.marketing-nav a:hover,
+.marketing-inline-link:hover {
+  color: var(--site-text);
+}
+
+.marketing-main {
+  width: min(1480px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 28px 0 40px;
+  display: grid;
+  gap: 24px;
+}
+
+.marketing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.85fr);
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid var(--site-border);
+  border-radius: 32px;
+  background:
+    linear-gradient(120deg, rgba(7, 10, 8, 0.94), rgba(16, 20, 17, 0.84)),
+    url('/player/assets/ui/visuals/scum/hero-public.jpg');
+  background-size: cover;
+  background-position: center;
+  box-shadow: var(--site-shadow);
+}
+
+.marketing-copy {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  max-width: 720px;
+}
+
+.marketing-kicker {
+  color: var(--site-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.marketing-copy h1 {
+  margin: 0;
+  font-size: clamp(38px, 4.4vw, 68px);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.marketing-copy p {
+  margin: 0;
+  color: var(--site-text-muted);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.marketing-actions,
+.marketing-chip-row,
+.button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.marketing-chip {
+  padding: 8px 12px;
+  border: 1px solid var(--site-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text-muted);
+  font-size: 12px;
+}
+
+.marketing-visual {
+  display: grid;
+  gap: 14px;
+  align-content: space-between;
+}
+
+.marketing-visual-card,
+.marketing-panel,
+.auth-card,
+.pricing-card {
+  padding: 20px;
+  border: 1px solid var(--site-border);
+  border-radius: var(--site-radius);
+  background: var(--site-surface);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+}
+
+.marketing-visual-image {
+  min-height: 260px;
+  border-radius: 24px;
+  border: 1px solid var(--site-border);
+  background-image:
+    linear-gradient(180deg, rgba(8, 10, 9, 0.16), rgba(8, 10, 9, 0.56)),
+    url('/player/assets/ui/visuals/scum/scene-radio.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.marketing-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.marketing-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.marketing-panel-head {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.marketing-panel-head h2,
+.marketing-panel-head h3,
+.auth-card h2,
+.pricing-card h3 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.marketing-panel-head p,
+.auth-card p,
+.pricing-card p,
+.pricing-card li,
+.auth-field span,
+.detail-list li {
+  color: var(--site-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.package-grid,
+.surface-grid-v2,
+.support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.package-grid.four-col {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pricing-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.pricing-card.is-featured {
+  border-color: var(--site-border-strong);
+  background: linear-gradient(180deg, rgba(212, 186, 113, 0.08), rgba(15, 19, 16, 0.96));
+}
+
+.pricing-card h3 {
+  font-size: 22px;
+}
+
+.pricing-card ul,
+.detail-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.pricing-badge,
+.status-pill,
+.locked-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--site-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pricing-badge.featured {
+  border-color: rgba(212, 186, 113, 0.34);
+  background: rgba(212, 186, 113, 0.16);
+}
+
+.locked-pill {
+  color: #12110d;
+  background: var(--site-accent);
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.auth-card {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-field span {
+  color: var(--site-text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.auth-field input,
+.auth-field select {
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--site-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text);
+}
+
+.auth-field textarea {
+  min-height: 120px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--site-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text);
+}
+
+.auth-side {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-visual {
+  min-height: 340px;
+  border-radius: 28px;
+  border: 1px solid var(--site-border);
+  background-image:
+    linear-gradient(180deg, rgba(8, 10, 9, 0.22), rgba(8, 10, 9, 0.72)),
+    url('/player/assets/ui/visuals/scum/scene-support.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.empty-state-panel {
+  padding: 18px;
+  border: 1px dashed rgba(214, 195, 138, 0.24);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.preview-state {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(212, 186, 113, 0.08);
+  border: 1px solid rgba(212, 186, 113, 0.2);
+}
+
+.preview-state strong {
+  font-size: 16px;
+}
+
+.form-status {
+  min-height: 22px;
+  color: var(--site-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.form-status.is-error {
+  color: #f3b6aa;
+}
+
+.form-status.is-success {
+  color: #afd38c;
+}
+
+.preview-shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.preview-sidebar,
+.preview-main {
+  display: grid;
+  gap: 16px;
+}
+
+.preview-sidebar {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+}
+
+.preview-sidebar-head {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid var(--site-border);
+  border-radius: var(--site-radius);
+  background:
+    linear-gradient(180deg, rgba(11, 14, 12, 0.92), rgba(15, 19, 16, 0.94)),
+    url('/player/assets/ui/visuals/scum/scene-map.jpg');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+}
+
+.preview-sidebar-head h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.preview-sidebar-head p {
+  margin: 0;
+  color: var(--site-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.preview-sidebar-nav {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--site-border);
+  border-radius: 22px;
+  background: var(--site-surface-strong);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
+.preview-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--site-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--site-text);
+}
+
+.preview-nav-link span:first-child {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.preview-nav-link.is-locked {
+  opacity: 0.8;
+}
+
+.preview-main > * {
+  min-width: 0;
+}
+
+.preview-pagehead {
+  display: grid;
+  gap: 14px;
+}
+
+.preview-pagehead h2 {
+  font-size: 34px;
+}
+
+.preview-stat {
+  gap: 10px;
+}
+
+.preview-stat strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.preview-stat p {
+  margin: 0;
+}
+
+.feature-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.feature-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--site-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.feature-list li strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.feature-list li p {
+  margin: 0;
+  color: var(--site-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.public-preview-page .marketing-main {
+  padding-top: 22px;
+}
+
+.support-grid .marketing-panel {
+  height: 100%;
+}
+
+@media (max-width: 1180px) {
+  .marketing-hero,
+  .auth-layout,
+  .preview-shell,
+  .marketing-grid.two-col,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .package-grid,
+  .package-grid.four-col,
+  .surface-grid-v2,
+  .support-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .marketing-topbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 14px 18px;
+  }
+
+  .marketing-main {
+    width: calc(100% - 24px);
+    padding-top: 18px;
+  }
+
+  .marketing-hero {
+    padding: 20px;
+  }
+
+  .preview-sidebar {
+    position: static;
+  }
+
+  .package-grid,
+  .package-grid.four-col,
+  .surface-grid-v2,
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
+}

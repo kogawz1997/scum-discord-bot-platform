@@ -4,113 +4,66 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="trial.documentTitle">SCUM Platform Trial Readiness</title>
-  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260324-polish-6">
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-shell-cutover-1">
 </head>
-<body class="public-page public-trial">
-  <div class="site-shell">
-    <header class="site-topbar">
-      <a class="site-brand" href="/landing">
-        <span class="site-brand-mark">SC</span>
-        <div class="site-brand-copy">
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
           <strong data-i18n="trial.title">Operational readiness checklist</strong>
           <span data-i18n="trial.subtitle">Go-live checks for owner, tenant, and player flows.</span>
-        </div>
+        </span>
       </a>
-      <nav class="site-nav">
-        <a href="/landing" data-i18n="trial.backLanding">Back to landing</a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
         <a href="/showcase" data-i18n="landing.openShowcase">Showcase</a>
         <a class="is-active" href="/trial" data-i18n="landing.heroTrial">Review trial readiness</a>
       </nav>
-      <div class="site-tools">
+      <div class="marketing-tools">
         <label class="language-picker">
           <span data-i18n="common.language">Language</span>
           <select id="trialLanguageSelect" class="language-select"></select>
         </label>
-        <a class="button" href="/admin" data-i18n="trial.openAdmin">Open admin web</a>
       </div>
     </header>
 
-    <section class="site-hero">
-      <section class="site-panel site-hero-copy">
-        <span class="site-kicker" data-i18n="trial.badge">Trial + Go-live</span>
-        <h1 data-i18n="trial.flowTitle">What to verify before go-live</h1>
-        <p data-i18n="trial.heroOperationalDetail">This page stays operational by design. It is a go-live checklist for real owner, tenant, and player workflows rather than a marketing splash page.</p>
-      </section>
-      <section class="site-panel site-hero-media">
-        <img src="/player/assets/ui/visuals/scum/scene-radio.jpg" alt="SCUM operations readiness">
-        <div class="site-overlay-card">
-          <span class="site-kicker" data-i18n="trial.overlayKicker">Controlled rollout</span>
-          <h3 data-i18n="trial.overlayTitle">Ready before scale</h3>
-          <p data-i18n="trial.overlayDetail">Validate role routing, runtime posture, delivery safety, and player trust before opening the server community.</p>
+    <main class="marketing-main">
+      <section class="marketing-panel">
+        <div class="marketing-panel-head">
+          <span class="marketing-kicker" data-i18n="trial.badge">Trial + Go-live</span>
+          <h1 data-i18n="trial.flowTitle">What to verify before go-live</h1>
+          <p data-i18n="trial.heroOperationalDetail">This page stays operational by design. It is a go-live checklist for real owner, tenant, and player workflows rather than a marketing splash page.</p>
+        </div>
+        <div class="detail-grid">
+          <article class="marketing-panel">
+            <span class="marketing-kicker">01</span>
+            <h3 data-i18n="public.trial.routingTitle">Owner and tenant routing</h3>
+            <p data-i18n="public.trial.routingDetail">Confirm global users land in the owner console and tenant-scoped admins land in the tenant console without overlap.</p>
+          </article>
+          <article class="marketing-panel">
+            <span class="marketing-kicker">02</span>
+            <h3 data-i18n="public.trial.runtimeTitle">Bot, worker, watcher, and optional agents</h3>
+            <p data-i18n="public.trial.runtimeDetail">Validate runtime health, service readiness, and alert visibility from the owner console before tenant onboarding.</p>
+          </article>
+          <article class="marketing-panel">
+            <span class="marketing-kicker">03</span>
+            <h3 data-i18n="public.trial.catalogTitle">Catalog, delivery, and wallet workflows</h3>
+            <p data-i18n="public.trial.catalogDetail">Run tenant-scoped config, queue, wallet, and delivery recovery flows without touching owner-only controls.</p>
+          </article>
+          <article class="marketing-panel">
+            <span class="marketing-kicker">04</span>
+            <h3 data-i18n="public.trial.playerTitle">Wallet, purchase, redeem, and Steam link</h3>
+            <p data-i18n="public.trial.playerDetail">Walk through the player portal on mobile and desktop to confirm a clean, understandable transaction experience.</p>
+          </article>
         </div>
       </section>
-    </section>
-
-    <section class="site-panel">
-      <div class="site-section-head">
-        <div>
-          <span class="site-kicker" data-i18n="trial.flowTitle">What to verify before go-live</span>
-          <h2 class="section-title" data-i18n="trial.flowTitle">What to verify before go-live</h2>
-        </div>
-      </div>
-      <div class="site-step-grid">
-        <article class="site-step">
-          <span class="site-kicker">01</span>
-          <strong data-i18n="public.trial.routingTitle">Owner and tenant routing</strong>
-          <p data-i18n="public.trial.routingDetail">Confirm global users land in the owner console and tenant-scoped admins land in the tenant console without overlap.</p>
-        </article>
-        <article class="site-step">
-          <span class="site-kicker">02</span>
-          <strong data-i18n="public.trial.runtimeTitle">Bot, worker, watcher, and optional agents</strong>
-          <p data-i18n="public.trial.runtimeDetail">Validate runtime health, service readiness, and alert visibility from the owner console before tenant onboarding.</p>
-        </article>
-        <article class="site-step">
-          <span class="site-kicker">03</span>
-          <strong data-i18n="public.trial.catalogTitle">Catalog, delivery, and wallet workflows</strong>
-          <p data-i18n="public.trial.catalogDetail">Run tenant-scoped config, queue, wallet, and delivery recovery flows without touching owner-only controls.</p>
-        </article>
-        <article class="site-step">
-          <span class="site-kicker">04</span>
-          <strong data-i18n="public.trial.playerTitle">Wallet, purchase, redeem, and Steam link</strong>
-          <p data-i18n="public.trial.playerDetail">Walk through the player portal on mobile and desktop to confirm a clean, understandable transaction experience.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="site-grid two-col">
-      <section class="site-panel">
-        <div class="site-section-head">
-          <div>
-            <span class="site-kicker" data-i18n="trial.ownerTitle">Before opening tenants</span>
-            <h2 class="section-title" data-i18n="trial.ownerTitle">Before opening tenants</h2>
-          </div>
-        </div>
-        <ol class="site-checklist">
-          <li data-i18n="trial.ownerCheck.1">Runtime health looks stable and major owner alerts are understood.</li>
-          <li data-i18n="trial.ownerCheck.2">Security, audit, and request anomaly pages are readable from one owner surface.</li>
-          <li data-i18n="trial.ownerCheck.3">Backup, restore preview, and guarded config changes still require deliberate action.</li>
-          <li data-i18n="trial.ownerCheck.4">Tenant fleet data and support case context can be exported without raw API digging.</li>
-        </ol>
-      </section>
-
-      <section class="site-panel">
-        <div class="site-section-head">
-          <div>
-            <span class="site-kicker" data-i18n="trial.communityTitle">Before opening the server community</span>
-            <h2 class="section-title" data-i18n="trial.communityTitle">Before opening the server community</h2>
-          </div>
-        </div>
-        <ol class="site-checklist">
-          <li data-i18n="trial.communityCheck.1">Tenant catalog, queue, dead-letter, and delivery support tools are usable without owner access.</li>
-          <li data-i18n="trial.communityCheck.2">Player login, wallet, shop, redeem, and profile flows are understandable in both desktop and mobile layouts.</li>
-          <li data-i18n="trial.communityCheck.3">Legacy workbenches are still reachable as fallback only, not the default operator route.</li>
-          <li data-i18n="trial.communityCheck.4">Go-live messaging and restart communication are prepared before scale increases.</li>
-        </ol>
-      </section>
-    </section>
+    </main>
   </div>
 
-  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
   <script>
     window.PortalUiI18n?.init(['trialLanguageSelect']);
   </script>

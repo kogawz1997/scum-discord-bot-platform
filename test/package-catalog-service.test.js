@@ -20,6 +20,9 @@ test('package catalog exposes requested managed-service packages', () => {
   assert.ok(featureKeys.includes('sync_agent'));
   assert.ok(featureKeys.includes('execute_agent'));
   assert.ok(featureKeys.includes('server_hosting'));
+  assert.ok(featureKeys.includes('donation_module'));
+  assert.ok(featureKeys.includes('analytics_module'));
+  assert.ok(featureKeys.includes('restart_announce_module'));
 });
 
 test('plan aliases resolve to package ids and feature-based access', () => {
@@ -29,6 +32,8 @@ test('plan aliases resolve to package ids and feature-based access', () => {
   const growthAccess = resolveFeatureAccess({ planId: 'platform-growth' });
   assert.ok(hasFeature(growthAccess, 'server_hosting'));
   assert.ok(hasFeature(growthAccess, 'execute_agent'));
+  assert.ok(hasFeature(growthAccess, 'event_module'));
+  assert.ok(hasFeature(growthAccess, 'wallet_module'));
   assert.ok(!hasFeature(growthAccess, 'non-existent'));
 });
 

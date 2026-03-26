@@ -476,7 +476,7 @@ function createAdminGetRoutes(deps) {
       if (!tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await getTenantQuotaSnapshot(tenantId),
+        data: await getTenantQuotaSnapshot(tenantId, { cache: false }),
       });
       return true;
     }
@@ -495,8 +495,8 @@ function createAdminGetRoutes(deps) {
       sendJson(res, 200, {
         ok: true,
         data: typeof getTenantFeatureAccess === 'function'
-          ? await getTenantFeatureAccess(tenantId)
-          : await getTenantQuotaSnapshot(tenantId),
+          ? await getTenantFeatureAccess(tenantId, { cache: false })
+          : await getTenantQuotaSnapshot(tenantId, { cache: false }),
       });
       return true;
     }

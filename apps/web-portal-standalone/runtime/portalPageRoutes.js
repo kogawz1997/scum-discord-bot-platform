@@ -21,6 +21,13 @@ function createPortalPageRoutes(deps) {
     buildHealthPayload,
     tryServePublicDoc,
     getLandingHtml,
+    getPricingHtml,
+    getSignupHtml,
+    getForgotPasswordHtml,
+    getVerifyEmailHtml,
+    getCheckoutHtml,
+    getPaymentResultHtml,
+    getPreviewHtml,
     getShowcaseHtml,
     getTrialHtml,
     getPlayerHtml,
@@ -31,7 +38,9 @@ function createPortalPageRoutes(deps) {
     handleDiscordStart,
     handleDiscordCallback,
     getSession,
-    renderLoginPage,
+    getPreviewSession,
+    getAuthLoginHtml,
+    renderPlayerLoginPage,
   } = deps;
   const servePortalStaticAsset = typeof tryServePortalStaticAsset === 'function'
     ? tryServePortalStaticAsset
@@ -93,7 +102,7 @@ function createPortalPageRoutes(deps) {
       const sessionId = createCaptureSession();
       res.writeHead(302, {
         Location: '/player',
-        'Set-Cookie': buildSessionCookie(sessionId),
+        'Set-Cookie': buildSessionCookie(sessionId, req),
       });
       res.end();
       return true;
@@ -109,7 +118,7 @@ function createPortalPageRoutes(deps) {
     }
 
     if (pathname === '/') {
-      sendRedirect(res, '/player');
+      sendRedirect(res, '/landing');
       return true;
     }
 
@@ -125,6 +134,83 @@ function createPortalPageRoutes(deps) {
 
     if (pathname === '/landing' && method === 'GET') {
       sendHtml(res, 200, getLandingHtml());
+      return true;
+    }
+
+    if (pathname === '/pricing/' && method === 'GET') {
+      sendRedirect(res, '/pricing');
+      return true;
+    }
+
+    if (pathname === '/pricing' && method === 'GET') {
+      sendHtml(res, 200, getPricingHtml());
+      return true;
+    }
+
+    if (pathname === '/signup/' && method === 'GET') {
+      sendRedirect(res, '/signup');
+      return true;
+    }
+
+    if (pathname === '/signup' && method === 'GET') {
+      sendHtml(res, 200, getSignupHtml());
+      return true;
+    }
+
+    if (pathname === '/forgot-password/' && method === 'GET') {
+      sendRedirect(res, '/forgot-password');
+      return true;
+    }
+
+    if (pathname === '/forgot-password' && method === 'GET') {
+      sendHtml(res, 200, getForgotPasswordHtml());
+      return true;
+    }
+
+    if (pathname === '/verify-email/' && method === 'GET') {
+      sendRedirect(res, '/verify-email');
+      return true;
+    }
+
+    if (pathname === '/verify-email' && method === 'GET') {
+      sendHtml(res, 200, getVerifyEmailHtml());
+      return true;
+    }
+
+    if (pathname === '/checkout/' && method === 'GET') {
+      sendRedirect(res, '/checkout');
+      return true;
+    }
+
+    if (pathname === '/checkout' && method === 'GET') {
+      sendHtml(res, 200, getCheckoutHtml());
+      return true;
+    }
+
+    if (pathname === '/payment-result/' && method === 'GET') {
+      sendRedirect(res, '/payment-result');
+      return true;
+    }
+
+    if (pathname === '/payment-result' && method === 'GET') {
+      sendHtml(res, 200, getPaymentResultHtml());
+      return true;
+    }
+
+    if (pathname === '/preview/' && method === 'GET') {
+      sendRedirect(res, '/preview');
+      return true;
+    }
+
+    if (pathname === '/preview' && method === 'GET') {
+      const previewSession = typeof getPreviewSession === 'function'
+        ? getPreviewSession(req)
+        : null;
+      if (!previewSession) {
+        sendRedirect(res, '/login');
+        return true;
+      }
+      sendHtml(res, 200, getPreviewHtml());
       return true;
     }
 
@@ -176,7 +262,12 @@ function createPortalPageRoutes(deps) {
       return true;
     }
 
-    if ((pathname === '/login' || pathname === '/player/login') && method === 'GET') {
+    if (pathname === '/login' && method === 'GET') {
+      sendHtml(res, 200, getAuthLoginHtml());
+      return true;
+    }
+
+    if (pathname === '/player/login' && method === 'GET') {
       const session = getSession(req);
       if (session) {
         sendRedirect(res, '/player');
@@ -185,7 +276,7 @@ function createPortalPageRoutes(deps) {
       sendHtml(
         res,
         200,
-        renderLoginPage(String(urlObj.searchParams.get('error') || '')),
+        renderPlayerLoginPage(String(urlObj.searchParams.get('error') || '')),
       );
       return true;
     }

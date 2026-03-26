@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="player.login.documentTitle">SCUM Player Portal | Login</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-shell-cutover-1">
+</head>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="player.badge">Player Portal</strong>
+          <span data-i18n="player.brandSubtitle">Trusted player service</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a href="/login" data-i18n="public.nav.login">Login</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="playerLoginLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="auth-layout">
+        <section class="auth-card">
+          <span class="marketing-kicker" data-i18n="player.login.badge">Player Portal</span>
+          <h1 data-i18n="player.login.enterTitle">Enter the portal</h1>
+          <p data-i18n="player.login.enterSubtitle">Continue with Discord to access wallet, purchases, delivery status, redeem tools, and account trust signals.</p>
+          <div id="errorText" class="empty-state-panel">__ERROR_MESSAGE__</div>
+          <div class="button-row">
+            <button class="button button-primary" id="discordBtn" type="button" data-i18n="player.login.discord">Continue with Discord</button>
+            <a class="button" href="/login" data-i18n="public.nav.login">Login Hub</a>
+          </div>
+          <div class="preview-state">
+            <strong data-i18n="player.login.hintPurchase">Safe purchase flow</strong>
+            <p data-i18n="player.login.hintPurchaseDetail">Order status, delivery state, and Steam-link requirements are shown inside the portal after sign-in.</p>
+          </div>
+        </section>
+
+        <aside class="auth-side">
+          <div class="auth-visual"></div>
+          <section class="auth-card">
+            <span class="marketing-kicker" data-i18n="player.login.hintPlayer">Player only</span>
+            <h2 data-i18n="player.login.title">Trusted player access</h2>
+            <p data-i18n="player.login.subtitle">Use Discord sign-in to access wallet, purchases, redeem flow, Steam linking, and transaction history. Admin and platform controls stay in separate consoles.</p>
+            <div class="button-row">
+              <a class="button" href="/owner/login" data-i18n="public.login.owner">Owner Login</a>
+              <a class="button" href="/tenant/login" data-i18n="public.login.tenant">Tenant Admin Login</a>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['playerLoginLanguageSelect']);
+    const errorText = document.getElementById('errorText');
+    if (errorText && !String(errorText.textContent || '').trim()) {
+      errorText.hidden = true;
+    }
+    document.getElementById('discordBtn').addEventListener('click', () => {
+      window.location.href = '/auth/discord/start';
+    });
+  </script>
+</body>
+</html>

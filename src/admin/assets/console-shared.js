@@ -722,6 +722,30 @@
 
     function applyWorkspace() {
       const resolvedCurrentSectionId = getResolvedCurrentSectionId();
+      const activePrimarySections = (() => {
+        const primaryLink = Array.from(document.querySelectorAll('[data-primary-section],[data-primary-sections]')).find((link) => {
+          const sections = String(
+            link.getAttribute('data-primary-sections')
+            || link.getAttribute('data-primary-section')
+            || ''
+          )
+            .split(',')
+            .map((value) => String(value || '').trim())
+            .filter(Boolean);
+          return sections.includes(currentSectionId) || sections.includes(resolvedCurrentSectionId);
+        });
+        if (!primaryLink) return null;
+        return new Set(
+          String(
+            primaryLink.getAttribute('data-primary-sections')
+            || primaryLink.getAttribute('data-primary-section')
+            || ''
+          )
+            .split(',')
+            .map((value) => resolveSectionId(String(value || '').trim()))
+            .filter(Boolean)
+        );
+      })();
       document.body.dataset.currentWorkspace = currentWorkspace || '';
       document.body.dataset.currentSection = currentSectionId || '';
       sectionWorkspace.forEach((workspaceKey, sectionId) => {
@@ -734,10 +758,13 @@
       if (navList) {
         Array.from(navList.querySelectorAll('a[href^="#"]')).forEach((link) => {
           const sectionId = String(link.getAttribute('href') || '').replace(/^#/, '');
-          const workspaceKey = sectionWorkspace.get(resolveSectionId(sectionId));
+          const resolvedNavSectionId = resolveSectionId(sectionId);
+          const workspaceKey = sectionWorkspace.get(resolvedNavSectionId);
           link.dataset.workspace = workspaceKey || '';
-          link.hidden = Boolean(workspaceKey) && workspaceKey !== currentWorkspace;
-          const isActive = sectionId === currentSectionId || resolveSectionId(sectionId) === resolvedCurrentSectionId;
+          const shouldHideForWorkspace = Boolean(workspaceKey) && workspaceKey !== currentWorkspace;
+          const shouldHideForPrimary = Boolean(activePrimarySections && !activePrimarySections.has(resolvedNavSectionId));
+          link.hidden = shouldHideForWorkspace || shouldHideForPrimary;
+          const isActive = sectionId === currentSectionId || resolvedNavSectionId === resolvedCurrentSectionId;
           link.classList.toggle('nav-link-active', isActive);
           if (isActive) {
             link.setAttribute('aria-current', 'page');

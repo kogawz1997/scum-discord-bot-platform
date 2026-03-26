@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="public.pricing.documentTitle">SCUM TH Platform | Pricing</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-shell-cutover-1">
+</head>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a class="is-active" href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a href="/signup" data-i18n="public.nav.signup">Sign Up</a>
+        <a href="/login" data-i18n="public.nav.login">Login</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="pricingLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="marketing-panel">
+        <div class="marketing-panel-head">
+          <span class="marketing-kicker" data-i18n="public.pricing.kicker">Packages</span>
+          <h1 data-i18n="public.pricing.title">Choose the package that matches your server operation.</h1>
+          <p data-i18n="public.pricing.detail">Packages are implemented as feature bundles, so the UI, routes, and actions only expose what your subscription is entitled to use.</p>
+        </div>
+        <div class="package-grid four-col">
+          <article class="pricing-card">
+            <span class="pricing-badge">BOT_LOG</span>
+            <h3>BOT_LOG</h3>
+            <p data-i18n="public.pricing.botLog">For servers that need Discord integration, synchronized logs, and a lightweight operator dashboard.</p>
+            <ul>
+              <li>bot_log</li>
+              <li>discord_integration</li>
+              <li>log_dashboard</li>
+              <li>sync_agent</li>
+            </ul>
+            <a class="button button-primary" href="/checkout?package=BOT_LOG" data-i18n="public.pricing.choose">Choose Package</a>
+          </article>
+          <article class="pricing-card is-featured">
+            <span class="pricing-badge featured">BOT_LOG_DELIVERY</span>
+            <h3>BOT_LOG_DELIVERY</h3>
+            <p data-i18n="public.pricing.botDelivery">For communities that run bot log sync and player-facing delivery, orders, wallet, and shop features.</p>
+            <ul>
+              <li>bot_delivery</li>
+              <li>delivery_dashboard</li>
+              <li>shop_module</li>
+              <li>orders_module</li>
+              <li>player_module</li>
+              <li>execute_agent</li>
+            </ul>
+            <a class="button button-primary" href="/checkout?package=BOT_LOG_DELIVERY" data-i18n="public.pricing.choose">Choose Package</a>
+          </article>
+          <article class="pricing-card">
+            <span class="pricing-badge">FULL_OPTION</span>
+            <h3>FULL_OPTION</h3>
+            <p data-i18n="public.pricing.fullOption">For providers or advanced operators who need hosting, config control, delivery, and the full service stack.</p>
+            <ul>
+              <li>server_hosting</li>
+              <li>server_settings</li>
+              <li>server_status</li>
+              <li>bot_log</li>
+              <li>bot_delivery</li>
+              <li>sync_agent + execute_agent</li>
+            </ul>
+            <a class="button button-primary" href="/checkout?package=FULL_OPTION" data-i18n="public.pricing.choose">Choose Package</a>
+          </article>
+          <article class="pricing-card">
+            <span class="pricing-badge">SERVER_ONLY</span>
+            <h3>SERVER_ONLY</h3>
+            <p data-i18n="public.pricing.serverOnly">For tenants that only need hosting, server settings, and status monitoring without the delivery stack.</p>
+            <ul>
+              <li>server_hosting</li>
+              <li>server_settings</li>
+              <li>server_status</li>
+            </ul>
+            <a class="button button-primary" href="/checkout?package=SERVER_ONLY" data-i18n="public.pricing.choose">Choose Package</a>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['pricingLanguageSelect']);
+  </script>
+</body>
+</html>

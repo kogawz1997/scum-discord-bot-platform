@@ -47,6 +47,13 @@ function buildRoutes(overrides = {}) {
     buildHealthPayload: () => ({ ok: true, data: { status: 'ready' } }),
     tryServePublicDoc: () => false,
     getLandingHtml: () => '<landing/>',
+    getPricingHtml: () => '<pricing/>',
+    getSignupHtml: () => '<signup/>',
+    getForgotPasswordHtml: () => '<forgot/>',
+    getVerifyEmailHtml: () => '<verify/>',
+    getCheckoutHtml: () => '<checkout/>',
+    getPaymentResultHtml: () => '<payment-result/>',
+    getPreviewHtml: () => '<preview/>',
     getShowcaseHtml: () => '<showcase/>',
     getTrialHtml: () => '<trial/>',
     getPlayerHtml: () => '<player/>',
@@ -63,7 +70,9 @@ function buildRoutes(overrides = {}) {
       res.end();
     },
     getSession: () => null,
-    renderLoginPage: (message) => `<login message="${message}"/>`,
+    getPreviewSession: () => null,
+    getAuthLoginHtml: () => '<auth-login/>',
+    renderPlayerLoginPage: (message) => `<player-login message="${message}"/>`,
     ...overrides,
   });
 }
@@ -136,6 +145,83 @@ test('portal page routes serve landing html directly', async () => {
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body, '<landing/>');
+});
+
+test('portal page routes serve pricing html directly', async () => {
+  const handler = buildRoutes();
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: {} },
+    res,
+    urlObj: new URL('https://player.example.com/pricing'),
+    pathname: '/pricing',
+    method: 'GET',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<pricing/>');
+});
+
+test('portal page routes gate /preview behind preview session', async () => {
+  const handler = buildRoutes();
+  const redirectRes = createMockRes();
+
+  const redirectHandled = await handler({
+    req: { headers: {} },
+    res: redirectRes,
+    urlObj: new URL('https://player.example.com/preview'),
+    pathname: '/preview',
+    method: 'GET',
+  });
+
+  assert.equal(redirectHandled, true);
+  assert.equal(redirectRes.statusCode, 302);
+  assert.equal(redirectRes.headers.Location, '/login');
+
+  const authenticatedHandler = buildRoutes({
+    getPreviewSession: () => ({ accountId: 'preview-1' }),
+  });
+  const okRes = createMockRes();
+
+  const okHandled = await authenticatedHandler({
+    req: { headers: {} },
+    res: okRes,
+    urlObj: new URL('https://player.example.com/preview'),
+    pathname: '/preview',
+    method: 'GET',
+  });
+
+  assert.equal(okHandled, true);
+  assert.equal(okRes.statusCode, 200);
+  assert.equal(okRes.body, '<preview/>');
+});
+
+test('portal page routes serve auth login and player login separately', async () => {
+  const handler = buildRoutes();
+  const authRes = createMockRes();
+  const playerRes = createMockRes();
+
+  const authHandled = await handler({
+    req: { headers: {} },
+    res: authRes,
+    urlObj: new URL('https://player.example.com/login'),
+    pathname: '/login',
+    method: 'GET',
+  });
+  const playerHandled = await handler({
+    req: { headers: {} },
+    res: playerRes,
+    urlObj: new URL('https://player.example.com/player/login?error=denied'),
+    pathname: '/player/login',
+    method: 'GET',
+  });
+
+  assert.equal(authHandled, true);
+  assert.equal(playerHandled, true);
+  assert.equal(authRes.body, '<auth-login/>');
+  assert.equal(playerRes.body, '<player-login message="denied"/>');
 });
 
 test('portal page routes allow capture-only dashboard auth with a valid token', async () => {

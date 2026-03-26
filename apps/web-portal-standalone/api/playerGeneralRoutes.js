@@ -100,7 +100,7 @@ function createPlayerGeneralRoutes(deps) {
         res,
         200,
         { ok: true, data: { loggedOut: true } },
-        { 'Set-Cookie': buildClearSessionCookie() },
+        { 'Set-Cookie': buildClearSessionCookie(req) },
       );
       return true;
     }

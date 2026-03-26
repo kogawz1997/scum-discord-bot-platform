@@ -446,3 +446,66 @@ test('platform service prefers tenant-scoped rows over stale shared copies', asy
   assert.equal(verified.ok, false);
   assert.equal(String(verified.reason || ''), 'invalid-api-key');
 });
+
+test('platform service tolerates preview tenants without provisioned scoped tables', async (t) => {
+  if (!isPostgresRuntime()) {
+    t.skip('postgres runtime is required for preview topology integration');
+    return;
+  }
+
+  const previousMode = process.env.TENANT_DB_TOPOLOGY_MODE;
+  const previewTenantId = `tenant-preview-${crypto.randomUUID()}`;
+  const previewSlug = `preview-${Date.now()}`;
+
+  process.env.TENANT_DB_TOPOLOGY_MODE = 'schema-per-tenant';
+  await disconnectAllPrismaClients().catch(() => null);
+
+  t.after(async () => {
+    await prisma.platformTenant.deleteMany({
+      where: { id: previewTenantId },
+    }).catch(() => null);
+    await prisma.$executeRawUnsafe(
+      'DELETE FROM platform_tenant_configs WHERE tenant_id = $1',
+      previewTenantId,
+    ).catch(() => null);
+    await disconnectAllPrismaClients().catch(() => null);
+    if (previousMode == null) {
+      delete process.env.TENANT_DB_TOPOLOGY_MODE;
+    } else {
+      process.env.TENANT_DB_TOPOLOGY_MODE = previousMode;
+    }
+  });
+
+  await prisma.platformTenant.create({
+    data: {
+      id: previewTenantId,
+      slug: previewSlug,
+      name: 'Preview Tenant Topology',
+      type: 'trial',
+      status: 'active',
+      locale: 'th',
+      ownerEmail: 'preview@example.com',
+      metadataJson: JSON.stringify({
+        mode: 'preview',
+        createdBy: 'test',
+      }),
+    },
+  });
+
+  const quota = await getTenantQuotaSnapshot(previewTenantId);
+  assert.equal(quota.ok, true);
+  assert.equal(String(quota.tenant?.id || ''), previewTenantId);
+  assert.ok(
+    ['ready', 'tenant-preview-provisioning-pending'].includes(String(quota.reason || '')),
+  );
+  assert.equal(Number(quota.quotas?.apiKeys?.used || 0), 0);
+  assert.equal(Number(quota.quotas?.purchases30d?.used || 0), 0);
+
+  const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
+  assert.equal(Boolean(analytics.generatedAt), true);
+  assert.equal(typeof analytics.delivery?.purchaseCount30d, 'number');
+
+  const reconcile = await reconcileDeliveryState({ allowGlobal: true });
+  assert.equal(Boolean(reconcile.generatedAt), true);
+  assert.equal(typeof reconcile.summary?.anomalies, 'number');
+});

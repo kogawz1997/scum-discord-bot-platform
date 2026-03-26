@@ -44,16 +44,32 @@ test('portal page asset runtime renders login template and public docs', () => {
   fs.mkdirSync(assetsDir, { recursive: true });
   fs.mkdirSync(scumItemsDirPath, { recursive: true });
 
-  const loginHtmlPath = path.join(root, 'login.html');
+  const authLoginHtmlPath = path.join(root, 'auth-login.html');
+  const playerLoginHtmlPath = path.join(root, 'player-login.html');
   const playerHtmlPath = path.join(root, 'player.html');
   const legacyPlayerHtmlPath = path.join(root, 'player-legacy.html');
   const landingHtmlPath = path.join(root, 'landing.html');
+  const pricingHtmlPath = path.join(root, 'pricing.html');
+  const signupHtmlPath = path.join(root, 'signup.html');
+  const forgotPasswordHtmlPath = path.join(root, 'forgot.html');
+  const verifyEmailHtmlPath = path.join(root, 'verify.html');
+  const checkoutHtmlPath = path.join(root, 'checkout.html');
+  const paymentResultHtmlPath = path.join(root, 'payment-result.html');
+  const previewHtmlPath = path.join(root, 'preview.html');
   const trialHtmlPath = path.join(root, 'trial.html');
   const showcaseHtmlPath = path.join(root, 'showcase.html');
-  fs.writeFileSync(loginHtmlPath, '<div>__ERROR_MESSAGE__</div>');
+  fs.writeFileSync(authLoginHtmlPath, '<div>auth-login</div>');
+  fs.writeFileSync(playerLoginHtmlPath, '<div>__ERROR_MESSAGE__</div>');
   fs.writeFileSync(playerHtmlPath, '<div>player</div>');
   fs.writeFileSync(legacyPlayerHtmlPath, '<div>legacy-player</div>');
   fs.writeFileSync(landingHtmlPath, '<div>landing</div>');
+  fs.writeFileSync(pricingHtmlPath, '<div>pricing</div>');
+  fs.writeFileSync(signupHtmlPath, '<div>signup</div>');
+  fs.writeFileSync(forgotPasswordHtmlPath, '<div>forgot</div>');
+  fs.writeFileSync(verifyEmailHtmlPath, '<div>verify</div>');
+  fs.writeFileSync(checkoutHtmlPath, '<div>checkout</div>');
+  fs.writeFileSync(paymentResultHtmlPath, '<div>payment-result</div>');
+  fs.writeFileSync(previewHtmlPath, '<div>preview</div>');
   fs.writeFileSync(trialHtmlPath, '<div>trial</div>');
   fs.writeFileSync(showcaseHtmlPath, '<div>showcase</div>');
   fs.writeFileSync(path.join(assetsDir, 'portal.css'), 'body{color:steelblue}');
@@ -61,10 +77,18 @@ test('portal page asset runtime renders login template and public docs', () => {
 
   const runtime = createPortalPageAssetRuntime({
     isProduction: false,
-    loginHtmlPath,
+    authLoginHtmlPath,
+    playerLoginHtmlPath,
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    pricingHtmlPath,
+    signupHtmlPath,
+    forgotPasswordHtmlPath,
+    verifyEmailHtmlPath,
+    checkoutHtmlPath,
+    paymentResultHtmlPath,
+    previewHtmlPath,
     trialHtmlPath,
     showcaseHtmlPath,
     publicAssetsDirPath: assetsDir,
@@ -88,12 +112,20 @@ test('portal page asset runtime renders login template and public docs', () => {
   });
 
   assert.equal(
-    runtime.renderLoginPage('<script>alert(1)</script>'),
+    runtime.renderPlayerLoginPage('<script>alert(1)</script>'),
     '<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>',
   );
+  assert.equal(runtime.getAuthLoginHtml(), '<div>auth-login</div>');
   assert.equal(runtime.getPlayerHtml(), '<div>player</div>');
   assert.equal(runtime.getLegacyPlayerHtml(), '<div>legacy-player</div>');
   assert.equal(runtime.getLandingHtml(), '<div>landing</div>');
+  assert.equal(runtime.getPricingHtml(), '<div>pricing</div>');
+  assert.equal(runtime.getSignupHtml(), '<div>signup</div>');
+  assert.equal(runtime.getForgotPasswordHtml(), '<div>forgot</div>');
+  assert.equal(runtime.getVerifyEmailHtml(), '<div>verify</div>');
+  assert.equal(runtime.getCheckoutHtml(), '<div>checkout</div>');
+  assert.equal(runtime.getPaymentResultHtml(), '<div>payment-result</div>');
+  assert.equal(runtime.getPreviewHtml(), '<div>preview</div>');
   assert.equal(runtime.getTrialHtml(), '<div>trial</div>');
   assert.equal(runtime.getShowcaseHtml(), '<div>showcase</div>');
 

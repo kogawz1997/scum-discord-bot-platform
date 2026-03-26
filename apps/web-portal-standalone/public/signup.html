@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="public.signup.documentTitle">SCUM TH Platform | Sign Up</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-preview-flow-1">
+</head>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a class="is-active" href="/signup" data-i18n="public.nav.signup">Sign Up</a>
+        <a href="/login" data-i18n="public.nav.login">Login</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="signupLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="auth-layout">
+        <section class="auth-card">
+          <span class="marketing-kicker" data-i18n="public.signup.kicker">Preview enrollment</span>
+          <h1 data-i18n="public.signup.title">Create an account and inspect the platform before purchase.</h1>
+          <p data-i18n="public.signup.detail">The public product path starts with preview mode. Users can inspect the tenant admin experience, locked modules, and package boundaries before a paid subscription is active.</p>
+          <form id="previewSignupForm" class="auth-card">
+            <div class="auth-field">
+              <span data-i18n="public.signup.name">Your name</span>
+              <input id="previewSignupDisplayName" type="text" data-i18n-placeholder="public.signup.namePlaceholder" placeholder="Narin">
+            </div>
+            <div class="auth-field">
+              <span data-i18n="public.signup.email">Email</span>
+              <input id="previewSignupEmail" type="email" placeholder="name@example.com">
+            </div>
+            <div class="auth-field">
+              <span data-i18n="public.signup.password">Password</span>
+              <input id="previewSignupPassword" type="password" placeholder="********">
+            </div>
+            <div class="auth-field">
+              <span data-i18n="public.signup.company">Server or community name</span>
+              <input id="previewSignupCommunityName" type="text" data-i18n-placeholder="public.signup.companyPlaceholder" placeholder="SCUM Thailand Operations">
+            </div>
+            <div class="auth-field">
+              <span data-i18n="public.signup.package">Preview package</span>
+              <select id="previewSignupPackageId"></select>
+            </div>
+            <div class="preview-state">
+              <strong data-i18n="public.signup.previewTitle">Preview mode is the first state.</strong>
+              <p data-i18n="public.signup.previewDetail">After registration, the account can browse menus and locked flows before package activation.</p>
+            </div>
+            <div id="previewSignupStatus" class="form-status" aria-live="polite"></div>
+            <div class="button-row">
+              <button id="previewSignupSubmit" class="button button-primary" type="submit" data-i18n="public.signup.create">Create Preview Account</button>
+              <a class="button" href="/pricing" data-i18n="public.signup.review">Review Packages</a>
+            </div>
+          </form>
+        </section>
+
+        <aside class="auth-side">
+          <div class="auth-visual"></div>
+          <section class="auth-card">
+            <span class="marketing-kicker" data-i18n="public.signup.availableKicker">Available now</span>
+            <h2 data-i18n="public.signup.availableTitle">Use current working sign-in routes immediately.</h2>
+            <p data-i18n="public.signup.availableDetail">Owner and tenant admins keep their dedicated login paths. Players continue through Discord sign-in. The preview and checkout flow live in the public product site.</p>
+            <div class="button-row">
+              <a class="button" href="/owner/login" data-i18n="public.login.owner">Owner Login</a>
+              <a class="button" href="/tenant/login" data-i18n="public.login.tenant">Tenant Admin Login</a>
+              <a class="button" href="/player/login" data-i18n="public.login.player">Player Login</a>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-preview-flow-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260325-preview-flow-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['signupLanguageSelect']);
+  </script>
+</body>
+</html>

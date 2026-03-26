@@ -4,7 +4,7 @@ const {
   buildScopedRowKey,
   dedupeScopedRows,
   normalizeTenantId,
-  readAcrossDeliveryPersistenceScopes,
+  readAcrossDeliveryPersistenceScopeBatch,
 } = require('./deliveryPersistenceDb');
 
 const DEFAULT_CACHE_WINDOW_MS = 15 * 1000;
@@ -88,18 +88,6 @@ async function queryAdminDashboardMetrics(options = {}) {
   const usesTenantTopology = tenantTopologyMode !== 'shared';
   const scopedPrisma = tenantId ? getTenantScopedPrismaClient(tenantId) : prisma;
 
-  async function countRowsAcrossScopes(selectKey, modelName) {
-    const { fields, select } = buildScopeSelect(modelName, selectKey);
-    const rows = await readAcrossDeliveryPersistenceScopes(
-      (db) => db?.[modelName]?.findMany({ select }),
-      tenantId ? { tenantId } : {},
-    );
-    return dedupeScopedRows(
-      rows,
-      (row) => buildScopedRowKey(row, fields, { mapSharedScopeToDefaultTenant: true }),
-    ).length;
-  }
-
   if (tenantId || !usesTenantTopology) {
     const activePrisma = scopedPrisma;
     const tenantScopedSharedWhere = tenantId && tenantTopologyMode === 'shared'
@@ -170,60 +158,69 @@ async function queryAdminDashboardMetrics(options = {}) {
     };
   }
 
-  const [
-    walletCount,
-    shopItemCount,
-    purchaseCount,
-    ticketCount,
-    eventCount,
-    bountyCount,
-    linkCount,
-    membershipCount,
-    redeemCodeCount,
-    statsCount,
-    weaponStatCount,
-    dailyRentCount,
-    rentalVehicleCount,
-    deliveryQueueCount,
-    deliveryDeadLetterCount,
-    deliveryAuditCount,
-  ] = await Promise.all([
-    countRowsAcrossScopes('userId', 'userWallet'),
-    countRowsAcrossScopes('id', 'shopItem'),
-    countRowsAcrossScopes('code', 'purchase'),
-    countRowsAcrossScopes('channelId', 'ticketRecord'),
-    countRowsAcrossScopes('id', 'guildEvent'),
-    countRowsAcrossScopes('id', 'bounty'),
-    countRowsAcrossScopes('steamId', 'link'),
-    countRowsAcrossScopes('userId', 'vipMembership'),
-    countRowsAcrossScopes('code', 'redeemCode'),
-    countRowsAcrossScopes('userId', 'stats'),
-    countRowsAcrossScopes('weapon', 'weaponStat'),
-    countRowsAcrossScopes('userKey', 'dailyRent'),
-    countRowsAcrossScopes('orderId', 'rentalVehicle'),
-    countRowsAcrossScopes('purchaseCode', 'deliveryQueueJob'),
-    countRowsAcrossScopes('purchaseCode', 'deliveryDeadLetter'),
-    countRowsAcrossScopes('id', 'deliveryAudit'),
-  ]);
+  const globalModels = [
+    ['walletCount', 'userWallet', 'userId'],
+    ['shopItemCount', 'shopItem', 'id'],
+    ['purchaseCount', 'purchase', 'code'],
+    ['ticketCount', 'ticketRecord', 'channelId'],
+    ['eventCount', 'guildEvent', 'id'],
+    ['bountyCount', 'bounty', 'id'],
+    ['linkCount', 'link', 'steamId'],
+    ['membershipCount', 'vipMembership', 'userId'],
+    ['redeemCodeCount', 'redeemCode', 'code'],
+    ['statsCount', 'stats', 'userId'],
+    ['weaponStatCount', 'weaponStat', 'weapon'],
+    ['dailyRentCount', 'dailyRent', 'userKey'],
+    ['rentalVehicleCount', 'rentalVehicle', 'orderId'],
+    ['deliveryQueueCount', 'deliveryQueueJob', 'purchaseCode'],
+    ['deliveryDeadLetterCount', 'deliveryDeadLetter', 'purchaseCode'],
+    ['deliveryAuditCount', 'deliveryAudit', 'id'],
+  ];
+  const batchTasks = Object.fromEntries(
+    globalModels.map(([, modelName, selectKey]) => {
+      const { select } = buildScopeSelect(modelName, selectKey);
+      return [
+        modelName,
+        (db) => db?.[modelName]?.findMany({ select }),
+      ];
+    }),
+  );
+  const batchRows = await readAcrossDeliveryPersistenceScopeBatch(
+    batchTasks,
+    tenantId ? { tenantId } : {},
+  );
+  const counts = Object.fromEntries(
+    globalModels.map(([metricKey, modelName, selectKey]) => {
+      const { fields } = buildScopeSelect(modelName, selectKey);
+      const rows = Array.isArray(batchRows[modelName]) ? batchRows[modelName] : [];
+      return [
+        metricKey,
+        dedupeScopedRows(
+          rows,
+          (row) => buildScopedRowKey(row, fields, { mapSharedScopeToDefaultTenant: true }),
+        ).length,
+      ];
+    }),
+  );
 
   return {
     guildCount,
-    walletCount,
-    shopItemCount,
-    purchaseCount,
-    ticketCount,
-    eventCount,
-    bountyCount,
-    linkCount,
-    membershipCount,
-    redeemCodeCount,
-    statsCount,
-    weaponStatCount,
-    dailyRentCount,
-    rentalVehicleCount,
-    deliveryQueueCount,
-    deliveryDeadLetterCount,
-    deliveryAuditCount,
+    walletCount: counts.walletCount,
+    shopItemCount: counts.shopItemCount,
+    purchaseCount: counts.purchaseCount,
+    ticketCount: counts.ticketCount,
+    eventCount: counts.eventCount,
+    bountyCount: counts.bountyCount,
+    linkCount: counts.linkCount,
+    membershipCount: counts.membershipCount,
+    redeemCodeCount: counts.redeemCodeCount,
+    statsCount: counts.statsCount,
+    weaponStatCount: counts.weaponStatCount,
+    dailyRentCount: counts.dailyRentCount,
+    rentalVehicleCount: counts.rentalVehicleCount,
+    deliveryQueueCount: counts.deliveryQueueCount,
+    deliveryDeadLetterCount: counts.deliveryDeadLetterCount,
+    deliveryAuditCount: counts.deliveryAuditCount,
   };
 }
 

@@ -404,7 +404,7 @@ function createAdminPublicRoutes(deps) {
               tenant: platformAuth.tenant,
               apiKey: platformAuth.apiKey,
               scopes: platformAuth.scopes,
-              quota: await getTenantQuotaSnapshot(platformAuth.tenant?.id),
+              quota: await getTenantQuotaSnapshot(platformAuth.tenant?.id, { cache: false }),
             },
           });
           return true;
@@ -415,7 +415,7 @@ function createAdminPublicRoutes(deps) {
           if (!platformAuth) return true;
           sendJson(res, 200, {
             ok: true,
-            data: await getTenantQuotaSnapshot(platformAuth.tenant?.id),
+            data: await getTenantQuotaSnapshot(platformAuth.tenant?.id, { cache: false }),
           });
           return true;
         }
@@ -426,8 +426,8 @@ function createAdminPublicRoutes(deps) {
           sendJson(res, 200, {
             ok: true,
             data: typeof getTenantFeatureAccess === 'function'
-              ? await getTenantFeatureAccess(platformAuth.tenant?.id)
-              : await getTenantQuotaSnapshot(platformAuth.tenant?.id),
+              ? await getTenantFeatureAccess(platformAuth.tenant?.id, { cache: false })
+              : await getTenantQuotaSnapshot(platformAuth.tenant?.id, { cache: false }),
           });
           return true;
         }

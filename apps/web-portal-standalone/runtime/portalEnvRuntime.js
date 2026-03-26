@@ -76,10 +76,18 @@ function createPortalEnvRuntime(deps = {}) {
     10 * 60 * 1000,
   );
   const publicAssetsDirPath = path.join(__dirname, '..', 'public', 'assets');
-  const loginHtmlPath = path.join(__dirname, '..', 'public', 'login.html');
+  const authLoginHtmlPath = path.join(__dirname, '..', 'public', 'login.html');
+  const playerLoginHtmlPath = path.join(__dirname, '..', 'public', 'player-login.html');
   const playerHtmlPath = path.join(__dirname, '..', 'public', 'player-core.html');
   const legacyPlayerHtmlPath = path.join(__dirname, '..', 'public', 'player.html');
   const landingHtmlPath = path.join(__dirname, '..', 'public', 'landing.html');
+  const pricingHtmlPath = path.join(__dirname, '..', 'public', 'pricing.html');
+  const signupHtmlPath = path.join(__dirname, '..', 'public', 'signup.html');
+  const forgotPasswordHtmlPath = path.join(__dirname, '..', 'public', 'forgot-password.html');
+  const verifyEmailHtmlPath = path.join(__dirname, '..', 'public', 'verify-email.html');
+  const checkoutHtmlPath = path.join(__dirname, '..', 'public', 'checkout.html');
+  const paymentResultHtmlPath = path.join(__dirname, '..', 'public', 'payment-result.html');
+  const previewHtmlPath = path.join(__dirname, '..', 'public', 'preview.html');
   const trialHtmlPath = path.join(__dirname, '..', 'public', 'trial.html');
   const showcaseHtmlPath = path.join(__dirname, '..', 'public', 'showcase.html');
   const docsDirPath = path.resolve(process.cwd(), 'docs');
@@ -117,10 +125,18 @@ function createPortalEnvRuntime(deps = {}) {
     cleanupIntervalMs,
     publicAssetsDirPath,
     discordApiBase: 'https://discord.com/api/v10',
-    loginHtmlPath,
+    authLoginHtmlPath,
+    playerLoginHtmlPath,
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    pricingHtmlPath,
+    signupHtmlPath,
+    forgotPasswordHtmlPath,
+    verifyEmailHtmlPath,
+    checkoutHtmlPath,
+    paymentResultHtmlPath,
+    previewHtmlPath,
     trialHtmlPath,
     showcaseHtmlPath,
     docsDirPath,

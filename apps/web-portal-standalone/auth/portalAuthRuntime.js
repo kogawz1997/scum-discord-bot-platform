@@ -42,7 +42,22 @@ function createPortalAuthRuntime(options = {}) {
     return out;
   }
 
-  function buildSessionCookie(sessionId) {
+  function resolveCookieRuntime(req) {
+    const requestHost = extractHostname(req?.headers?.host || '');
+    if (isLoopbackHostname(requestHost)) {
+      return {
+        secureCookie: false,
+        sessionCookieDomain: '',
+      };
+    }
+    return {
+      secureCookie: options.secureCookie,
+      sessionCookieDomain: options.sessionCookieDomain,
+    };
+  }
+
+  function buildSessionCookie(sessionId, req) {
+    const runtime = resolveCookieRuntime(req);
     const parts = [
       `${options.sessionCookieName}=${encodeURIComponent(sessionId)}`,
       'HttpOnly',
@@ -50,12 +65,13 @@ function createPortalAuthRuntime(options = {}) {
       `SameSite=${options.sessionCookieSameSite}`,
       `Max-Age=${Math.floor(options.sessionTtlMs / 1000)}`,
     ];
-    if (options.sessionCookieDomain) parts.push(`Domain=${options.sessionCookieDomain}`);
-    if (options.secureCookie) parts.push('Secure');
+    if (runtime.sessionCookieDomain) parts.push(`Domain=${runtime.sessionCookieDomain}`);
+    if (runtime.secureCookie) parts.push('Secure');
     return parts.join('; ');
   }
 
-  function buildClearSessionCookie() {
+  function buildClearSessionCookie(req) {
+    const runtime = resolveCookieRuntime(req);
     const parts = [
       `${options.sessionCookieName}=`,
       'HttpOnly',
@@ -63,8 +79,8 @@ function createPortalAuthRuntime(options = {}) {
       `SameSite=${options.sessionCookieSameSite}`,
       'Max-Age=0',
     ];
-    if (options.sessionCookieDomain) parts.push(`Domain=${options.sessionCookieDomain}`);
-    if (options.secureCookie) parts.push('Secure');
+    if (runtime.sessionCookieDomain) parts.push(`Domain=${runtime.sessionCookieDomain}`);
+    if (runtime.secureCookie) parts.push('Secure');
     return parts.join('; ');
   }
 
@@ -166,6 +182,18 @@ function createPortalAuthRuntime(options = {}) {
     }
   }
 
+  function getRequestOrigin(req) {
+    const reqHost = String(req?.headers?.host || '').trim().toLowerCase();
+    if (!reqHost) return null;
+    const forwardedProto = getForwardedProto(req);
+    const reqProto = forwardedProto || (req?.socket?.encrypted ? 'https' : 'http');
+    try {
+      return new URL(`${reqProto}://${reqHost}`).origin;
+    } catch {
+      return null;
+    }
+  }
+
   function verifyOrigin(req) {
     if (!options.enforceOriginCheck) return true;
 
@@ -174,15 +202,21 @@ function createPortalAuthRuntime(options = {}) {
 
     const expectedOrigin = getBaseOrigin();
     if (!expectedOrigin) return false;
+    const requestOrigin = getRequestOrigin(req);
+    const requestHost = extractHostname(req?.headers?.host || '');
+    const allowedOrigins = new Set([expectedOrigin]);
+    if (requestOrigin && isLoopbackHostname(requestHost)) {
+      allowedOrigins.add(requestOrigin);
+    }
 
     const originHeader = String(req?.headers?.origin || '').trim();
-    if (originHeader && originHeader !== expectedOrigin) return false;
+    if (originHeader && !allowedOrigins.has(originHeader)) return false;
 
     const referer = String(req?.headers?.referer || '').trim();
     if (referer) {
       try {
         const refererOrigin = new URL(referer).origin;
-        if (refererOrigin !== expectedOrigin) return false;
+        if (!allowedOrigins.has(refererOrigin)) return false;
       } catch {
         return false;
       }
@@ -388,7 +422,7 @@ function createPortalAuthRuntime(options = {}) {
 
       res.writeHead(302, {
         Location: '/player',
-        'Set-Cookie': buildSessionCookie(sessionId),
+        'Set-Cookie': buildSessionCookie(sessionId, _req),
       });
       res.end();
     } catch (error) {

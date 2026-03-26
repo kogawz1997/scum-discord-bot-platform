@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="public.verify.documentTitle">SCUM TH Platform | Verify Email</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-shell-cutover-1">
+</head>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
+      </a>
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/login" data-i18n="public.nav.login">Login</a>
+      </nav>
+      <div class="marketing-tools">
+        <label class="language-picker">
+          <span data-i18n="common.language">Language</span>
+          <select id="verifyLanguageSelect" class="language-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="marketing-main">
+      <section class="marketing-panel">
+        <div class="marketing-panel-head">
+          <span class="marketing-kicker" data-i18n="public.verify.kicker">Email verification</span>
+          <h1 data-i18n="public.verify.title">Verification status and next step</h1>
+          <p data-i18n="public.verify.detail">This route is part of the new public account architecture. It keeps the product flow explicit even while legacy entrypoints remain compatible.</p>
+        </div>
+        <div class="button-row">
+          <a class="button button-primary" href="/login" data-i18n="public.verify.login">Open Login Hub</a>
+          <a class="button" href="/checkout" data-i18n="public.nav.checkout">Open Checkout</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script>
+    window.PortalUiI18n?.init(['verifyLanguageSelect']);
+  </script>
+</body>
+</html>

@@ -73,7 +73,7 @@ let cachedClient = null;
 let cachedKey = '';
 const scopedClientCache = new Map();
 
-function buildManagedDatasourceUrl(rawInput = process.env.DATABASE_URL) {
+function buildManagedDatasourceUrl(rawInput = process.env.DATABASE_URL, options = {}) {
   ensureTestDatabaseDefaults();
   const rawUrl = normalizeText(rawInput || process.env.DATABASE_URL);
   if (!/^postgres(?:ql)?:\/\//i.test(rawUrl) && !/^mysql:\/\//i.test(rawUrl)) {
@@ -88,18 +88,22 @@ function buildManagedDatasourceUrl(rawInput = process.env.DATABASE_URL) {
   }
 
   if (!normalizeText(parsed.searchParams.get('connection_limit'))) {
-    const defaultLimit = isNodeTestRuntime() ? '2' : '5';
+    const defaultLimit = normalizeText(options.connectionLimit)
+      || normalizeText(process.env.PRISMA_CONNECTION_LIMIT)
+      || (isNodeTestRuntime() ? '2' : '5');
     parsed.searchParams.set(
       'connection_limit',
-      normalizeText(process.env.PRISMA_CONNECTION_LIMIT) || defaultLimit,
+      defaultLimit,
     );
   }
 
   if (!normalizeText(parsed.searchParams.get('pool_timeout'))) {
-    const defaultPoolTimeout = isNodeTestRuntime() ? '10' : '20';
+    const defaultPoolTimeout = normalizeText(options.poolTimeout)
+      || normalizeText(process.env.PRISMA_POOL_TIMEOUT)
+      || (isNodeTestRuntime() ? '10' : '20');
     parsed.searchParams.set(
       'pool_timeout',
-      normalizeText(process.env.PRISMA_POOL_TIMEOUT) || defaultPoolTimeout,
+      defaultPoolTimeout,
     );
   }
 
@@ -129,8 +133,8 @@ function createPrismaClient() {
   });
 }
 
-function createScopedPrismaClient(databaseUrl) {
-  const managedUrl = buildManagedDatasourceUrl(databaseUrl);
+function createScopedPrismaClient(databaseUrl, options = {}) {
+  const managedUrl = buildManagedDatasourceUrl(databaseUrl, options);
   if (!managedUrl) {
     return new PrismaClient();
   }
@@ -141,6 +145,17 @@ function createScopedPrismaClient(databaseUrl) {
       },
     },
   });
+}
+
+function getScopedClientPoolOptions(options = {}) {
+  return {
+    connectionLimit: normalizeText(options.connectionLimit)
+      || normalizeText(process.env.PRISMA_SCOPED_CONNECTION_LIMIT)
+      || '1',
+    poolTimeout: normalizeText(options.poolTimeout)
+      || normalizeText(process.env.PRISMA_SCOPED_POOL_TIMEOUT)
+      || '10',
+  };
 }
 
 function getPrismaClient() {
@@ -156,10 +171,11 @@ function getPrismaClient() {
 }
 
 function getScopedPrismaClient(databaseUrl) {
-  const managedUrl = buildManagedDatasourceUrl(databaseUrl);
+  const scopedPoolOptions = getScopedClientPoolOptions();
+  const managedUrl = buildManagedDatasourceUrl(databaseUrl, scopedPoolOptions);
   const cacheKey = managedUrl || '__default__';
   if (!scopedClientCache.has(cacheKey)) {
-    scopedClientCache.set(cacheKey, createScopedPrismaClient(managedUrl));
+    scopedClientCache.set(cacheKey, createScopedPrismaClient(databaseUrl, scopedPoolOptions));
   }
   return scopedClientCache.get(cacheKey);
 }
@@ -206,7 +222,38 @@ function getTenantScopedPrismaClient(tenantId, options = {}) {
       provider: options.provider || env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
     });
   }
+  if (options.cache === false || options.transient === true) {
+    return createScopedPrismaClient(datasourceUrl, getScopedClientPoolOptions({
+      connectionLimit: normalizeText(process.env.PRISMA_TRANSIENT_SCOPED_CONNECTION_LIMIT) || '1',
+      poolTimeout: normalizeText(process.env.PRISMA_TRANSIENT_SCOPED_POOL_TIMEOUT) || '10',
+    }));
+  }
   return getScopedPrismaClient(datasourceUrl);
+}
+
+async function withTenantScopedPrismaClient(tenantId, options, work) {
+  let runtimeOptions = options;
+  let callback = work;
+  if (typeof runtimeOptions === 'function') {
+    callback = runtimeOptions;
+    runtimeOptions = {};
+  }
+  if (typeof callback !== 'function') {
+    throw new TypeError('withTenantScopedPrismaClient requires a callback');
+  }
+  const normalizedOptions = runtimeOptions && typeof runtimeOptions === 'object'
+    ? runtimeOptions
+    : {};
+  const client = getTenantScopedPrismaClient(tenantId, normalizedOptions);
+  const shouldDisconnectClient = client !== getPrismaClient()
+    && (normalizedOptions.cache === false || normalizedOptions.transient === true);
+  try {
+    return await callback(client);
+  } finally {
+    if (shouldDisconnectClient && typeof client?.$disconnect === 'function') {
+      await client.$disconnect().catch(() => {});
+    }
+  }
 }
 
 function getDefaultTenantScopedPrismaClient(options = {}) {
@@ -271,6 +318,7 @@ module.exports = {
   getPrismaClient,
   getDefaultTenantScopedPrismaClient,
   getTenantScopedPrismaClient,
+  withTenantScopedPrismaClient,
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,
   disconnectPrismaClient,

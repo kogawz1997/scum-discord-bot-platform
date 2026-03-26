@@ -19,9 +19,43 @@ function getScopedPrismaClient(tenantId, options = {}) {
   return prismaModule.prisma;
 }
 
+async function withScopedPrismaClient(tenantId, options = {}, work) {
+  const prismaModule = getPrismaModule();
+  if (typeof prismaModule.withTenantScopedPrismaClient === 'function') {
+    return prismaModule.withTenantScopedPrismaClient(tenantId, options, work);
+  }
+  return work(getScopedPrismaClient(tenantId, options));
+}
+
 function normalizeTenantId(value) {
   const text = String(value || '').trim();
   return text || null;
+}
+
+function normalizeScopedSchemaTenantId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function isMissingScopedRelationError(error, tenantId = null) {
+  const scopedTenantId = normalizeTenantId(tenantId);
+  if (!scopedTenantId || !error || typeof error !== 'object') {
+    return false;
+  }
+  const code = String(error.code || '').trim().toUpperCase();
+  if (code !== 'P2021' && code !== 'P2022') {
+    return false;
+  }
+  const message = String(error.message || '');
+  const table = String(error?.meta?.table || '').toLowerCase();
+  const schemaName = `tenant_${normalizeScopedSchemaTenantId(scopedTenantId)}`;
+  const referencesScopedSchema = table
+    ? table.includes(`${schemaName}.`) || table.startsWith(`${schemaName}.`) || table.includes(schemaName)
+    : /does not exist in the current database/i.test(message);
+  return referencesScopedSchema || /does not exist in the current database/i.test(message);
 }
 
 function annotateScopeRow(row, scope = {}) {
@@ -119,7 +153,6 @@ function resolvePersistenceScope(tenantId, options = {}) {
     tenantId: normalizedTenantId,
     topologyMode,
     usesIsolatedTopology,
-    db: normalizedTenantId ? getScopedPrismaClient(normalizedTenantId, options) : getDefaultPrismaClient(),
     whereTenant: normalizedTenantId ? { tenantId: normalizedTenantId } : {},
   };
 }
@@ -129,20 +162,34 @@ async function runWithDeliveryPersistenceScope(tenantId, work, options = {}) {
     throw new TypeError('runWithDeliveryPersistenceScope requires a callback');
   }
   const scope = resolvePersistenceScope(tenantId, options);
-  const supportsIsolationSession =
-    scope.db
-    && typeof scope.db.$transaction === 'function'
-    && (
-      typeof scope.db.$executeRaw === 'function'
-      || typeof scope.db.$executeRawUnsafe === 'function'
-    );
-  if (!scope.tenantId || !supportsIsolationSession) {
-    return work(scope.db, scope);
+  if (!scope.tenantId) {
+    const sharedDb = getDefaultPrismaClient();
+    return work(sharedDb, { ...scope, db: sharedDb });
   }
-  return withTenantDbIsolation(
-    scope.db,
-    { tenantId: scope.tenantId, enforce: true, env: options.env || process.env },
-    async (db, isolation) => work(db, { ...scope, db, isolation }),
+  return withScopedPrismaClient(
+    scope.tenantId,
+    {
+      ...options,
+      cache: options.cacheScopedClient === false ? false : options.cache,
+      transient: options.transientScopedClient === true,
+    },
+    async (scopedDb) => {
+      const supportsIsolationSession =
+        scopedDb
+        && typeof scopedDb.$transaction === 'function'
+        && (
+          typeof scopedDb.$executeRaw === 'function'
+          || typeof scopedDb.$executeRawUnsafe === 'function'
+        );
+      if (!supportsIsolationSession) {
+        return work(scopedDb, { ...scope, db: scopedDb });
+      }
+      return withTenantDbIsolation(
+        scopedDb,
+        { tenantId: scope.tenantId, enforce: true, env: options.env || process.env },
+        async (db, isolation) => work(db, { ...scope, db, isolation }),
+      );
+    },
   );
 }
 
@@ -191,10 +238,56 @@ async function readAcrossDeliveryPersistenceScopes(readWork, options = {}) {
   const scopes = await listDeliveryPersistenceScopes(options);
   const results = [];
   for (const scope of scopes) {
-    const rows = await runWithDeliveryPersistenceScope(scope.tenantId, (db, scoped) =>
-      readWork(db, scoped), options);
+    let rows;
+    try {
+      rows = await runWithDeliveryPersistenceScope(scope.tenantId, (db, scoped) =>
+        readWork(db, scoped), {
+        ...options,
+        cacheScopedClient: scope.tenantId ? false : options.cacheScopedClient,
+      });
+    } catch (error) {
+      if (isMissingScopedRelationError(error, scope.tenantId)) {
+        continue;
+      }
+      throw error;
+    }
     if (Array.isArray(rows)) {
       results.push(...rows.map((row) => annotateScopeRow(row, scope)));
+    }
+  }
+  return results;
+}
+
+async function readAcrossDeliveryPersistenceScopeBatch(taskEntries, options = {}) {
+  const entries = Object.entries(taskEntries || {})
+    .filter(([key, task]) => String(key || '').trim() && typeof task === 'function');
+  const results = Object.fromEntries(entries.map(([key]) => [key, []]));
+  if (entries.length === 0) {
+    return results;
+  }
+  const scopes = await listDeliveryPersistenceScopes(options);
+  for (const scope of scopes) {
+    try {
+      await runWithDeliveryPersistenceScope(
+        scope.tenantId,
+        async (db, scoped) => {
+          for (const [key, task] of entries) {
+            const rows = await task(db, scoped);
+            if (Array.isArray(rows)) {
+              results[key].push(...rows.map((row) => annotateScopeRow(row, scope)));
+            }
+          }
+        },
+        {
+          ...options,
+          cacheScopedClient: scope.tenantId ? false : options.cacheScopedClient,
+        },
+      );
+    } catch (error) {
+      if (isMissingScopedRelationError(error, scope.tenantId)) {
+        continue;
+      }
+      throw error;
     }
   }
   return results;
@@ -221,5 +314,7 @@ module.exports = {
   runWithDeliveryPersistenceScope,
   listDeliveryPersistenceScopes,
   readAcrossDeliveryPersistenceScopes,
+  readAcrossDeliveryPersistenceScopeBatch,
   groupRowsByTenant,
+  isMissingScopedRelationError,
 };

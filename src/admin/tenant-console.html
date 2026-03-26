@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="tenant.documentTitle">SCUM Server Admin Console</title>
-  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260325-usability-1">
+  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260325-shell-cutover-1">
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v2.css?v=20260325-shell-cutover-1">
 </head>
 <body class="surface-tenant">
-  <div class="surface-root console-app-shell">
-    <section class="surface-command-header">
-      <div class="console-topbar">
+  <div class="surface-root surface-root-v2 console-app-shell">
+    <header class="console-topbar cp-shell-topbar">
         <a class="console-brand" href="/tenant">
           <span class="brand-emblem">SCUM</span>
           <span class="brand-copy">
@@ -37,80 +37,75 @@
             </div>
           </details>
         </div>
-      </div>
-      <div class="console-heading-shell">
-        <div class="console-heading-copy">
-          <span class="surface-id" data-i18n="tenant.surfaceId">Tenant Admin Console</span>
-          <h1 data-i18n="tenant.title">Server Admin Workspace</h1>
-          <p data-i18n="tenant.subtitle">Run tenant-scoped servers, agents, logs, shop, orders, delivery, players, settings, and subscription tasks without owner-only platform noise.</p>
-        </div>
-        <div class="console-heading-meta">
-          <div class="console-meta-grid console-meta-grid-pages">
-            <section class="command-side-card command-visual-card command-visual-card-tenant">
-              <span class="section-kicker" data-i18n="common.surfaceRole">Surface role</span>
-              <strong data-i18n="tenant.roleCardTitle">Tenant-scoped admin</strong>
-              <p class="compact-hint" data-i18n="tenant.roleCardDetail">Admin is for one tenant only: servers, agents, logs, commerce, delivery, player support, subscription posture, and safe settings inside that tenant scope.</p>
-            </section>
-            <section class="command-side-card command-page-card">
-              <span class="section-kicker" data-i18n="tenant.primary.kicker">Admin pages</span>
-              <strong data-i18n="tenant.primary.title">Tenant systems</strong>
-              <p class="compact-hint" data-i18n="tenant.primary.detail">Pick the tenant system you want to work on. Secondary tools for the active page stay in the left rail.</p>
-              <nav class="surface-primary-grid surface-primary-grid-wide" aria-label="Tenant primary pages">
-                <a class="surface-primary-link" href="#dashboard" data-primary-sections="dashboard,overview">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.dashboard">Dashboard</span>
-                  <p data-i18n="tenant.primary.dashboardDetail">Tenant health, quota posture, support signal, and quick operator shortcuts.</p>
-                </a>
-                <a class="surface-primary-link" href="#servers" data-primary-sections="servers,operations">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.servers">Servers</span>
-                  <p data-i18n="tenant.primary.serversDetail">Runtime alerts, live activity, and scoped server posture.</p>
-                </a>
-                <a class="surface-primary-link" href="#agents" data-primary-sections="agents">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.agents">Agents</span>
-                  <p data-i18n="tenant.primary.agentsDetail">Runtime agents, live activity, and execution posture for the current tenant.</p>
-                </a>
-                <a class="surface-primary-link" href="#logs" data-primary-sections="logs,incidents,insights,audit">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.logs">Logs</span>
-                  <p data-i18n="tenant.primary.logsDetail">Incident inbox, reconcile findings, audit trail, and scoped event review.</p>
-                </a>
-                <a class="surface-primary-link" href="#shop" data-primary-sections="shop,catalog-tools">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.shop">Shop</span>
-                  <p data-i18n="tenant.primary.shopDetail">Catalog, offers, stock posture, and storefront tools.</p>
-                </a>
-                <a class="surface-primary-link" href="#orders" data-primary-sections="orders,transactions">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.orders">Orders</span>
-                  <p data-i18n="tenant.primary.ordersDetail">Purchase search, delivery cases, wallet issues, and transaction history.</p>
-                </a>
-                <a class="surface-primary-link" href="#delivery" data-primary-sections="delivery,commerce,sandbox">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.delivery">Delivery</span>
-                  <p data-i18n="tenant.primary.deliveryDetail">Queue, dead letters, retry tooling, and delivery lab workflows.</p>
-                </a>
-                <a class="surface-primary-link" href="#players" data-primary-sections="players,support-tools">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.players">Players</span>
-                  <p data-i18n="tenant.primary.playersDetail">Player activity, linkage, support actions, and account follow-up.</p>
-                </a>
-                <a class="surface-primary-link" href="#settings" data-primary-sections="settings,config,actions">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.settings">Settings</span>
-                  <p data-i18n="tenant.primary.settingsDetail">Scoped configuration, safe actions, and guarded server changes.</p>
-                </a>
-                <a class="surface-primary-link" href="#subscription" data-primary-sections="subscription,plan-integrations">
-                  <span class="surface-primary-label" data-i18n="tenant.primary.subscription">Subscription</span>
-                  <p data-i18n="tenant.primary.subscriptionDetail">Plan, allowances, keys, webhooks, and subscription visibility.</p>
-                </a>
-              </nav>
-              <div class="surface-hidden-workspace">
-                <div id="tenantWorkspaceSwitch" class="workspace-switch compact-workspace-switch"></div>
-                <p id="tenantWorkspaceHint" class="hint compact-hint" data-i18n="tenant.workspaceHintLoading">Loading tenant workspace layout...</p>
-                <div id="tenantWorkspaceSummary" class="workspace-summary compact-workspace-summary"></div>
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    </section>
+    </header>
 
-    <div class="console-stage">
-      <aside id="tenantSidebar" class="surface-sidebar">
-        <nav class="nav-card">
+    <div class="cp-shell-layout">
+      <aside id="tenantSidebar" class="surface-sidebar cp-sidebar">
+        <section class="cp-sidebar-panel visual-tenant">
+          <div class="cp-sidebar-heading">
+            <span class="section-kicker" data-i18n="common.surfaceRole">Surface role</span>
+            <strong data-i18n="tenant.roleCardTitle">Tenant-scoped admin</strong>
+            <p data-i18n="tenant.roleCardDetail">Admin is for one tenant only: servers, agents, logs, commerce, delivery, player support, subscription posture, and safe settings inside that tenant scope.</p>
+          </div>
+        </section>
+        <section class="cp-sidebar-panel">
+          <div class="cp-sidebar-heading">
+            <span class="section-kicker" data-i18n="tenant.primary.kicker">Admin pages</span>
+            <strong data-i18n="tenant.primary.title">Tenant systems</strong>
+            <p data-i18n="tenant.primary.detail">Pick the tenant system you want to work on. Secondary tools for the active page stay in the left rail.</p>
+          </div>
+          <div class="cp-nav-group">
+            <h2 class="cp-nav-group-title" data-i18n="tenant.primary.kicker">Admin pages</h2>
+            <nav class="cp-primary-links" aria-label="Tenant primary pages">
+              <a class="surface-primary-link" href="#dashboard" data-primary-sections="dashboard,overview">
+                <span class="surface-primary-label" data-i18n="tenant.primary.dashboard">Dashboard</span>
+                <p data-i18n="tenant.primary.dashboardDetail">Tenant health, quota posture, support signal, and quick operator shortcuts.</p>
+              </a>
+              <a class="surface-primary-link" href="#servers" data-primary-sections="servers,operations">
+                <span class="surface-primary-label" data-i18n="tenant.primary.servers">Servers</span>
+                <p data-i18n="tenant.primary.serversDetail">Runtime alerts, live activity, and scoped server posture.</p>
+              </a>
+              <a class="surface-primary-link" href="#agents" data-primary-sections="agents">
+                <span class="surface-primary-label" data-i18n="tenant.primary.agents">Agents</span>
+                <p data-i18n="tenant.primary.agentsDetail">Runtime agents, live activity, and execution posture for the current tenant.</p>
+              </a>
+              <a class="surface-primary-link" href="#logs" data-primary-sections="logs,incidents,insights,audit">
+                <span class="surface-primary-label" data-i18n="tenant.primary.logs">Logs</span>
+                <p data-i18n="tenant.primary.logsDetail">Incident inbox, reconcile findings, audit trail, and scoped event review.</p>
+              </a>
+              <a class="surface-primary-link" href="#shop" data-primary-sections="shop,catalog-tools">
+                <span class="surface-primary-label" data-i18n="tenant.primary.shop">Shop</span>
+                <p data-i18n="tenant.primary.shopDetail">Catalog, offers, stock posture, and storefront tools.</p>
+              </a>
+              <a class="surface-primary-link" href="#orders" data-primary-sections="orders,transactions">
+                <span class="surface-primary-label" data-i18n="tenant.primary.orders">Orders</span>
+                <p data-i18n="tenant.primary.ordersDetail">Purchase search, delivery cases, wallet issues, and transaction history.</p>
+              </a>
+              <a class="surface-primary-link" href="#delivery" data-primary-sections="delivery,commerce,sandbox">
+                <span class="surface-primary-label" data-i18n="tenant.primary.delivery">Delivery</span>
+                <p data-i18n="tenant.primary.deliveryDetail">Queue, dead letters, retry tooling, and delivery lab workflows.</p>
+              </a>
+              <a class="surface-primary-link" href="#players" data-primary-sections="players,support-tools">
+                <span class="surface-primary-label" data-i18n="tenant.primary.players">Players</span>
+                <p data-i18n="tenant.primary.playersDetail">Player activity, linkage, support actions, and account follow-up.</p>
+              </a>
+              <a class="surface-primary-link" href="#settings" data-primary-sections="settings,config,actions">
+                <span class="surface-primary-label" data-i18n="tenant.primary.settings">Settings</span>
+                <p data-i18n="tenant.primary.settingsDetail">Scoped configuration, safe actions, and guarded server changes.</p>
+              </a>
+              <a class="surface-primary-link" href="#subscription" data-primary-sections="subscription,plan-integrations">
+                <span class="surface-primary-label" data-i18n="tenant.primary.subscription">Subscription</span>
+                <p data-i18n="tenant.primary.subscriptionDetail">Plan, allowances, keys, webhooks, and subscription visibility.</p>
+              </a>
+            </nav>
+            <div class="cp-hidden-workspace">
+              <div id="tenantWorkspaceSwitch" class="workspace-switch compact-workspace-switch"></div>
+              <p id="tenantWorkspaceHint" class="hint compact-hint" data-i18n="tenant.workspaceHintLoading">Loading tenant workspace layout...</p>
+              <div id="tenantWorkspaceSummary" class="workspace-summary compact-workspace-summary"></div>
+            </div>
+          </div>
+        </section>
+        <nav class="nav-card cp-sidebar-panel">
           <div class="nav-head">
             <span class="section-kicker" data-i18n="tenant.subnav.kicker">Inside page</span>
             <strong data-i18n="tenant.subnav.title">Secondary routes</strong>
@@ -136,24 +131,33 @@
         </nav>
       </aside>
 
-      <section class="surface-stage-main">
-        <div id="tenantStatusBanner" class="status-banner banner-info">
-          <div>
-            <strong id="tenantStatusTitle" data-i18n="tenant.statusLoadingTitle">Loading tenant console...</strong>
-            <p id="tenantStatusDetail" data-i18n="tenant.statusLoadingDetail">Preparing scoped runtime, commerce, and support state.</p>
+      <section class="surface-stage-main cp-shell-main">
+        <section class="cp-pagehead">
+          <div class="cp-pagehead-copy">
+            <span class="surface-id" data-i18n="tenant.surfaceId">Tenant Admin Console</span>
+            <h1 data-i18n="tenant.title">Server Admin Workspace</h1>
+            <p data-i18n="tenant.subtitle">Run tenant-scoped servers, agents, logs, shop, orders, delivery, players, settings, and subscription tasks without owner-only platform noise.</p>
           </div>
-          <div id="tenantStatusTags" class="tag-row"></div>
-        </div>
-        <section id="tenantPageContext" class="surface-pagebar">
-          <div class="surface-pagebar-copy">
-            <span id="tenantPageContextKicker" class="section-kicker" data-i18n="common.currentPage">Current page</span>
-            <strong id="tenantPageContextTitle" data-i18n="tenant.pagebar.loadingTitle">Preparing page context</strong>
-            <p id="tenantPageContextDetail" data-i18n="tenant.pagebar.loadingDetail">Loading the active admin page, what it is for, and the next action path.</p>
+          <div class="cp-pagehead-panels">
+            <div id="tenantStatusBanner" class="status-banner banner-info">
+              <div>
+                <strong id="tenantStatusTitle" data-i18n="tenant.statusLoadingTitle">Loading tenant console...</strong>
+                <p id="tenantStatusDetail" data-i18n="tenant.statusLoadingDetail">Preparing scoped runtime, commerce, and support state.</p>
+              </div>
+              <div id="tenantStatusTags" class="tag-row"></div>
+            </div>
+            <section id="tenantPageContext" class="surface-pagebar">
+              <div class="surface-pagebar-copy">
+                <span id="tenantPageContextKicker" class="section-kicker" data-i18n="common.currentPage">Current page</span>
+                <strong id="tenantPageContextTitle" data-i18n="tenant.pagebar.loadingTitle">Preparing page context</strong>
+                <p id="tenantPageContextDetail" data-i18n="tenant.pagebar.loadingDetail">Loading the active admin page, what it is for, and the next action path.</p>
+              </div>
+              <div id="tenantPageContextTags" class="tag-row"></div>
+            </section>
           </div>
-          <div id="tenantPageContextTags" class="tag-row"></div>
         </section>
 
-        <main class="surface-grid">
+        <main class="surface-grid cp-shell-content">
         <section class="surface-section surface-section-overview" id="overview">
           <div class="overview-shell">
             <section class="panel-card overview-lead-panel">
@@ -1323,9 +1327,9 @@
     </div>
   </div>
 
-<script src="/admin/assets/admin-i18n.js?v=20260325-usability-1"></script>
-  <script src="/admin/assets/console-shared.js?v=20260325-usability-1"></script>
+<script src="/admin/assets/admin-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script src="/admin/assets/console-shared.js?v=20260325-shell-cutover-1"></script>
   <script src="/admin/assets/operational-state-model.js?v=20260325-role-shell-1"></script>
-  <script src="/admin/assets/tenant-console.js?v=20260325-usability-1"></script>
+  <script src="/admin/assets/tenant-console.js?v=20260325-shell-cutover-1"></script>
 </body>
 </html>

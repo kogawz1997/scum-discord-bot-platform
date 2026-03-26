@@ -3,59 +3,137 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="player.login.documentTitle">SCUM Player Portal | Login</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260324-polish-6">
+  <title data-i18n="public.login.documentTitle">SCUM TH Platform | Login</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-preview-flow-1">
 </head>
-<body class="public-page public-login">
-  <div class="site-shell">
-    <header class="site-topbar">
-      <a class="site-brand" href="/landing">
-        <span class="site-brand-mark">SC</span>
-        <div class="site-brand-copy">
-          <strong data-i18n="player.badge">Player Portal</strong>
-          <span data-i18n="player.login.subtitle">Use Discord sign-in to access wallet, purchases, redeem flow, Steam linking, and transaction history. Admin and platform controls stay in separate consoles.</span>
-        </div>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
       </a>
-      <div class="site-tools">
+      <nav class="marketing-nav">
+        <a href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a href="/signup" data-i18n="public.nav.signup">Sign Up</a>
+        <a class="is-active" href="/login" data-i18n="public.nav.login">Login</a>
+      </nav>
+      <div class="marketing-tools">
         <label class="language-picker">
           <span data-i18n="common.language">Language</span>
-          <select id="playerLoginLanguageSelect" class="language-select"></select>
+          <select id="authLanguageSelect" class="language-select"></select>
         </label>
       </div>
     </header>
 
-    <section class="signin-shell">
-      <section class="signin-panel">
-        <span class="site-kicker" data-i18n="player.login.badge">Player Portal</span>
-        <h3 data-i18n="player.login.enterTitle">Enter the portal</h3>
-        <p class="muted" data-i18n="player.login.enterSubtitle">Continue with Discord to open the player-facing portal experience.</p>
-        <button class="button button-primary" id="discordBtn" type="button" data-i18n="player.login.discord">Continue with Discord</button>
-        <div id="errorText" class="error">__ERROR_MESSAGE__</div>
-        <div class="signin-links">
-          <a class="signin-admin-link" href="/admin" data-i18n="player.login.admin">Admin consoles</a>
+    <main class="marketing-main">
+      <section class="marketing-hero">
+        <div class="marketing-copy">
+          <span class="marketing-kicker" data-i18n="public.login.kicker">Login Hub</span>
+          <h1 data-i18n="public.login.title">Use the correct surface for the job.</h1>
+          <p data-i18n="public.login.detail">Platform owners, tenant admins, and players each have their own entry path. This keeps permissions, context, and support flow easier to understand.</p>
+          <div class="marketing-chip-row">
+            <span class="marketing-chip" data-i18n="public.login.chipOwner">Owner and tenant credentials stay separate</span>
+            <span class="marketing-chip" data-i18n="public.login.chipPlayer">Players use Discord sign-in</span>
+            <span class="marketing-chip" data-i18n="public.login.chipPreview">Preview starts before purchase</span>
+          </div>
+        </div>
+        <div class="marketing-visual">
+          <div class="marketing-visual-image" aria-hidden="true"></div>
+          <section class="marketing-visual-card">
+            <span class="marketing-kicker" data-i18n="public.login.snapshotKicker">Sign-in posture</span>
+            <h2 data-i18n="public.login.snapshotTitle">A familiar, role-based SaaS entry flow.</h2>
+            <p data-i18n="public.login.snapshotDetail">Choose the area you belong to first, then continue into the appropriate authenticated experience.</p>
+          </section>
         </div>
       </section>
 
-      <aside class="signin-visual">
-        <img src="/player/assets/ui/visuals/scum/scene-announce.jpg" alt="SCUM player access">
-        <div class="signin-visual-copy">
-          <span class="site-badge" data-i18n="player.login.hintPlayer">Player only</span>
-          <div class="signin-note">
-            <strong data-i18n="player.login.hintPurchase">Safe purchase flow</strong>
-            <p class="muted" data-i18n="player.login.hintPurchaseDetail">Order status, delivery state, and Steam-link requirements are shown inside the portal after sign-in.</p>
+      <section class="marketing-grid two-col">
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.login.adminKicker">Admin access</span>
+            <h2 data-i18n="public.login.adminTitle">Owner and tenant operations</h2>
+            <p data-i18n="public.login.adminDetail">Use the dedicated admin entrypoints so platform-wide and tenant-scoped permissions stay separated.</p>
           </div>
-        </div>
-      </aside>
-    </section>
+          <div class="button-row">
+            <a class="button button-primary" href="/owner/login" data-i18n="public.login.owner">Owner Login</a>
+            <a class="button" href="/tenant/login" data-i18n="public.login.tenant">Tenant Admin Login</a>
+          </div>
+        </section>
+
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.login.playerKicker">Player access</span>
+            <h2 data-i18n="public.login.playerTitle">Community portal</h2>
+            <p data-i18n="public.login.playerDetail">Players use Discord to open the wallet, orders, delivery, stats, and profile experience.</p>
+          </div>
+          <div class="button-row">
+            <a class="button button-primary" href="/player/login" data-i18n="public.login.player">Player Login</a>
+            <a class="button" href="/signup" data-i18n="public.login.preview">Start Preview</a>
+          </div>
+        </section>
+      </section>
+
+      <section class="marketing-grid two-col">
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.login.previewAccessKicker">Preview account</span>
+            <h2 data-i18n="public.login.previewAccessTitle">Sign in to the product preview.</h2>
+            <p data-i18n="public.login.previewAccessDetail">Use your email and password to reopen the preview tenant dashboard, inspect locked modules, and continue to package activation.</p>
+          </div>
+          <div id="previewLoginSession" class="preview-state" hidden></div>
+          <form id="previewLoginForm" class="auth-card">
+            <div class="auth-field">
+              <span data-i18n="public.signup.email">Email</span>
+              <input id="previewLoginEmail" type="email" placeholder="name@example.com">
+            </div>
+            <div class="auth-field">
+              <span data-i18n="public.signup.password">Password</span>
+              <input id="previewLoginPassword" type="password" placeholder="********">
+            </div>
+            <div id="previewLoginStatus" class="form-status" aria-live="polite"></div>
+            <div class="button-row">
+              <button id="previewLoginSubmit" class="button button-primary" type="submit" data-i18n="public.login.previewSignIn">Open Preview</button>
+              <a class="button" href="/forgot-password" data-i18n="public.login.reset">Forgot Password</a>
+            </div>
+          </form>
+        </section>
+
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.login.previewKicker">Preview mode</span>
+            <h2 data-i18n="public.login.previewTitle">See the product before subscription.</h2>
+            <p data-i18n="public.login.previewDetail">Preview mode exposes the navigation, locked states, and package boundaries so prospective tenants can evaluate the platform before purchase.</p>
+          </div>
+          <div class="preview-state">
+            <strong data-i18n="public.login.previewStateTitle">Real structure, guarded actions.</strong>
+            <p data-i18n="public.login.previewStateDetail">This is not a blank waitlist. Users can inspect the product and understand what each package unlocks.</p>
+          </div>
+        </section>
+
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.login.helpKicker">Need help?</span>
+            <h2 data-i18n="public.login.helpTitle">Use the guided start path.</h2>
+            <p data-i18n="public.login.helpDetail">Compare packages first if you are still deciding which runtime model and feature set fit your server.</p>
+          </div>
+          <div class="button-row">
+            <a class="button" href="/pricing" data-i18n="public.login.compare">Compare Packages</a>
+            <a class="button" href="/checkout" data-i18n="public.nav.checkout">Checkout</a>
+          </div>
+        </section>
+      </section>
+    </main>
   </div>
 
-  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-preview-flow-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260325-preview-flow-1"></script>
   <script>
-    window.PortalUiI18n?.init(['playerLoginLanguageSelect']);
-    document.getElementById('discordBtn').addEventListener('click', () => {
-      window.location.href = '/auth/discord/start';
-    });
+    window.PortalUiI18n?.init(['authLanguageSelect']);
   </script>
 </body>
 </html>

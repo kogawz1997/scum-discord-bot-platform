@@ -11,6 +11,7 @@ function createPortalRequestRuntime(deps) {
     verifyOrigin,
     getSession,
     isDiscordId,
+    handlePublicApiRoute,
     handlePortalPageRoute,
     handlePlayerGeneralRoute,
     handlePlayerCommerceRoute,
@@ -105,6 +106,54 @@ function createPortalRequestRuntime(deps) {
         });
       }
       return;
+    }
+
+    if (pathname.startsWith('/api/public/')) {
+      try {
+        if (
+          method !== 'GET'
+          && method !== 'HEAD'
+          && method !== 'OPTIONS'
+          && !verifyOrigin(req)
+        ) {
+          sendJson(res, 403, {
+            ok: false,
+            error: 'Cross-site request denied',
+          });
+          return;
+        }
+        if (
+          typeof handlePublicApiRoute === 'function'
+          && await handlePublicApiRoute({
+            req,
+            res,
+            urlObj,
+            pathname,
+            method,
+          })
+        ) {
+          return;
+        }
+      } catch (error) {
+        if (res.headersSent || res.writableEnded) {
+          console.error(
+            '[web-portal-standalone] public api error after response:',
+            error?.message || error,
+          );
+          return;
+        }
+        const status = Number(error?.statusCode || 500);
+        sendJson(res, status, {
+          ok: false,
+          error:
+            status === 413
+              ? 'Payload too large'
+              : status >= 500
+                ? 'Internal server error'
+                : String(error?.message || 'Request failed'),
+        });
+        return;
+      }
     }
 
     sendJson(res, 404, { ok: false, error: 'Not found' });

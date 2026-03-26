@@ -161,9 +161,11 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
 
       const shouldReconcile =
         force || shouldRunInterval(state.lastReconcileAt, monitoring.reconcileEveryMs);
-      const [analytics, reconcile, runtimeSupervisor, agentRuntimes, tenants] = await Promise.all([
-        getPlatformAnalyticsOverview({ allowGlobal: true }),
-        shouldReconcile ? reconcileDeliveryState({ allowGlobal: true }) : Promise.resolve(null),
+      const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
+      const reconcile = shouldReconcile
+        ? await reconcileDeliveryState({ allowGlobal: true })
+        : null;
+      const [runtimeSupervisor, agentRuntimes, tenants] = await Promise.all([
         getRuntimeSupervisorSnapshot({ forceRefresh: true }).catch(() => null),
         listPlatformAgentRuntimes({ limit: 500, allowGlobal: true }),
         listPlatformTenants({ limit: 500 }),

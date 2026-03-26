@@ -82,9 +82,14 @@ const {
 } = require('../../../src/store/rentBikeStore');
 const { awardWheelRewardForUser } = require('../../../src/services/wheelService');
 const { getPlatformPublicOverview } = require('../../../src/services/platformService');
+const { publicPreviewService } = require('../../../src/services/publicPreviewService');
 const config = require('../../../src/config');
 
 const { createPortalAuthRuntime } = require('../auth/portalAuthRuntime');
+const { createPublicPreviewAuthRuntime } = require('../auth/publicPreviewAuthRuntime');
+const {
+  createPublicPlatformRoutes,
+} = require('../api/publicPlatformRoutes');
 const {
   createPlayerCommerceRoutes,
 } = require('../api/playerCommerceRoutes');
@@ -167,10 +172,18 @@ function createPortalBootstrapRuntime({
     cleanupIntervalMs,
     publicAssetsDirPath,
     discordApiBase,
-    loginHtmlPath,
+    authLoginHtmlPath,
+    playerLoginHtmlPath,
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    pricingHtmlPath,
+    signupHtmlPath,
+    forgotPasswordHtmlPath,
+    verifyEmailHtmlPath,
+    checkoutHtmlPath,
+    paymentResultHtmlPath,
+    previewHtmlPath,
     trialHtmlPath,
     showcaseHtmlPath,
     docsDirPath,
@@ -183,6 +196,7 @@ function createPortalBootstrapRuntime({
 
   const sessions = new Map();
   const oauthStates = new Map();
+  const previewSessions = new Map();
   const partyChatLastSentAt = new Map();
   const allowedDiscordIds = parseCsvSet(allowedDiscordIdsRaw || '');
 
@@ -321,7 +335,27 @@ function createPortalBootstrapRuntime({
     verifyOrigin,
   } = portalAuthRuntime;
 
+  const publicPreviewAuthRuntime = createPublicPreviewAuthRuntime({
+    sessions: previewSessions,
+    sessionTtlMs,
+    sessionCookieName: `${sessionCookieName}_preview`,
+    sessionCookiePath,
+    sessionCookieSameSite,
+    sessionCookieDomain,
+    secureCookie,
+  });
+
+  const {
+    buildClearSessionCookie: buildClearPreviewSessionCookie,
+    buildSessionCookie: buildPreviewSessionCookie,
+    cleanupRuntimeState: cleanupPreviewRuntimeState,
+    createSession: createPreviewSession,
+    getSession: getPreviewSession,
+    removeSession: removePreviewSession,
+  } = publicPreviewAuthRuntime;
+
   const { requestHandler, startCleanupTimer } = createPortalSurfaceRuntime({
+    createPublicPlatformRoutes,
     createPlayerCommerceRoutes,
     createPlayerGeneralRoutes,
     createPortalPageAssetRuntime,
@@ -419,10 +453,18 @@ function createPortalBootstrapRuntime({
     },
     pageAssetDeps: {
       isProduction,
-      loginHtmlPath,
+      authLoginHtmlPath,
+      playerLoginHtmlPath,
       playerHtmlPath,
       legacyPlayerHtmlPath,
       landingHtmlPath,
+      pricingHtmlPath,
+      signupHtmlPath,
+      forgotPasswordHtmlPath,
+      verifyEmailHtmlPath,
+      checkoutHtmlPath,
+      paymentResultHtmlPath,
+      previewHtmlPath,
       trialHtmlPath,
       showcaseHtmlPath,
       publicAssetsDirPath,
@@ -456,13 +498,31 @@ function createPortalBootstrapRuntime({
       handleDiscordStart,
       handleDiscordCallback,
       getSession,
+      getPreviewSession,
+    },
+    publicRouteDeps: {
+      sendJson,
+      readJsonBody,
+      getPlatformPublicOverview,
+      registerPreviewAccount: publicPreviewService.registerPreviewAccount,
+      authenticatePreviewAccount: publicPreviewService.authenticatePreviewAccount,
+      getPreviewState: publicPreviewService.getPreviewState,
+      requestPasswordReset: publicPreviewService.requestPasswordReset,
+      createPreviewSession,
+      getPreviewSession,
+      buildPreviewSessionCookie,
+      buildClearPreviewSessionCookie,
+      removePreviewSession,
     },
     requestRuntimeDeps: {
       sendJson,
       verifyOrigin,
       getSession,
       isDiscordId,
-      cleanupRuntimeState,
+      cleanupRuntimeState: () => {
+        cleanupRuntimeState();
+        cleanupPreviewRuntimeState();
+      },
       cleanupIntervalMs,
     },
   });

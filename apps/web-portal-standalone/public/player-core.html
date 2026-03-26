@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="player.documentTitle">SCUM Player Portal</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/player/assets/ui/player-core.css?v=20260325-usability-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-core.css?v=20260325-shell-cutover-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-shell-v2.css?v=20260325-shell-cutover-1">
 </head>
-<body class="player-surface">
-  <div class="portal-shell portal-shell-workbench">
-    <header class="portal-topbar">
+<body class="player-surface player-surface-v2">
+  <div class="portal-shell portal-shell-workbench player-shell-v2">
+    <header class="portal-topbar player-shell-topbar">
       <a class="portal-brand-mark" href="/player">
         <span class="brand-emblem">SCUM</span>
         <span class="brand-copy">
@@ -17,17 +18,7 @@
           <span data-i18n="player.brandSubtitle">Trusted player service</span>
         </span>
       </a>
-      <nav class="portal-topnav" id="portalNav">
-        <button class="nav-btn active" data-tab="home" type="button" data-i18n="player.nav.home">Inventory</button>
-        <button class="nav-btn" data-tab="wallet" type="button" data-i18n="player.nav.wallet">Wallet</button>
-        <button class="nav-btn" data-tab="shop" type="button" data-i18n="player.nav.shop">Shop</button>
-        <button class="nav-btn" data-tab="orders" type="button" data-i18n="player.nav.orders">Orders</button>
-      </nav>
       <div class="portal-top-actions">
-        <div class="portal-utility-nav">
-          <button class="nav-btn nav-btn-utility" data-tab="redeem" type="button" data-i18n="player.nav.redeem">Redeem</button>
-          <button class="nav-btn nav-btn-utility" data-tab="profile" type="button" data-i18n="player.nav.profile">Account</button>
-        </div>
         <label class="language-picker compact-picker">
           <span data-i18n="common.language">Language</span>
           <select id="playerLanguageSelect" class="language-select"></select>
@@ -37,62 +28,83 @@
       </div>
     </header>
 
-    <section class="portal-command-stage">
-      <div class="portal-command-copy">
-        <span class="portal-badge" data-i18n="player.primary.kicker">Player Services</span>
-        <h1 data-i18n="player.title">Shop, wallet, orders, and inventory</h1>
-        <p data-i18n="player.subtitle">This portal is for players only. Buy items, track orders, manage wallet activity, redeem codes, and keep account trust clear without admin-only tools.</p>
-        <div class="portal-service-strip">
-          <article class="portal-service-card">
-            <span class="kicker" data-i18n="player.primary.inventory">Inventory</span>
-            <strong data-i18n="player.primary.inventoryTitle">Account snapshot</strong>
-            <p class="muted" data-i18n="player.primary.inventoryDetail">Current balance, latest order, signals, and first-run guidance.</p>
-          </article>
-          <article class="portal-service-card">
-            <span class="kicker" data-i18n="player.primary.shop">Shop</span>
-            <strong data-i18n="player.primary.shopTitle">Browse and buy</strong>
-            <p class="muted" data-i18n="player.primary.shopDetail">Official storefront items, bundles, and VIP entries for this server.</p>
-          </article>
-          <article class="portal-service-card">
-            <span class="kicker" data-i18n="player.primary.orders">Orders</span>
-            <strong data-i18n="player.primary.ordersTitle">Track delivery</strong>
-            <p class="muted" data-i18n="player.primary.ordersDetail">See purchase state, delivery proof, and next-step guidance.</p>
-          </article>
-          <article class="portal-service-card">
-            <span class="kicker" data-i18n="player.primary.account">Account</span>
-            <strong data-i18n="player.primary.accountTitle">Redeem and profile</strong>
-            <p class="muted" data-i18n="player.primary.accountDetail">Steam link, redeem history, and account trust stay together here.</p>
-          </article>
-        </div>
-        <div id="portalMetaTags" class="tag-row"></div>
-      </div>
-      <div class="portal-command-visual">
-        <div class="command-visual-image" aria-hidden="true"></div>
-        <div class="signal-card">
-          <span class="kicker" data-i18n="player.primary.controlKicker">Player trust</span>
-          <strong data-i18n="player.primary.controlTitle">Clear player-facing systems</strong>
-          <p class="muted" data-i18n="player.primary.controlDetail">Wallet, orders, redeem, and profile stay visible without exposing owner or server-admin controls.</p>
-        </div>
-      </div>
-    </section>
+    <div class="player-shell-layout">
+      <aside class="player-shell-sidebar">
+        <section class="player-shell-panel visual">
+          <div class="player-sidebar-heading">
+            <span class="portal-badge" data-i18n="player.primary.kicker">Player Services</span>
+            <strong data-i18n="player.primary.controlTitle">Clear player-facing systems</strong>
+            <p data-i18n="player.primary.controlDetail">Wallet, orders, redeem, and profile stay visible without exposing owner or server-admin controls.</p>
+          </div>
+        </section>
+        <section class="player-shell-panel">
+          <h2 class="player-sidebar-title" data-i18n="player.primary.kicker">Player Services</h2>
+          <nav class="player-sidebar-nav" id="portalNav">
+            <button class="nav-btn active" data-tab="home" type="button" data-i18n="player.nav.home">Inventory</button>
+            <button class="nav-btn" data-tab="wallet" type="button" data-i18n="player.nav.wallet">Wallet</button>
+            <button class="nav-btn" data-tab="shop" type="button" data-i18n="player.nav.shop">Shop</button>
+            <button class="nav-btn" data-tab="orders" type="button" data-i18n="player.nav.orders">Orders</button>
+          </nav>
+        </section>
+        <section class="player-shell-panel">
+          <h2 class="player-sidebar-title" data-i18n="common.currentPage">Current page</h2>
+          <div class="player-sidebar-utility">
+            <button class="nav-btn nav-btn-utility" data-tab="redeem" type="button" data-i18n="player.nav.redeem">Redeem</button>
+            <button class="nav-btn nav-btn-utility" data-tab="profile" type="button" data-i18n="player.nav.profile">Account</button>
+          </div>
+        </section>
+      </aside>
 
-    <section id="statusBanner" class="status-banner status-info">
-      <div>
-        <strong id="statusTitle" data-i18n="player.statusLoadingTitle">Preparing player portal...</strong>
-        <p id="statusDetail" data-i18n="player.statusLoadingDetail">Loading wallet, orders, and account state.</p>
-      </div>
-      <div class="tag-row" id="statusTags"></div>
-    </section>
-    <section id="playerPageContext" class="portal-pagebar">
-      <div class="portal-pagebar-copy">
-        <span id="playerPageContextKicker" class="portal-badge" data-i18n="common.currentPage">Current page</span>
-        <strong id="playerPageContextTitle" data-i18n="player.pagebar.loadingTitle">Preparing page context</strong>
-        <p id="playerPageContextDetail" data-i18n="player.pagebar.loadingDetail">Loading the active player page, what it is for, and the next step.</p>
-      </div>
-      <div id="playerPageContextTags" class="tag-row"></div>
-    </section>
+      <section class="player-shell-main">
+        <section class="player-pagehead">
+          <div class="player-pagehead-copy">
+            <span class="portal-badge" data-i18n="player.primary.kicker">Player Services</span>
+            <h1 data-i18n="player.title">Shop, wallet, orders, and inventory</h1>
+            <p data-i18n="player.subtitle">This portal is for players only. Buy items, track orders, manage wallet activity, redeem codes, and keep account trust clear without admin-only tools.</p>
+            <div class="portal-service-strip">
+              <article class="portal-service-card">
+                <span class="kicker" data-i18n="player.primary.inventory">Inventory</span>
+                <strong data-i18n="player.primary.inventoryTitle">Account snapshot</strong>
+                <p class="muted" data-i18n="player.primary.inventoryDetail">Current balance, latest order, signals, and first-run guidance.</p>
+              </article>
+              <article class="portal-service-card">
+                <span class="kicker" data-i18n="player.primary.shop">Shop</span>
+                <strong data-i18n="player.primary.shopTitle">Browse and buy</strong>
+                <p class="muted" data-i18n="player.primary.shopDetail">Official storefront items, bundles, and VIP entries for this server.</p>
+              </article>
+              <article class="portal-service-card">
+                <span class="kicker" data-i18n="player.primary.orders">Orders</span>
+                <strong data-i18n="player.primary.ordersTitle">Track delivery</strong>
+                <p class="muted" data-i18n="player.primary.ordersDetail">See purchase state, delivery proof, and next-step guidance.</p>
+              </article>
+              <article class="portal-service-card">
+                <span class="kicker" data-i18n="player.primary.account">Account</span>
+                <strong data-i18n="player.primary.accountTitle">Redeem and profile</strong>
+                <p class="muted" data-i18n="player.primary.accountDetail">Steam link, redeem history, and account trust stay together here.</p>
+              </article>
+            </div>
+            <div id="portalMetaTags" class="tag-row"></div>
+          </div>
+          <div class="player-pagehead-panels">
+            <section id="statusBanner" class="status-banner status-info">
+              <div>
+                <strong id="statusTitle" data-i18n="player.statusLoadingTitle">Preparing player portal...</strong>
+                <p id="statusDetail" data-i18n="player.statusLoadingDetail">Loading wallet, orders, and account state.</p>
+              </div>
+              <div class="tag-row" id="statusTags"></div>
+            </section>
+            <section id="playerPageContext" class="portal-pagebar">
+              <div class="portal-pagebar-copy">
+                <span id="playerPageContextKicker" class="portal-badge" data-i18n="common.currentPage">Current page</span>
+                <strong id="playerPageContextTitle" data-i18n="player.pagebar.loadingTitle">Preparing page context</strong>
+                <p id="playerPageContextDetail" data-i18n="player.pagebar.loadingDetail">Loading the active player page, what it is for, and the next step.</p>
+              </div>
+              <div id="playerPageContextTags" class="tag-row"></div>
+            </section>
+          </div>
+        </section>
 
-    <main class="portal-main">
+        <main class="portal-main player-main-v2">
       <!-- Home tab:
            keep the player snapshot and current trust state visible first.
            Secondary server context is available, but no longer competes with
@@ -393,8 +405,9 @@
           </aside>
         </div>
       </section>
-      </main>
-  </div>
+        </main>
+      </section>
+    </div>
 
   <div id="orderDetailBackdrop" class="drawer-backdrop" hidden>
     <aside class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
@@ -438,7 +451,7 @@
     </aside>
   </div>
 
-<script src="/player/assets/ui/portal-i18n.js?v=20260325-usability-1"></script>
-  <script src="/player/assets/ui/player-core.js?v=20260325-usability-1"></script>
+<script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
+  <script src="/player/assets/ui/player-core.js?v=20260325-shell-cutover-1"></script>
 </body>
 </html>

@@ -7,11 +7,13 @@
 
 function createPortalSurfaceRuntime(deps = {}) {
   const {
+    createPublicPlatformRoutes,
     createPlayerCommerceRoutes,
     createPlayerGeneralRoutes,
     createPortalPageAssetRuntime,
     createPortalPageRoutes,
     createPortalRequestRuntime,
+    publicRouteDeps,
     commerceRouteDeps,
     generalRouteDeps,
     pageAssetDeps,
@@ -19,6 +21,7 @@ function createPortalSurfaceRuntime(deps = {}) {
     requestRuntimeDeps,
   } = deps;
 
+  const handlePublicApiRoute = createPublicPlatformRoutes(publicRouteDeps);
   const handlePlayerCommerceRoute = createPlayerCommerceRoutes(commerceRouteDeps);
   const handlePlayerGeneralRoute = createPlayerGeneralRoutes(generalRouteDeps);
   const pageAssetRuntime = createPortalPageAssetRuntime(pageAssetDeps);
@@ -29,6 +32,7 @@ function createPortalSurfaceRuntime(deps = {}) {
 
   return createPortalRequestRuntime({
     ...requestRuntimeDeps,
+    handlePublicApiRoute,
     handlePortalPageRoute,
     handlePlayerGeneralRoute,
     handlePlayerCommerceRoute,

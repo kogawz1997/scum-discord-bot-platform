@@ -3,208 +3,192 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="landing.documentTitle">SCUM Platform Landing</title>
-  <link rel="stylesheet" href="/player/assets/ui/portal-public.css?v=20260324-polish-6">
+  <title data-i18n="public.site.documentTitle">SCUM TH Platform</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css?v=20260325-shell-cutover-1">
 </head>
-<body class="public-page public-landing">
-  <div class="site-shell">
-    <header class="site-topbar">
-      <a class="site-brand" href="/landing">
-        <span class="site-brand-mark">SC</span>
-        <div class="site-brand-copy">
-          <strong data-i18n="public.landing.brandTitle">SCUM Platform</strong>
-          <span id="brandSubtitle" data-i18n="public.landing.brandSubtitle">Owner, tenant, and player surfaces for live SCUM operations.</span>
-        </div>
+<body class="public-v2">
+  <div class="marketing-shell">
+    <header class="marketing-topbar">
+      <a class="marketing-brand" href="/landing">
+        <span class="marketing-brand-mark">SCUM</span>
+        <span class="marketing-brand-copy">
+          <strong data-i18n="public.site.brandTitle">SCUM TH Platform</strong>
+          <span data-i18n="public.site.brandSubtitle">Managed control plane for SCUM communities</span>
+        </span>
       </a>
-      <nav class="site-nav">
-        <a class="is-active" href="/landing" data-i18n="showcase.backLanding">Landing</a>
-        <a href="/showcase" data-i18n="landing.openShowcase">Showcase</a>
-        <a href="/trial" data-i18n="landing.heroTrial">Review trial readiness</a>
+      <nav class="marketing-nav">
+        <a class="is-active" href="/landing" data-i18n="public.nav.landing">Landing</a>
+        <a href="/pricing" data-i18n="public.nav.pricing">Pricing</a>
+        <a href="/signup" data-i18n="public.nav.signup">Sign Up</a>
+        <a href="/login" data-i18n="public.nav.login">Login</a>
       </nav>
-      <div class="site-tools">
+      <div class="marketing-tools">
         <label class="language-picker">
           <span data-i18n="common.language">Language</span>
           <select id="publicLanguageSelect" class="language-select"></select>
         </label>
-        <a class="button" href="/admin" data-i18n="landing.openAdmin">Open Admin Web</a>
       </div>
     </header>
 
-    <section class="site-hero site-hero-landing">
-      <section class="site-hero-copy">
-        <span class="site-kicker" data-i18n="landing.heroEyebrow">Role-separated experience</span>
-        <h1 id="brandTitle" data-i18n="landing.heroTitle">Three surfaces. One platform spine.</h1>
-        <p id="heroSubtitle" data-i18n="landing.heroSubtitle">The platform stays multi-tenant and role-based. Platform owner control, tenant operations, and player journeys are intentionally separated while sharing the same runtime, data contracts, and trust posture.</p>
+    <main class="marketing-main">
+      <section class="marketing-hero">
+        <div class="marketing-copy">
+          <span class="marketing-kicker" data-i18n="public.hero.kicker">Managed SCUM Operations</span>
+          <h1 data-i18n="public.hero.title">A clean control plane for SCUM servers, agents, and players.</h1>
+          <p data-i18n="public.hero.detail">Owner operations, tenant administration, and player self-service stay separate, readable, and easier to support. Preview the product before you buy, then scale with feature-gated packages.</p>
+          <div class="marketing-actions">
+            <a class="button button-primary" href="/signup" data-i18n="public.hero.start">Start Preview</a>
+            <a class="button" href="/pricing" data-i18n="public.hero.compare">Compare Packages</a>
+            <a class="button" href="/player/login" data-i18n="public.hero.player">Player Portal</a>
+          </div>
+          <div class="marketing-chip-row">
+            <span class="marketing-chip" data-i18n="public.hero.chipPreview">Preview before purchase</span>
+            <span class="marketing-chip" data-i18n="public.hero.chipAgents">Separate Delivery Agent and Server Bot</span>
+            <span class="marketing-chip" data-i18n="public.hero.chipI18n">English + Thai from the start</span>
+          </div>
+        </div>
+        <div class="marketing-visual">
+          <div class="marketing-visual-image" aria-hidden="true"></div>
+          <section class="marketing-visual-card">
+            <span class="marketing-kicker" data-i18n="public.hero.snapshotKicker">Platform Snapshot</span>
+            <h2 data-i18n="public.hero.snapshotTitle">Three web surfaces, two remote runtimes, one control plane.</h2>
+            <p data-i18n="public.hero.snapshotDetail">The Owner Panel governs tenants and packages. The Tenant Panel runs daily server work. The Player Portal handles trust, wallet, orders, and community features.</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="marketing-grid two-col">
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.roles.kicker">Role Separation</span>
+            <h2 data-i18n="public.roles.title">Each surface has one job.</h2>
+            <p data-i18n="public.roles.detail">The product is structured so non-technical operators can understand where to work without reading technical docs first.</p>
+          </div>
+          <div class="surface-grid-v2">
+            <article class="marketing-panel">
+              <span class="marketing-kicker">OWNER</span>
+              <h3 data-i18n="public.roles.ownerTitle">Provider-wide control</h3>
+              <p data-i18n="public.roles.ownerDetail">Tenants, packages, subscriptions, security, billing, diagnostics, and system-level jobs.</p>
+            </article>
+            <article class="marketing-panel">
+              <span class="marketing-kicker">TENANT</span>
+              <h3 data-i18n="public.roles.tenantTitle">Daily server operations</h3>
+              <p data-i18n="public.roles.tenantDetail">Servers, config, restart control, orders, delivery, events, donations, staff, and module toggles.</p>
+            </article>
+            <article class="marketing-panel">
+              <span class="marketing-kicker">PLAYER</span>
+              <h3 data-i18n="public.roles.playerTitle">Community portal</h3>
+              <p data-i18n="public.roles.playerDetail">Wallet, shop, delivery status, leaderboards, activity, events, profile, and support.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.runtime.kicker">Remote Runtime Model</span>
+            <h2 data-i18n="public.runtime.title">Delivery Agent and Server Bot are separate.</h2>
+            <p data-i18n="public.runtime.detail">The system keeps item delivery apart from server file/config control so permissions, provisioning, and troubleshooting stay clearer.</p>
+          </div>
+          <div class="support-grid">
+            <article class="marketing-panel">
+              <span class="marketing-kicker" data-i18n="public.runtime.deliveryKicker">Delivery Agent</span>
+              <h3 data-i18n="public.runtime.deliveryTitle">Game-client execution</h3>
+              <p data-i18n="public.runtime.deliveryDetail">Receives delivery jobs, reports proof/results, sends heartbeat, and may broadcast in-game announcements when deployment allows it.</p>
+            </article>
+            <article class="marketing-panel">
+              <span class="marketing-kicker" data-i18n="public.runtime.serverKicker">Server Bot</span>
+              <h3 data-i18n="public.runtime.serverTitle">Server-side control</h3>
+              <p data-i18n="public.runtime.serverDetail">Reads SCUM logs, edits .ini safely, applies config changes, and executes restart/start/stop jobs.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="marketing-panel">
+        <div class="marketing-panel-head">
+          <span class="marketing-kicker" data-i18n="public.packages.kicker">Packages</span>
+          <h2 data-i18n="public.packages.title">Feature-gated bundles for different server needs.</h2>
+          <p data-i18n="public.packages.detail">Packages expose features through entitlement checks, not through brittle package-name branching inside the UI.</p>
+        </div>
+        <div class="package-grid four-col">
+          <article class="pricing-card">
+            <span class="pricing-badge">BOT_LOG</span>
+            <h3>BOT_LOG</h3>
+            <ul>
+              <li>bot_log</li>
+              <li>discord_integration</li>
+              <li>log_dashboard</li>
+              <li>sync_agent</li>
+            </ul>
+          </article>
+          <article class="pricing-card is-featured">
+            <span class="pricing-badge featured">BOT_LOG_DELIVERY</span>
+            <h3>BOT_LOG_DELIVERY</h3>
+            <ul>
+              <li>bot_delivery</li>
+              <li>shop_module</li>
+              <li>orders_module</li>
+              <li>execute_agent</li>
+            </ul>
+          </article>
+          <article class="pricing-card">
+            <span class="pricing-badge">FULL_OPTION</span>
+            <h3>FULL_OPTION</h3>
+            <ul>
+              <li>server_hosting</li>
+              <li>server_settings</li>
+              <li>server_status</li>
+              <li>all core modules</li>
+            </ul>
+          </article>
+          <article class="pricing-card">
+            <span class="pricing-badge">SERVER_ONLY</span>
+            <h3>SERVER_ONLY</h3>
+            <ul>
+              <li>server_hosting</li>
+              <li>server_settings</li>
+              <li>server_status</li>
+              <li>no delivery features</li>
+            </ul>
+          </article>
+        </div>
         <div class="button-row">
-          <a class="button button-primary" href="/owner/login" data-i18n="landing.openOwner">Open Owner Console</a>
-          <a class="button-secondary" href="/tenant/login" data-i18n="landing.openAdminConsole">Open Admin Console</a>
-          <a class="button-secondary" href="/player/login" data-i18n="landing.openPlayer">Open Player Portal</a>
-        </div>
-        <div class="surface-strip">
-          <article class="surface-lane">
-            <span class="site-kicker" data-i18n="public.landing.ownerEyebrow">Owner</span>
-            <strong data-i18n="public.landing.ownerTitle">Platform Owner Console</strong>
-            <p data-i18n="public.landing.ownerDetail">Manages tenant fleet, runtime health, security posture, audit visibility, and guarded global configuration.</p>
-          </article>
-          <article class="surface-lane">
-            <span class="site-kicker" data-i18n="public.landing.tenantEyebrow">Tenant</span>
-            <strong data-i18n="public.landing.tenantTitle">Tenant Admin Console</strong>
-            <p data-i18n="public.landing.tenantDetail">Handles server-scoped config, shop and delivery operations, wallet controls, and tenant support workflows.</p>
-          </article>
-          <article class="surface-lane">
-            <span class="site-kicker" data-i18n="public.landing.playerEyebrow">Player</span>
-            <strong data-i18n="public.landing.playerTitle">Player Portal</strong>
-            <p data-i18n="public.landing.playerDetail">Focused on wallet visibility, purchase flow, redeem flow, profile review, and Steam linking.</p>
-          </article>
+          <a class="button button-primary" href="/pricing" data-i18n="public.packages.compare">Open Package Comparison</a>
         </div>
       </section>
 
-      <section class="site-hero-media">
-        <img src="/player/assets/ui/visuals/scum/hero-public.jpg" alt="SCUM survival squad">
-        <div class="site-overlay-card">
-          <span class="site-kicker" data-i18n="landing.liveEyebrow">Live posture</span>
-          <h3 data-i18n="landing.liveTitle">Public platform snapshot</h3>
-          <p data-i18n="public.showcase.surfacesDetail">Each surface uses the same product language but serves a different user with different risk and information density.</p>
-        </div>
-      </section>
-    </section>
-
-    <section class="site-panel">
-      <div class="site-section-head">
-        <div>
-          <span class="site-kicker" data-i18n="landing.liveEyebrow">Live posture</span>
-          <h2 class="section-title" data-i18n="landing.liveTitle">Public platform snapshot</h2>
-        </div>
-      </div>
-      <div class="metric-grid">
-        <article class="metric-card">
-          <span class="site-kicker" data-i18n="public.landing.metric.tenants.kicker">Tenants</span>
-          <strong id="metricTenants" class="metric-value">-</strong>
-          <p data-i18n="public.landing.metric.tenants.detail">Active tenant count</p>
-        </article>
-        <article class="metric-card">
-          <span class="site-kicker" data-i18n="public.landing.metric.delivery.kicker">Delivery</span>
-          <strong id="metricDelivery" class="metric-value">-</strong>
-          <p data-i18n="public.landing.metric.delivery.detail">Recent delivery success</p>
-        </article>
-        <article class="metric-card">
-          <span class="site-kicker" data-i18n="public.landing.metric.subscriptions.kicker">Subscriptions</span>
-          <strong id="metricSubscriptions" class="metric-value">-</strong>
-          <p data-i18n="public.landing.metric.subscriptions.detail">Active subscription records</p>
-        </article>
-        <article class="metric-card">
-          <span class="site-kicker" data-i18n="public.landing.metric.marketplace.kicker">Marketplace</span>
-          <strong id="metricOffers" class="metric-value">-</strong>
-          <p data-i18n="public.landing.metric.marketplace.detail">Offer count</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="site-grid two-col">
-      <section class="site-panel">
-        <div class="site-section-head">
-          <div>
-            <span class="site-kicker" data-i18n="landing.surfaceMapTitle">What belongs where</span>
-            <h2 class="section-title" data-i18n="landing.surfaceMapTitle">What belongs where</h2>
-            <p class="site-copy" data-i18n="public.landing.surfaceMap.copy">The system keeps responsibilities separated so owners, tenant admins, and players only see the tools that belong to them.</p>
+      <section class="marketing-grid two-col">
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.preview.kicker">Preview Mode</span>
+            <h2 data-i18n="public.preview.title">Inspect the product before purchase.</h2>
+            <p data-i18n="public.preview.detail">Preview mode exposes the real product structure with locked actions, so customers can evaluate the platform before a subscription is active.</p>
           </div>
-        </div>
-        <div class="site-feature-grid">
-          <article class="site-card">
-            <div class="promo-card">
-              <img src="/player/assets/ui/visuals/scum/scene-radio.jpg" alt="Owner operations">
-            </div>
-            <div class="card-copy">
-              <span class="site-kicker" data-i18n="public.landing.ownerOnly.kicker">Owner only</span>
-              <strong data-i18n="public.landing.ownerOnly.title">Global health + governance</strong>
-              <p data-i18n="public.landing.ownerOnly.detail">Platform health, runtime posture, security, audit, backup, recovery, and tenant fleet visibility stay in the owner surface.</p>
-            </div>
-          </article>
-          <article class="site-card">
-            <div class="promo-card">
-              <img src="/player/assets/ui/visuals/scum/scene-map.jpg" alt="Tenant operations">
-            </div>
-            <div class="card-copy">
-              <span class="site-kicker" data-i18n="public.landing.tenantOnly.kicker">Tenant only</span>
-              <strong data-i18n="public.landing.tenantOnly.title">Scoped server operations</strong>
-              <p data-i18n="public.landing.tenantOnly.detail">Shop, wallet, delivery, player support, and safe config actions stay tenant-scoped and easier to scan.</p>
-            </div>
-          </article>
-          <article class="site-card">
-            <div class="promo-card">
-              <img src="/player/assets/ui/visuals/scum/scene-announce.jpg" alt="Player flow">
-            </div>
-            <div class="card-copy">
-              <span class="site-kicker" data-i18n="public.landing.playerOnly.kicker">Player only</span>
-              <strong data-i18n="public.landing.playerOnly.title">Trusted self-service</strong>
-              <p data-i18n="public.landing.playerOnly.detail">Wallet, purchases, redeem, profile, and Steam link stay understandable without exposing operational complexity.</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="site-panel">
-        <div class="site-section-head">
-          <div>
-            <span class="site-kicker" data-i18n="public.landing.startFlow.kicker">Start flow</span>
-            <h2 class="section-title" data-i18n="public.landing.startFlow.title">How to start fast</h2>
-            <p class="site-copy" data-i18n="public.landing.startFlow.detail">A controlled rollout path keeps go-live decisions simple and reduces confusion for both operators and players.</p>
+          <div class="preview-state">
+            <strong data-i18n="public.preview.stateTitle">Preview users can browse safely.</strong>
+            <p data-i18n="public.preview.stateDetail">Menus, layouts, and module structure remain visible while actions such as provisioning, checkout, or destructive operations stay gated.</p>
           </div>
-        </div>
-        <div class="site-step-grid">
-          <article class="site-step">
-            <span class="site-kicker">01</span>
-            <strong data-i18n="public.landing.step.one.title">Open the right surface</strong>
-            <p data-i18n="public.landing.step.one.detail">Owners use the global console, tenants use the scoped console, and players always use the portal.</p>
-          </article>
-          <article class="site-step">
-            <span class="site-kicker">02</span>
-            <strong data-i18n="public.landing.step.two.title">Verify runtime posture</strong>
-            <p data-i18n="public.landing.step.two.detail">Owner overview and tenant snapshot make runtime, queue, and alert posture visible before changes are applied.</p>
-          </article>
-          <article class="site-step">
-            <span class="site-kicker">03</span>
-            <strong data-i18n="public.landing.step.three.title">Guide the player journey</strong>
-            <p data-i18n="public.landing.step.three.detail">Use the player portal for wallet, checkout, redeem, and account trust instead of exposing admin tooling.</p>
-          </article>
-          <article class="site-step">
-            <span class="site-kicker">04</span>
-            <strong data-i18n="public.landing.step.four.title">Stay in the correct surface</strong>
-            <p data-i18n="public.landing.step.four.detail">Keep owner, tenant, and player work inside their own routes so each workflow stays clear and easier to support.</p>
-          </article>
-        </div>
+        </section>
+
+        <section class="marketing-panel">
+          <div class="marketing-panel-head">
+            <span class="marketing-kicker" data-i18n="public.cta.kicker">Get Started</span>
+            <h2 data-i18n="public.cta.title">Choose the path that fits your role.</h2>
+            <p data-i18n="public.cta.detail">Start with preview mode, compare packages, or jump directly into the player-facing portal if you already run the service.</p>
+          </div>
+          <div class="button-row">
+            <a class="button button-primary" href="/signup" data-i18n="public.cta.preview">Start Preview</a>
+            <a class="button" href="/login" data-i18n="public.cta.login">Open Login Hub</a>
+            <a class="button" href="/pricing" data-i18n="public.cta.pricing">Review Pricing</a>
+          </div>
+        </section>
       </section>
-    </section>
+    </main>
   </div>
 
-  <script src="/player/assets/ui/portal-i18n.js?v=20260324-polish-6"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260325-shell-cutover-1"></script>
   <script>
     window.PortalUiI18n?.init(['publicLanguageSelect']);
-
-    async function loadOverview() {
-      try {
-        const response = await fetch('/api/platform/public/overview', {
-          headers: { accept: 'application/json' },
-        });
-        const payload = await response.json();
-        if (!response.ok || payload?.ok === false) {
-          throw new Error(payload?.error || 'request-failed');
-        }
-        const overview = payload.data || {};
-        const analytics = overview.analytics || {};
-        document.getElementById('brandTitle').textContent = overview.brand?.name || 'SCUM Commerce + Operations Control Plane';
-        document.getElementById('brandSubtitle').textContent = overview.brand?.description || document.getElementById('brandSubtitle').textContent;
-        document.getElementById('heroSubtitle').textContent = overview.brand?.description || document.getElementById('heroSubtitle').textContent;
-        document.getElementById('metricTenants').textContent = String(analytics.tenants?.active || 0);
-        document.getElementById('metricDelivery').textContent = `${Math.round(Number(analytics.delivery?.successRate || 0) * 100)}%`;
-        document.getElementById('metricSubscriptions').textContent = String(analytics.subscriptions?.active || 0);
-        document.getElementById('metricOffers').textContent = String(analytics.marketplace?.offers || 0);
-      } catch (error) {
-        document.getElementById('brandSubtitle').textContent = `Unable to load public overview: ${error.message}`;
-      }
-    }
-
-    loadOverview();
   </script>
 </body>
 </html>

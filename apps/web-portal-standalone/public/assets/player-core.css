@@ -1448,3 +1448,64 @@ tr:last-child td {
   opacity: 0.24;
   transform: scale(1.03);
 }
+
+/* 20260325 final clarity pass */
+.portal-shell-workbench .portal-topnav {
+  gap: 6px;
+  padding: 4px;
+}
+
+.portal-shell-workbench .portal-topnav .nav-btn {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.portal-shell-workbench .portal-command-stage {
+  min-height: 300px;
+  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+}
+
+.portal-shell-workbench .portal-command-copy h1 {
+  max-width: 9ch;
+}
+
+.portal-shell-workbench .portal-command-copy > p {
+  max-width: 50ch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.portal-shell-workbench .portal-service-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.portal-shell-workbench .portal-service-card {
+  min-height: 120px;
+  flex: 1 1 220px;
+  padding: 14px;
+}
+
+.portal-shell-workbench .portal-service-card p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.portal-shell-workbench .portal-pagebar {
+  padding: 12px 16px;
+}
+
+.portal-shell-workbench .portal-pagebar-copy p {
+  max-width: 58ch;
+}
+
+@media (max-width: 1200px) {
+  .portal-shell-workbench .portal-command-stage {
+    grid-template-columns: 1fr;
+  }
+}

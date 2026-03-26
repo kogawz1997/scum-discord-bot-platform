@@ -94,7 +94,7 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
 
     const root = await request('/', baseUrl);
     assert.equal(root.status, 302);
-    assert.equal(root.headers.get('location'), '/player');
+    assert.equal(root.headers.get('location'), '/landing');
 
     const showcase = await request('/showcase', baseUrl);
     assert.equal(showcase.status, 200);
@@ -109,7 +109,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     const landing = await request('/landing', baseUrl);
     assert.equal(landing.status, 200);
     const landingHtml = await landing.text();
-    assert.match(landingHtml, /SCUM Platform Landing/i);
+    assert.match(landingHtml, /SCUM TH Platform/i);
+    assert.match(landingHtml, /Managed SCUM Operations/i);
 
     const trial = await request('/trial', baseUrl);
     assert.equal(trial.status, 200);

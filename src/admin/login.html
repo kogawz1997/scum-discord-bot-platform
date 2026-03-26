@@ -3,493 +3,117 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ทางเข้าแอดมิน SCUM</title>
-  <style>
-    :root {
-      --bg: #090c09;
-      --bg-soft: #121712;
-      --panel: rgba(16, 20, 17, 0.94);
-      --panel-soft: rgba(20, 26, 21, 0.9);
-      --line: rgba(208, 214, 176, 0.14);
-      --line-strong: rgba(232, 236, 206, 0.24);
-      --text: #f0eee6;
-      --muted: #b6b09d;
-      --accent: #d5bf79;
-      --accent-strong: #f0da8f;
-      --danger: #ca7d6d;
-      --radius-xl: 28px;
-      --radius-lg: 22px;
-      --radius-md: 16px;
-      --shadow: 0 28px 78px rgba(0, 0, 0, 0.42);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
-      min-height: 100%;
-      color: var(--text);
-      color-scheme: dark;
-      font-family: "IBM Plex Sans Thai", "Segoe UI", sans-serif;
-      background:
-        linear-gradient(180deg, rgba(5, 6, 5, 0.8), rgba(5, 6, 5, 0.92)),
-        radial-gradient(circle at 14% 16%, rgba(213, 191, 121, 0.09), transparent 28%),
-        radial-gradient(circle at 84% 78%, rgba(114, 131, 92, 0.08), transparent 34%),
-        url("/admin/assets/visuals/scum/bg-dark-texture.jpg") center/cover no-repeat,
-        linear-gradient(180deg, #080b08, #111611 58%, #161d16);
-    }
-
-    body {
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    select,
-    input,
-    button {
-      font: inherit;
-    }
-
-    select,
-    select option,
-    select optgroup {
-      color-scheme: dark;
-    }
-
-    select option,
-    select optgroup {
-      background: #151713 !important;
-      color: #f4f1e8 !important;
-    }
-
-    select option:checked,
-    select option:hover,
-    select option:focus {
-      background: #7c6331 !important;
-      color: #ffffff !important;
-    }
-
-    .admin-login-shell {
-      width: min(1360px, calc(100% - 8px));
-      margin: 0 auto;
-      display: grid;
-      gap: 18px;
-    }
-
-    .topbar,
-    .login-stage,
-    .auth-panel,
-    .visual-panel,
-    .surface-card {
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
-        var(--panel);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-    }
-
-    .topbar {
-      min-height: 76px;
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .brand-mark {
-      min-width: 54px;
-      min-height: 54px;
-      border-radius: 18px;
-      border: 1px solid rgba(240, 218, 143, 0.22);
-      background: linear-gradient(180deg, rgba(240, 218, 143, 0.2), rgba(105, 88, 42, 0.26));
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-family: "Barlow Condensed", sans-serif;
-      font-size: 1.4rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #fff2c5;
-    }
-
-    .brand-copy {
-      display: grid;
-      gap: 4px;
-    }
-
-    .brand-copy strong {
-      font-family: "Barlow Condensed", sans-serif;
-      font-size: 1.2rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .brand-copy span {
-      color: var(--muted);
-      font-size: 0.88rem;
-    }
-
-    .login-stage {
-      display: grid;
-      grid-template-columns: minmax(340px, 0.78fr) minmax(420px, 1.22fr);
-      overflow: hidden;
-    }
-
-    .visual-panel {
-      border: 0;
-      border-right: 1px solid var(--line);
-      border-radius: 0;
-      min-height: 700px;
-      padding: 28px;
-      background:
-        linear-gradient(180deg, rgba(9, 12, 9, 0.46), rgba(9, 12, 9, 0.86)),
-        linear-gradient(90deg, rgba(9, 12, 9, 0.1), rgba(9, 12, 9, 0.38)),
-        url("/admin/assets/visuals/scum/hero-public.jpg") center/cover no-repeat;
-      display: block;
-    }
-
-    .surface-tag {
-      width: fit-content;
-      min-height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--accent);
-      display: inline-flex;
-      align-items: center;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .visual-panel h1,
-    .auth-panel h2 {
-      margin: 0;
-      font-family: "Barlow Condensed", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      line-height: 0.9;
-    }
-
-    .visual-panel h1 {
-      max-width: 8ch;
-      font-size: clamp(3rem, 5.4vw, 5.6rem);
-    }
-
-    .visual-panel p,
-    .auth-panel p,
-    .hint,
-    label span {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.68;
-    }
-
-    .visual-grid {
-      display: grid;
-      gap: 12px;
-    }
-
-    .surface-card {
-      padding: 18px;
-      background:
-        linear-gradient(180deg, rgba(14, 18, 15, 0.72), rgba(14, 18, 15, 0.84)),
-        rgba(14, 18, 15, 0.82);
-    }
-
-    .surface-card strong {
-      display: block;
-      margin-bottom: 6px;
-      font-family: "Barlow Condensed", sans-serif;
-      font-size: 1.32rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .auth-panel {
-      border: 0;
-      border-radius: 0;
-      padding: 30px;
-      display: grid;
-      align-content: center;
-      gap: 18px;
-      background:
-        linear-gradient(180deg, rgba(12, 15, 12, 0.92), rgba(15, 19, 15, 0.9)),
-        var(--panel-soft);
-    }
-
-    .auth-panel h2 {
-      font-size: clamp(2.8rem, 5vw, 4.8rem);
-    }
-
-    .auth-topline {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .surface-switch {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .surface-link {
-      min-height: 38px;
-      padding: 0 14px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--muted);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
-    }
-
-    .surface-link:hover,
-    .surface-link.is-active {
-      border-color: rgba(240, 218, 143, 0.24);
-      background: rgba(240, 218, 143, 0.08);
-      color: #fff4cb;
-    }
-
-    .language-picker {
-      display: grid;
-      gap: 6px;
-      min-width: 170px;
-    }
-
-    .language-picker span {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .language-select,
-    input {
-      width: 100%;
-      min-height: 46px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--text);
-      padding: 0 14px;
-      outline: none;
-    }
-
-    input:focus,
-    .language-select:focus {
-      border-color: rgba(240, 218, 143, 0.34);
-      box-shadow: 0 0 0 2px rgba(240, 218, 143, 0.08);
-    }
-
-    form {
-      display: grid;
-      gap: 12px;
-    }
-
-    label {
-      display: grid;
-      gap: 6px;
-    }
-
-    button {
-      appearance: none;
-      width: 100%;
-      min-height: 48px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--text);
-      cursor: pointer;
-      transition: transform 0.14s ease, border-color 0.14s ease;
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-      border-color: var(--line-strong);
-    }
-
-    #loginBtn {
-      border-color: rgba(240, 218, 143, 0.22);
-      background: linear-gradient(180deg, rgba(240, 218, 143, 0.96), rgba(186, 151, 74, 0.92));
-      color: #181205;
-      font-weight: 700;
-    }
-
-    #discordSsoBtn {
-      display: none;
-    }
-
-    .error {
-      min-height: 22px;
-      color: var(--danger);
-      font-weight: 700;
-    }
-
-    .auth-context {
-      display: grid;
-      gap: 10px;
-    }
-
-    .route-pill {
-      width: fit-content;
-      min-height: 32px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(240, 218, 143, 0.18);
-      background: rgba(240, 218, 143, 0.06);
-      color: #fff1bc;
-      display: inline-flex;
-      align-items: center;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .switch-note {
-      padding: 12px 14px;
-      border: 1px solid rgba(240, 218, 143, 0.12);
-      border-radius: 14px;
-      background: rgba(240, 218, 143, 0.05);
-      color: #f3ead0;
-      line-height: 1.6;
-    }
-
-    .switch-note[hidden] {
-      display: none;
-    }
-
-    .source-note {
-      max-width: 48ch;
-    }
-
-    @media (max-width: 1080px) {
-      .topbar,
-      .login-stage {
-        grid-template-columns: 1fr;
-      }
-
-      .visual-panel {
-        min-height: 320px;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
-    }
-
-    @media (max-width: 720px) {
-      body {
-        padding: 10px;
-      }
-
-      .admin-login-shell {
-        width: min(100%, calc(100% - 4px));
-      }
-
-      .topbar,
-      .visual-panel,
-      .auth-panel {
-        padding: 16px;
-      }
-
-      .visual-panel h1 {
-        font-size: clamp(2.3rem, 13vw, 3.8rem);
-      }
-
-      .auth-panel h2 {
-        font-size: clamp(2.2rem, 12vw, 3.8rem);
-      }
-    }
-  </style>
+  <title data-i18n="login.documentTitle">SCUM Admin Access</title>
+  <link rel="stylesheet" href="/admin/assets/console-surfaces.css?v=20260325-shell-cutover-1">
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v2.css?v=20260325-shell-cutover-1">
+  <link rel="stylesheet" href="/admin/assets/admin-login-v2.css?v=20260325-shell-cutover-1">
 </head>
-<body class="admin-login-screen">
-  <div class="admin-login-shell">
-    <header class="topbar">
-      <a class="brand" href="/admin">
-        <span class="brand-mark">SCUM</span>
+<body class="console-auth-v2">
+  <div class="auth-shell-v2">
+    <header class="console-topbar cp-shell-topbar auth-topbar">
+      <a class="console-brand" href="/admin">
+        <span class="brand-emblem">SCUM</span>
         <span class="brand-copy">
           <strong data-i18n="login.brandTitle">Admin Access</strong>
           <span data-i18n="login.brandSubtitle">Owner and admin consoles</span>
         </span>
       </a>
-      <nav class="surface-switch" aria-label="Admin surfaces">
-        <a id="ownerLoginRoute" class="surface-link" href="/owner/login" data-i18n="common.roleOwner">Owner</a>
-        <a id="tenantLoginRoute" class="surface-link" href="/tenant/login" data-i18n="common.roleAdmin">Admin</a>
+      <nav class="auth-surface-switch" aria-label="Admin surfaces">
+        <a id="ownerLoginRoute" class="surface-link surface-role-chip" href="/owner/login" data-i18n="common.roleOwner">Owner</a>
+        <a id="tenantLoginRoute" class="surface-link surface-role-chip" href="/tenant/login" data-i18n="common.roleAdmin">Admin</a>
       </nav>
     </header>
 
-    <section class="login-stage">
-      <aside class="visual-panel" aria-hidden="true"></aside>
-
-      <section class="auth-panel">
-        <div class="auth-topline">
-          <span id="routePill" class="route-pill" data-i18n="login.enterTitle">ADMIN WEB</span>
-          <label class="language-picker">
-            <span data-i18n="common.language">Language</span>
-            <select id="adminLanguageSelect" class="language-select"></select>
-          </label>
+    <section class="auth-stage">
+      <aside class="auth-visual-panel">
+        <span class="auth-kicker" data-i18n="login.adminAccess">Admin Access</span>
+        <div class="auth-visual-copy">
+          <h1 id="heroHeading" data-i18n="login.heroTitle">Owner and Admin Consoles</h1>
+          <p id="heroLead" data-i18n="login.heroSubtitle">Sign in to reach the role-appropriate admin surface. Platform owners land in the owner console. Tenant-scoped admins land in the admin console.</p>
         </div>
-
-        <div class="auth-context">
-          <h2 id="loginHeading" data-i18n="login.enterTitle">ADMIN WEB</h2>
-          <p id="loginSubtitle" data-i18n="login.enterSubtitle">Use your admin account to open the correct console automatically after authentication.</p>
-          <p id="switchNotice" class="switch-note" hidden></p>
+        <div class="auth-visual-grid">
+          <article class="auth-visual-card">
+            <span class="auth-kicker" data-i18n="login.authStackKicker">Auth Stack</span>
+            <strong data-i18n="login.enterTitle">ADMIN WEB</strong>
+            <p data-i18n="login.authStackValue">Database login, Session, 2FA, Rate Limit</p>
+          </article>
+          <article class="auth-visual-card">
+            <span class="auth-kicker" data-i18n="login.ownerKicker">Owner Console</span>
+            <strong data-i18n="login.ownerRoutePill">Owner Console</strong>
+            <p data-i18n="login.ownerValue">Global health, tenant fleet, security, runtime, recovery</p>
+          </article>
+          <article class="auth-visual-card">
+            <span class="auth-kicker" data-i18n="login.tenantKicker">Admin Console</span>
+            <strong data-i18n="login.tenantRoutePill">Admin Console</strong>
+            <p data-i18n="login.tenantValue">Scoped config, delivery, wallet, player support, and tenant-only operations</p>
+          </article>
         </div>
+      </aside>
 
-        <form id="loginForm" autocomplete="on">
-          <label>
-            <span data-i18n="common.username">Username</span>
-            <input id="usernameInput" name="username" autocomplete="username" data-i18n-placeholder="login.adminUsernamePlaceholder" required>
-          </label>
-          <label>
-            <span data-i18n="common.password">Password</span>
-            <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
-          </label>
-          <label>
-            <span data-i18n="common.twoFactorOptional">2FA Code (optional)</span>
-            <input id="otpInput" name="otp" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456">
-          </label>
-          <button id="loginBtn" type="submit" data-i18n="login.signIn">Sign In</button>
-        </form>
+      <section class="auth-workspace">
+        <section class="auth-workspace-panel">
+          <div class="auth-headbar">
+            <span id="routePill" class="auth-kicker" data-i18n="login.enterTitle">ADMIN WEB</span>
+            <label class="language-picker auth-language">
+              <span data-i18n="common.language">Language</span>
+              <select id="adminLanguageSelect" class="language-select"></select>
+            </label>
+          </div>
 
-        <button id="discordSsoBtn" type="button" data-i18n="login.discordSso">Continue with Discord SSO</button>
-        <div id="errorText" class="error"></div>
+          <div class="auth-workspace-head">
+            <h1 id="loginHeading" data-i18n="login.enterTitle">ADMIN WEB</h1>
+            <p id="loginSubtitle" data-i18n="login.enterSubtitle">Use your admin account to open the correct console automatically after authentication.</p>
+            <p id="switchNotice" class="auth-note" hidden></p>
+          </div>
 
-        <p id="sourceHint" class="hint source-note" data-i18n="login.sourceHint">Admin users are read from the database first. Session policy, 2FA, and rate limiting remain enforced after the redesign.</p>
+          <form id="loginForm" autocomplete="on">
+            <label class="auth-field">
+              <span data-i18n="common.username">Username</span>
+              <input id="usernameInput" class="auth-input" name="username" autocomplete="username" data-i18n-placeholder="login.adminUsernamePlaceholder" required>
+            </label>
+            <label class="auth-field">
+              <span data-i18n="common.password">Password</span>
+              <input id="passwordInput" class="auth-input" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <label class="auth-field">
+              <span data-i18n="common.twoFactorOptional">2FA Code (optional)</span>
+              <input id="otpInput" class="auth-input" name="otp" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456">
+            </label>
+            <button id="loginBtn" class="button button-primary" type="submit" data-i18n="login.signIn">Sign In</button>
+          </form>
+
+          <div class="auth-action-stack">
+            <button id="discordSsoBtn" class="button" type="button" data-i18n="login.discordSso">Continue with Discord SSO</button>
+            <div id="errorText" class="auth-error"></div>
+            <p id="sourceHint" class="auth-note" data-i18n="login.sourceHint">Database-backed admin accounts remain the primary login source. Session, 2FA, and rate limiting remain enforced after the redesign.</p>
+          </div>
+        </section>
+
+        <section class="auth-facts-panel">
+          <h3 data-i18n="login.heroTitle">Owner and Admin Consoles</h3>
+          <div class="auth-facts-grid">
+            <article class="auth-fact">
+              <span class="auth-kicker" data-i18n="login.ownerKicker">Owner Console</span>
+              <strong data-i18n="owner.surfaceId">Platform Owner Console</strong>
+              <p data-i18n="login.ownerValue">Global health, tenant fleet, security, runtime, recovery</p>
+            </article>
+            <article class="auth-fact">
+              <span class="auth-kicker" data-i18n="login.tenantKicker">Admin Console</span>
+              <strong data-i18n="tenant.surfaceId">Server Admin Console</strong>
+              <p data-i18n="login.tenantValue">Scoped config, delivery, wallet, player support, and tenant-only operations</p>
+            </article>
+            <article class="auth-fact">
+              <span class="auth-kicker" data-i18n="login.authStackKicker">Auth Stack</span>
+              <strong data-i18n="common.security">Security</strong>
+              <p data-i18n="login.authStackValue">Database login, Session, 2FA, Rate Limit</p>
+            </article>
+          </div>
+        </section>
       </section>
     </section>
   </div>
 
-  <script src="/admin/assets/admin-i18n.js?v=20260324-deep-rebuild-3"></script>
+  <script src="/admin/assets/admin-i18n.js?v=20260325-shell-cutover-1"></script>
   <script>
     const form = document.getElementById('loginForm');
     const usernameInput = document.getElementById('usernameInput');
@@ -501,6 +125,8 @@
     const sourceHint = document.getElementById('sourceHint');
     const loginHeading = document.getElementById('loginHeading');
     const loginSubtitle = document.getElementById('loginSubtitle');
+    const heroHeading = document.getElementById('heroHeading');
+    const heroLead = document.getElementById('heroLead');
     const routePill = document.getElementById('routePill');
     const switchNotice = document.getElementById('switchNotice');
     const ownerLoginRoute = document.getElementById('ownerLoginRoute');
@@ -602,6 +228,8 @@
       const current = surfaceContent[requestedSurface] || surfaceContent.admin;
       document.title = current.title;
       routePill.textContent = current.pill;
+      heroHeading.textContent = current.heading;
+      heroLead.textContent = current.subtitle;
       loginHeading.textContent = current.heading;
       loginSubtitle.textContent = current.subtitle;
       sourceHint.textContent = current.hint;

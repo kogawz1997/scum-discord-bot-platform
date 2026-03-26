@@ -98,9 +98,12 @@ test('public entry pages include language selector and portal i18n runtime', () 
 
 test('login entry pages keep language selectors and surface-specific i18n runtimes', () => {
   const adminLogin = read(path.join('src', 'admin', 'login.html'));
-  const playerLogin = read(path.join('apps', 'web-portal-standalone', 'public', 'login.html'));
+  const loginHub = read(path.join('apps', 'web-portal-standalone', 'public', 'login.html'));
+  const playerLogin = read(path.join('apps', 'web-portal-standalone', 'public', 'player-login.html'));
   assert.match(adminLogin, /id="adminLanguageSelect"/);
   assert.match(adminLogin, /admin-i18n\.js/);
+  assert.match(loginHub, /id="authLanguageSelect"/);
+  assert.match(loginHub, /portal-i18n\.js/);
   assert.match(playerLogin, /id="playerLoginLanguageSelect"/);
   assert.match(playerLogin, /portal-i18n\.js/);
 });
