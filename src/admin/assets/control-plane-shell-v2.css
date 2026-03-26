@@ -206,6 +206,101 @@
   gap: 22px;
 }
 
+body[data-current-section]:not([data-current-section="overview"]) .cp-shell-layout {
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 20px;
+  width: min(1720px, calc(100% - 32px));
+  padding-top: 18px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar {
+  top: 76px;
+  gap: 12px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-panel.visual-owner,
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-panel.visual-tenant {
+  min-height: 0;
+  padding: 14px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-panel.visual-owner::before,
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-panel.visual-tenant::before {
+  opacity: 0.56;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-heading {
+  gap: 2px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-heading strong {
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-sidebar-heading p,
+body[data-current-section]:not([data-current-section="overview"]) .cp-nav-group-title {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-nav-group {
+  gap: 8px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-primary-links {
+  gap: 6px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-primary-links .surface-primary-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  gap: 0;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-primary-links .surface-primary-link p {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-primary-links .surface-primary-link .surface-primary-label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-shell-main {
+  gap: 14px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-pagehead {
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-pagehead-copy,
+body[data-current-section]:not([data-current-section="overview"]) .cp-pagehead-panels .status-banner {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-pagehead-panels {
+  gap: 0;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .cp-pagehead-panels .surface-pagebar {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.01)),
+    rgba(11, 14, 11, 0.92);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
 .cp-hidden-workspace {
   display: none;
 }
@@ -231,6 +326,11 @@
 
   .cp-pagehead {
     grid-template-columns: 1fr;
+  }
+
+  body[data-current-section]:not([data-current-section="overview"]) .cp-shell-layout {
+    grid-template-columns: 230px minmax(0, 1fr);
+    width: calc(100% - 24px);
   }
 }
 

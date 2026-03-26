@@ -433,8 +433,69 @@
         detail: t('player.home.announcements.detail', 'Latest notices and raid-time summaries pulled into the player surface.'),
       },
     ]);
+    renderHomeTaskHub();
     renderFirstRunGuide();
     renderNotificationCenter();
+  }
+
+  function renderHomeTaskHub() {
+    const container = $('homeTaskHub');
+    if (!container) return;
+    const latestOrder = state.dashboard?.latestOrder || state.orders[0] || null;
+    const latestOrderCode = latestOrder?.purchaseCode || latestOrder?.code || '';
+    const steamLinked = Boolean(state.steamLink?.linked);
+    const groups = [
+      {
+        tone: 'success',
+        tag: t('player.taskHub.buy.tag', 'shop'),
+        title: t('player.taskHub.buy.title', 'Top up and buy'),
+        detail: t('player.taskHub.buy.detail', 'Check balance first, then open the shop when you are ready to buy items or support the server.'),
+        actions: [
+          { tab: 'wallet', label: t('player.taskHub.buy.wallet', 'Open wallet'), primary: true },
+          { tab: 'shop', label: t('player.taskHub.buy.shop', 'Open shop') },
+        ],
+      },
+      {
+        tone: latestOrder ? 'info' : 'neutral',
+        tag: t('player.taskHub.orders.tag', 'orders'),
+        title: t('player.taskHub.orders.title', 'Track your current order'),
+        detail: latestOrderCode
+          ? t('player.taskHub.orders.detailReady', 'A recent order is available. Open it to check the latest status and what to do next.')
+          : t('player.taskHub.orders.detail', 'Use the orders area to confirm status, delivery result, and any next step after checkout.'),
+        actions: [
+          latestOrderCode
+            ? { orderCode: latestOrderCode, label: t('player.taskHub.orders.latest', 'Open latest order'), primary: true }
+            : { tab: 'orders', label: t('player.taskHub.orders.latestFallback', 'Open orders'), primary: true },
+          { tab: 'orders', label: t('player.taskHub.orders.all', 'View order history') },
+        ],
+      },
+      {
+        tone: steamLinked ? 'info' : 'warning',
+        tag: t('player.taskHub.account.tag', 'account'),
+        title: t('player.taskHub.account.title', 'Keep your account ready'),
+        detail: steamLinked
+          ? t('player.taskHub.account.detailReady', 'Your Steam link is already in place. Review profile and redeem tools from one area.')
+          : t('player.taskHub.account.detail', 'Link Steam and keep account details current before buying items that deliver into the game.'),
+        actions: [
+          { tab: 'profile', label: t('player.taskHub.account.profile', 'Open profile'), primary: true },
+          { tab: 'redeem', label: t('player.taskHub.account.redeem', 'Open redeem') },
+        ],
+      },
+    ];
+    container.innerHTML = groups.map((group) => [
+      '<article class="task-launch-card guide-card">',
+      '<div class="task-launch-head">',
+      `<div class="feed-meta">${pill(group.tag, group.tone)}</div>`,
+      `<strong>${escapeHtml(group.title)}</strong>`,
+      `<p>${escapeHtml(group.detail)}</p>`,
+      '</div>',
+      '<div class="task-launch-actions">',
+      ...group.actions.map((action) => action.orderCode
+        ? `<button class="button ${action.primary ? 'button-primary' : ''}" type="button" data-task-order="${escapeHtml(action.orderCode)}">${escapeHtml(action.label)}</button>`
+        : `<button class="button ${action.primary ? 'button-primary' : ''}" type="button" data-task-tab="${escapeHtml(action.tab || 'home')}">${escapeHtml(action.label)}</button>`),
+      '</div>',
+      '</article>',
+    ].join('')).join('');
   }
 
   function renderNotificationCenter() {
@@ -1171,6 +1232,17 @@
     const tabButton = event.target.closest('[data-guide-tab]');
     if (tabButton) {
       activateTab(tabButton.dataset.guideTab || 'home');
+    }
+  });
+  $('homeTaskHub').addEventListener('click', (event) => {
+    const orderButton = event.target.closest('[data-task-order]');
+    if (orderButton) {
+      openOrderDetail(orderButton.dataset.taskOrder || '');
+      return;
+    }
+    const tabButton = event.target.closest('[data-task-tab]');
+    if (tabButton) {
+      activateTab(tabButton.dataset.taskTab || 'home');
     }
   });
   $('ordersFeed').addEventListener('click', (event) => {

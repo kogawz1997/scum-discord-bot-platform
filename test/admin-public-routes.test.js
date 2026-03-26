@@ -142,7 +142,7 @@ test('admin public routes block tenant-scoped admins from owner console page', a
   assert.equal(res.headers.Location, '/owner/login?switch=1');
 });
 
-test('owner-scoped session hitting tenant page is redirected to tenant login for account switch', async () => {
+test('owner-scoped session can open tenant console page', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
   });
@@ -159,8 +159,8 @@ test('owner-scoped session hitting tenant page is redirected to tenant login for
   });
 
   assert.equal(handled, true);
-  assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, '/tenant/login?switch=1');
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<tenant/>');
 });
 
 test('admin public routes serve tenant console html for tenant-scoped admins', async () => {
@@ -268,7 +268,7 @@ test('tenant login route serves login html when unauthenticated', async () => {
   assert.equal(res.body, '<login/>');
 });
 
-test('tenant login route serves login html for owner session so accounts can be switched', async () => {
+test('tenant login route redirects owner session into tenant console', async () => {
   const handler = buildRoutes({
     isAuthorized: () => true,
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
@@ -286,8 +286,30 @@ test('tenant login route serves login html for owner session so accounts can be 
   });
 
   assert.equal(handled, true);
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<login/>');
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant');
+});
+
+test('owner login route redirects tenant-scoped admins back to tenant console', async () => {
+  const handler = buildRoutes({
+    isAuthorized: () => true,
+    getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/owner/login'),
+    pathname: '/owner/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant');
 });
 
 test('admin public healthz uses the redacted persistence payload', async () => {

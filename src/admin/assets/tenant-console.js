@@ -31,6 +31,8 @@
   // state -> render* function -> matching HTML section.
   const state = {
     me: null,
+    ownerTenantOptions: [],
+    ownerViewTenantId: '',
     overview: null,
     reconcile: null,
     quota: null,
@@ -81,8 +83,66 @@
   let workspaceController = null;
   let sidebarController = null;
 
+  function isOwnerSurfaceSession() {
+    return String(state.me?.role || '').trim().toLowerCase() === 'owner';
+  }
+
+  function readTenantIdFromUrl() {
+    try {
+      const url = new URL(window.location.href);
+      return String(url.searchParams.get('tenantId') || '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  function getScopedTenantIdValue() {
+    return String(state.ownerViewTenantId || state.me?.tenantId || '').trim();
+  }
+
   function getTenantId() {
-    return encodeURIComponent(String(state.me?.tenantId || '').trim());
+    return encodeURIComponent(getScopedTenantIdValue());
+  }
+
+  function buildTenantSurfaceUrl(tenantId = '') {
+    const url = new URL(window.location.href);
+    url.pathname = '/tenant';
+    if (tenantId) {
+      url.searchParams.set('tenantId', tenantId);
+    } else {
+      url.searchParams.delete('tenantId');
+    }
+    return `${url.pathname}${url.search}`;
+  }
+
+  function renderTenantSurfaceAccessControls() {
+    const ownerChip = document.querySelector('.surface-role-chip[href="/owner"]');
+    const playerChip = document.querySelector('.surface-role-chip[href="/player"]');
+    const controls = document.getElementById('tenantOwnerScopeControls');
+    const select = document.getElementById('tenantOwnerScopeSelect');
+    const openButton = document.getElementById('tenantOwnerScopeOpenBtn');
+    const isOwner = isOwnerSurfaceSession();
+
+    if (ownerChip) ownerChip.hidden = !isOwner;
+    if (playerChip) playerChip.hidden = !isOwner;
+    if (!controls || !select || !openButton) return;
+
+    controls.hidden = !isOwner;
+    if (!isOwner) return;
+
+    const currentTenantId = getScopedTenantIdValue();
+    const rows = Array.isArray(state.ownerTenantOptions) ? state.ownerTenantOptions : [];
+    select.innerHTML = [
+      `<option value="">${escapeHtml(t('tenant.ownerScope.placeholder', 'Choose tenant'))}</option>`,
+      ...rows.map((row) => {
+        const tenantId = String(row?.id || '').trim();
+        const label = String(row?.name || row?.slug || tenantId || '-').trim() || tenantId || '-';
+        const selected = tenantId && tenantId === currentTenantId ? ' selected' : '';
+        return `<option value="${escapeHtml(tenantId)}"${selected}>${escapeHtml(label)} (${escapeHtml(tenantId)})</option>`;
+      }),
+    ].join('');
+    select.value = currentTenantId;
+    openButton.disabled = !currentTenantId;
   }
 
   const TENANT_PAGE_CONTEXT_DETAIL = {
@@ -719,64 +779,94 @@
   function renderQuickActions() {
     const container = document.getElementById('tenantQuickActions');
     if (!container) return;
-    const items = [
+    container.classList.add('task-launch-grid');
+    const groups = [
       {
-        key: 'delivery-stuck',
+        tone: 'success',
+        tag: t('tenant.taskGroups.runtime.tag', 'runtime'),
+        title: t('tenant.taskGroups.runtime.title', 'Server and health'),
+        detail: t('tenant.taskGroups.runtime.detail', 'Start here when you need server status, delivery queue review, or a quick path into active incidents.'),
+        actions: [
+          { key: 'server-status', label: t('tenant.taskGroups.runtime.status', 'View server status'), primary: true },
+          { key: 'delivery-queue', label: t('tenant.taskGroups.runtime.delivery', 'Open delivery queue') },
+          { key: 'incident-inbox', label: t('tenant.taskGroups.runtime.incidents', 'Open incident inbox') },
+        ],
+      },
+      {
         tone: 'warning',
-        tag: t('tenant.quickAction.tag.delivery', 'delivery'),
-        title: t('tenant.quickAction.deliveryStuck.title', 'Delivery stuck'),
-        detail: t('tenant.quickAction.deliveryStuck.detail', 'Open one delivery case first, then decide whether to retry, use delivery lab, or gather audit evidence.'),
-        button: t('tenant.quickAction.deliveryStuck.button', 'Open delivery case'),
+        tag: t('tenant.taskGroups.orders.tag', 'support'),
+        title: t('tenant.taskGroups.orders.title', 'Orders and player support'),
+        detail: t('tenant.taskGroups.orders.detail', 'Use this group when a player reports order, wallet, or Steam delivery issues and you need the right support form fast.'),
+        actions: [
+          { key: 'order-history', label: t('tenant.taskGroups.orders.history', 'Open order history'), primary: true },
+          { key: 'wallet-support', label: t('tenant.taskGroups.orders.wallet', 'Open wallet support') },
+          { key: 'steam-support', label: t('tenant.taskGroups.orders.steam', 'Open Steam support') },
+        ],
       },
       {
-        key: 'wallet-mismatch',
         tone: 'info',
-        tag: t('tenant.quickAction.tag.support', 'support'),
-        title: t('tenant.quickAction.walletMismatch.title', 'Wallet mismatch'),
-        detail: t('tenant.quickAction.walletMismatch.detail', 'Jump straight to the wallet support form for scoped balance fixes or ledger follow-up.'),
-        button: t('tenant.quickAction.walletMismatch.button', 'Open wallet support'),
-      },
-      {
-        key: 'steam-link-issue',
-        tone: 'warning',
-        tag: t('tenant.quickAction.tag.support', 'support'),
-        title: t('tenant.quickAction.steamLink.title', 'Steam link issue'),
-        detail: t('tenant.quickAction.steamLink.detail', 'Open the Steam link support form first when in-game delivery readiness depends on player identity data.'),
-        button: t('tenant.quickAction.steamLink.button', 'Open Steam support'),
-      },
-      {
-        key: 'restart-announcement',
-        tone: 'info',
-        tag: t('tenant.quickAction.tag.actions', 'actions'),
-        title: t('tenant.quickAction.restartAnnouncement.title', 'Restart announcement'),
-        detail: t('tenant.quickAction.restartAnnouncement.detail', 'Use the guided restart preset in this console before you announce downtime or run maintenance checks.'),
-        button: t('tenant.quickAction.restartAnnouncement.button', 'Open restart preset'),
+        tag: t('tenant.taskGroups.system.tag', 'system'),
+        title: t('tenant.taskGroups.system.title', 'System and evidence'),
+        detail: t('tenant.taskGroups.system.detail', 'Review config, audit trail, and guided restart tools from one place before making server-side changes.'),
+        actions: [
+          { key: 'config-review', label: t('tenant.taskGroups.system.config', 'Open config review'), primary: true },
+          { key: 'audit-trail', label: t('tenant.taskGroups.system.audit', 'Open audit trail') },
+          { key: 'restart-announcement', label: t('tenant.taskGroups.system.restart', 'Open restart flow') },
+        ],
       },
     ];
-    container.innerHTML = items.map((item) => [
-      '<article class="quick-action-card">',
-      `<div class="feed-meta">${makePill(item.tag, item.tone)}</div>`,
-      `<strong>${escapeHtml(item.title)}</strong>`,
-      `<p>${escapeHtml(item.detail)}</p>`,
-      `<div class="button-row"><button type="button" class="button button-primary" data-tenant-quick-action="${escapeHtml(item.key)}">${escapeHtml(item.button)}</button></div>`,
+    container.innerHTML = groups.map((group) => [
+      '<article class="task-launch-card quick-action-card">',
+      '<div class="task-launch-head">',
+      `<div class="feed-meta">${makePill(group.tag, group.tone)}</div>`,
+      `<strong>${escapeHtml(group.title)}</strong>`,
+      `<p>${escapeHtml(group.detail)}</p>`,
+      '</div>',
+      '<div class="task-launch-actions">',
+      ...group.actions.map((action) => `<button type="button" class="button ${action.primary ? 'button-primary' : ''}" data-tenant-quick-action="${escapeHtml(action.key)}">${escapeHtml(action.label)}</button>`),
+      '</div>',
       '</article>',
     ].join('')).join('');
   }
 
   function runTenantQuickAction(actionKey) {
     const key = String(actionKey || '').trim();
+    if (key === 'server-status') {
+      openTenantTarget('operations');
+      return;
+    }
+    if (key === 'delivery-queue') {
+      openTenantTarget('commerce');
+      return;
+    }
+    if (key === 'incident-inbox') {
+      openTenantTarget('incidents');
+      return;
+    }
     if (key === 'delivery-stuck') {
       openTenantTarget('transactions', { targetId: 'tenantDeliveryCaseForm', block: 'center' });
       return;
     }
-    if (key === 'wallet-mismatch') {
+    if (key === 'wallet-mismatch' || key === 'wallet-support') {
       openTenantTarget('support-tools', { targetId: 'tenantWalletForm', block: 'center' });
       showToast(t('tenant.toast.walletSupportFocused', 'Wallet support form focused.'), 'info');
       return;
     }
-    if (key === 'steam-link-issue') {
+    if (key === 'steam-link-issue' || key === 'steam-support') {
       openTenantTarget('support-tools', { targetId: 'tenantSteamLinkForm', block: 'center' });
       showToast(t('tenant.toast.steamSupportFocused', 'Steam support form focused.'), 'info');
+      return;
+    }
+    if (key === 'order-history') {
+      openTenantTarget('transactions');
+      return;
+    }
+    if (key === 'config-review') {
+      openTenantTarget('config');
+      return;
+    }
+    if (key === 'audit-trail') {
+      openTenantTarget('audit');
       return;
     }
     if (key === 'restart-announcement') {
@@ -2116,20 +2206,41 @@
   // overlays synchronized after each refresh without changing backend shape.
   function renderAll() {
     const ops = getTenantOperationalSnapshot();
+    const scopedTenantId = getScopedTenantIdValue();
+    const ownerViewingTenant = isOwnerSurfaceSession();
+    if (ownerViewingTenant && !scopedTenantId) {
+      document.getElementById('tenantScopeText').textContent =
+        t('tenant.ownerScope.scopeSummary', 'Owner account | choose a tenant context before loading tenant tools.');
+      renderTenantSurfaceAccessControls();
+      setBanner(
+        t('tenant.ownerScope.title', 'Choose tenant context'),
+        t('tenant.ownerScope.detail', 'Owner can inspect tenant tools too, but this workspace needs one tenant context before loading orders, players, config, and support data.'),
+        [
+          t('tenant.ownerScope.tag', 'owner access'),
+          t('tenant.ownerScope.tagNeedsTenant', 'tenant required'),
+        ],
+        'warning',
+      );
+      return;
+    }
     document.getElementById('tenantScopeText').textContent =
       t('tenant.banner.scope', 'Tenant ID: {tenantId} | role: {role} | user: {user}', {
-        tenantId: state.me?.tenantId || '-',
+        tenantId: scopedTenantId || '-',
         role: state.me?.role || '-',
         user: state.me?.user || '-',
       });
+    renderTenantSurfaceAccessControls();
     setBanner(
-      state.tenantConfig?.name || t('tenant.banner.title', 'Tenant {tenantId}', { tenantId: state.me?.tenantId || '' }),
-      t('tenant.banner.detail', 'Tenant-facing operations stay isolated from owner-only platform controls and recovery workflows.'),
+      state.tenantConfig?.name || t('tenant.banner.title', 'Tenant {tenantId}', { tenantId: scopedTenantId || '' }),
+      ownerViewingTenant
+        ? t('tenant.banner.ownerViewDetail', 'Owner is reviewing this tenant workspace through a selected tenant context. Platform-only controls still stay in the owner surface.')
+        : t('tenant.banner.detail', 'Tenant-facing operations stay isolated from owner-only platform controls and recovery workflows.'),
       [
         t('tenant.banner.tag.queue', 'queue {count}', { count: formatNumber(ops.queueDepth, '0') }),
         t('tenant.banner.tag.dead', 'dead {count}', { count: formatNumber(ops.deadCount, '0') }),
         t('tenant.banner.tag.incidents', 'incidents {count}', { count: formatNumber(ops.incidentCount, '0') }),
         t('tenant.banner.tag.delivery', 'delivery {value}', { value: ops.runtimeLabel }),
+        ownerViewingTenant ? t('tenant.banner.tag.ownerView', 'owner view') : '',
       ],
       ops.tone
     );
@@ -2234,11 +2345,38 @@
     }
     try {
       const me = await api('/admin/api/me');
-      if (!me?.tenantId) {
-        window.location.href = '/owner';
+      state.me = me;
+      state.ownerViewTenantId = '';
+      state.ownerTenantOptions = [];
+
+      if (String(me?.role || '').trim().toLowerCase() === 'owner') {
+        const tenants = listFromPayload(await safeApi('/admin/api/platform/tenants?limit=100', []));
+        state.ownerTenantOptions = tenants;
+        const requestedTenantId = readTenantIdFromUrl();
+        const hasRequestedTenant = tenants.some((row) => String(row?.id || '').trim() === requestedTenantId);
+        state.ownerViewTenantId = hasRequestedTenant ? requestedTenantId : '';
+        renderTenantSurfaceAccessControls();
+        document.getElementById('tenantScopeText').textContent =
+          t('tenant.ownerScope.scopeSummary', 'Owner account | choose a tenant context before loading tenant tools.');
+        if (!state.ownerViewTenantId) {
+          setBanner(
+            t('tenant.ownerScope.title', 'Choose tenant context'),
+            t('tenant.ownerScope.detail', 'Owner can inspect tenant tools too, but this surface needs one tenant context before loading orders, players, config, and support data.'),
+            [
+              t('tenant.ownerScope.tag', 'owner access'),
+              t('tenant.ownerScope.tagNeedsTenant', 'tenant required'),
+            ],
+            'warning',
+          );
+          renderTenantPageContext();
+          return;
+        }
+        state.me = { ...me, tenantId: state.ownerViewTenantId };
+      } else if (!me?.tenantId) {
+        window.location.href = '/tenant/login?switch=1';
         return;
       }
-      state.me = me;
+      renderTenantSurfaceAccessControls();
       const tenantId = getTenantId();
       const [
         overview,
@@ -3543,6 +3681,21 @@
   document.getElementById('tenantAuditQueryForm').addEventListener('submit', handleAuditQuerySubmit);
   document.getElementById('tenantAuditExportJsonBtn').addEventListener('click', () => exportAudit('json'));
   document.getElementById('tenantAuditExportCsvBtn').addEventListener('click', () => exportAudit('csv'));
+  document.getElementById('tenantOwnerScopeSelect')?.addEventListener('change', (event) => {
+    const nextTenantId = String(event.target?.value || '').trim();
+    const openButton = document.getElementById('tenantOwnerScopeOpenBtn');
+    if (openButton) {
+      openButton.disabled = !nextTenantId;
+    }
+  });
+  document.getElementById('tenantOwnerScopeOpenBtn')?.addEventListener('click', () => {
+    const selectedTenantId = String(document.getElementById('tenantOwnerScopeSelect')?.value || '').trim();
+    if (!selectedTenantId) {
+      showToast(t('tenant.ownerScope.selectPrompt', 'Choose a tenant first.'), 'info');
+      return;
+    }
+    window.location.href = buildTenantSurfaceUrl(selectedTenantId);
+  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       refreshSurface({ silent: true });

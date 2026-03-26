@@ -1781,6 +1781,58 @@
     'public.preview.nav.help': 'ความช่วยเหลือ',
   });
 
+  Object.assign(DICTIONARY.en, {
+    'player.sidebar.frequent': 'Use often',
+    'player.sidebar.account': 'Account and access',
+    'player.sidebar.setup': 'Do this first',
+    'player.home.taskHubTitle': 'Start here',
+    'player.home.taskHubDetail': 'Use these shortcuts to top up, buy items, track your latest order, or keep your account ready for delivery.',
+    'player.taskHub.buy.tag': 'shop',
+    'player.taskHub.buy.title': 'Top up and buy',
+    'player.taskHub.buy.detail': 'Check balance first, then open the shop when you are ready to buy items or support the server.',
+    'player.taskHub.buy.wallet': 'Open wallet',
+    'player.taskHub.buy.shop': 'Open shop',
+    'player.taskHub.orders.tag': 'orders',
+    'player.taskHub.orders.title': 'Track your current order',
+    'player.taskHub.orders.detail': 'Use the orders area to confirm status, delivery result, and any next step after checkout.',
+    'player.taskHub.orders.detailReady': 'A recent order is available. Open it to check the latest status and what to do next.',
+    'player.taskHub.orders.latest': 'Open latest order',
+    'player.taskHub.orders.latestFallback': 'Open orders',
+    'player.taskHub.orders.all': 'View order history',
+    'player.taskHub.account.tag': 'account',
+    'player.taskHub.account.title': 'Keep your account ready',
+    'player.taskHub.account.detail': 'Link Steam and keep account details current before buying items that deliver into the game.',
+    'player.taskHub.account.detailReady': 'Your Steam link is already in place. Review profile and redeem tools from one area.',
+    'player.taskHub.account.profile': 'Open profile',
+    'player.taskHub.account.redeem': 'Open redeem',
+  });
+
+  Object.assign(DICTIONARY.th, {
+    'player.sidebar.frequent': '\u0e43\u0e0a\u0e49\u0e1a\u0e48\u0e2d\u0e22',
+    'player.sidebar.account': '\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e41\u0e25\u0e30\u0e01\u0e32\u0e23\u0e40\u0e02\u0e49\u0e32\u0e16\u0e36\u0e07',
+    'player.sidebar.setup': '\u0e40\u0e23\u0e34\u0e48\u0e21\u0e08\u0e32\u0e01\u0e15\u0e23\u0e07\u0e19\u0e35\u0e49',
+    'player.home.taskHubTitle': '\u0e40\u0e23\u0e34\u0e48\u0e21\u0e08\u0e32\u0e01\u0e15\u0e23\u0e07\u0e19\u0e35\u0e49',
+    'player.home.taskHubDetail': '\u0e43\u0e0a\u0e49\u0e17\u0e32\u0e07\u0e25\u0e31\u0e14\u0e0a\u0e38\u0e14\u0e19\u0e35\u0e49\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e08\u0e30\u0e40\u0e15\u0e34\u0e21\u0e40\u0e07\u0e34\u0e19 \u0e0b\u0e37\u0e49\u0e2d\u0e02\u0e2d\u0e07 \u0e15\u0e34\u0e14\u0e15\u0e32\u0e21\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14 \u0e2b\u0e23\u0e37\u0e2d\u0e40\u0e15\u0e23\u0e35\u0e22\u0e21\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e43\u0e2b\u0e49\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e23\u0e31\u0e1a\u0e02\u0e2d\u0e07',
+    'player.taskHub.buy.tag': '\u0e0b\u0e37\u0e49\u0e2d',
+    'player.taskHub.buy.title': '\u0e40\u0e15\u0e34\u0e21\u0e40\u0e07\u0e34\u0e19\u0e41\u0e25\u0e30\u0e0b\u0e37\u0e49\u0e2d\u0e02\u0e2d\u0e07',
+    'player.taskHub.buy.detail': '\u0e15\u0e23\u0e27\u0e08\u0e22\u0e2d\u0e14\u0e04\u0e07\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e01\u0e48\u0e2d\u0e19 \u0e41\u0e25\u0e49\u0e27\u0e04\u0e48\u0e2d\u0e22\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e49\u0e32\u0e19\u0e04\u0e49\u0e32\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e0b\u0e37\u0e49\u0e2d\u0e2d\u0e34\u0e40\u0e17\u0e47\u0e21\u0e2b\u0e23\u0e37\u0e2d\u0e2a\u0e19\u0e31\u0e1a\u0e2a\u0e19\u0e38\u0e19\u0e40\u0e0b\u0e34\u0e23\u0e4c\u0e1f\u0e40\u0e27\u0e2d\u0e23\u0e4c',
+    'player.taskHub.buy.wallet': '\u0e40\u0e1b\u0e34\u0e14\u0e01\u0e23\u0e30\u0e40\u0e1b\u0e4b\u0e32\u0e40\u0e07\u0e34\u0e19',
+    'player.taskHub.buy.shop': '\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e49\u0e32\u0e19\u0e04\u0e49\u0e32',
+    'player.taskHub.orders.tag': '\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c',
+    'player.taskHub.orders.title': '\u0e15\u0e34\u0e14\u0e15\u0e32\u0e21\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19',
+    'player.taskHub.orders.detail': '\u0e43\u0e0a\u0e49\u0e2b\u0e19\u0e49\u0e32\u0e04\u0e33\u0e2a\u0e31\u0e48\u0e07\u0e0b\u0e37\u0e49\u0e2d\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e16\u0e32\u0e19\u0e30 \u0e1c\u0e25\u0e01\u0e32\u0e23\u0e2a\u0e48\u0e07\u0e02\u0e2d\u0e07 \u0e41\u0e25\u0e30\u0e02\u0e31\u0e49\u0e19\u0e15\u0e2d\u0e19\u0e16\u0e31\u0e14\u0e44\u0e1b\u0e2b\u0e25\u0e31\u0e07\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19',
+    'player.taskHub.orders.detailReady': '\u0e21\u0e35\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14\u0e43\u0e2b\u0e49\u0e15\u0e23\u0e27\u0e08\u0e41\u0e25\u0e49\u0e27 \u0e40\u0e1b\u0e34\u0e14\u0e14\u0e39\u0e44\u0e14\u0e49\u0e17\u0e31\u0e19\u0e17\u0e35\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e14\u0e39\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14\u0e41\u0e25\u0e30\u0e02\u0e31\u0e49\u0e19\u0e15\u0e2d\u0e19\u0e15\u0e48\u0e2d\u0e44\u0e1b',
+    'player.taskHub.orders.latest': '\u0e40\u0e1b\u0e34\u0e14\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14',
+    'player.taskHub.orders.latestFallback': '\u0e40\u0e1b\u0e34\u0e14\u0e04\u0e33\u0e2a\u0e31\u0e48\u0e07\u0e0b\u0e37\u0e49\u0e2d',
+    'player.taskHub.orders.all': '\u0e14\u0e39\u0e1b\u0e23\u0e30\u0e27\u0e31\u0e15\u0e34\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c',
+    'player.taskHub.account.tag': '\u0e1a\u0e31\u0e0d\u0e0a\u0e35',
+    'player.taskHub.account.title': '\u0e40\u0e15\u0e23\u0e35\u0e22\u0e21\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e43\u0e2b\u0e49\u0e1e\u0e23\u0e49\u0e2d\u0e21',
+    'player.taskHub.account.detail': '\u0e40\u0e0a\u0e37\u0e48\u0e2d\u0e21 Steam \u0e41\u0e25\u0e30\u0e14\u0e39\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e43\u0e2b\u0e49\u0e17\u0e31\u0e19\u0e2a\u0e21\u0e31\u0e22\u0e01\u0e48\u0e2d\u0e19\u0e0b\u0e37\u0e49\u0e2d\u0e02\u0e2d\u0e07\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e2a\u0e48\u0e07\u0e40\u0e02\u0e49\u0e32\u0e40\u0e01\u0e21',
+    'player.taskHub.account.detailReady': '\u0e40\u0e0a\u0e37\u0e48\u0e2d\u0e21 Steam \u0e44\u0e27\u0e49\u0e41\u0e25\u0e49\u0e27 \u0e08\u0e36\u0e07\u0e40\u0e02\u0e49\u0e32\u0e14\u0e39\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c\u0e41\u0e25\u0e30\u0e2b\u0e19\u0e49\u0e32\u0e41\u0e25\u0e01\u0e23\u0e31\u0e1a\u0e42\u0e04\u0e49\u0e14\u0e44\u0e14\u0e49\u0e08\u0e32\u0e01\u0e08\u0e38\u0e14\u0e40\u0e14\u0e35\u0e22\u0e27',
+    'player.taskHub.account.profile': '\u0e40\u0e1b\u0e34\u0e14\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c',
+    'player.taskHub.account.redeem': '\u0e40\u0e1b\u0e34\u0e14\u0e2b\u0e19\u0e49\u0e32\u0e41\u0e25\u0e01\u0e23\u0e31\u0e1a\u0e42\u0e04\u0e49\u0e14',
+  });
+
   function normalizeLiteral(text) {
     return String(text || '').replace(/\s+/g, ' ').trim();
   }

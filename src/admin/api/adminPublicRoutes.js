@@ -154,10 +154,18 @@ function createAdminPublicRoutes(deps) {
     return 'admin';
   }
 
-  function getAuthSurface(auth) {
-    if (auth?.tenantId) return 'tenant';
-    if (auth?.role) return 'owner';
-    return 'admin';
+  function isOwnerAuth(auth) {
+    return String(auth?.role || '').trim().toLowerCase() === 'owner';
+  }
+
+  function canAccessTenantSurface(auth) {
+    return isOwnerAuth(auth) || Boolean(auth?.tenantId);
+  }
+
+  function getDefaultSurfaceTarget(auth) {
+    if (isOwnerAuth(auth)) return '/owner';
+    if (auth?.tenantId) return '/tenant';
+    return '/admin/login';
   }
 
   function extractPlatformApiKey(req) {
@@ -299,10 +307,23 @@ function createAdminPublicRoutes(deps) {
       if (isAuthorized(req, urlObj)) {
         const auth = getAuthContext(req, urlObj);
         const requestedSurface = getRequestedSurface(pathname);
-        const authSurface = getAuthSurface(auth);
-        const target = auth?.tenantId ? '/tenant' : '/owner';
-        if (requestedSurface === authSurface || requestedSurface === 'admin') {
+        const canAccessRequestedSurface = (
+          requestedSurface === 'admin'
+          || (requestedSurface === 'owner' && isOwnerAuth(auth))
+          || (requestedSurface === 'tenant' && canAccessTenantSurface(auth))
+        );
+        if (canAccessRequestedSurface) {
+          const target = requestedSurface === 'owner'
+            ? '/owner'
+            : requestedSurface === 'tenant'
+              ? '/tenant'
+              : getDefaultSurfaceTarget(auth);
           res.writeHead(302, { Location: target });
+          res.end();
+          return true;
+        }
+        if (requestedSurface === 'owner') {
+          res.writeHead(302, { Location: '/tenant' });
           res.end();
           return true;
         }
@@ -318,7 +339,7 @@ function createAdminPublicRoutes(deps) {
         return true;
       }
       const auth = getAuthContext(req, urlObj);
-      const target = auth?.tenantId ? '/tenant' : '/owner';
+      const target = getDefaultSurfaceTarget(auth);
       res.writeHead(302, { Location: target });
       res.end();
       return true;
@@ -349,7 +370,7 @@ function createAdminPublicRoutes(deps) {
         return true;
       }
       const auth = getAuthContext(req, urlObj);
-      if (auth?.tenantId) {
+      if (!isOwnerAuth(auth)) {
         res.writeHead(302, { Location: '/owner/login?switch=1' });
         res.end();
         return true;
@@ -365,7 +386,7 @@ function createAdminPublicRoutes(deps) {
         return true;
       }
       const auth = getAuthContext(req, urlObj);
-      if (!auth?.tenantId) {
+      if (!canAccessTenantSurface(auth)) {
         res.writeHead(302, { Location: '/tenant/login?switch=1' });
         res.end();
         return true;

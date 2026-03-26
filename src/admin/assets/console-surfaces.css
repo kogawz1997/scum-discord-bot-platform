@@ -901,6 +901,42 @@ tr:last-child td {
   font-size: 0.98rem;
 }
 
+.task-launch-grid {
+  gap: 12px;
+}
+
+.console-app-shell .overview-actions-panel .quick-action-grid.task-launch-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.task-launch-card {
+  min-height: 100%;
+  padding: 14px;
+  gap: 12px;
+  align-content: start;
+}
+
+.task-launch-head {
+  display: grid;
+  gap: 8px;
+}
+
+.task-launch-head p {
+  margin: 0;
+  color: rgba(232, 228, 219, 0.72);
+  line-height: 1.55;
+}
+
+.task-launch-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.task-launch-actions .button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .task-cluster {
   overflow: hidden;
 }
@@ -1610,8 +1646,8 @@ body.surface-tenant .console-app-shell .action-link:hover {
 
 .console-app-shell .overview-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
 .console-app-shell .overview-lead-panel,
@@ -1633,9 +1669,9 @@ body.surface-tenant .console-app-shell .action-link:hover {
 .console-app-shell .overview-route-card {
   display: grid;
   gap: 8px;
-  padding: 14px;
+  padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.015);
   color: inherit;
   text-decoration: none;
@@ -1660,18 +1696,15 @@ body.surface-tenant .console-app-shell .action-link:hover {
 }
 
 .console-app-shell .overview-route-card p {
-  margin: 0;
-  color: rgba(243, 239, 228, 0.76);
-  font-size: 0.94rem;
-  line-height: 1.55;
+  display: none;
 }
 
 .console-app-shell .overview-metrics-panel .stats-grid-emphasis {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .console-app-shell .overview-actions-panel .quick-action-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .console-app-shell .overview-actions-panel .quick-action-card {
@@ -1684,6 +1717,7 @@ body.surface-tenant .console-app-shell .action-link:hover {
     grid-template-columns: 1fr;
   }
 
+  .console-app-shell .overview-actions-panel .quick-action-grid.task-launch-grid,
   .console-app-shell .overview-actions-panel .quick-action-grid,
   .console-app-shell .overview-metrics-panel .stats-grid-emphasis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1691,6 +1725,7 @@ body.surface-tenant .console-app-shell .action-link:hover {
 }
 
 @media (max-width: 760px) {
+  .console-app-shell .overview-actions-panel .quick-action-grid.task-launch-grid,
   .console-app-shell .overview-actions-panel .quick-action-grid,
   .console-app-shell .overview-metrics-panel .stats-grid-emphasis {
     grid-template-columns: 1fr;
@@ -1840,8 +1875,8 @@ body.surface-tenant .console-app-shell .action-link:hover {
 }
 
 .console-app-shell .overview-shell {
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
 .console-app-shell .overview-route-grid {
@@ -1850,18 +1885,17 @@ body.surface-tenant .console-app-shell .action-link:hover {
 }
 
 .console-app-shell .overview-route-card {
-  min-height: 166px;
+  min-height: auto;
   align-content: start;
-  padding: 16px;
+  padding: 12px 14px;
 }
 
 .console-app-shell .overview-route-card p {
-  font-size: 0.92rem;
-  line-height: 1.62;
+  display: none;
 }
 
 .console-app-shell .overview-actions-panel .quick-action-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (min-width: 1101px) {
@@ -2471,6 +2505,12 @@ body[data-current-section]:not([data-current-section="overview"]) .surface-pageb
 
 body[data-current-section]:not([data-current-section="overview"]) .surface-pagebar-copy strong {
   font-size: 1.04rem;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .surface-pagebar-copy p {
+  max-width: none;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 @media (max-width: 1180px) {
@@ -3419,6 +3459,11 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
   gap: 12px;
 }
 
+body[data-current-section="incidents"] .console-app-shell .ops-workbench,
+body[data-current-section="observability"] .console-app-shell .ops-workbench {
+  grid-template-columns: minmax(0, 1.72fr) minmax(300px, 0.78fr);
+}
+
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-two-col {
   gap: 12px;
 }
@@ -3426,6 +3471,12 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .panel-card {
   padding: 14px;
   gap: 10px;
+}
+
+body[data-current-section="incidents"] .console-app-shell #ownerIncidentFeed,
+body[data-current-section="observability"] .console-app-shell #ownerRequestFeed,
+body[data-current-section="observability"] .console-app-shell #ownerReconcileFeed {
+  min-height: 280px;
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .stats-grid {

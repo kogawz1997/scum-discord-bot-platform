@@ -879,46 +879,49 @@
   function renderQuickActions() {
     const container = document.getElementById('ownerQuickActions');
     if (!container) return;
-    const items = [
+    container.classList.add('task-launch-grid');
+    const groups = [
       {
-        key: 'delivery-stuck',
         tone: 'warning',
-        tag: t('owner.quickAction.tag.runtime', 'runtime'),
-        title: t('owner.quickAction.deliveryStuck.title', 'Delivery stuck'),
-        detail: t('owner.quickAction.deliveryStuck.detail', 'Open delivery lifecycle watch first, then decide whether the issue needs tenant support, export evidence, or runtime review.'),
-        button: t('owner.quickAction.deliveryStuck.button', 'Open delivery watch'),
+        tag: t('owner.taskGroups.triage.tag', 'triage'),
+        title: t('owner.taskGroups.triage.title', 'Support and incidents'),
+        detail: t('owner.taskGroups.triage.detail', 'Start here when a tenant reports an issue, a delivery stalls, or you need to open the incident inbox first.'),
+        actions: [
+          { key: 'incident-inbox', label: t('owner.taskGroups.triage.incidents', 'Open incident inbox'), primary: true },
+          { key: 'support-case', label: t('owner.taskGroups.triage.supportCase', 'Open support case') },
+        ],
       },
       {
-        key: 'wallet-mismatch',
         tone: 'info',
-        tag: t('owner.quickAction.tag.audit', 'audit'),
-        title: t('owner.quickAction.walletMismatch.title', 'Wallet mismatch'),
-        detail: t('owner.quickAction.walletMismatch.detail', 'Jump straight to the wallet audit view when coins, rewards, or ledger changes need owner-level review.'),
-        button: t('owner.quickAction.walletMismatch.button', 'Open wallet audit'),
+        tag: t('owner.taskGroups.security.tag', 'security'),
+        title: t('owner.taskGroups.security.title', 'Trust and evidence'),
+        detail: t('owner.taskGroups.security.detail', 'Use these paths when you need wallet evidence, session review, or a fast owner-level audit trail.'),
+        actions: [
+          { key: 'wallet-audit', label: t('owner.taskGroups.security.walletAudit', 'Open wallet audit'), primary: true },
+          { key: 'access-review', label: t('owner.taskGroups.security.access', 'Review access sessions') },
+        ],
       },
       {
-        key: 'steam-link-issue',
-        tone: 'warning',
-        tag: t('owner.quickAction.tag.support', 'support'),
-        title: t('owner.quickAction.steamLink.title', 'Steam link issue'),
-        detail: t('owner.quickAction.steamLink.detail', 'Open the tenant support case flow first when the issue is player identity, Steam readiness, or onboarding drift.'),
-        button: t('owner.quickAction.steamLink.button', 'Open support case'),
-      },
-      {
-        key: 'restart-announcement',
-        tone: 'info',
-        tag: t('owner.quickAction.tag.control', 'control'),
-        title: t('owner.quickAction.restartAnnouncement.title', 'Restart announcement'),
-        detail: t('owner.quickAction.restartAnnouncement.detail', 'Open the control center restart flow when you need a guided maintenance and service restart handoff.'),
-        button: t('owner.quickAction.restartAnnouncement.button', 'Open restart preset'),
+        tone: 'success',
+        tag: t('owner.taskGroups.control.tag', 'control'),
+        title: t('owner.taskGroups.control.title', 'Platform changes'),
+        detail: t('owner.taskGroups.control.detail', 'Use this group when you need package footprint review or a guided restart handoff for managed services.'),
+        actions: [
+          { key: 'package-footprint', label: t('owner.taskGroups.control.packages', 'Review package footprint'), primary: true },
+          { key: 'restart-announcement', label: t('owner.taskGroups.control.restart', 'Open restart flow') },
+        ],
       },
     ];
-    container.innerHTML = items.map((item) => [
-      '<article class="quick-action-card">',
-      `<div class="feed-meta">${makePill(item.tag, item.tone)}</div>`,
-      `<strong>${escapeHtml(item.title)}</strong>`,
-      `<p>${escapeHtml(item.detail)}</p>`,
-      `<div class="button-row"><button type="button" class="button button-primary" data-owner-quick-action="${escapeHtml(item.key)}">${escapeHtml(item.button)}</button></div>`,
+    container.innerHTML = groups.map((group) => [
+      '<article class="task-launch-card quick-action-card">',
+      '<div class="task-launch-head">',
+      `<div class="feed-meta">${makePill(group.tag, group.tone)}</div>`,
+      `<strong>${escapeHtml(group.title)}</strong>`,
+      `<p>${escapeHtml(group.detail)}</p>`,
+      '</div>',
+      '<div class="task-launch-actions">',
+      ...group.actions.map((action) => `<button type="button" class="button ${action.primary ? 'button-primary' : ''}" data-owner-quick-action="${escapeHtml(action.key)}">${escapeHtml(action.label)}</button>`),
+      '</div>',
       '</article>',
     ].join('')).join('');
   }
@@ -935,17 +938,33 @@
 
   function runOwnerQuickAction(actionKey) {
     const key = String(actionKey || '').trim();
+    if (key === 'incident-inbox') {
+      openOwnerTarget('incidents');
+      return;
+    }
+    if (key === 'support-case') {
+      openOwnerTarget('fleet', { targetId: 'ownerSupportCaseForm', block: 'center' });
+      return;
+    }
     if (key === 'delivery-stuck') {
       openOwnerTarget('observability', { targetId: 'ownerDeliveryLifecycleActions', block: 'center' });
       return;
     }
-    if (key === 'wallet-mismatch') {
+    if (key === 'wallet-mismatch' || key === 'wallet-audit') {
       focusOwnerAuditView('wallet');
       showToast(t('owner.toast.walletAuditFocused', 'Wallet audit view focused.'), 'info');
       return;
     }
     if (key === 'steam-link-issue') {
       openOwnerTarget('fleet', { targetId: 'ownerSupportCaseForm', block: 'center' });
+      return;
+    }
+    if (key === 'access-review') {
+      openOwnerTarget('access', { targetId: 'ownerSessionControlForm', block: 'center' });
+      return;
+    }
+    if (key === 'package-footprint') {
+      openOwnerTarget('fleet-assets');
       return;
     }
     if (key === 'restart-announcement') {

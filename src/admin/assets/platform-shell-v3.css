@@ -1,0 +1,589 @@
+.surface-root-v2.platform-frame-v3 {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(214, 195, 138, 0.04), transparent 120px),
+    linear-gradient(180deg, #0c100d 0%, #111613 100%);
+}
+
+.platform-frame-v3 .cp-shell-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(12, 16, 13, 0.96);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.platform-frame-v3 .console-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.platform-frame-v3 .brand-copy strong {
+  font-size: 0.96rem;
+  letter-spacing: 0;
+}
+
+.platform-frame-v3 .brand-copy span {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(232, 228, 219, 0.58);
+}
+
+.platform-frame-v3 .surface-role-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.platform-frame-v3 .surface-role-chip {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(232, 228, 219, 0.78);
+}
+
+.platform-frame-v3 .surface-role-chip.active {
+  color: #11150f;
+  background: #d8bc73;
+  box-shadow: none;
+}
+
+.platform-frame-v3 .surface-actions {
+  gap: 8px;
+}
+
+.tenant-status-rail {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.tenant-owner-scope-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.tenant-owner-scope-field {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  color: rgba(232, 228, 219, 0.8);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tenant-owner-scope-field select {
+  min-height: 40px;
+}
+
+.platform-frame-v3 .cp-shell-layout {
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 24px;
+  width: min(1480px, calc(100% - 32px));
+  padding: 20px 0 32px;
+}
+
+.platform-sidebar-stack {
+  top: 84px;
+  gap: 12px;
+}
+
+.platform-sidebar-card {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: #151a17;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
+}
+
+.platform-operator-card,
+.platform-shortcuts {
+  display: none;
+}
+
+.platform-operator-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.platform-operator-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(216, 188, 115, 0.08), transparent 46%),
+    linear-gradient(90deg, rgba(216, 188, 115, 0.1), transparent 24%);
+  opacity: 1;
+}
+
+.platform-operator-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.platform-operator-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.platform-operator-copy strong {
+  font-size: 1.1rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.platform-operator-copy p {
+  margin: 0;
+  color: rgba(232, 228, 219, 0.7);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.platform-operator-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.platform-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(242, 238, 229, 0.84);
+  font-size: 12px;
+}
+
+.platform-local-rail {
+  display: grid;
+  gap: 14px;
+}
+
+.platform-local-head {
+  display: grid;
+  gap: 4px;
+}
+
+.platform-local-head strong {
+  font-size: 15px;
+}
+
+.platform-local-head p {
+  display: none;
+}
+
+.platform-frame-v3 .nav-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.platform-frame-v3 .nav-head {
+  padding: 0 0 10px;
+}
+
+.platform-frame-v3 .nav-list {
+  display: grid;
+  gap: 6px;
+}
+
+.platform-nav-group {
+  display: grid;
+  gap: 6px;
+}
+
+.platform-nav-group + .platform-nav-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-nav-group-label {
+  color: rgba(232, 228, 219, 0.46);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.platform-frame-v3 .nav-link {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: rgba(232, 228, 219, 0.8);
+  background: transparent;
+  text-decoration: none;
+  font-size: 13px;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.platform-frame-v3 .nav-link:hover {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4eee1;
+}
+
+.platform-frame-v3 .nav-link-active {
+  border-color: rgba(216, 188, 115, 0.14);
+  background: rgba(216, 188, 115, 0.12);
+  color: #fff4cf;
+  box-shadow: inset 3px 0 0 #d8bc73;
+}
+
+.platform-shortcuts {
+  display: grid;
+  gap: 10px;
+}
+
+.platform-shortcuts-title {
+  margin: 0;
+  color: rgba(232, 228, 219, 0.72);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.platform-shortcuts-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.platform-shortcut-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(242, 238, 229, 0.86);
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.platform-shortcut-link:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.platform-frame-v3 .cp-hidden-workspace {
+  display: none !important;
+}
+
+.platform-main-v3 {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.platform-workspace-header {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 18px 20px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.012)),
+    #151a17;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+}
+
+.platform-workspace-intro {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.platform-workspace-copy {
+  display: grid;
+  gap: 8px;
+  max-width: none;
+}
+
+.platform-workspace-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 240, 191, 0.88);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.platform-workspace-copy h1 {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+
+.platform-workspace-copy p {
+  margin: 0;
+  max-width: 70ch;
+  color: rgba(232, 228, 219, 0.72);
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.platform-workspace-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.platform-workspace-link.surface-primary-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.platform-workspace-link.surface-primary-link:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.platform-workspace-link.surface-primary-link .surface-primary-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.platform-workspace-link.surface-primary-link p {
+  display: none;
+}
+
+.platform-workspace-link.surface-primary-link-active {
+  border-color: rgba(216, 188, 115, 0.2);
+  background: rgba(216, 188, 115, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(216, 188, 115, 0.08);
+}
+
+.platform-header-rail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.platform-frame-v3 .status-banner,
+.platform-frame-v3 .surface-pagebar {
+  min-width: 0;
+  margin: 0;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.platform-frame-v3 .surface-pagebar {
+  padding: 16px;
+}
+
+.platform-content-stage {
+  gap: 18px;
+}
+
+.platform-frame-v3 .surface-section {
+  padding: 18px;
+  border-radius: 16px;
+  background: #151a17;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+}
+
+.platform-frame-v3 .surface-section .section-head:first-child {
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-frame-v3 .surface-section .section-copy {
+  max-width: 640px;
+}
+
+.platform-frame-v3 .surface-section .section-title {
+  font-size: clamp(24px, 2vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.platform-frame-v3 .surface-section .section-copy p {
+  color: rgba(232, 228, 219, 0.68);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.platform-frame-v3 .surface-section-overview {
+  background:
+    linear-gradient(180deg, rgba(216, 188, 115, 0.04), transparent 30%),
+    #151a17;
+}
+
+.platform-frame-v3 .overview-shell {
+  gap: 20px;
+}
+
+.platform-frame-v3 .overview-route-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.platform-frame-v3 .overview-route-card {
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-frame-v3 .overview-route-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1rem;
+}
+
+.platform-frame-v3 .overview-route-card p {
+  margin: 8px 0 0;
+  color: rgba(232, 228, 219, 0.64);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.platform-frame-v3 .stats-grid,
+.platform-frame-v3 .panel-grid,
+.platform-frame-v3 .surface-two-col,
+.platform-frame-v3 .ops-workbench {
+  gap: 18px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .surface-section .section-copy p {
+  max-width: 60ch;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .platform-workspace-header {
+  padding-block: 18px;
+  background-position: center top;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .platform-workspace-copy p {
+  max-width: 56ch;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .platform-workspace-link.surface-primary-link p {
+  display: none;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .platform-workspace-strip {
+  gap: 8px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .platform-workspace-link.surface-primary-link {
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+
+body[data-current-section]:not([data-current-section="overview"]) .platform-frame-v3 .surface-section .section-head:first-child {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+}
+
+@media (max-width: 1320px) {
+  .platform-frame-v3 .cp-shell-layout {
+    grid-template-columns: 216px minmax(0, 1fr);
+    width: min(1380px, calc(100% - 28px));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .platform-frame-v3 .cp-shell-topbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 14px 18px;
+  }
+
+  .platform-frame-v3 .cp-shell-layout {
+    grid-template-columns: 1fr;
+    width: calc(100% - 24px);
+    padding-top: 18px;
+  }
+
+  .platform-sidebar-stack {
+    position: static;
+  }
+
+  .platform-workspace-strip {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .platform-workspace-link.surface-primary-link {
+    min-width: 220px;
+  }
+
+  .platform-frame-v3 .overview-route-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-status-rail {
+    justify-items: stretch;
+  }
+
+  .platform-header-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-owner-scope-controls {
+    justify-content: stretch;
+  }
+
+  .tenant-owner-scope-field {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-frame-v3 .surface-role-chip,
+  .platform-frame-v3 .nav-link,
+  .platform-workspace-link.surface-primary-link {
+    transition: none;
+  }
+}

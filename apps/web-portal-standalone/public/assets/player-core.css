@@ -569,6 +569,44 @@ select option:focus {
   gap: 12px;
 }
 
+.task-launch-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.task-launch-grid-player {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.task-launch-card {
+  min-height: 100%;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.task-launch-head {
+  display: grid;
+  gap: 8px;
+}
+
+.task-launch-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.task-launch-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.task-launch-actions .button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .guide-grid {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
@@ -786,6 +824,7 @@ tr:last-child td {
 
   .stats-grid,
   .guide-grid,
+  .task-launch-grid-player,
   .shop-grid,
   .order-grid {
     grid-template-columns: 1fr 1fr;
@@ -812,6 +851,7 @@ tr:last-child td {
 
   .stats-grid,
   .guide-grid,
+  .task-launch-grid-player,
   .shop-grid,
   .order-grid {
     grid-template-columns: 1fr;

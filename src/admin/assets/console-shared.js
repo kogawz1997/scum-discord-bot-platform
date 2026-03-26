@@ -772,6 +772,11 @@
             link.removeAttribute('aria-current');
           }
         });
+        Array.from(navList.querySelectorAll('[data-nav-group]')).forEach((group) => {
+          const visibleLinks = Array.from(group.querySelectorAll('a[href^="#"]')).filter((link) => !link.hidden);
+          group.hidden = visibleLinks.length === 0;
+          group.classList.toggle('nav-group-active', visibleLinks.some((link) => link.classList.contains('nav-link-active')));
+        });
       }
       Array.from(document.querySelectorAll('[data-primary-section],[data-primary-sections]')).forEach((link) => {
         const sections = String(
