@@ -11,6 +11,10 @@ function runTopology(env, args = []) {
     cwd: projectRoot,
     env: {
       ...process.env,
+      ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+      WEB_PORTAL_BASE_URL: 'https://player.example.com',
+      WEB_PORTAL_LEGACY_ADMIN_URL: 'https://admin.example.com/admin',
+      ADMIN_WEB_LOCAL_RECOVERY: 'false',
       ...env,
     },
     encoding: 'utf8',

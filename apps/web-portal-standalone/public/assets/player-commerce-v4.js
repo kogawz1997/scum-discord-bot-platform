@@ -37,6 +37,17 @@
     });
   }
 
+  function renderWorkflowCards(items) {
+    return (Array.isArray(items) ? items : []).map((item) => [
+      `<article class="plv4-task-card plv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+      `<span class="plv4-section-kicker">${escapeHtml(item.label || '')}</span>`,
+      `<strong>${escapeHtml(item.title || '')}</strong>`,
+      `<p class="plv4-inline-copy">${escapeHtml(item.body || '')}</p>`,
+      `<div class="plv4-action-row"><a class="${item.primary ? 'plv4-button plv4-button-primary' : 'plv4-button'}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.actionLabel || 'เปิดดูต่อ')}</a></div>`,
+      '</article>',
+    ].join('')).join('');
+  }
+
   function createPlayerCommerceV4Model(source) {
     const state = source && typeof source === 'object' ? source : {};
     const me = state.me || {};
@@ -47,6 +58,7 @@
     const cartRows = Array.isArray(cart.rows) ? cart.rows : [];
     const actionableOrders = pendingOrders(orders);
     const riskyOrders = orders.filter((row) => String(row?.status || '').trim().toLowerCase() === 'delivery_failed');
+    const walletBalance = Number(wallet.balance || 0);
     const highlightedProducts = (Array.isArray(state.shopItems) ? state.shopItems : []).slice(0, 6).map((item) => ({
       name: firstNonEmpty([item.name, item.id], 'สินค้า'),
       description: firstNonEmpty([item.description], 'ไอเทมหรือบริการที่เปิดขายอยู่ในระบบนี้'),
@@ -57,15 +69,68 @@
       primaryAction: 'ดูสินค้า',
       secondaryAction: 'ดูกระเป๋าเงิน',
     }));
+    const primaryAction = riskyOrders.length > 0
+      ? { label: 'เปิดออเดอร์ที่ต้องตรวจ (แนะนำ)', href: '#orders' }
+      : actionableOrders.length > 0
+        ? { label: 'ดูออเดอร์ที่กำลังรอ (แนะนำ)', href: '#orders' }
+        : !steamLink.linked
+          ? { label: 'ผูก Steam ก่อนซื้อ (แนะนำ)', href: '#profile' }
+          : cart.totalUnits > 0
+            ? { label: 'ตรวจตะกร้าก่อนชำระ (แนะนำ)', href: '#cart' }
+            : walletBalance <= 0
+              ? { label: 'เติมยอดก่อนซื้อ (แนะนำ)', href: '#wallet' }
+              : { label: 'เปิดร้านค้า (แนะนำ)', href: '#shop' };
+    const secondaryActions = [
+      { label: 'เปิดร้านค้า', href: '#shop' },
+      { label: 'ดูกระเป๋าเงิน', href: '#wallet' },
+    ];
+    const workflowCards = [
+      {
+        label: 'สถานะตอนนี้',
+        title: riskyOrders.length > 0 ? 'เริ่มจากออเดอร์ที่มีปัญหาก่อน' : actionableOrders.length > 0 ? 'มีออเดอร์ที่กำลังรออยู่' : 'พร้อมเริ่มซื้อของรอบถัดไป',
+        body: riskyOrders.length > 0
+          ? 'เปิดหน้าคำสั่งซื้อก่อนเพื่อดูสถานะล่าสุดและเตรียมข้อมูลไว้คุยกับทีมงาน'
+          : actionableOrders.length > 0
+            ? 'เช็กออเดอร์ที่กำลังรอหรือกำลังส่งของก่อน เพื่อไม่ให้พลาดรายการที่ยังค้างอยู่'
+            : 'ถ้ายังไม่มีของค้าง ระบบพร้อมให้คุณเติมยอดหรือเริ่มซื้อสินค้ารอบใหม่ได้เลย',
+        actionLabel: primaryAction.label,
+        href: primaryAction.href,
+        tone: riskyOrders.length > 0 ? 'danger' : actionableOrders.length > 0 ? 'warning' : 'success',
+        primary: true,
+      },
+      {
+        label: 'ความพร้อมก่อนจ่าย',
+        title: steamLink.linked ? 'บัญชีพร้อมรับของในเกม' : 'ยังต้องผูก Steam ก่อนซื้อของในเกม',
+        body: steamLink.linked
+          ? 'ระบบจะพร้อมสร้างคำสั่งซื้อและส่งของตาม flow ปกติหลังชำระเสร็จ'
+          : 'ผูก Steam ให้เรียบร้อยก่อน เพื่อไม่ให้ซื้อของแล้วต้องย้อนกลับมาแก้การเชื่อมบัญชี',
+        actionLabel: steamLink.linked ? 'ไปที่ร้านค้า' : 'ไปหน้าบัญชี',
+        href: steamLink.linked ? '#shop' : '#profile',
+        tone: steamLink.linked ? 'success' : 'warning',
+      },
+      {
+        label: 'กระเป๋าเงิน',
+        title: walletBalance > 0 ? 'มีเครดิตพร้อมใช้งาน' : 'ควรเติมยอดก่อนเลือกสินค้า',
+        body: walletBalance > 0
+          ? `ตอนนี้คุณมี ${formatAmount(wallet.balance, '0')} พร้อมใช้สำหรับซื้อของและบริการ`
+          : 'เริ่มจากเติมยอดก่อน แล้วค่อยกลับมาเลือกสินค้าเพื่อลดการสลับไปมาระหว่างขั้นตอน',
+        actionLabel: walletBalance > 0 ? 'ดูกระเป๋าเงิน' : 'เติมยอด',
+        href: '#wallet',
+        tone: walletBalance > 0 ? 'info' : 'muted',
+      },
+    ];
 
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Player Portal V4 Preview',
+        surfaceLabel: 'พอร์ทัลผู้เล่น',
         workspaceLabel: firstNonEmpty([me.user], 'Commerce Workspace'),
-        environmentLabel: 'Parallel V4',
-        navGroups: createPlayerNavGroups('shop'),
+        environmentLabel: 'ชุมชนผู้เล่น',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : createPlayerNavGroups('shop'),
       },
+      notice: state?.__surfaceNotice || null,
       header: {
         title: 'ร้านค้า กระเป๋าเงิน และคำสั่งซื้อ',
         subtitle: 'ซื้อของ เติมยอด ดูออเดอร์ และติดตามการส่งของจาก workflow เดียวที่เข้าใจง่าย',
@@ -75,7 +140,8 @@
           { label: `${formatNumber(actionableOrders.length, '0')} รายการกำลังรอ`, tone: actionableOrders.length > 0 ? 'warning' : 'success' },
           { label: `${formatNumber(riskyOrders.length, '0')} รายการต้องตรวจต่อ`, tone: riskyOrders.length > 0 ? 'danger' : 'muted' },
         ],
-        primaryAction: { label: cart.totalUnits > 0 ? 'ไปที่ตะกร้า' : 'เปิดร้านค้า', href: '#shop' },
+        primaryAction,
+        secondaryActions,
       },
       summaryStrip: [
         { label: 'ยอดคงเหลือ', value: formatAmount(wallet.balance, '0'), detail: 'ยอดพร้อมใช้สำหรับซื้อของและบริการ', tone: 'success' },
@@ -90,6 +156,7 @@
         { label: 'มูลค่ารวม', value: formatAmount(cart.totalPrice, '0') },
         { label: 'ไอเทมหายจากแคตตาล็อก', value: formatNumber(listCount(cart.missingItemIds), '0') },
       ],
+      workflowCards,
       highlightedProducts,
       ordersTable: orders.slice(0, 8).map((row) => ({
         code: firstNonEmpty([row.purchaseCode, row.code], '-'),
@@ -143,13 +210,13 @@
       `<strong class="plv4-workspace-label">${escapeHtml(model.shell.workspaceLabel || '')}</strong>`,
       '</div>',
       '</div>',
-      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'Parallel V4', tone: 'info' }])}</div>`,
+      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'ชุมชนผู้เล่น', tone: 'info' }])}</div>`,
       '</header>',
       '<div class="plv4-shell">',
       '<aside class="plv4-sidebar">',
       '<div class="plv4-stack">',
-      '<span class="plv4-surface-label">commerce</span>',
-      '<strong class="plv4-sidebar-title">ทางลัดสำหรับผู้เล่น</strong>',
+      '<span class="plv4-surface-label">ร้านค้าและคำสั่งซื้อ</span>',
+      '<strong class="plv4-sidebar-title">เริ่มจากสิ่งที่ต้องทำตอนนี้</strong>',
       '<p class="plv4-sidebar-copy">ร้านค้า กระเป๋าเงิน คำสั่งซื้อ และการส่งของควรต่อกันเป็น workflow เดียว ไม่ใช่หลายหน้าที่ต้องเดาเอง</p>',
       '</div>',
       renderNavGroups(model.shell.navGroups),
@@ -157,29 +224,39 @@
       '<main class="plv4-main plv4-stack">',
       '<section class="plv4-pagehead">',
       '<div class="plv4-stack">',
-      '<span class="plv4-section-kicker">commerce center</span>',
+      '<span class="plv4-section-kicker">ศูนย์ซื้อขายของผู้เล่น</span>',
       `<h1 class="plv4-page-title">${escapeHtml(model.header.title || '')}</h1>`,
       `<p class="plv4-page-subtitle">${escapeHtml(model.header.subtitle || '')}</p>`,
       `<div class="plv4-badge-row">${renderBadges(model.header.statusChips)}</div>`,
       '</div>',
-      '<div class="plv4-pagehead-actions">',
+      '<div class="plv4-pagehead-actions"><div class="plv4-stack">',
       `<a class="plv4-button plv4-button-primary" href="${escapeHtml(model.header.primaryAction.href || '#')}">${escapeHtml(model.header.primaryAction.label || '')}</a>`,
-      '</div>',
+      Array.isArray(model.header.secondaryActions) && model.header.secondaryActions.length
+        ? `<div class="plv4-action-row">${model.header.secondaryActions.map((action) => `<a class="plv4-button" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`).join('')}</div>`
+        : '',
+      '</div></div>',
       '</section>',
+      model.notice
+        ? `<section class="plv4-panel plv4-tone-${escapeHtml(model.notice.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Access</span><h2 class="plv4-section-title">${escapeHtml(model.notice.title || '')}</h2><p class="plv4-section-copy">${escapeHtml(model.notice.detail || '')}</p></div></div></section>`
+        : '',
       `<section class="plv4-summary-strip">${renderSummaryStrip(model.summaryStrip)}</section>`,
+      '<section class="plv4-panel">',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ควรทำอะไรต่อ</span><h2 class="plv4-section-title">ไปต่อจากสถานะตอนนี้</h2><p class="plv4-section-copy">เริ่มจากการกระทำที่ช่วยให้จบงานเร็วที่สุดก่อน แล้วค่อยเลื่อนลงไปดูรายละเอียดของร้านค้า กระเป๋าเงิน และออเดอร์</p></div></div>',
+      `<div class="plv4-task-grid">${renderWorkflowCards(model.workflowCards)}</div>`,
+      '</section>',
       '<section class="plv4-content-grid plv4-content-grid-two">',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">shop</span><h2 class="plv4-section-title">สินค้าแนะนำ</h2><p class="plv4-section-copy">เริ่มจากสินค้าเด่นและบริการที่ผู้เล่นเปิดใช้บ่อยที่สุดก่อน</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ร้านค้า</span><h2 class="plv4-section-title">สินค้าแนะนำ</h2><p class="plv4-section-copy">เริ่มจากสินค้าเด่นและบริการที่ผู้เล่นเปิดใช้บ่อยที่สุดก่อน</p></div></div>',
       `<div class="plv4-product-grid">${renderProductGrid(model.highlightedProducts)}</div>`,
       '</article>',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">cart</span><h2 class="plv4-section-title">ภาพรวมตะกร้าปัจจุบัน</h2><p class="plv4-section-copy">ตรวจยอดรวม จำนวนชิ้น และสิ่งที่ควรรู้ก่อน checkout</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ตะกร้า</span><h2 class="plv4-section-title">ภาพรวมตะกร้าปัจจุบัน</h2><p class="plv4-section-copy">ตรวจยอดรวม จำนวนชิ้น และสิ่งที่ควรรู้ก่อน checkout</p></div></div>',
       renderKeyValueList(model.cartFacts, 'ยังไม่มีสินค้าในตะกร้า'),
       '</article>',
       '</section>',
       '<section class="plv4-content-grid plv4-content-grid-two">',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">orders</span><h2 class="plv4-section-title">คำสั่งซื้อและการส่งของ</h2><p class="plv4-section-copy">เปิดดูรายการล่าสุดได้จากที่เดียวโดยไม่ต้องสลับหลายแท็บ</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">คำสั่งซื้อ</span><h2 class="plv4-section-title">คำสั่งซื้อและการส่งของ</h2><p class="plv4-section-copy">เปิดดูรายการล่าสุดได้จากที่เดียวโดยไม่ต้องสลับหลายแท็บ</p></div></div>',
       renderTable(
         [
           { label: 'Code', render: (row) => `<span class="plv4-code">${escapeHtml(row.code)}</span>` },
@@ -193,7 +270,7 @@
       ),
       '</article>',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">wallet</span><h2 class="plv4-section-title">ledger ล่าสุด</h2><p class="plv4-section-copy">ดูการเคลื่อนไหวของกระเป๋าเงินเพื่อยืนยันว่าเหรียญเข้าออกเมื่อไร</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">กระเป๋าเงิน</span><h2 class="plv4-section-title">รายการเงินล่าสุด</h2><p class="plv4-section-copy">ดูการเคลื่อนไหวของกระเป๋าเงินเพื่อยืนยันว่าเหรียญเข้าออกเมื่อไร</p></div></div>',
       renderTable(
         [
           { label: 'เวลา', render: (row) => escapeHtml(row.createdAt) },

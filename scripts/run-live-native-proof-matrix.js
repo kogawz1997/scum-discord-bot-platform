@@ -7,9 +7,33 @@ const path = require('node:path');
 
 const { sendTestDeliveryCommand } = require('../src/services/rconDelivery');
 const {
+  buildCoverageMarkdown,
+  buildCoverageSummary,
+  evaluateEnvironmentCoverage,
+} = require('./build-native-proof-coverage-report');
+const {
   addShopItem,
   deleteShopItem,
 } = require('../src/store/memoryStore');
+
+const DEFAULT_ENVIRONMENT_REGISTRY_PATH = path.resolve(
+  process.cwd(),
+  'docs',
+  'assets',
+  'live-native-proof-environments.json',
+);
+const DEFAULT_COVERAGE_JSON_OUT = path.resolve(
+  process.cwd(),
+  'docs',
+  'assets',
+  'live-native-proof-coverage-summary.json',
+);
+const DEFAULT_COVERAGE_MARKDOWN_OUT = path.resolve(
+  process.cwd(),
+  'docs',
+  'assets',
+  'live-native-proof-coverage-summary.md',
+);
 
 const DEFAULT_CASES = Object.freeze([
   Object.freeze({
@@ -61,6 +85,10 @@ function parseArgs(argv = process.argv.slice(2)) {
     markdownOut: '',
     casesJson: '',
     cases: [],
+    environmentId: '',
+    environmentRegistryPath: '',
+    coverageJsonOut: '',
+    coverageMarkdownOut: '',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -118,6 +146,42 @@ function parseArgs(argv = process.argv.slice(2)) {
     }
     if (part.startsWith('--markdown-out=')) {
       options.markdownOut = trimText(part.slice('--markdown-out='.length), 1000);
+      continue;
+    }
+    if (part === '--environment-id' && argv[index + 1]) {
+      options.environmentId = trimText(argv[index + 1], 160);
+      index += 1;
+      continue;
+    }
+    if (part.startsWith('--environment-id=')) {
+      options.environmentId = trimText(part.slice('--environment-id='.length), 160);
+      continue;
+    }
+    if (part === '--environment-registry' && argv[index + 1]) {
+      options.environmentRegistryPath = trimText(argv[index + 1], 1000);
+      index += 1;
+      continue;
+    }
+    if (part.startsWith('--environment-registry=')) {
+      options.environmentRegistryPath = trimText(part.slice('--environment-registry='.length), 1000);
+      continue;
+    }
+    if (part === '--coverage-json-out' && argv[index + 1]) {
+      options.coverageJsonOut = trimText(argv[index + 1], 1000);
+      index += 1;
+      continue;
+    }
+    if (part.startsWith('--coverage-json-out=')) {
+      options.coverageJsonOut = trimText(part.slice('--coverage-json-out='.length), 1000);
+      continue;
+    }
+    if (part === '--coverage-markdown-out' && argv[index + 1]) {
+      options.coverageMarkdownOut = trimText(argv[index + 1], 1000);
+      index += 1;
+      continue;
+    }
+    if (part.startsWith('--coverage-markdown-out=')) {
+      options.coverageMarkdownOut = trimText(part.slice('--coverage-markdown-out='.length), 1000);
       continue;
     }
     if (part === '--cases-json' && argv[index + 1]) {
@@ -408,6 +472,97 @@ function writeFileIfRequested(targetPath, content) {
   fs.writeFileSync(fullPath, content);
 }
 
+function resolveOptionalPath(targetPath, fallbackPath = '') {
+  const resolved = trimText(targetPath, 1000);
+  if (!resolved) return fallbackPath ? path.resolve(fallbackPath) : '';
+  return path.isAbsolute(resolved)
+    ? resolved
+    : path.resolve(process.cwd(), resolved);
+}
+
+function toRelativePath(targetPath) {
+  const fullPath = resolveOptionalPath(targetPath);
+  if (!fullPath) return null;
+  return path.relative(process.cwd(), fullPath).replace(/\\/g, '/');
+}
+
+function readJsonFile(filePath, fallbackValue) {
+  if (!filePath || !fs.existsSync(filePath)) return fallbackValue;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function updateEnvironmentRegistry(run, options = {}) {
+  const environmentId = trimText(options.environmentId, 160);
+  if (!environmentId) return null;
+  const registryPath = resolveOptionalPath(
+    options.environmentRegistryPath,
+    DEFAULT_ENVIRONMENT_REGISTRY_PATH,
+  );
+  const registry = readJsonFile(registryPath, {
+    currentEnvironmentId: environmentId,
+    environments: [],
+  });
+  const environments = Array.isArray(registry.environments) ? registry.environments.slice() : [];
+  const capturedAt = String(run.generatedAt || new Date().toISOString()).slice(0, 10);
+  const entry = {
+    ...(environments.find((row) => String(row?.id || '').trim() === environmentId) || {}),
+    id: environmentId,
+    status: run.results.every((item) => item.ok === true && item.verificationOk === true)
+      ? 'verified'
+      : 'partial',
+    executionMode: run.executionMode || null,
+    nativeProofMode: run.nativeProofMode || null,
+    itemMatrixPath: toRelativePath(options.jsonOut) || null,
+    wrapperMatrixPath: null,
+    capturedAt,
+  };
+  const nextEnvironments = [
+    entry,
+    ...environments.filter((row) => String(row?.id || '').trim() !== environmentId),
+  ];
+  const nextRegistry = {
+    ...registry,
+    currentEnvironmentId: registry.currentEnvironmentId || environmentId,
+    environments: nextEnvironments,
+  };
+  fs.mkdirSync(path.dirname(registryPath), { recursive: true });
+  fs.writeFileSync(registryPath, `${JSON.stringify(nextRegistry, null, 2)}\n`, 'utf8');
+  return {
+    registryPath,
+    registry: nextRegistry,
+  };
+}
+
+function writeCoverageArtifacts(run, options = {}, registryPayload = null) {
+  const registryPath = resolveOptionalPath(
+    options.environmentRegistryPath,
+    DEFAULT_ENVIRONMENT_REGISTRY_PATH,
+  );
+  const coverageJsonOut = resolveOptionalPath(
+    options.coverageJsonOut,
+    DEFAULT_COVERAGE_JSON_OUT,
+  );
+  const coverageMarkdownOut = resolveOptionalPath(
+    options.coverageMarkdownOut,
+    DEFAULT_COVERAGE_MARKDOWN_OUT,
+  );
+  const summary = buildCoverageSummary({
+    registry: registryPayload?.registry || readJsonFile(registryPath, {}),
+    itemMatrix: run,
+    wrapperMatrix: {},
+    experimentalCases: readJsonFile(
+      path.resolve(process.cwd(), 'docs', 'assets', 'live-native-proof-experimental-cases.json'),
+      [],
+    ),
+  });
+  summary.validation = evaluateEnvironmentCoverage(summary);
+  fs.mkdirSync(path.dirname(coverageJsonOut), { recursive: true });
+  fs.writeFileSync(coverageJsonOut, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+  fs.mkdirSync(path.dirname(coverageMarkdownOut), { recursive: true });
+  fs.writeFileSync(coverageMarkdownOut, buildCoverageMarkdown(summary), 'utf8');
+  return summary;
+}
+
 async function main() {
   const options = parseArgs();
   if (!options.steamId) {
@@ -457,14 +612,30 @@ async function main() {
 
   writeFileIfRequested(options.jsonOut, JSON.stringify(run, null, 2));
   writeFileIfRequested(options.markdownOut, buildMarkdownReport(run));
+  const registryPayload = updateEnvironmentRegistry(run, options);
+  const coverage = writeCoverageArtifacts(run, options, registryPayload);
 
-  console.log(JSON.stringify(run, null, 2));
+  console.log(JSON.stringify({
+    ...run,
+    coverageValidation: coverage.validation || null,
+  }, null, 2));
   if (results.some((entry) => entry.ok !== true || entry.verificationOk !== true)) {
     process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  console.error('[live-native-proof-matrix] failed:', error?.stack || error?.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('[live-native-proof-matrix] failed:', error?.stack || error?.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  buildCaseSummary,
+  buildMarkdownReport,
+  loadMatrixCases,
+  parseArgs,
+  updateEnvironmentRegistry,
+  writeCoverageArtifacts,
+};

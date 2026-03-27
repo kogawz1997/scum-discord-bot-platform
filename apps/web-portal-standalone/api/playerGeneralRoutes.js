@@ -2,6 +2,13 @@
  * Remaining standalone portal routes outside the commerce/cart surface.
  */
 
+const {
+  buildPlayerPortalFeatureAccess,
+  hasFeatureAccess,
+  loadPlayerFeatureAccess,
+  sendPlayerFeatureDenied,
+} = require('./playerRouteEntitlements');
+
 function createPlayerGeneralRoutes(deps) {
   const {
     sendJson,
@@ -59,6 +66,10 @@ function createPlayerGeneralRoutes(deps) {
     isDiscordId,
   } = deps;
 
+  async function getFeatureAccess(session) {
+    return loadPlayerFeatureAccess(deps.getTenantFeatureAccess, session);
+  }
+
   return async function handlePlayerGeneralRoute(context) {
     const {
       req,
@@ -90,6 +101,15 @@ function createPlayerGeneralRoutes(deps) {
           accountStatus: account?.isActive === false ? 'inactive' : 'active',
           steamLinked: Boolean(link?.linked),
         },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/feature-access' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      sendJson(res, 200, {
+        ok: true,
+        data: buildPlayerPortalFeatureAccess(featureAccess),
       });
       return true;
     }
@@ -178,6 +198,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/leaderboard' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['ranking_module', 'analytics_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['ranking_module', 'analytics_module']);
+      }
       const typeRaw = normalizeText(urlObj.searchParams.get('type')).toLowerCase();
       const type = ['economy', 'kills', 'kd', 'playtime'].includes(typeRaw)
         ? typeRaw
@@ -231,6 +255,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/stats/me' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['player_module', 'ranking_module', 'analytics_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['player_module', 'ranking_module', 'analytics_module']);
+      }
       const stats = getStats(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
@@ -380,6 +408,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/wallet/ledger' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['wallet_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['wallet_module']);
+      }
       const limit = asInt(urlObj.searchParams.get('limit'), 50, 1, 500);
       const wallet = await getWallet(session.discordId, {
         tenantId: session?.tenantId || undefined,
@@ -414,6 +446,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/redeem/history' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['orders_module', 'wallet_module', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['orders_module', 'wallet_module', 'promo_module']);
+      }
       const limit = asInt(urlObj.searchParams.get('limit'), 50, 1, 500);
       const rows = listCodes(tenantOptions)
         .filter((row) => normalizeText(row.usedBy) === session.discordId)
@@ -492,6 +528,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/missions' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'event_auto_reward', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'event_auto_reward', 'promo_module']);
+      }
       const [dailyCheck, weeklyCheck, rentLink] = await Promise.all([
         canClaimDaily(session.discordId, tenantOptions),
         canClaimWeekly(session.discordId, tenantOptions),
@@ -547,6 +587,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/wheel/state' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'promo_module']);
+      }
       const wheelConfig = getLuckyWheelConfig();
       const limit = asInt(urlObj.searchParams.get('limit'), 20, 1, 80);
       sendJson(res, 200, {
@@ -557,6 +601,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/wheel/spin' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'promo_module']);
+      }
       const wheelConfig = getLuckyWheelConfig();
       if (!wheelConfig.enabled) {
         sendJson(res, 403, {
@@ -792,6 +840,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/daily/claim' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['wallet_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['wallet_module']);
+      }
       const economy = getEconomyConfig();
       const check = await checkRewardClaimForUser({
         userId: session.discordId,
@@ -831,6 +883,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/weekly/claim' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['wallet_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['wallet_module']);
+      }
       const economy = getEconomyConfig();
       const check = await checkRewardClaimForUser({
         userId: session.discordId,
@@ -870,6 +926,10 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/gift' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['wallet_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['wallet_module']);
+      }
       const body = await readJsonBody(req);
       const targetDiscordId = normalizeText(body.targetDiscordId || body.userId);
       const amount = normalizeAmount(body.amount, 0);

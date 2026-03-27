@@ -45,7 +45,7 @@ npm run ci:verify
 
 ## Current Local Runtime Notes
 
-On this workstation as of `2026-03-17`:
+On this workstation as of `2026-03-26`:
 
 - the runtime boots with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant`
 - default tenant `1259096998045421672` is provisioned at PostgreSQL schema `tenant_1259096998045421672`
@@ -55,6 +55,27 @@ On this workstation as of `2026-03-17`:
 - one live agent command was observed in `SCUM.log`
 - live delivery-audit rows exist under `tenant_1259096998045421672."DeliveryAudit"` after the cutover
 - live native delivery proof matrices were observed from `SCUM.db` for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
+- web runtimes are enabled again locally for `owner`, `tenant`, `public`, and `player`
+- owner login works locally with loopback-safe cookie handling without changing the production auth/session contract
+- owner pages no longer fail on preview-tenant quota reads
+- tenant preview tenants load with safe fallback state instead of failing scoped reads
+- public preview flow was revalidated locally through `signup -> preview -> logout -> login -> preview`
+- `player/login` loads and Discord OAuth start redirects correctly to Discord authorization
+
+Latest repo-local verification command pass on this workstation completed on `2026-03-26`:
+
+- `npm run lint`
+- `npm run test:policy`
+- `npm test`
+- `npm run doctor`
+- `npm run security:check`
+
+Additional browser validation on `2026-03-26` covered:
+
+- owner login and owner console
+- tenant login and tenant console
+- public signup/login/preview flow
+- player login and Discord OAuth start redirect
 
 Summary evidence:
 
@@ -63,6 +84,7 @@ Summary evidence:
 
 ## What This File Still Does Not Prove
 
+- completion of the Discord OAuth callback without a real Discord login session
 - native proof coverage for every SCUM server configuration or every workstation/runtime
 - a second verified native-proof environment; pending targets are tracked in `assets/live-native-proof-environments.json`
 - the partial `EnableSpawnOnGround=True` sample and the blocked same-workstation `rcon` attempt are tracked as evidence, but neither is counted as a second verified environment

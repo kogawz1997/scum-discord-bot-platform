@@ -41,7 +41,7 @@ test('admin live templates expose login and V4 shells', () => {
 
 test('portal public templates expose preview auth flow and marketing routes', () => {
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'landing.html'), [
-    /platform-site-v2\.css/,
+    /platform-site-v3\.css/,
     /href="\/signup"/,
     /href="\/pricing"/,
   ]);
@@ -88,7 +88,7 @@ test('player live templates expose player login and V4 portal shell', () => {
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'player.html'), [
-    /player-v4-app\.js|player-core\.html|Open the current portal/i,
+    /href="\/player"|href="\/player\/login"|พอร์ทัลผู้เล่นรุ่นปัจจุบัน/i,
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'dashboard.html'), [

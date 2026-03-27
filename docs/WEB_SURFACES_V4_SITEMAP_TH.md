@@ -123,47 +123,47 @@ flowchart TD
 
 ### Page list
 
-| Route | Page | เป้าหมาย | Primary action |
-|---|---|---|---|
-| `/owner` | Overview | ดูสุขภาพแพลตฟอร์มรวม | เปิด tenant/problem ที่ต้องจัดการ |
-| `/owner/tenants` | Tenant List | ดู tenant ทั้งหมด | สร้าง tenant |
-| `/owner/tenants/:tenantId` | Tenant Detail | ดู tenant รายตัว | เปิดใช้งาน/แก้ tenant |
-| `/owner/tenants/:tenantId/health` | Tenant Health | ดู runtime, sync, issues ของ tenant | เปิด diagnostics |
-| `/owner/packages` | Package Catalog | จัดการ package | สร้าง/แก้ package |
-| `/owner/packages/:packageId` | Package Detail | ดูรายละเอียด package | บันทึก package |
-| `/owner/packages/features` | Feature Mapping | ดู relation package-feature | แก้ feature bundle |
-| `/owner/subscriptions` | Subscription List | ดู subscription ทั้งระบบ | ตรวจสถานะผิดปกติ |
-| `/owner/subscriptions/:subscriptionId` | Subscription Detail | ดู plan, billing, limits | ต่ออายุ/ระงับ |
-| `/owner/subscriptions/expiring` | Expiring / Suspended | ดูเคสใกล้หมดอายุ | เปิด tenant ที่เกี่ยวข้อง |
-| `/owner/servers` | Server Registry | ดู server ทั้งหมด | เปิด server detail |
-| `/owner/servers/:serverId` | Server Detail | ดู owner-side server detail | ตรวจ mapping |
-| `/owner/servers/:serverId/mapping` | Server Mapping | ดู tenant/guild/agent map | แก้ mapping |
-| `/owner/delivery-agents` | Delivery Agents | ดู delivery agent ทั้งหมด | provision delivery agent |
-| `/owner/delivery-agents/new` | Provision Delivery Agent | สร้าง setup token / bootstrap | สร้าง runtime |
-| `/owner/delivery-agents/:agentId` | Delivery Agent Detail | ดูสถานะและ binding | reset binding / revoke |
-| `/owner/server-bots` | Server Bots | ดู server bot ทั้งหมด | provision server bot |
-| `/owner/server-bots/new` | Provision Server Bot | สร้าง setup token / bootstrap | สร้าง runtime |
-| `/owner/server-bots/:botId` | Server Bot Detail | ดูสถานะและ binding | reset binding / revoke |
-| `/owner/jobs` | Global Jobs | ดูงานทั้งหมด | filter / inspect |
-| `/owner/jobs/failed` | Failed Jobs | ดูงานล้มเหลว | retry / investigate |
-| `/owner/jobs/:jobId` | Job Detail | ดู execution history | inspect evidence |
-| `/owner/logs` | Platform Logs | ดู log/platform events | search/filter |
-| `/owner/audit` | Audit Log | ดู sensitive actions | export audit |
-| `/owner/incidents` | Incident Timeline | ดู incident และ response | เปิดเคสล่าสุด |
-| `/owner/billing` | Revenue Overview | ดูรายได้และ usage | เปิด billing detail |
-| `/owner/billing/history` | Billing History | ดูประวัติเรียกเก็บเงิน | export |
-| `/owner/billing/usage` | Usage Trends | ดู usage trend | compare periods |
-| `/owner/support` | Support Queue | ดู ticket ทั้งหมด | เปิด ticket |
-| `/owner/support/:ticketId` | Ticket Detail | จัดการเคสซัพพอร์ต | ตอบกลับ / ปิดเคส |
-| `/owner/support/diagnostics` | Diagnostics Bundles | ดู bundle ที่ส่งเข้ามา | ดาวน์โหลด bundle |
-| `/owner/security` | Security Overview | ดู security posture | เปิด security events |
-| `/owner/security/events` | Security Events | ดูเหตุการณ์ด้านความปลอดภัย | export / filter |
-| `/owner/security/access` | Sessions & Access | ดู session / access issues | revoke session |
-| `/owner/feature-flags` | Feature Catalog | ดู feature ทั้งระบบ | เปิด override |
-| `/owner/feature-flags/overrides` | Global Overrides | จัดการ global override | save override |
-| `/owner/settings` | Platform Settings | ตั้งค่าระดับแพลตฟอร์ม | save settings |
-| `/owner/settings/runtime` | Runtime Control | ดู runtime control | apply / restart |
-| `/owner/settings/maintenance` | Maintenance & Recovery | recovery / restore / rollback | start restore |
+| Route                                  | Page                     | เป้าหมาย                            | Primary action                    |
+| -------------------------------------- | ------------------------ | ----------------------------------- | --------------------------------- |
+| `/owner`                               | Overview                 | ดูสุขภาพแพลตฟอร์มรวม                | เปิด tenant/problem ที่ต้องจัดการ |
+| `/owner/tenants`                       | Tenant List              | ดู tenant ทั้งหมด                   | สร้าง tenant                      |
+| `/owner/tenants/:tenantId`             | Tenant Detail            | ดู tenant รายตัว                    | เปิดใช้งาน/แก้ tenant             |
+| `/owner/tenants/:tenantId/health`      | Tenant Health            | ดู runtime, sync, issues ของ tenant | เปิด diagnostics                  |
+| `/owner/packages`                      | Package Catalog          | จัดการ package                      | สร้าง/แก้ package                 |
+| `/owner/packages/:packageId`           | Package Detail           | ดูรายละเอียด package                | บันทึก package                    |
+| `/owner/packages/features`             | Feature Mapping          | ดู relation package-feature         | แก้ feature bundle                |
+| `/owner/subscriptions`                 | Subscription List        | ดู subscription ทั้งระบบ            | ตรวจสถานะผิดปกติ                  |
+| `/owner/subscriptions/:subscriptionId` | Subscription Detail      | ดู plan, billing, limits            | ต่ออายุ/ระงับ                     |
+| `/owner/subscriptions/expiring`        | Expiring / Suspended     | ดูเคสใกล้หมดอายุ                    | เปิด tenant ที่เกี่ยวข้อง         |
+| `/owner/servers`                       | Server Registry          | ดู server ทั้งหมด                   | เปิด server detail                |
+| `/owner/servers/:serverId`             | Server Detail            | ดู owner-side server detail         | ตรวจ mapping                      |
+| `/owner/servers/:serverId/mapping`     | Server Mapping           | ดู tenant/guild/agent map           | แก้ mapping                       |
+| `/owner/delivery-agents`               | Delivery Agents          | ดู delivery agent ทั้งหมด           | provision delivery agent          |
+| `/owner/delivery-agents/new`           | Provision Delivery Agent | สร้าง setup token / bootstrap       | สร้าง runtime                     |
+| `/owner/delivery-agents/:agentId`      | Delivery Agent Detail    | ดูสถานะและ binding                  | reset binding / revoke            |
+| `/owner/server-bots`                   | Server Bots              | ดู server bot ทั้งหมด               | provision server bot              |
+| `/owner/server-bots/new`               | Provision Server Bot     | สร้าง setup token / bootstrap       | สร้าง runtime                     |
+| `/owner/server-bots/:botId`            | Server Bot Detail        | ดูสถานะและ binding                  | reset binding / revoke            |
+| `/owner/jobs`                          | Global Jobs              | ดูงานทั้งหมด                        | filter / inspect                  |
+| `/owner/jobs/failed`                   | Failed Jobs              | ดูงานล้มเหลว                        | retry / investigate               |
+| `/owner/jobs/:jobId`                   | Job Detail               | ดู execution history                | inspect evidence                  |
+| `/owner/logs`                          | Platform Logs            | ดู log/platform events              | search/filter                     |
+| `/owner/audit`                         | Audit Log                | ดู sensitive actions                | export audit                      |
+| `/owner/incidents`                     | Incident Timeline        | ดู incident และ response            | เปิดเคสล่าสุด                     |
+| `/owner/billing`                       | Revenue Overview         | ดูรายได้และ usage                   | เปิด billing detail               |
+| `/owner/billing/history`               | Billing History          | ดูประวัติเรียกเก็บเงิน              | export                            |
+| `/owner/billing/usage`                 | Usage Trends             | ดู usage trend                      | compare periods                   |
+| `/owner/support`                       | Support Queue            | ดู ticket ทั้งหมด                   | เปิด ticket                       |
+| `/owner/support/:ticketId`             | Ticket Detail            | จัดการเคสซัพพอร์ต                   | ตอบกลับ / ปิดเคส                  |
+| `/owner/support/diagnostics`           | Diagnostics Bundles      | ดู bundle ที่ส่งเข้ามา              | ดาวน์โหลด bundle                  |
+| `/owner/security`                      | Security Overview        | ดู security posture                 | เปิด security events              |
+| `/owner/security/events`               | Security Events          | ดูเหตุการณ์ด้านความปลอดภัย          | export / filter                   |
+| `/owner/security/access`               | Sessions & Access        | ดู session / access issues          | revoke session                    |
+| `/owner/feature-flags`                 | Feature Catalog          | ดู feature ทั้งระบบ                 | เปิด override                     |
+| `/owner/feature-flags/overrides`       | Global Overrides         | จัดการ global override              | save override                     |
+| `/owner/settings`                      | Platform Settings        | ตั้งค่าระดับแพลตฟอร์ม               | save settings                     |
+| `/owner/settings/runtime`              | Runtime Control          | ดู runtime control                  | apply / restart                   |
+| `/owner/settings/maintenance`          | Maintenance & Recovery   | recovery / restore / rollback       | start restore                     |
 
 ---
 
@@ -268,61 +268,61 @@ flowchart TD
 
 ### Page list
 
-| Route | Page | เป้าหมาย | Primary action |
-|---|---|---|---|
-| `/tenant` | Dashboard | ดูภาพรวมงานประจำวัน | ใช้ quick actions |
-| `/tenant/subscription` | Subscription | ดู package/limits | upgrade package |
-| `/tenant/servers` | Server List | ดูเซิร์ฟเวอร์ที่ดูแล | เปิด server detail |
-| `/tenant/servers/:serverId` | Server Detail | ดู server รายตัว | เปิด config/status |
-| `/tenant/status` | Server Status | ดู health, uptime, sync | investigate issue |
-| `/tenant/config` | Config Overview | เริ่มจัดการ config | เปิด section |
-| `/tenant/config/:sectionKey` | Config Section | แก้ค่าใน section | save / save+apply |
-| `/tenant/config/backups` | Backup History | ดู backup config | restore |
-| `/tenant/config/rollback` | Rollback | rollback config | confirm rollback |
-| `/tenant/restart` | Restart Control | จัดการ restart | restart now / delayed |
-| `/tenant/restart/schedule` | Scheduled Restart | ตั้ง restart ล่วงหน้า | schedule restart |
-| `/tenant/restart/history` | Restart History | ดูประวัติ restart | inspect run |
-| `/tenant/delivery-agents` | Delivery Agent List | ดูเอเจนต์ส่งของ | create delivery agent |
-| `/tenant/delivery-agents/new` | Create Delivery Agent | สร้าง setup token | provision runtime |
-| `/tenant/delivery-agents/:agentId` | Delivery Agent Detail | ดู binding / status | reset binding |
-| `/tenant/server-bots` | Server Bot List | ดูบอตเซิร์ฟเวอร์ | create server bot |
-| `/tenant/server-bots/new` | Create Server Bot | สร้าง setup token | provision runtime |
-| `/tenant/server-bots/:botId` | Server Bot Detail | ดู binding / status | reset binding |
-| `/tenant/diagnostics` | Diagnostics | ดูสภาพระบบ | export diagnostics |
-| `/tenant/logs` | Sync Health | ดู freshness/sync errors | filter |
-| `/tenant/logs/events` | Event Feed | ดู event feed | search |
-| `/tenant/logs/killfeed` | Killfeed | ดู kill/combat feed | date filter |
-| `/tenant/logs/config-changes` | Config Changes | ดูประวัติเปลี่ยน config | open audit |
-| `/tenant/shop` | Shop Overview | ดูภาพรวมร้านค้า | open catalog |
-| `/tenant/shop/catalog` | Catalog | จัดการสินค้า | create item |
-| `/tenant/shop/promo` | Promo | จัดการโปรโมชัน | create promo |
-| `/tenant/orders` | Order List | ดูออเดอร์ทั้งหมด | open order |
-| `/tenant/orders/:orderId` | Order Detail | ดูออเดอร์รายตัว | retry / support |
-| `/tenant/delivery` | Delivery Queue | ดู queue ส่งของ | inspect failed jobs |
-| `/tenant/delivery/results` | Delivery Results | ดูผลการส่งของ | filter results |
-| `/tenant/delivery/proofs` | Delivery Proof | ดู evidence/proof | open proof |
-| `/tenant/players` | Player List | ดูผู้เล่นทั้งหมด | open player |
-| `/tenant/players/:playerId` | Player Detail | ดูข้อมูลรายคน | support player |
-| `/tenant/players/:playerId/wallet` | Wallet / Support | ดู wallet/history | adjust / inspect |
-| `/tenant/discord` | Discord | ผูก/ดู Discord integration | link Discord |
-| `/tenant/donations` | Donation Overview | ดู donation summary | create package |
-| `/tenant/donations/packages` | Donation Packages | จัดการแพ็กเกจโดเนต | create package |
-| `/tenant/donations/rewards` | Donation Rewards | จัดการ reward | save rewards |
-| `/tenant/donations/history` | Donation History | ดูประวัติโดเนต | export |
-| `/tenant/events` | Event List | ดู event ทั้งหมด | create event |
-| `/tenant/events/new` | Create Event | สร้าง event | save event |
-| `/tenant/events/:eventId` | Event Detail | ดูรายละเอียด event | edit / announce |
-| `/tenant/events/:eventId/results` | Event Results | ดูผล event | publish results |
-| `/tenant/rewards` | Rewards | จัดการ reward rules | save rewards |
-| `/tenant/modules` | Module Center | เปิด-ปิด modules | toggle module |
-| `/tenant/modules/dependencies` | Dependencies | ดู dependencies | resolve blockers |
-| `/tenant/modules/locked` | Locked Features | ดู feature ที่ยังล็อก | upgrade package |
-| `/tenant/staff` | Staff | ดู staff/roles | invite staff |
-| `/tenant/settings` | Settings | ตั้งค่าระดับ tenant | save settings |
-| `/tenant/billing` | Billing | ดูค่าใช้จ่าย | inspect invoice |
-| `/tenant/help` | Help Center | ดูคู่มือและจุดช่วยเหลือ | open support ticket |
-| `/tenant/help/tickets` | Support Tickets | ดู ticket ของ tenant | create ticket |
-| `/tenant/help/diagnostics` | Diagnostics Export | ส่ง bundle ช่วยซัพพอร์ต | export bundle |
+| Route                              | Page                  | เป้าหมาย                   | Primary action        |
+| ---------------------------------- | --------------------- | -------------------------- | --------------------- |
+| `/tenant`                          | Dashboard             | ดูภาพรวมงานประจำวัน        | ใช้ quick actions     |
+| `/tenant/subscription`             | Subscription          | ดู package/limits          | upgrade package       |
+| `/tenant/servers`                  | Server List           | ดูเซิร์ฟเวอร์ที่ดูแล       | เปิด server detail    |
+| `/tenant/servers/:serverId`        | Server Detail         | ดู server รายตัว           | เปิด config/status    |
+| `/tenant/status`                   | Server Status         | ดู health, uptime, sync    | investigate issue     |
+| `/tenant/config`                   | Config Overview       | เริ่มจัดการ config         | เปิด section          |
+| `/tenant/config/:sectionKey`       | Config Section        | แก้ค่าใน section           | save / save+apply     |
+| `/tenant/config/backups`           | Backup History        | ดู backup config           | restore               |
+| `/tenant/config/rollback`          | Rollback              | rollback config            | confirm rollback      |
+| `/tenant/restart`                  | Restart Control       | จัดการ restart             | restart now / delayed |
+| `/tenant/restart/schedule`         | Scheduled Restart     | ตั้ง restart ล่วงหน้า      | schedule restart      |
+| `/tenant/restart/history`          | Restart History       | ดูประวัติ restart          | inspect run           |
+| `/tenant/delivery-agents`          | Delivery Agent List   | ดูเอเจนต์ส่งของ            | create delivery agent |
+| `/tenant/delivery-agents/new`      | Create Delivery Agent | สร้าง setup token          | provision runtime     |
+| `/tenant/delivery-agents/:agentId` | Delivery Agent Detail | ดู binding / status        | reset binding         |
+| `/tenant/server-bots`              | Server Bot List       | ดูบอตเซิร์ฟเวอร์           | create server bot     |
+| `/tenant/server-bots/new`          | Create Server Bot     | สร้าง setup token          | provision runtime     |
+| `/tenant/server-bots/:botId`       | Server Bot Detail     | ดู binding / status        | reset binding         |
+| `/tenant/diagnostics`              | Diagnostics           | ดูสภาพระบบ                 | export diagnostics    |
+| `/tenant/logs`                     | Sync Health           | ดู freshness/sync errors   | filter                |
+| `/tenant/logs/events`              | Event Feed            | ดู event feed              | search                |
+| `/tenant/logs/killfeed`            | Killfeed              | ดู kill/combat feed        | date filter           |
+| `/tenant/logs/config-changes`      | Config Changes        | ดูประวัติเปลี่ยน config    | open audit            |
+| `/tenant/shop`                     | Shop Overview         | ดูภาพรวมร้านค้า            | open catalog          |
+| `/tenant/shop/catalog`             | Catalog               | จัดการสินค้า               | create item           |
+| `/tenant/shop/promo`               | Promo                 | จัดการโปรโมชัน             | create promo          |
+| `/tenant/orders`                   | Order List            | ดูออเดอร์ทั้งหมด           | open order            |
+| `/tenant/orders/:orderId`          | Order Detail          | ดูออเดอร์รายตัว            | retry / support       |
+| `/tenant/delivery`                 | Delivery Queue        | ดู queue ส่งของ            | inspect failed jobs   |
+| `/tenant/delivery/results`         | Delivery Results      | ดูผลการส่งของ              | filter results        |
+| `/tenant/delivery/proofs`          | Delivery Proof        | ดู evidence/proof          | open proof            |
+| `/tenant/players`                  | Player List           | ดูผู้เล่นทั้งหมด           | open player           |
+| `/tenant/players/:playerId`        | Player Detail         | ดูข้อมูลรายคน              | support player        |
+| `/tenant/players/:playerId/wallet` | Wallet / Support      | ดู wallet/history          | adjust / inspect      |
+| `/tenant/discord`                  | Discord               | ผูก/ดู Discord integration | link Discord          |
+| `/tenant/donations`                | Donation Overview     | ดู donation summary        | create package        |
+| `/tenant/donations/packages`       | Donation Packages     | จัดการแพ็กเกจโดเนต         | create package        |
+| `/tenant/donations/rewards`        | Donation Rewards      | จัดการ reward              | save rewards          |
+| `/tenant/donations/history`        | Donation History      | ดูประวัติโดเนต             | export                |
+| `/tenant/events`                   | Event List            | ดู event ทั้งหมด           | create event          |
+| `/tenant/events/new`               | Create Event          | สร้าง event                | save event            |
+| `/tenant/events/:eventId`          | Event Detail          | ดูรายละเอียด event         | edit / announce       |
+| `/tenant/events/:eventId/results`  | Event Results         | ดูผล event                 | publish results       |
+| `/tenant/rewards`                  | Rewards               | จัดการ reward rules        | save rewards          |
+| `/tenant/modules`                  | Module Center         | เปิด-ปิด modules           | toggle module         |
+| `/tenant/modules/dependencies`     | Dependencies          | ดู dependencies            | resolve blockers      |
+| `/tenant/modules/locked`           | Locked Features       | ดู feature ที่ยังล็อก      | upgrade package       |
+| `/tenant/staff`                    | Staff                 | ดู staff/roles             | invite staff          |
+| `/tenant/settings`                 | Settings              | ตั้งค่าระดับ tenant        | save settings         |
+| `/tenant/billing`                  | Billing               | ดูค่าใช้จ่าย               | inspect invoice       |
+| `/tenant/help`                     | Help Center           | ดูคู่มือและจุดช่วยเหลือ    | open support ticket   |
+| `/tenant/help/tickets`             | Support Tickets       | ดู ticket ของ tenant       | create ticket         |
+| `/tenant/help/diagnostics`         | Diagnostics Export    | ส่ง bundle ช่วยซัพพอร์ต    | export bundle         |
 
 ---
 
@@ -395,38 +395,38 @@ flowchart TD
 
 ### Page list
 
-| Route | Page | เป้าหมาย | Primary action |
-|---|---|---|---|
-| `/player` | Home | ดูสิ่งสำคัญทันที | ไปยัง task หลัก |
-| `/player/shop` | Catalog | ซื้อของ | เปิด item detail |
-| `/player/shop/:itemId` | Item Detail | ดู item รายตัว | add to cart / buy |
-| `/player/cart` | Cart / Checkout | ตรวจของก่อนซื้อ | checkout |
-| `/player/wallet` | Wallet | ดูยอดเงินและประวัติ | top up |
-| `/player/orders` | Order List | ดูออเดอร์ทั้งหมด | open order |
-| `/player/orders/:orderId` | Order Detail | ดูสถานะออเดอร์ | inspect next step |
-| `/player/delivery` | Delivery Status | ดูการส่งของล่าสุด | inspect proof/status |
-| `/player/delivery/history` | Delivery History | ดูประวัติส่งของ | filter |
-| `/player/stats` | Combat Stats | ดูสถิติส่วนตัว | compare |
-| `/player/stats/progress` | Progress Stats | ดูความคืบหน้า / milestone | review progress |
-| `/player/leaderboards` | Kills | เปิด leaderboard หลัก | change category |
-| `/player/leaderboards/headshots` | Headshots | ดูอันดับ headshots | compare |
-| `/player/leaderboards/longest-shot` | Longest Shot | ดูอันดับยิงไกล | compare |
-| `/player/leaderboards/donors` | Top Donors | ดูผู้สนับสนุนสูงสุด | inspect supporters |
-| `/player/leaderboards/wallet` | Richest Wallet | ดูอันดับเงินในระบบ | compare |
-| `/player/activity` | Killfeed | ดู activity ล่าสุด | filter feed |
-| `/player/activity/community` | Community Activity | ดูกิจกรรมชุมชน | inspect |
-| `/player/activity/announcements` | Announcements | ดูประกาศ | read latest |
-| `/player/donations` | Top Supporters | ดู supporter area | support server |
-| `/player/donations/goals` | Donation Goals | ดูเป้าหมายโดเนต | contribute |
-| `/player/events` | Active Events | ดู event ที่กำลังเปิด | open event |
-| `/player/events/upcoming` | Upcoming Events | ดู event ที่กำลังจะมา | follow |
-| `/player/events/history` | Event History | ดู event ที่ผ่านมา | inspect results |
-| `/player/profile` | Account Profile | ดูข้อมูลบัญชี | edit profile |
-| `/player/profile/linked-accounts` | Linked Accounts | ดู Discord/Steam links | link account |
-| `/player/profile/verification` | Verification Status | ดูสถานะการยืนยันตัวตน | complete verification |
-| `/player/support` | Help Center | ดูคำตอบและช่องทางช่วยเหลือ | open ticket |
-| `/player/support/new` | Open Ticket | เปิด ticket ใหม่ | submit ticket |
-| `/player/support/tickets` | My Tickets | ดู ticket ของตัวเอง | open ticket detail |
+| Route                               | Page                | เป้าหมาย                   | Primary action        |
+| ----------------------------------- | ------------------- | -------------------------- | --------------------- |
+| `/player`                           | Home                | ดูสิ่งสำคัญทันที           | ไปยัง task หลัก       |
+| `/player/shop`                      | Catalog             | ซื้อของ                    | เปิด item detail      |
+| `/player/shop/:itemId`              | Item Detail         | ดู item รายตัว             | add to cart / buy     |
+| `/player/cart`                      | Cart / Checkout     | ตรวจของก่อนซื้อ            | checkout              |
+| `/player/wallet`                    | Wallet              | ดูยอดเงินและประวัติ        | top up                |
+| `/player/orders`                    | Order List          | ดูออเดอร์ทั้งหมด           | open order            |
+| `/player/orders/:orderId`           | Order Detail        | ดูสถานะออเดอร์             | inspect next step     |
+| `/player/delivery`                  | Delivery Status     | ดูการส่งของล่าสุด          | inspect proof/status  |
+| `/player/delivery/history`          | Delivery History    | ดูประวัติส่งของ            | filter                |
+| `/player/stats`                     | Combat Stats        | ดูสถิติส่วนตัว             | compare               |
+| `/player/stats/progress`            | Progress Stats      | ดูความคืบหน้า / milestone  | review progress       |
+| `/player/leaderboards`              | Kills               | เปิด leaderboard หลัก      | change category       |
+| `/player/leaderboards/headshots`    | Headshots           | ดูอันดับ headshots         | compare               |
+| `/player/leaderboards/longest-shot` | Longest Shot        | ดูอันดับยิงไกล             | compare               |
+| `/player/leaderboards/donors`       | Top Donors          | ดูผู้สนับสนุนสูงสุด        | inspect supporters    |
+| `/player/leaderboards/wallet`       | Richest Wallet      | ดูอันดับเงินในระบบ         | compare               |
+| `/player/activity`                  | Killfeed            | ดู activity ล่าสุด         | filter feed           |
+| `/player/activity/community`        | Community Activity  | ดูกิจกรรมชุมชน             | inspect               |
+| `/player/activity/announcements`    | Announcements       | ดูประกาศ                   | read latest           |
+| `/player/donations`                 | Top Supporters      | ดู supporter area          | support server        |
+| `/player/donations/goals`           | Donation Goals      | ดูเป้าหมายโดเนต            | contribute            |
+| `/player/events`                    | Active Events       | ดู event ที่กำลังเปิด      | open event            |
+| `/player/events/upcoming`           | Upcoming Events     | ดู event ที่กำลังจะมา      | follow                |
+| `/player/events/history`            | Event History       | ดู event ที่ผ่านมา         | inspect results       |
+| `/player/profile`                   | Account Profile     | ดูข้อมูลบัญชี              | edit profile          |
+| `/player/profile/linked-accounts`   | Linked Accounts     | ดู Discord/Steam links     | link account          |
+| `/player/profile/verification`      | Verification Status | ดูสถานะการยืนยันตัวตน      | complete verification |
+| `/player/support`                   | Help Center         | ดูคำตอบและช่องทางช่วยเหลือ | open ticket           |
+| `/player/support/new`               | Open Ticket         | เปิด ticket ใหม่           | submit ticket         |
+| `/player/support/tickets`           | My Tickets          | ดู ticket ของตัวเอง        | open ticket detail    |
 
 ---
 
@@ -436,17 +436,17 @@ flowchart TD
 
 ### Public / auth pages
 
-| Route | Page | เป้าหมาย |
-|---|---|---|
-| `/landing` | Landing | อธิบายผลิตภัณฑ์ |
-| `/pricing` | Pricing | เปรียบเทียบแพ็กเกจ |
-| `/signup` | Sign Up | สมัครใช้งานเองได้ |
-| `/login` | Login | เข้าระบบ |
-| `/forgot-password` | Forgot Password | รีเซ็ตรหัสผ่าน |
-| `/verify-email` | Verify Email | ยืนยันอีเมล |
-| `/preview` | Preview Mode | ดูระบบก่อนซื้อ |
-| `/checkout` | Checkout | สมัคร package |
-| `/payment-result` | Payment Result | ดูผลการชำระเงิน |
+| Route              | Page            | เป้าหมาย           |
+| ------------------ | --------------- | ------------------ |
+| `/landing`         | Landing         | อธิบายผลิตภัณฑ์    |
+| `/pricing`         | Pricing         | เปรียบเทียบแพ็กเกจ |
+| `/signup`          | Sign Up         | สมัครใช้งานเองได้  |
+| `/login`           | Login           | เข้าระบบ           |
+| `/forgot-password` | Forgot Password | รีเซ็ตรหัสผ่าน     |
+| `/verify-email`    | Verify Email    | ยืนยันอีเมล        |
+| `/preview`         | Preview Mode    | ดูระบบก่อนซื้อ     |
+| `/checkout`        | Checkout        | สมัคร package      |
+| `/payment-result`  | Payment Result  | ดูผลการชำระเงิน    |
 
 ---
 

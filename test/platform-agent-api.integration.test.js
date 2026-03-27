@@ -25,6 +25,23 @@ function randomPort() {
   return 39400 + Math.floor(Math.random() * 600);
 }
 
+function setScopedEnv(overrides) {
+  const previous = new Map();
+  for (const [key, value] of Object.entries(overrides)) {
+    previous.set(key, Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : undefined);
+    process.env[key] = value;
+  }
+  return () => {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) {
+        delete process.env[key];
+        continue;
+      }
+      process.env[key] = value;
+    }
+  };
+}
+
 async function cleanupPlatformTables() {
   await prisma.$transaction([
     prisma.platformMarketplaceOffer.deleteMany({}),
@@ -40,17 +57,20 @@ async function cleanupPlatformTables() {
 test('platform agent routes register scoped agents and ingest sync through the control plane', async (t) => {
   await cleanupPlatformTables();
 
-  const previousDataDir = process.env.BOT_DATA_DIR;
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'platform-agent-api-'));
-  process.env.BOT_DATA_DIR = tempDir;
 
   const port = randomPort();
-  process.env.ADMIN_WEB_HOST = '127.0.0.1';
-  process.env.ADMIN_WEB_PORT = String(port);
-  process.env.ADMIN_WEB_USER = 'platform_owner_agent_test';
-  process.env.ADMIN_WEB_PASSWORD = 'platform_owner_agent_pass';
-  process.env.ADMIN_WEB_USERS_JSON = '';
-  process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+  const restoreEnv = setScopedEnv({
+    BOT_DATA_DIR: tempDir,
+    ADMIN_WEB_HOST: '127.0.0.1',
+    ADMIN_WEB_PORT: String(port),
+    ADMIN_WEB_USER: 'platform_owner_agent_test',
+    ADMIN_WEB_PASSWORD: 'platform_owner_agent_pass',
+    ADMIN_WEB_USERS_JSON: '',
+    ADMIN_WEB_2FA_ENABLED: 'false',
+    ADMIN_WEB_2FA_SECRET: '',
+    ADMIN_WEB_LOCAL_RECOVERY: 'false',
+  });
 
   const fakeClient = {
     guilds: { cache: new Map() },
@@ -65,7 +85,7 @@ test('platform agent routes register scoped agents and ingest sync through the c
 
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve));
-    process.env.BOT_DATA_DIR = previousDataDir;
+    restoreEnv();
     fs.rmSync(tempDir, { recursive: true, force: true });
     await cleanupPlatformTables();
   });

@@ -121,7 +121,7 @@ function createAdminAuthPostRoutes(deps) {
           },
         },
         {
-          'Set-Cookie': buildSessionCookie(sessionId),
+          'Set-Cookie': buildSessionCookie(sessionId, req),
         },
       );
       return true;
@@ -137,7 +137,7 @@ function createAdminAuthPostRoutes(deps) {
         res,
         200,
         { ok: true, data: { loggedOut: true } },
-        { 'Set-Cookie': buildClearSessionCookie() },
+        { 'Set-Cookie': buildClearSessionCookie(req) },
       );
       return true;
     }
@@ -164,7 +164,7 @@ function createAdminAuthPostRoutes(deps) {
         res,
         200,
         { ok: true, data: { revokedCount: 1, sessions: [revoked] } },
-        sessionId === auth?.sessionId ? { 'Set-Cookie': buildClearSessionCookie() } : {},
+        sessionId === auth?.sessionId ? { 'Set-Cookie': buildClearSessionCookie(req) } : {},
       );
       return true;
     }
@@ -183,7 +183,7 @@ function createAdminAuthPostRoutes(deps) {
         res,
         200,
         { ok: true, data: { revokedCount: revoked.length, sessions: revoked } },
-        currentRevoked ? { 'Set-Cookie': buildClearSessionCookie() } : {},
+        currentRevoked ? { 'Set-Cookie': buildClearSessionCookie(req) } : {},
       );
       return true;
     }
@@ -197,7 +197,7 @@ function createAdminAuthPostRoutes(deps) {
         res,
         200,
         { ok: true, data: { revokedCount: revoked ? 1 : 0, sessions: revoked ? [revoked] : [] } },
-        { 'Set-Cookie': buildClearSessionCookie() },
+        { 'Set-Cookie': buildClearSessionCookie(req) },
       );
       return true;
     }

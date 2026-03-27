@@ -28,6 +28,17 @@
     toneForStatus,
   } = shared;
 
+  function renderCommunityActionCards(items) {
+    return (Array.isArray(items) ? items : []).map((item) => [
+      `<article class="plv4-task-card plv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+      `<span class="plv4-section-kicker">${escapeHtml(item.label || '')}</span>`,
+      `<strong>${escapeHtml(item.title || '')}</strong>`,
+      `<p class="plv4-inline-copy">${escapeHtml(item.body || '')}</p>`,
+      `<div class="plv4-action-row"><a class="${item.primary ? 'plv4-button plv4-button-primary' : 'plv4-button'}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.actionLabel || 'เปิดดูต่อ')}</a></div>`,
+      '</article>',
+    ].join('')).join('');
+  }
+
   function createPlayerStatsEventsSupportV4Model(source) {
     const state = source && typeof source === 'object' ? source : {};
     const stats = state.stats || {};
@@ -41,6 +52,7 @@
     const orders = Array.isArray(state.orders) ? state.orders : [];
     const steamLink = state.steamLink || {};
     const supportAlerts = notifications.filter((item) => ['warning', 'error'].includes(String(item?.severity || '').toLowerCase()));
+    const claimableMissionCount = missions.filter((row) => row.claimable).length;
     const eventHighlights = missions.slice(0, 3).map((item) => ({
       category: item.category || 'mission',
       tone: item.claimable ? 'success' : 'info',
@@ -61,41 +73,89 @@
     const myRank = (Array.isArray(leaderboard.items) ? leaderboard.items : []).find((row) => Boolean(row?.isSelf))
       || (Array.isArray(leaderboard.items) ? leaderboard.items[0] : null)
       || null;
+    const primaryAction = claimableMissionCount > 0 || bounties.length > 0
+      ? { label: 'เปิดกิจกรรมที่รับได้ (แนะนำ)', href: '#events' }
+      : supportAlerts.length > 0
+        ? { label: 'ดูสิ่งที่ต้องจัดการก่อน (แนะนำ)', href: '#activity' }
+        : myRank
+          ? { label: 'ดูอันดับของคุณ (แนะนำ)', href: '#stats' }
+          : { label: 'เปิดกิจกรรม', href: '#events' };
+    const communityActionCards = [
+      {
+        label: 'กิจกรรม',
+        title: claimableMissionCount > 0 ? 'มีภารกิจที่รับได้ตอนนี้' : bounties.length > 0 ? 'มี Bounty ที่ยังเปิดอยู่' : 'ยังไม่มีกิจกรรมที่ต้องรีบรับ',
+        body: claimableMissionCount > 0
+          ? `ตอนนี้มี ${formatNumber(claimableMissionCount, '0')} ภารกิจที่พร้อมรับหรือเริ่มทำได้ทันที`
+          : bounties.length > 0
+            ? `มี Bounty เปิดอยู่ ${formatNumber(bounties.length, '0')} รายการ ลองเปิดดูรางวัลหรือเงื่อนไขก่อน`
+            : 'กลับมาใช้หน้านี้เพื่อตรวจว่ามีกิจกรรมใหม่เปิดเมื่อไร โดยไม่ต้องไล่ดูหลายหน้า',
+        actionLabel: primaryAction.href === '#events' ? primaryAction.label : 'เปิดหน้ากิจกรรม',
+        href: '#events',
+        tone: claimableMissionCount > 0 || bounties.length > 0 ? 'warning' : 'muted',
+        primary: primaryAction.href === '#events',
+      },
+      {
+        label: 'อันดับ',
+        title: myRank ? `ตอนนี้คุณอยู่ลำดับ ${formatNumber(myRank.rank, '-')}` : 'ยังไม่มีอันดับของคุณในตาราง',
+        body: myRank
+          ? 'ใช้ตารางอันดับดูว่าควรไล่คะแนนต่อหรือพอใจตำแหน่งตอนนี้แล้ว'
+          : 'เมื่อมีข้อมูลซิงก์เพิ่ม ระบบจะแสดงอันดับของคุณในพื้นที่นี้ทันที',
+        actionLabel: 'เปิดตารางอันดับ',
+        href: '#stats',
+        tone: myRank ? 'success' : 'info',
+        primary: primaryAction.href === '#stats',
+      },
+      {
+        label: 'การช่วยเหลือ',
+        title: supportAlerts.length > 0 ? 'มีสิ่งที่ควรเปิดดูทันที' : 'ตอนนี้ยังไม่พบสัญญาณเตือนแรง',
+        body: supportAlerts.length > 0
+          ? 'เริ่มจาก notification หรือออเดอร์ที่เป็น warning/error ก่อน เพื่อลดปัญหาค้างสะสม'
+          : 'ถ้ามีปัญหาเรื่องของไม่เข้า กิจกรรมไม่ขึ้น หรือบัญชียังไม่พร้อม ให้เริ่มจาก checklist ใน rail ด้านขวา',
+        actionLabel: supportAlerts.length > 0 ? 'เปิดฟีดล่าสุด' : 'ดูคำแนะนำช่วยเหลือ',
+        href: '#activity',
+        tone: supportAlerts.length > 0 ? 'danger' : 'muted',
+        primary: primaryAction.href === '#activity',
+      },
+    ];
 
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Player Portal V4 Preview',
+        surfaceLabel: 'พอร์ทัลผู้เล่น',
         workspaceLabel: firstNonEmpty([state?.me?.user], 'Community Workspace'),
-        environmentLabel: 'Parallel V4',
-        navGroups: createPlayerNavGroups('stats'),
+        environmentLabel: 'ชุมชนผู้เล่น',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : createPlayerNavGroups('stats'),
       },
+      notice: state?.__surfaceNotice || null,
       header: {
         title: 'สถิติ กิจกรรม และการช่วยเหลือ',
         subtitle: 'กลับมาเช็กอันดับ ความคืบหน้า และสิ่งที่กำลังเกิดขึ้นในชุมชนได้จากหน้าเดียว',
         statusChips: [
-          { label: `${formatNumber(stats.kills, '0')} kills`, tone: 'info' },
+          { label: `${formatNumber(stats.kills, '0')} สังหาร`, tone: 'info' },
           { label: `KD ${Number.isFinite(Number(stats.kd)) ? Number(stats.kd).toFixed(2) : '0.00'}`, tone: 'success' },
           { label: `${formatNumber(missions.length, '0')} ภารกิจ`, tone: missions.length > 0 ? 'info' : 'muted' },
           { label: steamLink.linked ? 'บัญชีพร้อมรับของ' : 'ควรผูก Steam', tone: steamLink.linked ? 'success' : 'warning' },
         ],
-        primaryAction: { label: 'เปิดกิจกรรม', href: '#events' },
+        primaryAction,
       },
       summaryStrip: [
-        { label: 'Kills', value: formatNumber(stats.kills, '0'), detail: 'สถิติการกำจัดทั้งหมดของบัญชีนี้', tone: 'info' },
-        { label: 'KD', value: Number.isFinite(Number(stats.kd)) ? Number(stats.kd).toFixed(2) : '0.00', detail: 'ใช้อ่านภาพรวมผลงาน ไม่ใช่ดูแค่ kills อย่างเดียว', tone: 'success' },
-        { label: 'Playtime', value: `${formatNumber(Math.floor(Number(stats.playtimeMinutes || 0) / 60), '0')} ชม.`, detail: 'ชั่วโมงเล่นโดยประมาณจากข้อมูลที่ซิงก์เข้าระบบ', tone: 'info' },
+        { label: 'สังหาร', value: formatNumber(stats.kills, '0'), detail: 'สถิติการกำจัดทั้งหมดของบัญชีนี้', tone: 'info' },
+        { label: 'อัตรา K/D', value: Number.isFinite(Number(stats.kd)) ? Number(stats.kd).toFixed(2) : '0.00', detail: 'ใช้อ่านภาพรวมผลงาน ไม่ใช่ดูแค่ kills อย่างเดียว', tone: 'success' },
+        { label: 'เวลาเล่น', value: `${formatNumber(Math.floor(Number(stats.playtimeMinutes || 0) / 60), '0')} ชม.`, detail: 'ชั่วโมงเล่นโดยประมาณจากข้อมูลที่ซิงก์เข้าระบบ', tone: 'info' },
         { label: 'ปาร์ตี้', value: formatNumber(party.memberCount, '0'), detail: firstNonEmpty([party.title], 'ยังไม่อยู่ในปาร์ตี้'), tone: party.memberCount > 0 ? 'success' : 'muted' },
         { label: 'โอกาสพิเศษ', value: formatNumber(missions.filter((row) => row.claimable).length + bounties.length, '0'), detail: 'รวมภารกิจพร้อมรับและ bounty ที่ยังเปิดอยู่', tone: missions.some((row) => row.claimable) || bounties.length > 0 ? 'warning' : 'muted' },
       ],
       personalFacts: [
-        { label: 'Deaths', value: formatNumber(stats.deaths, '0') },
-        { label: 'Playtime (minutes)', value: formatNumber(stats.playtimeMinutes, '0') },
+        { label: 'เสียชีวิต', value: formatNumber(stats.deaths, '0') },
+        { label: 'เวลาเล่น (นาที)', value: formatNumber(stats.playtimeMinutes, '0') },
         { label: 'ปาร์ตี้ปัจจุบัน', value: firstNonEmpty([party.title], 'ยังไม่อยู่ในปาร์ตี้') },
         { label: 'สมาชิกในปาร์ตี้', value: formatNumber(party.memberCount, '0') },
         { label: 'วงล้อสุ่มรางวัล', value: wheel.enabled ? 'เปิดอยู่' : 'ปิดอยู่' },
         { label: 'Bounty ที่เปิดอยู่', value: formatNumber(bounties.length, '0') },
       ],
+      communityActionCards,
       leaderboardRows: (Array.isArray(leaderboard.items) ? leaderboard.items : []).slice(0, 8).map((row) => ({
         rank: formatNumber(row.rank, '-'),
         name: firstNonEmpty([row.name, row.userId], '-'),
@@ -123,7 +183,7 @@
           label: 'จุดที่ควรทำต่อ',
           title: supportAlerts.length > 0 ? 'มีสัญญาณที่ควรเปิดดูทันที' : 'ใช้หน้ากิจกรรมเป็นจุดกลับมาประจำ',
           body: supportAlerts.length > 0 ? 'เริ่มจาก order หรือ notification ที่เป็น warning/error ก่อน เพื่อไม่ให้ปัญหาค้างสะสม' : 'ตอนนี้พอร์ทัลพร้อมใช้เป็นจุดเช็กอันดับ ภารกิจ และประกาศของชุมชนได้ทุกวัน',
-          meta: supportAlerts.length > 0 ? firstNonEmpty([supportAlerts[0].title, supportAlerts[0].message], '-') : `${formatNumber(missions.length, '0')} missions · ${formatNumber(bounties.length, '0')} bounties`,
+          meta: supportAlerts.length > 0 ? firstNonEmpty([supportAlerts[0].title, supportAlerts[0].message], '-') : `${formatNumber(missions.length, '0')} ภารกิจ · ${formatNumber(bounties.length, '0')} bounty`,
           tone: supportAlerts.length > 0 ? 'warning' : 'info',
         },
         {
@@ -148,12 +208,12 @@
       `<strong class="plv4-workspace-label">${escapeHtml(model.shell.workspaceLabel || '')}</strong>`,
       '</div>',
       '</div>',
-      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'Parallel V4', tone: 'info' }])}</div>`,
+      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'ชุมชนผู้เล่น', tone: 'info' }])}</div>`,
       '</header>',
       '<div class="plv4-shell">',
       '<aside class="plv4-sidebar">',
       '<div class="plv4-stack">',
-      '<span class="plv4-surface-label">community</span>',
+      '<span class="plv4-surface-label">ชุมชนและกิจกรรม</span>',
       '<strong class="plv4-sidebar-title">พื้นที่ของผู้เล่น</strong>',
       '<p class="plv4-sidebar-copy">ให้ผู้เล่นกลับมาเช็กอันดับ ภารกิจ และสถานะบัญชีได้บ่อย โดยไม่กลายเป็นหน้า social feed ที่รกเกินจำเป็น</p>',
       '</div>',
@@ -162,7 +222,7 @@
       '<main class="plv4-main plv4-stack">',
       '<section class="plv4-pagehead">',
       '<div class="plv4-stack">',
-      '<span class="plv4-section-kicker">community pulse</span>',
+      '<span class="plv4-section-kicker">ศูนย์ชุมชนของผู้เล่น</span>',
       `<h1 class="plv4-page-title">${escapeHtml(model.header.title || '')}</h1>`,
       `<p class="plv4-page-subtitle">${escapeHtml(model.header.subtitle || '')}</p>`,
       `<div class="plv4-badge-row">${renderBadges(model.header.statusChips)}</div>`,
@@ -171,20 +231,27 @@
       `<a class="plv4-button plv4-button-primary" href="${escapeHtml(model.header.primaryAction.href || '#')}">${escapeHtml(model.header.primaryAction.label || '')}</a>`,
       '</div>',
       '</section>',
+      model.notice
+        ? `<section class="plv4-panel plv4-tone-${escapeHtml(model.notice.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Access</span><h2 class="plv4-section-title">${escapeHtml(model.notice.title || '')}</h2><p class="plv4-section-copy">${escapeHtml(model.notice.detail || '')}</p></div></div></section>`
+        : '',
       `<section class="plv4-summary-strip">${renderSummaryStrip(model.summaryStrip)}</section>`,
+      '<section class="plv4-panel">',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ควรทำอะไรต่อ</span><h2 class="plv4-section-title">เริ่มจากสิ่งที่พาคุณกลับมาเล่นต่อได้ทันที</h2><p class="plv4-section-copy">กิจกรรม อันดับ และงานที่ต้องจัดการควรถูกยกขึ้นมาก่อนรายละเอียดเชิงลึก เพื่อให้ผู้เล่นรู้ว่าควรกดอะไรต่อ</p></div></div>',
+      `<div class="plv4-task-grid">${renderCommunityActionCards(model.communityActionCards)}</div>`,
+      '</section>',
       '<section class="plv4-content-grid plv4-content-grid-two">',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">my stats</span><h2 class="plv4-section-title">สรุปสถิติของฉัน</h2><p class="plv4-section-copy">อ่านง่ายและรู้ทันทีว่าภาพรวมการเล่นของบัญชีนี้เป็นอย่างไร</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">สถิติของฉัน</span><h2 class="plv4-section-title">สรุปสถิติของฉัน</h2><p class="plv4-section-copy">อ่านง่ายและรู้ทันทีว่าภาพรวมการเล่นของบัญชีนี้เป็นอย่างไร</p></div></div>',
       renderKeyValueList(model.personalFacts, 'ยังไม่มีข้อมูลสถิติสำหรับแสดง'),
       '</article>',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">events</span><h2 class="plv4-section-title">กิจกรรมและโอกาสพิเศษ</h2><p class="plv4-section-copy">รวมภารกิจ วงล้อ และ bounty ที่ควรรู้ในช่วงเวลานี้</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">กิจกรรม</span><h2 class="plv4-section-title">กิจกรรมและโอกาสพิเศษ</h2><p class="plv4-section-copy">รวมภารกิจ วงล้อ และ bounty ที่ควรรู้ในช่วงเวลานี้</p></div></div>',
       renderKeyValueList(model.eventFacts, 'ยังไม่มีกิจกรรมให้แสดง'),
       '</article>',
       '</section>',
       '<section class="plv4-content-grid plv4-content-grid-two">',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">leaderboards</span><h2 class="plv4-section-title">อันดับผู้เล่น</h2><p class="plv4-section-copy">ดูบริบทของตัวเองเทียบกับผู้เล่นคนอื่นจากตารางเดียว</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">อันดับ</span><h2 class="plv4-section-title">อันดับผู้เล่น</h2><p class="plv4-section-copy">ดูบริบทของตัวเองเทียบกับผู้เล่นคนอื่นจากตารางเดียว</p></div></div>',
       renderTable(
         [
           { label: 'Rank', render: (row) => row.mine ? `${escapeHtml(row.rank)} ★` : escapeHtml(row.rank) },
@@ -197,7 +264,7 @@
       ),
       '</article>',
       '<article class="plv4-panel">',
-      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">activity</span><h2 class="plv4-section-title">ฟีดของชุมชนและบัญชี</h2><p class="plv4-section-copy">รวมการแจ้งเตือนของผู้เล่นกับสัญญาณกิจกรรมสำคัญไว้ในที่เดียว</p></div></div>',
+      '<div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ฟีดชุมชน</span><h2 class="plv4-section-title">ฟีดของชุมชนและบัญชี</h2><p class="plv4-section-copy">รวมการแจ้งเตือนของผู้เล่นกับสัญญาณกิจกรรมสำคัญไว้ในที่เดียว</p></div></div>',
       `<div class="plv4-feed-list">${renderFeed(model.communityFeed, 'ยังไม่มีอัปเดตชุมชนสำหรับแสดง')}</div>`,
       '</article>',
       '</section>',

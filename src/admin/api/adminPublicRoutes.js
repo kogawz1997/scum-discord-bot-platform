@@ -796,7 +796,7 @@ function createAdminPublicRoutes(deps) {
         });
         res.writeHead(302, {
           Location: '/admin',
-          'Set-Cookie': buildSessionCookie(sessionId),
+          'Set-Cookie': buildSessionCookie(sessionId, req),
         });
         res.end();
         return true;

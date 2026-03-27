@@ -3,7 +3,7 @@
 [![CI](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml)
 [![Release](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml)
 
-Last updated: **2026-03-25**
+Last updated: **2026-03-26**
 
 This document is the working status register for the repository. It should stay factual. Do not use it as a sales page.
 
@@ -81,6 +81,12 @@ This document is the working status register for the repository. It should stay 
 - Admin browser DOM refs, mutable state, and event binding/startup wiring are extracted under `src/admin/assets/dashboard-dom.js`, `src/admin/assets/dashboard-state.js`, and `src/admin/assets/dashboard-bindings.js`
 - Admin server lifecycle/bootstrap wiring is extracted under `src/admin/runtime/adminServerLifecycleRuntime.js`
 - Player portal helper/auth/route bootstrap wiring is extracted under `apps/web-portal-standalone/runtime/portalBootstrapRuntime.js`
+- Web surfaces are enabled again on this workstation; `owner`, `tenant`, `public`, and `player` routes are no longer in Discord-only stub mode
+- Local loopback admin login now works with development-safe cookie handling while leaving the production auth/session model intact
+- Owner preview-tenant pages no longer fail on quota snapshot reads
+- Tenant preview tenants now load through explicit preview fallback models instead of hitting scoped-read failures
+- Public preview signup/login flows were revalidated locally on `2026-03-26`
+- Player login and Discord OAuth start redirect were revalidated locally on `2026-03-26`
 
 ### Partial
 
@@ -129,7 +135,8 @@ Important detail:
 - `readiness:prod` now includes `smoke:postdeploy`
 - `smoke:postdeploy` no longer treats required runtimes as healthy based only on HTTP 200 and `{ ok: true }`
 - optional runtimes such as a disabled watcher or an optional console-agent are reported without failing the run
-- the latest local full pass on this workstation completed on `2026-03-24`
+- the latest repo-local verification plus live browser cutover pass on this workstation completed on `2026-03-26`
+- the latest full operator-stack pass including `readiness:prod` and `smoke:postdeploy` completed on `2026-03-24`
 - the latest live schema-per-tenant runtime pass on this workstation completed on `2026-03-24` with `npm test` and `node scripts/readiness-gate.js --production`
 - a targeted provider-backed tenant-topology suite covering admin/community/player/webhook paths also passed locally on `2026-03-17`
 

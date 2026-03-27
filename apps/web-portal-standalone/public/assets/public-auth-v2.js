@@ -68,7 +68,7 @@
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (submit) submit.disabled = true;
-      setStatus(status, t('public.signup.working', 'Creating preview account...'));
+      setStatus(status, t('public.workspaceSignup.working', 'กำลังสร้างบัญชีและพื้นที่ทำงาน...'));
       try {
         const data = await requestJson('/api/public/signup', {
           method: 'POST',
@@ -83,7 +83,7 @@
         });
         window.location.href = data?.nextUrl || '/preview';
       } catch (error) {
-        setStatus(status, error?.message || t('public.signup.error', 'Failed to create preview account.'), 'error');
+        setStatus(status, error?.message || t('public.workspaceSignup.error', 'สร้างบัญชีและพื้นที่ทำงานไม่สำเร็จ'), 'error');
       } finally {
         if (submit) submit.disabled = false;
       }
@@ -99,16 +99,16 @@
 
     try {
       const data = await requestJson('/api/public/session');
-      if (data?.session && data?.preview?.account) {
+      if (data?.session && data?.preview?.account && sessionBox) {
         sessionBox.hidden = false;
-        sessionBox.innerHTML = `<strong>${t('public.login.previewResumeTitle', 'Preview session ready')}</strong><p>${t('public.login.previewResumeDetail', 'Continue where you left off in the preview tenant dashboard.')}</p><div class="button-row"><a class="button button-primary" href="/preview">${t('public.login.previewResumeAction', 'Open Preview')}</a></div>`;
+        sessionBox.innerHTML = `<strong>${t('public.workspaceLogin.resumeTitle', 'พร้อมกลับไปยังพื้นที่เดิม')}</strong><p>${t('public.workspaceLogin.resumeDetail', 'ระบบพบเซสชันล่าสุดของคุณแล้ว สามารถกลับไปทำงานต่อจากจุดเดิมได้ทันที')}</p><div class="button-row"><a class="button button-primary" href="/preview">${t('public.workspaceLogin.resumeAction', 'เปิดพื้นที่ของคุณ')}</a></div>`;
       }
     } catch {}
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (submit) submit.disabled = true;
-      setStatus(status, t('public.login.working', 'Signing in...'));
+      setStatus(status, t('public.workspaceLogin.working', 'กำลังเข้าสู่ระบบ...'));
       try {
         const data = await requestJson('/api/public/login', {
           method: 'POST',
@@ -119,7 +119,7 @@
         });
         window.location.href = data?.nextUrl || '/preview';
       } catch (error) {
-        setStatus(status, error?.message || t('public.login.error', 'Unable to sign in.'), 'error');
+        setStatus(status, error?.message || t('public.workspaceLogin.error', 'เข้าสู่ระบบไม่สำเร็จ'), 'error');
       } finally {
         if (submit) submit.disabled = false;
       }
@@ -135,7 +135,7 @@
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (submit) submit.disabled = true;
-      setStatus(status, t('public.forgot.working', 'Submitting reset request...'));
+      setStatus(status, t('public.accountRecovery.working', 'กำลังส่งคำขอรีเซ็ตรหัสผ่าน...'));
       try {
         await requestJson('/api/public/password-reset-request', {
           method: 'POST',
@@ -143,9 +143,9 @@
             email: $('publicPasswordResetEmail')?.value || '',
           }),
         });
-        setStatus(status, t('public.forgot.sent', 'If the account exists, reset instructions are now queued.'), 'success');
+        setStatus(status, t('public.accountRecovery.sent', 'หากพบบัญชีนี้ในระบบ ระบบได้เตรียมขั้นตอนรีเซ็ตรหัสผ่านไว้แล้ว'), 'success');
       } catch (error) {
-        setStatus(status, error?.message || t('public.forgot.error', 'Reset request failed.'), 'error');
+        setStatus(status, error?.message || t('public.accountRecovery.error', 'ส่งคำขอรีเซ็ตรหัสผ่านไม่สำเร็จ'), 'error');
       } finally {
         if (submit) submit.disabled = false;
       }
@@ -167,27 +167,27 @@
     if (!container) return;
     const enabled = new Set(preview?.entitlements?.enabledFeatureKeys || []);
     const items = [
-      ['public.preview.nav.dashboard', 'Dashboard', []],
-      ['public.preview.nav.subscription', 'Subscription', []],
-      ['public.preview.nav.servers', 'Servers', ['server_hosting']],
-      ['public.preview.nav.serverStatus', 'Server Status', ['server_status']],
-      ['public.preview.nav.serverConfig', 'Server Config', ['server_settings']],
-      ['public.preview.nav.deliveryAgents', 'Delivery Agents', ['execute_agent']],
-      ['public.preview.nav.serverBots', 'Server Bots', ['sync_agent']],
-      ['public.preview.nav.logs', 'Logs & Sync', ['bot_log', 'log_dashboard']],
-      ['public.preview.nav.shop', 'Shop', ['shop_module']],
-      ['public.preview.nav.orders', 'Orders', ['orders_module']],
-      ['public.preview.nav.delivery', 'Delivery', ['bot_delivery', 'delivery_dashboard']],
-      ['public.preview.nav.players', 'Players', ['player_module']],
-      ['public.preview.nav.donations', 'Donations', ['donation_module']],
-      ['public.preview.nav.events', 'Events', ['event_module']],
-      ['public.preview.nav.modules', 'Bot Modules', ['support_module', 'analytics_module']],
-      ['public.preview.nav.help', 'Help', ['support_module']],
+      ['public.workspace.nav.dashboard', 'ภาพรวม', []],
+      ['public.workspace.nav.subscription', 'แพ็กเกจและสิทธิ์', []],
+      ['public.workspace.nav.servers', 'เซิร์ฟเวอร์', ['server_hosting']],
+      ['public.workspace.nav.serverStatus', 'สถานะเซิร์ฟเวอร์', ['server_status']],
+      ['public.workspace.nav.serverConfig', 'ตั้งค่าเซิร์ฟเวอร์', ['server_settings']],
+      ['public.workspace.nav.deliveryAgents', 'Delivery Agents', ['execute_agent']],
+      ['public.workspace.nav.serverBots', 'Server Bots', ['sync_agent']],
+      ['public.workspace.nav.logs', 'Logs และ Sync', ['bot_log', 'log_dashboard']],
+      ['public.workspace.nav.shop', 'ร้านค้า', ['shop_module']],
+      ['public.workspace.nav.orders', 'คำสั่งซื้อ', ['orders_module']],
+      ['public.workspace.nav.delivery', 'การส่งของ', ['bot_delivery', 'delivery_dashboard']],
+      ['public.workspace.nav.players', 'ผู้เล่น', ['player_module']],
+      ['public.workspace.nav.donations', 'การสนับสนุน', ['donation_module']],
+      ['public.workspace.nav.events', 'กิจกรรม', ['event_module']],
+      ['public.workspace.nav.modules', 'โมดูลระบบ', ['support_module', 'analytics_module']],
+      ['public.workspace.nav.help', 'ความช่วยเหลือ', ['support_module']],
     ];
     container.innerHTML = items
       .map(([key, fallback, requirements]) => {
         const unlocked = !requirements.length || requirements.some((featureKey) => enabled.has(featureKey));
-        return `<div class="preview-nav-link${unlocked ? '' : ' is-locked'}"><span>${t(key, fallback)}</span><span class="${unlocked ? 'status-pill' : 'locked-pill'}">${unlocked ? t('public.preview.unlocked', 'Open') : t('public.preview.locked', 'Locked')}</span></div>`;
+        return `<div class="preview-nav-link${unlocked ? '' : ' is-locked'}"><span>${t(key, fallback)}</span><span class="${unlocked ? 'status-pill' : 'locked-pill'}">${unlocked ? t('public.workspace.unlocked', 'พร้อมใช้') : t('public.workspace.locked', 'ต้องเปิดเพิ่ม')}</span></div>`;
       })
       .join('');
   }
@@ -199,12 +199,36 @@
     const enabledCount = Array.isArray(preview?.entitlements?.enabledFeatureKeys)
       ? preview.entitlements.enabledFeatureKeys.length
       : 0;
+
+    const readQuotaLimit = (value) => {
+      if (value == null) return '-';
+      if (typeof value === 'number' || typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        if (value.limit != null) return value.limit;
+        if (value.allowed != null) return value.allowed;
+        if (value.max != null) return value.max;
+      }
+      return '-';
+    };
+
+    const readUsageValue = (value) => {
+      if (value == null) return 0;
+      if (typeof value === 'number' || typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        if (value.used != null) return value.used;
+        if (value.count != null) return value.count;
+        if (value.total != null) return value.total;
+      }
+      return 0;
+    };
+
     const cards = [
-      [t('public.preview.stat.package', 'Package'), preview?.tenant?.package?.title || preview?.account?.packageId || '-', t('public.preview.stat.packageDetail', 'Current preview bundle')],
-      [t('public.preview.stat.features', 'Features'), String(enabledCount), t('public.preview.stat.featuresDetail', 'Entitlements visible right now')],
-      [t('public.preview.stat.apiKeys', 'API keys'), `${usage.apiKeys ?? 0}/${quota.apiKeys ?? '-'}`, t('public.preview.stat.apiKeysDetail', 'Preview quota posture')],
-      [t('public.preview.stat.agents', 'Agents'), `${usage.agentRuntimes ?? 0}/${quota.agentRuntimes ?? '-'}`, t('public.preview.stat.agentsDetail', 'Delivery Agent and Server Bot allowance')],
+      [t('public.workspace.stat.package', 'แพ็กเกจ'), preview?.tenant?.package?.title || preview?.account?.packageId || '-', t('public.workspace.stat.packageDetail', 'ชุดสิทธิ์ปัจจุบันของพื้นที่นี้')],
+      [t('public.workspace.stat.features', 'ฟีเจอร์ที่เปิดใช้'), String(enabledCount), t('public.workspace.stat.featuresDetail', 'จำนวนสิทธิ์ที่พร้อมใช้ในตอนนี้')],
+      [t('public.workspace.stat.apiKeys', 'API Keys'), `${readUsageValue(usage.apiKeys)}/${readQuotaLimit(quota.apiKeys)}`, t('public.workspace.stat.apiKeysDetail', 'ภาพรวมโควตาของพื้นที่นี้')],
+      [t('public.workspace.stat.agents', 'Runtime'), `${readUsageValue(usage.agentRuntimes)}/${readQuotaLimit(quota.agentRuntimes)}`, t('public.workspace.stat.agentsDetail', 'จำนวน Delivery Agent และ Server Bot ที่เปิดได้')],
     ];
+
     container.innerHTML = cards
       .map((item) => `<article class="marketing-panel preview-stat"><span class="marketing-kicker">${item[0]}</span><strong>${item[1]}</strong><p>${item[2]}</p></article>`)
       .join('');
@@ -219,10 +243,11 @@
         return;
       }
       const preview = data.preview;
-      $('previewCommunityName').textContent = preview?.account?.communityName || preview?.account?.displayName || 'SCUM Preview';
-      $('previewPageLead').textContent = t('public.preview.pageLeadReady', 'Preview mode is active. Inspect the sidebar, locked modules, and next-step path before you activate a package.');
-      $('previewAccountSummary').textContent = `${preview?.account?.email || '-'} - ${t('public.preview.state', 'State')}: ${preview?.account?.accountState || 'preview'}`;
+      $('previewCommunityName').textContent = preview?.account?.communityName || preview?.account?.displayName || 'SCUM Workspace';
+      $('previewPageLead').textContent = t('public.workspace.pageLeadReady', 'พื้นที่นี้พร้อมให้ตรวจเมนู สิทธิ์ และขั้นตอนก่อนเปิดใช้งานจริงแล้ว');
+      $('previewAccountSummary').textContent = `${preview?.account?.email || '-'} · ${t('public.workspace.state', 'สถานะ')}: ${preview?.account?.accountState || 'preview'}`;
       $('previewUpgradeBtn').href = `/checkout?package=${encodeURIComponent(preview?.account?.packageId || 'BOT_LOG_DELIVERY')}`;
+
       renderPreviewSidebar($('previewSidebarNav'), preview);
       renderPreviewStats($('previewStatsGrid'), preview);
 
@@ -231,11 +256,11 @@
         (preview?.entitlements?.features || [])
           .filter((entry) => entry?.enabled)
           .map((entry) => ({
-            badge: t('public.preview.enabledBadge', 'Enabled'),
+            badge: t('public.workspace.enabledBadge', 'พร้อมใช้'),
             title: entry.title || entry.key,
             detail: entry.key,
           })),
-        t('public.preview.enabledEmpty', 'No enabled features yet.'),
+        t('public.workspace.enabledEmpty', 'ยังไม่มีฟีเจอร์ที่เปิดใช้ในพื้นที่นี้'),
       );
 
       renderList(
@@ -244,12 +269,12 @@
           .filter((entry) => !entry?.enabled)
           .slice(0, 8)
           .map((entry) => ({
-            badge: t('public.preview.lockedBadge', 'Locked'),
+            badge: t('public.workspace.lockedBadge', 'ต้องเปิดเพิ่ม'),
             title: entry.title || entry.key,
-            detail: t('public.preview.lockedReason', 'Upgrade package or provision the required runtime before using this area.'),
+            detail: t('public.workspace.lockedReason', 'อัปเกรดแพ็กเกจหรือเปิด runtime ที่เกี่ยวข้องก่อนจึงจะใช้งานส่วนนี้ได้'),
             locked: true,
           })),
-        t('public.preview.lockedEmpty', 'No locked features.'),
+        t('public.workspace.lockedEmpty', 'ตอนนี้ไม่มีฟีเจอร์ที่ถูกล็อก'),
       );
 
       renderList(
@@ -257,27 +282,27 @@
         [
           {
             badge: preview?.account?.linkedIdentities?.discordLinked
-              ? t('public.preview.identity.linked', 'Linked')
-              : t('public.preview.identity.pending', 'Pending'),
-            title: t('public.preview.identity.discord', 'Discord account'),
-            detail: t('public.preview.identity.discordPending', 'Discord can be linked later from the player or tenant side.'),
+              ? t('public.workspace.identity.linked', 'เชื่อมแล้ว')
+              : t('public.workspace.identity.pending', 'รอเชื่อม'),
+            title: t('public.workspace.identity.discord', 'บัญชี Discord'),
+            detail: t('public.workspace.identity.discordPending', 'สามารถเชื่อม Discord เพิ่มภายหลังได้จากฝั่งผู้เล่นหรือผู้ดูแล'),
           },
           {
             badge: preview?.account?.linkedIdentities?.steamLinked
-              ? t('public.preview.identity.linked', 'Linked')
-              : t('public.preview.identity.pending', 'Pending'),
-            title: t('public.preview.identity.steam', 'Steam identity'),
-            detail: t('public.preview.identity.steamPending', 'Steam linking becomes important before delivery and profile matching go live.'),
+              ? t('public.workspace.identity.linked', 'เชื่อมแล้ว')
+              : t('public.workspace.identity.pending', 'รอเชื่อม'),
+            title: t('public.workspace.identity.steam', 'บัญชี Steam'),
+            detail: t('public.workspace.identity.steamPending', 'การเชื่อม Steam จะสำคัญเมื่อเริ่มใช้การส่งของและการจับคู่โปรไฟล์ผู้เล่นจริง'),
           },
           {
             badge: preview?.account?.linkedIdentities?.playerMatched
-              ? t('public.preview.identity.ready', 'Ready')
-              : t('public.preview.identity.pending', 'Pending'),
-            title: t('public.preview.identity.player', 'In-game profile'),
-            detail: t('public.preview.identity.playerPending', 'Server Bot sync is required before in-game player matching can become active.'),
+              ? t('public.workspace.identity.ready', 'พร้อมใช้')
+              : t('public.workspace.identity.pending', 'รอข้อมูล'),
+            title: t('public.workspace.identity.player', 'โปรไฟล์ในเกม'),
+            detail: t('public.workspace.identity.playerPending', 'ต้องมีการซิงก์ข้อมูลจาก Server Bot ก่อนจึงจะจับคู่โปรไฟล์ในเกมได้สมบูรณ์'),
           },
         ],
-        t('public.preview.identity.empty', 'No identity signals yet.'),
+        t('public.workspace.identity.empty', 'ยังไม่มีสัญญาณตัวตนจากระบบ'),
       );
 
       renderList(
@@ -285,21 +310,21 @@
         [
           {
             badge: '1',
-            title: t('public.preview.stepOneTitle', 'Review package fit'),
-            detail: t('public.preview.stepOneDetail', 'Compare BOT_LOG, BOT_LOG_DELIVERY, FULL_OPTION, and SERVER_ONLY before going live.'),
+            title: t('public.workspace.stepOneTitle', 'ตรวจว่าแพ็กเกจเหมาะกับงานจริงหรือไม่'),
+            detail: t('public.workspace.stepOneDetail', 'เปรียบเทียบ BOT_LOG, BOT_LOG_DELIVERY, FULL_OPTION และ SERVER_ONLY ก่อนเปิดใช้งานจริง'),
           },
           {
             badge: '2',
-            title: t('public.preview.stepTwoTitle', 'Provision the correct runtime'),
-            detail: t('public.preview.stepTwoDetail', 'Delivery features need a Delivery Agent. Log and config flows need a Server Bot.'),
+            title: t('public.workspace.stepTwoTitle', 'เปิด runtime ที่ตรงกับงาน'),
+            detail: t('public.workspace.stepTwoDetail', 'งานส่งของใช้ Delivery Agent ส่วนงาน log, config และ server control ใช้ Server Bot'),
           },
           {
             badge: '3',
-            title: t('public.preview.stepThreeTitle', 'Activate and onboard'),
-            detail: t('public.preview.stepThreeDetail', 'After package activation, the same structure becomes writable and fully operational.'),
+            title: t('public.workspace.stepThreeTitle', 'เปิดใช้งานและ onboard ต่อจากพื้นที่เดิม'),
+            detail: t('public.workspace.stepThreeDetail', 'หลังเปิดสิทธิ์จริงแล้ว ระบบจะใช้โครงเดิมของพื้นที่นี้ต่อได้ทันที'),
           },
         ],
-        t('public.preview.nextEmpty', 'No next steps.'),
+        t('public.workspace.nextEmpty', 'ยังไม่มีขั้นตอนแนะนำเพิ่มเติม'),
       );
     } catch {
       window.location.href = '/login';

@@ -297,6 +297,231 @@ const CONTROL_PANEL_ENV_INDEX = new Map(
   CONTROL_PANEL_ENV_FIELDS.map((field) => [field.key, Object.freeze({ ...field })]),
 );
 
+const CONTROL_PANEL_SELECT_OPTIONS = Object.freeze({
+  ADMIN_LOG_LANGUAGE: Object.freeze([
+    Object.freeze({ value: 'th', label: 'Thai' }),
+    Object.freeze({ value: 'en', label: 'English' }),
+  ]),
+  ADMIN_WEB_SESSION_COOKIE_SAMESITE: Object.freeze([
+    Object.freeze({ value: 'lax', label: 'Lax' }),
+    Object.freeze({ value: 'strict', label: 'Strict' }),
+    Object.freeze({ value: 'none', label: 'None' }),
+  ]),
+  ADMIN_WEB_SSO_DEFAULT_ROLE: Object.freeze([
+    Object.freeze({ value: 'owner', label: 'Owner' }),
+    Object.freeze({ value: 'admin', label: 'Admin' }),
+    Object.freeze({ value: 'mod', label: 'Moderator' }),
+  ]),
+  DELIVERY_EXECUTION_MODE: Object.freeze([
+    Object.freeze({ value: 'agent', label: 'Delivery Agent' }),
+    Object.freeze({ value: 'rcon', label: 'RCON' }),
+  ]),
+  DELIVERY_NATIVE_PROOF_MODE: Object.freeze([
+    Object.freeze({ value: 'disabled', label: 'Disabled' }),
+    Object.freeze({ value: 'optional', label: 'Optional' }),
+    Object.freeze({ value: 'required', label: 'Required' }),
+  ]),
+  RCON_PROTOCOL: Object.freeze([
+    Object.freeze({ value: 'rcon', label: 'RCON' }),
+    Object.freeze({ value: 'source', label: 'Source RCON' }),
+  ]),
+  SCUM_CONSOLE_AGENT_BACKEND: Object.freeze([
+    Object.freeze({ value: 'exec', label: 'Window command template' }),
+    Object.freeze({ value: 'process', label: 'Managed process' }),
+  ]),
+  SCUM_SYNC_TRANSPORT: Object.freeze([
+    Object.freeze({ value: 'webhook', label: 'Webhook' }),
+    Object.freeze({ value: 'control-plane', label: 'Control plane' }),
+    Object.freeze({ value: 'dual', label: 'Dual' }),
+  ]),
+  TENANT_DB_ISOLATION_MODE: Object.freeze([
+    Object.freeze({ value: 'application', label: 'Application scoped' }),
+    Object.freeze({ value: 'postgres-rls-foundation', label: 'Postgres RLS foundation' }),
+    Object.freeze({ value: 'postgres-rls-strict', label: 'Postgres RLS strict' }),
+  ]),
+  TENANT_DB_TOPOLOGY_MODE: Object.freeze([
+    Object.freeze({ value: 'shared', label: 'Shared database' }),
+    Object.freeze({ value: 'schema-per-tenant', label: 'Schema per tenant' }),
+    Object.freeze({ value: 'database-per-tenant', label: 'Database per tenant' }),
+  ]),
+  WEB_PORTAL_COOKIE_SAMESITE: Object.freeze([
+    Object.freeze({ value: 'lax', label: 'Lax' }),
+    Object.freeze({ value: 'strict', label: 'Strict' }),
+    Object.freeze({ value: 'none', label: 'None' }),
+  ]),
+});
+
+const CONTROL_PANEL_FIELD_NUMERIC_LIMITS = Object.freeze({
+  ADMIN_WEB_PORT: Object.freeze({ min: 1, max: 65535 }),
+  BOT_HEALTH_PORT: Object.freeze({ min: 1, max: 65535 }),
+  SCUM_CONSOLE_AGENT_PORT: Object.freeze({ min: 1, max: 65535 }),
+  SCUM_WATCHER_HEALTH_PORT: Object.freeze({ min: 1, max: 65535 }),
+  SCUM_WEBHOOK_PORT: Object.freeze({ min: 1, max: 65535 }),
+  WEB_PORTAL_PORT: Object.freeze({ min: 1, max: 65535 }),
+  WORKER_HEALTH_PORT: Object.freeze({ min: 1, max: 65535 }),
+});
+
+const CONTROL_PANEL_SECTION_LABELS = Object.freeze({
+  platform: 'Platform + database',
+  bot: 'Discord bot runtime',
+  admin: 'Admin access + security',
+  worker: 'Worker runtime',
+  delivery: 'Delivery + execution',
+  watcher: 'Watcher + sync',
+  webhook: 'Webhook transport',
+  content: 'Item catalogs',
+  portal: 'Player portal runtime',
+  portalAccess: 'Portal access + Discord',
+  portalSession: 'Portal session + cookies',
+  portalMap: 'Portal map',
+  misc: 'Other settings',
+});
+
+function formatEnvLabel(key) {
+  const parts = String(key || '').trim().split('_').filter(Boolean);
+  if (parts.length === 0) return '';
+  return parts.map((part) => {
+    const upper = part.toUpperCase();
+    if (['API', 'DB', 'DNS', 'HSTS', 'JSON', 'RCON', 'SCUM', 'SSO', 'TTL', 'URL', 'VIP'].includes(upper)) {
+      return upper;
+    }
+    if (upper === 'WEB') return 'Web';
+    if (upper === 'BOT') return 'Bot';
+    if (upper === '2FA') return '2FA';
+    if (upper === 'ID') return 'ID';
+    return upper.charAt(0) + upper.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+function inferControlPanelSectionKey(field) {
+  const key = String(field?.key || '').trim().toUpperCase();
+  if (field?.file === 'portal') {
+    if (key.startsWith('WEB_PORTAL_MAP_')) return 'portalMap';
+    if (
+      key.startsWith('WEB_PORTAL_DISCORD_')
+      || key === 'WEB_PORTAL_ALLOWED_DISCORD_IDS'
+      || key === 'WEB_PORTAL_PLAYER_OPEN_ACCESS'
+      || key === 'WEB_PORTAL_REQUIRE_GUILD_MEMBER'
+    ) {
+      return 'portalAccess';
+    }
+    if (
+      key.includes('COOKIE')
+      || key.includes('SESSION')
+      || key.includes('OAUTH_STATE')
+      || key.includes('CLEANUP_INTERVAL')
+      || key.includes('ORIGIN_CHECK')
+    ) {
+      return 'portalSession';
+    }
+    return 'portal';
+  }
+
+  if (
+    key === 'NODE_ENV'
+    || key.startsWith('DATABASE_')
+    || key.startsWith('TENANT_DB_')
+    || key.startsWith('PERSIST_')
+    || key === 'BOT_DATA_DIR'
+    || key === 'PLATFORM_DEFAULT_TENANT_ID'
+  ) {
+    return 'platform';
+  }
+  if (key.startsWith('DISCORD_') || key.startsWith('BOT_')) return 'bot';
+  if (key.startsWith('ADMIN_')) return 'admin';
+  if (key.startsWith('WORKER_')) return 'worker';
+  if (
+    key.startsWith('DELIVERY_')
+    || key.startsWith('RCON_')
+    || key.startsWith('SCUM_CONSOLE_AGENT_')
+  ) {
+    return 'delivery';
+  }
+  if (
+    key.startsWith('SCUM_WATCHER_')
+    || key.startsWith('SCUM_SYNC_')
+    || key.startsWith('SCUM_LOG_')
+    || key.startsWith('SCUM_ALERT_')
+    || key.startsWith('SCUM_QUEUE_')
+    || key.startsWith('SCUM_EVENT_')
+    || key === 'SCUM_TENANT_ID'
+    || key === 'SCUM_SERVER_ID'
+    || key === 'SCUM_AGENT_CHANNEL'
+    || key === 'PLATFORM_API_BASE_URL'
+    || key === 'PLATFORM_AGENT_TOKEN'
+  ) {
+    return 'watcher';
+  }
+  if (key.startsWith('SCUM_WEBHOOK_')) return 'webhook';
+  if (key.startsWith('SCUM_ITEMS_') || key.startsWith('SCUM_ITEM_')) return 'content';
+  return 'misc';
+}
+
+function inferControlPanelNumericLimits(field) {
+  if (!field || field.type !== 'number') return {};
+  if (CONTROL_PANEL_FIELD_NUMERIC_LIMITS[field.key]) {
+    return CONTROL_PANEL_FIELD_NUMERIC_LIMITS[field.key];
+  }
+  const key = String(field.key || '').trim().toUpperCase();
+  if (key.endsWith('_PORT')) {
+    return { min: 1, max: 65535 };
+  }
+  if (
+    key.includes('TIMEOUT')
+    || key.includes('TTL')
+    || key.includes('WINDOW')
+    || key.includes('COOLDOWN')
+    || key.includes('INTERVAL')
+    || key.includes('WAIT')
+    || key.includes('DELAY')
+    || key.includes('THRESHOLD')
+    || key.includes('ATTEMPTS')
+    || key.includes('RETRIES')
+    || key.includes('MAX')
+    || key.includes('COUNT')
+    || key.includes('SIZE')
+  ) {
+    return { min: 0 };
+  }
+  return { min: 0 };
+}
+
+function buildControlPanelFieldMetadata(field) {
+  const sectionKey = inferControlPanelSectionKey(field);
+  const options = Array.isArray(CONTROL_PANEL_SELECT_OPTIONS[field.key])
+    ? CONTROL_PANEL_SELECT_OPTIONS[field.key]
+    : null;
+  const numericLimits = inferControlPanelNumericLimits(field);
+  return {
+    label: formatEnvLabel(field.key),
+    sectionKey,
+    sectionLabel: CONTROL_PANEL_SECTION_LABELS[sectionKey] || CONTROL_PANEL_SECTION_LABELS.misc,
+    options,
+    min: Number.isFinite(Number(numericLimits.min)) ? Number(numericLimits.min) : null,
+    max: Number.isFinite(Number(numericLimits.max)) ? Number(numericLimits.max) : null,
+  };
+}
+
+function groupControlPanelEntries(entries = []) {
+  const sectionMap = new Map();
+  for (const entry of entries) {
+    const sectionKey = String(entry?.sectionKey || 'misc').trim() || 'misc';
+    const bucket = sectionMap.get(sectionKey) || {
+      sectionKey,
+      sectionLabel: entry?.sectionLabel || CONTROL_PANEL_SECTION_LABELS[sectionKey] || CONTROL_PANEL_SECTION_LABELS.misc,
+      entries: [],
+    };
+    bucket.entries.push(entry);
+    sectionMap.set(sectionKey, bucket);
+  }
+  return Array.from(sectionMap.values())
+    .map((section) => ({
+      ...section,
+      entries: section.entries.sort((left, right) => String(left.key || '').localeCompare(String(right.key || ''))),
+    }))
+    .sort((left, right) => left.sectionLabel.localeCompare(right.sectionLabel));
+}
+
 function normalizeBooleanEnvValue(value, fallback = false) {
   const raw = String(value || '').trim().toLowerCase();
   if (!raw) return fallback;
@@ -314,12 +539,14 @@ function buildControlPanelEnvSection(fileKey, values = {}) {
   const section = {};
   for (const field of CONTROL_PANEL_ENV_FIELDS) {
     if (field.file !== fileKey) continue;
+    const metadata = buildControlPanelFieldMetadata(field);
     const fileValue = Object.prototype.hasOwnProperty.call(values, field.key)
       ? values[field.key]
       : process.env[field.key];
     const configured = String(fileValue || '').trim().length > 0;
     if (field.secret) {
       section[field.key] = {
+        ...metadata,
         type: field.type,
         secret: field.secret,
         policy: field.policy,
@@ -333,6 +560,7 @@ function buildControlPanelEnvSection(fileKey, values = {}) {
     }
     if (field.type === 'boolean') {
       section[field.key] = {
+        ...metadata,
         type: field.type,
         secret: field.secret,
         policy: field.policy,
@@ -348,6 +576,7 @@ function buildControlPanelEnvSection(fileKey, values = {}) {
       const text = String(fileValue || '').trim();
       const parsed = text ? Number(text) : null;
       section[field.key] = {
+        ...metadata,
         type: field.type,
         secret: field.secret,
         policy: field.policy,
@@ -360,6 +589,7 @@ function buildControlPanelEnvSection(fileKey, values = {}) {
       continue;
     }
     section[field.key] = {
+      ...metadata,
       type: field.type,
       secret: field.secret,
       policy: field.policy,
@@ -377,6 +607,7 @@ function buildControlPanelEnvCatalog(fileKey = null) {
   return CONTROL_PANEL_ENV_FIELDS
     .filter((field) => !fileKey || field.file === fileKey)
     .map((field) => ({
+      ...buildControlPanelFieldMetadata(field),
       file: field.file,
       key: field.key,
       type: field.type,
@@ -386,6 +617,19 @@ function buildControlPanelEnvCatalog(fileKey = null) {
       editable: field.editable,
       description: field.description || '',
     }));
+}
+
+function buildControlPanelEnvCatalogGroups(fileKey = null) {
+  return groupControlPanelEntries(buildControlPanelEnvCatalog(fileKey));
+}
+
+function buildControlPanelEnvSectionGroups(fileKey, values = {}) {
+  const entries = Object.entries(buildControlPanelEnvSection(fileKey, values)).map(([key, entry]) => ({
+    key,
+    file: fileKey,
+    ...entry,
+  }));
+  return groupControlPanelEntries(entries);
 }
 
 function buildControlPanelEnvPolicySummary(fileKey = null) {
@@ -435,6 +679,7 @@ function buildControlPanelEnvApplySummary(changeSet = {}) {
       const field = getControlPanelEnvField(fileKey, key);
       if (!field) continue;
       changed.push({
+        ...buildControlPanelFieldMetadata(field),
         file: field.file,
         key: field.key,
         policy: field.policy,
@@ -485,9 +730,27 @@ function normalizeEnvPatchValue(field, value) {
     if (!Number.isFinite(parsed)) {
       throw new Error(`Invalid number for ${field.key}`);
     }
-    return String(Math.trunc(parsed));
+    const normalized = Math.trunc(parsed);
+    const limits = inferControlPanelNumericLimits(field);
+    if (Number.isFinite(Number(limits.min)) && normalized < Number(limits.min)) {
+      throw new Error(`${field.key} must be >= ${limits.min}`);
+    }
+    if (Number.isFinite(Number(limits.max)) && normalized > Number(limits.max)) {
+      throw new Error(`${field.key} must be <= ${limits.max}`);
+    }
+    return String(normalized);
   }
-  return String(value ?? '').trim();
+  const text = String(value ?? '').trim();
+  const options = Array.isArray(CONTROL_PANEL_SELECT_OPTIONS[field.key])
+    ? CONTROL_PANEL_SELECT_OPTIONS[field.key]
+    : [];
+  if (options.length > 0 && text) {
+    const allowed = options.map((entry) => String(entry.value || '').trim().toLowerCase());
+    if (!allowed.includes(text.toLowerCase())) {
+      throw new Error(`Invalid value for ${field.key}`);
+    }
+  }
+  return text;
 }
 
 function buildControlPanelEnvPatch(body = {}) {
@@ -517,10 +780,12 @@ function buildControlPanelEnvPatch(body = {}) {
 
 module.exports = {
   buildControlPanelEnvCatalog,
+  buildControlPanelEnvCatalogGroups,
   buildControlPanelEnvApplySummary,
   buildControlPanelEnvPatch,
   buildControlPanelEnvPolicySummary,
   buildControlPanelEnvSection,
+  buildControlPanelEnvSectionGroups,
   CONTROL_PANEL_ENV_FIELDS,
   CONTROL_PANEL_ENV_INDEX,
   getControlPanelEnvField,

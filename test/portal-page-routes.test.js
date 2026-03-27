@@ -47,6 +47,7 @@ function buildRoutes(overrides = {}) {
     buildHealthPayload: () => ({ ok: true, data: { status: 'ready' } }),
     tryServePublicDoc: () => false,
     getLandingHtml: () => '<landing/>',
+    getDashboardHtml: () => '<dashboard/>',
     getPricingHtml: () => '<pricing/>',
     getSignupHtml: () => '<signup/>',
     getForgotPasswordHtml: () => '<forgot/>',
@@ -145,6 +146,23 @@ test('portal page routes serve landing html directly', async () => {
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body, '<landing/>');
+});
+
+test('portal page routes serve dashboard html directly', async () => {
+  const handler = buildRoutes();
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: {} },
+    res,
+    urlObj: new URL('https://player.example.com/dashboard'),
+    pathname: '/dashboard',
+    method: 'GET',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<dashboard/>');
 });
 
 test('portal page routes serve pricing html directly', async () => {

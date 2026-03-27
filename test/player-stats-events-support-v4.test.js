@@ -20,12 +20,13 @@ test('player stats events support v4 model maps stats community and support stat
     serverInfo: { serverInfo: { name: 'SCUM TH Frontier' } },
     wheelState: { enabled: true },
     orders: [{ status: 'delivery_failed', purchaseCode: 'P-001' }],
-    steamLink: { linked: true }
+    steamLink: { linked: true },
   });
 
   assert.equal(model.header.title, 'สถิติ กิจกรรม และการช่วยเหลือ');
   assert.equal(model.summaryStrip.length, 5);
   assert.equal(model.personalFacts.length, 6);
+  assert.equal(model.communityActionCards.length, 3);
   assert.equal(model.leaderboardRows.length, 1);
   assert.ok(model.railCards.some((item) => item.title.includes('ลำดับ')));
 });
@@ -34,6 +35,7 @@ test('player stats events support v4 html includes community sections', () => {
   const html = buildPlayerStatsEventsSupportV4Html(createPlayerStatsEventsSupportV4Model({ me: { user: 'Demo' } }));
 
   assert.match(html, /สถิติ กิจกรรม และการช่วยเหลือ/);
+  assert.match(html, /เริ่มจากสิ่งที่พาคุณกลับมาเล่นต่อได้ทันที/);
   assert.match(html, /สรุปสถิติของฉัน/);
   assert.match(html, /อันดับผู้เล่น/);
   assert.match(html, /ฟีดของชุมชนและบัญชี/);

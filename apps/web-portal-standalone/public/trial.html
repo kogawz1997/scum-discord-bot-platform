@@ -3,26 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Trial</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | แผนเริ่มต้นก่อนเปิดใช้งาน</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Trial path</span></span>
-      </a>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">ลำดับเริ่มต้นสำหรับทีมที่ต้องการลองระบบก่อนเปิดใช้งานจริง</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="site-nav-link" href="/landing">ภาพรวม</a>
+          <a class="site-nav-link" href="/pricing">แพ็กเกจ</a>
+          <a class="site-nav-link is-active" href="/trial">แผนเริ่มต้น</a>
+          <a class="site-nav-link" href="/signup">สร้างบัญชี</a>
+        </nav>
+      </div>
+      <div class="site-topbar-tools">
+        <a class="site-button" href="/preview">เปิดพื้นที่ก่อนใช้งาน</a>
+        <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">สร้างบัญชี</a>
+      </div>
     </header>
-    <main class="marketing-main">
-      <article class="marketing-panel">
-        <div class="marketing-panel-head">
-          <span class="marketing-kicker">Trial</span>
-          <h2>เริ่มต้นแบบลองใช้งาน</h2>
-        </div>
-        <p>หน้านี้พาคนที่ยังไม่พร้อมซื้อจริงไปยัง signup และ preview mode โดยตรง</p>
-        <a class="button button-primary" href="/signup?package=BOT_LOG_DELIVERY">เริ่มแบบ Preview</a>
-      </article>
+
+    <main class="site-main">
+      <section class="site-grid-2">
+        <article class="site-panel site-media-card">
+          <div class="site-media-shot is-announce-scene"></div>
+          <span class="site-kicker">Step by Step</span>
+          <h1 class="site-page-title">เริ่มจากพื้นที่ก่อนเปิดใช้งาน แล้วค่อยเปิด runtime ที่จำเป็นจริง</h1>
+          <p class="site-page-copy">แนวทางนี้ช่วยให้คุณไม่ต้องเปิดทุกระบบพร้อมกันตั้งแต่วันแรก เริ่มจากดูเมนูและสิทธิ์ก่อน แล้วค่อยตัดสินใจว่าจะใช้ Delivery Agent, Server Bot หรือทั้งสองอย่างตามงานจริงของชุมชน</p>
+          <div class="site-tool-cluster">
+            <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">สร้างบัญชี</a>
+            <a class="site-button" href="/preview">เปิดพื้นที่ก่อนใช้งาน</a>
+          </div>
+        </article>
+        <article class="site-panel">
+          <span class="site-kicker">สิ่งที่ควรเช็กก่อนเปิดจริง</span>
+          <h2 class="site-card-title">เห็นของจริงแบบล็อก action ไว้ก่อน</h2>
+          <ul class="marketing-list">
+            <li>เปิดดูหน้า Server Status, Orders, Players, Delivery Agents และ Server Bots ได้ครบในพื้นที่ก่อนเปิดใช้งาน</li>
+            <li>หน้าที่ยังต้องใช้แพ็กเกจหรือ runtime เพิ่ม จะขึ้นสถานะล็อกและคำแนะนำชัดเจน</li>
+            <li>อัปเกรดภายหลังแล้วใช้โครงเดิมต่อได้ โดยไม่ต้องเริ่ม onboarding ใหม่</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="site-feature-grid">
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-owner-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">1. สร้างพื้นที่เริ่มต้น</span>
+            <h2 class="site-card-title">เปิด tenant เริ่มต้นเพื่อดูเมนูและสิทธิ์</h2>
+            <p>เริ่มจากหน้า signup เพื่อสร้างบัญชีและพื้นที่ทำงาน จากนั้นดูเมนูที่เปิดให้ใช้ได้จริงและรายการฟีเจอร์ที่ยังต้องอัปเกรดก่อนเปิด production</p>
+          </div>
+        </article>
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-tenant-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">2. ตัดสินใจเรื่อง runtime</span>
+            <h2 class="site-card-title">เลือกให้ตรงว่าต้องใช้ Delivery Agent หรือ Server Bot</h2>
+            <p>ถ้าต้องการส่งของในเกม ใช้ Delivery Agent ถ้าต้องการ sync log แก้ config สำรองข้อมูล หรือควบคุมเซิร์ฟเวอร์ ใช้ Server Bot</p>
+          </div>
+        </article>
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-player-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">3. เปิดให้ผู้เล่นใช้งาน</span>
+            <h2 class="site-card-title">ค่อยเปิด Player Portal หลังจากฝั่งผู้ดูแลนิ่งแล้ว</h2>
+            <p>เมื่อฝั่งผู้ดูแลพร้อมแล้ว จึงเปิด Player Portal เพื่อให้ผู้เล่นเข้าดูร้านค้า กระเป๋าเงิน คำสั่งซื้อ และกิจกรรมของชุมชนจากหน้าจริง</p>
+          </div>
+        </article>
+      </section>
     </main>
   </div>
 </body>

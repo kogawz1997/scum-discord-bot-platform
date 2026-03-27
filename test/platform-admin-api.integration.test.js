@@ -16,6 +16,23 @@ function randomPort() {
   return 38800 + Math.floor(Math.random() * 600);
 }
 
+function setScopedEnv(overrides) {
+  const previous = new Map();
+  for (const [key, value] of Object.entries(overrides)) {
+    previous.set(key, Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : undefined);
+    process.env[key] = value;
+  }
+  return () => {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) {
+        delete process.env[key];
+        continue;
+      }
+      process.env[key] = value;
+    }
+  };
+}
+
 async function cleanupPlatformTables() {
   await prisma.$transaction([
     prisma.platformMarketplaceOffer.deleteMany({}),
@@ -32,12 +49,16 @@ test('admin platform routes and tenant public API flow work end-to-end', async (
   await cleanupPlatformTables();
 
   const port = randomPort();
-  process.env.ADMIN_WEB_HOST = '127.0.0.1';
-  process.env.ADMIN_WEB_PORT = String(port);
-  process.env.ADMIN_WEB_USER = 'platform_owner_test';
-  process.env.ADMIN_WEB_PASSWORD = 'platform_owner_pass';
-  process.env.ADMIN_WEB_USERS_JSON = '';
-  process.env.ADMIN_WEB_2FA_ENABLED = 'false';
+  const restoreEnv = setScopedEnv({
+    ADMIN_WEB_HOST: '127.0.0.1',
+    ADMIN_WEB_PORT: String(port),
+    ADMIN_WEB_USER: 'platform_owner_test',
+    ADMIN_WEB_PASSWORD: 'platform_owner_pass',
+    ADMIN_WEB_USERS_JSON: '',
+    ADMIN_WEB_2FA_ENABLED: 'false',
+    ADMIN_WEB_2FA_SECRET: '',
+    ADMIN_WEB_LOCAL_RECOVERY: 'false',
+  });
 
   const fakeClient = {
     guilds: { cache: new Map() },
@@ -53,6 +74,7 @@ test('admin platform routes and tenant public API flow work end-to-end', async (
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve));
     delete require.cache[adminWebServerPath];
+    restoreEnv();
     await cleanupPlatformTables();
   });
 

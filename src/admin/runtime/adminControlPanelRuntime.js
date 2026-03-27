@@ -6,7 +6,9 @@ function createAdminControlPanelRuntime(options = {}) {
     getRequiredCommandAccessRole,
     getAdminEditableEnvFileValues,
     buildAdminEditableEnvSection,
+    buildAdminEditableEnvSectionGroups,
     buildAdminEditableEnvCatalog,
+    buildAdminEditableEnvCatalogGroups,
     buildAdminEditableEnvPolicySummary,
     getRootEnvFilePath,
     getPortalEnvFilePath,
@@ -59,13 +61,24 @@ function createAdminControlPanelRuntime(options = {}) {
         root: buildAdminEditableEnvCatalog('root'),
         portal: buildAdminEditableEnvCatalog('portal'),
       };
+    const envCatalogGroups = authTenantId
+      ? { root: [], portal: [] }
+      : {
+        root: buildAdminEditableEnvCatalogGroups('root'),
+        portal: buildAdminEditableEnvCatalogGroups('portal'),
+      };
 
     return {
       env: {
         root: authTenantId ? {} : buildAdminEditableEnvSection('root', envValues.root),
         portal: authTenantId ? {} : buildAdminEditableEnvSection('portal', envValues.portal),
       },
+      envGroups: {
+        root: authTenantId ? [] : buildAdminEditableEnvSectionGroups('root', envValues.root),
+        portal: authTenantId ? [] : buildAdminEditableEnvSectionGroups('portal', envValues.portal),
+      },
       envCatalog,
+      envCatalogGroups,
       envPolicy: {
         root: buildAdminEditableEnvPolicySummary('root'),
         portal: buildAdminEditableEnvPolicySummary('portal'),

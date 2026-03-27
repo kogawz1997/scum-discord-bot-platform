@@ -682,26 +682,56 @@ function shouldUsePreviewScopedFallback(error, tenantId) {
   return isPreviewTenantId(tenantId) && isMissingScopedRelationError(error, tenantId);
 }
 
+function isPreviewScopedTransactionAbort(error, tenantId) {
+  if (!isPreviewTenantId(tenantId)) return false;
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('current transaction is aborted')
+    || message.includes('25p02')
+    || message.includes('error in batch request');
+}
+
+function isScopedTransactionTimeout(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return String(error?.code || '').trim().toUpperCase() === 'P2028'
+    || message.includes('transaction already closed')
+    || message.includes('expired transaction')
+    || message.includes('current transaction is aborted')
+    || message.includes('error in batch request');
+}
+
+async function readTenantSubscriptionAndLicense(db, tenantId) {
+  const id = trimText(tenantId, 120);
+  if (!id) {
+    return { subscription: null, license: null };
+  }
+  const [subscription, license] = await Promise.all([
+    db.platformSubscription.findFirst({
+      where: { tenantId: id },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    }),
+    db.platformLicense.findFirst({
+      where: { tenantId: id },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    }),
+  ]);
+  return { subscription, license };
+}
+
 async function loadTenantSubscriptionAndLicense(db, tenantId) {
   const id = trimText(tenantId, 120);
   if (!id) {
     return { subscription: null, license: null, missingScopedSchema: false };
   }
   try {
-    const [subscription, license] = await Promise.all([
-      db.platformSubscription.findFirst({
-        where: { tenantId: id },
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-      }),
-      db.platformLicense.findFirst({
-        where: { tenantId: id },
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-      }),
-    ]);
+    const { subscription, license } = await readTenantSubscriptionAndLicense(db, id);
     return { subscription, license, missingScopedSchema: false };
   } catch (error) {
     if (shouldUsePreviewScopedFallback(error, id)) {
       return { subscription: null, license: null, missingScopedSchema: true };
+    }
+    if (db !== prisma && isScopedTransactionTimeout(error)) {
+      const { subscription, license } = await readTenantSubscriptionAndLicense(prisma, id);
+      return { subscription, license, missingScopedSchema: false };
     }
     throw error;
   }
@@ -928,6 +958,7 @@ async function getTenantQuotaSnapshotInternal(db, tenantId) {
 
 async function getTenantQuotaSnapshot(tenantId, options = {}) {
   const id = trimText(tenantId, 120);
+  const tenantConfig = id ? await getPlatformTenantConfig(id).catch(() => null) : null;
   if (!id) {
     return {
       ok: false,
@@ -946,7 +977,58 @@ async function getTenantQuotaSnapshot(tenantId, options = {}) {
   if (options.db) {
     return getTenantQuotaSnapshotInternal(options.db, id);
   }
-  return runWithTenantScopePreference(id, (db) => getTenantQuotaSnapshotInternal(db, id), options);
+  try {
+    return await runWithTenantScopePreference(id, (db) => getTenantQuotaSnapshotInternal(db, id), options);
+  } catch (error) {
+    if (
+      !shouldUsePreviewScopedFallback(error, id)
+      && !isPreviewScopedTransactionAbort(error, id)
+      && !isScopedTransactionTimeout(error)
+    ) {
+      throw error;
+    }
+
+    if (isScopedTransactionTimeout(error) && !isPreviewTenantId(id)) {
+      return getTenantQuotaSnapshotInternal(prisma, id);
+    }
+
+    let tenant = null;
+    let subscription = null;
+    let license = null;
+    try {
+      tenant = await getSharedTenantRegistryRow(id);
+      ({ subscription, license } = await loadTenantSubscriptionAndLicense(prisma, id));
+    } catch {
+      tenant = tenant || null;
+    }
+
+    const featureAccess = resolveFeatureAccess({
+      planId: subscription?.planId || null,
+      featureFlags: tenantConfig?.featureFlags || null,
+      metadata: subscription?.metadata || null,
+    });
+    const plan = findPlanById(subscription?.planId);
+
+    return {
+      ok: false,
+      reason: 'tenant-preview-provisioning-pending',
+      tenantId: id,
+      tenant: sanitizeTenantRow(tenant),
+      plan: plan ? {
+        id: plan.id,
+        name: plan.name,
+        billingCycle: plan.billingCycle,
+        quotas: plan.quotas,
+      } : null,
+      subscription: sanitizeSubscriptionRow(subscription),
+      license: sanitizeLicenseRow(license),
+      package: featureAccess.package,
+      features: featureAccess.catalog,
+      enabledFeatureKeys: featureAccess.enabledFeatureKeys,
+      featureOverrides: featureAccess.overrides,
+      quotas: {},
+    };
+  }
 }
 
 async function assertTenantQuotaAvailable(tenantId, quotaKey, nextUsageIncrement = 1) {

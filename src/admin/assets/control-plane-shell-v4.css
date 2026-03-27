@@ -1,0 +1,451 @@
+:root {
+  --cp-bg: #07100d;
+  --cp-bg-elevated: rgba(13, 19, 17, 0.96);
+  --cp-bg-panel: rgba(16, 24, 21, 0.9);
+  --cp-bg-panel-soft: rgba(12, 18, 16, 0.82);
+  --cp-border: rgba(191, 170, 112, 0.16);
+  --cp-border-strong: rgba(191, 170, 112, 0.28);
+  --cp-text: #f3ede1;
+  --cp-text-soft: rgba(243, 237, 225, 0.74);
+  --cp-text-muted: rgba(243, 237, 225, 0.52);
+  --cp-accent: #ceb46d;
+  --cp-accent-strong: #dcc47f;
+  --cp-success: #87bb85;
+  --cp-warning: #d9ad67;
+  --cp-danger: #d67f72;
+  --cp-radius-xl: 28px;
+  --cp-radius-lg: 20px;
+  --cp-radius-md: 16px;
+  --cp-radius-sm: 12px;
+  --cp-shadow: 0 28px 68px rgba(0, 0, 0, 0.32);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(206, 180, 109, 0.09), transparent 24%),
+    radial-gradient(circle at top right, rgba(123, 155, 113, 0.08), transparent 28%),
+    linear-gradient(180deg, #08100d 0%, #060a08 54%, #050706 100%);
+  color: var(--cp-text);
+  font-family: "IBM Plex Sans Thai", "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+body.surface-body {
+  padding: 0;
+}
+
+.surface-app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.surface-globalbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--cp-border);
+  background: rgba(6, 10, 8, 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.surface-globalbar-main,
+.surface-globalbar-tools,
+.surface-brand,
+.surface-role-switch,
+.surface-tool-cluster,
+.surface-context-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.surface-globalbar-main {
+  gap: 18px;
+}
+
+.surface-brand {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.surface-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--cp-accent);
+  color: #171209;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.surface-brand-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.surface-brand-eyebrow {
+  color: var(--cp-text-muted);
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.surface-brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.surface-brand-detail {
+  color: var(--cp-text-soft);
+  font-size: 0.84rem;
+}
+
+.surface-role-switch {
+  padding: 6px;
+  border: 1px solid var(--cp-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.surface-role-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--cp-text-soft);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.surface-role-link.is-active {
+  background: var(--cp-accent);
+  color: #171209;
+}
+
+.surface-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cp-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-text-soft);
+  font-size: 0.84rem;
+}
+
+.surface-status[data-tone="success"] {
+  color: var(--cp-success);
+  border-color: rgba(135, 187, 133, 0.28);
+  background: rgba(135, 187, 133, 0.12);
+}
+
+.surface-status[data-tone="warning"] {
+  color: var(--cp-warning);
+  border-color: rgba(217, 173, 103, 0.28);
+  background: rgba(217, 173, 103, 0.12);
+}
+
+.surface-status[data-tone="danger"] {
+  color: var(--cp-danger);
+  border-color: rgba(214, 127, 114, 0.32);
+  background: rgba(214, 127, 114, 0.12);
+}
+
+.surface-button,
+.surface-select {
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--cp-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-text);
+  font: inherit;
+}
+
+.surface-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.surface-button:hover {
+  border-color: var(--cp-border-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.surface-button-primary {
+  background: var(--cp-accent);
+  border-color: rgba(0, 0, 0, 0.16);
+  color: #171209;
+  font-weight: 700;
+}
+
+.surface-button-primary:hover {
+  background: var(--cp-accent-strong);
+}
+
+.surface-select {
+  min-width: 184px;
+  padding: 0 42px 0 14px;
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23f3ede1' d='M1.15.73A.75.75 0 0 1 2.2.62L5 3.48 7.8.62a.75.75 0 0 1 1.08 1.04L5.54 5.07a.75.75 0 0 1-1.08 0L1.12 1.66A.75.75 0 0 1 1.15.73Z'/%3E%3C/svg%3E") no-repeat right 14px center,
+    rgba(255, 255, 255, 0.03);
+  background-size: auto, 10px 6px, auto;
+}
+
+.surface-select:hover,
+.surface-select:focus {
+  border-color: var(--cp-border-strong);
+  outline: none;
+}
+
+.surface-select option,
+.surface-select optgroup {
+  color: #f3ede1;
+  background: #101715;
+}
+
+.surface-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cp-text-soft);
+  font-size: 0.84rem;
+}
+
+.surface-select-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+}
+
+.surface-tenant-scope {
+  position: relative;
+}
+
+.surface-combobox {
+  position: relative;
+  min-width: 248px;
+}
+
+.surface-combobox-trigger {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.surface-combobox[data-state="open"] .surface-combobox-trigger {
+  border-color: var(--cp-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23f3ede1' d='M1.15.73A.75.75 0 0 1 2.2.62L5 3.48 7.8.62a.75.75 0 0 1 1.08 1.04L5.54 5.07a.75.75 0 0 1-1.08 0L1.12 1.66A.75.75 0 0 1 1.15.73Z'/%3E%3C/svg%3E") no-repeat right 14px center,
+    rgba(255, 255, 255, 0.05);
+  background-size: auto, 10px 6px, auto;
+}
+
+.surface-combobox-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.surface-combobox-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: min(360px, calc(100vw - 48px));
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--cp-border-strong);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(18, 26, 23, 0.98), rgba(10, 16, 13, 0.98)),
+    rgba(11, 16, 14, 0.98);
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(20px);
+}
+
+.surface-combobox-menu::-webkit-scrollbar {
+  width: 10px;
+}
+
+.surface-combobox-menu::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(206, 180, 109, 0.28);
+  background-clip: padding-box;
+}
+
+.surface-combobox-option {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--cp-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.surface-combobox-option:hover,
+.surface-combobox-option:focus-visible {
+  border-color: var(--cp-border-strong);
+  background: rgba(255, 255, 255, 0.045);
+  outline: none;
+}
+
+.surface-combobox-option.is-current {
+  border-color: rgba(206, 180, 109, 0.34);
+  background: rgba(206, 180, 109, 0.12);
+}
+
+.surface-combobox-option-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.surface-combobox-option-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--cp-text);
+}
+
+.surface-combobox-option-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(206, 180, 109, 0.14);
+  color: var(--cp-accent-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.surface-combobox-option-meta {
+  color: var(--cp-text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.surface-combobox-empty {
+  padding: 12px 14px;
+  color: var(--cp-text-muted);
+  font-size: 0.82rem;
+}
+
+.surface-select-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  inset: auto;
+}
+
+.surface-stage {
+  padding: 24px;
+}
+
+.surface-mount {
+  width: min(1600px, 100%);
+  margin: 0 auto;
+}
+
+body.surface-owner .surface-globalbar {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 7, 0.96), rgba(8, 12, 10, 0.92)),
+    rgba(6, 10, 8, 0.9);
+}
+
+body.surface-tenant .surface-globalbar {
+  background:
+    linear-gradient(180deg, rgba(7, 9, 8, 0.96), rgba(10, 15, 12, 0.92)),
+    rgba(6, 10, 8, 0.9);
+}
+
+@media (max-width: 1180px) {
+  .surface-globalbar {
+    grid-template-columns: 1fr;
+  }
+
+  .surface-globalbar-tools {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .surface-globalbar,
+  .surface-stage {
+    padding: 16px;
+  }
+
+  .surface-brand {
+    align-items: flex-start;
+  }
+
+  .surface-brand-mark {
+    min-width: 68px;
+    height: 40px;
+  }
+
+  .surface-combobox {
+    min-width: min(100%, 280px);
+  }
+
+  .surface-combobox-menu {
+    width: min(100vw - 32px, 320px);
+  }
+}

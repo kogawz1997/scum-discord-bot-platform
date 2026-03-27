@@ -140,14 +140,14 @@
 
 ## 8. Current data mapping
 
-| Block | Current state key | Endpoint / source |
-|---|---|---|
-| tenant config live data | `state.tenantConfig` | `/admin/api/platform/tenant-config?tenantId={id}` |
-| feature flag draft | `tenantConfigForm.elements.featureFlags` | current DOM form |
-| config patch draft | `tenantConfigForm.elements.configPatch` | current DOM form |
-| portal env draft | `tenantConfigForm.elements.portalEnvPatch` | current DOM form |
-| preview diff | `state.configPreview` | `buildConfigPreview()` |
-| changed key summary | `summarizeConfigDiff()` | current browser logic |
+| Block                   | Current state key                          | Endpoint / source                                 |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------- |
+| tenant config live data | `state.tenantConfig`                       | `/admin/api/platform/tenant-config?tenantId={id}` |
+| feature flag draft      | `tenantConfigForm.elements.featureFlags`   | current DOM form                                  |
+| config patch draft      | `tenantConfigForm.elements.configPatch`    | current DOM form                                  |
+| portal env draft        | `tenantConfigForm.elements.portalEnvPatch` | current DOM form                                  |
+| preview diff            | `state.configPreview`                      | `buildConfigPreview()`                            |
+| changed key summary     | `summarizeConfigDiff()`                    | current browser logic                             |
 
 ## 9. Existing logic to reuse
 

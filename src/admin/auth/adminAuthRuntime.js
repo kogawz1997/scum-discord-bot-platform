@@ -10,6 +10,36 @@ const crypto = require('node:crypto');
 function createAdminAuthRuntime(options = {}) {
   const sessions = options.sessions;
 
+  function extractHostname(rawHost) {
+    const input = String(rawHost || '').trim().toLowerCase();
+    if (!input) return '';
+    if (input.startsWith('[')) {
+      const endIndex = input.indexOf(']');
+      return endIndex > 0 ? input.slice(1, endIndex) : input;
+    }
+    const colonIndex = input.indexOf(':');
+    return colonIndex >= 0 ? input.slice(0, colonIndex) : input;
+  }
+
+  function isLoopbackHostname(hostname) {
+    const normalized = String(hostname || '').trim().toLowerCase();
+    return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+  }
+
+  function resolveCookieRuntime(req) {
+    const requestHost = extractHostname(req?.headers?.host || '');
+    if (isLoopbackHostname(requestHost)) {
+      return {
+        sessionCookieDomain: '',
+        sessionSecureCookie: false,
+      };
+    }
+    return {
+      sessionCookieDomain: options.sessionCookieDomain,
+      sessionSecureCookie: options.sessionSecureCookie,
+    };
+  }
+
   function hashText(value) {
     return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
   }
@@ -232,7 +262,8 @@ function createAdminAuthRuntime(options = {}) {
     return getSessionFromRequest(req) != null;
   }
 
-  function buildSessionCookie(sessionId) {
+  function buildSessionCookie(sessionId, req = null) {
+    const runtime = resolveCookieRuntime(req);
     const parts = [
       `${options.sessionCookieName}=${encodeURIComponent(sessionId)}`,
       'HttpOnly',
@@ -240,12 +271,13 @@ function createAdminAuthRuntime(options = {}) {
       `SameSite=${options.sessionCookieSameSite}`,
       `Max-Age=${Math.floor(options.sessionTtlMs / 1000)}`,
     ];
-    if (options.sessionCookieDomain) parts.push(`Domain=${options.sessionCookieDomain}`);
-    if (options.sessionSecureCookie) parts.push('Secure');
+    if (runtime.sessionCookieDomain) parts.push(`Domain=${runtime.sessionCookieDomain}`);
+    if (runtime.sessionSecureCookie) parts.push('Secure');
     return parts.join('; ');
   }
 
-  function buildClearSessionCookie() {
+  function buildClearSessionCookie(req = null) {
+    const runtime = resolveCookieRuntime(req);
     const parts = [
       `${options.sessionCookieName}=`,
       'HttpOnly',
@@ -253,8 +285,8 @@ function createAdminAuthRuntime(options = {}) {
       `SameSite=${options.sessionCookieSameSite}`,
       'Max-Age=0',
     ];
-    if (options.sessionCookieDomain) parts.push(`Domain=${options.sessionCookieDomain}`);
-    if (options.sessionSecureCookie) parts.push('Secure');
+    if (runtime.sessionCookieDomain) parts.push(`Domain=${runtime.sessionCookieDomain}`);
+    if (runtime.sessionSecureCookie) parts.push('Secure');
     return parts.join('; ');
   }
 

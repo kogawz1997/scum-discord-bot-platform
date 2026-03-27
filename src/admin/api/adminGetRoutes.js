@@ -64,6 +64,7 @@ function createAdminGetRoutes(deps) {
     buildCommandRegistry,
     getRuntimeSupervisorSnapshot,
     getAdminRestoreState,
+    listAdminRestoreHistory,
     getPlatformAnalyticsOverview,
     buildTenantDiagnosticsBundle,
     buildTenantDiagnosticsCsv,
@@ -410,6 +411,23 @@ function createAdminGetRoutes(deps) {
       sendJson(res, 200, {
         ok: true,
         data: getAdminRestoreState(),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/backup/restore/history') {
+      const auth = ensureRole(req, urlObj, 'owner', res);
+      if (!auth) return true;
+      if (getAuthTenantId(auth)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Tenant-scoped admin cannot review shared restore history',
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: listAdminRestoreHistory(asInt(urlObj.searchParams.get('limit'), 20) || 20),
       });
       return true;
     }

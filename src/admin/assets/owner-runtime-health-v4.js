@@ -8,22 +8,22 @@
   'use strict';
 
   const NAV_GROUPS = [
-    { label: 'Platform', items: [
-      { label: 'Overview', href: '#overview' },
-      { label: 'Tenants', href: '#tenants' },
-      { label: 'Packages', href: '#packages' },
-      { label: 'Subscriptions', href: '#subscriptions' },
+    { label: 'แพลตฟอร์ม', items: [
+      { label: 'ภาพรวม', href: '#overview' },
+      { label: 'ผู้เช่า', href: '#tenants' },
+      { label: 'แพ็กเกจ', href: '#packages' },
+      { label: 'การสมัครใช้', href: '#subscriptions' },
     ] },
-    { label: 'Operations', items: [
-      { label: 'Runtime Health', href: '#runtime-health', current: true },
-      { label: 'Incidents', href: '#incidents' },
-      { label: 'Observability', href: '#observability' },
-      { label: 'Jobs', href: '#jobs' },
+    { label: 'ปฏิบัติการ', items: [
+      { label: 'สุขภาพรันไทม์', href: '#runtime-health', current: true },
+      { label: 'เหตุการณ์', href: '#incidents' },
+      { label: 'การสังเกตการณ์', href: '#observability' },
+      { label: 'งานคิว', href: '#jobs' },
     ] },
-    { label: 'Business', items: [
-      { label: 'Support', href: '#support' },
-      { label: 'Security', href: '#security' },
-      { label: 'Audit', href: '#audit' },
+    { label: 'ธุรกิจ', items: [
+      { label: 'ซัพพอร์ต', href: '#support' },
+      { label: 'ความปลอดภัย', href: '#security' },
+      { label: 'ออดิท', href: '#audit' },
     ] },
   ];
 
@@ -41,12 +41,56 @@
   }
   function formatDateTime(value) {
     const date = parseDate(value);
-    return date ? new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : 'Unknown time';
+    return date ? new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : 'ยังไม่ทราบเวลา';
   }
   function firstNonEmpty(values, fallback = '') {
     for (const value of values) {
       const normalized = String(value ?? '').trim();
       if (normalized) return normalized;
+    }
+    return fallback;
+  }
+  function looksLikeJsonText(value) {
+    const text = String(value ?? '').trim();
+    return text.startsWith('{') || text.startsWith('[');
+  }
+  function extractReadableText(value, fallback = '') {
+    if (value == null) return fallback;
+    if (typeof value === 'string') {
+      const text = String(value).trim();
+      if (!text) return fallback;
+      if (looksLikeJsonText(text)) {
+        try {
+          return extractReadableText(JSON.parse(text), fallback);
+        } catch {
+          return text;
+        }
+      }
+      return text;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      const joined = value
+        .map((item) => extractReadableText(item, ''))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' · ');
+      return firstNonEmpty([joined], fallback);
+    }
+    if (typeof value === 'object') {
+      return firstNonEmpty([
+        value.title,
+        value.label,
+        value.message,
+        value.detail,
+        value.summary,
+        value.reason,
+        value.source,
+        value.path,
+        value.code,
+      ], fallback);
     }
     return fallback;
   }
@@ -79,15 +123,23 @@
     const alertItems = (Array.isArray(state.notifications) ? state.notifications : []).map((item) => ({
       source: 'alerts',
       severity: item.severity || 'warning',
-      title: firstNonEmpty([item.title, item.label, 'Platform alert']),
-      detail: firstNonEmpty([item.detail, item.message, 'Monitoring produced an owner-facing alert.']),
+      title: firstNonEmpty([item.title, item.label, 'การแจ้งเตือนของแพลตฟอร์ม']),
+      detail: firstNonEmpty([
+        extractReadableText(item.detail, ''),
+        extractReadableText(item.message, ''),
+        'ระบบสังเกตการณ์ตรวจพบสัญญาณที่เจ้าของระบบควรเปิดดู',
+      ]),
       time: item.createdAt || item.at,
     }));
     const securityItems = (Array.isArray(state.securityEvents) ? state.securityEvents : []).map((item) => ({
       source: 'security',
       severity: item.severity || 'info',
-      title: item.type || 'Security event',
-      detail: item.detail || item.reason || '',
+      title: item.type || 'เหตุการณ์ด้านความปลอดภัย',
+      detail: firstNonEmpty([
+        extractReadableText(item.detail, ''),
+        extractReadableText(item.reason, ''),
+        extractReadableText(item.meta, ''),
+      ]),
       time: item.createdAt || item.at,
     }));
     return alertItems.concat(securityItems).concat(requestItems)
@@ -128,43 +180,47 @@
     const degradedRuntimeCount = runtimeRows.filter((row) => toneForStatus(row.status) === 'warning').length;
     const staleAgents = agentRows.filter((row) => toneForStatus(row.status) !== 'success').length;
     const lifecycle = state.deliveryLifecycle && state.deliveryLifecycle.summary ? state.deliveryLifecycle.summary : {};
+    const primaryRuntimeAction = feed.length > 0
+      ? { label: 'เปิดเหตุการณ์ล่าสุด (แนะนำ)', href: '#incidents' }
+      : { label: 'เปิดหน้าสังเกตการณ์', href: '#observability' };
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Owner Panel V4 Preview',
-        workspaceLabel: 'Runtime Health',
-        environmentLabel: 'Parallel V4',
+        surfaceLabel: 'แผงเจ้าของระบบ',
+        workspaceLabel: 'สุขภาพรันไทม์',
+        environmentLabel: 'ระดับแพลตฟอร์ม',
         navGroups: NAV_GROUPS,
       },
       header: {
-        title: 'Runtime health and incidents',
-        subtitle: 'A focused owner ops desk for runtime readiness, incident pressure, and request anomalies. This page is for triage, not for browsing every metric in the system.',
+        title: 'สุขภาพรันไทม์และเหตุการณ์',
+        subtitle: 'โต๊ะปฏิบัติการของเจ้าของระบบสำหรับไล่สัญญาณผิดปกติ ดูความพร้อมของบริการ และตัดสินใจว่าเรื่องใดต้องแก้ก่อน',
         statusChips: [
-          { label: `${formatNumber(readyRuntimeCount, '0')}/${formatNumber(runtimeRows.length, '0')} runtimes ready`, tone: readyRuntimeCount === runtimeRows.length ? 'success' : 'warning' },
-          { label: `${formatNumber(staleAgents, '0')} agent(s) degraded`, tone: staleAgents > 0 ? 'warning' : 'success' },
-          { label: `${formatNumber(feed.length, '0')} active signals`, tone: feed.length > 0 ? 'warning' : 'muted' },
-          { label: `${formatNumber(Number(state.requestLogs && state.requestLogs.metrics && state.requestLogs.metrics.slowRequests || 0), '0')} slow requests`, tone: Number(state.requestLogs && state.requestLogs.metrics && state.requestLogs.metrics.slowRequests || 0) > 0 ? 'warning' : 'muted' },
+          { label: `${formatNumber(readyRuntimeCount, '0')}/${formatNumber(runtimeRows.length, '0')} รันไทม์พร้อม`, tone: readyRuntimeCount === runtimeRows.length ? 'success' : 'warning' },
+          { label: `${formatNumber(staleAgents, '0')} เอเจนต์ต้องจับตา`, tone: staleAgents > 0 ? 'warning' : 'success' },
+          { label: `${formatNumber(feed.length, '0')} สัญญาณที่ยังเปิดอยู่`, tone: feed.length > 0 ? 'warning' : 'muted' },
+          { label: `${formatNumber(Number(state.requestLogs && state.requestLogs.metrics && state.requestLogs.metrics.slowRequests || 0), '0')} คำขอที่ช้า`, tone: Number(state.requestLogs && state.requestLogs.metrics && state.requestLogs.metrics.slowRequests || 0) > 0 ? 'warning' : 'muted' },
         ],
-        primaryAction: { label: 'Export observability', href: '#observability-export' },
+        primaryAction: { label: 'ส่งออกหลักฐานระบบ', href: '#observability-export' },
+        primaryAction: primaryRuntimeAction,
       },
       summaryStrip: [
-        { label: 'Ready services', value: formatNumber(readyRuntimeCount, '0'), detail: 'Managed runtimes reporting healthy', tone: 'success' },
-        { label: 'Degraded services', value: formatNumber(degradedRuntimeCount, '0'), detail: 'Services that need owner attention', tone: degradedRuntimeCount > 0 ? 'warning' : 'muted' },
-        { label: 'Agent drift', value: formatNumber(staleAgents, '0'), detail: 'Delivery Agent and Server Bot posture', tone: staleAgents > 0 ? 'danger' : 'success' },
-        { label: 'Dead letters', value: formatNumber(lifecycle.deadLetterCount, '0'), detail: 'Delivery backlog that should not be ignored', tone: Number(lifecycle.deadLetterCount || 0) > 0 ? 'danger' : 'muted' },
+        { label: 'บริการที่พร้อม', value: formatNumber(readyRuntimeCount, '0'), detail: 'บริการที่รายงานสถานะปกติ', tone: 'success' },
+        { label: 'บริการที่ต้องจับตา', value: formatNumber(degradedRuntimeCount, '0'), detail: 'บริการที่เจ้าของระบบควรเปิดดูต่อ', tone: degradedRuntimeCount > 0 ? 'warning' : 'muted' },
+        { label: 'สถานะเอเจนต์', value: formatNumber(staleAgents, '0'), detail: 'ภาพรวมของ Delivery Agent และ Server Bot', tone: staleAgents > 0 ? 'danger' : 'success' },
+        { label: 'งานที่ล้มเหลว', value: formatNumber(lifecycle.deadLetterCount, '0'), detail: 'คิวส่งของที่ไม่ควรปล่อยค้าง', tone: Number(lifecycle.deadLetterCount || 0) > 0 ? 'danger' : 'muted' },
       ],
       runtimeRows,
       agentRows,
       incidentFeed: feed,
       hotspots,
       runbooks: [
-        { title: 'Queue pressure', body: 'Check dead-letter volume, lifecycle anomalies, and agent readiness before asking tenant operators to retry or replay jobs.' },
-        { title: 'Runtime degradation', body: 'If a required service is stale or degraded, confirm heartbeat freshness and recent changes before touching tenant-facing queues.' },
-        { title: 'Request anomaly', body: 'Use hotspot data and the latest request errors to decide whether this is runtime, API, or commercial/support fallout.' },
+        { title: 'คิวงานเริ่มตึง', body: 'ถ้างานที่ล้มเหลวเพิ่มขึ้นหรืองานค้างหลายขั้น ให้เช็กสถานะ Delivery Agent และ Server Bot ก่อน แล้วค่อยให้ทีมผู้เช่าลอง retry หรือ replay งาน' },
+        { title: 'บริการเริ่มไม่เสถียร', body: 'ถ้า runtime ขึ้น stale หรือ degraded ให้ยืนยัน heartbeat และดูการเปลี่ยนแปลงล่าสุดก่อนแตะคิวของผู้เช่า' },
+        { title: 'คำขอเริ่มผิดปกติ', body: 'ดู hotspot และ request error ล่าสุดก่อน เพื่อแยกว่าเป็นปัญหาจาก runtime, API หรือปริมาณงานที่พุ่งขึ้นจากฝั่งเชิงพาณิชย์และซัพพอร์ต' },
       ],
       railCards: [
-        { title: 'Owner export path', body: 'Use diagnostics and observability export before making destructive changes. Evidence should move with the incident, not live only in memory.', meta: 'Support and security reviews should share the same evidence trail.', tone: 'info' },
-        { title: 'Current pressure', body: feed.length > 0 ? 'The incident feed is active. Start with the newest high-severity rows and keep runtime posture in view.' : 'No urgent signal cluster is visible in the current sample.', meta: hotspots.length > 0 ? `${hotspots[0].route} is the hottest route group right now.` : 'No hotspot sample available.', tone: feed.length > 0 ? 'warning' : 'success' },
+        { title: 'เส้นทางส่งออกหลักฐาน', body: 'ใช้ diagnostics และ observability export ก่อนลงมือทำสิ่งที่เสี่ยง หลักฐานควรถูกพาไปกับ incident เสมอ', meta: 'งานซัพพอร์ตและงานรีวิวความปลอดภัยควรใช้หลักฐานชุดเดียวกัน', tone: 'info' },
+        { title: 'แรงกดดันปัจจุบัน', body: feed.length > 0 ? 'ตอนนี้ incident feed ยังมีรายการ ให้เริ่มจากแถวที่ใหม่และรุนแรงที่สุดก่อนเสมอ' : 'ตอนนี้ยังไม่เห็นกลุ่มสัญญาณด่วนจากตัวอย่างข้อมูลชุดนี้', meta: hotspots.length > 0 ? `${hotspots[0].route} คือ route group ที่ร้อนที่สุดตอนนี้` : 'ยังไม่มีตัวอย่าง hotspot ให้ใช้ตัดสินใจ', tone: feed.length > 0 ? 'warning' : 'success' },
       ],
     };
   }
@@ -191,10 +247,10 @@
     ].join('')).join('');
   }
   function renderRuntimeTable(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No runtime rows in the current sample.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีข้อมูลรันไทม์ในตัวอย่างชุดนี้</div>';
     return [
       '<div class="odv4-table">',
-      '<div class="odv4-table-head cols-4"><span>Service</span><span>Status</span><span>Detail</span><span>Updated</span></div>',
+      '<div class="odv4-table-head cols-4"><span>บริการ</span><span>สถานะ</span><span>รายละเอียด</span><span>อัปเดตล่าสุด</span></div>',
       ...items.map((row) => [
         '<div class="odv4-table-row cols-4">',
         `<div class="odv4-table-cell"><strong>${escapeHtml(row.name)}</strong></div>`,
@@ -207,10 +263,10 @@
     ].join('');
   }
   function renderAgentTable(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No agent runtimes in the current sample.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีข้อมูลเอเจนต์ในตัวอย่างชุดนี้</div>';
     return [
       '<div class="odv4-table">',
-      '<div class="odv4-table-head cols-5"><span>Runtime</span><span>Role</span><span>Channel</span><span>Status</span><span>Last seen</span></div>',
+      '<div class="odv4-table-head cols-5"><span>รันไทม์</span><span>บทบาท</span><span>ช่องทาง</span><span>สถานะ</span><span>เห็นล่าสุด</span></div>',
       ...items.map((row) => [
         '<div class="odv4-table-row cols-5">',
         `<div class="odv4-table-cell"><strong>${escapeHtml(row.runtime)}</strong><span class="odv4-table-note">${escapeHtml(row.version)}</span></div>`,
@@ -224,20 +280,20 @@
     ].join('');
   }
   function renderFeed(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No current incident feed rows.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ตอนนี้ยังไม่มีรายการใน incident feed</div>';
     return items.map((item) => [
       `<article class="odv4-feed-item odv4-tone-${escapeHtml(toneForStatus(item.severity || 'warning'))}">`,
-      `<div class="odv4-feed-meta"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(item.severity || 'warning'))}">${escapeHtml(item.source || 'signal')}</span><span>${escapeHtml(formatDateTime(item.time))}</span></div>`,
-      `<strong>${escapeHtml(item.title || 'Signal')}</strong>`,
+      `<div class="odv4-feed-meta"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(item.severity || 'warning'))}">${escapeHtml(item.source || 'สัญญาณ')}</span><span>${escapeHtml(formatDateTime(item.time))}</span></div>`,
+      `<strong>${escapeHtml(item.title || 'สัญญาณ')}</strong>`,
       item.detail ? `<p>${escapeHtml(item.detail)}</p>` : '',
       '</article>',
     ].join('')).join('');
   }
   function renderHotspots(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No request hotspot sample available.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีตัวอย่าง hotspot ของคำขอในตอนนี้</div>';
     return [
       '<div class="odv4-table">',
-      '<div class="odv4-table-head cols-4"><span>Route group</span><span>Requests</span><span>Errors</span><span>P95 latency</span></div>',
+      '<div class="odv4-table-head cols-4"><span>กลุ่ม route</span><span>คำขอ</span><span>ข้อผิดพลาด</span><span>P95 latency</span></div>',
       ...items.map((row) => [
         '<div class="odv4-table-row cols-4">',
         `<div class="odv4-table-cell"><strong>${escapeHtml(row.route)}</strong></div>`,
@@ -252,7 +308,7 @@
   function renderRunbooks(items) {
     return (Array.isArray(items) ? items : []).map((item) => [
       '<article class="odv4-runbook-card">',
-      '<span class="odv4-table-label">Runbook</span>',
+      '<span class="odv4-table-label">แนวทางปฏิบัติ</span>',
       `<strong>${escapeHtml(item.title || '')}</strong><p>${escapeHtml(item.body || '')}</p>`,
       '</article>',
     ].join('')).join('');
@@ -270,25 +326,25 @@
     return [
       '<div class="odv4-app"><header class="odv4-topbar"><div class="odv4-brand-row">',
       `<div class="odv4-brand-mark">${escapeHtml(safeModel.shell.brand || 'SCUM')}</div><div class="odv4-brand-copy"><span class="odv4-surface-label">${escapeHtml(safeModel.shell.surfaceLabel || '')}</span><strong class="odv4-workspace-label">${escapeHtml(safeModel.shell.workspaceLabel || '')}</strong></div>`,
-      '</div><div class="odv4-topbar-actions"><span class="odv4-badge odv4-badge-muted">Parallel V4</span><a class="odv4-button odv4-button-secondary" href="#incidents">Incidents</a><a class="odv4-button odv4-button-secondary" href="#observability">Observability</a></div></header>',
-      '<div class="odv4-shell"><aside class="odv4-sidebar"><div class="odv4-stack"><span class="odv4-sidebar-title">Owner navigation</span><p class="odv4-sidebar-copy">This surface is the owner operations desk. Use it to separate runtime issues from support pressure and request anomalies before escalating.</p></div>',
+      '</div><div class="odv4-topbar-actions"><span class="odv4-badge odv4-badge-muted">ระดับแพลตฟอร์ม</span><a class="odv4-button odv4-button-secondary" href="#incidents">เหตุการณ์</a><a class="odv4-button odv4-button-secondary" href="#observability">สังเกตการณ์</a></div></header>',
+      '<div class="odv4-shell"><aside class="odv4-sidebar"><div class="odv4-stack"><span class="odv4-sidebar-title">เมนูเจ้าของระบบ</span><p class="odv4-sidebar-copy">ใช้หน้านี้แยกเรื่องที่เป็นปัญหารันไทม์ออกจากแรงกดดันฝั่งซัพพอร์ตและความผิดปกติของคำขอ ก่อนตัดสินใจไล่แก้ลึกลงไป</p></div>',
       renderNavGroups(safeModel.shell.navGroups),
-      '</aside><main class="odv4-main"><section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">Ops and incident desk</span>',
+      '</aside><main class="odv4-main"><section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">โต๊ะปฏิบัติการและเหตุการณ์</span>',
       `<h1 class="odv4-page-title">${escapeHtml(safeModel.header.title || '')}</h1><p class="odv4-page-subtitle">${escapeHtml(safeModel.header.subtitle || '')}</p><div class="odv4-chip-row">${renderChips(safeModel.header.statusChips)}</div></div>`,
-      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'Export')}</a></div></section>`,
+      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'ส่งออก')}</a></div></section>`,
       `<section class="odv4-kpi-strip">${renderSummaryStrip(safeModel.summaryStrip)}</section>`,
-      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Runtime matrix</span><h2 class="odv4-section-title">Managed services</h2><p class="odv4-section-copy">Keep the platform service layer and the remote runtime fleet readable in one workspace.</p></div>',
+      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ตารางรันไทม์</span><h2 class="odv4-section-title">บริการที่ต้องเฝ้าดู</h2><p class="odv4-section-copy">วางชั้นบริการของแพลตฟอร์มและฝั่งรันไทม์ระยะไกลไว้ในจุดเดียวเพื่อให้อ่านสภาพระบบได้เร็ว</p></div>',
       renderRuntimeTable(safeModel.runtimeRows),
-      '</section><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Remote runtimes</span><h2 class="odv4-section-title">Agent registry</h2><p class="odv4-section-copy">Delivery Agent and Server Bot posture should stay visible without mixing them into tenant admin views.</p></div>',
+      '</section><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">รันไทม์ระยะไกล</span><h2 class="odv4-section-title">ทะเบียนเอเจนต์</h2><p class="odv4-section-copy">ให้สถานะของ Delivery Agent และ Server Bot มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของผู้เช่า</p></div>',
       renderAgentTable(safeModel.agentRows),
       '</section></div>',
-      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Incident feed</span><h2 class="odv4-section-title">Current owner signals</h2><p class="odv4-section-copy">Use this feed to acknowledge the newest signals before opening support or replay tooling.</p></div>',
+      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Incident feed</span><h2 class="odv4-section-title">สัญญาณที่เจ้าของระบบควรรู้ตอนนี้</h2><p class="odv4-section-copy">เริ่มจาก feed นี้ก่อนเปิดซัพพอร์ตหรือเครื่องมือ replay เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า</p></div>',
       `<div class="odv4-feed">${renderFeed(safeModel.incidentFeed)}</div></section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Observability</span><h2 class="odv4-section-title">Request hotspots</h2><p class="odv4-section-copy">A compact request summary beats a giant graph wall for fast owner triage.</p></div>',
+      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">การสังเกตการณ์</span><h2 class="odv4-section-title">จุดร้อนของคำขอ</h2><p class="odv4-section-copy">สรุปคำขอแบบกะทัดรัดช่วยให้เจ้าของระบบตัดสินใจได้เร็วกว่าการมองกราฟใหญ่เต็มหน้า</p></div>',
       renderHotspots(safeModel.hotspots),
-      '<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">Runbooks</span><h3 class="odv4-section-title">Recommended next steps</h3></div>',
+      '<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">แนวทางปฏิบัติ</span><h3 class="odv4-section-title">ควรเช็กอะไรก่อน</h3></div>',
       `<div class="odv4-runbook-grid">${renderRunbooks(safeModel.runbooks)}</div></section></div></main>`,
-      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">Ops rail</div><p class="odv4-rail-copy">Keep evidence and owner follow-through visible while you inspect runtime or incident data.</p>${renderRailCards(safeModel.railCards)}</div></aside></div></div>`,
+      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">บริบทการปฏิบัติการ</div><p class="odv4-rail-copy">เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจรันไทม์หรือเหตุการณ์</p>${renderRailCards(safeModel.railCards)}</div></aside></div></div>`,
     ].join('');
   }
 

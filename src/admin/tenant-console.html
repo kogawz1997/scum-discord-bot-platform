@@ -4,47 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Tenant</title>
-  <link rel="stylesheet" href="/admin/assets/tenant-dashboard-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-status-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-config-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-orders-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-players-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-delivery-agents-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-bots-v4.css">
-  <link rel="stylesheet" href="/admin/assets/tenant-restart-control-v4.css">
-  <style>
-    body.tdv4-preview-body{margin:0;padding:24px;background:#060907;color:#f4efe4;font-family:"IBM Plex Sans Thai","Segoe UI",sans-serif}
-    .surface-utility{width:min(1480px,calc(100% - 32px));margin:0 auto 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .surface-status{display:flex;align-items:center;gap:12px;color:rgba(244,239,228,.74);font-size:13px}
-    .surface-status strong{color:#f4efe4}
-    .surface-status[data-tone="success"] strong{color:#89b86c}
-    .surface-status[data-tone="danger"] strong{color:#d36d60}
-    .surface-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .surface-actions button,.surface-actions select{height:44px;padding:0 16px;border-radius:14px;border:1px solid rgba(212,186,113,.18);background:rgba(255,255,255,.03);color:#f4efe4}
-    .surface-actions button{cursor:pointer}
-    .surface-shell{width:min(1480px,calc(100% - 32px));margin:0 auto}
-  </style>
+  <title>SCUM TH Platform | ผู้เช่า</title>
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-dashboard-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-status-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-config-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-orders-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-players-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-delivery-agents-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-bots-v4.css?v=20260327-ui-4">
+  <link rel="stylesheet" href="/admin/assets/tenant-restart-control-v4.css?v=20260327-ui-4">
 </head>
-<body class="tdv4-preview-body" data-surface="tenant-v4">
-  <div class="surface-utility">
-    <div id="tenantV4Status" class="surface-status" data-tone="muted"><strong>กำลังโหลด</strong><span>กำลังเตรียมพื้นผิวแอดมินผู้เช่า V4</span></div>
-    <div class="surface-actions">
-      <label id="tenantOwnerScopeWrap" hidden>
-        <select id="tenantOwnerScopeSelect" aria-label="เลือก tenant"></select>
-      </label>
-      <button id="tenantV4RefreshBtn" type="button">รีเฟรชข้อมูล</button>
-    </div>
+<body class="surface-body surface-tenant" data-surface="tenant-v4">
+  <div class="surface-app">
+    <header class="surface-globalbar">
+      <div class="surface-globalbar-main">
+        <a class="surface-brand" href="/tenant">
+          <span class="surface-brand-mark">SCUM</span>
+          <span class="surface-brand-copy">
+            <span class="surface-brand-eyebrow">Tenant Admin</span>
+            <strong class="surface-brand-title">แผงดูแลเซิร์ฟเวอร์</strong>
+            <span class="surface-brand-detail">ดูแลเซิร์ฟเวอร์ คำสั่งซื้อ ผู้เล่น Delivery Agent และ Server Bot ของชุมชนนี้</span>
+          </span>
+        </a>
+        <nav class="surface-role-switch" aria-label="Surface switch">
+          <a class="surface-role-link is-active" href="/tenant">ผู้เช่า</a>
+          <a class="surface-role-link" href="http://127.0.0.1:3300/player/login">ผู้เล่น</a>
+        </nav>
+      </div>
+      <div class="surface-globalbar-tools">
+        <div id="tenantOwnerScopeWrap" class="surface-select-wrap surface-tenant-scope" hidden>
+          <span class="surface-select-label">ผู้เช่า</span>
+          <div class="surface-combobox" data-state="closed">
+            <button
+              id="tenantOwnerScopeButton"
+              class="surface-select surface-combobox-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="tenantOwnerScopeMenu"
+            >
+              <span id="tenantOwnerScopeValue" class="surface-combobox-value">เลือกผู้เช่า</span>
+            </button>
+            <div id="tenantOwnerScopeMenu" class="surface-combobox-menu" role="listbox" hidden></div>
+          </div>
+          <select id="tenantOwnerScopeSelect" class="surface-select surface-select-native" aria-label="เลือกผู้เช่า" tabindex="-1" aria-hidden="true"></select>
+        </div>
+        <span id="tenantV4Status" class="surface-status" data-tone="muted">กำลังเตรียมพื้นที่ผู้เช่า</span>
+        <button id="tenantV4RefreshBtn" class="surface-button surface-button-primary" type="button">รีเฟรชข้อมูล</button>
+      </div>
+    </header>
+    <main class="surface-stage">
+      <div id="tenantV4AppRoot" class="surface-mount" aria-live="polite"></div>
+    </main>
   </div>
-  <main id="tenantV4AppRoot" class="surface-shell" aria-live="polite"></main>
-  <script src="/admin/assets/tenant-dashboard-v4.js"></script>
-  <script src="/admin/assets/tenant-server-status-v4.js"></script>
-  <script src="/admin/assets/tenant-server-config-v4.js"></script>
-  <script src="/admin/assets/tenant-orders-v4.js"></script>
-  <script src="/admin/assets/tenant-players-v4.js"></script>
-  <script src="/admin/assets/tenant-delivery-agents-v4.js"></script>
-  <script src="/admin/assets/tenant-server-bots-v4.js"></script>
-  <script src="/admin/assets/tenant-restart-control-v4.js"></script>
-  <script src="/admin/assets/tenant-v4-app.js"></script>
+  <script src="/admin/assets/tenant-dashboard-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-server-status-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-server-config-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-orders-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-players-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-delivery-agents-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-server-bots-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-restart-control-v4.js?v=20260327-ui-4"></script>
+  <script src="/admin/assets/tenant-v4-app.js?v=20260327-ui-4"></script>
 </body>
 </html>

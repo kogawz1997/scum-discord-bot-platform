@@ -99,8 +99,9 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     const showcase = await request('/showcase', baseUrl);
     assert.equal(showcase.status, 200);
     const showcaseHtml = await showcase.text();
-    assert.match(showcaseHtml, /SCUM Platform Showcase/i);
-    assert.match(showcaseHtml, /Role-based platform surfaces/i);
+    assert.match(showcaseHtml, /SCUM TH Platform/i);
+    assert.match(showcaseHtml, /Showcase|ตัวอย่างเส้นทางการใช้งาน/i);
+    assert.match(showcaseHtml, /Owner|Tenant|Player|Owner Panel|Tenant Admin|Player Portal/i);
 
     const showcaseSlash = await request('/showcase/', baseUrl);
     assert.equal(showcaseSlash.status, 302);
@@ -110,12 +111,17 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     assert.equal(landing.status, 200);
     const landingHtml = await landing.text();
     assert.match(landingHtml, /SCUM TH Platform/i);
-    assert.match(landingHtml, /Managed SCUM Operations/i);
+    assert.match(landingHtml, /หลายผู้เช่า|Multi-tenant/i);
+    assert.match(
+      landingHtml,
+      /Delivery Agent \+ Server Bot|Delivery Agent, Server Bot|แยก Delivery Agent กับ Server Bot|Delivery Agent และ Server Bot/i,
+    );
 
     const trial = await request('/trial', baseUrl);
     assert.equal(trial.status, 200);
     const trialHtml = await trial.text();
-    assert.match(trialHtml, /SCUM Platform Trial/i);
+    assert.match(trialHtml, /SCUM TH Platform/i);
+    assert.match(trialHtml, /Trial|ลองใช้งาน|Preview/i);
 
     const publicOverview = await request('/api/platform/public/overview', baseUrl);
     assert.equal(publicOverview.status, 200);

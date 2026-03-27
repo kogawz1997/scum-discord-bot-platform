@@ -3,43 +3,67 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Preview</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | พื้นที่ก่อนเปิดใช้งาน</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Preview tenant</span></span>
-      </a>
-      <div class="marketing-tools">
-        <a id="previewUpgradeBtn" class="button button-primary" href="/checkout">อัปเกรดแพ็กเกจ</a>
-        <button id="previewLogoutBtn" class="button" type="button">ออกจาก Preview</button>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">พื้นที่สำหรับดูเมนู สิทธิ์ และสิ่งที่ต้องเปิดเพิ่มก่อนใช้งานจริง</span>
+          </span>
+        </a>
+      </div>
+      <div class="site-topbar-tools">
+        <a id="previewUpgradeBtn" class="site-button site-button-primary" href="/checkout">อัปเกรดแพ็กเกจ</a>
+        <button id="previewLogoutBtn" class="site-button" type="button">ออกจากระบบ</button>
       </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-grid two-col">
-        <aside class="marketing-panel">
-          <div class="marketing-panel-head">
-            <span class="marketing-kicker">Preview Tenant</span>
-            <h2 id="previewCommunityName">SCUM Preview</h2>
-            <p id="previewPageLead">กำลังโหลดโครงสร้าง Preview Mode...</p>
-            <p id="previewAccountSummary"></p>
-          </div>
-          <div id="previewSidebarNav" class="preview-sidebar"></div>
+    <main class="site-main">
+      <section class="site-preview-layout">
+        <aside class="site-preview-card site-preview-sidebar">
+          <div class="site-media-shot is-support-scene"></div>
+          <span class="site-kicker">Workspace</span>
+          <h1 id="previewCommunityName" class="site-page-title">SCUM Workspace</h1>
+          <p id="previewPageLead" class="site-page-copy">กำลังโหลดข้อมูลพื้นที่ของคุณ...</p>
+          <p id="previewAccountSummary" class="site-page-copy"></p>
+          <div id="previewSidebarNav" class="site-stack"></div>
         </aside>
-        <section class="marketing-grid">
-          <div id="previewStatsGrid" class="marketing-grid two-col"></div>
-          <article class="marketing-panel"><h3>ฟีเจอร์ที่เปิดใช้</h3><ul id="previewFeatureList" class="marketing-list"></ul></article>
-          <article class="marketing-panel"><h3>ฟีเจอร์ที่ยังล็อก</h3><ul id="previewLockedList" class="marketing-list"></ul></article>
-          <article class="marketing-panel"><h3>สถานะการเชื่อมบัญชี</h3><ul id="previewIdentityList" class="marketing-list"></ul></article>
-          <article class="marketing-panel"><h3>ลำดับถัดไป</h3><ul id="previewNextSteps" class="marketing-list"></ul></article>
+        <section class="site-stack">
+          <div id="previewStatsGrid" class="site-grid-2"></div>
+          <article class="site-preview-card">
+            <div class="site-media-shot is-map-scene"></div>
+            <span class="site-kicker">เปิดใช้งานแล้ว</span>
+            <h2 class="site-card-title">ฟีเจอร์ที่แพ็กเกจปัจจุบันเปิดให้ใช้</h2>
+            <ul id="previewFeatureList" class="marketing-list"></ul>
+          </article>
+          <article class="site-preview-card">
+            <div class="site-media-shot is-wallet-scene"></div>
+            <span class="site-kicker">ต้องเปิดเพิ่ม</span>
+            <h2 class="site-card-title">สิ่งที่ยังต้องอัปเกรดแพ็กเกจหรือเปิด runtime เพิ่ม</h2>
+            <ul id="previewLockedList" class="marketing-list"></ul>
+          </article>
+          <article class="site-preview-card">
+            <div class="site-media-shot is-identity-scene"></div>
+            <span class="site-kicker">สถานะบัญชี</span>
+            <h2 class="site-card-title">บัญชีที่ผูกไว้และความพร้อมของตัวตน</h2>
+            <ul id="previewIdentityList" class="marketing-list"></ul>
+          </article>
+          <article class="site-preview-card">
+            <div class="site-media-shot is-announce-scene"></div>
+            <span class="site-kicker">ขั้นถัดไป</span>
+            <h2 class="site-card-title">ควรทำอะไรต่อก่อนเปิดใช้งานจริง</h2>
+            <ul id="previewNextSteps" class="marketing-list"></ul>
+          </article>
         </section>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/portal-i18n.js"></script>
-  <script src="/player/assets/ui/public-auth-v2.js"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260327-live-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260327-live-1"></script>
 </body>
 </html>

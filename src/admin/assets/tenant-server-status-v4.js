@@ -37,7 +37,7 @@
 
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -254,10 +254,12 @@
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Tenant Admin V4 Preview',
+      surfaceLabel: 'แผงผู้เช่า',
         workspaceLabel: tenantName,
-        environmentLabel: 'Parallel V4',
-        navGroups: NAV_GROUPS,
+      environmentLabel: 'พื้นที่ผู้เช่า',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : NAV_GROUPS,
       },
       header: {
         title: 'สถานะเซิร์ฟเวอร์',

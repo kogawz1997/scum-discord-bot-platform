@@ -3,26 +3,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Player Login</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | เข้าสู่พอร์ทัลผู้เล่น</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-ui-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Player sign in</span></span>
-      </a>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">Player Portal</strong>
+            <span class="site-brand-detail">ใช้ Discord เพื่อเข้าสู่ร้านค้า คำสั่งซื้อ สถิติ และกิจกรรมของชุมชน</span>
+          </span>
+        </a>
+      </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-grid two-col">
-        <article class="auth-card">
-          <h2>เข้าสู่พอร์ทัลผู้เล่น</h2>
-          <p>ใช้ Discord account ของคุณเพื่อเข้าถึงกระเป๋าเงิน คำสั่งซื้อ การส่งของ สถิติ และกิจกรรมของชุมชน</p>
-          <div class="button-row">
-            <a class="button button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
+    <main class="site-main">
+      <section class="site-grid-2">
+        <article class="site-auth-card site-stack">
+          <span class="site-kicker">Discord Sign In</span>
+          <h1 class="site-page-title">เข้าสู่ระบบผู้เล่น</h1>
+          <p class="site-page-copy">ใช้บัญชี Discord ของคุณเพื่อเปิดพอร์ทัลผู้เล่น ดูกระเป๋าเงิน คำสั่งซื้อ การส่งของ และกิจกรรมของเซิร์ฟเวอร์</p>
+          <div class="site-tool-cluster">
+            <a class="site-button site-button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
           </div>
           <div class="form-status is-error">__ERROR_MESSAGE__</div>
+        </article>
+        <article class="site-panel site-help-panel">
+          <span class="site-kicker">ก่อนเข้าใช้งาน</span>
+          <h2 class="site-card-title">สิ่งที่ควรเตรียมไว้</h2>
+          <ul class="marketing-list">
+            <li>บัญชี Discord เดียวกับที่ใช้ในชุมชนของเซิร์ฟเวอร์</li>
+            <li>ข้อมูล Steam หรือชื่อในเกม ถ้าต้องการผูกบัญชีรับของ</li>
+            <li>ตรวจว่าแพ็กเกจของเซิร์ฟเวอร์เปิดฟีเจอร์ผู้เล่นไว้แล้ว</li>
+          </ul>
         </article>
       </section>
     </main>

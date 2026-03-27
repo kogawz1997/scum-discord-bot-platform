@@ -39,7 +39,7 @@
 
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -184,10 +184,12 @@
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Tenant Admin V4 Preview',
+      surfaceLabel: 'แผงผู้เช่า',
         workspaceLabel: tenantName,
-        environmentLabel: 'Parallel V4',
-        navGroups: NAV_GROUPS,
+      environmentLabel: 'พื้นที่ผู้เช่า',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : NAV_GROUPS,
       },
       header: {
         title: 'Delivery Agents',
@@ -204,7 +206,7 @@
         { label: 'ออนไลน์', value: formatNumber(online, '0'), detail: 'รันไทม์ที่มองเห็น heartbeat ล่าสุด', tone: online > 0 ? 'success' : 'muted' },
         { label: 'รอ activate', value: formatNumber(pending, '0'), detail: 'มี token แล้วแต่ยังไม่ผูกเครื่อง', tone: pending > 0 ? 'warning' : 'muted' },
         { label: 'คิวส่งของ', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'ปริมาณงานที่รอหรือกำลังวิ่งอยู่', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
-        { label: 'dead-letter', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'คำสั่งซื้อที่ล้มเหลวและต้องตรวจต่อ', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
+        { label: 'งานที่ล้มเหลว', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'คำสั่งซื้อที่ล้มเหลวและต้องตรวจต่อ', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
       ],
       rows: rows.map((row) => ({
         name: firstNonEmpty([row?.meta?.agentLabel, row?.runtimeKey, row?.name, 'Delivery Agent']),
@@ -365,7 +367,7 @@
       '<div class="tdv4-data-table">',
       ...(Array.isArray(safeModel.rows) && safeModel.rows.length
         ? safeModel.rows.map((row) => renderRuntimeRow(row, safeModel.selected?.name))
-        : ['<div class="tdv4-empty-state">ยังไม่พบ Delivery Agent ใน tenant นี้</div>']),
+        : ['<div class="tdv4-empty-state"><strong>ยังไม่มี Delivery Agent</strong><span>สร้างตัวรันส่งของก่อน เพื่อให้ระบบส่งไอเทมและประกาศในเกมได้จริง</span><a class="tdv4-button tdv4-button-primary" href="#delivery-agents-new">สร้าง Delivery Agent</a></div>']),
       '</div>',
       '</section>',
       '<section class="tdv4-panel">',
@@ -383,7 +385,7 @@
             `<div class="tdv4-kpi-detail">Issue ${escapeHtml(safeModel.selected.issue)}</div>`,
             '</div>',
           ].join('')
-        : '<div class="tdv4-empty-state">เลือก runtime จากตารางก่อน</div>'),
+        : '<div class="tdv4-empty-state"><strong>ยังไม่ได้เลือก Delivery Agent</strong><span>เลือกตัวรันส่งของจากตารางก่อน เพื่อดู binding เครื่องและความพร้อมในการรับงาน</span></div>'),
       '</section>',
       '</section>',
       '<section class="tdv4-panel">',
@@ -392,8 +394,8 @@
       '<div class="tdv4-runtime-readiness-grid">',
       `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Runtime status</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.runtimeStatus)}</div></article>`,
       `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Execution mode</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.runtimeMode)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Queue jobs</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.queueCount)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Dead letters</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.deadLetterCount)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานรอส่ง</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.queueCount)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานที่ล้มเหลว</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.readiness.deadLetterCount)}</div></article>`,
       '</div>',
       '</section>',
       '</main>',

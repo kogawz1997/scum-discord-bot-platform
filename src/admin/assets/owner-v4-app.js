@@ -12,6 +12,7 @@
     commercial: 'tenants',
     quota: 'tenants',
     fleet: 'runtime',
+    'fleet-assets': 'runtime',
     incidents: 'runtime',
     observability: 'runtime',
     jobs: 'runtime',
@@ -21,7 +22,10 @@
     control: 'runtime',
     access: 'runtime',
     recovery: 'runtime',
+    runtime: 'runtime',
     'runtime-health': 'runtime',
+    settings: 'dashboard',
+    diagnostics: 'runtime',
   };
 
   const PAGE_TITLES = {
@@ -34,11 +38,30 @@
     payload: null,
     refreshing: false,
     timerId: null,
+    requestId: 0,
+  };
+
+  const OWNER_OVERVIEW_FALLBACK = {
+    analytics: {
+      tenants: { total: 0, active: 0, trialing: 0, reseller: 0 },
+      subscriptions: { total: 0, active: 0, mrrCents: 0 },
+      delivery: { queueDepth: 0, deadLetters: 0, failureRatePct: 0, lastSyncAt: null },
+    },
+    publicOverview: null,
+    permissionCatalog: [],
+    plans: [],
+    packages: [],
+    features: [],
+    tenantFeatureAccess: null,
+    opsState: null,
+    automationState: null,
+    automationConfig: null,
+    tenantConfig: null,
   };
 
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -71,22 +94,39 @@
     ].join('');
   }
 
-  async function api(path, fallback) {
-    const response = await fetch(path, {
-      credentials: 'same-origin',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload?.ok === false) {
-      if (response.status === 401) {
-        window.location.href = '/owner/login';
+  async function api(path, fallback, options = {}) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeoutId = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 && controller
+      ? window.setTimeout(() => controller.abort(), options.timeoutMs)
+      : null;
+    try {
+      const response = await fetch(path, {
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller ? controller.signal : undefined,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        if (response.status === 401) {
+          window.location.href = '/owner/login';
+          return fallback;
+        }
+        throw new Error(String(payload?.error || `Request failed (${response.status})`));
+      }
+      return payload?.data ?? fallback;
+    } catch (error) {
+      const aborted = error?.name === 'AbortError';
+      if (aborted && options.allowTimeoutFallback) {
         return fallback;
       }
-      throw new Error(String(payload?.error || `Request failed (${response.status})`));
+      throw error;
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
     }
-    return payload?.data ?? fallback;
   }
 
   function normalizeHashRoute() {
@@ -112,6 +152,8 @@
   async function refreshState(options = {}) {
     if (state.refreshing) return;
     state.refreshing = true;
+    const requestId = Date.now();
+    state.requestId = requestId;
     if (!options.silent) {
       setStatus('กำลังโหลดข้อมูลเจ้าของระบบ...', 'info');
       renderMessageCard('กำลังเตรียมข้อมูล', 'กำลังดึงภาพรวมผู้เช่า สถานะรันไทม์ และเหตุการณ์ล่าสุดเพื่อประกอบหน้า V4');
@@ -134,7 +176,10 @@
         requestLogs,
         deliveryLifecycle,
       ] = await Promise.all([
-        api('/admin/api/platform/overview', {}),
+        api('/admin/api/platform/overview', OWNER_OVERVIEW_FALLBACK, {
+          timeoutMs: 2500,
+          allowTimeoutFallback: true,
+        }),
         api('/admin/api/platform/tenants?limit=50', []),
         api('/admin/api/platform/subscriptions?limit=50', []),
         api('/admin/api/platform/licenses?limit=50', []),
@@ -145,8 +190,6 @@
         api('/admin/api/observability/requests?limit=20&onlyErrors=true', { metrics: {}, items: [] }),
         api('/admin/api/delivery/lifecycle?limit=80&pendingOverdueMs=1200000', {}),
       ]);
-
-      const tenantQuotaSnapshots = await loadQuotaSnapshots(tenants);
 
       state.payload = {
         me,
@@ -160,10 +203,25 @@
         runtimeSupervisor,
         requestLogs,
         deliveryLifecycle,
-        tenantQuotaSnapshots,
+        tenantQuotaSnapshots: [],
       };
       renderCurrentPage();
-      setStatus('พร้อมใช้งาน', 'success');
+      setStatus('กำลังเติมข้อมูลเชิงลึกของผู้เช่า...', 'info');
+
+      loadQuotaSnapshots(tenants)
+        .then((tenantQuotaSnapshots) => {
+          if (state.requestId !== requestId || !state.payload) return;
+          state.payload = {
+            ...state.payload,
+            tenantQuotaSnapshots,
+          };
+          renderCurrentPage();
+          setStatus('พร้อมใช้งาน', 'success');
+        })
+        .catch(() => {
+          if (state.requestId !== requestId) return;
+          setStatus('พร้อมใช้งาน', 'success');
+        });
     } catch (error) {
       renderMessageCard('โหลดหน้าเจ้าของระบบไม่สำเร็จ', String(error?.message || error));
       setStatus('โหลดข้อมูลไม่สำเร็จ', 'danger');

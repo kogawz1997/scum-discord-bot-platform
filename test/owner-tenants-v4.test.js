@@ -23,17 +23,19 @@ test('owner tenants v4 model builds registry rows from owner tenant state', () =
     supportCase: { tenantId: 'tenant-1' },
   });
 
-  assert.equal(model.header.title, 'Tenants');
+  assert.equal(model.header.title, 'ผู้เช่าและสถานะเชิงพาณิชย์');
   assert.equal(model.summaryStrip.length, 4);
   assert.equal(model.rows.length, 2);
   assert.equal(model.spotlight.name, 'Prime');
+  assert.equal(model.nextActions.length, 3);
   assert.ok(model.rows.some((row) => row.packageName === 'FULL_OPTION'));
 });
 
 test('owner tenants v4 html includes registry and spotlight sections', () => {
   const html = buildOwnerTenantsV4Html(createOwnerTenantsV4Model({}));
-  assert.match(html, /Tenant list/);
-  assert.match(html, /Tenant spotlight/);
+  assert.match(html, /รายชื่อผู้เช่า/);
+  assert.match(html, /ผู้เช่าที่ควรเปิดดูก่อน/);
+  assert.match(html, /เริ่มจากเรื่องที่กระทบรายได้และบริการก่อน/);
   assert.match(html, /odv4-table/);
 });
 

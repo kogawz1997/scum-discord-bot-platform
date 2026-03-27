@@ -3,53 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Sign Up</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | สร้างบัญชี</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Create preview tenant</span></span>
-      </a>
-      <nav class="marketing-nav">
-        <a href="/landing">ภาพรวม</a>
-        <a href="/pricing">แพ็กเกจ</a>
-        <a class="is-active" href="/signup">สมัครใช้งาน</a>
-        <a href="/login">เข้าสู่ระบบ</a>
-      </nav>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">สร้างบัญชีและพื้นที่ทำงานก่อนเปิดใช้งานจริงได้ทันที</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="site-nav-link" href="/landing">ภาพรวม</a>
+          <a class="site-nav-link" href="/pricing">แพ็กเกจ</a>
+          <a class="site-nav-link is-active" href="/signup">สร้างบัญชี</a>
+          <a class="site-nav-link" href="/login">เข้าสู่ระบบ</a>
+        </nav>
+      </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-grid two-col">
-        <article class="auth-card">
-          <h2>สร้างบัญชีทดลองใช้งาน</h2>
-          <p>สมัครได้เลยโดยไม่ต้องซื้อก่อน คุณจะเข้าสู่ Preview Mode เพื่อดูโครงสร้าง tenant admin panel จริงก่อนตัดสินใจ</p>
-          <form id="previewSignupForm" class="auth-form-grid">
-            <input id="previewSignupDisplayName" class="auth-input" placeholder="ชื่อที่ใช้แสดง">
-            <input id="previewSignupCommunityName" class="auth-input" placeholder="ชื่อชุมชนหรือเซิร์ฟเวอร์">
-            <input id="previewSignupEmail" class="auth-input" type="email" placeholder="อีเมล">
-            <input id="previewSignupPassword" class="auth-input" type="password" placeholder="รหัสผ่าน">
-            <select id="previewSignupPackageId" class="language-select"></select>
-            <button id="previewSignupSubmit" class="button button-primary" type="submit">สร้าง Preview Tenant</button>
-            <div id="previewSignupStatus" class="form-status" aria-live="polite"></div>
+    <main class="site-main">
+      <section class="site-grid-2">
+        <article class="site-auth-card site-stack">
+          <span class="site-kicker">Workspace Signup</span>
+          <h1 class="site-page-title">สร้างบัญชีและพื้นที่ทำงาน</h1>
+          <p class="site-page-copy">หลังสมัคร ระบบจะสร้างพื้นที่ใช้งานเริ่มต้นให้คุณทันที เพื่อให้ลองดูเมนู สิทธิ์ และโครงงานก่อนเปิดใช้งานจริง โดยไม่ต้องซื้อก่อน</p>
+          <form id="previewSignupForm" class="site-form-grid">
+            <label class="site-field">
+              <span>ชื่อที่ใช้แสดง</span>
+              <input id="previewSignupDisplayName" class="auth-input" placeholder="เช่น Koga Team">
+            </label>
+            <label class="site-field">
+              <span>ชื่อชุมชนหรือเซิร์ฟเวอร์</span>
+              <input id="previewSignupCommunityName" class="auth-input" placeholder="เช่น SCUM TH Prime">
+            </label>
+            <label class="site-field">
+              <span>อีเมล</span>
+              <input id="previewSignupEmail" class="auth-input" type="email" placeholder="name@example.com">
+            </label>
+            <label class="site-field">
+              <span>รหัสผ่าน</span>
+              <input id="previewSignupPassword" class="auth-input" type="password" placeholder="ตั้งรหัสผ่าน">
+            </label>
+            <label class="site-field site-field-span">
+              <span>แพ็กเกจที่ต้องการเริ่มต้น</span>
+              <select id="previewSignupPackageId" class="language-select"></select>
+            </label>
+            <div class="site-field site-field-span">
+              <button id="previewSignupSubmit" class="button button-primary" type="submit">สร้างบัญชีและพื้นที่ทำงาน</button>
+              <div id="previewSignupStatus" class="form-status" aria-live="polite"></div>
+            </div>
           </form>
         </article>
-        <article class="marketing-panel">
-          <div class="marketing-panel-head">
-            <span class="marketing-kicker">Preview first</span>
-            <h3>สิ่งที่จะเห็นหลังสมัคร</h3>
-          </div>
+        <article class="site-panel site-media-card">
+          <div class="site-media-shot is-loot-scene"></div>
+          <span class="site-kicker">หลังสร้างบัญชี</span>
+          <h2 class="site-card-title">เห็นโครงงานจริง แต่ action สำคัญยังถูกควบคุมตามสิทธิ์</h2>
           <ul class="marketing-list">
-            <li>เมนู tenant admin panel แบบครบ แต่ action สำคัญจะถูกล็อกตาม preview mode</li>
-            <li>ดูหน้า Servers, Orders, Players, Delivery Agents และ Config ได้ก่อนซื้อจริง</li>
-            <li>อัปเกรดแพ็กเกจและเปิด runtime จริงได้ภายหลัง</li>
+            <li>เปิดดูหน้า Dashboard, Server Status, Orders, Players, Delivery Agents และ Server Bots ได้จริง</li>
+            <li>ปุ่มที่ต้องใช้แพ็กเกจหรือ runtime เพิ่มจะขึ้นสถานะชัดเจนว่า “ต้องอัปเกรด” หรือ “ต้องเปิดเพิ่ม”</li>
+            <li>อัปเกรดภายหลังแล้วใช้พื้นที่เดิมต่อได้ ไม่ต้องเริ่ม onboarding ใหม่</li>
           </ul>
         </article>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/portal-i18n.js"></script>
-  <script src="/player/assets/ui/public-auth-v2.js"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260327-live-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260327-live-1"></script>
 </body>
 </html>

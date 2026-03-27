@@ -3,6 +3,12 @@
  * cart, redeem, bounty, and rentbike flows grouped outside the entry file.
  */
 
+const {
+  hasFeatureAccess,
+  loadPlayerFeatureAccess,
+  sendPlayerFeatureDenied,
+} = require('./playerRouteEntitlements');
+
 function createPlayerCommerceRoutes(deps) {
   const {
     sendJson,
@@ -36,6 +42,10 @@ function createPlayerCommerceRoutes(deps) {
     normalizeShopKind,
   } = deps;
 
+  async function getFeatureAccess(session) {
+    return loadPlayerFeatureAccess(deps.getTenantFeatureAccess, session);
+  }
+
   return async function handlePlayerCommerceRoute(context) {
     const {
       req,
@@ -50,6 +60,10 @@ function createPlayerCommerceRoutes(deps) {
     };
 
     if (pathname === '/player/api/shop/list' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       const q = normalizeText(urlObj.searchParams.get('q'));
       const kind = normalizeText(urlObj.searchParams.get('kind') || 'all') || 'all';
       const limit = asInt(urlObj.searchParams.get('limit'), 120, 1, 1000);
@@ -68,6 +82,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if ((pathname === '/player/api/shop/buy' || pathname === '/player/api/buy') && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       const body = await readJsonBody(req);
       const query = normalizeText(body.item || body.itemId || body.query);
       if (!query) {
@@ -149,6 +167,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/purchase/list' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['orders_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['orders_module']);
+      }
       const statusFilter = normalizePurchaseStatus(urlObj.searchParams.get('status'));
       const limit = asInt(urlObj.searchParams.get('limit'), 40, 1, 200);
       const includeHistory = urlObj.searchParams.get('includeHistory') === '1';
@@ -206,6 +228,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       const raw = listCartItems(session.discordId, tenantOptions);
       const resolved = await getResolvedCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
@@ -219,6 +245,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart/add' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       const body = await readJsonBody(req);
       const query = normalizeText(body.item || body.itemId || body.query);
       const quantity = normalizeQuantity(body.quantity, 1);
@@ -262,6 +292,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart/remove' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       const body = await readJsonBody(req);
       const query = normalizeText(body.item || body.itemId || body.query);
       const quantity = normalizeQuantity(body.quantity, 1);
@@ -291,6 +325,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart/clear' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module']);
+      }
       clearCart(session.discordId, tenantOptions);
       sendJson(res, 200, {
         ok: true,
@@ -306,6 +344,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/cart/checkout' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['shop_module', 'orders_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['shop_module', 'orders_module']);
+      }
       const body = await readJsonBody(req).catch(() => ({}));
       const steamLink = await resolveSessionSteamLink(session.discordId, tenantOptions);
       const resolvedBeforeCheckout = await getResolvedCart(session.discordId, tenantOptions);
@@ -366,6 +408,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/bounty/list' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'event_auto_reward', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'event_auto_reward', 'promo_module']);
+      }
       const items = listActiveBountiesForUser(tenantOptions);
       sendJson(res, 200, {
         ok: true,
@@ -378,6 +424,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/redeem' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['orders_module', 'wallet_module', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['orders_module', 'wallet_module', 'promo_module']);
+      }
       const body = await readJsonBody(req);
       const code = normalizeText(body.code);
       if (!code) {
@@ -426,6 +476,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/rentbike/request' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'promo_module']);
+      }
       const body = await readJsonBody(req).catch(() => ({}));
       const result = await requestRentBikeForUser({
         discordUserId: session.discordId,
@@ -448,6 +502,10 @@ function createPlayerCommerceRoutes(deps) {
     }
 
     if (pathname === '/player/api/bounty/add' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module', 'event_auto_reward', 'promo_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'event_auto_reward', 'promo_module']);
+      }
       const body = await readJsonBody(req);
       const targetName = normalizeText(body.targetName);
       const amount = Number(body.amount);

@@ -4,6 +4,8 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const net = require('node:net');
 const { once } = require('node:events');
+const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
+const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
 
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -43,6 +45,18 @@ async function waitForHttp(url, timeoutMs = 15000) {
 }
 
 async function main() {
+  loadMergedEnvFiles({
+    basePath: path.resolve(process.cwd(), '.env'),
+    overlayPath: path.resolve(process.cwd(), 'apps', 'web-portal-standalone', '.env'),
+    ignoreEmptyOverlay: true,
+    overrideExisting: false,
+  });
+
+  const databaseRuntime = resolveDatabaseRuntime({
+    databaseUrl: process.env.DATABASE_URL,
+    provider: process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER,
+  });
+
   const [adminPort, playerPort, agentPort] = await Promise.all([
     getFreePort(),
     getFreePort(),
@@ -77,6 +91,12 @@ async function main() {
     process.env.SCUM_CONSOLE_AGENT_TOKEN || 'ci_agent_token_123456';
   process.env.SCUM_CONSOLE_AGENT_BACKEND = 'exec';
   process.env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE = process.env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE || '';
+  if (databaseRuntime.isServerEngine && process.env.DATABASE_URL) {
+    process.env.PRISMA_TEST_DATABASE_URL =
+      process.env.PRISMA_TEST_DATABASE_URL || process.env.DATABASE_URL;
+    process.env.PRISMA_TEST_DATABASE_PROVIDER =
+      process.env.PRISMA_TEST_DATABASE_PROVIDER || databaseRuntime.engine;
+  }
 
   const fakeClient = {
     guilds: { cache: new Map() },

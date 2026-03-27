@@ -216,6 +216,10 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   assert.equal(scopedBackupStatus.res.status, 403);
   assert.match(String(scopedBackupStatus.data.error || ''), /shared backups/i);
 
+  const scopedBackupHistory = await request('/admin/api/backup/restore/history', 'GET', null, tenantOwnerCookie);
+  assert.equal(scopedBackupHistory.res.status, 403);
+  assert.match(String(scopedBackupHistory.data.error || ''), /shared restore history/i);
+
   const scopedBackupCreate = await request('/admin/api/backup/create', 'POST', {
     note: 'tenant-scoped-should-fail',
   }, tenantOwnerCookie);

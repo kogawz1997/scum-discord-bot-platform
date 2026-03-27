@@ -33,7 +33,7 @@ test('owner runtime health v4 model maps runtime, incident, and hotspot state', 
     deliveryLifecycle: { summary: { deadLetterCount: 3 } },
   });
 
-  assert.equal(model.header.title, 'Runtime health and incidents');
+  assert.equal(model.header.title, 'สุขภาพรันไทม์และเหตุการณ์');
   assert.equal(model.summaryStrip.length, 4);
   assert.equal(model.runtimeRows.length, 2);
   assert.equal(model.agentRows.length, 2);
@@ -42,9 +42,9 @@ test('owner runtime health v4 model maps runtime, incident, and hotspot state', 
 
 test('owner runtime health v4 html includes runtime matrix and hotspot table', () => {
   const html = buildOwnerRuntimeHealthV4Html(createOwnerRuntimeHealthV4Model({}));
-  assert.match(html, /Managed services/);
-  assert.match(html, /Current owner signals/);
-  assert.match(html, /Request hotspots/);
+  assert.match(html, /บริการที่ต้องเฝ้าดู/);
+  assert.match(html, /สัญญาณที่เจ้าของระบบควรรู้ตอนนี้/);
+  assert.match(html, /จุดร้อนของคำขอ/);
 });
 
 test('owner runtime preview references parallel assets', () => {

@@ -155,6 +155,7 @@ const {
   previewAdminBackupRestore,
   restoreAdminBackup,
   getAdminRestoreState,
+  listAdminRestoreHistory,
 } = require('./services/adminSnapshotService');
 const {
   buildAuditDataset: buildAuditDatasetService,
@@ -275,10 +276,12 @@ const { updateEnvFile } = require('./utils/envFileEditor');
 const { resolveDatabaseRuntime } = require('./utils/dbEngine');
 const {
   buildControlPanelEnvCatalog: buildAdminEditableEnvCatalog,
+  buildControlPanelEnvCatalogGroups: buildAdminEditableEnvCatalogGroups,
   buildControlPanelEnvApplySummary: buildAdminEditableEnvApplySummary,
   buildControlPanelEnvPatch: buildAdminEditableEnvPatch,
   buildControlPanelEnvPolicySummary: buildAdminEditableEnvPolicySummary,
   buildControlPanelEnvSection: buildAdminEditableEnvSection,
+  buildControlPanelEnvSectionGroups: buildAdminEditableEnvSectionGroups,
   getControlPanelEnvFileValues: getAdminEditableEnvFileValues,
   getPortalEnvFilePath: resolveAdminEditablePortalEnvFilePath,
   getRootEnvFilePath: resolveAdminEditableRootEnvFilePath,
@@ -511,7 +514,9 @@ const {
   getRequiredCommandAccessRole,
   getAdminEditableEnvFileValues,
   buildAdminEditableEnvSection,
+  buildAdminEditableEnvSectionGroups,
   buildAdminEditableEnvCatalog,
+  buildAdminEditableEnvCatalogGroups,
   buildAdminEditableEnvPolicySummary,
   getRootEnvFilePath: resolveAdminEditableRootEnvFilePath,
   getPortalEnvFilePath: resolveAdminEditablePortalEnvFilePath,
@@ -878,6 +883,7 @@ const handleAdminGetRoute = createAdminGetRoutes({
   buildCommandRegistry,
   getRuntimeSupervisorSnapshot,
   getAdminRestoreState,
+  listAdminRestoreHistory,
   getPlatformAnalyticsOverview,
   buildTenantDiagnosticsBundle,
   buildTenantDiagnosticsCsv,

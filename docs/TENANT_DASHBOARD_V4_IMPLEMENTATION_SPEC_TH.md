@@ -278,44 +278,44 @@ quick actions:
 
 ใช้ของที่มีอยู่จริงใน repo ก่อน โดยไม่สร้าง contract ใหม่ถ้ายังไม่จำเป็น
 
-| Dashboard block | Current state key | Current endpoint |
-|---|---|---|
-| current user / role / tenant scope | `state.me` | `/admin/api/me` |
-| overview analytics | `state.overview` | `/admin/api/platform/overview?tenantId={id}` |
-| reconcile summary | `state.reconcile` | `/admin/api/platform/reconcile?tenantId={id}&windowMs=3600000&pendingOverdueMs=1200000` |
-| quota posture | `state.quota` | `/admin/api/platform/quota?tenantId={id}` |
-| tenant config summary | `state.tenantConfig` | `/admin/api/platform/tenant-config?tenantId={id}` |
-| package/subscription cards | `state.subscriptions` | `/admin/api/platform/subscriptions?tenantId={id}&limit=6` |
-| licenses | `state.licenses` | `/admin/api/platform/licenses?tenantId={id}&limit=6` |
-| API keys quota drilldown | `state.apiKeys` | `/admin/api/platform/apikeys?tenantId={id}&limit=12` |
-| webhooks quota drilldown | `state.webhooks` | `/admin/api/platform/webhooks?tenantId={id}&limit=12` |
-| runtime list | `state.agents` | `/admin/api/platform/agents?tenantId={id}&limit=12` |
-| dashboard commerce metrics | `state.dashboardCards` | `/admin/api/dashboard/cards?tenantId={id}` |
-| shop summary | `state.shopItems` | `/admin/api/shop/list?tenantId={id}&limit=24` |
-| queue summary | `state.queueItems` | `/admin/api/delivery/queue?tenantId={id}&limit=20` |
-| dead-letter summary | `state.deadLetters` | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20` |
-| delivery lifecycle | `state.deliveryLifecycle` | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000` |
-| player support summary | `state.players` | `/admin/api/player/accounts?tenantId={id}&limit=20` |
-| unread notifications | `state.notifications` | `/admin/api/notifications?acknowledged=false&limit=10` |
-| runtime readiness | `state.deliveryRuntime` | `/admin/api/delivery/runtime` |
-| audit snapshot | `state.audit` | `/admin/api/audit/query?...` |
+| Dashboard block                    | Current state key         | Current endpoint                                                                        |
+| ---------------------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
+| current user / role / tenant scope | `state.me`                | `/admin/api/me`                                                                         |
+| overview analytics                 | `state.overview`          | `/admin/api/platform/overview?tenantId={id}`                                            |
+| reconcile summary                  | `state.reconcile`         | `/admin/api/platform/reconcile?tenantId={id}&windowMs=3600000&pendingOverdueMs=1200000` |
+| quota posture                      | `state.quota`             | `/admin/api/platform/quota?tenantId={id}`                                               |
+| tenant config summary              | `state.tenantConfig`      | `/admin/api/platform/tenant-config?tenantId={id}`                                       |
+| package/subscription cards         | `state.subscriptions`     | `/admin/api/platform/subscriptions?tenantId={id}&limit=6`                               |
+| licenses                           | `state.licenses`          | `/admin/api/platform/licenses?tenantId={id}&limit=6`                                    |
+| API keys quota drilldown           | `state.apiKeys`           | `/admin/api/platform/apikeys?tenantId={id}&limit=12`                                    |
+| webhooks quota drilldown           | `state.webhooks`          | `/admin/api/platform/webhooks?tenantId={id}&limit=12`                                   |
+| runtime list                       | `state.agents`            | `/admin/api/platform/agents?tenantId={id}&limit=12`                                     |
+| dashboard commerce metrics         | `state.dashboardCards`    | `/admin/api/dashboard/cards?tenantId={id}`                                              |
+| shop summary                       | `state.shopItems`         | `/admin/api/shop/list?tenantId={id}&limit=24`                                           |
+| queue summary                      | `state.queueItems`        | `/admin/api/delivery/queue?tenantId={id}&limit=20`                                      |
+| dead-letter summary                | `state.deadLetters`       | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20`                                |
+| delivery lifecycle                 | `state.deliveryLifecycle` | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000`         |
+| player support summary             | `state.players`           | `/admin/api/player/accounts?tenantId={id}&limit=20`                                     |
+| unread notifications               | `state.notifications`     | `/admin/api/notifications?acknowledged=false&limit=10`                                  |
+| runtime readiness                  | `state.deliveryRuntime`   | `/admin/api/delivery/runtime`                                                           |
+| audit snapshot                     | `state.audit`             | `/admin/api/audit/query?...`                                                            |
 
 ## 10. DOM hook reuse plan
 
 ถ้าอยากย้ายหน้าเก่าไปหน้าใหม่แบบไม่หัก logic มากเกินไป ให้ reuse DOM hooks ต่อไปนี้ก่อน:
 
-| Current hook id | Recommended V4 role |
-|---|---|
-| `tenantOverviewStats` | KPI strip |
-| `tenantQuickActions` | task hub |
-| `tenantIncidentStats` | issue summary tiles |
-| `tenantIncidentFeed` | issue list |
-| `tenantInsightStats` | reconcile and quota insights |
-| `tenantReconcileFeed` | reconcile findings feed |
-| `tenantDeliveryLifecycleStats` | delivery insight strip |
-| `tenantPlanStats` | package/quota/integration context |
-| `tenantNotificationFeed` | right rail notifications |
-| `tenantActivityFeed` | bottom activity rail |
+| Current hook id                | Recommended V4 role               |
+| ------------------------------ | --------------------------------- |
+| `tenantOverviewStats`          | KPI strip                         |
+| `tenantQuickActions`           | task hub                          |
+| `tenantIncidentStats`          | issue summary tiles               |
+| `tenantIncidentFeed`           | issue list                        |
+| `tenantInsightStats`           | reconcile and quota insights      |
+| `tenantReconcileFeed`          | reconcile findings feed           |
+| `tenantDeliveryLifecycleStats` | delivery insight strip            |
+| `tenantPlanStats`              | package/quota/integration context |
+| `tenantNotificationFeed`       | right rail notifications          |
+| `tenantActivityFeed`           | bottom activity rail              |
 
 แนวทาง:
 

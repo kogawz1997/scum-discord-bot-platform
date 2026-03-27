@@ -4,13 +4,166 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Discord Only</title>
+  <title>SCUM TH Platform | ศูนย์เลือกแผงผู้ดูแล</title>
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-live-1">
+  <style>
+    .hub-layout {
+      display: grid;
+      gap: 24px;
+    }
+    .hub-hero,
+    .hub-card {
+      display: grid;
+      gap: 16px;
+      padding: 28px;
+      border: 1px solid rgba(191, 170, 112, 0.16);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 100%),
+        rgba(13, 20, 17, 0.94);
+      box-shadow: 0 24px 56px rgba(0, 0, 0, 0.26);
+    }
+    .hub-hero {
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      align-items: stretch;
+    }
+    .hub-copy,
+    .hub-actions,
+    .hub-grid,
+    .hub-list,
+    .hub-side {
+      display: grid;
+      gap: 16px;
+    }
+    .hub-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .hub-title,
+    .hub-card h2 {
+      margin: 0;
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+    }
+    .hub-title {
+      font-size: clamp(2rem, 3vw, 3rem);
+    }
+    .hub-copy p,
+    .hub-card p,
+    .hub-list li,
+    .hub-side p {
+      margin: 0;
+      color: rgba(243, 237, 225, 0.74);
+      line-height: 1.68;
+    }
+    .hub-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .hub-actions {
+      grid-auto-flow: column;
+      justify-content: start;
+    }
+    .hub-shot {
+      min-height: 220px;
+      border-radius: 20px;
+      border: 1px solid rgba(191, 170, 112, 0.14);
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    .hub-shot.is-owner {
+      background-image:
+        linear-gradient(180deg, rgba(7, 10, 8, 0.2), rgba(8, 10, 8, 0.58)),
+        url('/admin/assets/owner-panel-scene.svg');
+    }
+    .hub-shot.is-tenant {
+      background-image:
+        linear-gradient(180deg, rgba(7, 10, 8, 0.2), rgba(8, 10, 8, 0.58)),
+        url('/admin/assets/tenant-panel-scene.svg');
+    }
+    @media (max-width: 960px) {
+      .hub-hero,
+      .hub-grid {
+        grid-template-columns: 1fr;
+      }
+      .hub-actions {
+        grid-auto-flow: row;
+      }
+    }
+  </style>
 </head>
-<body data-surface-mode="discord-only" data-surface="admin-dashboard">
-  <main>
-    <h1>Discord-only deployment</h1>
-    <p>หน้าเว็บนี้ถูกปิดออกจากระบบแล้ว</p>
-    <p>กรุณาใช้งานผ่าน Discord เท่านั้น</p>
-  </main>
+<body class="surface-body surface-owner">
+  <div class="surface-app">
+    <header class="surface-globalbar">
+      <div class="surface-globalbar-main">
+        <a class="surface-brand" href="/admin">
+          <span class="surface-brand-mark">SCUM</span>
+          <span class="surface-brand-copy">
+            <span class="surface-brand-eyebrow">Admin Hub</span>
+            <strong class="surface-brand-title">เลือกแผงที่ตรงกับบทบาทของคุณ</strong>
+            <span class="surface-brand-detail">คง route เดิมไว้เพื่อความเข้ากันได้ แต่พาผู้ใช้ไปยัง Owner Panel หรือ Tenant Admin Panel รุ่นปัจจุบันทันที</span>
+          </span>
+        </a>
+      </div>
+      <div class="surface-globalbar-tools">
+        <nav class="surface-role-switch" aria-label="Admin destinations">
+          <a class="surface-role-link is-active" href="/admin">Admin Hub</a>
+          <a class="surface-role-link" href="/owner">Owner</a>
+          <a class="surface-role-link" href="/tenant">Tenant</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="surface-stage">
+      <div class="surface-mount">
+        <section class="hub-layout">
+          <article class="hub-hero">
+            <div class="hub-copy">
+              <span class="surface-brand-eyebrow">Entry Bridge</span>
+              <h1 class="hub-title">เลือกปลายทางให้ตรงกับงานที่คุณกำลังจะทำ</h1>
+              <p>หน้า <code>/admin</code> ใช้เป็นศูนย์เลือกทางเข้าสำหรับ route เดิม โดยพาผู้ใช้ไปยังแผงควบคุมที่เหมาะกับสิทธิ์และงานของตัวเองทันที แทนการกองทุกอย่างไว้ในหน้าเดียว</p>
+              <div class="hub-actions">
+                <a class="surface-button surface-button-primary" href="/owner">เปิด Owner Panel</a>
+                <a class="surface-button" href="/tenant">เปิด Tenant Panel</a>
+              </div>
+            </div>
+            <aside class="hub-side">
+              <div class="hub-shot is-owner"></div>
+              <span class="surface-status" data-tone="warning">Route เดิมยังใช้งานได้</span>
+              <p>เส้นทางนี้ยังเปิดไว้เพื่อให้ลิงก์เดิมใช้ต่อได้ แต่หน้าทำงานจริงของผู้ดูแลอยู่ใน Owner Panel และ Tenant Admin Panel แล้ว</p>
+            </aside>
+          </article>
+
+          <section class="hub-grid" aria-label="Admin panel destinations">
+            <article class="hub-card">
+              <div class="hub-shot is-owner"></div>
+              <span class="surface-brand-eyebrow">Owner Panel</span>
+              <h2>ศูนย์ควบคุมแพลตฟอร์ม</h2>
+              <p>ใช้สำหรับดูภาพรวมผู้เช่า แพ็กเกจ รายได้ สุขภาพรันไทม์ เหตุการณ์ และความปลอดภัยระดับแพลตฟอร์ม</p>
+              <ul class="hub-list">
+                <li>จัดการ tenant, package และ subscription</li>
+                <li>ดู incident, audit และ runtime health</li>
+                <li>ควบคุม feature, diagnostics และ security ระดับระบบ</li>
+              </ul>
+              <a class="surface-button surface-button-primary" href="/owner">ไปยัง Owner Panel</a>
+            </article>
+
+            <article class="hub-card">
+              <div class="hub-shot is-tenant"></div>
+              <span class="surface-brand-eyebrow">Tenant Admin Panel</span>
+              <h2>แผงดูแลเซิร์ฟเวอร์</h2>
+              <p>ใช้สำหรับงานประจำวันของแต่ละชุมชน เช่น สถานะเซิร์ฟเวอร์ คำสั่งซื้อ ผู้เล่น การส่งของ และการดูแล Delivery Agent กับ Server Bot แยกหน้ากันชัดเจน</p>
+              <ul class="hub-list">
+                <li>ดูสถานะเซิร์ฟเวอร์และข้อมูลซิงก์ล่าสุด</li>
+                <li>ติดตามคำสั่งซื้อ การส่งของ และข้อมูลผู้เล่น</li>
+                <li>จัดการ Delivery Agent และ Server Bot คนละหน้า</li>
+              </ul>
+              <a class="surface-button" href="/tenant">ไปยัง Tenant Panel</a>
+            </article>
+          </section>
+        </section>
+      </div>
+    </main>
+  </div>
 </body>
 </html>

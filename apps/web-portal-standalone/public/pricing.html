@@ -3,44 +3,61 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Pricing</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | แพ็กเกจ</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Package comparison</span></span>
-      </a>
-      <nav class="marketing-nav">
-        <a href="/landing">ภาพรวม</a>
-        <a class="is-active" href="/pricing">แพ็กเกจ</a>
-        <a href="/signup">สมัครใช้งาน</a>
-        <a href="/login">เข้าสู่ระบบ</a>
-      </nav>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">เปรียบเทียบแพ็กเกจตามฟีเจอร์ที่ต้องใช้จริง</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="site-nav-link" href="/landing">ภาพรวม</a>
+          <a class="site-nav-link is-active" href="/pricing">แพ็กเกจ</a>
+          <a class="site-nav-link" href="/signup">สร้างบัญชี</a>
+          <a class="site-nav-link" href="/login">เข้าสู่ระบบ</a>
+        </nav>
+      </div>
+      <div class="site-topbar-tools">
+        <a class="site-button site-button-primary" href="/signup">สร้างบัญชีและพื้นที่ทำงาน</a>
+      </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-grid two-col">
-        <article class="pricing-card">
-          <h3>BOT_LOG</h3>
-          <p>สำหรับ tenant ที่ต้องการ log sync, dashboard เบื้องต้น และ Discord integration</p>
-          <a class="button button-primary" href="/signup?package=BOT_LOG">เริ่มแบบ Preview</a>
+    <main class="site-main">
+      <section class="site-panel">
+        <span class="site-kicker">Packages</span>
+        <h1 class="site-page-title">เลือกชุดฟีเจอร์ให้ตรงกับงานจริงของเซิร์ฟเวอร์</h1>
+        <p class="site-page-copy">ทุกแพ็กเกจเริ่มจากการสร้างบัญชีและพื้นที่ทำงานได้ก่อน เพื่อให้คุณเปิดดูเมนู โครงงาน และขอบเขตสิทธิ์ที่ได้จริง แล้วค่อยเปิดใช้งานตามแผนของทีม</p>
+      </section>
+      <section class="site-grid-2">
+        <article class="site-panel">
+          <span class="site-kicker">BOT_LOG</span>
+          <h2 class="site-card-title">ซิงก์ log และ Discord integration</h2>
+          <p>เหมาะกับชุมชนที่ต้องการ Server Bot สำหรับ log dashboard การเฝ้าดูเหตุการณ์ และการเชื่อม Discord เป็นหลัก</p>
+          <a class="site-button site-button-primary" href="/signup?package=BOT_LOG">เริ่มต้นด้วยแพ็กเกจนี้</a>
         </article>
-        <article class="pricing-card">
-          <h3>BOT_LOG_DELIVERY</h3>
-          <p>เพิ่มร้านค้า คำสั่งซื้อ การส่งของ และ Player Portal สำหรับเซิร์ฟเวอร์ที่เปิดขายของจริง</p>
-          <a class="button button-primary" href="/signup?package=BOT_LOG_DELIVERY">เริ่มแบบ Preview</a>
+        <article class="site-panel">
+          <span class="site-kicker">BOT_LOG_DELIVERY</span>
+          <h2 class="site-card-title">เพิ่มร้านค้า คำสั่งซื้อ และการส่งของ</h2>
+          <p>เหมาะกับเซิร์ฟเวอร์ที่เปิดขายสินค้าและต้องการ Delivery Agent ควบคู่กับ Server Bot เพื่อดูแล flow การส่งของครบชุด</p>
+          <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">เริ่มต้นด้วยแพ็กเกจนี้</a>
         </article>
-        <article class="pricing-card">
-          <h3>FULL_OPTION</h3>
-          <p>รวมการควบคุมเซิร์ฟเวอร์ การตั้งค่า สถานะ runtime, Delivery Agent และ Server Bot ครบชุด</p>
-          <a class="button button-primary" href="/signup?package=FULL_OPTION">เริ่มแบบ Preview</a>
+        <article class="site-panel">
+          <span class="site-kicker">FULL_OPTION</span>
+          <h2 class="site-card-title">ชุดครบสำหรับโฮสต์และคอมเมิร์ซ</h2>
+          <p>รวมการควบคุมเซิร์ฟเวอร์ การตั้งค่า สถานะรันไทม์ ร้านค้า คำสั่งซื้อ และพอร์ทัลผู้เล่นครบชุด เหมาะกับการเปิดระบบเต็มรูปแบบ</p>
+          <a class="site-button site-button-primary" href="/signup?package=FULL_OPTION">เริ่มต้นด้วยแพ็กเกจนี้</a>
         </article>
-        <article class="pricing-card">
-          <h3>SERVER_ONLY</h3>
-          <p>เหมาะกับงานโฮสต์เซิร์ฟเวอร์อย่างเดียว โดยไม่เปิด commerce หรือ player-facing delivery</p>
-          <a class="button button-primary" href="/signup?package=SERVER_ONLY">เริ่มแบบ Preview</a>
+        <article class="site-panel">
+          <span class="site-kicker">SERVER_ONLY</span>
+          <h2 class="site-card-title">เน้นงานโฮสต์และควบคุมเซิร์ฟเวอร์</h2>
+          <p>เหมาะกับงานดูแลเซิร์ฟเวอร์โดยไม่เปิด commerce หรือ player-facing delivery แต่ยังต้องการสถานะ ระบบควบคุม และการจัดการฝั่งผู้ดูแล</p>
+          <a class="site-button site-button-primary" href="/signup?package=SERVER_ONLY">เริ่มต้นด้วยแพ็กเกจนี้</a>
         </article>
       </section>
     </main>

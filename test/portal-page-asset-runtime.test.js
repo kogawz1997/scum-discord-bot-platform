@@ -49,6 +49,7 @@ test('portal page asset runtime renders login template and public docs', () => {
   const playerHtmlPath = path.join(root, 'player.html');
   const legacyPlayerHtmlPath = path.join(root, 'player-legacy.html');
   const landingHtmlPath = path.join(root, 'landing.html');
+  const dashboardHtmlPath = path.join(root, 'dashboard.html');
   const pricingHtmlPath = path.join(root, 'pricing.html');
   const signupHtmlPath = path.join(root, 'signup.html');
   const forgotPasswordHtmlPath = path.join(root, 'forgot.html');
@@ -63,6 +64,7 @@ test('portal page asset runtime renders login template and public docs', () => {
   fs.writeFileSync(playerHtmlPath, '<div>player</div>');
   fs.writeFileSync(legacyPlayerHtmlPath, '<div>legacy-player</div>');
   fs.writeFileSync(landingHtmlPath, '<div>landing</div>');
+  fs.writeFileSync(dashboardHtmlPath, '<div>dashboard</div>');
   fs.writeFileSync(pricingHtmlPath, '<div>pricing</div>');
   fs.writeFileSync(signupHtmlPath, '<div>signup</div>');
   fs.writeFileSync(forgotPasswordHtmlPath, '<div>forgot</div>');
@@ -82,6 +84,7 @@ test('portal page asset runtime renders login template and public docs', () => {
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    dashboardHtmlPath,
     pricingHtmlPath,
     signupHtmlPath,
     forgotPasswordHtmlPath,
@@ -119,6 +122,7 @@ test('portal page asset runtime renders login template and public docs', () => {
   assert.equal(runtime.getPlayerHtml(), '<div>player</div>');
   assert.equal(runtime.getLegacyPlayerHtml(), '<div>legacy-player</div>');
   assert.equal(runtime.getLandingHtml(), '<div>landing</div>');
+  assert.equal(runtime.getDashboardHtml(), '<div>dashboard</div>');
   assert.equal(runtime.getPricingHtml(), '<div>pricing</div>');
   assert.equal(runtime.getSignupHtml(), '<div>signup</div>');
   assert.equal(runtime.getForgotPasswordHtml(), '<div>forgot</div>');

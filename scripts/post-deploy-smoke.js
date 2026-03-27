@@ -401,11 +401,12 @@ async function main() {
   const canonicalRootWithSlash = `${canonicalRoot}/`;
   if (
     !rootLocation.includes('/player')
+    && !rootLocation.includes('/landing')
     && rootLocation !== canonicalRoot
     && rootLocation !== canonicalRootWithSlash
     && (!rootRedirectUrl || rootRedirectUrl.origin !== new URL(expectedPlayerCanonicalBase).origin)
   ) {
-    throw new Error(`player root redirect expected /player but got ${rootLocation || '(empty)'}`);
+    throw new Error(`player root redirect expected /landing or /player but got ${rootLocation || '(empty)'}`);
   }
   ok('player root redirect', rootLocation);
 

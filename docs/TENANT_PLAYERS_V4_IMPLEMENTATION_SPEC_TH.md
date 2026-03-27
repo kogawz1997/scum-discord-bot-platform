@@ -126,13 +126,13 @@ columns ขั้นต่ำ:
 
 ## 7. Current data mapping
 
-| Block | Current state key | Endpoint |
-|---|---|---|
-| player list | `state.players` | `/admin/api/player/accounts?tenantId={id}&limit=20` |
-| purchase context | `state.purchaseLookup` | `/admin/api/purchase/list?...` |
-| delivery case | `state.deliveryCase` | `/admin/api/delivery/detail?...` |
-| audit snapshot | `state.audit` | `/admin/api/audit/query?...` |
-| notifications | `state.notifications` | `/admin/api/notifications?acknowledged=false&limit=10` |
+| Block            | Current state key      | Endpoint                                               |
+| ---------------- | ---------------------- | ------------------------------------------------------ |
+| player list      | `state.players`        | `/admin/api/player/accounts?tenantId={id}&limit=20`    |
+| purchase context | `state.purchaseLookup` | `/admin/api/purchase/list?...`                         |
+| delivery case    | `state.deliveryCase`   | `/admin/api/delivery/detail?...`                       |
+| audit snapshot   | `state.audit`          | `/admin/api/audit/query?...`                           |
+| notifications    | `state.notifications`  | `/admin/api/notifications?acknowledged=false&limit=10` |
 
 ## 8. Existing logic to reuse
 

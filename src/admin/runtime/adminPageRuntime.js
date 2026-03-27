@@ -15,6 +15,10 @@ function getAssetContentType(ext) {
   const normalized = String(ext || '').toLowerCase();
   if (normalized === '.css') return 'text/css; charset=utf-8';
   if (normalized === '.js') return 'application/javascript; charset=utf-8';
+  if (normalized === '.svg') return 'image/svg+xml; charset=utf-8';
+  if (normalized === '.png') return 'image/png';
+  if (normalized === '.jpg' || normalized === '.jpeg') return 'image/jpeg';
+  if (normalized === '.webp') return 'image/webp';
   return 'application/octet-stream';
 }
 
@@ -131,7 +135,7 @@ function createAdminPageRuntime(options = {}) {
     }
 
     const ext = path.extname(relativeName).toLowerCase();
-    if (ext !== '.css' && ext !== '.js') {
+    if (!new Set(['.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp']).has(ext)) {
       sendText(res, 404, 'Not found');
       return true;
     }

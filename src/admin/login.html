@@ -5,51 +5,151 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>SCUM TH Platform | Admin Login</title>
-  <link rel="stylesheet" href="/admin/assets/admin-login-v2.css">
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
+  <style>
+    .auth-stage {
+      width: min(1320px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 32px 0 40px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 0.76fr);
+      gap: 24px;
+    }
+    .auth-panel,
+    .auth-form-shell {
+      padding: 28px;
+      border: 1px solid rgba(191,170,112,.16);
+      border-radius: 24px;
+      background: rgba(13,20,17,.94);
+      box-shadow: 0 24px 56px rgba(0,0,0,.26);
+      display: grid;
+      gap: 18px;
+    }
+    .auth-panel h1,
+    .auth-form-shell h2 {
+      margin: 0;
+      font-size: clamp(2rem, 2.8vw, 3rem);
+      line-height: 1.04;
+      letter-spacing: -.04em;
+    }
+    .auth-panel p,
+    .auth-form-shell p,
+    .auth-note {
+      margin: 0;
+      color: rgba(243,237,225,.74);
+      line-height: 1.68;
+    }
+    .auth-grid,
+    .auth-card-stack {
+      display: grid;
+      gap: 16px;
+    }
+    .auth-card {
+      padding: 18px;
+      border: 1px solid rgba(191,170,112,.14);
+      border-radius: 18px;
+      background: rgba(255,255,255,.02);
+      display: grid;
+      gap: 8px;
+    }
+    .auth-card strong {
+      font-size: 1rem;
+    }
+    .auth-field {
+      display: grid;
+      gap: 8px;
+    }
+    .auth-field span {
+      color: rgba(243,237,225,.78);
+      font-size: .88rem;
+    }
+    .auth-input {
+      height: 46px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(191,170,112,.16);
+      background: rgba(255,255,255,.03);
+      color: #f3ede1;
+      font: inherit;
+    }
+    .auth-input::placeholder {
+      color: rgba(243,237,225,.42);
+    }
+    .auth-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .auth-error {
+      min-height: 22px;
+      color: #d67f72;
+      font-size: .84rem;
+    }
+    .auth-visual {
+      min-height: 220px;
+      border-radius: 20px;
+      border: 1px solid rgba(191,170,112,.14);
+      background:
+        linear-gradient(180deg, rgba(7,10,8,.18), rgba(8,10,8,.54)),
+        url('/admin/assets/owner-panel-scene.svg');
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    @media (max-width: 980px) {
+      .auth-stage {
+        width: min(100%, calc(100% - 32px));
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
-<body class="console-auth-v2">
-  <div class="auth-shell-v2">
-    <header class="auth-topbar auth-visual-panel">
-      <a class="console-brand" href="/owner/login">
-        <span class="auth-kicker">SCUM TH</span>
-      </a>
-      <div class="auth-surface-switch">
-        <span class="auth-kicker">Owner + Tenant Access</span>
+<body class="surface-body surface-owner">
+  <div class="surface-app">
+    <header class="surface-globalbar">
+      <div class="surface-globalbar-main">
+        <a class="surface-brand" href="/owner/login">
+          <span class="surface-brand-mark">SCUM</span>
+          <span class="surface-brand-copy">
+            <span class="surface-brand-eyebrow">Admin Access</span>
+            <strong class="surface-brand-title">เข้าสู่ระบบผู้ดูแล</strong>
+            <span class="surface-brand-detail">ใช้ระบบยืนยันตัวตนเดิมของแพลตฟอร์ม ทั้ง session, TOTP และ Discord SSO โดยไม่ลดมาตรฐานความปลอดภัย</span>
+          </span>
+        </a>
+      </div>
+      <div class="surface-globalbar-tools">
+        <nav class="surface-role-switch" aria-label="Surface switch">
+          <a class="surface-role-link is-active" href="/owner/login">Admin Login</a>
+          <a class="surface-role-link" href="/landing">Public Site</a>
+        </nav>
       </div>
     </header>
 
-    <section class="auth-stage">
-      <aside class="auth-visual-panel">
-        <span class="auth-kicker">Secure access</span>
-        <div class="auth-visual-copy">
-          <h1>เข้าสู่ระบบผู้ดูแล</h1>
-          <p>หน้าเดียวสำหรับเจ้าของระบบและผู้ดูแลผู้เช่า โดยระบบจะพาไปยังพื้นผิวที่ตรงกับสิทธิ์ของคุณอัตโนมัติหลังเข้าสู่ระบบ</p>
-        </div>
-        <div class="auth-visual-grid">
-          <article class="auth-visual-card">
-            <strong>Owner</strong>
-            <p>ดูแลทั้งแพลตฟอร์ม ผู้เช่า การเงิน ความปลอดภัย และเหตุการณ์ระดับระบบ</p>
-          </article>
-          <article class="auth-visual-card">
-            <strong>Tenant Admin</strong>
-            <p>ดูแลเซิร์ฟเวอร์ของตัวเอง คำสั่งซื้อ ผู้เล่น การส่งของ และบอตที่ผูกกับ tenant</p>
-          </article>
-        </div>
-      </aside>
-
-      <div class="auth-workspace">
-        <section class="auth-workspace-panel">
-          <div class="auth-workspace-head">
-            <div class="auth-headbar">
-              <div>
-                <span class="auth-kicker">Sign in</span>
-                <h2>ล็อกอินเข้าสู่ระบบ</h2>
-              </div>
+    <main class="surface-stage">
+      <section class="auth-stage">
+        <article class="auth-panel">
+          <span class="surface-brand-eyebrow">Owner + Tenant Access</span>
+          <h1>หน้าเดียวสำหรับผู้ดูแลทุกระดับ</h1>
+          <p>ล็อกอินครั้งเดียว แล้วระบบจะพาไปยังพื้นที่ที่ตรงกับสิทธิ์ของคุณโดยอัตโนมัติ เจ้าของระบบจะเข้า Owner Panel ส่วนผู้ดูแลผู้เช่าจะเข้า Tenant Panel</p>
+          <div class="auth-visual"></div>
+          <div class="auth-card-stack">
+            <div class="auth-card">
+              <strong>Owner</strong>
+              <p>ดูผู้เช่า แพ็กเกจ รายได้ ความปลอดภัย และเหตุการณ์ระดับแพลตฟอร์ม</p>
             </div>
-            <p>เราใช้ auth, session และ 2FA เดิมของระบบ ไม่มีการลดขั้นตอนด้านความปลอดภัย</p>
+            <div class="auth-card">
+              <strong>Tenant Admin</strong>
+              <p>ดูแลงานประจำวันของเซิร์ฟเวอร์ เช่น สถานะ คำสั่งซื้อ ผู้เล่น Delivery Agent และ Server Bot</p>
+            </div>
           </div>
+        </article>
 
-          <form id="loginForm" novalidate>
+        <section class="auth-form-shell">
+          <span class="surface-brand-eyebrow">Sign In</span>
+          <h2>เข้าสู่ระบบ</h2>
+          <p>ถ้าเปิด 2FA ไว้ ระบบจะถามรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
+          <form id="loginForm" class="auth-grid" novalidate>
             <label class="auth-field">
               <span>ชื่อผู้ใช้</span>
               <input id="usernameInput" class="auth-input" name="username" autocomplete="username" placeholder="admin" required>
@@ -62,17 +162,15 @@
               <span>รหัส 2FA</span>
               <input id="otpInput" class="auth-input" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
             </label>
-            <p class="auth-note">ถ้าเปิด 2FA อยู่ ระบบจะขอรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
             <div id="errorBox" class="auth-error" aria-live="polite"></div>
-            <div class="auth-action-stack">
-              <button id="loginSubmit" class="button button-primary" type="submit">เข้าสู่ระบบ</button>
+            <div class="auth-actions">
+              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบ</button>
             </div>
           </form>
         </section>
-      </div>
-    </section>
+      </section>
+    </main>
   </div>
-
-  <script src="/admin/assets/admin-login-v4.js"></script>
+  <script src="/admin/assets/admin-login-v4.js?v=20260327-ui-3"></script>
 </body>
 </html>

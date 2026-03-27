@@ -3,29 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Checkout</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | ยืนยันแพ็กเกจ</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Checkout</span></span>
-      </a>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">ตรวจสอบแพ็กเกจและขั้นตอนถัดไปก่อนเปิดใช้งานจริง</span>
+          </span>
+        </a>
+      </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-grid two-col">
-        <article class="pricing-card">
-          <h3>แพ็กเกจที่เลือก</h3>
-          <p id="checkoutSelectedPackage">-</p>
-          <p>ระบบชำระเงินจริงสามารถผูกต่อในเฟสถัดไปได้ โดยตอนนี้เส้นทางนี้ใช้สำหรับสรุปแพ็กเกจและพาไป Preview ก่อนเปิดใช้งานจริง</p>
-          <a id="checkoutSignupCta" class="button button-primary" href="/signup">เริ่มแบบ Preview</a>
+    <main class="site-main">
+      <section class="site-grid-2">
+        <article class="site-panel">
+          <span class="site-kicker">Package Confirmation</span>
+          <h1 class="site-page-title">ยืนยันแพ็กเกจที่ต้องการใช้งาน</h1>
+          <p class="site-page-copy">หน้านี้ใช้สรุปแพ็กเกจที่คุณเลือก พร้อมสิทธิ์ที่เกี่ยวข้องและลำดับงานถัดไปก่อนเปิดใช้งานจริงของ tenant</p>
+          <div class="site-tool-cluster">
+            <span class="site-status-pill is-info">แพ็กเกจที่เลือก</span>
+            <span id="checkoutSelectedPackage" class="site-status-pill is-success">BOT_LOG_DELIVERY</span>
+          </div>
+          <div class="site-tool-cluster">
+            <a id="checkoutSignupCta" class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">สร้างบัญชีด้วยแพ็กเกจนี้</a>
+            <a class="site-button" href="/pricing">กลับไปดูแพ็กเกจ</a>
+          </div>
+        </article>
+        <article class="site-panel">
+          <span class="site-kicker">Next Step</span>
+          <h2 class="site-card-title">หลังจากยืนยันแพ็กเกจ</h2>
+          <ul class="marketing-list">
+            <li>สร้างบัญชีและพื้นที่ทำงานด้วยแพ็กเกจที่เลือก</li>
+            <li>ตรวจเมนูและสิทธิ์ที่เปิดให้ใช้ในพื้นที่ก่อนเปิดใช้งาน</li>
+            <li>เปิด Delivery Agent หรือ Server Bot ตามชุดฟีเจอร์ที่ต้องการใช้งานจริง</li>
+          </ul>
         </article>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/portal-i18n.js"></script>
-  <script src="/player/assets/ui/public-auth-v2.js"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260327-live-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260327-live-1"></script>
 </body>
 </html>

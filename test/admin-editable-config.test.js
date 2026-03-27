@@ -4,9 +4,11 @@ const assert = require('node:assert/strict');
 const {
   CONTROL_PANEL_ENV_FIELDS,
   buildControlPanelEnvCatalog,
+  buildControlPanelEnvCatalogGroups,
   buildControlPanelEnvPatch,
   buildControlPanelEnvPolicySummary,
   buildControlPanelEnvSection,
+  buildControlPanelEnvSectionGroups,
 } = require('../src/config/adminEditableConfig');
 
 test('control panel env registry does not duplicate keys', () => {
@@ -76,6 +78,35 @@ test('control panel env catalog exposes policy metadata for every field', () => 
   }
 });
 
+test('control panel env catalog exposes grouping and select metadata for high-value fields', () => {
+  const catalog = buildControlPanelEnvCatalog();
+  const executionMode = catalog.find((entry) => entry.key === 'DELIVERY_EXECUTION_MODE');
+  const topologyMode = catalog.find((entry) => entry.key === 'TENANT_DB_TOPOLOGY_MODE');
+
+  assert.equal(String(executionMode?.sectionKey || ''), 'delivery');
+  assert.equal(Array.isArray(executionMode?.options), true);
+  assert.deepEqual(
+    executionMode.options.map((entry) => entry.value),
+    ['agent', 'rcon'],
+  );
+  assert.equal(String(topologyMode?.sectionKey || ''), 'platform');
+  assert.equal(Array.isArray(topologyMode?.options), true);
+});
+
+test('control panel env section groups return structured sections for UI rendering', () => {
+  const groups = buildControlPanelEnvSectionGroups('root', {
+    DELIVERY_EXECUTION_MODE: 'agent',
+    ADMIN_WEB_SESSION_COOKIE_SAMESITE: 'lax',
+  });
+  assert.equal(Array.isArray(groups), true);
+  assert.equal(groups.some((entry) => entry.sectionKey === 'delivery'), true);
+  assert.equal(groups.some((entry) => entry.sectionKey === 'admin'), true);
+
+  const catalogGroups = buildControlPanelEnvCatalogGroups('portal');
+  assert.equal(Array.isArray(catalogGroups), true);
+  assert.equal(catalogGroups.some((entry) => entry.sectionKey === 'portalSession'), true);
+});
+
 test('control panel env policy summary matches catalog totals and exposes important keys', () => {
   const catalog = buildControlPanelEnvCatalog();
   const summary = buildControlPanelEnvPolicySummary();
@@ -139,4 +170,15 @@ test('control panel env patch rejects runtime-only env keys from admin writes', 
     },
     portal: {},
   });
+});
+
+test('control panel env patch rejects invalid select values', () => {
+  assert.throws(
+    () => buildControlPanelEnvPatch({
+      root: {
+        DELIVERY_EXECUTION_MODE: 'hybrid',
+      },
+    }),
+    /Invalid value for DELIVERY_EXECUTION_MODE/i,
+  );
 });

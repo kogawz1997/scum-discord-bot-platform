@@ -3679,6 +3679,103 @@ async function runGameCommand(gameCommand, settings, routeInput = {}) {
   return runRconCommand(gameCommand, settings);
 }
 
+function normalizeOperatorChecks(rows = []) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => ({
+      key: trimText(row?.key || row?.id, 120) || null,
+      label: trimText(row?.label, 200) || null,
+      code: trimText(row?.code, 160) || null,
+      detail: trimText(row?.detail, 300) || null,
+    }))
+    .filter((row) => row.key || row.label || row.code || row.detail);
+}
+
+function buildDeliveryOperatorContract(settings, runtime = {}) {
+  const executionMode = String(runtime.executionMode || settings?.executionMode || '').trim() || null;
+  const preflightSummary = runtime.preflightSummary || {};
+  const blockingChecks = normalizeOperatorChecks(preflightSummary.failures);
+  const warningChecks = normalizeOperatorChecks(preflightSummary.warnings);
+
+  if (executionMode === 'agent') {
+    const classification =
+      runtime.agent?.preflight?.classification
+      || runtime.agent?.health?.classification
+      || null;
+    const recovery =
+      runtime.agent?.preflight?.recovery
+      || runtime.agent?.health?.recovery
+      || null;
+
+    return {
+      executionMode,
+      dependencyProfile: {
+        interactiveWindowsSessionRequired: true,
+        scumClientWindowRequired: true,
+        adminChannelRequired: true,
+        managedProcessBackend: runtime.agent?.backend === 'process',
+        failoverMode: trimText(runtime.failover?.mode, 80) || null,
+      },
+      readyEvidence: [
+        'Delivery Agent health is reachable',
+        'SCUM admin client preflight passed',
+        'Queue pressure and circuit state are within safe limits',
+      ],
+      beforeRetry: [
+        trimText(
+          recovery?.hint,
+          260,
+        ) || 'Run Delivery Agent preflight again before retrying tenant queue work.',
+        blockingChecks.length > 0
+          ? 'Clear the blocking preflight checks before replaying or retrying work.'
+          : 'Confirm the Windows session and SCUM client stay available through the next retry.',
+      ],
+      blockingChecks,
+      warningChecks,
+      currentBlocker: classification
+        ? {
+          category: trimText(classification.category, 120) || null,
+          reason: trimText(classification.reason, 120) || null,
+          code: trimText(classification.code, 160) || null,
+          message: trimText(classification.message, 300) || null,
+          retryable: classification.retryable === true,
+          recoveryAction: trimText(recovery?.action, 120) || null,
+          recoveryHint: trimText(recovery?.hint, 260) || null,
+        }
+        : null,
+      notes:
+        'Delivery Agent execution still depends on a live Windows session and SCUM client window, but the runtime now exposes preflight checks, classified failures, recovery hints, and failover state so operators can manage that dependency deliberately.',
+    };
+  }
+
+  return {
+    executionMode,
+    dependencyProfile: {
+      interactiveWindowsSessionRequired: false,
+      scumClientWindowRequired: false,
+      adminChannelRequired: false,
+      managedProcessBackend: false,
+      failoverMode: null,
+    },
+    readyEvidence: [
+      'Target command path is configured',
+      'Connectivity and execution preflight passed',
+    ],
+    beforeRetry: [
+      blockingChecks.length > 0
+        ? 'Fix the blocking preflight checks before retrying queue work.'
+        : 'Rerun preflight if the target host, credentials, or command path changed.',
+    ],
+    blockingChecks,
+    warningChecks,
+    currentBlocker: null,
+    notes:
+      executionMode === 'rcon'
+        ? 'This execution path does not depend on a foreground SCUM client window.'
+        : 'Execution path summary is based on the current runtime mode.',
+  };
+}
+
 async function getDeliveryRuntimeStatus() {
   const settings = getSettings();
   const sortedJobs = [...jobs.values()].sort(
@@ -3766,9 +3863,16 @@ async function getDeliveryRuntimeStatus() {
         ...remoteRuntime,
         workerSource: 'remote-worker-health',
         workerHealth,
+        operatorContract: buildDeliveryOperatorContract(settings, {
+          ...runtime,
+          ...remoteRuntime,
+        }),
       };
     }
-    return runtime;
+    return {
+      ...runtime,
+      operatorContract: buildDeliveryOperatorContract(settings, runtime),
+    };
   }
 
   runtime.workerSource = workerStarted ? 'local-process' : 'current-process';
@@ -3786,6 +3890,7 @@ async function getDeliveryRuntimeStatus() {
     ready: preflightSummary.ready,
     reason: preflightSummary.reason,
   };
+  runtime.operatorContract = buildDeliveryOperatorContract(settings, runtime);
 
   return runtime;
 }

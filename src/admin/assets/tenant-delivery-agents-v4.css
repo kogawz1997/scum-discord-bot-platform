@@ -78,11 +78,22 @@
 }
 
 .tdv4-empty-state {
+  display: grid;
+  gap: 12px;
+  align-content: start;
   padding: 20px;
   border: 1px dashed var(--tdv4-border);
   border-radius: 14px;
   color: var(--tdv4-text-soft);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.tdv4-empty-state strong {
+  color: var(--tdv4-text);
+}
+
+.tdv4-empty-state span {
+  color: var(--tdv4-text-soft);
 }
 
 @media (max-width: 1440px) {

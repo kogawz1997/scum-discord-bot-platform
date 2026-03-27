@@ -8,41 +8,41 @@
   'use strict';
 
   const NAV_GROUPS = [
-    { label: 'Platform', items: [
-      { label: 'Overview', href: '#overview', current: true },
-      { label: 'Tenants', href: '#tenants' },
-      { label: 'Packages', href: '#packages' },
-      { label: 'Subscriptions', href: '#subscriptions' },
+    { label: 'แพลตฟอร์ม', items: [
+      { label: 'ภาพรวม', href: '#overview', current: true },
+      { label: 'ผู้เช่า', href: '#tenants' },
+      { label: 'แพ็กเกจ', href: '#packages' },
+      { label: 'การสมัครใช้', href: '#subscriptions' },
     ] },
-    { label: 'Operations', items: [
-      { label: 'Runtime Health', href: '#runtime-health' },
-      { label: 'Incidents', href: '#incidents' },
-      { label: 'Jobs', href: '#jobs' },
-      { label: 'Logs & Audit', href: '#audit' },
+    { label: 'ปฏิบัติการ', items: [
+      { label: 'สุขภาพรันไทม์', href: '#runtime-health' },
+      { label: 'เหตุการณ์', href: '#incidents' },
+      { label: 'งานคิว', href: '#jobs' },
+      { label: 'บันทึกและออดิท', href: '#audit' },
     ] },
-    { label: 'Business', items: [
-      { label: 'Billing', href: '#billing' },
-      { label: 'Support', href: '#support' },
-      { label: 'Security', href: '#security' },
-      { label: 'Settings', href: '#settings' },
+    { label: 'ธุรกิจ', items: [
+      { label: 'การเงิน', href: '#billing' },
+      { label: 'ซัพพอร์ต', href: '#support' },
+      { label: 'ความปลอดภัย', href: '#security' },
+      { label: 'ตั้งค่า', href: '#settings' },
     ] },
   ];
 
   const ACTION_GROUPS = [
-    { tone: 'warning', tag: 'Workflows', title: 'Support and incidents', detail: 'Start here when a tenant reports a problem, a queue stalls, or the owner needs to review active alerts first.', actions: [
-      { label: 'Open incident inbox', href: '#incidents', primary: true },
-      { label: 'Review support queue', href: '#support' },
-      { label: 'Inspect delivery lifecycle', href: '#jobs' },
+    { tone: 'warning', tag: 'งานด่วน', title: 'ซัพพอร์ตและเหตุการณ์', detail: 'เริ่มที่นี่เมื่อมีผู้เช่าแจ้งปัญหา คิวงานค้าง หรือมีสัญญาณที่เจ้าของระบบควรเปิดดูก่อนอย่างอื่น', actions: [
+      { label: 'เปิดกล่องเหตุการณ์', href: '#incidents', primary: true },
+      { label: 'เปิดคิวซัพพอร์ต', href: '#support' },
+      { label: 'ตรวจเส้นทางการส่งของ', href: '#jobs' },
     ] },
-    { tone: 'info', tag: 'Trust', title: 'Security and evidence', detail: 'Use this path when you need audit proof, access review, or an owner-safe evidence trail before changing anything sensitive.', actions: [
-      { label: 'Open audit trail', href: '#audit', primary: true },
-      { label: 'Review access sessions', href: '#security' },
-      { label: 'Export observability', href: '#runtime-health' },
+    { tone: 'info', tag: 'หลักฐาน', title: 'ความปลอดภัยและออดิท', detail: 'ใช้เมื่อจำเป็นต้องย้อนดูหลักฐาน ตรวจสิทธิ์การเข้าถึง หรือยืนยันว่าเส้นทางการทำงานยังปลอดภัยก่อนเปลี่ยนค่าระบบ', actions: [
+      { label: 'เปิดบันทึกออดิท', href: '#audit', primary: true },
+      { label: 'ดูเซสชันและสิทธิ์', href: '#security' },
+      { label: 'ดูสุขภาพรันไทม์', href: '#runtime-health' },
     ] },
-    { tone: 'success', tag: 'Business', title: 'Commercial posture', detail: 'Keep renewals, quota pressure, and package posture visible before a tenant issue turns into churn or lost revenue.', actions: [
-      { label: 'Review tenants', href: '#tenants', primary: true },
-      { label: 'Check renewals', href: '#subscriptions' },
-      { label: 'Open packages', href: '#packages' },
+    { tone: 'success', tag: 'ธุรกิจ', title: 'รายได้และสถานะการขาย', detail: 'คุมการต่ออายุ โควตา และแพ็กเกจให้เห็นก่อน เพื่อไม่ให้ปัญหาของผู้เช่ากลายเป็น churn หรือรายได้หายโดยไม่รู้ตัว', actions: [
+      { label: 'ดูผู้เช่า', href: '#tenants', primary: true },
+      { label: 'เช็กการต่ออายุ', href: '#subscriptions' },
+      { label: 'เปิดหน้าแพ็กเกจ', href: '#packages' },
     ] },
   ];
 
@@ -60,16 +60,16 @@
   }
   function formatDateTime(value) {
     const date = parseDate(value);
-    return date ? new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : 'Unknown time';
+    return date ? new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : 'ยังไม่ทราบเวลา';
   }
   function formatRelative(value) {
     const date = parseDate(value);
-    if (!date) return 'No recent signal';
+    if (!date) return 'ยังไม่มีสัญญาณล่าสุด';
     const minutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60000));
-    if (minutes < 60) return `${formatNumber(minutes)} minutes ago`;
+    if (minutes < 60) return `${formatNumber(minutes)} นาทีที่แล้ว`;
     const hours = Math.round(minutes / 60);
-    if (hours < 24) return `${formatNumber(hours)} hours ago`;
-    return `${formatNumber(Math.round(hours / 24))} days ago`;
+    if (hours < 24) return `${formatNumber(hours)} ชั่วโมงที่แล้ว`;
+    return `${formatNumber(Math.round(hours / 24))} วันที่แล้ว`;
   }
   function firstNonEmpty(values, fallback = '') {
     for (const value of values) {
@@ -77,6 +77,73 @@
       if (normalized) return normalized;
     }
     return fallback;
+  }
+  function looksLikeJsonText(value) {
+    const text = String(value ?? '').trim();
+    return text.startsWith('{') || text.startsWith('[');
+  }
+  function extractReadableText(value, fallback = '') {
+    if (value == null) return fallback;
+    if (typeof value === 'string') {
+      const text = String(value).trim();
+      if (!text) return fallback;
+      if (looksLikeJsonText(text)) {
+        try {
+          return extractReadableText(JSON.parse(text), fallback);
+        } catch {
+          return text;
+        }
+      }
+      return text;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      const joined = value
+        .map((item) => extractReadableText(item, ''))
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' · ');
+      return firstNonEmpty([joined], fallback);
+    }
+    if (typeof value === 'object') {
+      return firstNonEmpty([
+        value.title,
+        value.label,
+        value.message,
+        value.detail,
+        value.summary,
+        value.reason,
+        value.source,
+        value.path,
+        value.code,
+      ], fallback);
+    }
+    return fallback;
+  }
+  function humanizeSecurityTitle(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'เหตุการณ์ด้านความปลอดภัย';
+    if (raw === 'login-succeeded') return 'เข้าสู่ระบบสำเร็จ';
+    if (raw === 'login-failed') return 'เข้าสู่ระบบไม่สำเร็จ';
+    if (raw === 'session-created') return 'สร้างเซสชันผู้ดูแล';
+    if (raw === 'session-revoked') return 'เพิกถอนเซสชันผู้ดูแล';
+    if (raw === 'step-up-failed') return 'ยืนยันตัวตนขั้นสูงไม่สำเร็จ';
+    if (raw === 'step-up-succeeded') return 'ยืนยันตัวตนขั้นสูงสำเร็จ';
+    if (raw === 'operational-alert') return 'คำเตือนการปฏิบัติการ';
+    if (raw.includes('security')) return 'เหตุการณ์ด้านความปลอดภัย';
+    return firstNonEmpty([String(value || '').trim()], 'เหตุการณ์ด้านความปลอดภัย');
+  }
+  function humanizeRequestTitle(item) {
+    const method = String(item?.method || 'REQ').trim().toUpperCase();
+    const requestPath = String(item?.path || item?.routeGroup || '').trim();
+    if (requestPath === '/admin/api/login') return 'คำขอเข้าสู่ระบบผู้ดูแล';
+    if (requestPath === '/admin/api/logout') return 'คำขอออกจากระบบผู้ดูแล';
+    if (requestPath.startsWith('/admin/api/platform/')) return `${method} แพลตฟอร์ม · ${requestPath}`;
+    if (requestPath.startsWith('/admin/api/delivery/')) return `${method} งานส่งของ · ${requestPath}`;
+    if (requestPath.startsWith('/admin/api/runtime/')) return `${method} รันไทม์ · ${requestPath}`;
+    return `${method} ${requestPath || 'คำขอของระบบ'}`;
   }
   function listCount(list) {
     return Array.isArray(list) ? list.length : 0;
@@ -101,7 +168,7 @@
       ? state.requestLogs.items.map((item) => ({
           source: 'requests',
           severity: Number(item.statusCode || 0) >= 500 ? 'danger' : 'warning',
-          title: `${item.method || 'REQ'} ${item.path || item.routeGroup || 'request'}`,
+          title: humanizeRequestTitle(item),
           detail: `${item.statusCode || '-'} ${item.error || item.summary || item.requestId || ''}`.trim(),
           time: item.at || item.createdAt,
         }))
@@ -109,15 +176,23 @@
     const alertItems = (Array.isArray(state.notifications) ? state.notifications : []).map((item) => ({
       source: 'alerts',
       severity: item.severity || 'warning',
-      title: firstNonEmpty([item.title, item.label, 'Platform alert']),
-      detail: firstNonEmpty([item.detail, item.message, 'Monitoring produced an owner-facing alert.']),
+      title: firstNonEmpty([item.title, item.label, 'การแจ้งเตือนของแพลตฟอร์ม']),
+      detail: firstNonEmpty([
+        extractReadableText(item.detail, ''),
+        extractReadableText(item.message, ''),
+        'ระบบมอนิเตอร์ตรวจพบสัญญาณที่เจ้าของระบบควรเปิดดู',
+      ]),
       time: item.createdAt || item.at,
     }));
     const securityItems = (Array.isArray(state.securityEvents) ? state.securityEvents : []).map((item) => ({
       source: 'security',
       severity: item.severity || 'info',
-      title: item.type || 'Security event',
-      detail: item.detail || item.reason || '',
+      title: humanizeSecurityTitle(item.type),
+      detail: firstNonEmpty([
+        extractReadableText(item.detail, ''),
+        extractReadableText(item.reason, ''),
+        extractReadableText(item.meta, ''),
+      ]),
       time: item.createdAt || item.at,
     }));
     return alertItems.concat(securityItems).concat(requestItems)
@@ -138,13 +213,13 @@
         const used = formatNumber(value && value.used, '0');
         const limit = value && value.unlimited ? 'unlimited' : formatNumber(value && value.limit, '0');
         return `${key}: ${used}/${limit}`;
-      }).join(' · ') : 'Healthy quota posture';
+      }).join(' · ') : 'โควตาอยู่ในเกณฑ์ปกติ';
       const expiringSoon = renewsAt ? (renewsAt.getTime() - Date.now()) <= 1000 * 60 * 60 * 24 * 14 : false;
-      const tone = quota && quotaText !== 'Healthy quota posture' ? 'warning' : expiringSoon ? 'danger' : 'success';
+      const tone = quota && quotaText !== 'โควตาอยู่ในเกณฑ์ปกติ' ? 'warning' : expiringSoon ? 'danger' : 'success';
       return {
-        name: tenant.name || tenant.slug || tenantId || 'Unknown tenant',
-        packageName: firstNonEmpty([subscription.packageName, subscription.planName, tenant.plan, tenant.type, 'No package']),
-        detail: quota && quotaText !== 'Healthy quota posture' ? `Quota pressure · ${quotaText}` : expiringSoon ? `Renewal due ${formatDateTime(renewsAt)}` : `Status ${firstNonEmpty([subscription.status, tenant.status, 'active'])}`,
+        name: tenant.name || tenant.slug || tenantId || 'ผู้เช่าที่ไม่ทราบชื่อ',
+        packageName: firstNonEmpty([subscription.packageName, subscription.planName, tenant.plan, tenant.type, 'ยังไม่กำหนดแพ็กเกจ']),
+        detail: quota && quotaText !== 'โควตาอยู่ในเกณฑ์ปกติ' ? `โควตาใกล้ชนเพดาน · ${quotaText}` : expiringSoon ? `ต่ออายุภายใน ${formatDateTime(renewsAt)}` : `สถานะ ${firstNonEmpty([subscription.status, tenant.status, 'active'])}`,
         meta: renewsAt ? formatRelative(renewsAt) : formatRelative(tenant.updatedAt || tenant.createdAt),
         tone,
       };
@@ -170,40 +245,46 @@
       const renewsAt = parseDate(row.renewsAt || row.expiresAt || row.endsAt);
       return renewsAt && (renewsAt.getTime() - Date.now()) <= 1000 * 60 * 60 * 24 * 14;
     }).length;
+    const primaryAction = expiringCount > 0
+      ? { label: 'ดูรายการใกล้ต่ออายุ (แนะนำ)', href: '#subscriptions' }
+      : feed.length > 0
+        ? { label: 'เปิดกล่องเหตุการณ์ (แนะนำ)', href: '#incidents' }
+        : { label: 'เปิดรายชื่อผู้เช่า', href: '#tenants' };
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Owner Panel V4 Preview',
-        workspaceLabel: 'Platform Control',
-        environmentLabel: 'Parallel V4',
+        surfaceLabel: 'แผงเจ้าของระบบ',
+        workspaceLabel: 'ศูนย์ควบคุมแพลตฟอร์ม',
+        environmentLabel: 'ระดับแพลตฟอร์ม',
         navGroups: NAV_GROUPS,
       },
       header: {
-        title: 'Platform overview',
-        subtitle: 'See tenant health, runtime readiness, risk pressure, and the next actions that matter most from a single owner command center.',
+        title: 'ภาพรวมเจ้าของระบบ',
+        subtitle: 'เห็นสุขภาพของผู้เช่า รันไทม์ ความเสี่ยง และเรื่องที่ควรจัดการก่อนจากศูนย์ควบคุมหน้าเดียว',
         statusChips: [
-          { label: `${formatNumber(tenants.total || listCount(state.tenants), '0')} tenants`, tone: 'info' },
-          { label: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')} runtimes ready`, tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
-          { label: `${formatNumber(feed.length, '0')} active signals`, tone: feed.length > 0 ? 'warning' : 'success' },
-          { label: `${formatNumber(expiringCount, '0')} renewals soon`, tone: expiringCount > 0 ? 'danger' : 'muted' },
+          { label: `${formatNumber(tenants.total || listCount(state.tenants), '0')} ผู้เช่า`, tone: 'info' },
+          { label: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')} รันไทม์พร้อม`, tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
+          { label: `${formatNumber(feed.length, '0')} สัญญาณที่ยังเปิดอยู่`, tone: feed.length > 0 ? 'warning' : 'success' },
+          { label: `${formatNumber(expiringCount, '0')} รายใกล้ต่ออายุ`, tone: expiringCount > 0 ? 'danger' : 'muted' },
         ],
-        primaryAction: { label: 'Open incident inbox', href: '#incidents' },
+        primaryAction: { label: 'เปิดกล่องเหตุการณ์', href: '#incidents' },
+        primaryAction,
       },
       kpis: [
-        { label: 'Active tenants', value: formatNumber(tenants.active || listCount(state.tenants), '0'), detail: `${formatNumber(tenants.trialing, '0')} trial · ${formatNumber(tenants.reseller, '0')} reseller`, tone: 'info' },
-        { label: 'Runtime readiness', value: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')}`, detail: 'Managed services under owner scope', tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
-        { label: 'Online agents', value: formatNumber((Array.isArray(state.agents) ? state.agents : []).filter((row) => toneForStatus(row.status) === 'success').length, '0'), detail: `${formatNumber(listCount(state.agents), '0')} registered runtimes`, tone: 'success' },
-        { label: 'Open incidents', value: formatNumber(listCount(state.notifications) + listCount(state.incidentInbox), '0'), detail: `${formatNumber(listCount(state.securityEvents), '0')} security signals`, tone: listCount(state.notifications) > 0 ? 'warning' : 'muted' },
-        { label: 'Delivery success', value: `${formatNumber(delivery.successRate, '0')}%`, detail: `${formatNumber(delivery.purchaseCount30d, '0')} purchases in 30 days`, tone: 'success' },
-        { label: 'Commercial watch', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : formatNumber(expiringCount, '0'), detail: Number(subscriptions.mrr) > 0 ? 'Tracked recurring revenue' : 'Subscriptions nearing renewal', tone: expiringCount > 0 ? 'danger' : 'info' },
+        { label: 'ผู้เช่าที่ใช้งานอยู่', value: formatNumber(tenants.active || listCount(state.tenants), '0'), detail: `${formatNumber(tenants.trialing, '0')} ทดลอง · ${formatNumber(tenants.reseller, '0')} ตัวแทน`, tone: 'info' },
+        { label: 'ความพร้อมของรันไทม์', value: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')}`, detail: 'บริการที่เจ้าของระบบต้องดูแลโดยตรง', tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
+        { label: 'เอเจนต์ที่ออนไลน์', value: formatNumber((Array.isArray(state.agents) ? state.agents : []).filter((row) => toneForStatus(row.status) === 'success').length, '0'), detail: `${formatNumber(listCount(state.agents), '0')} รันไทม์ที่ลงทะเบียนไว้`, tone: 'success' },
+        { label: 'เหตุการณ์ที่เปิดอยู่', value: formatNumber(listCount(state.notifications) + listCount(state.incidentInbox), '0'), detail: `${formatNumber(listCount(state.securityEvents), '0')} สัญญาณด้านความปลอดภัย`, tone: listCount(state.notifications) > 0 ? 'warning' : 'muted' },
+        { label: 'อัตราส่งของสำเร็จ', value: `${formatNumber(delivery.successRate, '0')}%`, detail: `${formatNumber(delivery.purchaseCount30d, '0')} คำสั่งซื้อในช่วง 30 วัน`, tone: 'success' },
+        { label: 'มุมมองเชิงพาณิชย์', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : formatNumber(expiringCount, '0'), detail: Number(subscriptions.mrr) > 0 ? 'รายได้ประจำที่ตรวจจับได้' : 'มีรายการที่ใกล้ต่ออายุ', tone: expiringCount > 0 ? 'danger' : 'info' },
       ],
       actionGroups: ACTION_GROUPS,
       attentionRows: buildAttentionRows(state),
       incidentFeed: feed,
       railCards: [
-        { title: 'Commercial watch', body: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} subscription(s) are close to renewal or expiry.` : 'No immediate renewal pressure is visible in the current sample.', meta: Number(subscriptions.mrr) > 0 ? `Revenue tracked ฿${formatNumber(subscriptions.mrr, '0')}` : 'Review package and subscription posture', tone: expiringCount > 0 ? 'danger' : 'success' },
-        { title: 'Support queue', body: state.supportCase && state.supportCase.signals ? `${formatNumber(state.supportCase.signals.total, '0')} support signal(s) are attached to the current owner case.` : 'Support flow is quiet right now.', meta: 'Use support and diagnostics before touching runtime or quota limits.', tone: state.supportCase ? 'warning' : 'muted' },
-        { title: 'Observability hotspot', body: hotspot ? `${hotspot.routeGroup || hotspot.samplePath || '/'} · p95 ${formatNumber(hotspot.p95LatencyMs, '0')} ms` : 'No hotspot summary is available from the current request sample.', meta: hotspot ? `${formatNumber(hotspot.requests, '0')} requests · ${formatNumber(hotspot.errors, '0')} errors` : 'Refresh observability to populate this rail', tone: hotspot && hotspot.errors > 0 ? 'warning' : 'info' },
+        { title: 'ภาพรวมเชิงพาณิชย์', body: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} รายการใกล้ต่ออายุหรือหมดอายุ` : 'ตอนนี้ยังไม่เห็นแรงกดดันด้านการต่ออายุที่ต้องรีบจัดการ', meta: Number(subscriptions.mrr) > 0 ? `รายได้ที่ติดตามได้ ฿${formatNumber(subscriptions.mrr, '0')}` : 'ใช้หน้านี้ทบทวนแพ็กเกจและการสมัครใช้', tone: expiringCount > 0 ? 'danger' : 'success' },
+        { title: 'คิวซัพพอร์ต', body: state.supportCase && state.supportCase.signals ? `${formatNumber(state.supportCase.signals.total, '0')} สัญญาณถูกผูกกับเคสที่กำลังดูอยู่` : 'ตอนนี้คิวซัพพอร์ตค่อนข้างสงบ', meta: 'เปิดดู support และ diagnostics ก่อนแตะ runtime หรือโควตา', tone: state.supportCase ? 'warning' : 'muted' },
+        { title: 'จุดร้อนของระบบสังเกตการณ์', body: hotspot ? `${hotspot.routeGroup || hotspot.samplePath || '/'} · p95 ${formatNumber(hotspot.p95LatencyMs, '0')} ms` : 'ยังไม่มีสรุป hotspot จากตัวอย่างคำขอชุดล่าสุด', meta: hotspot ? `${formatNumber(hotspot.requests, '0')} คำขอ · ${formatNumber(hotspot.errors, '0')} ข้อผิดพลาด` : 'รีเฟรชหน้าสังเกตการณ์เพื่อเติมข้อมูลส่วนนี้', tone: hotspot && hotspot.errors > 0 ? 'warning' : 'info' },
       ],
     };
   }
@@ -244,7 +325,7 @@
     ].join('')).join('');
   }
   function renderAttentionRows(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No tenant attention rows yet.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีผู้เช่าที่ต้องจับตาในตัวอย่างปัจจุบัน</div>';
     return items.map((item) => [
       `<article class="odv4-list-item odv4-tone-${escapeHtml(item.tone || 'muted')}">`,
       `<div class="odv4-list-main"><strong>${escapeHtml(item.name || '-')}</strong><p>${escapeHtml(item.detail || '')}</p></div>`,
@@ -253,7 +334,7 @@
     ].join('')).join('');
   }
   function renderFeed(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">No owner signals in the current sample.</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีสัญญาณใหม่ที่เจ้าของระบบต้องเปิดดูในตัวอย่างปัจจุบัน</div>';
     return items.map((item) => [
       `<article class="odv4-feed-item odv4-tone-${escapeHtml(toneForStatus(item.severity || 'warning'))}">`,
       `<div class="odv4-feed-meta"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(item.severity || 'warning'))}">${escapeHtml(item.source || 'signal')}</span><span>${escapeHtml(formatDateTime(item.time))}</span></div>`,
@@ -280,23 +361,23 @@
       `<div class="odv4-brand-copy"><span class="odv4-surface-label">${escapeHtml(safeModel.shell.surfaceLabel || '')}</span><strong class="odv4-workspace-label">${escapeHtml(safeModel.shell.workspaceLabel || '')}</strong></div>`,
       '</div><div class="odv4-topbar-actions">',
       `<span class="odv4-badge odv4-badge-muted">${escapeHtml(safeModel.shell.environmentLabel || '')}</span>`,
-      '<a class="odv4-button odv4-button-secondary" href="#tenants">Tenants</a>',
-      '<a class="odv4-button odv4-button-secondary" href="#runtime-health">Runtime</a>',
+      '<a class="odv4-button odv4-button-secondary" href="#tenants">ผู้เช่า</a>',
+      '<a class="odv4-button odv4-button-secondary" href="#runtime-health">รันไทม์</a>',
       '</div></header>',
-      '<div class="odv4-shell"><aside class="odv4-sidebar"><div class="odv4-stack"><span class="odv4-sidebar-title">Owner navigation</span><p class="odv4-sidebar-copy">Use this owner surface to triage platform health, commercial posture, and cross-tenant risk without jumping through legacy sections.</p></div>',
+      '<div class="odv4-shell"><aside class="odv4-sidebar"><div class="odv4-stack"><span class="odv4-sidebar-title">เมนูเจ้าของระบบ</span><p class="odv4-sidebar-copy">ใช้หน้านี้เพื่อตัดสินใจเรื่องผู้เช่า รายได้ ความปลอดภัย และความพร้อมของรันไทม์ โดยไม่ต้องไล่เปิดหลายส่วนของระบบ</p></div>',
       renderNavGroups(safeModel.shell.navGroups),
       '</aside><main class="odv4-main">',
-      '<section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">Owner command center</span>',
+      '<section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">ศูนย์ควบคุมเจ้าของระบบ</span>',
       `<h1 class="odv4-page-title">${escapeHtml(safeModel.header.title || '')}</h1><p class="odv4-page-subtitle">${escapeHtml(safeModel.header.subtitle || '')}</p><div class="odv4-chip-row">${renderChips(safeModel.header.statusChips)}</div></div>`,
       `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'Open')}</a></div></section>`,
       `<section class="odv4-kpi-strip">${renderKpis(safeModel.kpis)}</section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Action hub</span><h2 class="odv4-section-title">Start from the right workflow</h2><p class="odv4-section-copy">Each group below exists to reduce guesswork. Pick the track that matches the problem instead of scanning every owner page.</p></div>',
+      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">เริ่มจากตรงนี้</span><h2 class="odv4-section-title">เลือก workflow ให้ตรงกับงาน</h2><p class="odv4-section-copy">แต่ละกลุ่มด้านล่างถูกจัดไว้เพื่อลดการเดา เริ่มจากเส้นทางที่ตรงกับปัญหาที่กำลังเจอแทนการเปิดทุกหน้าไล่ดู</p></div>',
       `<div class="odv4-task-grid">${renderActionGroups(safeModel.actionGroups)}</div></section>`,
-      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Attention center</span><h2 class="odv4-section-title">Tenants that need owner attention</h2><p class="odv4-section-copy">This short list exists to answer who needs us next without digging through the whole registry.</p></div>',
+      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ต้องดูต่อ</span><h2 class="odv4-section-title">ผู้เช่าที่เจ้าของระบบควรเปิดดูก่อน</h2><p class="odv4-section-copy">ลิสต์สั้นนี้ช่วยตอบทันทีว่าใครควรได้รับการดูแลต่อ โดยไม่ต้องไล่เปิดทั้ง registry</p></div>',
       `<div class="odv4-list">${renderAttentionRows(safeModel.attentionRows)}</div></section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Signals</span><h2 class="odv4-section-title">Latest platform incidents and alerts</h2><p class="odv4-section-copy">This feed pulls the newest owner-relevant alerts from monitoring, request pressure, and security-adjacent events.</p></div>',
+      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">สัญญาณล่าสุด</span><h2 class="odv4-section-title">เหตุการณ์และการแจ้งเตือนที่เพิ่งเกิดขึ้น</h2><p class="odv4-section-copy">รวมเหตุการณ์จาก monitoring, request pressure และสัญญาณด้านความปลอดภัยที่เจ้าของระบบควรรู้ก่อน</p></div>',
       `<div class="odv4-feed">${renderFeed(safeModel.incidentFeed)}</div></section></div></main>`,
-      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">Owner context</div><p class="odv4-rail-copy">Keep commercial pressure, support readiness, and observability hotspots in sight while you work.</p>${renderRailCards(safeModel.railCards)}</div></aside>`,
+      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">บริบทเจ้าของระบบ</div><p class="odv4-rail-copy">คุมแรงกดดันด้านรายได้ ซัพพอร์ต และจุดเสี่ยงของแพลตฟอร์มไว้ข้างมือระหว่างทำงาน</p>${renderRailCards(safeModel.railCards)}</div></aside>`,
       '</div></div>',
     ].join('');
   }

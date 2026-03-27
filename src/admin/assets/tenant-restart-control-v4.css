@@ -19,11 +19,39 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tdv4-restart-primary,
+.tdv4-restart-primary-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.tdv4-restart-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+  gap: 12px;
+}
+
 .tdv4-mode-card,
 .tdv4-mini-stat {
   display: grid;
   gap: 8px;
   padding: 16px;
+}
+
+.tdv4-more-options {
+  display: grid;
+  gap: 16px;
+}
+
+.tdv4-more-options-summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  color: var(--tdv4-text);
+}
+
+.tdv4-more-options-summary::-webkit-details-marker {
+  display: none;
 }
 
 .tdv4-mode-title {
@@ -44,6 +72,7 @@
     grid-template-columns: 270px minmax(0, 1fr);
   }
 
+  .tdv4-restart-primary-grid,
   .tdv4-restart-summary-strip,
   .tdv4-mode-grid,
   .tdv4-history-grid,
@@ -54,6 +83,7 @@
 
 @media (max-width: 1100px) {
   .tdv4-restart-shell,
+  .tdv4-restart-primary-grid,
   .tdv4-restart-summary-strip,
   .tdv4-mode-grid,
   .tdv4-history-grid,

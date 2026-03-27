@@ -6,7 +6,7 @@
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 
-Last updated: **2026-03-25**
+Last updated: **2026-03-26**
 
 SCUM TH Platform is a control plane for a SCUM community stack built around:
 
@@ -18,6 +18,41 @@ SCUM TH Platform is a control plane for a SCUM community stack built around:
 - an optional console-agent
 
 If a statement in this repository is not backed by code, tests, CI artifacts, or runtime logs, treat it as supporting context rather than evidence.
+
+## System At A Glance
+
+For the full GitHub-renderable maps, see:
+
+- [docs/SYSTEM_MAP_GITHUB_TH.md](./docs/SYSTEM_MAP_GITHUB_TH.md)
+- [docs/SYSTEM_MAP_GITHUB_EN.md](./docs/SYSTEM_MAP_GITHUB_EN.md)
+
+![Architecture overview](./docs/assets/architecture-overview.svg)
+
+> **What this repo is, in one screen**
+>
+> `Owner Panel` oversees the platform. `Tenant Panel` runs daily server operations. `Player Portal` handles community and commerce.
+> `Server Bot / Watcher` reads and syncs. `Delivery Agent` executes in game.
+> Everything converges into the control plane and persists through `PostgreSQL + Prisma`.
+
+```mermaid
+flowchart LR
+  OWNER["Owner Panel"] --> ADMIN["Admin API / Control Plane"]
+  TENANT["Tenant Panel"] --> ADMIN
+  PUBLIC["Public / Auth"] --> PLAYER["Player / Public API"]
+  PORTAL["Player Portal"] --> PLAYER
+  DISCORD["Discord"] --> BOT["Discord Bot"]
+
+  BOT --> DB[("PostgreSQL + Prisma")]
+  ADMIN --> DB
+  PLAYER --> DB
+  WORKER["Worker"] --> DB
+
+  WATCHER["Server Bot / Watcher"] --> ADMIN
+  WATCHER --> DB
+  AGENT["Delivery Agent"] --> ADMIN
+  AGENT --> DB
+  AGENT --> SCUM["SCUM Client"]
+```
 
 ## Primary Documents
 
@@ -32,6 +67,8 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Evidence map: [docs/EVIDENCE_MAP_TH.md](./docs/EVIDENCE_MAP_TH.md)
 - Visual assets: [docs/assets/README.md](./docs/assets/README.md)
 - Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- GitHub system map: [docs/SYSTEM_MAP_GITHUB_TH.md](./docs/SYSTEM_MAP_GITHUB_TH.md)
+- GitHub system map (EN): [docs/SYSTEM_MAP_GITHUB_EN.md](./docs/SYSTEM_MAP_GITHUB_EN.md)
 - Web surfaces v4 blueprint: [docs/WEB_SURFACES_V4_BLUEPRINT_TH.md](./docs/WEB_SURFACES_V4_BLUEPRINT_TH.md)
 - Web surfaces v4 sitemap: [docs/WEB_SURFACES_V4_SITEMAP_TH.md](./docs/WEB_SURFACES_V4_SITEMAP_TH.md)
 - Tenant v4 wireframes: [docs/TENANT_V4_WIREFRAMES_TH.md](./docs/TENANT_V4_WIREFRAMES_TH.md)
@@ -114,11 +151,17 @@ If a statement in this repository is not backed by code, tests, CI artifacts, or
 - Discord SSO for admin
 - TOTP 2FA and step-up auth for sensitive routes
 - Session revoke, security events, request trail, audit, and restore preview
+- Web runtimes are enabled again on this workstation for `owner`, `tenant`, `public`, and `player` surfaces
 - Primary role-separated routes now use:
   - `/owner` for platform owner oversight
   - `/tenant` for tenant-scoped server administration
   - `/player` for player-facing portal flows
 - `/admin/legacy` now exists as a compatibility fallback only, not the primary operator path
+- Owner login works locally on loopback without changing the production auth model; cookie handling now degrades safely only for loopback development
+- Owner pages now load without preview-tenant quota `500` failures
+- Tenant V4 now uses preview-aware fallback data for preview tenants instead of failing scoped reads
+- Public preview flow now works locally through `signup -> preview -> logout -> login -> preview`
+- `/player/login` and Discord OAuth start now work locally; the OAuth callback still requires a real Discord sign-in outside automation
 - Player portal with wallet, purchase history, redeem, profile, and Steam link flows
 - Control panel for a growing subset of runtime and bot settings
 - Package catalog, feature catalog, and tenant feature access are now exposed from the control plane
@@ -202,7 +245,7 @@ Source of truth for verification status:
 - `artifacts/ci/readiness.log`
 - `artifacts/ci/smoke.log`
 
-Commands used for local verification:
+Standard commands used for local verification:
 
 ```bash
 npm run lint
@@ -215,7 +258,22 @@ npm run readiness:prod
 npm run smoke:postdeploy
 ```
 
-Latest local verification on this workstation completed on `2026-03-24` with all commands above passing.
+Latest repo-local verification on this workstation completed on `2026-03-26` with these commands passing:
+
+- `npm run lint`
+- `npm run test:policy`
+- `npm test`
+- `npm run doctor`
+- `npm run security:check`
+
+Additional live browser validation completed on `2026-03-26` for:
+
+- owner login and owner console
+- tenant login and tenant console
+- public `signup -> preview -> logout -> login -> preview`
+- player login and Discord OAuth start redirect
+
+The broader operator stack `npm run readiness:prod` and `npm run smoke:postdeploy` remains part of the standard release bar. The latest full local pass including that broader stack is still `2026-03-24`.
 
 Operational guardrails now enforced by validation:
 

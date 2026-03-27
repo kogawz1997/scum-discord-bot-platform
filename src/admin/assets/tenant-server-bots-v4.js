@@ -31,7 +31,7 @@
 
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -166,10 +166,12 @@
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Tenant Admin V4 Preview',
+      surfaceLabel: 'แผงผู้เช่า',
         workspaceLabel: tenantName,
-        environmentLabel: 'Parallel V4',
-        navGroups: NAV_GROUPS,
+      environmentLabel: 'พื้นที่ผู้เช่า',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : NAV_GROUPS,
       },
       header: {
         title: 'Server Bots',
@@ -184,9 +186,9 @@
       },
       summaryStrip: [
         { label: 'ออนไลน์', value: formatNumber(online, '0'), detail: 'พร้อมอ่าน log และตอบงานจาก control plane', tone: online > 0 ? 'success' : 'muted' },
-        { label: 'missing bot', value: formatNumber(missingBot, '0'), detail: 'เซิร์ฟเวอร์ที่อาจยังไม่มี runtime ประจำ', tone: missingBot > 0 ? 'warning' : 'muted' },
-        { label: 'queue jobs', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'ใช้ดูผลกระทบก่อนแก้ config หรือ restart', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
-        { label: 'dead-letter', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'ภาระที่ควรเคลียร์ก่อน maintenance', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
+        { label: 'เซิร์ฟเวอร์ที่ยังไม่มี Bot', value: formatNumber(missingBot, '0'), detail: 'เซิร์ฟเวอร์ที่อาจยังไม่มี runtime ประจำ', tone: missingBot > 0 ? 'warning' : 'muted' },
+        { label: 'งานรอจัดการ', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'ใช้ดูผลกระทบก่อนแก้ config หรือ restart', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
+        { label: 'งานที่ล้มเหลว', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'ภาระที่ควรเคลียร์ก่อน maintenance', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
       ],
       rows: rows.map((row) => ({
         name: firstNonEmpty([row?.meta?.agentLabel, row?.runtimeKey, row?.name, 'Server Bot']),
@@ -336,7 +338,7 @@
       '<div class="tdv4-data-table">',
       ...(Array.isArray(safeModel.rows) && safeModel.rows.length
         ? safeModel.rows.map((row) => renderBotRow(row, safeModel.selected?.name))
-        : ['<div class="tdv4-empty-state">ยังไม่พบ Server Bot ใน tenant นี้</div>']),
+        : ['<div class="tdv4-empty-state"><strong>ยังไม่มี Server Bot</strong><span>สร้างตัวดูแลเซิร์ฟเวอร์ก่อน เพื่อให้ระบบอ่าน log จัดการ config และสั่ง restart ได้จริง</span><a class="tdv4-button tdv4-button-primary" href="#server-bots-new">สร้าง Server Bot</a></div>']),
       '</div>',
       '</section>',
       '<section class="tdv4-panel">',
@@ -352,17 +354,17 @@
             `<div class="tdv4-kpi-detail">Last seen ${escapeHtml(safeModel.selected.lastSeenAt)}</div>`,
             '</div>',
           ].join('')
-        : '<div class="tdv4-empty-state">เลือก runtime จากตารางก่อน</div>'),
+        : '<div class="tdv4-empty-state"><strong>ยังไม่ได้เลือก Server Bot</strong><span>เลือกตัวดูแลเซิร์ฟเวอร์จากตารางก่อน เพื่อดูความสดของ sync และความพร้อมในการแก้ config หรือ restart</span></div>'),
       '</section>',
       '</section>',
       '<section class="tdv4-panel">',
       '<div class="tdv4-section-kicker">Diagnostics</div>',
       '<h2 class="tdv4-section-title">ภาระงานและสัญญาณที่ควรดูต่อ</h2>',
       '<div class="tdv4-runtime-readiness-grid">',
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Queue jobs</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.queueCount)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Dead letters</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.deadLetterCount)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Reconcile alerts</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.reconcileAlerts)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Notifications</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.syncSignals)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานรอจัดการ</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.queueCount)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานที่ล้มเหลว</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.deadLetterCount)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">สัญญาณจาก sync check</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.reconcileAlerts)}</div></article>`,
+      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">การแจ้งเตือนล่าสุด</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.syncSignals)}</div></article>`,
       '</div>',
       '</section>',
       '</main>',

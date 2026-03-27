@@ -4,33 +4,45 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Owner</title>
-  <link rel="stylesheet" href="/admin/assets/owner-dashboard-v4.css">
-  <link rel="stylesheet" href="/admin/assets/owner-tenants-v4.css">
-  <link rel="stylesheet" href="/admin/assets/owner-runtime-health-v4.css">
-  <style>
-    body.odv4-preview-body{margin:0;padding:24px;background:#060907;color:#f4efe4;font-family:"IBM Plex Sans Thai","Segoe UI",sans-serif}
-    .surface-utility{width:min(1480px,calc(100% - 32px));margin:0 auto 16px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-    .surface-status{display:flex;align-items:center;gap:12px;color:rgba(244,239,228,.74);font-size:13px}
-    .surface-status strong{color:#f4efe4}
-    .surface-status[data-tone="success"] strong{color:#89b86c}
-    .surface-status[data-tone="danger"] strong{color:#d36d60}
-    .surface-actions{display:flex;gap:12px}
-    .surface-actions button{height:44px;padding:0 16px;border-radius:14px;border:1px solid rgba(212,186,113,.18);background:rgba(255,255,255,.03);color:#f4efe4;cursor:pointer}
-    .surface-shell{width:min(1480px,calc(100% - 32px));margin:0 auto}
-  </style>
+  <title>SCUM TH Platform | เจ้าของระบบ</title>
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
+  <link rel="stylesheet" href="/admin/assets/owner-dashboard-v4.css?v=20260327-ui-3">
+  <link rel="stylesheet" href="/admin/assets/owner-tenants-v4.css?v=20260327-ui-3">
+  <link rel="stylesheet" href="/admin/assets/owner-runtime-health-v4.css?v=20260327-ui-3">
 </head>
-<body class="odv4-preview-body" data-surface="owner-v4">
-  <div class="surface-utility">
-    <div id="ownerV4Status" class="surface-status" data-tone="muted"><strong>กำลังโหลด</strong><span>กำลังเตรียมพื้นผิวเจ้าของระบบ V4</span></div>
-    <div class="surface-actions">
-      <button id="ownerV4RefreshBtn" type="button">รีเฟรชข้อมูล</button>
-    </div>
+<body class="surface-body surface-owner" data-surface="owner-v4">
+  <div class="surface-app">
+    <header class="surface-globalbar">
+      <div class="surface-globalbar-main">
+        <a class="surface-brand" href="/owner">
+          <span class="surface-brand-mark">SCUM</span>
+          <span class="surface-brand-copy">
+            <span class="surface-brand-eyebrow">Owner Panel</span>
+            <strong class="surface-brand-title">ศูนย์ควบคุมแพลตฟอร์ม</strong>
+            <span class="surface-brand-detail">ดูผู้เช่า แพ็กเกจ รายได้ สุขภาพรันไทม์ และเหตุการณ์จากจุดเดียว</span>
+          </span>
+        </a>
+        <nav class="surface-role-switch" aria-label="Surface switch">
+          <a class="surface-role-link is-active" href="/owner">เจ้าของระบบ</a>
+          <a class="surface-role-link" href="/tenant">ผู้เช่า</a>
+          <a class="surface-role-link" href="http://127.0.0.1:3300/player/login">ผู้เล่น</a>
+        </nav>
+      </div>
+      <div class="surface-globalbar-tools">
+        <span id="ownerV4Status" class="surface-status" data-tone="muted">กำลังเตรียมศูนย์ควบคุมเจ้าของระบบ</span>
+        <div class="surface-tool-cluster">
+          <a class="surface-button" href="/tenant">เปิดพื้นที่ผู้เช่า</a>
+          <button id="ownerV4RefreshBtn" class="surface-button surface-button-primary" type="button">รีเฟรชข้อมูล</button>
+        </div>
+      </div>
+    </header>
+    <main class="surface-stage">
+      <div id="ownerV4AppRoot" class="surface-mount" aria-live="polite"></div>
+    </main>
   </div>
-  <main id="ownerV4AppRoot" class="surface-shell" aria-live="polite"></main>
-  <script src="/admin/assets/owner-dashboard-v4.js"></script>
-  <script src="/admin/assets/owner-tenants-v4.js"></script>
-  <script src="/admin/assets/owner-runtime-health-v4.js"></script>
-  <script src="/admin/assets/owner-v4-app.js"></script>
+  <script src="/admin/assets/owner-dashboard-v4.js?v=20260327-ui-3"></script>
+  <script src="/admin/assets/owner-tenants-v4.js?v=20260327-ui-3"></script>
+  <script src="/admin/assets/owner-runtime-health-v4.js?v=20260327-ui-3"></script>
+  <script src="/admin/assets/owner-v4-app.js?v=20260327-ui-3"></script>
 </body>
 </html>

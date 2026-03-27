@@ -101,15 +101,30 @@
       const status = String(row?.status || '').trim().toLowerCase();
       return status === 'pending' || status === 'queued' || status === 'delivering';
     }).length;
+    const missionsList = Array.isArray(state.missions?.missions) ? state.missions.missions : [];
+    const bountyList = Array.isArray(state.bounties?.items)
+      ? state.bounties.items
+      : (Array.isArray(state.bounties) ? state.bounties : []);
+    const leaderboardItems = Array.isArray(state.leaderboard?.items) ? state.leaderboard.items : [];
+    const primaryAction = pendingOrders > 0
+      ? { label: 'ดูออเดอร์ที่กำลังรอ (แนะนำ)', href: '#orders' }
+      : missions.dailyClaimable || missions.weeklyClaimable || missionsList.length > 0 || bountyList.length > 0 || feedRows.length > 0
+        ? { label: 'เปิดหน้ากิจกรรม (แนะนำ)', href: '#events' }
+        : leaderboardItems.length > 0
+          ? { label: 'ดูสถิติและอันดับ (แนะนำ)', href: '#stats' }
+          : { label: latestOrder ? 'ดูคำสั่งซื้อล่าสุด' : 'เปิดร้านค้า', href: latestOrder ? '#orders' : '#shop' };
 
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Player Portal V4 Preview',
+        surfaceLabel: 'พอร์ทัลผู้เล่น',
         workspaceLabel: displayName,
-        environmentLabel: 'Parallel V4',
-        navGroups: createPlayerNavGroups('home'),
+        environmentLabel: 'ชุมชนผู้เล่น',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : createPlayerNavGroups('home'),
       },
+      notice: state?.__surfaceNotice || null,
       header: {
         title: 'ภาพรวมผู้เล่น',
         subtitle: 'ดูความพร้อมของบัญชี กระเป๋าเงิน คำสั่งซื้อ และประกาศของชุมชนจากหน้าหลักเดียว',
@@ -119,7 +134,7 @@
           { label: `บัญชี ${firstNonEmpty([accountStatus], 'active')}`, tone: toneForStatus(accountStatus) },
           { label: state.lastRefreshedAt ? `อัปเดต ${formatRelative(state.lastRefreshedAt)}` : 'ยังไม่ซิงก์ล่าสุด', tone: 'info' },
         ],
-        primaryAction: { label: latestOrder ? 'ดูคำสั่งซื้อล่าสุด' : 'เปิดร้านค้า', href: latestOrder ? '#orders' : '#shop' },
+        primaryAction,
       },
       summaryStrip: [
         { label: 'ยอดคงเหลือ', value: formatAmount(wallet.balance, '0'), detail: 'กระเป๋าเงินที่ใช้ซื้อของและรับรางวัลในพอร์ทัล', tone: 'success' },
@@ -174,15 +189,19 @@
           ],
         },
         {
-          tone: steamLink.linked ? 'info' : 'warning',
-          tag: 'บัญชีและความพร้อม',
-          title: 'เตรียมบัญชีให้พร้อมก่อนซื้อไอเทม',
-          detail: steamLink.linked
-            ? 'บัญชีเกมพร้อมแล้ว คุณจึงไปต่อที่ profile หรือหน้ากิจกรรมได้เลย'
-            : 'ผูก Steam และเช็กสถานะบัญชีก่อน เพื่อหลีกเลี่ยงปัญหาส่งของไม่สำเร็จ',
+          tone: missions.dailyClaimable || missions.weeklyClaimable || leaderboardItems.length > 0 ? 'info' : (steamLink.linked ? 'success' : 'warning'),
+          tag: 'ชุมชนและกิจกรรม',
+          title: 'ดูสถิติ อันดับ และกิจกรรมที่กำลังเปิด',
+          detail: missions.dailyClaimable || missions.weeklyClaimable
+            ? 'มีรางวัลหรือกิจกรรมที่พร้อมให้กดรับอยู่ตอนนี้ ให้เริ่มจากหน้ากิจกรรมก่อนแล้วค่อยกลับมาดูโปรไฟล์'
+            : leaderboardItems.length > 0
+              ? 'ถ้าอยากดูอันดับหรือเช็กผลงานล่าสุด ให้เริ่มจากหน้าสถิติและกิจกรรมของชุมชนก่อน'
+              : steamLink.linked
+                ? 'บัญชีเกมพร้อมแล้ว คุณจึงไปต่อที่หน้าสถิติ กิจกรรม หรือโปรไฟล์ได้เลย'
+                : 'ผูก Steam ก่อน แล้วค่อยไปต่อที่หน้าสถิติและกิจกรรม เพื่อหลีกเลี่ยงปัญหาบัญชีไม่ตรงกัน',
           actions: [
-            { label: 'เปิดโปรไฟล์', href: '#profile', primary: true },
-            { label: 'ดูการช่วยเหลือ', href: '#support' },
+            { label: 'เปิดหน้าสถิติ', href: '#stats', primary: true },
+            { label: 'ดูกิจกรรม', href: '#events' },
           ],
         },
       ],
@@ -227,7 +246,7 @@
       `<strong class="plv4-workspace-label">${escapeHtml(model.shell.workspaceLabel || '')}</strong>`,
       '</div>',
       '</div>',
-      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'Parallel V4', tone: 'info' }])}</div>`,
+      `<div class="plv4-topbar-actions">${renderBadges([{ label: model.shell.environmentLabel || 'ชุมชนผู้เล่น', tone: 'info' }])}</div>`,
       '</header>',
       '<div class="plv4-shell">',
       '<aside class="plv4-sidebar">',
@@ -250,6 +269,9 @@
       `<a class="plv4-button plv4-button-primary" href="${escapeHtml(model.header.primaryAction.href || '#')}">${escapeHtml(model.header.primaryAction.label || '')}</a>`,
       '</div>',
       '</section>',
+      model.notice
+        ? `<section class="plv4-panel plv4-tone-${escapeHtml(model.notice.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Access</span><h2 class="plv4-section-title">${escapeHtml(model.notice.title || '')}</h2><p class="plv4-section-copy">${escapeHtml(model.notice.detail || '')}</p></div></div></section>`
+        : '',
       `<section class="plv4-summary-strip">${renderSummaryStrip(model.summaryStrip)}</section>`,
       '<section class="plv4-content-grid plv4-content-grid-two">',
       '<article class="plv4-panel">',

@@ -1,6 +1,6 @@
 # Config Matrix
 
-Last updated: **2026-03-25**
+Last updated: **2026-03-27**
 
 This document is the operator-facing matrix for core configuration. It is not a complete dump of every env key. For the full list, see [ENV_REFERENCE_TH.md](./ENV_REFERENCE_TH.md).
 
@@ -173,6 +173,8 @@ Current state:
 - some runtime, bot, delivery, sync-routing, and feature settings are editable through admin UI
 - some env-backed settings can be edited but still require restart
 - admin env metadata now covers runtime identity and bind settings, persistence flags, bot and watcher health settings, SSO role mapping, login/rate-limit settings, cookie/origin policy, sync/control-plane routing keys, agent tuning, tenant DB topology settings, native delivery proof settings, and portal OAuth/map settings
+- the control-panel catalog now exposes grouped sections, field labels, select options for the highest-value mode switches, and numeric bounds for ports and timing/threshold keys
+- grouped catalog and grouped live-value payloads are now available from the admin settings API so the owner surface can render structured config workspaces instead of one flat key list
 - owner control now also covers `ADMIN_LOG_LANGUAGE` for the Discord `#admin-log` workflow
 - secrets and low-level bind/topology settings remain env-only by design
 

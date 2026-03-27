@@ -21,6 +21,7 @@ function createPortalPageRoutes(deps) {
     buildHealthPayload,
     tryServePublicDoc,
     getLandingHtml,
+    getDashboardHtml,
     getPricingHtml,
     getSignupHtml,
     getForgotPasswordHtml,
@@ -134,6 +135,16 @@ function createPortalPageRoutes(deps) {
 
     if (pathname === '/landing' && method === 'GET') {
       sendHtml(res, 200, getLandingHtml());
+      return true;
+    }
+
+    if (pathname === '/dashboard/' && method === 'GET') {
+      sendRedirect(res, '/dashboard');
+      return true;
+    }
+
+    if (pathname === '/dashboard' && method === 'GET') {
+      sendHtml(res, 200, getDashboardHtml());
       return true;
     }
 

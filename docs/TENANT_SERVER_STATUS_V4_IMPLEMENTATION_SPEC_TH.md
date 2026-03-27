@@ -184,18 +184,18 @@
 
 ## 7. Current data mapping
 
-| Block | Current state key | Endpoint |
-|---|---|---|
-| page scope / tenant | `state.me` | `/admin/api/me` |
-| overview analytics | `state.overview` | `/admin/api/platform/overview?tenantId={id}` |
-| reconcile | `state.reconcile` | `/admin/api/platform/reconcile?tenantId={id}&windowMs=3600000&pendingOverdueMs=1200000` |
-| quota posture | `state.quota` | `/admin/api/platform/quota?tenantId={id}` |
-| runtime readiness | `state.deliveryRuntime` | `/admin/api/delivery/runtime` |
-| notifications | `state.notifications` | `/admin/api/notifications?acknowledged=false&limit=10` |
-| queue items | `state.queueItems` | `/admin/api/delivery/queue?tenantId={id}&limit=20` |
-| dead letters | `state.deadLetters` | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20` |
-| lifecycle report | `state.deliveryLifecycle` | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000` |
-| audit summary | `state.audit` | `/admin/api/audit/query?...` |
+| Block               | Current state key         | Endpoint                                                                                |
+| ------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
+| page scope / tenant | `state.me`                | `/admin/api/me`                                                                         |
+| overview analytics  | `state.overview`          | `/admin/api/platform/overview?tenantId={id}`                                            |
+| reconcile           | `state.reconcile`         | `/admin/api/platform/reconcile?tenantId={id}&windowMs=3600000&pendingOverdueMs=1200000` |
+| quota posture       | `state.quota`             | `/admin/api/platform/quota?tenantId={id}`                                               |
+| runtime readiness   | `state.deliveryRuntime`   | `/admin/api/delivery/runtime`                                                           |
+| notifications       | `state.notifications`     | `/admin/api/notifications?acknowledged=false&limit=10`                                  |
+| queue items         | `state.queueItems`        | `/admin/api/delivery/queue?tenantId={id}&limit=20`                                      |
+| dead letters        | `state.deadLetters`       | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20`                                |
+| lifecycle report    | `state.deliveryLifecycle` | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000`         |
+| audit summary       | `state.audit`             | `/admin/api/audit/query?...`                                                            |
 
 ## 8. Existing logic to reuse
 

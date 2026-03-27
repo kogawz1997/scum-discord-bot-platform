@@ -21,6 +21,14 @@ function trimText(value) {
   return String(value || '').trim();
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.trunc(parsed);
+}
+
 function normalizeTenantDbIsolationMode(value, fallback = 'application') {
   const text = trimText(value).toLowerCase();
   if (!text) return fallback;
@@ -187,9 +195,20 @@ async function withTenantDbIsolation(client, options = {}, work) {
       reason: runtime.supported ? 'mode-disabled' : 'database-not-postgresql',
     });
   }
+  const transactionMaxWaitMs = parsePositiveInt(
+    options.transactionMaxWaitMs ?? env.TENANT_DB_ISOLATION_MAX_WAIT_MS,
+    10_000,
+  );
+  const transactionTimeoutMs = parsePositiveInt(
+    options.transactionTimeoutMs ?? env.TENANT_DB_ISOLATION_TIMEOUT_MS,
+    15_000,
+  );
   return client.$transaction(async (tx) => {
     const context = await configureTenantDbIsolationSession(tx, options);
     return work(tx, context);
+  }, {
+    maxWait: transactionMaxWaitMs,
+    timeout: transactionTimeoutMs,
   });
 }
 

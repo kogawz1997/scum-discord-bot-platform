@@ -3,66 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | Landing</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v2.css">
+  <title>SCUM TH Platform | ภาพรวมบริการ</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
 </head>
-<body class="public-v2">
-  <div class="marketing-shell">
-    <header class="marketing-topbar">
-      <a class="marketing-brand" href="/landing">
-        <span class="marketing-brand-mark">SCUM</span>
-        <span class="marketing-brand-copy"><strong>SCUM TH Platform</strong><span>Owner, Tenant, Player surfaces</span></span>
-      </a>
-      <nav class="marketing-nav">
-        <a class="is-active" href="/landing">ภาพรวม</a>
-        <a href="/pricing">แพ็กเกจ</a>
-        <a href="/signup">สมัครใช้งาน</a>
-        <a href="/login">เข้าสู่ระบบ</a>
-      </nav>
-      <div class="marketing-tools">
-        <a class="button" href="/login">Preview</a>
-        <a class="button button-primary" href="/signup">เริ่มต้นใช้งาน</a>
+<body class="public-v3">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/landing">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">SCUM TH Platform</strong>
+            <span class="site-brand-detail">แพลตฟอร์มดูแลเซิร์ฟเวอร์ SCUM สำหรับผู้ให้บริการ ผู้ดูแลชุมชน และผู้เล่นในระบบเดียวกัน</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="site-nav-link is-active" href="/landing">ภาพรวม</a>
+          <a class="site-nav-link" href="/pricing">แพ็กเกจ</a>
+          <a class="site-nav-link" href="/signup">สร้างบัญชี</a>
+          <a class="site-nav-link" href="/login">เข้าสู่ระบบ</a>
+        </nav>
+      </div>
+      <div class="site-topbar-tools">
+        <a class="site-button" href="/preview">พื้นที่ก่อนเปิดใช้งาน</a>
+        <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">สร้างบัญชีและพื้นที่ทำงาน</a>
       </div>
     </header>
-    <main class="marketing-main">
-      <section class="marketing-hero">
-        <div class="marketing-copy">
-          <span class="marketing-kicker">Provider-ready control plane</span>
-          <h1>แพลตฟอร์มดูแลเซิร์ฟเวอร์ SCUM แบบหลายผู้เช่า</h1>
-          <p>แยก Owner, Tenant Admin, และ Player อย่างชัดเจน พร้อม Delivery Agent, Server Bot, การส่งของ, การซิงก์ log, การจัดการคำสั่งซื้อ และพอร์ทัลผู้เล่นในโครงแบบ SaaS ที่ใช้งานได้จริง</p>
-          <div class="marketing-actions">
-            <a class="button button-primary" href="/signup?package=BOT_LOG_DELIVERY">ลองใช้ก่อนซื้อ</a>
-            <a class="button" href="/pricing">ดูแพ็กเกจ</a>
+
+    <main class="site-main">
+      <section class="site-hero">
+        <div class="site-hero-copy">
+          <span class="site-kicker">Managed SCUM Platform</span>
+          <h1 class="site-hero-title">แยกบทบาทชัด ดูแลง่าย และพาแต่ละทีมไปทำงานในหน้าที่ถูกต้องตั้งแต่วันแรก</h1>
+          <p class="site-copy">ระบบนี้แยก Owner Panel, Tenant Admin Panel และ Player Portal ออกจากกันชัดเจน พร้อมแยก Delivery Agent และ Server Bot ออกจากกันในระดับการใช้งานจริง เพื่อให้ทุกคนเริ่มงานได้ทันทีโดยไม่ต้องเดาว่าหน้าไหนใช้ทำอะไร</p>
+          <div class="site-tool-cluster">
+            <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">สร้างบัญชีและพื้นที่ทำงาน</a>
+            <a class="site-button" href="/pricing">เปรียบเทียบแพ็กเกจ</a>
           </div>
-          <div class="marketing-chip-row">
-            <span class="marketing-chip">Multi-tenant</span>
-            <span class="marketing-chip">Delivery Agent + Server Bot</span>
-            <span class="marketing-chip">Preview mode ก่อนซื้อ</span>
+          <div class="site-tool-cluster">
+            <span class="site-status-pill is-info">หลายผู้เช่า</span>
+            <span class="site-status-pill is-success">ลองโครงระบบก่อนเปิดจริง</span>
+            <span class="site-status-pill is-warning">แยก Delivery Agent กับ Server Bot</span>
           </div>
         </div>
-        <div class="marketing-visual">
-          <div class="marketing-visual-image"></div>
-          <div class="marketing-visual-card">
-            <strong>เส้นทางใช้งาน</strong>
-            <p>Owner ดูภาพรวมทั้งระบบ, Tenant ดูแลงานประจำวันของเซิร์ฟเวอร์, Player ติดตามคำสั่งซื้อ กระเป๋าเงิน และกิจกรรมของชุมชน</p>
-          </div>
+        <div class="site-hero-media">
+          <div class="site-hero-shot"></div>
+          <article class="site-scene-card">
+            <span class="site-kicker">เริ่มต้นให้ถูกทาง</span>
+            <h2 class="site-card-title">เจ้าของระบบ ผู้ดูแลผู้เช่า และผู้เล่น ใช้คนละพื้นที่ แต่ทำงานเชื่อมกันได้จริง</h2>
+            <p class="site-copy">เจ้าของระบบใช้ดูภาพรวมแพลตฟอร์มและรายได้ ผู้ดูแลผู้เช่าใช้ดูแลงานประจำวันของเซิร์ฟเวอร์ ส่วนผู้เล่นใช้ติดตามร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และกิจกรรมของชุมชนจากพอร์ทัลเฉพาะของตัวเอง</p>
+          </article>
         </div>
       </section>
 
-      <section class="marketing-grid two-col">
-        <article class="marketing-panel">
-          <div class="marketing-panel-head">
-            <span class="marketing-kicker">Owner</span>
-            <h2>ควบคุมทั้งแพลตฟอร์ม</h2>
+      <section class="site-feature-grid">
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-owner-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">Owner Panel</span>
+            <h2 class="site-card-title">มองทั้งระบบจากศูนย์ควบคุมเดียว</h2>
+            <p>ดูผู้เช่า แพ็กเกจ รายได้ สุขภาพรันไทม์ ความปลอดภัย และเหตุการณ์สำคัญของแพลตฟอร์มจากมุมมองของผู้ให้บริการ</p>
+            <div class="site-tool-cluster">
+              <a class="site-button site-button-primary" href="http://127.0.0.1:3200/owner/login">เข้า Owner Panel</a>
+            </div>
           </div>
-          <p>เหมาะกับผู้ให้บริการที่ต้องดูผู้เช่า แพ็กเกจ สิทธิ์ใช้งาน สุขภาพรันไทม์ และเหตุการณ์ระดับระบบ</p>
         </article>
-        <article class="marketing-panel">
-          <div class="marketing-panel-head">
-            <span class="marketing-kicker">Tenant</span>
-            <h2>จัดการเซิร์ฟเวอร์ประจำวัน</h2>
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-tenant-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">Tenant Admin Panel</span>
+            <h2 class="site-card-title">ดูแลงานประจำวันของเซิร์ฟเวอร์แบบคุ้นมือ</h2>
+            <p>เปิดดูสถานะเซิร์ฟเวอร์ แก้ค่าระบบ ติดตามคำสั่งซื้อ ผู้เล่น การส่งของ Delivery Agent และ Server Bot ในหน้าที่ทีมดูแลใช้งานได้จริงทุกวัน</p>
+            <div class="site-tool-cluster">
+              <a class="site-button site-button-primary" href="http://127.0.0.1:3200/tenant/login">เข้า Tenant Panel</a>
+            </div>
           </div>
-          <p>รวมสถานะเซิร์ฟเวอร์ การตั้งค่า รีสตาร์ต คำสั่งซื้อ ผู้เล่น บอต และการส่งของไว้ใน workflow ที่เข้าใจง่าย</p>
+        </article>
+        <article class="site-panel site-feature-card">
+          <div class="site-media-shot is-player-scene"></div>
+          <div class="site-feature-copy">
+            <span class="site-kicker">Player Portal</span>
+            <h2 class="site-card-title">พอร์ทัลผู้เล่นที่ใช้ติดตามร้านค้าและชุมชนได้จริง</h2>
+            <p>รวมร้านค้า กระเป๋าเงิน คำสั่งซื้อ การส่งของ สถิติ กิจกรรม และสถานะบัญชีไว้ในหน้าที่อ่านง่ายและกลับมาใช้งานซ้ำได้จริง</p>
+            <div class="site-tool-cluster">
+              <a class="site-button site-button-primary" href="/player/login">เข้า Player Portal</a>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="site-grid-2">
+        <article class="site-panel site-media-card">
+          <div class="site-media-shot is-map-scene"></div>
+          <span class="site-kicker">เริ่มต้นก่อนเปิดใช้งานจริง</span>
+          <h2 class="site-card-title">สำรวจเมนู สิทธิ์ และสิ่งที่ต้องเปิดเพิ่มก่อนตัดสินใจ</h2>
+          <p>หน้าพื้นที่ก่อนเปิดใช้งานช่วยให้คุณเห็นโครงเมนู สิทธิ์ และจุดที่ยังต้องอัปเกรดหรือเปิด runtime เพิ่มก่อนเริ่มใช้งานจริง โดยไม่ต้องสร้างระบบใหม่อีกรอบหลังตัดสินใจ</p>
+          <div class="site-tool-cluster">
+            <a class="site-button site-button-primary" href="/preview">เปิดพื้นที่ก่อนเปิดใช้งาน</a>
+            <a class="site-button" href="/trial">ดูแผนเริ่มต้น</a>
+          </div>
+        </article>
+        <article class="site-panel site-media-card">
+          <div class="site-media-shot is-support-scene"></div>
+          <span class="site-kicker">มองภาพรวมได้ทันที</span>
+          <h2 class="site-card-title">เข้าใจบทบาทของแต่ละพื้นที่ก่อนเริ่ม onboard ทีมจริง</h2>
+          <p>หน้าแนะนำระบบช่วยให้ทีมใหม่รู้ทันทีว่า Owner ใช้ทำอะไร Tenant ใช้ทำอะไร และผู้เล่นควรเข้าทางไหน โดยไม่ต้องเปิดหลายหน้ามาเดาเอง</p>
+          <div class="site-tool-cluster">
+            <a class="site-button site-button-primary" href="/showcase">สำรวจโครงระบบ</a>
+            <a class="site-button" href="/dashboard">เปิดศูนย์ทางเข้า</a>
+          </div>
         </article>
       </section>
     </main>

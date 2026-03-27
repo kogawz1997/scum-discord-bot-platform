@@ -835,6 +835,17 @@ test('admin API auth + validation integration flow', async (t) => {
     0,
   );
 
+  const restoreHistory = await request('/admin/api/backup/restore/history', 'GET', null, cookie);
+  assert.equal(restoreHistory.res.status, 200);
+  assert.equal(restoreHistory.data.ok, true);
+  assert.ok(Array.isArray(restoreHistory.data.data));
+  assert.equal(
+    restoreHistory.data.data.some((entry) =>
+      String(entry?.backup || '') === backupFile
+      && String(entry?.status || '') === 'succeeded'),
+    true,
+  );
+
   const presetDelete = await request('/admin/api/audit/presets/delete', 'POST', {
     id: presetId,
   }, cookie);
@@ -1628,6 +1639,11 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(Boolean(runtimeStatus.data.data?.readiness?.ready), true);
   assert.equal(Boolean(runtimeStatus.data.data?.agent?.preflight?.ok), true);
   assert.ok(Array.isArray(runtimeStatus.data.data?.preflightSummary?.checks));
+  assert.equal(
+    Boolean(runtimeStatus.data.data?.operatorContract?.dependencyProfile?.interactiveWindowsSessionRequired),
+    true,
+  );
+  assert.ok(Array.isArray(runtimeStatus.data.data?.operatorContract?.beforeRetry));
 
   const preflightStatus = await request('/admin/api/delivery/preflight', 'POST', {
     gameItemId: 'Weapon_M1911',
@@ -2170,6 +2186,14 @@ test('admin API control panel settings, env patching, and admin user management'
       entry.key === 'WEB_PORTAL_PORT'
       && entry.policy === 'runtime-only'
       && entry.editable === false),
+  );
+  assert.ok(
+    Array.isArray(updatedSettings.data.data?.envCatalogGroups?.root)
+      && updatedSettings.data.data.envCatalogGroups.root.some((entry) => entry.sectionKey === 'delivery'),
+  );
+  assert.ok(
+    Array.isArray(updatedSettings.data.data?.envGroups?.portal)
+      && updatedSettings.data.data.envGroups.portal.some((entry) => entry.sectionKey === 'portalSession'),
   );
 });
 

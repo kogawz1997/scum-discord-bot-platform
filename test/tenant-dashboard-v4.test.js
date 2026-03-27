@@ -56,3 +56,49 @@ test('tenant dashboard v4 preview html references parallel assets', () => {
   assert.match(html, /tenantDashboardV4PreviewRoot/);
   assert.match(html, /__TENANT_DASHBOARD_V4_SAMPLE__/);
 });
+
+test('tenant dashboard v4 humanizes operational alert payloads for operators', () => {
+  const model = createTenantDashboardV4Model({
+    me: { tenantId: 'tenant-preview-52771e8d-e432-4849-8ee4-ff585d2d7a31', role: 'tenant_admin' },
+    tenantConfig: { name: 'SCUM Preview Ops' },
+    notifications: [{
+      severity: 'warning',
+      title: 'Operational Alert',
+      detail: JSON.stringify({
+        source: 'platform-monitor',
+        kind: 'tenant-quota-near-limit',
+        tenantId: 'tenant-preview-52771e8d-e432-4849-8ee4-ff585d2d7a31',
+        tenantSlug: 'scum-preview-ops',
+        quotaKey: 'agentRuntimes',
+        used: 0,
+        limit: 1,
+        remaining: 1,
+      }),
+      createdAt: '2026-03-27T10:00:00+07:00',
+    }],
+  });
+
+  assert.ok(model.issues.some((item) => item.title.includes('โควตา')));
+  assert.ok(model.issues.some((item) => item.detail.includes('รันไทม์')));
+  assert.ok(model.issues.every((item) => !item.detail.includes('"tenantSlug"')));
+  assert.ok(model.railCards.some((item) => String(item.meta || '').includes('โควตา')));
+  assert.ok(model.activity.some((item) => item.detail.includes('scum-preview-ops')));
+});
+
+test('tenant dashboard v4 humanizes admin security notifications', () => {
+  const model = createTenantDashboardV4Model({
+    me: { tenantId: 'tenant-preview-security', role: 'tenant_admin' },
+    tenantConfig: { name: 'SCUM Preview Security' },
+    notifications: [{
+      severity: 'danger',
+      title: 'Admin Security Event',
+      detail: 'Admin login failed | actor=admin | target=admin | ip=127.0.0.1 | reason=invalid-credentials',
+      createdAt: '2026-03-27T10:05:00+07:00',
+    }],
+  });
+
+  assert.ok(model.issues.some((item) => item.title.includes('เข้าสู่ระบบ')));
+  assert.ok(model.issues.some((item) => item.detail.includes('รหัสผ่านหรือข้อมูลเข้าสู่ระบบไม่ถูกต้อง')));
+  assert.ok(model.activity.some((item) => item.detail.includes('IP 127.0.0.1')));
+  assert.ok(model.activity.every((item) => !item.detail.includes('reason=invalid-credentials')));
+});

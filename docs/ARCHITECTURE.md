@@ -167,6 +167,8 @@ Exported contract diagram:
 
 ![Runtime validation contract](./assets/runtime-validation-contract.svg)
 
+This exported view exists to explain how the repository now treats validation as one contract instead of unrelated script outputs. Local operators still read normal CLI text, but CI and follow-up tooling consume the same structured result shape.
+
 Health endpoints:
 
 - bot: `http://<BOT_HEALTH_HOST>:<BOT_HEALTH_PORT>/healthz`
@@ -196,7 +198,7 @@ Current behavior:
 - `agent` execution still depends on Windows session state and a live SCUM client
 - some SCUM command behavior depends on the target server
 - restore should still be treated as a maintenance operation
-- screenshot and GIF evidence are still missing from the repository
+- broader live runtime and in-game evidence still depends on additional capture passes, even though core screenshots, demo GIF output, and architecture assets now exist in `docs/assets/`
 
 ## Related Documents
 

@@ -29,7 +29,7 @@
 
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -134,13 +134,18 @@
       },
     ];
 
+    const recommendedMode = modeCards.find((item) => item.title === 'Safe Restart') || modeCards[0] || null;
+    const secondaryModes = modeCards.filter((item) => item !== recommendedMode);
+
     return {
       shell: {
         brand: 'SCUM TH',
-        surfaceLabel: 'Tenant Admin V4 Preview',
+      surfaceLabel: 'แผงผู้เช่า',
         workspaceLabel: tenantName,
-        environmentLabel: 'Parallel V4',
-        navGroups: NAV_GROUPS,
+      environmentLabel: 'พื้นที่ผู้เช่า',
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+          ? state.__surfaceShell.navGroups
+          : NAV_GROUPS,
       },
       header: {
         title: 'Restart Control',
@@ -152,6 +157,9 @@
           { label: `maintenance ${maintenanceState}`, tone: statusTone(maintenanceState) },
         ],
         primaryAction: { label: 'เปิด flow รีสตาร์ต', href: '#restart-open-flow' },
+        primaryAction: recommendedMode
+          ? { label: 'Safe Restart (แนะนำ)', href: '#restart-safe' }
+          : { label: 'เปิด flow รีสตาร์ต', href: '#restart-open-flow' },
       },
       summaryStrip: [
         { label: 'Server readiness', value: firstNonEmpty([state?.serverStatus, 'ready']), detail: 'ความพร้อมระดับการควบคุมเซิร์ฟเวอร์', tone: statusTone(firstNonEmpty([state?.serverStatus, 'ready'])) },
@@ -161,6 +169,8 @@
       ],
       blockers,
       announcementPlan: buildAnnouncementPlan(300),
+      recommendedMode,
+      secondaryModes,
       modeCards,
       history: history.slice(0, 4).map((item) => ({
         at: formatDateTime(item?.at),
@@ -275,13 +285,31 @@
       '<section class="tdv4-kpi-strip tdv4-restart-summary-strip">',
       ...(Array.isArray(safeModel.summaryStrip) ? safeModel.summaryStrip.map(renderSummaryCard) : []),
       '</section>',
-      '<section class="tdv4-panel">',
+      '<section class="tdv4-panel tdv4-restart-primary">',
+      '<div class="tdv4-section-kicker">Recommended action</div>',
+      '<h2 class="tdv4-section-title">Safe Restart เป็นตัวเลือกที่แนะนำ</h2>',
+      '<p class="tdv4-section-copy">เริ่มจากโหมดนี้ก่อนเมื่อไม่ได้มีเหตุฉุกเฉิน เพราะช่วยเช็กคิวงาน การประกาศ และขั้นตอนหลังรีสตาร์ตได้ครบกว่า</p>',
+      '<div class="tdv4-restart-primary-grid">',
+      (safeModel.recommendedMode ? renderModeCard(safeModel.recommendedMode) : ''),
+      '<div class="tdv4-panel tdv4-restart-primary-actions tdv4-tone-info">',
+      '<div class="tdv4-section-kicker">Primary action</div>',
+      '<h3 class="tdv4-mode-title">เริ่ม Safe Restart ก่อน</h3>',
+      '<p class="tdv4-kpi-detail">ถ้าสถานะระบบยังไม่ชัด ให้ดู blockers และ announcement checklist ใต้หน้านี้ก่อนกดรีสตาร์ตจริง</p>',
+      '<div class="tdv4-action-list">',
+      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || '')}</a>`,
+      '<a class="tdv4-button tdv4-button-secondary" href="#server-status">ดูสถานะเซิร์ฟเวอร์</a>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</section>',
+      '<details class="tdv4-panel tdv4-more-options">',
+      '<summary class="tdv4-more-options-summary">More options</summary>',
       '<div class="tdv4-section-kicker">Restart modes</div>',
       '<h2 class="tdv4-section-title">เลือกโหมดรีสตาร์ตที่เหมาะกับสถานการณ์</h2>',
       '<div class="tdv4-mode-grid">',
-      ...(Array.isArray(safeModel.modeCards) ? safeModel.modeCards.map(renderModeCard) : []),
+      ...(Array.isArray(safeModel.secondaryModes) ? safeModel.secondaryModes.map(renderModeCard) : []),
       '</div>',
-      '</section>',
+      '</details>',
       '<section class="tdv4-dual-grid tdv4-restart-main-grid">',
       '<section class="tdv4-panel">',
       '<div class="tdv4-section-kicker">Announcement checklist</div>',

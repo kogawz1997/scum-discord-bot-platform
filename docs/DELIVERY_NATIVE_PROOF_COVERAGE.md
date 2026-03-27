@@ -8,6 +8,16 @@ The native verifier in [src/services/deliveryNativeInventoryProof.js](../src/ser
 - `world-spawn-delta`: spawned entity rows after the captured baseline prove the expected items were created during this run.
 - `recent-spawned`: weaker fallback observation only. Do not treat this as representative native-proof coverage.
 
+## Repo-side Validation Contract
+
+The repo now treats multi-environment native proof as an explicit validation contract, not just a loose evidence folder.
+
+- [scripts/run-live-native-proof-matrix.js](../scripts/run-live-native-proof-matrix.js) can now write a matrix run, update the environment registry entry for a target environment, and rebuild the shared coverage summary artifacts in one flow
+- [scripts/build-native-proof-coverage-report.js](../scripts/build-native-proof-coverage-report.js) now evaluates whether the registered environments satisfy the repo's multi-environment coverage contract
+- [docs/assets/live-native-proof-coverage-summary.json](./assets/live-native-proof-coverage-summary.json) and [docs/assets/live-native-proof-coverage-summary.md](./assets/live-native-proof-coverage-summary.md) are the machine-readable and operator-readable outputs of that contract
+
+This closes the repo-side workflow gap. It does **not** mean the repo can fabricate live second-environment evidence by itself.
+
 ## Current Workstation Coverage
 
 Current representative cases are defined in [docs/assets/live-native-proof-cases.json](./assets/live-native-proof-cases.json).
@@ -22,6 +32,8 @@ Live evidence and environment tracking are captured in:
 - [docs/assets/live-native-proof-experimental-cases.json](./assets/live-native-proof-experimental-cases.json)
 
 The current verified environment is the local workstation only. Pending environment targets are tracked in `live-native-proof-environments.json` and summarized in the coverage summary files above.
+
+The coverage summary now also carries a validation block that answers, in one place, whether the currently registered environments satisfy the repo's multi-environment acceptance bar.
 
 ## Delivery Class Matrix
 
@@ -64,6 +76,11 @@ Do not mark native proof as "complete across environments" until all of the foll
    - matrix output in `docs/assets/live-native-proof-*.md`
    - machine-readable summary in `docs/assets/live-native-proof-*.json`
 5. at least one representative case exists for every delivery class you claim to support there
+
+Repo note:
+
+- the checklist above is now enforced by repo-side tooling and coverage summaries
+- the remaining work is to run the capture flow on the missing environments and commit the resulting evidence honestly
 
 ## Practical Acceptance
 

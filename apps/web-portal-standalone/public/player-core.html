@@ -4,34 +4,42 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Player</title>
-  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css">
-  <link rel="stylesheet" href="/player/assets/ui/player-home-v4.css">
-  <link rel="stylesheet" href="/player/assets/ui/player-commerce-v4.css">
-  <link rel="stylesheet" href="/player/assets/ui/player-stats-events-support-v4.css">
-  <style>
-    body.plv4-preview-body{margin:0;padding:24px;background:#060907;color:#f4efe4;font-family:"IBM Plex Sans Thai","Segoe UI",sans-serif}
-    .surface-utility{width:min(1480px,calc(100% - 32px));margin:0 auto 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .surface-status{display:flex;align-items:center;gap:12px;color:rgba(244,239,228,.74);font-size:13px}
-    .surface-status strong{color:#f4efe4}
-    .surface-status[data-tone="success"] strong{color:#89b86c}
-    .surface-status[data-tone="danger"] strong{color:#d36d60}
-    .surface-actions button{height:44px;padding:0 16px;border-radius:14px;border:1px solid rgba(212,186,113,.18);background:rgba(255,255,255,.03);color:#f4efe4;cursor:pointer}
-    .surface-shell{width:min(1480px,calc(100% - 32px));margin:0 auto}
-  </style>
+  <title>SCUM TH Platform | พอร์ทัลผู้เล่น</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css?v=20260327-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-home-v4.css?v=20260327-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-commerce-v4.css?v=20260327-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-stats-events-support-v4.css?v=20260327-ui-1">
 </head>
-<body class="plv4-preview-body" data-surface="player-v4">
-  <div class="surface-utility">
-    <div id="playerV4Status" class="surface-status" data-tone="muted"><strong>กำลังโหลด</strong><span>กำลังเตรียมพอร์ทัลผู้เล่น V4</span></div>
-    <div class="surface-actions">
-      <button id="playerV4RefreshBtn" type="button">รีเฟรชข้อมูล</button>
-    </div>
+<body class="player-shell-v3" data-surface="player-v4">
+  <div class="site-shell">
+    <header class="site-topbar">
+      <div class="site-topbar-main">
+        <a class="site-brand" href="/player">
+          <span class="site-brand-mark">SCUM</span>
+          <span class="site-brand-copy">
+            <strong class="site-brand-title">พอร์ทัลผู้เล่น</strong>
+            <span class="site-brand-detail">ร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และกิจกรรมของชุมชน</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Player sections">
+          <a class="site-nav-link is-active" href="/player">ผู้เล่น</a>
+          <a class="site-nav-link" href="/landing">บริการ</a>
+        </nav>
+      </div>
+      <div class="site-topbar-tools">
+        <span id="playerV4Status" class="surface-status" data-tone="muted">กำลังเตรียมพอร์ทัลผู้เล่น</span>
+        <button id="playerV4RefreshBtn" class="site-button site-button-primary" type="button">รีเฟรชข้อมูล</button>
+      </div>
+    </header>
+    <main class="surface-stage">
+      <div id="playerV4AppRoot" class="surface-mount" aria-live="polite"></div>
+    </main>
   </div>
-  <main id="playerV4AppRoot" class="surface-shell" aria-live="polite"></main>
-  <script src="/player/assets/ui/player-v4-shared.js"></script>
-  <script src="/player/assets/ui/player-home-v4.js"></script>
-  <script src="/player/assets/ui/player-commerce-v4.js"></script>
-  <script src="/player/assets/ui/player-stats-events-support-v4.js"></script>
-  <script src="/player/assets/ui/player-v4-app.js"></script>
+  <script src="/player/assets/ui/player-v4-shared.js?v=20260327-ui-1"></script>
+  <script src="/player/assets/ui/player-home-v4.js?v=20260327-ui-1"></script>
+  <script src="/player/assets/ui/player-commerce-v4.js?v=20260327-ui-1"></script>
+  <script src="/player/assets/ui/player-stats-events-support-v4.js?v=20260327-ui-1"></script>
+  <script src="/player/assets/ui/player-v4-app.js?v=20260327-ui-1"></script>
 </body>
 </html>

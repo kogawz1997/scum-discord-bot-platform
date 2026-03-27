@@ -4,6 +4,7 @@ const path = require('node:path');
 const { atomicWriteJson, getFilePath } = require('./_persist');
 
 const FILE_PATH = getFilePath('admin-restore-state.json');
+const MAX_HISTORY_ENTRIES = 25;
 
 const VALID_STATUS = new Set(['idle', 'running', 'succeeded', 'failed']);
 const VALID_ROLLBACK_STATUS = new Set([
@@ -76,9 +77,57 @@ function normalizeVerification(value) {
   };
 }
 
+function normalizeHistoryEntry(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const operationId = normalizeString(value.operationId, 120);
+  const recordedAt =
+    normalizeIso(value.recordedAt)
+    || normalizeIso(value.endedAt)
+    || normalizeIso(value.updatedAt)
+    || nowIso();
+  return {
+    operationId,
+    status: VALID_STATUS.has(String(value.status || '').trim())
+      ? String(value.status || '').trim()
+      : 'idle',
+    backup: normalizeString(value.backup, 260),
+    confirmBackup: normalizeString(value.confirmBackup, 260),
+    rollbackBackup: normalizeString(value.rollbackBackup, 260),
+    actor: normalizeString(value.actor, 180),
+    role: normalizeString(value.role, 80),
+    note: normalizeString(value.note, 260),
+    startedAt: normalizeIso(value.startedAt),
+    endedAt: normalizeIso(value.endedAt),
+    durationMs:
+      Number.isFinite(Number(value.durationMs)) && Number(value.durationMs) >= 0
+        ? Math.round(Number(value.durationMs))
+        : null,
+    lastError: normalizeString(value.lastError, 1000),
+    rollbackStatus: VALID_ROLLBACK_STATUS.has(String(value.rollbackStatus || '').trim())
+      ? String(value.rollbackStatus || '').trim()
+      : 'none',
+    rollbackError: normalizeString(value.rollbackError, 1000),
+    warnings: normalizeWarnings(value.warnings),
+    verification: normalizeVerification(value.verification),
+    counts: normalizeObject(value.counts),
+    currentCounts: normalizeObject(value.currentCounts),
+    diff: normalizeObject(value.diff),
+    recordedAt,
+  };
+}
+
+function normalizeHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => normalizeHistoryEntry(entry))
+    .filter(Boolean)
+    .sort((left, right) => new Date(right.recordedAt || 0) - new Date(left.recordedAt || 0))
+    .slice(0, MAX_HISTORY_ENTRIES);
+}
+
 function buildDefaultState() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: 'idle',
     active: false,
     maintenance: false,
@@ -106,6 +155,7 @@ function buildDefaultState() {
     previewBackup: null,
     previewIssuedAt: null,
     previewExpiresAt: null,
+    history: [],
   };
 }
 
@@ -126,7 +176,7 @@ function normalizeState(nextState = {}) {
   const active = status === 'running';
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     status,
     active,
     maintenance: merged.maintenance === true || active,
@@ -157,6 +207,7 @@ function normalizeState(nextState = {}) {
     previewBackup: normalizeString(merged.previewBackup, 260),
     previewIssuedAt: normalizeIso(merged.previewIssuedAt),
     previewExpiresAt: normalizeIso(merged.previewExpiresAt),
+    history: normalizeHistory(merged.history),
   };
 }
 
@@ -200,6 +251,48 @@ function setAdminRestoreState(nextState = {}) {
   return getAdminRestoreState();
 }
 
+function appendAdminRestoreHistory(entry = {}) {
+  initAdminRestoreStateStore();
+  const normalizedEntry = normalizeHistoryEntry(entry);
+  if (!normalizedEntry) {
+    return listAdminRestoreHistory();
+  }
+  const current = getAdminRestoreState();
+  const currentHistory = Array.isArray(current.history) ? current.history : [];
+  const dedupeKey = [
+    normalizedEntry.operationId || '',
+    normalizedEntry.status || '',
+    normalizedEntry.recordedAt || '',
+  ].join('::');
+  const nextHistory = [
+    normalizedEntry,
+    ...currentHistory.filter((row) => (
+      [
+        String(row?.operationId || ''),
+        String(row?.status || ''),
+        String(row?.recordedAt || ''),
+      ].join('::') !== dedupeKey
+    )),
+  ].slice(0, MAX_HISTORY_ENTRIES);
+  state = normalizeState({
+    ...current,
+    history: nextHistory,
+    updatedAt: nowIso(),
+  });
+  try {
+    writeStateToDisk();
+  } catch (error) {
+    console.error('[adminRestoreStateStore] failed to persist history:', error.message);
+  }
+  return listAdminRestoreHistory();
+}
+
+function listAdminRestoreHistory(limit = MAX_HISTORY_ENTRIES) {
+  const snapshot = getAdminRestoreState();
+  const max = Math.max(1, Math.min(MAX_HISTORY_ENTRIES, Math.trunc(Number(limit) || MAX_HISTORY_ENTRIES)));
+  return Array.isArray(snapshot.history) ? snapshot.history.slice(0, max) : [];
+}
+
 function isAdminRestoreMaintenanceActive() {
   const snapshot = getAdminRestoreState();
   return snapshot.active === true || snapshot.maintenance === true;
@@ -208,8 +301,10 @@ function isAdminRestoreMaintenanceActive() {
 initAdminRestoreStateStore();
 
 module.exports = {
+  appendAdminRestoreHistory,
   getAdminRestoreState,
   initAdminRestoreStateStore,
   isAdminRestoreMaintenanceActive,
+  listAdminRestoreHistory,
   setAdminRestoreState,
 };

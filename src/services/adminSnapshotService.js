@@ -130,7 +130,9 @@ const { publishAdminLiveUpdate } = require('./adminLiveBus');
 const { acquireRuntimeLock, releaseRuntimeLock } = require('./runtimeLock');
 const { DATA_DIR, getPersistenceStatus } = require('../store/_persist');
 const {
+  appendAdminRestoreHistory,
   getAdminRestoreState,
+  listAdminRestoreHistory,
   setAdminRestoreState,
 } = require('../store/adminRestoreStateStore');
 
@@ -1540,7 +1542,7 @@ async function restoreAdminBackup(backupName, options = {}) {
 
     const endedAt = new Date().toISOString();
     const durationMs = Math.max(0, new Date(endedAt) - new Date(startedAt));
-    setAdminRestoreState({
+    const succeededState = setAdminRestoreState({
       status: 'succeeded',
       active: false,
       maintenance: false,
@@ -1569,6 +1571,7 @@ async function restoreAdminBackup(backupName, options = {}) {
       previewIssuedAt: null,
       previewExpiresAt: null,
     });
+    appendAdminRestoreHistory(succeededState);
 
     publishAdminLiveUpdate('backup-restore', {
       backup: loaded.file,
@@ -1653,6 +1656,7 @@ async function restoreAdminBackup(backupName, options = {}) {
       previewIssuedAt: null,
       previewExpiresAt: null,
     });
+    appendAdminRestoreHistory(failedState);
 
     publishAdminLiveUpdate('backup-restore-failed', {
       backup: loaded.file,
@@ -1678,6 +1682,7 @@ module.exports = {
   createAdminBackup,
   getAdminRestoreState,
   jsonReplacer,
+  listAdminRestoreHistory,
   listAdminBackupFiles,
   normalizeAdminBackupPayload,
   previewAdminBackupRestore,

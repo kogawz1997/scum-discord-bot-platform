@@ -53,7 +53,7 @@ test('owner dashboard v4 model maps current owner state into command-center cont
     supportCase: { signals: { total: 3 } },
   });
 
-  assert.equal(model.header.title, 'Platform overview');
+  assert.equal(model.header.title, 'ภาพรวมเจ้าของระบบ');
   assert.equal(model.kpis.length, 6);
   assert.equal(model.actionGroups.length, 3);
   assert.ok(model.attentionRows.length >= 1);
@@ -63,9 +63,9 @@ test('owner dashboard v4 model maps current owner state into command-center cont
 test('owner dashboard v4 html includes shell, action hub, and attention center', () => {
   const html = buildOwnerDashboardV4Html(createOwnerDashboardV4Model({}));
   assert.match(html, /odv4-topbar/);
-  assert.match(html, /Action hub/);
-  assert.match(html, /Tenants that need owner attention/);
-  assert.match(html, /Latest platform incidents and alerts/);
+  assert.match(html, /เลือก workflow ให้ตรงกับงาน/);
+  assert.match(html, /ผู้เช่าที่เจ้าของระบบควรเปิดดูก่อน/);
+  assert.match(html, /เหตุการณ์และการแจ้งเตือนที่เพิ่งเกิดขึ้น/);
 });
 
 test('owner dashboard preview references parallel assets', () => {

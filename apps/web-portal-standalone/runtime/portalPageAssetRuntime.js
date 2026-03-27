@@ -15,6 +15,10 @@ function getPortalAssetContentType(ext) {
   const normalized = String(ext || '').toLowerCase();
   if (normalized === '.css') return 'text/css; charset=utf-8';
   if (normalized === '.js') return 'application/javascript; charset=utf-8';
+  if (normalized === '.svg') return 'image/svg+xml; charset=utf-8';
+  if (normalized === '.png') return 'image/png';
+  if (normalized === '.jpg' || normalized === '.jpeg') return 'image/jpeg';
+  if (normalized === '.webp') return 'image/webp';
   return 'application/octet-stream';
 }
 
@@ -35,6 +39,7 @@ function createPortalPageAssetRuntime(options = {}) {
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    dashboardHtmlPath,
     pricingHtmlPath,
     signupHtmlPath,
     forgotPasswordHtmlPath,
@@ -67,6 +72,7 @@ function createPortalPageAssetRuntime(options = {}) {
   let cachedPlayerHtml = null;
   let cachedLegacyPlayerHtml = null;
   let cachedLandingHtml = null;
+  let cachedDashboardHtml = null;
   let cachedPricingHtml = null;
   let cachedSignupHtml = null;
   let cachedForgotPasswordHtml = null;
@@ -81,6 +87,7 @@ function createPortalPageAssetRuntime(options = {}) {
   let cachedPlayerHtmlMtimeMs = 0;
   let cachedLegacyPlayerHtmlMtimeMs = 0;
   let cachedLandingHtmlMtimeMs = 0;
+  let cachedDashboardHtmlMtimeMs = 0;
   let cachedPricingHtmlMtimeMs = 0;
   let cachedSignupHtmlMtimeMs = 0;
   let cachedForgotPasswordHtmlMtimeMs = 0;
@@ -224,20 +231,33 @@ function createPortalPageAssetRuntime(options = {}) {
     }
 
     const ext = path.extname(relativeName).toLowerCase();
-    if (ext !== '.css' && ext !== '.js') {
+    if (!new Set(['.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp']).has(ext)) {
       sendJson(res, 404, { ok: false, error: 'Not found' });
       return true;
     }
 
-    const absPath = path.resolve(resolvedPublicAssetsDirPath, relativeName);
-    if (!absPath.startsWith(resolvedPublicAssetsDirPath)) {
+    const candidatePaths = [
+      path.resolve(resolvedPublicAssetsDirPath, relativeName),
+      path.resolve(resolvedPublicAssetsDirPath, 'ui', relativeName),
+    ].filter((candidate, index, rows) => rows.indexOf(candidate) === index);
+
+    const absPath = candidatePaths.find((candidate) => candidate.startsWith(resolvedPublicAssetsDirPath));
+    if (!absPath) {
       sendJson(res, 404, { ok: false, error: 'Not found' });
       return true;
     }
 
     try {
-      const stat = await fs.promises.stat(absPath);
-      if (!stat.isFile()) {
+      let existingPath = null;
+      for (const candidate of candidatePaths) {
+        if (!candidate.startsWith(resolvedPublicAssetsDirPath)) continue;
+        const stat = await fs.promises.stat(candidate).catch(() => null);
+        if (stat?.isFile()) {
+          existingPath = candidate;
+          break;
+        }
+      }
+      if (!existingPath) {
         sendJson(res, 404, { ok: false, error: 'Not found' });
         return true;
       }
@@ -248,7 +268,7 @@ function createPortalPageAssetRuntime(options = {}) {
           'Cache-Control': 'public, max-age=300',
         }),
       );
-      await pipeline(fs.createReadStream(absPath), res);
+      await pipeline(fs.createReadStream(existingPath), res);
       return true;
     } catch {
       sendJson(res, 404, { ok: false, error: 'Not found' });
@@ -281,6 +301,15 @@ function createPortalPageAssetRuntime(options = {}) {
       cachedLandingHtmlMtimeMs = mtimeMs;
     }
     return cachedLandingHtml;
+  }
+
+  function getDashboardHtml() {
+    const mtimeMs = getFileMtimeMs(dashboardHtmlPath);
+    if (!cachedDashboardHtml || !isProduction || mtimeMs > cachedDashboardHtmlMtimeMs) {
+      cachedDashboardHtml = loadHtmlTemplate(dashboardHtmlPath);
+      cachedDashboardHtmlMtimeMs = mtimeMs;
+    }
+    return cachedDashboardHtml;
   }
 
   function getTrialHtml() {
@@ -433,6 +462,7 @@ function createPortalPageAssetRuntime(options = {}) {
     getPlayerHtml,
     getLegacyPlayerHtml,
     getLandingHtml,
+    getDashboardHtml,
     getPricingHtml,
     getSignupHtml,
     getForgotPasswordHtml,

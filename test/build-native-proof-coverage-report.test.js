@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   buildCoverageMarkdown,
   buildCoverageSummary,
+  evaluateEnvironmentCoverage,
 } = require('../scripts/build-native-proof-coverage-report.js');
 
 test('buildCoverageSummary summarizes current and pending native-proof environments', () => {
@@ -125,4 +126,49 @@ test('buildCoverageMarkdown renders current environment and pending targets', ()
   assert.match(markdown, /consumable-water/);
   assert.match(markdown, /Environment B/);
   assert.match(markdown, /ammo-762/);
+});
+
+test('evaluateEnvironmentCoverage reports missing second environment requirements', () => {
+  const summary = buildCoverageSummary({
+    registry: {
+      currentEnvironmentId: 'env-a',
+      environments: [
+        {
+          id: 'env-a',
+          status: 'verified',
+          label: 'Environment A',
+          runtimeKind: 'workstation',
+        },
+        {
+          id: 'env-b',
+          status: 'pending',
+          label: 'Environment B',
+          runtimeKind: 'server-configuration',
+        },
+      ],
+    },
+    itemMatrix: {
+      results: [
+        {
+          label: 'consumable-water',
+          deliveryClass: 'consumable',
+          strategy: 'world-spawn-delta',
+          ok: true,
+          verificationOk: true,
+        },
+      ],
+    },
+    wrapperMatrix: { results: [] },
+    experimentalCases: [],
+  });
+  const validation = evaluateEnvironmentCoverage(summary);
+  assert.equal(validation.ready, false);
+  assert.equal(
+    validation.checks.some((entry) => entry.id === 'second-server-configuration-verified' && entry.ok === false),
+    true,
+  );
+  assert.equal(
+    validation.checks.some((entry) => entry.id === 'second-workstation-or-runtime-verified' && entry.ok === false),
+    true,
+  );
 });

@@ -274,11 +274,90 @@ function buildCoverageSummary({
   };
 }
 
+function evaluateEnvironmentCoverage(summary = {}) {
+  const environments = Array.isArray(summary.environments) ? summary.environments : [];
+  const classCoverage = Array.isArray(summary.coverage?.classCoverage)
+    ? summary.coverage.classCoverage
+    : [];
+  const wrapperCoverage = Array.isArray(summary.coverage?.wrapperCoverage)
+    ? summary.coverage.wrapperCoverage
+    : [];
+  const currentEnvironmentId = trimText(summary.currentEnvironmentId, 160) || null;
+
+  const checks = [
+    {
+      id: 'baseline-environment-verified',
+      label: 'Baseline environment is verified',
+      ok: Boolean(summary.currentEnvironment),
+      detail: summary.currentEnvironment
+        ? `Current environment ${summary.currentEnvironment.id} is marked verified`
+        : 'No current verified environment is registered',
+    },
+    {
+      id: 'all-current-delivery-classes-proved',
+      label: 'Current environment proves every tracked delivery class',
+      ok: classCoverage.length > 0 && classCoverage.every((entry) => entry.proved === true),
+      detail:
+        classCoverage.length > 0 && classCoverage.every((entry) => entry.proved === true)
+          ? 'Every tracked delivery class has a passing representative case'
+          : 'One or more tracked delivery classes still lack a passing representative case',
+    },
+    {
+      id: 'wrapper-profiles-proved',
+      label: 'Tracked wrapper profiles are proved on the current environment',
+      ok: wrapperCoverage.length === 0 || wrapperCoverage.every((entry) => entry.proved === true),
+      detail:
+        wrapperCoverage.length === 0 || wrapperCoverage.every((entry) => entry.proved === true)
+          ? 'Wrapper-profile evidence is complete for the tracked set'
+          : 'One or more tracked wrapper profiles are still incomplete',
+    },
+    {
+      id: 'second-server-configuration-verified',
+      label: 'A second server configuration is verified',
+      ok: environments.some((entry) =>
+        entry.status === 'verified'
+        && entry.runtimeKind === 'server-configuration'),
+      detail: environments.some((entry) =>
+        entry.status === 'verified'
+        && entry.runtimeKind === 'server-configuration')
+        ? 'At least one verified second server configuration is registered'
+        : 'A verified second server configuration is still missing',
+    },
+    {
+      id: 'second-workstation-or-runtime-verified',
+      label: 'A second workstation/runtime is verified',
+      ok: environments.some((entry) =>
+        entry.status === 'verified'
+        && entry.id !== currentEnvironmentId
+        && (entry.runtimeKind === 'workstation' || entry.runtimeKind === 'runtime')),
+      detail: environments.some((entry) =>
+        entry.status === 'verified'
+        && entry.id !== currentEnvironmentId
+        && (entry.runtimeKind === 'workstation' || entry.runtimeKind === 'runtime'))
+        ? 'At least one additional workstation/runtime is verified'
+        : 'A verified second workstation/runtime is still missing',
+    },
+  ];
+
+  return {
+    ready: checks.every((entry) => entry.ok === true),
+    checks,
+  };
+}
+
 function buildCoverageMarkdown(summary = {}) {
+  const validation = summary.validation || evaluateEnvironmentCoverage(summary);
   const lines = [
     '# Native Proof Environment Coverage',
     '',
     `Generated: \`${summary.generatedAt || ''}\``,
+    '',
+    '## Validation Contract',
+    '',
+    `- ready: \`${validation.ready === true}\``,
+    '',
+    ...validation.checks.map((entry) =>
+      `- [${entry.ok ? 'x' : ' '}] ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`),
     '',
     '## Current Verified Environment',
     '',
@@ -376,6 +455,7 @@ function main() {
     wrapperMatrix,
     experimentalCases,
   });
+  summary.validation = evaluateEnvironmentCoverage(summary);
   writeOutput(options.jsonOut, `${JSON.stringify(summary, null, 2)}\n`);
   writeOutput(options.markdownOut, buildCoverageMarkdown(summary));
 }
@@ -387,6 +467,7 @@ if (require.main === module) {
 module.exports = {
   buildCoverageMarkdown,
   buildCoverageSummary,
+  evaluateEnvironmentCoverage,
   parseArgs,
   summarizeClassCoverage,
   summarizeExperimentalCases,

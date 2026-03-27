@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const PAGE_ALIASES = {
@@ -22,14 +22,32 @@
   };
 
   const PAGE_TITLES = {
-    dashboard: 'แดชบอร์ด',
+    dashboard: 'ภาพรวมงานประจำวัน',
     'server-status': 'สถานะเซิร์ฟเวอร์',
     'server-config': 'ตั้งค่าเซิร์ฟเวอร์',
     orders: 'คำสั่งซื้อและการส่งของ',
-    players: 'ผู้เล่น',
-    'delivery-agents': 'Delivery Agents',
-    'server-bots': 'Server Bots',
+    players: 'ผู้เล่นและการช่วยเหลือ',
+    'delivery-agents': 'เอเจนต์ส่งของ',
+    'server-bots': 'เซิร์ฟเวอร์บอต',
     'restart-control': 'ควบคุมการรีสตาร์ต',
+  };
+
+  const PAGE_FEATURE_RULES = {
+    dashboard: [],
+    'server-status': ['server_status'],
+    'server-config': ['server_settings'],
+    orders: ['orders_module'],
+    players: ['player_module'],
+    'delivery-agents': ['execute_agent'],
+    'server-bots': ['sync_agent'],
+    'restart-control': ['server_hosting'],
+  };
+
+  const NAV_GROUP_LABELS = {
+    Overview: 'ภาพรวม',
+    Server: 'เซิร์ฟเวอร์',
+    Operations: 'งานประจำวัน',
+    Runtimes: 'รันไทม์',
   };
 
   const state = {
@@ -38,9 +56,17 @@
     ownerTenantOptions: [],
   };
 
+  function resolveTenantLabel(tenantId) {
+    const normalizedTenantId = String(tenantId || '').trim();
+    if (!normalizedTenantId) return '';
+    const rows = Array.isArray(state.ownerTenantOptions) ? state.ownerTenantOptions : [];
+    const match = rows.find((row) => String(row?.id || '').trim() === normalizedTenantId);
+    return String(match?.name || match?.slug || '').trim();
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
-      .replace(/&/g, '&')
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -59,6 +85,26 @@
     return document.getElementById('tenantOwnerScopeSelect');
   }
 
+  function selectorWrapNode() {
+    return document.getElementById('tenantOwnerScopeWrap');
+  }
+
+  function selectorButtonNode() {
+    return document.getElementById('tenantOwnerScopeButton');
+  }
+
+  function selectorValueNode() {
+    return document.getElementById('tenantOwnerScopeValue');
+  }
+
+  function selectorMenuNode() {
+    return document.getElementById('tenantOwnerScopeMenu');
+  }
+
+  function selectorComboboxNode() {
+    return document.querySelector('#tenantOwnerScopeWrap .surface-combobox');
+  }
+
   function setStatus(message, tone) {
     const node = statusNode();
     if (!node) return;
@@ -68,7 +114,7 @@
 
   function renderMessageCard(title, detail) {
     const target = root();
-    if (!target) return;
+    if (!target) return null;
     target.innerHTML = [
       '<section style="padding:32px;border:1px solid rgba(212,186,113,.18);border-radius:24px;background:rgba(13,17,14,.92);box-shadow:0 24px 56px rgba(0,0,0,.28)">',
       `<h1 style="margin:0 0 12px;font:700 32px/1.05 'IBM Plex Sans Thai','Segoe UI',sans-serif;color:#f4efe4">${escapeHtml(title)}</h1>`,
@@ -77,12 +123,18 @@
     ].join('');
   }
 
-  async function api(path, fallback) {
+  async function apiRequest(path, options = {}, fallback) {
+    const method = String(options?.method || 'GET').trim().toUpperCase() || 'GET';
+    const headers = {
+      Accept: 'application/json',
+      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options?.headers && typeof options.headers === 'object' ? options.headers : {}),
+    };
     const response = await fetch(path, {
+      method,
       credentials: 'same-origin',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
+      body: options?.body ? JSON.stringify(options.body) : undefined,
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok === false) {
@@ -95,9 +147,173 @@
     return payload?.data ?? fallback;
   }
 
+  async function api(path, fallback) {
+    return apiRequest(path, {}, fallback);
+  }
+
+  function parseConfigJsonInput(raw, fieldLabel, options = {}) {
+    const text = String(raw || '').trim();
+    if (!text) {
+      return options.emptyAsObject ? {} : null;
+    }
+    try {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`${fieldLabel} ต้องเป็น JSON object`);
+      }
+      return parsed;
+    } catch (error) {
+      throw new Error(String(error?.message || `${fieldLabel} ต้องเป็น JSON ที่ถูกต้อง`));
+    }
+  }
+
   function currentPage() {
     const raw = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
     return PAGE_ALIASES[raw] || 'dashboard';
+  }
+
+  function createEmptyFeatureAccess(tenantId) {
+    return {
+      tenantId: tenantId || null,
+      enabledFeatureKeys: [],
+      featureOverrides: { enabled: [], disabled: [] },
+      plan: null,
+      package: null,
+    };
+  }
+
+  function normalizeFeatureAccess(raw, tenantId, previewMode) {
+    const enabledFeatureKeys = Array.isArray(raw?.enabledFeatureKeys)
+      ? raw.enabledFeatureKeys.map((value) => String(value || '').trim()).filter(Boolean)
+      : [];
+    return {
+      tenantId: String(raw?.tenantId || tenantId || '').trim() || null,
+      enabledFeatureKeys,
+      featureSet: new Set(enabledFeatureKeys),
+      previewMode: Boolean(previewMode),
+    };
+  }
+
+  function hasAnyTenantFeature(featureAccess, requiredFeatures) {
+    if (!Array.isArray(requiredFeatures) || !requiredFeatures.length) return true;
+    return requiredFeatures.some((key) => featureAccess.featureSet.has(String(key || '').trim()));
+  }
+
+  function buildNavItemLabel(baseLabel, accessState) {
+    const label = String(baseLabel || '').trim();
+    if (!label) return '';
+    if (accessState?.preview) return `${label} (ดูตัวอย่าง)`;
+    if (accessState?.locked) return `${label} (ต้องอัปเกรด)`;
+    return label;
+  }
+
+  function buildTenantSurfaceState(payload, requestedPage) {
+    const previewMode = Boolean(
+      payload?.tenantConfig?.previewMode
+      || payload?.overview?.tenantConfig?.previewMode
+      || payload?.overview?.opsState?.previewMode
+      || payload?.overview?.opsState?.preview,
+    );
+    const featureAccess = normalizeFeatureAccess(
+      payload?.overview?.tenantFeatureAccess || createEmptyFeatureAccess(payload?.tenantId),
+      payload?.tenantId,
+      previewMode,
+    );
+    const pageAccess = Object.fromEntries(
+      Object.entries(PAGE_FEATURE_RULES).map(([pageKey, requiredFeatures]) => {
+        const enabledByPackage = hasAnyTenantFeature(featureAccess, requiredFeatures);
+        const enabled = previewMode ? true : enabledByPackage;
+        return [pageKey, {
+          enabled,
+          locked: !enabled,
+          preview: previewMode && !enabledByPackage,
+          requiredFeatures: [...requiredFeatures],
+        }];
+      }),
+    );
+    const resolvedPage = pageAccess[requestedPage]?.enabled ? requestedPage : 'dashboard';
+    const navGroups = [
+      {
+        label: 'Overview',
+        items: [
+          {
+            label: buildNavItemLabel(PAGE_TITLES.dashboard, pageAccess.dashboard),
+            href: '#dashboard',
+            current: resolvedPage === 'dashboard',
+          },
+        ],
+      },
+      {
+        label: 'Server',
+        items: [
+          {
+            label: buildNavItemLabel(PAGE_TITLES['server-status'], pageAccess['server-status']),
+            href: '#server-status',
+            current: resolvedPage === 'server-status',
+          },
+          {
+            label: buildNavItemLabel(PAGE_TITLES['server-config'], pageAccess['server-config']),
+            href: '#server-config',
+            current: resolvedPage === 'server-config',
+          },
+          {
+            label: buildNavItemLabel(PAGE_TITLES['restart-control'], pageAccess['restart-control']),
+            href: '#restart-control',
+            current: resolvedPage === 'restart-control',
+          },
+        ],
+      },
+      {
+        label: 'Operations',
+        items: [
+          {
+            label: buildNavItemLabel(PAGE_TITLES.orders, pageAccess.orders),
+            href: '#orders',
+            current: resolvedPage === 'orders',
+          },
+          {
+            label: buildNavItemLabel(PAGE_TITLES.players, pageAccess.players),
+            href: '#players',
+            current: resolvedPage === 'players',
+          },
+        ],
+      },
+      {
+        label: 'Runtimes',
+        items: [
+          {
+            label: buildNavItemLabel(PAGE_TITLES['delivery-agents'], pageAccess['delivery-agents']),
+            href: '#delivery-agents',
+            current: resolvedPage === 'delivery-agents',
+          },
+          {
+            label: buildNavItemLabel(PAGE_TITLES['server-bots'], pageAccess['server-bots']),
+            href: '#server-bots',
+            current: resolvedPage === 'server-bots',
+          },
+        ],
+      },
+    ];
+    const visibleNavGroups = navGroups.map((group) => ({
+      ...group,
+      label: NAV_GROUP_LABELS[group.label] || group.label,
+      items: Array.isArray(group.items) ? group.items : [],
+    }));
+    const notice = !previewMode && resolvedPage !== requestedPage
+      ? {
+          tone: 'warning',
+          title: 'แพ็กเกจปัจจุบันยังไม่เปิดหน้านี้',
+          detail: 'สิทธิ์ของผู้เช่ารายนี้ยังไม่ครอบคลุมพื้นที่ทำงานที่เลือก ระบบจึงพากลับมาที่หน้าที่ใช้งานได้ก่อน',
+        }
+      : null;
+
+    return {
+      featureAccess,
+      pageAccess,
+      navGroups: visibleNavGroups,
+      resolvedPage,
+      notice,
+    };
   }
 
   function readTenantIdFromUrl() {
@@ -113,6 +329,245 @@
   function readPurchaseCodeFromUrl() {
     const url = new URL(window.location.href);
     return String(url.searchParams.get('code') || '').trim();
+  }
+
+  function isPreviewTenantId(value) {
+    const text = String(value || '').trim().toLowerCase();
+    return text.startsWith('tenant-preview-') || text.startsWith('preview-');
+  }
+
+  function pickPreferredTenantId(rows, currentTenantId) {
+    const normalizedCurrentTenantId = String(currentTenantId || '').trim();
+    const tenants = Array.isArray(rows) ? rows : [];
+    if (normalizedCurrentTenantId && tenants.some((row) => String(row?.id || '').trim() === normalizedCurrentTenantId)) {
+      return normalizedCurrentTenantId;
+    }
+    const activeNonPreview = tenants.find((row) => {
+      const tenantId = String(row?.id || '').trim();
+      const status = String(row?.status || '').trim().toLowerCase();
+      return tenantId && !isPreviewTenantId(tenantId) && status !== 'suspended' && status !== 'inactive';
+    });
+    if (activeNonPreview) return String(activeNonPreview.id || '').trim();
+    return String(tenants[0]?.id || '').trim();
+  }
+
+  function normalizeTenantBaseLabel(row) {
+    return String(row?.name || row?.slug || row?.id || '').trim();
+  }
+
+  function shortTenantReference(row, baseLabel) {
+    const slug = String(row?.slug || '').trim();
+    const id = String(row?.id || '').trim();
+    if (slug && slug !== baseLabel) return slug;
+    if (!id || id === baseLabel) return '';
+    if (id.length <= 24) return id;
+    return `${id.slice(0, 12)}...${id.slice(-4)}`;
+  }
+
+  function isPreviewTenantRow(row) {
+    const tenantId = String(row?.id || '').trim();
+    const status = String(row?.status || '').trim().toLowerCase();
+    return isPreviewTenantId(tenantId) || ['preview', 'trial', 'trialing'].includes(status);
+  }
+
+  function formatTenantStateLabel(row) {
+    const status = String(row?.status || '').trim().toLowerCase();
+    if (isPreviewTenantRow(row)) return 'ตัวอย่าง';
+    if (status === 'suspended') return 'ระงับ';
+    if (status === 'inactive') return 'ไม่ใช้งาน';
+    if (status === 'draft') return 'ร่าง';
+    return '';
+  }
+
+  function buildTenantOptionDescriptor(row, duplicateCounts) {
+    const baseLabel = normalizeTenantBaseLabel(row);
+    if (!baseLabel) {
+      return {
+        value: '',
+        baseLabel: '',
+        stateLabel: '',
+        reference: '',
+        label: '',
+      };
+    }
+    const key = baseLabel.toLowerCase();
+    const needsReference = Number(duplicateCounts.get(key) || 0) > 1 || isPreviewTenantRow(row);
+    const stateLabel = formatTenantStateLabel(row);
+    const reference = needsReference ? shortTenantReference(row, baseLabel) : '';
+    const extras = [stateLabel, reference].filter(Boolean);
+    return {
+      value: String(row?.id || '').trim(),
+      baseLabel,
+      stateLabel,
+      reference,
+      label: extras.length ? `${baseLabel} · ${extras.join(' · ')}` : baseLabel,
+    };
+  }
+
+  function buildTenantOptionDescriptors(rows) {
+    const tenants = Array.isArray(rows) ? rows : [];
+    const duplicateCounts = tenants.reduce((map, row) => {
+      const label = normalizeTenantBaseLabel(row);
+      if (!label) return map;
+      const key = label.toLowerCase();
+      map.set(key, Number(map.get(key) || 0) + 1);
+      return map;
+    }, new Map());
+    return tenants
+      .map((row) => buildTenantOptionDescriptor(row, duplicateCounts))
+      .filter((row) => row.value && row.label);
+  }
+
+  function buildTenantOptionsHtml(rows) {
+    return buildTenantOptionDescriptors(rows)
+      .map((row) => `<option value="${escapeHtml(row.value)}">${escapeHtml(row.label)}</option>`)
+      .join('');
+  }
+
+  function setTenantScopeMenuOpen(open) {
+    const combobox = selectorComboboxNode();
+    const button = selectorButtonNode();
+    const menu = selectorMenuNode();
+    if (!combobox || !button || !menu) return;
+    const nextOpen = Boolean(open);
+    combobox.dataset.state = nextOpen ? 'open' : 'closed';
+    button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    menu.hidden = !nextOpen;
+  }
+
+  function focusCurrentTenantScopeOption() {
+    const menu = selectorMenuNode();
+    if (!menu) return;
+    const currentOption = menu.querySelector('.surface-combobox-option.is-current');
+    const fallbackOption = menu.querySelector('.surface-combobox-option');
+    (currentOption || fallbackOption)?.focus();
+  }
+
+  function renderTenantScopeMenu() {
+    const menu = selectorMenuNode();
+    const select = selectorNode();
+    if (!menu || !select) return;
+    const currentTenantId = String(select.value || '').trim();
+    const options = buildTenantOptionDescriptors(state.ownerTenantOptions);
+    if (!options.length) {
+      menu.innerHTML = '<div class="surface-combobox-empty">ยังไม่มีผู้เช่าที่พร้อมให้เลือก</div>';
+      return;
+    }
+    menu.innerHTML = options.map((option) => {
+      const isCurrent = option.value === currentTenantId;
+      return [
+        `<button class="surface-combobox-option${isCurrent ? ' is-current' : ''}" type="button" role="option" aria-selected="${isCurrent ? 'true' : 'false'}" data-value="${escapeHtml(option.value)}">`,
+        '<span class="surface-combobox-option-title">',
+        `<span class="surface-combobox-option-name">${escapeHtml(option.baseLabel)}</span>`,
+        option.stateLabel ? `<span class="surface-combobox-option-badge">${escapeHtml(option.stateLabel)}</span>` : '',
+        '</span>',
+        option.reference ? `<span class="surface-combobox-option-meta">${escapeHtml(option.reference)}</span>` : '',
+        '</button>',
+      ].join('');
+    }).join('');
+  }
+
+  function syncTenantScopeControls() {
+    const select = selectorNode();
+    const valueNode = selectorValueNode();
+    if (!select || !valueNode) return;
+    const selectedLabel = String(select.selectedOptions?.[0]?.textContent || 'เลือกผู้เช่า').trim();
+    valueNode.textContent = selectedLabel || 'เลือกผู้เช่า';
+    renderTenantScopeMenu();
+  }
+
+  function buildPreviewOverviewFallback(tenantId) {
+    return {
+      analytics: {
+        overview: {
+          activeTenants: 1,
+          activeSubscriptions: 0,
+          activeLicenses: 0,
+          activeApiKeys: 0,
+          activeWebhooks: 0,
+          onlineAgentRuntimes: 0,
+          totalAgentRuntimes: 0,
+          totalEvents: 0,
+          totalActivity: 0,
+          totalTickets: 0,
+          totalRevenueCents: 0,
+          currency: 'THB',
+        },
+        posture: {
+          expiringSubscriptions: [],
+          expiringLicenses: [],
+          recentlyRevokedApiKeys: [],
+          failedWebhooks: [],
+          unresolvedTickets: [],
+          offlineAgentRuntimes: [],
+        },
+        delivery: {
+          queueDepth: 0,
+          deadLetters: 0,
+          failureRatePct: 0,
+          lastSyncAt: null,
+        },
+      },
+      tenantFeatureAccess: {
+        tenantId,
+        package: null,
+        features: [],
+        enabledFeatureKeys: [],
+        featureOverrides: { enabled: [], disabled: [] },
+        plan: null,
+      },
+      tenantConfig: {
+        tenantId,
+        previewMode: true,
+        featureFlags: {},
+      },
+      opsState: {
+        previewMode: true,
+      },
+      automationState: {
+        enabled: false,
+      },
+      automationConfig: {},
+      permissionCatalog: [],
+      plans: [],
+      packages: [],
+      features: [],
+    };
+  }
+
+  function buildPreviewReconcileFallback(tenantId) {
+    return {
+      generatedAt: new Date().toISOString(),
+      scope: {
+        tenantId,
+        mode: 'preview-fallback',
+      },
+      summary: {
+        purchases: 0,
+        queueJobs: 0,
+        deadLetters: 0,
+        anomalies: 0,
+        abuseFindings: 0,
+        windowMs: 3600000,
+      },
+      anomalies: [],
+      abuseFindings: [],
+      notes: [
+        'ผู้เช่าทดลองรายนี้ยังอยู่ระหว่างจัดเตรียมข้อมูลฝั่ง runtime จึงซ่อนการอ่านข้อมูลหนักไว้ก่อนจนกว่าการจัดเตรียมจะเสร็จ',
+      ],
+    };
+  }
+
+  function buildPreviewTenantConfigFallback(tenantId) {
+    return {
+      tenantId,
+      configPatch: {},
+      portalEnvPatch: {},
+      featureFlags: {},
+      updatedBy: null,
+      updatedAt: null,
+      previewMode: true,
+    };
   }
 
   function writeTenantIdToUrl(tenantId) {
@@ -139,26 +594,28 @@
 
   function renderOwnerTenantSelector(me) {
     const select = selectorNode();
-    const wrap = document.getElementById('tenantOwnerScopeWrap');
+    const wrap = selectorWrapNode();
     if (!select || !wrap) return;
     const isOwner = String(me?.role || '').trim().toLowerCase() === 'owner';
     wrap.hidden = !isOwner;
-    if (!isOwner) return;
-    select.innerHTML = state.ownerTenantOptions
-      .map((row) => `<option value="${escapeHtml(String(row?.id || '').trim())}">${escapeHtml(String(row?.name || row?.slug || row?.id || '').trim())}</option>`)
-      .join('');
+    if (!isOwner) {
+      setTenantScopeMenuOpen(false);
+      return;
+    }
+    select.innerHTML = buildTenantOptionsHtml(state.ownerTenantOptions);
     const currentTenantId = String(state.payload?.tenantId || '').trim();
     if (currentTenantId) {
       select.value = currentTenantId;
     }
+    syncTenantScopeControls();
   }
 
   async function refreshState(options = {}) {
     if (state.refreshing) return;
     state.refreshing = true;
     if (!options.silent) {
-      setStatus('กำลังโหลดข้อมูลผู้เช่า...', 'info');
-      renderMessageCard('กำลังเตรียมข้อมูลผู้เช่า', 'กำลังดึงสถานะเซิร์ฟเวอร์ บอต คำสั่งซื้อ ผู้เล่น และการตั้งค่าที่เกี่ยวข้อง');
+      setStatus('กำลังโหลดพื้นที่ผู้เช่า...', 'info');
+      renderMessageCard('กำลังเตรียมพื้นที่ผู้เช่า', 'กำลังดึงสถานะเซิร์ฟเวอร์ รันไทม์ คำสั่งซื้อ ผู้เล่น และการตั้งค่าที่เกี่ยวข้อง');
     }
     try {
       const me = await api('/admin/api/me', null);
@@ -168,13 +625,15 @@
       if (String(me?.role || '').trim().toLowerCase() === 'owner') {
         const tenants = await api('/admin/api/platform/tenants?limit=100', []);
         state.ownerTenantOptions = Array.isArray(tenants) ? tenants : [];
-        scopedTenantId = readTenantIdFromUrl() || String(state.ownerTenantOptions[0]?.id || '').trim();
+        scopedTenantId = pickPreferredTenantId(state.ownerTenantOptions, readTenantIdFromUrl());
         writeTenantIdToUrl(scopedTenantId);
       }
 
       if (!scopedTenantId) {
-        throw new Error('ยังไม่พบ tenant scope สำหรับหน้าแอดมินผู้เช่า');
+        throw new Error('Tenant scope is required for the tenant admin workspace.');
       }
+
+      const previewTenant = isPreviewTenantId(scopedTenantId);
 
       const [
         overview,
@@ -197,40 +656,47 @@
         purchaseStatuses,
         audit,
       ] = await Promise.all([
-        api(`/admin/api/platform/overview?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        api(`/admin/api/platform/reconcile?tenantId=${encodeURIComponent(scopedTenantId)}&windowMs=3600000&pendingOverdueMs=1200000`, {}),
+        previewTenant
+          ? Promise.resolve(buildPreviewOverviewFallback(scopedTenantId))
+          : api(`/admin/api/platform/overview?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
+        previewTenant
+          ? Promise.resolve(buildPreviewReconcileFallback(scopedTenantId))
+          : api(`/admin/api/platform/reconcile?tenantId=${encodeURIComponent(scopedTenantId)}&windowMs=3600000&pendingOverdueMs=1200000`, {}),
         api(`/admin/api/platform/quota?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        api(`/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        api(`/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
-        api(`/admin/api/platform/licenses?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
-        api(`/admin/api/platform/apikeys?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
-        api(`/admin/api/platform/webhooks?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
-        api(`/admin/api/platform/agents?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []),
-        api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null),
-        api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }),
+        previewTenant
+          ? Promise.resolve(buildPreviewTenantConfigFallback(scopedTenantId))
+          : api(`/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/licenses?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/apikeys?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/webhooks?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agents?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []),
+        previewTenant ? Promise.resolve(null) : api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null),
+        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }),
         api(`/admin/api/delivery/queue?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/dead-letter?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/lifecycle?tenantId=${encodeURIComponent(scopedTenantId)}&limit=80&pendingOverdueMs=1200000`, {}),
-        api(`/admin/api/player/accounts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
+        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/player/accounts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api('/admin/api/notifications?acknowledged=false&limit=10', { items: [] }),
         api('/admin/api/delivery/runtime', {}),
         api('/admin/api/purchase/statuses', { knownStatuses: [], allowedTransitions: [] }),
-        api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
+        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
       ]);
 
       const playerRows = Array.isArray(players?.items) ? players.items : [];
       const selectedUserId = readUserIdFromUrl() || pickFirstPlayerId(playerRows);
-      const purchaseLookup = selectedUserId
+      const purchaseLookup = (!previewTenant && selectedUserId)
         ? await api(`/admin/api/purchase/list?tenantId=${encodeURIComponent(scopedTenantId)}&userId=${encodeURIComponent(selectedUserId)}&limit=20`, { items: [], userId: selectedUserId, status: '' })
         : { items: [], userId: '', status: '' };
       const selectedCode = readPurchaseCodeFromUrl() || pickFirstPurchaseCode(purchaseLookup?.items);
-      const deliveryCase = selectedCode
+      const deliveryCase = (!previewTenant && selectedCode)
         ? await api(`/admin/api/delivery/detail?tenantId=${encodeURIComponent(scopedTenantId)}&code=${encodeURIComponent(selectedCode)}&limit=80`, null)
         : null;
 
       state.payload = {
         me,
         tenantId: scopedTenantId,
+        tenantLabel: resolveTenantLabel(scopedTenantId),
         overview,
         reconcile,
         quota,
@@ -255,11 +721,11 @@
       };
 
       renderOwnerTenantSelector(me);
-      renderCurrentPage();
-      setStatus('พร้อมใช้งาน', 'success');
+      const surfaceState = renderCurrentPage();
+      setStatus(surfaceState?.notice ? surfaceState.notice.detail : 'พร้อมใช้งาน', surfaceState?.notice ? (surfaceState.notice.tone || 'warning') : 'success');
     } catch (error) {
-      renderMessageCard('โหลดหน้าแอดมินผู้เช่าไม่สำเร็จ', String(error?.message || error));
-      setStatus('โหลดข้อมูลไม่สำเร็จ', 'danger');
+      renderMessageCard('โหลดพื้นที่ผู้เช่าไม่สำเร็จ', String(error?.message || error));
+      setStatus('โหลดข้อมูลผู้เช่าไม่สำเร็จ', 'danger');
     } finally {
       state.refreshing = false;
     }
@@ -269,34 +735,380 @@
     const target = root();
     if (!target) return;
     if (!state.payload) {
-      renderMessageCard('ยังไม่มีข้อมูล', 'รอให้ระบบดึงข้อมูลล่าสุดก่อน');
+      renderMessageCard('ยังไม่มีข้อมูลผู้เช่า', 'รีเฟรชพื้นที่ทำงานหลังจากระบบดึงข้อมูลผู้เช่าล่าสุดเสร็จแล้ว');
       return;
     }
 
-    const page = currentPage();
+    const requestedPage = currentPage();
+    const surfaceState = buildTenantSurfaceState(state.payload, requestedPage);
+    const renderState = {
+      ...state.payload,
+      __surfaceShell: {
+        navGroups: surfaceState.navGroups,
+      },
+      __surfaceNotice: surfaceState.notice,
+      __surfaceAccess: surfaceState.pageAccess,
+    };
+    const page = surfaceState.resolvedPage;
     const renderers = {
-      dashboard: () => window.TenantDashboardV4.renderTenantDashboardV4(target, state.payload),
-      'server-status': () => window.TenantServerStatusV4.renderTenantServerStatusV4(target, state.payload),
-      'server-config': () => window.TenantServerConfigV4.renderTenantServerConfigV4(target, state.payload),
-      orders: () => window.TenantOrdersV4.renderTenantOrdersV4(target, state.payload),
-      players: () => window.TenantPlayersV4.renderTenantPlayersV4(target, state.payload),
-      'delivery-agents': () => window.TenantDeliveryAgentsV4.renderTenantDeliveryAgentsV4(target, state.payload),
-      'server-bots': () => window.TenantServerBotsV4.renderTenantServerBotsV4(target, state.payload),
-      'restart-control': () => window.TenantRestartControlV4.renderTenantRestartControlV4(target, state.payload),
+      dashboard: () => window.TenantDashboardV4.renderTenantDashboardV4(target, renderState),
+      'server-status': () => window.TenantServerStatusV4.renderTenantServerStatusV4(target, renderState),
+      'server-config': () => window.TenantServerConfigV4.renderTenantServerConfigV4(target, renderState),
+      orders: () => window.TenantOrdersV4.renderTenantOrdersV4(target, renderState),
+      players: () => window.TenantPlayersV4.renderTenantPlayersV4(target, renderState),
+      'delivery-agents': () => window.TenantDeliveryAgentsV4.renderTenantDeliveryAgentsV4(target, renderState),
+      'server-bots': () => window.TenantServerBotsV4.renderTenantServerBotsV4(target, renderState),
+      'restart-control': () => window.TenantRestartControlV4.renderTenantRestartControlV4(target, renderState),
     };
     (renderers[page] || renderers.dashboard)();
-    document.title = `SCUM TH Platform | Tenant | ${PAGE_TITLES[page] || 'แดชบอร์ด'}`;
+    wirePageInteractions(page, renderState, surfaceState);
+    if (surfaceState.notice) {
+      window.setTimeout(() => {
+        setStatus(surfaceState.notice.detail, surfaceState.notice.tone || 'warning');
+      }, 0);
+    }
+    document.title = `SCUM TH Platform | Tenant | ${PAGE_TITLES[page] || 'ภาพรวมงานประจำวัน'}`;
+    return surfaceState;
+  }
+
+  function setActionButtonBusy(button, busy, label) {
+    if (!button) return;
+    if (!button.dataset.originalLabel) {
+      button.dataset.originalLabel = button.textContent || '';
+    }
+    button.disabled = busy;
+    button.textContent = busy ? label : button.dataset.originalLabel;
+  }
+
+  function collectServerConfigDraft() {
+    syncFeatureFlagsTextareaFromUi(state.payload);
+    syncConfigPatchTextareaFromUi();
+    const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
+    const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+    return {
+      featureFlags: parseConfigJsonInput(featureFlagsNode?.value, 'Feature Flags', { emptyAsObject: true }),
+      configPatch: parseConfigJsonInput(configPatchNode?.value, 'Config Patch', { emptyAsObject: true }),
+      portalEnvPatch: parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal Env Patch', { emptyAsObject: true }),
+    };
+  }
+
+  function getFeatureFlagToggleNodes() {
+    return Array.from(document.querySelectorAll('[data-feature-flag-toggle][data-feature-flag-key]'));
+  }
+
+  function getConfigPatchFieldNodes() {
+    return Array.from(document.querySelectorAll('[data-config-patch-field][data-field-type]'));
+  }
+
+  function buildFeatureFlagPatchFromUi(renderState) {
+    const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
+    const draft = parseConfigJsonInput(featureFlagsNode?.value, 'Feature Flags', { emptyAsObject: true });
+    const toggles = getFeatureFlagToggleNodes();
+    if (!toggles.length) return draft;
+    const baseFeatureSet = new Set(
+      Array.isArray(renderState?.overview?.tenantFeatureAccess?.package?.features)
+        ? renderState.overview.tenantFeatureAccess.package.features.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+    );
+    const nextPatch = {};
+    const toggleKeys = new Set(toggles.map((node) => String(node.getAttribute('data-feature-flag-key') || '').trim()).filter(Boolean));
+    Object.entries(draft || {}).forEach(([key, value]) => {
+      if (!toggleKeys.has(key)) {
+        nextPatch[key] = value;
+      }
+    });
+    toggles.forEach((node) => {
+      const key = String(node.getAttribute('data-feature-flag-key') || '').trim();
+      if (!key) return;
+      const packageEnabled = baseFeatureSet.has(key);
+      const effectiveEnabled = Boolean(node.checked);
+      if (effectiveEnabled !== packageEnabled) {
+        nextPatch[key] = effectiveEnabled;
+      }
+    });
+    return nextPatch;
+  }
+
+  function syncFeatureFlagsTextareaFromUi(renderState) {
+    const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
+    if (!featureFlagsNode) return;
+    const nextPatch = buildFeatureFlagPatchFromUi(renderState);
+    featureFlagsNode.value = JSON.stringify(nextPatch, null, 2);
+  }
+
+  function syncFeatureFlagTogglesFromTextarea(renderState) {
+    const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
+    const toggles = getFeatureFlagToggleNodes();
+    if (!featureFlagsNode || !toggles.length) return;
+    const draft = parseConfigJsonInput(featureFlagsNode.value, 'Feature Flags', { emptyAsObject: true });
+    const baseFeatureSet = new Set(
+      Array.isArray(renderState?.overview?.tenantFeatureAccess?.package?.features)
+        ? renderState.overview.tenantFeatureAccess.package.features.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+    );
+    toggles.forEach((node) => {
+      const key = String(node.getAttribute('data-feature-flag-key') || '').trim();
+      if (!key) return;
+      const packageEnabled = baseFeatureSet.has(key);
+      const overrideValue = Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : packageEnabled;
+      node.checked = Boolean(overrideValue);
+    });
+  }
+
+  function buildConfigPatchFromUi() {
+    const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    const draft = parseConfigJsonInput(configPatchNode?.value, 'Config Patch', { emptyAsObject: true });
+    const fields = getConfigPatchFieldNodes();
+    if (!fields.length) return draft;
+    const nextPatch = {};
+    const controlledKeys = new Set(fields.map((node) => String(node.getAttribute('data-config-patch-field') || '').trim()).filter(Boolean));
+    Object.entries(draft || {}).forEach(([key, value]) => {
+      if (!controlledKeys.has(key)) {
+        nextPatch[key] = value;
+      }
+    });
+    fields.forEach((node) => {
+      const key = String(node.getAttribute('data-config-patch-field') || '').trim();
+      const type = String(node.getAttribute('data-field-type') || 'text').trim();
+      const defaultValueRaw = String(node.getAttribute('data-default-value') || '').trim();
+      if (!key) return;
+      if (type === 'boolean') {
+        const nextValue = Boolean(node.checked);
+        const defaultValue = defaultValueRaw === 'true';
+        if (nextValue !== defaultValue) {
+          nextPatch[key] = nextValue;
+        }
+        return;
+      }
+      const rawValue = String(node.value || '').trim();
+      if (!rawValue) return;
+      if (type === 'number') {
+        const numeric = Number(rawValue);
+        if (!Number.isFinite(numeric)) return;
+        const normalized = Math.trunc(numeric);
+        if (String(normalized) !== defaultValueRaw) {
+          nextPatch[key] = normalized;
+        }
+        return;
+      }
+      if (rawValue !== defaultValueRaw) {
+        nextPatch[key] = rawValue;
+      }
+    });
+    return nextPatch;
+  }
+
+  function syncConfigPatchTextareaFromUi() {
+    const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    if (!configPatchNode) return;
+    const nextPatch = buildConfigPatchFromUi();
+    configPatchNode.value = JSON.stringify(nextPatch, null, 2);
+  }
+
+  function syncConfigPatchFieldsFromTextarea() {
+    const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    const fields = getConfigPatchFieldNodes();
+    if (!configPatchNode || !fields.length) return;
+    const draft = parseConfigJsonInput(configPatchNode.value, 'Config Patch', { emptyAsObject: true });
+    fields.forEach((node) => {
+      const key = String(node.getAttribute('data-config-patch-field') || '').trim();
+      const type = String(node.getAttribute('data-field-type') || 'text').trim();
+      const defaultValueRaw = String(node.getAttribute('data-default-value') || '').trim();
+      if (!key) return;
+      const nextValue = Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : defaultValueRaw;
+      if (type === 'boolean') {
+        node.checked = nextValue === true || String(nextValue).trim().toLowerCase() === 'true';
+        const hint = node.parentElement?.querySelector('.tdv4-basic-toggle-hint');
+        if (hint) {
+          hint.textContent = node.checked ? 'เปิด' : 'ปิด';
+        }
+        return;
+      }
+      if (type === 'number') {
+        node.value = Number.isFinite(Number(nextValue)) ? String(Math.trunc(Number(nextValue))) : defaultValueRaw;
+        return;
+      }
+      node.value = String(nextValue ?? '');
+    });
+  }
+
+  async function saveTenantServerConfig(renderState, mode, triggerButton) {
+    const scopedTenantId = String(renderState?.tenantConfig?.tenantId || renderState?.tenantId || renderState?.me?.tenantId || '').trim();
+    if (!scopedTenantId) {
+      throw new Error('ยังไม่พบ tenant ที่ใช้บันทึกค่า');
+    }
+    const draft = collectServerConfigDraft();
+    const savingLabel = mode === 'restart'
+      ? 'กำลังบันทึกและเปิด flow รีสตาร์ต...'
+      : mode === 'apply'
+        ? 'กำลังบันทึกและใช้ค่า...'
+        : 'กำลังบันทึก...';
+    setActionButtonBusy(triggerButton, true, savingLabel);
+    await apiRequest('/admin/api/platform/tenant-config', {
+      method: 'POST',
+      body: {
+        tenantId: scopedTenantId,
+        featureFlags: draft.featureFlags,
+        configPatch: draft.configPatch,
+        portalEnvPatch: draft.portalEnvPatch,
+      },
+    }, null);
+    if (mode === 'restart') {
+      setStatus('บันทึกค่าแล้ว กำลังพาไปหน้ารีสตาร์ต', 'warning');
+      window.location.hash = '#restart-control';
+      await refreshState({ silent: false });
+      return;
+    }
+    await refreshState({ silent: false });
+    setStatus(
+      mode === 'apply'
+        ? 'บันทึกค่าและโหลดค่าล่าสุดเข้าพื้นที่ผู้เช่าแล้ว'
+        : 'บันทึกค่าของผู้เช่าเรียบร้อยแล้ว',
+      'success',
+    );
+  }
+
+  function wireServerConfigPage(renderState, surfaceState) {
+    const buttons = Array.from(document.querySelectorAll('[data-config-action]'));
+    if (!buttons.length) return;
+    const previewMode = Boolean(surfaceState?.featureAccess?.previewMode);
+    const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
+    const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    getFeatureFlagToggleNodes().forEach((node) => {
+      if (previewMode) {
+        node.disabled = true;
+      }
+      node.addEventListener('change', () => {
+        syncFeatureFlagsTextareaFromUi(renderState);
+        setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
+      });
+    });
+    getConfigPatchFieldNodes().forEach((node) => {
+      if (previewMode) {
+        node.disabled = true;
+      }
+      const eventName = String(node.getAttribute('data-field-type') || '') === 'boolean' ? 'change' : 'input';
+      node.addEventListener(eventName, () => {
+        syncConfigPatchTextareaFromUi();
+        if (String(node.getAttribute('data-field-type') || '') === 'boolean') {
+          const hint = node.parentElement?.querySelector('.tdv4-basic-toggle-hint');
+          if (hint) {
+            hint.textContent = node.checked ? 'เปิด' : 'ปิด';
+          }
+        }
+        setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
+      });
+    });
+    featureFlagsNode?.addEventListener('input', () => {
+      try {
+        syncFeatureFlagTogglesFromTextarea(renderState);
+      } catch {
+        // Keep existing toggle state while the operator is typing invalid JSON.
+      }
+    });
+    configPatchNode?.addEventListener('input', () => {
+      try {
+        syncConfigPatchFieldsFromTextarea();
+      } catch {
+        // Keep existing basic field state while the operator is typing invalid JSON.
+      }
+    });
+    buttons.forEach((button) => {
+      const action = String(button.getAttribute('data-config-action') || '').trim();
+      if (previewMode) {
+        button.disabled = true;
+        return;
+      }
+      button.addEventListener('click', async () => {
+        try {
+          const confirmMessage = action === 'restart'
+            ? 'บันทึกค่าชุดนี้แล้วเปิดหน้ารีสตาร์ตต่อเลยหรือไม่'
+            : action === 'apply'
+              ? 'บันทึกค่าและโหลดค่าล่าสุดเข้าระบบตอนนี้หรือไม่'
+              : 'บันทึกค่าของ tenant นี้ตอนนี้หรือไม่';
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await saveTenantServerConfig(renderState, action || 'save', button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+          setActionButtonBusy(button, false);
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+      });
+    });
+    document.querySelectorAll('.tdv4-editor').forEach((node) => {
+      node.addEventListener('input', () => {
+        setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
+      });
+    });
+    syncConfigPatchFieldsFromTextarea();
+  }
+
+  function wirePageInteractions(page, renderState, surfaceState) {
+    if (page === 'server-config') {
+      wireServerConfigPage(renderState, surfaceState);
+    }
   }
 
   window.addEventListener('DOMContentLoaded', () => {
     const refreshButton = document.getElementById('tenantV4RefreshBtn');
     const scopeSelect = selectorNode();
+    const scopeButton = selectorButtonNode();
+    const scopeMenu = selectorMenuNode();
     refreshButton?.addEventListener('click', () => refreshState({ silent: false }));
     scopeSelect?.addEventListener('change', () => {
+      syncTenantScopeControls();
+      setTenantScopeMenuOpen(false);
       writeTenantIdToUrl(String(scopeSelect.value || '').trim());
       refreshState({ silent: false });
     });
-    window.addEventListener('hashchange', renderCurrentPage);
+    scopeButton?.addEventListener('click', () => {
+      const nextOpen = scopeButton.getAttribute('aria-expanded') !== 'true';
+      setTenantScopeMenuOpen(nextOpen);
+      if (nextOpen) {
+        window.requestAnimationFrame(() => focusCurrentTenantScopeOption());
+      }
+    });
+    scopeButton?.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      setTenantScopeMenuOpen(true);
+      window.requestAnimationFrame(() => focusCurrentTenantScopeOption());
+    });
+    scopeMenu?.addEventListener('click', (event) => {
+      const option = event.target.closest('.surface-combobox-option[data-value]');
+      if (!option || !scopeSelect) return;
+      const nextValue = String(option.getAttribute('data-value') || '').trim();
+      if (!nextValue) return;
+      if (scopeSelect.value !== nextValue) {
+        scopeSelect.value = nextValue;
+        scopeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+      syncTenantScopeControls();
+      setTenantScopeMenuOpen(false);
+    });
+    document.addEventListener('click', (event) => {
+      const wrap = selectorWrapNode();
+      if (!wrap?.contains(event.target)) {
+        setTenantScopeMenuOpen(false);
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        setTenantScopeMenuOpen(false);
+        scopeButton?.focus();
+      }
+    });
+    window.addEventListener('hashchange', () => {
+      const surfaceState = renderCurrentPage();
+      if (!surfaceState?.notice) {
+        setStatus('พร้อมใช้งาน', 'success');
+      }
+    });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) refreshState({ silent: true });
     });

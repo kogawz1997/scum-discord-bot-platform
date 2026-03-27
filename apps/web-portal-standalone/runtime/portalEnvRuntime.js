@@ -81,6 +81,7 @@ function createPortalEnvRuntime(deps = {}) {
   const playerHtmlPath = path.join(__dirname, '..', 'public', 'player-core.html');
   const legacyPlayerHtmlPath = path.join(__dirname, '..', 'public', 'player.html');
   const landingHtmlPath = path.join(__dirname, '..', 'public', 'landing.html');
+  const dashboardHtmlPath = path.join(__dirname, '..', 'public', 'dashboard.html');
   const pricingHtmlPath = path.join(__dirname, '..', 'public', 'pricing.html');
   const signupHtmlPath = path.join(__dirname, '..', 'public', 'signup.html');
   const forgotPasswordHtmlPath = path.join(__dirname, '..', 'public', 'forgot-password.html');
@@ -130,6 +131,7 @@ function createPortalEnvRuntime(deps = {}) {
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    dashboardHtmlPath,
     pricingHtmlPath,
     signupHtmlPath,
     forgotPasswordHtmlPath,

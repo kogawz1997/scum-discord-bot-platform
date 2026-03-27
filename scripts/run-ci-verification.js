@@ -14,6 +14,7 @@ const GENERATED_SCHEMA_PATH = path.join(
   'client',
   'schema.prisma',
 );
+const CHILD_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
 
 const DEFAULT_STEPS = [
   { id: 'lint', label: 'Lint', command: ['run', 'lint'] },
@@ -89,6 +90,7 @@ function runNpmStep(step) {
     encoding: 'utf8',
     shell: false,
     env: buildVerificationEnv(),
+    maxBuffer: CHILD_MAX_BUFFER_BYTES,
   });
   const finishedAt = new Date().toISOString();
   const durationMs = Date.now() - started;
@@ -130,6 +132,7 @@ function runJsonReport(step) {
     encoding: 'utf8',
     shell: false,
     env: buildVerificationEnv(),
+    maxBuffer: CHILD_MAX_BUFFER_BYTES,
   });
   if (result.status !== 0) {
     throw new Error(`JSON report failed for ${step.id}: ${String(result.stderr || result.stdout || '').trim()}`);

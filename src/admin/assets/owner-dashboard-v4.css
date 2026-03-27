@@ -453,3 +453,206 @@ body { padding: 24px; }
   .odv4-list-side,
   .odv4-table-actions { justify-content: flex-start; justify-items: start; text-align: left; }
 }
+
+.odv4-app { position: relative; }
+
+.odv4-shell { grid-template-columns: 252px minmax(0, 1fr) 292px; }
+
+.odv4-pagehead {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 264px;
+}
+
+.odv4-pagehead > * {
+  position: relative;
+  z-index: 1;
+}
+
+.odv4-pagehead::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(112deg, rgba(9, 13, 11, 0.96) 0%, rgba(9, 13, 11, 0.78) 48%, rgba(9, 13, 11, 0.28) 100%);
+  z-index: 0;
+}
+
+.odv4-pagehead::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  bottom: 18px;
+  width: min(37vw, 368px);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(207, 174, 101, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)),
+    url("/admin/assets/owner-panel-scene.svg");
+  background-size: cover;
+  background-position: center;
+  border: 1px solid rgba(197, 172, 103, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0.94;
+  z-index: 0;
+}
+
+.odv4-topbar,
+.odv4-sidebar,
+.odv4-pagehead,
+.odv4-panel,
+.odv4-kpi,
+.odv4-rail-card {
+  backdrop-filter: blur(14px);
+}
+
+.odv4-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.odv4-task-grid,
+.odv4-runbook-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+.odv4-page-title { max-width: 12ch; }
+
+.odv4-sidebar-copy,
+.odv4-rail-copy,
+.odv4-section-copy,
+.odv4-page-subtitle,
+.odv4-table-note { max-width: 66ch; }
+
+.odv4-list,
+.odv4-feed { gap: 12px; }
+
+.odv4-list-item,
+.odv4-feed-item,
+.odv4-rail-card,
+.odv4-runbook-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.odv4-main > section,
+.odv4-main > .odv4-kpi-strip,
+.odv4-main > .odv4-split-grid {
+  animation: odv4-rise 420ms ease both;
+}
+
+.odv4-main > section:nth-child(2),
+.odv4-main > .odv4-kpi-strip:nth-child(2),
+.odv4-main > .odv4-split-grid:nth-child(2) { animation-delay: 40ms; }
+
+.odv4-main > section:nth-child(3),
+.odv4-main > .odv4-kpi-strip:nth-child(3),
+.odv4-main > .odv4-split-grid:nth-child(3) { animation-delay: 80ms; }
+
+@keyframes odv4-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1440px) {
+  .odv4-shell { grid-template-columns: 236px minmax(0, 1fr); }
+
+  .odv4-pagehead::after { width: min(44vw, 320px); }
+}
+
+@media (max-width: 1100px) {
+  .odv4-pagehead::after {
+    position: static;
+    display: block;
+    width: 100%;
+    min-height: 180px;
+    margin-top: 16px;
+  }
+
+  .odv4-kpi-strip { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .odv4-main > section,
+  .odv4-main > .odv4-kpi-strip,
+  .odv4-main > .odv4-split-grid { animation: none; }
+}
+
+body.surface-owner {
+  padding: 0;
+}
+
+body.surface-owner .odv4-app {
+  min-height: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  position: static;
+}
+
+body.surface-owner .odv4-topbar {
+  display: none;
+}
+
+body.surface-owner .odv4-shell {
+  grid-template-columns: 248px minmax(0, 1fr) 312px;
+  gap: 20px;
+  padding: 0;
+}
+
+body.surface-owner .odv4-sidebar,
+body.surface-owner .odv4-rail-sticky,
+body.surface-owner .odv4-pagehead,
+body.surface-owner .odv4-panel,
+body.surface-owner .odv4-kpi,
+body.surface-owner .odv4-rail-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 100%),
+    rgba(13, 20, 17, 0.94);
+  border-color: rgba(191, 170, 112, 0.14);
+  box-shadow: none;
+}
+
+body.surface-owner .odv4-sidebar {
+  position: sticky;
+  top: 96px;
+  gap: 20px;
+}
+
+body.surface-owner .odv4-main {
+  min-width: 0;
+}
+
+body.surface-owner .odv4-pagehead {
+  min-height: 176px;
+}
+
+body.surface-owner .odv4-pagehead::after {
+  opacity: 0.84;
+}
+
+body.surface-owner .odv4-page-title {
+  font-size: clamp(2.1rem, 2.8vw, 3rem);
+  line-height: 1.02;
+}
+
+@media (max-width: 1440px) {
+  body.surface-owner .odv4-shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+
+  body.surface-owner .odv4-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 920px) {
+  body.surface-owner .odv4-shell {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+}

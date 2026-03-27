@@ -81,7 +81,10 @@ const {
   getDailyRent,
 } = require('../../../src/store/rentBikeStore');
 const { awardWheelRewardForUser } = require('../../../src/services/wheelService');
-const { getPlatformPublicOverview } = require('../../../src/services/platformService');
+const {
+  getPlatformPublicOverview,
+  getTenantFeatureAccess,
+} = require('../../../src/services/platformService');
 const { publicPreviewService } = require('../../../src/services/publicPreviewService');
 const config = require('../../../src/config');
 
@@ -177,6 +180,7 @@ function createPortalBootstrapRuntime({
     playerHtmlPath,
     legacyPlayerHtmlPath,
     landingHtmlPath,
+    dashboardHtmlPath,
     pricingHtmlPath,
     signupHtmlPath,
     forgotPasswordHtmlPath,
@@ -392,6 +396,7 @@ function createPortalBootstrapRuntime({
       createBountyForUser,
       normalizeShopKind,
       filterShopItems,
+      getTenantFeatureAccess,
     },
     generalRouteDeps: {
       sendJson,
@@ -450,6 +455,7 @@ function createPortalBootstrapRuntime({
       listUserPurchases,
       claimDaily,
       claimWeekly,
+      getTenantFeatureAccess,
     },
     pageAssetDeps: {
       isProduction,
@@ -458,6 +464,7 @@ function createPortalBootstrapRuntime({
       playerHtmlPath,
       legacyPlayerHtmlPath,
       landingHtmlPath,
+      dashboardHtmlPath,
       pricingHtmlPath,
       signupHtmlPath,
       forgotPasswordHtmlPath,

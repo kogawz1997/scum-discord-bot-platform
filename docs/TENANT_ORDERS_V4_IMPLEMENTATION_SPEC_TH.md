@@ -151,16 +151,16 @@ action สำคัญ:
 
 ## 7. Current data mapping
 
-| Block | Current state key | Endpoint |
-|---|---|---|
-| purchase lookup form state | `state.purchaseLookup` | client-side state |
-| purchase table data | `state.purchaseLookup.items` | `/admin/api/purchase/list?...` |
-| known statuses | `state.purchaseStatusCatalog` | `/admin/api/purchase/statuses` |
-| queue list | `state.queueItems` | `/admin/api/delivery/queue?tenantId={id}&limit=20` |
-| dead-letter list | `state.deadLetters` | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20` |
-| delivery detail | `state.deliveryCase` | `/admin/api/delivery/detail?tenantId={id}&code={purchaseCode}&limit=80` |
-| lifecycle report | `state.deliveryLifecycle` | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000` |
-| audit rows | `state.audit` | `/admin/api/audit/query?...` |
+| Block                      | Current state key             | Endpoint                                                                        |
+| -------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| purchase lookup form state | `state.purchaseLookup`        | client-side state                                                               |
+| purchase table data        | `state.purchaseLookup.items`  | `/admin/api/purchase/list?...`                                                  |
+| known statuses             | `state.purchaseStatusCatalog` | `/admin/api/purchase/statuses`                                                  |
+| queue list                 | `state.queueItems`            | `/admin/api/delivery/queue?tenantId={id}&limit=20`                              |
+| dead-letter list           | `state.deadLetters`           | `/admin/api/delivery/dead-letter?tenantId={id}&limit=20`                        |
+| delivery detail            | `state.deliveryCase`          | `/admin/api/delivery/detail?tenantId={id}&code={purchaseCode}&limit=80`         |
+| lifecycle report           | `state.deliveryLifecycle`     | `/admin/api/delivery/lifecycle?tenantId={id}&limit=80&pendingOverdueMs=1200000` |
+| audit rows                 | `state.audit`                 | `/admin/api/audit/query?...`                                                    |
 
 ## 8. Existing logic to reuse
 
@@ -264,6 +264,7 @@ tabs:
 ### Empty
 
 - ยังไม่ได้กรอก player/user id:
+
   - แสดงว่า “กรอก Discord user ID ก่อนเพื่อดูประวัติคำสั่งซื้อ”
 
 - ไม่มี order:
@@ -272,6 +273,7 @@ tabs:
 ### Error
 
 - purchase lookup ล้มเหลว:
+
   - แสดงว่า “โหลดคำสั่งซื้อไม่สำเร็จ”
   - ยังรักษาข้อมูลก่อนหน้าไว้ถ้าเหมาะสม
 

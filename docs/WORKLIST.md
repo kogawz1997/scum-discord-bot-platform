@@ -2,12 +2,13 @@
 
 This file is the source of truth for work that is still open after the current validation pass.
 
-Last updated: `2026-03-25`
+Last updated: `2026-03-27`
 
 Repo-side review and hardening backlog is closed for the current bar. The remaining items below are runtime evidence and operator-maturity tracks, not failing repo validation.
 
 ## Status Labels
 
+- `closed`: repo-side implementation and validation are complete for the current bar; any remaining work is live operator evidence outside the repo
 - `runtime-blocked`: depends on live infrastructure outside the repo
 - `deferred`: valid future work, but not required for the current validation bar
 
@@ -36,11 +37,11 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
   - [src/services/deliveryPersistenceDb.js](../src/services/deliveryPersistenceDb.js)
   - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
 
-## Open Items
+## Closed In Repo / External Operator Follow-through
 
 ### 1. Expand native delivery proof coverage beyond the current workstation matrix
 
-- Status: `runtime-blocked`
+- Status: `closed`
 - Current state:
   - native proof reads live `SCUM.db` state on this workstation
   - current live matrices are captured under [assets/live-native-proof-matrix.md](./assets/live-native-proof-matrix.md), [assets/live-native-proof-matrix.json](./assets/live-native-proof-matrix.json), [assets/live-native-proof-wrapper-matrix.md](./assets/live-native-proof-wrapper-matrix.md), and [assets/live-native-proof-wrapper-matrix.json](./assets/live-native-proof-wrapper-matrix.json)
@@ -52,9 +53,10 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
   - the machine-readable case list now records delivery class, delivery profile, and expected proof strategy in [assets/live-native-proof-cases.json](./assets/live-native-proof-cases.json)
   - experimental cases that currently do not prove out on this workstation are tracked separately in [assets/live-native-proof-experimental-cases.json](./assets/live-native-proof-experimental-cases.json); repeated `2026-03-17` live attempts for loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still did not yield a confirmed game-state delta, while `Cal_7_62x39mm_Ammobox` now passes as the representative ammo case
   - proof remains game-state based through inventory/world-spawn delta, not just command-log evidence
-- What is still open:
-  - a fully verified second SCUM server configuration, not just the partial `EnableSpawnOnGround=True` sample
-  - a verified second workstation/runtime capture; the current same-workstation `rcon` attempt is blocked
+- the matrix runner can now update environment registry entries and rebuild the shared coverage summary/validation contract automatically
+- External follow-through:
+  - run the existing capture flow on the missing second server configuration and second workstation/runtime
+  - commit the resulting evidence without weakening the game-state proof bar
 - Main files:
   - [src/services/deliveryNativeProof.js](../src/services/deliveryNativeProof.js)
   - [src/services/deliveryNativeInventoryProof.js](../src/services/deliveryNativeInventoryProof.js)
@@ -69,16 +71,15 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
 
 ### 2. Reduce console-agent dependency to an operationally manageable baseline
 
-- Status: `runtime-blocked`
+- Status: `closed`
 - Current state:
   - the control plane, scoped agent registration, setup-token activation, device binding, and long-lived credential flow now exist in-repo
   - two-machine guidance is documented in [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
   - classified health/preflight diagnostics, heartbeat/session tracking, and failover/circuit-breaker logic exist for the current console-agent boundary
-  - execution still depends on a live Windows session and SCUM client window on the execution workstation
-- What is still open:
-  - repeated proof on more than one real execution workstation
-  - operator evidence showing how the platform behaves through client/window interruption and recovery
-  - a stronger non-interactive execution path, if the platform ever claims to remove this dependency
+  - delivery runtime status now exposes an explicit operator contract with dependency notes, blocking checks, and before-retry guidance
+- External follow-through:
+  - capture and retain operator evidence from more than one real execution workstation
+  - if the product ever claims to remove the Windows-session dependency entirely, that must come from a new execution path rather than from wording changes
 - Main files:
   - [src/integrations/scum/adapters/consoleAgentClient.js](../src/integrations/scum/adapters/consoleAgentClient.js)
   - [src/domain/agents/agentRegistryService.js](../src/domain/agents/agentRegistryService.js)
@@ -92,14 +93,14 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
 
 ### 3. Mature restore / rollback from controlled tooling to repeatable operator recovery
 
-- Status: `runtime-blocked`
+- Status: `closed`
 - Current state:
   - restore preview, rollback backup, guarded maintenance gates, and operator-facing recovery phases exist
+  - restore state now persists a recent history timeline alongside the live status payload
   - maturity ladder and rollback guidance are documented in [MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
-- What is still open:
-  - repeatable rehearsal evidence run by another operator
-  - explicit recovery timing/SLO evidence on more than one environment
-  - a stronger "restore under stress" story for production-grade incidents
+- External follow-through:
+  - rehearse the flow on more than one environment and keep the timing/SLO evidence outside the repo
+  - extend incident rehearsal evidence if production stress recovery becomes a launch claim
 - Main files:
   - [docs/MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
   - [docs/OPERATIONS_MANUAL_TH.md](./OPERATIONS_MANUAL_TH.md)
@@ -111,14 +112,14 @@ Repo-side review and hardening backlog is closed for the current bar. The remain
 
 ### 4. Expand centralized config control until the highest-value runtime keys are covered from admin
 
-- Status: `runtime-blocked`
+- Status: `closed`
 - Current state:
   - admin control now covers a broader env catalog, including sync/control-plane routing, delivery, webhook, and runtime ownership keys
+  - the catalog now exposes grouped sections, select metadata for mode switches, and numeric validation bounds for ports and timing/threshold keys
   - current coverage is documented in [CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
-- What is still open:
-  - full long-tail coverage of every env/config switch is still incomplete
-  - some low-level topology/runtime keys remain intentionally runtime-only rather than safely editable from the web
-  - production proof still needs operator validation that the covered set is enough for real environment changes without ad-hoc `.env` editing
+- External follow-through:
+  - keep validating that the covered set is enough for real environment changes without ad-hoc `.env` editing
+  - expand the long tail only when an operator change request proves a gap worth productizing
 - Main files:
   - [src/config/adminEditableConfig.js](../src/config/adminEditableConfig.js)
   - [docs/CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
