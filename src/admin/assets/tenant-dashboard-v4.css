@@ -251,7 +251,7 @@ body { padding: 24px; }
 
 .tdv4-setup-flow-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -283,6 +283,18 @@ body { padding: 24px; }
   gap: 6px;
 }
 
+.tdv4-setup-step-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--tdv4-accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.tdv4-setup-step-link:hover {
+  text-decoration: underline;
+}
+
 .tdv4-setup-step-title {
   font-size: 1rem;
   line-height: 1.4;
@@ -305,6 +317,85 @@ body { padding: 24px; }
 
 .tdv4-task-group,
 .tdv4-panel { padding: 20px; }
+
+.tdv4-priority-panel {
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(207, 177, 100, 0.06), rgba(207, 177, 100, 0.015)),
+    var(--tdv4-surface);
+}
+
+.tdv4-priority-grid,
+.tdv4-priority-checkpoints,
+.tdv4-priority-secondary {
+  display: grid;
+  gap: 16px;
+}
+
+.tdv4-priority-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(272px, 0.85fr);
+  align-items: start;
+}
+
+.tdv4-priority-checkpoints {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tdv4-priority-item,
+.tdv4-priority-note {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--tdv4-radius-sm);
+  border: 1px solid var(--tdv4-border);
+  background: var(--tdv4-surface-soft);
+}
+
+.tdv4-priority-note p {
+  margin: 0;
+  color: var(--tdv4-text-soft);
+  line-height: 1.6;
+}
+
+.tdv4-priority-actions {
+  align-content: start;
+  justify-items: start;
+  padding: 16px;
+  border: 1px solid var(--tdv4-border);
+  border-radius: var(--tdv4-radius);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tdv4-priority-actions > .tdv4-button {
+  min-width: 220px;
+}
+
+.tdv4-priority-secondary {
+  grid-template-columns: 1fr;
+  width: 100%;
+}
+
+.tdv4-action-entry {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tdv4-action-recommend {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(207, 177, 100, 0.14);
+  border: 1px solid var(--tdv4-border-strong);
+  color: var(--tdv4-text);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
 .tdv4-section-title {
   margin: 0 0 8px;
@@ -363,6 +454,52 @@ body { padding: 24px; }
 
 .tdv4-rail-sticky { position: sticky; top: 24px; gap: 16px; }
 
+.tdv4-empty-state {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px dashed var(--tdv4-border);
+  border-radius: var(--tdv4-radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tdv4-empty-state strong {
+  color: var(--tdv4-text);
+  font-size: 1rem;
+}
+
+.tdv4-empty-state p {
+  margin: 0;
+  color: var(--tdv4-text-soft);
+  line-height: 1.6;
+}
+
+.tdv4-details-panel {
+  padding: 0;
+  overflow: clip;
+}
+
+.tdv4-details-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 20px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.tdv4-details-summary::-webkit-details-marker { display: none; }
+
+.tdv4-details-panel[open] .tdv4-details-summary {
+  border-bottom: 1px solid var(--tdv4-border);
+}
+
+.tdv4-details-panel > .tdv4-stack {
+  padding: 20px;
+}
+
 @media (max-width: 1440px) {
   .tdv4-shell { grid-template-columns: 260px minmax(0, 1fr); }
   .tdv4-rail { grid-column: 1 / -1; }
@@ -377,7 +514,9 @@ body { padding: 24px; }
   .tdv4-task-grid,
   .tdv4-dual-grid,
   .tdv4-context-grid,
-  .tdv4-highlight-grid { grid-template-columns: 1fr; }
+  .tdv4-highlight-grid,
+  .tdv4-priority-grid,
+  .tdv4-priority-checkpoints { grid-template-columns: 1fr; }
 
   .tdv4-pagehead { flex-direction: column; }
   .tdv4-pagehead-actions { min-width: 0; width: 100%; }
@@ -397,7 +536,7 @@ body { padding: 24px; }
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  min-height: 256px;
+  min-height: 216px;
 }
 
 .tdv4-pagehead > * {
@@ -420,7 +559,7 @@ body { padding: 24px; }
   top: 18px;
   right: 18px;
   bottom: 18px;
-  width: min(36vw, 360px);
+  width: min(31vw, 304px);
   border-radius: 22px;
   background:
     radial-gradient(circle at top left, rgba(207, 177, 100, 0.18), transparent 38%),

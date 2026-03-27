@@ -266,8 +266,8 @@ function hasRoleAtLeast(role, minRole) {
 function getAdminPermissionForPath(pathname, method = 'POST') {
   const normalizedMethod = String(method || 'POST').trim().toUpperCase();
   const normalizedPath = String(pathname || '').trim();
-  if (normalizedMethod !== 'POST') return null;
-  if (POST_PERMISSION_INDEX.has(normalizedPath)) {
+  if (!['POST', 'PATCH'].includes(normalizedMethod)) return null;
+  if (normalizedMethod === 'POST' && POST_PERMISSION_INDEX.has(normalizedPath)) {
     return POST_PERMISSION_INDEX.get(normalizedPath);
   }
   if (!normalizedPath.startsWith('/admin/api/')) return null;

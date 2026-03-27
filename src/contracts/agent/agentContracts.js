@@ -181,6 +181,10 @@ function deriveScopesForAgent(role, scope) {
   if (normalizedRole === 'sync' || normalizedScope === 'sync_only' || normalizedScope === 'sync_execute') {
     scopes.add('agent:sync');
     scopes.add('analytics:read');
+    scopes.add('config:read');
+    scopes.add('config:write');
+    scopes.add('server:control');
+    scopes.add('backup:write');
   }
   if (normalizedRole === 'execute' || normalizedScope === 'execute_only' || normalizedScope === 'sync_execute') {
     scopes.add('agent:execute');

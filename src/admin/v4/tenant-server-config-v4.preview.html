@@ -11,19 +11,33 @@
   <script src="../assets/tenant-server-config-v4.js"></script>
   <script>
     window.__TENANT_SERVER_CONFIG_V4_SAMPLE__ = {
+      tenantLabel: 'SCUM TH Renter',
       me: { tenantId: 'scum-th-renter', role: 'tenant_admin' },
+      activeServer: { id: 'server-alpha', name: 'Bangkok Survival' },
+      overview: {
+        tenantFeatureAccess: {
+          package: { features: ['server_settings', 'orders_module', 'player_module', 'sync_agent', 'execute_agent'] },
+          features: [
+            { key: 'server_settings', title: 'Server Settings' },
+            { key: 'orders_module', title: 'Orders Module' },
+            { key: 'player_module', title: 'Player Module' },
+            { key: 'sync_agent', title: 'Server Bot' },
+            { key: 'execute_agent', title: 'Delivery Agent' }
+          ]
+        }
+      },
       tenantConfig: {
         name: 'SCUM TH Renter',
         updatedAt: '2026-03-26T09:44:00+07:00',
         featureFlags: {
-          bot_log: true,
-          bot_delivery: true,
+          sync_agent: true,
+          execute_agent: true,
           shop_module: true,
           player_module: true,
-          restart_announce_module: true
+          orders_module: true
         },
         configPatch: {
-          maxPlayers: 60,
+          serverLabel: 'Bangkok Survival',
           killfeedRelayEnabled: true,
           deliveryQueueBatchSize: 10,
           restartGraceMinutes: 5,
@@ -35,26 +49,105 @@
           walletBadgeEnabled: true
         }
       },
-      draft: {
-        featureFlags: {
-          bot_log: true,
-          bot_delivery: true,
-          shop_module: true,
-          player_module: true,
-          restart_announce_module: true,
-          support_module: true
-        },
-        configPatch: {
-          maxPlayers: 64,
-          killfeedRelayEnabled: true,
-          deliveryQueueBatchSize: 10,
-          restartGraceMinutes: 10,
-          discordLogLanguage: 'th-TH'
-        },
-        portalEnvPatch: {
-          publicTheme: 'scum-dark',
-          communityFeedEnabled: true,
-          walletBadgeEnabled: false
+      serverConfigWorkspace: {
+        snapshotStatus: 'ready',
+        snapshotCollectedAt: '2026-03-27T10:00:00.000Z',
+        snapshotUpdatedBy: 'server-bot-alpha',
+        files: [
+          { file: 'ServerSettings.ini', label: 'Server Settings', exists: true },
+          { file: 'AdminUsers.ini', label: 'Admin Users', exists: true },
+          { file: 'BannedUsers.ini', label: 'Banned Users', exists: true }
+        ],
+        backups: [
+          {
+            id: 'backup-1',
+            file: 'ServerSettings.ini',
+            createdAt: '2026-03-27T09:30:00.000Z',
+            changedBy: 'admin',
+            changeSummary: [{ key: 'ServerName' }, { key: 'MaxPlayers' }]
+          }
+        ],
+        categories: [
+          {
+            key: 'general',
+            label: 'General',
+            description: 'Core identity and player-facing settings.',
+            groups: [
+              {
+                key: 'identity',
+                label: 'Identity',
+                settings: [
+                  {
+                    id: 'cfg-server-name',
+                    file: 'ServerSettings.ini',
+                    section: 'General',
+                    key: 'ServerName',
+                    label: 'Server Name',
+                    description: 'Name shown in the server browser.',
+                    type: 'string',
+                    currentValue: 'Bangkok Survival',
+                    defaultValue: 'SCUM TH',
+                    requiresRestart: true
+                  },
+                  {
+                    id: 'cfg-server-max-players',
+                    file: 'ServerSettings.ini',
+                    section: 'General',
+                    key: 'MaxPlayers',
+                    label: 'Max Players',
+                    description: 'Maximum player slots on this server.',
+                    type: 'number',
+                    currentValue: 80,
+                    defaultValue: 64,
+                    min: 1,
+                    max: 100,
+                    requiresRestart: true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            key: 'features',
+            label: 'Features',
+            description: 'Player-facing gameplay options.',
+            groups: [
+              {
+                key: 'player-access',
+                label: 'Player Access',
+                settings: [
+                  {
+                    id: 'cfg-feature-map',
+                    file: 'ServerSettings.ini',
+                    section: 'Features',
+                    key: 'AllowMapScreen',
+                    label: 'Enable Map',
+                    description: 'Allow players to open the world map.',
+                    type: 'boolean',
+                    currentValue: true,
+                    defaultValue: true,
+                    requiresRestart: false
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        advanced: {
+          rawSnapshot: {
+            status: 'ready',
+            collectedAt: '2026-03-27T10:00:00.000Z',
+            files: [
+              {
+                file: 'ServerSettings.ini',
+                exists: true,
+                settings: [
+                  { section: 'General', key: 'ServerName', value: 'Bangkok Survival' },
+                  { section: 'General', key: 'MaxPlayers', value: 80 }
+                ]
+              }
+            ]
+          }
         }
       }
     };

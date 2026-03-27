@@ -4,6 +4,7 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { executeCommandTemplate, validateCommandTemplate } = require('../utils/commandTemplate');
+const { createPlatformAgentPresenceService } = require('./platformAgentPresenceService');
 
 function asNumber(value, fallback) {
   const parsed = Number(value);
@@ -352,6 +353,15 @@ function startScumConsoleAgent(options = {}) {
   const env = options.env || process.env;
   const settings = getAgentSettings(env);
   const name = String(options.name || 'scum-console-agent').trim() || 'scum-console-agent';
+  const platformPresence = createPlatformAgentPresenceService({
+    env,
+    role: 'execute',
+    scope: 'execute_only',
+    runtimeKey: trimText(env.SCUM_AGENT_RUNTIME_KEY || env.SCUM_CONSOLE_AGENT_RUNTIME_KEY, 160) || 'scum-console-agent',
+    agentId: trimText(env.SCUM_AGENT_ID || env.SCUM_CONSOLE_AGENT_ID, 160) || 'scum-console-agent',
+    displayName: trimText(env.SCUM_CONSOLE_AGENT_NAME, 160) || 'Delivery Agent',
+    localBaseUrl: settings.baseUrl,
+  });
 
   let managedChild = null;
   let managedChildExit = null;
@@ -1111,6 +1121,12 @@ function startScumConsoleAgent(options = {}) {
     server.listen(settings.port, settings.host, () => {
       console.log(`[${name}] listening at http://${settings.host}:${settings.port}`);
       console.log(`[${name}] backend=${settings.backend}`);
+      void platformPresence.start({
+        getDiagnostics: () => ({
+          backend: settings.backend,
+          baseUrl: settings.baseUrl,
+        }),
+      }).catch(() => null);
       resolve();
     });
   });
@@ -1126,6 +1142,7 @@ function startScumConsoleAgent(options = {}) {
       if (managedChild && !managedChild.killed) {
         managedChild.kill();
       }
+      await platformPresence.close().catch(() => null);
       await new Promise((resolve) => server.close(resolve));
     },
   };

@@ -7,84 +7,153 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
-  const NAV_GROUPS = [
+  const FALLBACK_NAV_GROUPS = [
     {
-      label: 'ภาพรวมงานหลัก',
+      label: 'ภาพรวม',
       items: [
         { label: 'แดชบอร์ด', href: '#dashboard' },
         { label: 'สถานะเซิร์ฟเวอร์', href: '#server-status' },
-        { label: 'ควบคุมการรีสตาร์ต', href: '#restart-control' },
+        { label: 'ตั้งค่าเซิร์ฟเวอร์', href: '#server-config', current: true },
       ],
     },
     {
-      label: 'คำสั่งซื้อและผู้เล่น',
+      label: 'งานประจำวัน',
       items: [
         { label: 'คำสั่งซื้อ', href: '#orders' },
-        { label: 'การส่งของ', href: '#delivery' },
         { label: 'ผู้เล่น', href: '#players' },
       ],
     },
     {
-      label: 'ระบบและหลักฐาน',
+      label: 'รันไทม์',
       items: [
-        { label: 'ตั้งค่าเซิร์ฟเวอร์', href: '#server-config', current: true },
-        { label: 'Server Bot', href: '#server-bots' },
         { label: 'Delivery Agent', href: '#delivery-agents' },
-        { label: 'บันทึกและหลักฐาน', href: '#audit' },
+        { label: 'Server Bot', href: '#server-bots' },
+        { label: 'รีสตาร์ต', href: '#restart-control' },
       ],
     },
   ];
 
-  const CONFIG_PATCH_BASIC_FIELDS = [
+  const CONFIG_PATCH_BASIC_GROUPS = [
     {
-      key: 'serverName',
-      label: 'ชื่อเซิร์ฟเวอร์',
-      description: 'ชื่อที่ใช้แสดงในพื้นที่ผู้เล่นหรือข้อความแนะนำหลักของเซิร์ฟเวอร์',
-      type: 'text',
-      defaultValue: '',
-      placeholder: 'SCUM TH Frontier',
+      key: 'operations',
+      title: 'การทำงานประจำวัน',
+      description: 'ค่าที่กระทบคิวงาน การแจ้งเตือน และการดูแลเซิร์ฟเวอร์',
+      fields: [
+        {
+          key: 'serverLabel',
+          label: 'ชื่อที่ใช้ในระบบ',
+          description: 'ชื่อที่ทีมงานเห็นในแผงควบคุมและงานซัพพอร์ต',
+          type: 'text',
+          defaultValue: '',
+        },
+        {
+          key: 'deliveryQueueBatchSize',
+          label: 'จำนวนงานต่อรอบ',
+          description: 'จำนวนงานส่งของที่ให้ระบบหยิบไปทำในหนึ่งรอบ',
+          type: 'number',
+          defaultValue: 10,
+          min: 1,
+          max: 100,
+        },
+        {
+          key: 'restartGraceMinutes',
+          label: 'เวลารอก่อนรีสตาร์ต',
+          description: 'กำหนดเวลานับถอยหลังก่อนรีสตาร์ตเซิร์ฟเวอร์',
+          type: 'number',
+          defaultValue: 10,
+          min: 0,
+          max: 120,
+        },
+      ],
     },
     {
-      key: 'maxPlayers',
-      label: 'จำนวนผู้เล่นสูงสุด',
-      description: 'ใช้บอกความจุเป้าหมายของเซิร์ฟเวอร์เพื่อให้ทีมงานและผู้เล่นเห็นตัวเลขเดียวกัน',
-      type: 'number',
-      defaultValue: 90,
-      min: 1,
-      max: 200,
-    },
-    {
-      key: 'restartGraceMinutes',
-      label: 'เวลารอก่อนรีสตาร์ต (นาที)',
-      description: 'ช่วงเวลาที่ใช้เตือนก่อนรีสตาร์ตตามแผนหรือก่อนปิดระบบเพื่อบำรุงรักษา',
-      type: 'number',
-      defaultValue: 5,
-      min: 0,
-      max: 120,
-    },
-    {
-      key: 'autoRestartEnabled',
-      label: 'เปิดรีสตาร์ตอัตโนมัติ',
-      description: 'ให้ระบบใช้แผนรีสตาร์ตอัตโนมัติเมื่อมี flow รองรับแทนการรอคนกดทุกครั้ง',
-      type: 'boolean',
-      defaultValue: false,
-    },
-    {
-      key: 'maintenanceMode',
-      label: 'เปิดโหมดบำรุงรักษา',
-      description: 'ใช้ตอนต้องกันงานใหม่ชั่วคราว เช่น ก่อน patch ระบบหรือก่อนตรวจปัญหาที่กระทบผู้เล่น',
-      type: 'boolean',
-      defaultValue: false,
-    },
-    {
-      key: 'supportContact',
-      label: 'ข้อความติดต่อทีมงาน',
-      description: 'ข้อความสั้นสำหรับบอกผู้เล่นหรือทีมงานว่าควรติดต่อผ่านช่องทางใดเมื่อเกิดปัญหา',
-      type: 'text',
-      defaultValue: '',
-      placeholder: 'เปิด ticket ใน Discord เพื่อให้ทีมงานตรวจต่อ',
+      key: 'support',
+      title: 'การดูแลผู้เล่น',
+      description: 'ตั้งค่าที่เกี่ยวกับข้อความและการติดต่อทีมงาน',
+      fields: [
+        {
+          key: 'maintenanceModeEnabled',
+          label: 'โหมดบำรุงรักษา',
+          description: 'เปิดเมื่ออยากลดงานใหม่ระหว่างกำลังแก้ปัญหา',
+          type: 'boolean',
+          defaultValue: false,
+        },
+        {
+          key: 'killfeedRelayEnabled',
+          label: 'ส่ง killfeed ไปยัง Discord',
+          description: 'ใช้เมื่อต้องการให้กิจกรรมในเกมไปแสดงในชุมชน',
+          type: 'boolean',
+          defaultValue: true,
+        },
+        {
+          key: 'supportContactLabel',
+          label: 'ข้อความติดต่อทีมงาน',
+          description: 'ข้อความสั้นที่ใช้บอกผู้เล่นว่าควรติดต่อทีมงานทางไหน',
+          type: 'text',
+          defaultValue: '',
+        },
+        {
+          key: 'discordLogLanguage',
+          label: 'ภาษาของข้อความบันทึก',
+          description: 'ภาษาที่ใช้กับข้อความแจ้งเตือนและบันทึกใน Discord',
+          type: 'select',
+          defaultValue: 'th-TH',
+          options: [
+            { value: 'th-TH', label: 'ไทย' },
+            { value: 'en-US', label: 'English' },
+          ],
+        },
+      ],
     },
   ];
+
+  const PORTAL_ENV_BASIC_GROUPS = [
+    {
+      key: 'portal-look',
+      title: 'หน้าตาพอร์ทัลผู้เล่น',
+      description: 'ค่าที่มีผลกับบรรยากาศและการนำเสนอของหน้าเว็บผู้เล่น',
+      fields: [
+        {
+          key: 'publicTheme',
+          label: 'ธีมพอร์ทัล',
+          description: 'เลือกธีมหลักของพอร์ทัลผู้เล่น',
+          type: 'select',
+          defaultValue: 'scum-dark',
+          options: [
+            { value: 'scum-dark', label: 'SCUM Dark' },
+            { value: 'midnight-ops', label: 'Midnight Ops' },
+            { value: 'field-station', label: 'Field Station' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'portal-home',
+      title: 'ข้อมูลบนหน้าแรก',
+      description: 'กำหนดว่าผู้เล่นจะเห็นข้อมูลชุมชนและสถานะอะไรบ้าง',
+      fields: [
+        {
+          key: 'communityFeedEnabled',
+          label: 'แสดงฟีดชุมชน',
+          description: 'ใช้แสดงกิจกรรมล่าสุด กิจกรรมชุมชน หรือข่าวสำคัญ',
+          type: 'boolean',
+          defaultValue: true,
+        },
+        {
+          key: 'walletBadgeEnabled',
+          label: 'แสดงสถานะกระเป๋าเงิน',
+          description: 'ให้ผู้เล่นเห็นยอดและสถานะกระเป๋าเงินได้ทันที',
+          type: 'boolean',
+          defaultValue: true,
+        },
+      ],
+    },
+  ];
+
+  function trimText(value, maxLen = 400) {
+    const text = String(value ?? '').trim();
+    return !text ? '' : text.slice(0, maxLen);
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -95,365 +164,137 @@
       .replace(/'/g, '&#39;');
   }
 
-  function formatNumber(value, fallback = '0') {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return fallback;
-    return new Intl.NumberFormat('th-TH').format(numeric);
-  }
-
-  function formatDateTime(value) {
-    if (!value) return 'ยังไม่มีข้อมูล';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'ยังไม่มีข้อมูล';
-    return new Intl.DateTimeFormat('th-TH', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
-  }
-
-  function stringifyPretty(value) {
-    if (!value || typeof value !== 'object') return '{}';
-    return JSON.stringify(value, null, 2);
-  }
-
   function firstNonEmpty(values, fallback = '') {
-    for (const value of values) {
-      const normalized = String(value ?? '').trim();
-      if (normalized) return normalized;
+    const list = Array.isArray(values) ? values : [values];
+    for (const value of list) {
+      const text = trimText(value, 300);
+      if (text) return text;
     }
     return fallback;
   }
 
-  function summarizeConfigDiff(currentValue, draftValue, label) {
-    if (draftValue == null) return null;
-    const current = currentValue && typeof currentValue === 'object' ? currentValue : {};
-    const draft = draftValue && typeof draftValue === 'object' ? draftValue : {};
-    const keys = Array.from(new Set([...Object.keys(current), ...Object.keys(draft)]));
-    const changedKeys = keys.filter((key) => JSON.stringify(current[key]) !== JSON.stringify(draft[key]));
-    return {
-      label,
-      changedKeys,
-      changedCount: changedKeys.length,
-      draftKeys: Object.keys(draft).length,
-    };
+  function stringifyPretty(value) {
+    try {
+      return JSON.stringify(value && typeof value === 'object' ? value : {}, null, 2);
+    } catch {
+      return '{}';
+    }
   }
 
-  function humanizeConfigKey(key) {
-    const raw = String(key ?? '').trim();
-    if (!raw) return '-';
-    const spaced = raw
+  function formatNumber(value, fallback = '-') {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? new Intl.NumberFormat('th-TH').format(numeric) : fallback;
+  }
+
+  function formatDateTime(value, fallback = 'ยังไม่พบข้อมูล') {
+    if (!value) return fallback;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? fallback
+      : new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  }
+
+  function humanizeIdentifier(value) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return text
       .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
       .replace(/[_-]+/g, ' ')
       .replace(/\s+/g, ' ')
-      .trim();
-    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+      .trim()
+      .replace(/\b\w/g, (match) => match.toUpperCase());
   }
 
-  function formatConfigValueLabel(value) {
-    if (value === true) return 'เปิด';
-    if (value === false) return 'ปิด';
-    if (value == null) return 'ไม่มีค่า';
-    if (Array.isArray(value)) {
-      if (!value.length) return 'ไม่มีรายการ';
-      if (value.length <= 3) return value.map((item) => String(item)).join(', ');
-      return `${formatNumber(value.length)} รายการ`;
-    }
-    if (typeof value === 'object') {
-      const keys = Object.keys(value);
-      if (!keys.length) return 'ไม่มีค่า';
-      if (keys.length <= 3) {
-        return keys.map((key) => `${key}: ${String(value[key])}`).join(', ');
-      }
-      return `${formatNumber(keys.length)} ค่า`;
-    }
-    const normalized = String(value).trim();
-    return normalized || 'ไม่มีค่า';
+  function boolLabel(value) {
+    return value ? 'เปิด' : 'ปิด';
   }
 
-  function getConfigValueTone(value) {
-    if (value === true) return 'success';
-    if (value === false) return 'danger';
-    if (typeof value === 'number') return 'info';
+  function statusTone(status) {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (['ready', 'online', 'healthy', 'active', 'succeeded'].includes(normalized)) return 'success';
+    if (['processing', 'queued', 'stale', 'degraded', 'missing'].includes(normalized)) return 'warning';
+    if (['failed', 'error', 'offline'].includes(normalized)) return 'danger';
     return 'muted';
   }
 
-  function buildReadableItems(source, limit = 8) {
-    const record = source && typeof source === 'object' && !Array.isArray(source) ? source : {};
-    return Object.entries(record).slice(0, limit).map(([key, value]) => ({
-      key,
-      label: humanizeConfigKey(key),
-      valueLabel: formatConfigValueLabel(value),
-      valueTone: getConfigValueTone(value),
-    }));
+  function statusLabel(status) {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'ready') return 'พร้อมใช้งาน';
+    if (normalized === 'missing') return 'ยังไม่โหลดค่าจริง';
+    if (normalized === 'processing') return 'กำลังประมวลผล';
+    if (normalized === 'failed' || normalized === 'error') return 'เกิดข้อผิดพลาด';
+    if (normalized === 'offline') return 'ออฟไลน์';
+    return normalized ? humanizeIdentifier(normalized) : 'ไม่ทราบสถานะ';
   }
 
-  function buildEditorHelp(key, itemCount, changedCount) {
-    if (key === 'featureFlags') {
-      return {
-        headline: itemCount > 0
-          ? `กำลังบังคับฟีเจอร์ ${formatNumber(itemCount)} ค่า`
-          : 'ยังไม่ได้บังคับเปิดหรือปิดฟีเจอร์เพิ่ม',
-        copy: itemCount > 0
-          ? 'ค่าชุดนี้จะ override สิทธิ์หรือโมดูลของ tenant รายนี้เหนือค่าแพ็กเกจในบางจุด'
-          : 'ตอนนี้ระบบจะอิงสิทธิ์จากแพ็กเกจและ feature gate กลางเป็นหลัก',
-        emptyTitle: 'ยังไม่มีการ override feature flags',
-        emptyCopy: 'ถ้ายังไม่จำเป็นต้องเปิดหรือปิดฟีเจอร์เฉพาะ tenant นี้ ให้ปล่อยค่าว่างไว้ได้',
-        changedLabel: changedCount > 0
-          ? `มี ${formatNumber(changedCount)} จุดที่ต่างจากค่าปัจจุบัน`
-          : 'ตอนนี้ draft ยังตรงกับค่าที่ใช้งานอยู่',
-      };
+  function coerceBoolean(value, fallback = false) {
+    if (typeof value === 'boolean') return value;
+    const text = String(value ?? '').trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on', 'enabled'].includes(text)) return true;
+    if (['0', 'false', 'no', 'off', 'disabled'].includes(text)) return false;
+    return fallback;
+  }
+
+  function coerceNumber(value, fallback = null) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  function normalizeOptions(options) {
+    if (!Array.isArray(options)) return [];
+    return options
+      .map((entry) => {
+        if (entry && typeof entry === 'object') {
+          const value = firstNonEmpty([entry.value, entry.key], '');
+          return {
+            value,
+            label: firstNonEmpty([entry.label, entry.title, value], value),
+          };
+        }
+        const text = trimText(entry, 120);
+        return text ? { value: text, label: text } : null;
+      })
+      .filter(Boolean);
+  }
+
+  function normalizeSettingValue(setting, rawValue, fallbackValue) {
+    const type = String(setting?.type || 'string').trim().toLowerCase();
+    if (type === 'boolean') {
+      return coerceBoolean(rawValue, coerceBoolean(fallbackValue, false));
     }
-    if (key === 'configPatch') {
-      return {
-        headline: itemCount > 0
-          ? `มีค่า override ฝั่งระบบ ${formatNumber(itemCount)} ค่า`
-          : 'ยังไม่มีค่า override ฝั่งระบบ',
-        copy: itemCount > 0
-          ? 'ใช้กับค่าการทำงานของ tenant ฝั่ง control plane, runtime และ integration'
-          : 'ตอนนี้ tenant นี้จะอิงค่ากลางของระบบสำหรับฝั่ง runtime และ service posture',
-        emptyTitle: 'ยังไม่มีการ override config หลัก',
-        emptyCopy: 'ถ้ายังไม่ได้ต้องการเปลี่ยนค่าพิเศษของ tenant นี้ สามารถปล่อยส่วนนี้ว่างไว้ได้',
-        changedLabel: changedCount > 0
-          ? `มี ${formatNumber(changedCount)} จุดที่ต่างจากค่าปัจจุบัน`
-          : 'ตอนนี้ draft ยังตรงกับค่าที่ใช้งานอยู่',
-      };
+    if (type === 'number') {
+      const fallbackNumber = coerceNumber(fallbackValue, null);
+      return coerceNumber(rawValue, fallbackNumber);
     }
-    return {
-      headline: itemCount > 0
-        ? `มีค่า override ฝั่งหน้าเว็บ ${formatNumber(itemCount)} ค่า`
-        : 'ยังไม่มีค่า override ฝั่งหน้าเว็บ',
-      copy: itemCount > 0
-        ? 'ค่าชุดนี้จะกระทบ player portal, public pages หรือ environment patch ฝั่งเว็บ'
-        : 'ตอนนี้ portal จะอิงค่ามาตรฐานของระบบโดยยังไม่ต้องมี patch เพิ่ม',
-      emptyTitle: 'ยังไม่มีการ override portal env',
-      emptyCopy: 'ใช้ส่วนนี้เมื่อจำเป็นต้องปรับพฤติกรรมของ player/public portal สำหรับ tenant นี้เท่านั้น',
-      changedLabel: changedCount > 0
-        ? `มี ${formatNumber(changedCount)} จุดที่ต่างจากค่าปัจจุบัน`
-        : 'ตอนนี้ draft ยังตรงกับค่าที่ใช้งานอยู่',
-    };
+    return rawValue == null ? String(fallbackValue ?? '') : String(rawValue);
   }
 
-  function buildFeatureFlagOptions(state, draftFeatureFlags) {
-    const featureAccess = state?.overview?.tenantFeatureAccess || {};
-    const catalog = Array.isArray(featureAccess.features) ? featureAccess.features : [];
-    const packageFeatureSet = new Set(
-      Array.isArray(featureAccess?.package?.features)
-        ? featureAccess.package.features.map((value) => String(value || '').trim()).filter(Boolean)
-        : [],
-    );
-    const enabledFeatureSet = new Set(
-      Array.isArray(featureAccess?.enabledFeatureKeys)
-        ? featureAccess.enabledFeatureKeys.map((value) => String(value || '').trim()).filter(Boolean)
-        : [],
-    );
-    const overrides = draftFeatureFlags && typeof draftFeatureFlags === 'object' && !Array.isArray(draftFeatureFlags)
-      ? draftFeatureFlags
-      : {};
-    return catalog.map((entry) => {
-      const key = String(entry?.key || '').trim();
-      const overrideValue = Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : null;
-      const packageEnabled = packageFeatureSet.has(key);
-      const effectiveEnabled = enabledFeatureSet.has(key);
-      const overrideLabel = overrideValue === true
-        ? 'บังคับเปิด'
-        : overrideValue === false
-          ? 'บังคับปิด'
-          : 'ตามแพ็กเกจ';
-      return {
-        key,
-        title: firstNonEmpty([entry?.title, humanizeConfigKey(key), key], key),
-        category: String(entry?.category || 'general').trim() || 'general',
-        packageEnabled,
-        effectiveEnabled,
-        overrideValue,
-        overrideLabel,
-      };
-    }).filter((entry) => entry.key);
+  function formatSettingValue(setting, value) {
+    const type = String(setting?.type || 'string').trim().toLowerCase();
+    if (type === 'boolean') return boolLabel(coerceBoolean(value, false));
+    if (type === 'number') return formatNumber(value, '-');
+    const options = normalizeOptions(setting?.options);
+    const match = options.find((entry) => String(entry.value) === String(value));
+    if (match) return match.label;
+    const text = trimText(value, 120);
+    return text || 'ยังไม่ได้ตั้ง';
   }
 
-  function buildConfigPatchBasicFields(draftConfigPatch) {
-    const source = draftConfigPatch && typeof draftConfigPatch === 'object' && !Array.isArray(draftConfigPatch)
-      ? draftConfigPatch
-      : {};
-    return CONFIG_PATCH_BASIC_FIELDS.map((field) => {
-      const hasOwnValue = Object.prototype.hasOwnProperty.call(source, field.key);
-      const rawValue = hasOwnValue ? source[field.key] : field.defaultValue;
-      const normalizedValue = field.type === 'boolean'
-        ? Boolean(rawValue)
-        : field.type === 'number'
-          ? (Number.isFinite(Number(rawValue)) ? Number(rawValue) : Number(field.defaultValue || 0))
-          : String(rawValue ?? '').trim();
-      return {
-        ...field,
-        value: normalizedValue,
-      };
-    });
+  function serializeSettingAttrValue(setting, value) {
+    const type = String(setting?.type || 'string').trim().toLowerCase();
+    if (type === 'boolean') return coerceBoolean(value, false) ? 'true' : 'false';
+    if (type === 'number') {
+      const numeric = coerceNumber(value, null);
+      return numeric == null ? '' : String(numeric);
+    }
+    return value == null ? '' : String(value);
   }
 
-  function buildSectionGroups(liveConfig) {
-    const featureFlags = liveConfig?.featureFlags || {};
-    const configPatch = liveConfig?.configPatch || {};
-    const portalEnvPatch = liveConfig?.portalEnvPatch || {};
-    return [
-      {
-        key: 'server-basics',
-        label: 'ค่าหลักของเซิร์ฟเวอร์',
-        detail: 'รวมค่าที่เกี่ยวกับ posture ของ tenant, runtime และการตั้งค่าพื้นฐานที่มีผลกับงานประจำวัน',
-        keys: Object.keys(configPatch).slice(0, 6),
-        source: 'configPatch',
-        tone: 'info',
-      },
-      {
-        key: 'delivery-integrations',
-        label: 'การส่งของและการเชื่อมต่อ',
-        detail: 'รวม feature flags และค่าที่มีผลกับ delivery, integration, webhook และความสามารถที่ผู้เล่นได้รับ',
-        keys: Object.keys(featureFlags).slice(0, 8),
-        source: 'featureFlags',
-        tone: 'warning',
-      },
-      {
-        key: 'player-facing',
-        label: 'ค่าที่ผู้เล่นรับผลโดยตรง',
-        detail: 'ใช้ดูค่าที่กระทบ player portal, public pages และพฤติกรรมฝั่งหน้าเว็บของ tenant นี้',
-        keys: Object.keys(portalEnvPatch).slice(0, 8),
-        source: 'portalEnvPatch',
-        tone: 'success',
-      },
-      {
-        key: 'advanced',
-        label: 'แก้แบบขั้นสูง',
-        detail: 'ยังคงรองรับ raw patch เดิมไว้ แต่หน้านี้จะสรุปให้อ่านก่อน เพื่อไม่ต้องไล่ดู JSON ทันที',
-        keys: ['featureFlags', 'configPatch', 'portalEnvPatch'],
-        source: 'advanced',
-        tone: 'danger',
-      },
-    ];
-  }
-
-  function createTenantServerConfigV4Model(source) {
-    const state = source && typeof source === 'object' ? source : {};
-    const liveConfig = state.liveConfig || state.tenantConfig || {};
-    const draft = state.draft || {
-      featureFlags: liveConfig.featureFlags || {},
-      configPatch: liveConfig.configPatch || {},
-      portalEnvPatch: liveConfig.portalEnvPatch || {},
-    };
-    const tenantName = firstNonEmpty([
-      liveConfig.name,
-      state?.me?.tenantId,
-      'Tenant Workspace',
-    ]);
-
-    const previewSections = [
-      summarizeConfigDiff(liveConfig.featureFlags, draft.featureFlags, 'Feature Flags'),
-      summarizeConfigDiff(liveConfig.configPatch, draft.configPatch, 'Config Patch'),
-      summarizeConfigDiff(liveConfig.portalEnvPatch, draft.portalEnvPatch, 'Portal Env Patch'),
-    ].filter(Boolean);
-    const previewSectionMap = Object.fromEntries(previewSections.map((section) => [section.label, section]));
-    const hasChanges = previewSections.some((section) => section.changedCount > 0);
-    const restartRequired = previewSections.some((section) => section.changedKeys.some((key) => /restart|rcon|server|runtime|sync/i.test(key)));
-    const liveUpdatedAt = firstNonEmpty([liveConfig.updatedAt, state.updatedAt]);
-
-    return {
-      shell: {
-        brand: 'SCUM TH',
-        surfaceLabel: 'แผงผู้เช่า',
-        workspaceLabel: tenantName,
-        environmentLabel: 'พื้นที่ผู้เช่า',
-        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
-          ? state.__surfaceShell.navGroups
-          : NAV_GROUPS,
-      },
-      header: {
-        title: 'ตั้งค่าเซิร์ฟเวอร์',
-        subtitle: 'ดูสรุปก่อนว่าแต่ละชุดคุมอะไรอยู่ แล้วค่อยเปิดโหมดแก้ขั้นสูงเมื่อจำเป็นจริง',
-        statusChips: [
-          { label: hasChanges ? 'มี draft ที่ยังไม่บันทึก' : 'ยังไม่มีการเปลี่ยนแปลง', tone: hasChanges ? 'warning' : 'success' },
-          { label: restartRequired ? 'มีค่าที่อาจต้องรีสตาร์ต' : 'ยังไม่พบค่าที่บังคับรีสตาร์ต', tone: restartRequired ? 'danger' : 'muted' },
-          { label: `อัปเดตล่าสุด ${formatDateTime(liveUpdatedAt)}`, tone: 'muted' },
-        ],
-        actions: [
-          { label: 'บันทึก', tone: 'primary', action: 'save' },
-          { label: 'บันทึกและใช้ทันที', tone: 'secondary', action: 'apply' },
-          { label: 'บันทึกแล้วไปหน้ารีสตาร์ต', tone: 'secondary', action: 'restart' },
-        ],
-      },
-      sections: buildSectionGroups(liveConfig),
-      summaryCards: previewSections.map((section) => ({
-        label: section.label,
-        value: section.changedCount > 0 ? `${formatNumber(section.changedCount)} การเปลี่ยนแปลง` : 'ยังไม่ต่างจากค่าปัจจุบัน',
-        detail: section.changedKeys.length > 0
-          ? section.changedKeys.slice(0, 6).join(', ')
-          : `${formatNumber(section.draftKeys)} key ใน draft`,
-        tone: section.changedCount > 0 ? 'warning' : 'success',
-      })),
-      editors: [
-        {
-          key: 'featureFlags',
-          label: 'Feature Flags',
-          detail: 'กำหนดว่าจะบังคับเปิดหรือปิดโมดูลใดให้ tenant รายนี้ โดยยังอิง feature gate กลางของระบบ',
-          value: stringifyPretty(draft.featureFlags),
-          featureOptions: buildFeatureFlagOptions(state, draft.featureFlags),
-          items: buildReadableItems(draft.featureFlags),
-          changedKeys: previewSectionMap['Feature Flags']?.changedKeys || [],
-          ...buildEditorHelp(
-            'featureFlags',
-            Object.keys(draft.featureFlags || {}).length,
-            previewSectionMap['Feature Flags']?.changedCount || 0,
-          ),
-          tone: 'warning',
-        },
-        {
-          key: 'configPatch',
-          label: 'Config Patch',
-          detail: 'ใช้สำหรับ override ค่าระบบของ tenant ฝั่ง control plane, runtime และ integration',
-          value: stringifyPretty(draft.configPatch),
-          basicFields: buildConfigPatchBasicFields(draft.configPatch),
-          items: buildReadableItems(draft.configPatch),
-          changedKeys: previewSectionMap['Config Patch']?.changedKeys || [],
-          ...buildEditorHelp(
-            'configPatch',
-            Object.keys(draft.configPatch || {}).length,
-            previewSectionMap['Config Patch']?.changedCount || 0,
-          ),
-          tone: 'info',
-        },
-        {
-          key: 'portalEnvPatch',
-          label: 'Portal Env Patch',
-          detail: 'ใช้ override ค่าที่กระทบ player/public portal และ environment patch ฝั่งหน้าเว็บของ tenant นี้',
-          value: stringifyPretty(draft.portalEnvPatch),
-          items: buildReadableItems(draft.portalEnvPatch),
-          changedKeys: previewSectionMap['Portal Env Patch']?.changedKeys || [],
-          ...buildEditorHelp(
-            'portalEnvPatch',
-            Object.keys(draft.portalEnvPatch || {}).length,
-            previewSectionMap['Portal Env Patch']?.changedCount || 0,
-          ),
-          tone: 'success',
-        },
-      ],
-      rightRail: [
-        {
-          title: 'ก่อนกดบันทึก',
-          body: 'ยืนยันก่อนว่าค่านี้กระทบเฉพาะ tenant นี้จริง',
-          meta: 'ถ้าค่าที่แก้มีผลกับ runtime, restart หรือ webhook ควรเช็ก Server Bot, Delivery Agent และสถานะเซิร์ฟเวอร์ก่อน',
-          tone: 'info',
-        },
-        {
-          title: 'Backup และ rollback',
-          body: 'ควรมีสำเนาก่อนเปลี่ยนค่าทุกครั้ง',
-          meta: 'ใช้ history ของ backup และ restore flow เป็นจุดอ้างอิงก่อน replay หรือ rollback',
-          tone: 'success',
-        },
-        {
-          title: 'โหมดแก้ขั้นสูง',
-          body: 'JSON editor ยังอยู่ แต่ไม่ใช่มุมมองหลักอีกแล้ว',
-          meta: 'อ่านสรุปด้านบนก่อนเสมอ แล้วค่อยเปิดโหมดแก้ขั้นสูงเมื่อจำเป็นต้องใส่ patch เองโดยตรง',
-          tone: 'warning',
-        },
-      ],
-    };
+  function shouldUseTextarea(setting) {
+    const type = String(setting?.type || 'string').trim().toLowerCase();
+    if (type !== 'string') return false;
+    const key = String(setting?.key || '').trim().toLowerCase();
+    return key.includes('message') || key.includes('description') || key.includes('motd');
   }
 
   function renderBadge(label, tone) {
@@ -461,254 +302,670 @@
   }
 
   function renderNavGroup(group) {
-    return [
-      '<section class="tdv4-nav-group">',
-      `<div class="tdv4-nav-group-label">${escapeHtml(group.label)}</div>`,
-      '<div class="tdv4-nav-items">',
-      ...(Array.isArray(group.items) ? group.items.map((item) => {
-        const currentClass = item.current ? ' tdv4-nav-link-current' : '';
-        return `<a class="tdv4-nav-link${currentClass}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`;
-      }) : []),
-      '</div>',
-      '</section>',
-    ].join('');
+    return `<section class="tdv4-nav-group"><div class="tdv4-nav-group-label">${escapeHtml(group.label)}</div><div class="tdv4-nav-items">${(Array.isArray(group.items) ? group.items : []).map((item) => `<a class="tdv4-nav-link${item.current ? ' tdv4-nav-link-current' : ''}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`).join('')}</div></section>`;
   }
 
-  function renderSummaryCard(card) {
+  function buildFeatureOptions(source) {
+    const access = source?.overview?.tenantFeatureAccess || {};
+    const packageFeatures = new Set(
+      Array.isArray(access?.package?.features)
+        ? access.package.features.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+    );
+    const patch = source?.tenantConfig?.featureFlags && typeof source.tenantConfig.featureFlags === 'object'
+      ? source.tenantConfig.featureFlags
+      : {};
+    const featureRows = Array.isArray(access?.features) ? access.features : [];
+    return featureRows.map((feature) => {
+      const key = firstNonEmpty([feature.key, feature.id], '');
+      const packageEnabled = packageFeatures.has(key);
+      const overrideDefined = Object.prototype.hasOwnProperty.call(patch, key);
+      const enabled = overrideDefined ? Boolean(patch[key]) : packageEnabled;
+      return {
+        key,
+        label: firstNonEmpty([feature.title, feature.label, humanizeIdentifier(key)], humanizeIdentifier(key)),
+        description: firstNonEmpty([feature.description, 'เปิดหรือปิดโมดูลที่ผู้เช่ารายนี้ใช้งานได้ทันที'], ''),
+        enabled,
+        packageEnabled,
+        badge: overrideDefined ? 'กำหนดเอง' : 'ตามแพ็กเกจ',
+        tone: overrideDefined ? 'warning' : packageEnabled ? 'success' : 'muted',
+      };
+    }).filter((entry) => entry.key);
+  }
+
+  function buildBasicFieldValue(definition, sourceValue) {
+    const type = String(definition.type || 'text').trim().toLowerCase();
+    if (type === 'boolean') return coerceBoolean(sourceValue, Boolean(definition.defaultValue));
+    if (type === 'number') {
+      const fallback = Number.isFinite(Number(definition.defaultValue)) ? Number(definition.defaultValue) : 0;
+      const value = coerceNumber(sourceValue, fallback);
+      return value == null ? fallback : value;
+    }
+    return sourceValue == null || sourceValue === '' ? String(definition.defaultValue ?? '') : String(sourceValue);
+  }
+
+  function buildBasicField(definition, sourceValue, sourceKind) {
+    const value = buildBasicFieldValue(definition, sourceValue);
+    return {
+      ...definition,
+      sourceKind,
+      value,
+      currentLabel: definition.type === 'boolean'
+        ? boolLabel(Boolean(value))
+        : definition.type === 'number'
+          ? formatNumber(value, String(definition.defaultValue ?? '-'))
+          : String(value || 'ใช้ค่ามาตรฐาน'),
+      defaultLabel: definition.type === 'boolean'
+        ? boolLabel(Boolean(definition.defaultValue))
+        : definition.type === 'number'
+          ? formatNumber(definition.defaultValue, '-')
+          : String(definition.defaultValue ?? 'ใช้ค่ามาตรฐาน'),
+      isOverridden: sourceValue != null && String(sourceValue) !== '',
+    };
+  }
+
+  function buildOverrideEditor(title, description, editorId, value, actionPrefix) {
+    return {
+      title,
+      description,
+      editorId,
+      value: stringifyPretty(value),
+      actionPrefix,
+    };
+  }
+
+  function buildWorkspaceCategories(source) {
+    const workspace = source?.serverConfigWorkspace && typeof source.serverConfigWorkspace === 'object'
+      ? source.serverConfigWorkspace
+      : {};
+    const categories = Array.isArray(workspace.categories) ? workspace.categories : [];
+    return categories
+      .map((category) => {
+        const groups = (Array.isArray(category.groups) ? category.groups : [])
+          .map((group) => {
+            const settings = (Array.isArray(group.settings) ? group.settings : [])
+              .map((setting) => {
+                const defaultValue = Object.prototype.hasOwnProperty.call(setting, 'defaultValue')
+                  ? setting.defaultValue
+                  : null;
+                const currentValue = normalizeSettingValue(setting, setting.currentValue, defaultValue);
+                return {
+                  ...setting,
+                  inputType: String(setting.type || 'string').trim().toLowerCase(),
+                  currentValue,
+                  currentValueAttr: serializeSettingAttrValue(setting, currentValue),
+                  defaultValueAttr: serializeSettingAttrValue(setting, defaultValue),
+                  currentLabel: formatSettingValue(setting, currentValue),
+                  defaultLabel: formatSettingValue(setting, defaultValue),
+                  options: normalizeOptions(setting.options),
+                  sourceFileLabel: firstNonEmpty([setting.sourceFileLabel, setting.file], setting.file || ''),
+                  rawKey: [trimText(setting.section, 120), trimText(setting.key, 120)].filter(Boolean).join(' / '),
+                };
+              })
+              .filter((setting) => setting.file && setting.key);
+            return {
+              key: firstNonEmpty([group.key], 'general'),
+              label: firstNonEmpty([group.label, humanizeIdentifier(group.key)], humanizeIdentifier(group.key)),
+              settings,
+            };
+          })
+          .filter((group) => group.settings.length > 0);
+        return {
+          key: firstNonEmpty([category.key], 'general'),
+          label: firstNonEmpty([category.label, humanizeIdentifier(category.key)], humanizeIdentifier(category.key)),
+          description: firstNonEmpty([category.description], ''),
+          groups,
+          settingCount: groups.reduce((sum, group) => sum + group.settings.length, 0),
+        };
+      })
+      .filter((category) => category.groups.length > 0);
+  }
+
+  function normalizeLineListEntries(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    return value
+      .map((entry) => trimText(entry, 240))
+      .filter((entry) => {
+        if (!entry) return false;
+        if (seen.has(entry)) return false;
+        seen.add(entry);
+        return true;
+      });
+  }
+
+  function formatLineListSummary(entries) {
+    const count = Array.isArray(entries) ? entries.length : 0;
+    return count ? `${formatNumber(count, '0')} รายการ` : 'ยังไม่มีรายการ';
+  }
+
+  function buildAccessListSettings(files) {
+    const rows = Array.isArray(files) ? files : [];
+    return rows
+      .filter((file) => file?.file === 'AdminUsers.ini' || file?.file === 'BannedUsers.ini')
+      .map((file) => {
+        const entries = normalizeLineListEntries(file?.rawEntries);
+        const isAdminList = file?.file === 'AdminUsers.ini';
+        return {
+          id: isAdminList ? 'security.adminUsers' : 'security.bannedUsers',
+          file: String(file.file || '').trim(),
+          section: '',
+          key: 'entries',
+          label: isAdminList ? 'รายชื่อผู้ดูแล' : 'รายชื่อผู้ถูกแบน',
+          description: isAdminList
+            ? 'เพิ่ม Steam ID หรือชื่อบัญชีที่ต้องการให้มีสิทธิ์ผู้ดูแล'
+            : 'เพิ่ม Steam ID หรือชื่อบัญชีที่ต้องการบล็อกจากเซิร์ฟเวอร์',
+          inputType: 'line-list',
+          currentValue: entries,
+          currentValueAttr: JSON.stringify(entries),
+          defaultValueAttr: '[]',
+          currentLabel: formatLineListSummary(entries),
+          defaultLabel: 'ยังไม่มีรายการ',
+          options: [],
+          sourceFileLabel: firstNonEmpty([file.label, file.file], file.file || ''),
+          rawKey: 'รายการ',
+          requiresRestart: false,
+          hasCurrentValue: entries.length > 0,
+          entryPlaceholder: isAdminList ? 'เช่น 76561198000000000' : 'เช่น 76561198000000000',
+          emptyLabel: isAdminList ? 'ยังไม่มีผู้ดูแลเพิ่มเติม' : 'ยังไม่มีรายชื่อผู้ถูกแบน',
+        };
+      });
+  }
+
+  function appendAccessListsToCategories(categories, files) {
+    const accessListSettings = buildAccessListSettings(files);
+    if (!accessListSettings.length) return categories;
+
+    const nextCategories = Array.isArray(categories)
+      ? categories.map((category) => ({
+          ...category,
+          groups: Array.isArray(category.groups) ? category.groups.map((group) => ({ ...group })) : [],
+        }))
+      : [];
+    const securityIndex = nextCategories.findIndex((category) => category.key === 'security');
+    const accessListGroup = {
+      key: 'access-lists',
+      label: 'ผู้ดูแลและการแบน',
+      settings: accessListSettings,
+    };
+
+    if (securityIndex >= 0) {
+      nextCategories[securityIndex].groups = [
+        ...nextCategories[securityIndex].groups,
+        accessListGroup,
+      ];
+      nextCategories[securityIndex].settingCount = nextCategories[securityIndex].groups.reduce(
+        (sum, group) => sum + (Array.isArray(group.settings) ? group.settings.length : 0),
+        0,
+      );
+      return nextCategories;
+    }
+
     return [
-      `<article class="tdv4-kpi tdv4-tone-${escapeHtml(card.tone || 'muted')}">`,
-      `<div class="tdv4-kpi-label">${escapeHtml(card.label)}</div>`,
-      `<div class="tdv4-kpi-value">${escapeHtml(card.value)}</div>`,
-      `<div class="tdv4-kpi-detail">${escapeHtml(card.detail)}</div>`,
+      ...nextCategories,
+      {
+        key: 'security',
+        label: 'ความปลอดภัยและผู้ดูแล',
+        description: 'จัดการรายชื่อผู้ดูแลและผู้ถูกแบนโดยไม่ต้องเปิดไฟล์เอง',
+        groups: [accessListGroup],
+        settingCount: accessListSettings.length,
+      },
+    ];
+  }
+
+  function createTenantServerConfigV4Model(source) {
+    const state = source && typeof source === 'object' ? source : {};
+    const workspace = state.serverConfigWorkspace && typeof state.serverConfigWorkspace === 'object'
+      ? state.serverConfigWorkspace
+      : {};
+    const files = Array.isArray(workspace.files) ? workspace.files : [];
+    const categories = appendAccessListsToCategories(buildWorkspaceCategories(state), files);
+    const backups = Array.isArray(workspace.backups) ? workspace.backups : [];
+    const snapshotStatus = firstNonEmpty([workspace.snapshotStatus], 'missing');
+    const workspaceReady = snapshotStatus === 'ready' && categories.length > 0;
+    const featureOptions = buildFeatureOptions(state);
+    const configPatch = state?.tenantConfig?.configPatch && typeof state.tenantConfig.configPatch === 'object'
+      ? state.tenantConfig.configPatch
+      : {};
+    const portalEnvPatch = state?.tenantConfig?.portalEnvPatch && typeof state.tenantConfig.portalEnvPatch === 'object'
+      ? state.tenantConfig.portalEnvPatch
+      : {};
+    const firstField = categories[0]?.groups?.[0]?.settings?.[0] || null;
+
+    return {
+      shell: {
+        brand: 'SCUM TH',
+        surfaceLabel: 'แผงผู้เช่า',
+        workspaceLabel: firstNonEmpty([
+          state?.tenantLabel,
+          state?.tenantConfig?.name,
+          state?.overview?.tenantName,
+          state?.me?.tenantId,
+          'Tenant Workspace',
+        ]),
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups) ? state.__surfaceShell.navGroups : FALLBACK_NAV_GROUPS,
+      },
+      header: {
+        title: 'ตั้งค่าเซิร์ฟเวอร์',
+        subtitle: 'จัดการค่าหลักของเซิร์ฟเวอร์ SCUM ผ่าน Server Bot โดยไม่ต้องเปิดไฟล์ .ini เอง',
+        serverName: firstNonEmpty([
+          state?.activeServer?.name,
+          state?.activeServer?.slug,
+          state?.activeServer?.id,
+          'ยังไม่เลือกเซิร์ฟเวอร์',
+        ]),
+      },
+      status: {
+        label: statusLabel(snapshotStatus),
+        tone: statusTone(snapshotStatus),
+        detail: workspaceReady
+          ? `ดึงค่าจริงจาก Server Bot ล่าสุดเมื่อ ${formatDateTime(workspace.snapshotCollectedAt, 'ไม่ทราบเวลา')}`
+          : snapshotStatus === 'missing'
+            ? 'ยังไม่พบ snapshot จาก Server Bot ให้ตรวจการเชื่อมต่อแล้วลองรีเฟรชอีกครั้ง'
+            : firstNonEmpty([workspace.lastError], 'ยังไม่พร้อมโหลดค่าจริงจากไฟล์เซิร์ฟเวอร์'),
+        updatedAt: workspace.snapshotCollectedAt || workspace.snapshotUpdatedAt || null,
+        updatedBy: firstNonEmpty([workspace.snapshotUpdatedBy, state?.tenantConfig?.updatedBy], ''),
+      },
+      workspace: {
+        available: workspaceReady,
+        categories,
+        activeCategoryKey: categories[0]?.key || '',
+        lastError: firstNonEmpty([workspace.lastError], ''),
+        files,
+        backups,
+        rawSnapshot: workspace?.advanced?.rawSnapshot || { files: [] },
+      },
+      help: firstField
+        ? {
+            title: firstField.label,
+            description: firstField.description || 'เลือกค่าเพื่อดูรายละเอียดเพิ่มเติม',
+            meta: `ไฟล์ ${firstField.sourceFileLabel} · ${firstField.rawKey} · ${firstField.requiresRestart ? 'ต้องรีสตาร์ต' : 'ใช้ได้ทันที'}`,
+            badges: [
+              { label: `ค่าปัจจุบัน: ${firstField.currentLabel}`, tone: 'info' },
+              { label: `ค่าเริ่มต้น: ${firstField.defaultLabel}`, tone: 'muted' },
+              firstField.requiresRestart ? { label: 'ต้องรีสตาร์ต', tone: 'warning' } : null,
+            ].filter(Boolean),
+          }
+        : {
+            title: 'เลือกหมวดที่ต้องการ',
+            description: 'เมื่อเลือกค่า ระบบจะสรุปคำอธิบาย ค่าเริ่มต้น และเงื่อนไขการใช้งานไว้ให้ด้านนี้',
+            meta: 'ยังไม่มีค่าที่พร้อมแก้ไข',
+            badges: [],
+          },
+      featureFlags: {
+        items: featureOptions,
+        editor: buildOverrideEditor(
+          'แก้แบบ JSON ขั้นสูง',
+          'ใช้เมื่ออยากระบุ override เพิ่มเติมที่ไม่ได้อยู่ในสวิตช์ด้านบน',
+          'tdv4-editor-featureFlags',
+          state?.tenantConfig?.featureFlags,
+          'feature-flags',
+        ),
+      },
+      configPatch: {
+        groups: CONFIG_PATCH_BASIC_GROUPS.map((group) => ({
+          ...group,
+          fields: group.fields.map((field) => buildBasicField(field, configPatch[field.key], 'config')),
+        })),
+        editor: buildOverrideEditor(
+          'แก้แบบ JSON ขั้นสูง',
+          'ใช้สำหรับคีย์ระบบที่ยังไม่มีฟอร์มเฉพาะ แต่ยังต้องการเก็บเป็น tenant patch',
+          'tdv4-editor-configPatch',
+          configPatch,
+          'config-patch',
+        ),
+      },
+      portalEnvPatch: {
+        groups: PORTAL_ENV_BASIC_GROUPS.map((group) => ({
+          ...group,
+          fields: group.fields.map((field) => buildBasicField(field, portalEnvPatch[field.key], 'portal')),
+        })),
+        editor: buildOverrideEditor(
+          'แก้แบบ JSON ขั้นสูง',
+          'ใช้สำหรับคีย์พอร์ทัลผู้เล่นที่ยังไม่ได้ทำเป็นช่องกรอกเฉพาะ',
+          'tdv4-editor-portalEnvPatch',
+          portalEnvPatch,
+          'portal-env',
+        ),
+      },
+      emptyState: {
+        title: 'ยังไม่โหลดค่าจริงจาก Server Bot',
+        detail: workspaceReady
+          ? ''
+          : 'ให้ตรวจว่า Server Bot ออนไลน์ เข้าถึงไฟล์ config ได้ และส่ง snapshot กลับเข้าระบบแล้ว',
+        actionLabel: 'ตรวจ Server Bot',
+        actionHref: '#server-bots',
+      },
+    };
+  }
+
+  function renderFieldControl(setting) {
+    const attrs = [
+      'data-server-config-field',
+      `data-setting-file="${escapeHtml(setting.file)}"`,
+      `data-setting-section="${escapeHtml(setting.section || '')}"`,
+      `data-setting-key="${escapeHtml(setting.key)}"`,
+      `data-setting-type="${escapeHtml(setting.inputType)}"`,
+      `data-current-value="${escapeHtml(setting.currentValueAttr)}"`,
+      `data-default-value="${escapeHtml(setting.defaultValueAttr)}"`,
+      `data-setting-label="${escapeHtml(setting.label)}"`,
+      `data-setting-description="${escapeHtml(setting.description || '')}"`,
+      `data-setting-file-label="${escapeHtml(setting.sourceFileLabel || setting.file)}"`,
+      `data-setting-raw-key="${escapeHtml(setting.rawKey || setting.key)}"`,
+      `data-setting-current-label="${escapeHtml(setting.currentLabel)}"`,
+      `data-setting-default-label="${escapeHtml(setting.defaultLabel)}"`,
+      `data-setting-requires-restart="${setting.requiresRestart ? 'true' : 'false'}"`,
+    ].join(' ');
+
+    if (setting.inputType === 'line-list') {
+      const entries = normalizeLineListEntries(setting.currentValue);
+      const rows = (entries.length ? entries : ['']).map((entry) => [
+        '<div class="tdv4-line-list-row">',
+        `<input class="tdv4-basic-input tdv4-line-list-input" type="text" value="${escapeHtml(entry)}" placeholder="${escapeHtml(setting.entryPlaceholder || '')}" data-line-list-entry>`,
+        '<button class="tdv4-button tdv4-button-secondary tdv4-line-list-remove" type="button" data-line-list-remove>ลบ</button>',
+        '</div>',
+      ].join('')).join('');
+      return [
+        '<div class="tdv4-line-list-editor" data-line-list-editor>',
+        `<input class="tdv4-line-list-source" type="hidden" value="${escapeHtml(setting.currentValueAttr)}" ${attrs}>`,
+        `<div class="tdv4-line-list-summary"><span class="tdv4-line-list-count" data-line-list-count>${escapeHtml(formatLineListSummary(entries))}</span><span class="tdv4-config-setting-rawkey">${escapeHtml(entries.length ? 'แก้ไขได้ทันทีจากหน้าเว็บ' : setting.emptyLabel || 'ยังไม่มีรายการ')}</span></div>`,
+        `<div class="tdv4-line-list-list" data-line-list-list>${rows}</div>`,
+        '<div class="tdv4-line-list-actions">',
+        '<button class="tdv4-button tdv4-button-secondary tdv4-line-list-add" type="button" data-line-list-add>เพิ่มรายการ</button>',
+        '</div>',
+        '</div>',
+      ].join('');
+    }
+
+    if (setting.inputType === 'boolean') {
+      return [
+        '<div class="tdv4-basic-toggle-row">',
+        '<label class="tdv4-switch">',
+        `<input class="tdv4-flag-toggle" type="checkbox" ${attrs}${setting.currentValue ? ' checked' : ''}>`,
+        '<span class="tdv4-switch-track"><span class="tdv4-switch-thumb"></span></span>',
+        '</label>',
+        `<div class="tdv4-basic-toggle-hint">${escapeHtml(boolLabel(setting.currentValue))}</div>`,
+        '</div>',
+      ].join('');
+    }
+
+    if (setting.options.length) {
+      return [
+        `<select class="tdv4-basic-input" ${attrs}>`,
+        setting.options.map((option) => `<option value="${escapeHtml(option.value)}"${String(option.value) === String(setting.currentValue) ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join(''),
+        '</select>',
+      ].join('');
+    }
+
+    if (shouldUseTextarea(setting)) {
+      return `<textarea class="tdv4-basic-input" rows="4" ${attrs}>${escapeHtml(setting.currentValue)}</textarea>`;
+    }
+
+    if (setting.inputType === 'number') {
+      const minAttr = setting.min != null ? ` min="${escapeHtml(setting.min)}"` : '';
+      const maxAttr = setting.max != null ? ` max="${escapeHtml(setting.max)}"` : '';
+      const stepAttr = String(setting.currentValue).includes('.') || String(setting.defaultValue).includes('.') ? ' step="0.1"' : ' step="1"';
+      return `<input class="tdv4-basic-input" type="number" value="${escapeHtml(setting.currentValueAttr)}" ${attrs}${minAttr}${maxAttr}${stepAttr}>`;
+    }
+
+    return `<input class="tdv4-basic-input" type="text" value="${escapeHtml(setting.currentValueAttr)}" ${attrs}>`;
+  }
+
+  function renderSetting(setting) {
+    const badges = [
+      renderBadge(`ค่าปัจจุบัน ${setting.currentLabel}`, 'info'),
+      renderBadge(`ค่าเริ่มต้น ${setting.defaultLabel}`, 'muted'),
+      setting.requiresRestart ? renderBadge('ต้องรีสตาร์ต', 'warning') : '',
+      setting.hasCurrentValue === false ? renderBadge('ยังใช้ค่าเริ่มต้น', 'muted') : '',
+    ].filter(Boolean).join('');
+
+    return [
+      `<article class="tdv4-config-setting" data-setting-card="${escapeHtml(setting.id)}">`,
+      '<div class="tdv4-config-setting-main">',
+      '<div class="tdv4-config-setting-copy">',
+      '<div class="tdv4-config-setting-title-row">',
+      `<strong class="tdv4-config-setting-title">${escapeHtml(setting.label)}</strong>`,
+      setting.requiresRestart ? renderBadge('รีสตาร์ต', 'warning') : '',
+      '</div>',
+      `<p class="tdv4-config-setting-description">${escapeHtml(setting.description || 'ยังไม่มีคำอธิบายเพิ่มเติม')}</p>`,
+      `<div class="tdv4-config-setting-meta">${badges}</div>`,
+      `<div class="tdv4-config-setting-rawkey">${escapeHtml(setting.sourceFileLabel)} · ${escapeHtml(setting.rawKey)}</div>`,
+      '</div>',
+      `<div class="tdv4-config-setting-control">${renderFieldControl(setting)}</div>`,
+      '</div>',
       '</article>',
     ].join('');
   }
 
-  function renderEditorReadableItem(item) {
-    return [
-      '<div class="tdv4-readable-row">',
-      '<div class="tdv4-readable-key">',
-      `<div class="tdv4-readable-key-title">${escapeHtml(item.label)}</div>`,
-      `<div class="tdv4-readable-key-code">${escapeHtml(item.key)}</div>`,
-      '</div>',
-      `<div class="tdv4-readable-value">${renderBadge(item.valueLabel, item.valueTone)}</div>`,
-      '</div>',
+  function renderBasicField(field) {
+    const metaBadges = [
+      field.isOverridden ? renderBadge('กำหนดเอง', 'warning') : renderBadge('ใช้ค่ามาตรฐาน', 'muted'),
+      renderBadge(`ค่าปัจจุบัน ${field.currentLabel}`, 'info'),
     ].join('');
-  }
 
-  function renderFeatureFlagControl(item) {
-    const stateBadgeTone = item.overrideValue === true
-      ? 'success'
-      : item.overrideValue === false
-        ? 'danger'
-        : 'muted';
-    return [
-      '<label class="tdv4-flag-control">',
-      '<span class="tdv4-flag-copy">',
-      `<span class="tdv4-flag-title">${escapeHtml(item.title)}</span>`,
-      `<span class="tdv4-flag-key">${escapeHtml(item.key)}</span>`,
-      '<span class="tdv4-flag-meta">',
-      renderBadge(item.category, 'muted'),
-      renderBadge(item.packageEnabled ? 'แพ็กเกจเปิด' : 'แพ็กเกจปิด', item.packageEnabled ? 'success' : 'muted'),
-      renderBadge(item.overrideLabel, stateBadgeTone),
-      '</span>',
-      '</span>',
-      `<input class="tdv4-flag-toggle" type="checkbox" data-feature-flag-toggle data-feature-flag-key="${escapeHtml(item.key)}" data-package-default="${item.packageEnabled ? 'true' : 'false'}"${item.effectiveEnabled ? ' checked' : ''}>`,
-      '</label>',
-    ].join('');
-  }
-
-  function renderConfigPatchField(field) {
-    const defaultValue = field.type === 'boolean'
-      ? (field.defaultValue ? 'true' : 'false')
-      : String(field.defaultValue ?? '');
     if (field.type === 'boolean') {
       return [
         '<label class="tdv4-basic-field tdv4-basic-field-boolean">',
-        '<span class="tdv4-basic-field-copy">',
-        `<span class="tdv4-basic-field-label">${escapeHtml(field.label)}</span>`,
-        `<span class="tdv4-basic-field-detail">${escapeHtml(field.description)}</span>`,
+        '<div class="tdv4-basic-field-copy">',
+        `<div class="tdv4-basic-field-label">${escapeHtml(field.label)}</div>`,
+        `<div class="tdv4-basic-field-detail">${escapeHtml(field.description)}</div>`,
+        `<div class="tdv4-basic-field-meta-row">${metaBadges}</div>`,
+        '</div>',
+        '<div class="tdv4-basic-toggle-row">',
+        '<span class="tdv4-switch">',
+        `<input class="tdv4-flag-toggle" type="checkbox" data-${field.sourceKind === 'portal' ? 'portal-env' : 'config-patch'}-field="${escapeHtml(field.key)}" data-field-type="boolean" data-default-value="${field.defaultValue ? 'true' : 'false'}"${field.value ? ' checked' : ''}>`,
+        '<span class="tdv4-switch-track"><span class="tdv4-switch-thumb"></span></span>',
         '</span>',
-        '<span class="tdv4-basic-toggle-row">',
-        `<input class="tdv4-flag-toggle" type="checkbox" data-config-patch-field="${escapeHtml(field.key)}" data-field-type="boolean" data-default-value="${escapeHtml(defaultValue)}"${field.value ? ' checked' : ''}>`,
-        `<span class="tdv4-basic-toggle-hint">${field.value ? 'เปิด' : 'ปิด'}</span>`,
-        '</span>',
+        `<div class="tdv4-basic-toggle-hint">${escapeHtml(boolLabel(Boolean(field.value)))}</div>`,
+        '</div>',
         '</label>',
       ].join('');
     }
+
+    if (field.type === 'select') {
+      return [
+        '<label class="tdv4-basic-field">',
+        '<div class="tdv4-basic-field-copy">',
+        `<div class="tdv4-basic-field-label">${escapeHtml(field.label)}</div>`,
+        `<div class="tdv4-basic-field-detail">${escapeHtml(field.description)}</div>`,
+        `<div class="tdv4-basic-field-meta-row">${metaBadges}</div>`,
+        '</div>',
+        `<select class="tdv4-basic-input" data-${field.sourceKind === 'portal' ? 'portal-env' : 'config-patch'}-field="${escapeHtml(field.key)}" data-field-type="select" data-default-value="${escapeHtml(field.defaultValue)}">`,
+        normalizeOptions(field.options).map((option) => `<option value="${escapeHtml(option.value)}"${String(option.value) === String(field.value) ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join(''),
+        '</select>',
+        '</label>',
+      ].join('');
+    }
+
     return [
       '<label class="tdv4-basic-field">',
-      `<span class="tdv4-basic-field-label">${escapeHtml(field.label)}</span>`,
-      `<span class="tdv4-basic-field-detail">${escapeHtml(field.description)}</span>`,
-      `<input class="tdv4-basic-input" type="${escapeHtml(field.type)}" data-config-patch-field="${escapeHtml(field.key)}" data-field-type="${escapeHtml(field.type)}" data-default-value="${escapeHtml(defaultValue)}"${Number.isFinite(Number(field.min)) ? ` min="${escapeHtml(field.min)}"` : ''}${Number.isFinite(Number(field.max)) ? ` max="${escapeHtml(field.max)}"` : ''} value="${escapeHtml(field.value)}"${field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : ''}>`,
+      '<div class="tdv4-basic-field-copy">',
+      `<div class="tdv4-basic-field-label">${escapeHtml(field.label)}</div>`,
+      `<div class="tdv4-basic-field-detail">${escapeHtml(field.description)}</div>`,
+      `<div class="tdv4-basic-field-meta-row">${metaBadges}</div>`,
+      '</div>',
+      `<input class="tdv4-basic-input" type="${field.type === 'number' ? 'number' : 'text'}" value="${escapeHtml(String(field.value ?? ''))}" data-${field.sourceKind === 'portal' ? 'portal-env' : 'config-patch'}-field="${escapeHtml(field.key)}" data-field-type="${escapeHtml(field.type === 'number' ? 'number' : 'text')}" data-default-value="${escapeHtml(String(field.defaultValue ?? ''))}"${field.min != null ? ` min="${escapeHtml(field.min)}"` : ''}${field.max != null ? ` max="${escapeHtml(field.max)}"` : ''}>`,
       '</label>',
     ].join('');
   }
 
-  function renderSectionItem(section, current) {
-    const currentClass = current ? ' tdv4-nav-link-current' : '';
-    return `<a class="tdv4-nav-link${currentClass}" href="#${escapeHtml(section.key)}">${escapeHtml(section.label)}</a>`;
-  }
-
-  function renderEditor(editor) {
-    const changedKeys = Array.isArray(editor.changedKeys) ? editor.changedKeys : [];
-    const items = Array.isArray(editor.items) ? editor.items : [];
-    const featureOptions = Array.isArray(editor.featureOptions) ? editor.featureOptions : [];
-    const basicFields = Array.isArray(editor.basicFields) ? editor.basicFields : [];
+  function renderOverrideEditor(editor, actions) {
     return [
-      `<section class="tdv4-panel tdv4-tone-${escapeHtml(editor.tone || 'muted')}">`,
-      `<div class="tdv4-section-kicker">${escapeHtml(editor.label)}</div>`,
-      `<h2 class="tdv4-section-title">${escapeHtml(editor.label)}</h2>`,
-      `<p class="tdv4-section-copy">${escapeHtml(editor.detail)}</p>`,
-      featureOptions.length > 0
-        ? [
-          '<div class="tdv4-config-control-block">',
-          '<div class="tdv4-readable-summary-title">ฟีเจอร์ที่ปรับได้ทันที</div>',
-          '<p class="tdv4-readable-summary-copy">เปิดหรือปิดเฉพาะ tenant นี้ได้จากรายการด้านล่าง ระบบจะคำนวณ patch ให้เองและเขียนกลับไปที่ JSON ขั้นสูงด้านล่างอัตโนมัติ</p>',
-          '<div class="tdv4-flag-grid">',
-          ...featureOptions.map(renderFeatureFlagControl),
-          '</div>',
-          '</div>',
-        ].join('')
-        : '',
-      basicFields.length > 0
-        ? [
-          '<div class="tdv4-config-control-block">',
-          '<div class="tdv4-readable-summary-title">ค่าพื้นฐานที่แก้ได้จากฟอร์ม</div>',
-          '<p class="tdv4-readable-summary-copy">ใช้ส่วนนี้ก่อนเมื่อคุณต้องการตั้งค่าที่ทีมงานใช้บ่อย ระบบจะ sync ค่ากลับไปที่ JSON ขั้นสูงด้านล่างให้อัตโนมัติ</p>',
-          '<div class="tdv4-basic-field-grid">',
-          ...basicFields.map(renderConfigPatchField),
-          '</div>',
-          '</div>',
-        ].join('')
-        : '',
-      '<div class="tdv4-readable-summary">',
-      `<div class="tdv4-readable-summary-title">${escapeHtml(editor.headline)}</div>`,
-      `<p class="tdv4-readable-summary-copy">${escapeHtml(editor.copy)}</p>`,
-      `<div class="tdv4-readable-summary-status">${escapeHtml(editor.changedLabel)}</div>`,
-      items.length > 0
-        ? [
-          '<div class="tdv4-readable-list">',
-          ...items.map(renderEditorReadableItem),
-          '</div>',
-        ].join('')
-        : [
-          '<div class="tdv4-readable-empty">',
-          `<strong>${escapeHtml(editor.emptyTitle)}</strong>`,
-          `<p>${escapeHtml(editor.emptyCopy)}</p>`,
-          '</div>',
-        ].join(''),
-      changedKeys.length > 0
-        ? `<div class="tdv4-config-key-row">${changedKeys.slice(0, 8).map((key) => renderBadge(key, 'warning')).join('')}</div>`
-        : '',
-      '</div>',
       '<details class="tdv4-advanced-editor">',
-      '<summary class="tdv4-advanced-editor-summary">แก้แบบ JSON ขั้นสูง</summary>',
-      `<label class="tdv4-editor-label" for="tdv4-editor-${escapeHtml(editor.key)}">ใช้เมื่อจำเป็นต้องใส่ patch เองโดยตรง</label>`,
-      `<textarea class="tdv4-editor" id="tdv4-editor-${escapeHtml(editor.key)}" name="${escapeHtml(editor.key)}">${escapeHtml(editor.value)}</textarea>`,
+      `<summary class="tdv4-advanced-editor-summary">${escapeHtml(editor.title)}</summary>`,
+      `<div class="tdv4-editor-label">${escapeHtml(editor.description)}</div>`,
+      `<textarea id="${escapeHtml(editor.editorId)}" class="tdv4-editor">${escapeHtml(editor.value)}</textarea>`,
+      '<div class="tdv4-config-page-actions">',
+      actions.map((action) => `<button class="tdv4-button ${action.primary ? 'tdv4-button-primary' : 'tdv4-button-secondary'}" type="button" data-config-action="${escapeHtml(action.value)}">${escapeHtml(action.label)}</button>`).join(''),
+      '</div>',
       '</details>',
-      '</section>',
     ].join('');
   }
 
-  function renderRailCard(item) {
+  function renderCategory(category, current) {
     return [
-      `<article class="tdv4-panel tdv4-rail-card tdv4-tone-${escapeHtml(item.tone || 'muted')}">`,
-      `<div class="tdv4-rail-title">${escapeHtml(item.title)}</div>`,
-      `<strong class="tdv4-rail-body">${escapeHtml(item.body)}</strong>`,
-      `<div class="tdv4-rail-detail">${escapeHtml(item.meta)}</div>`,
-      '</article>',
+      `<section class="tdv4-config-category-panel${current ? ' tdv4-config-category-panel-current' : ''}" data-config-category-panel="${escapeHtml(category.key)}"${current ? '' : ' hidden'}>`,
+      `<header class="tdv4-config-layout-panel"><h2 class="tdv4-config-column-title">${escapeHtml(category.label)}</h2><p class="tdv4-config-column-copy">${escapeHtml(category.description || 'จัดการค่ากลุ่มนี้ตามความต้องการของเซิร์ฟเวอร์')}</p></header>`,
+      ...category.groups.map((group) => [
+        '<article class="tdv4-config-group-card">',
+        '<div class="tdv4-config-group-head">',
+        `<h3 class="tdv4-config-group-title">${escapeHtml(group.label)}</h3>`,
+        `<span class="tdv4-config-group-count">${escapeHtml(String(group.settings.length))} ค่า</span>`,
+        '</div>',
+        `<div class="tdv4-config-group-list">${group.settings.map(renderSetting).join('')}</div>`,
+        '</article>',
+      ].join('')),
+      '</section>',
     ].join('');
   }
 
   function buildTenantServerConfigV4Html(model) {
-    const safeModel = model || createTenantServerConfigV4Model({});
-    return [
-      '<div class="tdv4-app">',
-      '<header class="tdv4-topbar">',
-      '<div class="tdv4-brand-row">',
-      `<div class="tdv4-brand-mark">${escapeHtml(safeModel.shell.brand)}</div>`,
-      '<div class="tdv4-brand-copy">',
-      `<div class="tdv4-surface-label">${escapeHtml(safeModel.shell.surfaceLabel)}</div>`,
-      `<div class="tdv4-workspace-label">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '</div>',
-      '</div>',
-      '<div class="tdv4-topbar-actions">',
-      renderBadge(safeModel.shell.environmentLabel, 'info'),
-      renderBadge('Config', 'warning'),
-      '</div>',
-      '</header>',
-      '<div class="tdv4-shell tdv4-config-shell">',
-      '<aside class="tdv4-sidebar">',
-      `<div class="tdv4-sidebar-title">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-sidebar-copy">พื้นที่นี้ใช้สำหรับดูความหมายของค่าก่อนบันทึกจริง แยกค่าสำคัญออกจากโหมดแก้ JSON ขั้นสูงให้ชัด</div>',
-      ...(Array.isArray(safeModel.shell.navGroups) ? safeModel.shell.navGroups.map(renderNavGroup) : []),
-      '<section class="tdv4-nav-group">',
-      '<div class="tdv4-nav-group-label">หมวดการตั้งค่า</div>',
-      '<div class="tdv4-nav-items">',
-      ...(Array.isArray(safeModel.sections) ? safeModel.sections.map((section, index) => renderSectionItem(section, index === 0)) : []),
-      '</div>',
-      '</section>',
-      '</aside>',
-      '<main class="tdv4-main">',
-      '<section class="tdv4-pagehead tdv4-panel">',
-      '<div>',
-      `<h1 class="tdv4-page-title">${escapeHtml(safeModel.header.title)}</h1>`,
-      `<p class="tdv4-page-subtitle">${escapeHtml(safeModel.header.subtitle)}</p>`,
-      '<div class="tdv4-chip-row">',
-      ...(Array.isArray(safeModel.header.statusChips) ? safeModel.header.statusChips.map((chip) => renderBadge(chip.label, chip.tone)) : []),
-      '</div>',
-      '</div>',
-      '<div class="tdv4-pagehead-actions tdv4-pagehead-actions-stack">',
-      ...(Array.isArray(safeModel.header.actions) ? safeModel.header.actions.map((action, index) => {
-        const className = index === 0 ? 'tdv4-button tdv4-button-primary' : 'tdv4-button tdv4-button-secondary';
-        return `<button class="${className}" type="button" data-config-action="${escapeHtml(action.action || '')}">${escapeHtml(action.label)}</button>`;
-      }) : []),
-      '</div>',
-      '</section>',
-      '<section class="tdv4-kpi-strip tdv4-config-summary-grid">',
-      ...(Array.isArray(safeModel.summaryCards) ? safeModel.summaryCards.map(renderSummaryCard) : []),
-      '</section>',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">อ่านตามหมวดก่อน แล้วค่อยแก้จริง</div>',
-      '<h2 class="tdv4-section-title">ระบบจัดหมวดให้แล้ว</h2>',
-      '<p class="tdv4-section-copy">หน้านี้เปลี่ยนจากการโยน JSON ดิบให้ดูทันที มาเป็นการบอกก่อนว่าแต่ละกล่องมีผลกับอะไร เพื่อให้เลือกแก้ได้ถูกจุด</p>',
-      '<div class="tdv4-config-section-grid">',
-      ...(Array.isArray(safeModel.sections) ? safeModel.sections.map((section) => [
-        `<article class="tdv4-panel tdv4-tone-${escapeHtml(section.tone || 'muted')}">`,
-        `<div class="tdv4-section-kicker">${escapeHtml(section.source)}</div>`,
-        `<h3 class="tdv4-section-title">${escapeHtml(section.label)}</h3>`,
-        `<p class="tdv4-section-copy">${escapeHtml(section.detail)}</p>`,
-        `<div class="tdv4-config-key-row">${(section.keys.length ? section.keys : ['ยังไม่มี key ตัวอย่าง']).map((key) => renderBadge(key, 'muted')).join('')}</div>`,
+    const safe = model && typeof model === 'object' ? model : createTenantServerConfigV4Model({});
+    const configCategoryList = safe.workspace.categories.map((category, index) => [
+      `<button class="tdv4-config-category-button${index === 0 ? ' is-current' : ''}" type="button" data-config-category-tab="${escapeHtml(category.key)}" aria-pressed="${index === 0 ? 'true' : 'false'}">`,
+      `<span class="tdv4-config-category-name">${escapeHtml(category.label)}</span>`,
+      `<span class="tdv4-config-category-meta">${escapeHtml(category.settingCount)} ค่า</span>`,
+      '</button>',
+    ].join('')).join('');
+
+    const backupList = safe.workspace.backups.length
+      ? safe.workspace.backups.map((backup) => {
+        const changedKeys = Array.isArray(backup.changeSummary)
+          ? backup.changeSummary.map((entry) => firstNonEmpty([entry.key, entry.file], '')).filter(Boolean).slice(0, 3)
+          : [];
+        return [
+          '<div class="tdv4-config-backup-row">',
+          '<div class="tdv4-config-backup-main">',
+          `<strong>${escapeHtml(firstNonEmpty([backup.file], 'Backup'))}</strong>`,
+          `<span class="tdv4-config-setting-value">${escapeHtml(formatDateTime(backup.createdAt, 'ไม่ทราบเวลา'))}</span>`,
+          `<span class="tdv4-config-setting-rawkey">${escapeHtml(firstNonEmpty([backup.changedBy], 'ไม่ทราบผู้แก้ไข'))}${changedKeys.length ? ` · ${escapeHtml(changedKeys.join(', '))}` : ''}</span>`,
+          '</div>',
+          `<button class="tdv4-button tdv4-button-secondary" type="button" data-server-config-rollback="${escapeHtml(backup.id)}">กู้คืน</button>`,
+          '</div>',
+        ].join('');
+      }).join('')
+      : '<div class="tdv4-readable-empty"><strong>ยังไม่มี backup</strong><p>เมื่อมีการบันทึกค่าผ่าน Server Bot ระบบจะเก็บสำเนาไว้ให้กู้คืนจากหน้านี้</p></div>';
+
+    const fileList = safe.workspace.files.length
+      ? safe.workspace.files.map((file) => [
+        '<div class="tdv4-readable-row">',
+        '<div class="tdv4-readable-key">',
+        `<div class="tdv4-readable-key-title">${escapeHtml(firstNonEmpty([file.label, file.file], file.file || 'Config file'))}</div>`,
+        `<div class="tdv4-readable-key-code">${escapeHtml(file.file || '')}</div>`,
+        '</div>',
+        `<div class="tdv4-readable-value">${renderBadge(file.exists ? 'พบไฟล์' : 'ยังไม่พบไฟล์', file.exists ? 'success' : 'warning')}</div>`,
+        '</div>',
+      ].join('')).join('')
+      : '<div class="tdv4-readable-empty"><strong>ยังไม่พบแหล่งไฟล์</strong><p>ระบบจะสรุปไฟล์ config ที่อ่านได้เมื่อ Server Bot ส่ง snapshot เข้ามาแล้ว</p></div>';
+
+    const featureFlagList = safe.featureFlags.items.length
+      ? safe.featureFlags.items.map((feature) => [
+        '<label class="tdv4-flag-control">',
+        '<div class="tdv4-flag-copy">',
+        `<div class="tdv4-flag-title">${escapeHtml(feature.label)}</div>`,
+        `<div class="tdv4-basic-field-detail">${escapeHtml(feature.description)}</div>`,
+        '<div class="tdv4-flag-meta">',
+        renderBadge(feature.badge, feature.tone),
+        feature.packageEnabled ? renderBadge('แพ็กเกจเปิด', 'success') : renderBadge('แพ็กเกจยังไม่เปิด', 'muted'),
+        '</div>',
+        `<div class="tdv4-flag-key">${escapeHtml(feature.key)}</div>`,
+        '</div>',
+        '<div class="tdv4-basic-toggle-row">',
+        '<span class="tdv4-switch">',
+        `<input class="tdv4-flag-toggle" type="checkbox" data-feature-flag-toggle data-feature-flag-key="${escapeHtml(feature.key)}"${feature.enabled ? ' checked' : ''}>`,
+        '<span class="tdv4-switch-track"><span class="tdv4-switch-thumb"></span></span>',
+        '</span>',
+        `<div class="tdv4-basic-toggle-hint">${escapeHtml(boolLabel(feature.enabled))}</div>`,
+        '</div>',
+        '</label>',
+      ].join('')).join('')
+      : '<div class="tdv4-readable-empty"><strong>ยังไม่มีฟีเจอร์ให้ตั้งจากหน้านี้</strong><p>ฟีเจอร์ของ tenant จะขึ้นที่นี่เมื่อระบบโหลด catalog และสิทธิ์ของแพ็กเกจครบแล้ว</p></div>';
+
+    const workspaceBody = safe.workspace.available
+      ? [
+        '<section class="tdv4-config-layout-panel"><div class="tdv4-config-layout">',
+        '<aside class="tdv4-config-category-sidebar"><article class="tdv4-panel tdv4-config-help-panel"><div class="tdv4-section-kicker">หมวดการตั้งค่า</div><div class="tdv4-config-category-list">',
+        configCategoryList,
+        '</div></article></aside>',
+        '<section class="tdv4-config-settings-column">',
+        safe.workspace.categories.map((category, index) => renderCategory(category, index === 0)).join(''),
+        '</section>',
+        '<aside class="tdv4-config-context-column">',
+        '<article class="tdv4-panel tdv4-config-help-panel">',
+        '<div class="tdv4-section-kicker">คำอธิบาย</div>',
+        `<h3 class="tdv4-section-title" data-server-config-help-title>${escapeHtml(safe.help.title)}</h3>`,
+        `<p class="tdv4-section-copy" data-server-config-help-description>${escapeHtml(safe.help.description)}</p>`,
+        `<div class="tdv4-config-key-row">${safe.help.badges.map((badge) => renderBadge(badge.label, badge.tone)).join('')}</div>`,
+        `<div class="tdv4-config-setting-rawkey" data-server-config-help-meta>${escapeHtml(safe.help.meta)}</div>`,
         '</article>',
-      ].join('')) : []),
+        '<article class="tdv4-panel tdv4-config-backups-panel"><div class="tdv4-section-kicker">Backup history</div><h3 class="tdv4-section-title">ประวัติการสำรอง</h3><div class="tdv4-config-backup-list">',
+        backupList,
+        '</div></article>',
+        '<article class="tdv4-panel tdv4-config-files-panel"><div class="tdv4-section-kicker">Config files</div><h3 class="tdv4-section-title">แหล่งไฟล์</h3><div class="tdv4-readable-list">',
+        fileList,
+        '</div></article>',
+        '</aside></div></section>',
+      ].join('')
+      : [
+        '<section class="tdv4-config-layout-panel"><article class="tdv4-panel tdv4-readable-empty">',
+        `<strong>${escapeHtml(safe.emptyState.title)}</strong>`,
+        `<p>${escapeHtml(safe.emptyState.detail)}</p>`,
+        `<div class="tdv4-pagehead-actions"><a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safe.emptyState.actionHref)}">${escapeHtml(safe.emptyState.actionLabel)}</a></div>`,
+        '</article></section>',
+      ].join('');
+
+    return [
+      '<div class="tdv4-app"><div class="tdv4-topbar"><div class="tdv4-brand-row">',
+      `<div class="tdv4-brand-mark">${escapeHtml(safe.shell.brand)}</div>`,
+      '<div class="tdv4-brand-copy">',
+      `<div class="tdv4-surface-label">${escapeHtml(safe.shell.surfaceLabel)}</div>`,
+      `<div class="tdv4-workspace-label">${escapeHtml(safe.shell.workspaceLabel)}</div>`,
+      '</div></div></div>',
+      '<div class="tdv4-shell tdv4-config-shell">',
+      `<aside class="tdv4-sidebar">${safe.shell.navGroups.map(renderNavGroup).join('')}</aside>`,
+      '<main class="tdv4-main tdv4-stack">',
+      '<section class="tdv4-pagehead"><div>',
+      `<h1 class="tdv4-page-title">${escapeHtml(safe.header.title)}</h1>`,
+      `<p class="tdv4-page-subtitle">${escapeHtml(safe.header.subtitle)}</p>`,
+      `<div class="tdv4-chip-row">${renderBadge(safe.status.label, safe.status.tone)}${renderBadge(safe.header.serverName, 'muted')}</div>`,
+      '</div><div class="tdv4-pagehead-actions tdv4-pagehead-actions-stack">',
+      '<button class="tdv4-button tdv4-button-secondary" type="button" data-server-config-save-mode="save_only">บันทึกอย่างเดียว</button>',
+      '<button class="tdv4-button tdv4-button-primary" type="button" data-server-config-save-mode="save_apply">บันทึกและใช้ค่า</button>',
+      '<button class="tdv4-button tdv4-button-secondary" type="button" data-server-config-save-mode="save_restart">บันทึกแล้วรีสตาร์ต</button>',
+      '</div></section>',
+      '<section class="tdv4-config-layout-panel"><div class="tdv4-config-savebar"><div class="tdv4-config-savebar-copy">',
+      '<strong>สถานะล่าสุด</strong>',
+      `<span>${escapeHtml(safe.status.detail)}</span>`,
+      `<span>${escapeHtml(safe.status.updatedAt ? `อัปเดตเมื่อ ${formatDateTime(safe.status.updatedAt)}` : 'ยังไม่ทราบเวลาอัปเดต')}${safe.status.updatedBy ? ` · โดย ${escapeHtml(safe.status.updatedBy)}` : ''}</span>`,
+      '</div><div class="tdv4-config-savebar-actions"><span class="tdv4-badge tdv4-badge-info" data-server-config-change-count>ยังไม่มีค่าที่แก้ค้างอยู่</span></div></div></section>',
+      workspaceBody,
+      '<section class="tdv4-config-layout-panel"><div class="tdv4-config-section-grid">',
+      '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Tenant modules</div><h2 class="tdv4-section-title">Feature Flags</h2><p class="tdv4-section-copy">ใช้เปิดหรือปิดโมดูลของผู้เช่ารายนี้แบบไม่ต้องแก้ JSON เอง</p><div class="tdv4-flag-grid">',
+      featureFlagList,
       '</div>',
-      '</section>',
-      '<section class="tdv4-panel tdv4-config-mode-panel tdv4-tone-success">',
-      '<div class="tdv4-section-kicker">Basic mode</div>',
-      '<h2 class="tdv4-section-title">เริ่มจากค่าที่แก้ได้ง่ายก่อน</h2>',
-      '<p class="tdv4-section-copy">โหมดนี้เหมาะกับงานประจำวัน เช่น เปิดหรือปิดฟีเจอร์ให้ tenant โดยไม่ต้องอ่าน JSON</p>',
-      ...((Array.isArray(safeModel.editors) ? safeModel.editors : []).filter((editor) => editor.key === 'featureFlags').map(renderEditor)),
-      '</section>',
-      '<details class="tdv4-panel tdv4-config-advanced-panel">',
-      '<summary class="tdv4-advanced-editor-summary">Advanced mode</summary>',
-      '<div class="tdv4-stack">',
-      '<div class="tdv4-section-kicker">Advanced mode</div>',
-      '<h2 class="tdv4-section-title">แก้แบบ JSON ขั้นสูงเมื่อจำเป็นจริง</h2>',
-      '<p class="tdv4-section-copy">ใช้เมื่อคุณต้อง override ค่าเฉพาะทางของ control plane หรือหน้า portal ที่ยังไม่มีฟอร์มแบบง่ายรองรับ</p>',
-      ...((Array.isArray(safeModel.editors) ? safeModel.editors : []).filter((editor) => editor.key !== 'featureFlags').map(renderEditor)),
-      '</div>',
-      '</details>',
-      '</main>',
-      '<aside class="tdv4-rail">',
-      '<div class="tdv4-rail-sticky">',
-      `<div class="tdv4-rail-header">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-rail-copy">บริบทที่ควรเห็นตลอดระหว่างแก้ค่า เพื่อไม่ให้ไปแตะค่าที่เสี่ยงผิดจังหวะ</div>',
-      ...(Array.isArray(safeModel.rightRail) ? safeModel.rightRail.map(renderRailCard) : []),
-      '</div>',
-      '</aside>',
-      '</div>',
-      '</div>',
+      renderOverrideEditor(safe.featureFlags.editor, [
+        { value: 'save', label: 'บันทึก Feature Flags', primary: true },
+      ]),
+      '</article>',
+      '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Platform overrides</div><h2 class="tdv4-section-title">Server Settings</h2><p class="tdv4-section-copy">ค่าระดับแพลตฟอร์มสำหรับงานประจำวันของผู้เช่ารายนี้</p>',
+      safe.configPatch.groups.map((group) => `<section class="tdv4-config-field-group"><div class="tdv4-config-field-group-title">${escapeHtml(group.title)}</div><p class="tdv4-config-field-group-copy">${escapeHtml(group.description)}</p><div class="tdv4-basic-field-grid">${group.fields.map(renderBasicField).join('')}</div></section>`).join(''),
+      renderOverrideEditor(safe.configPatch.editor, [
+        { value: 'save', label: 'บันทึกอย่างเดียว', primary: false },
+        { value: 'apply', label: 'บันทึกและใช้ค่า', primary: true },
+        { value: 'restart', label: 'บันทึกแล้วไปหน้ารีสตาร์ต', primary: false },
+      ]),
+      '</article>',
+      '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Player portal</div><h2 class="tdv4-section-title">Portal Env Patch</h2><p class="tdv4-section-copy">ค่าที่มีผลกับประสบการณ์ของผู้เล่นในพอร์ทัลเว็บ</p>',
+      safe.portalEnvPatch.groups.map((group) => `<section class="tdv4-config-field-group"><div class="tdv4-config-field-group-title">${escapeHtml(group.title)}</div><p class="tdv4-config-field-group-copy">${escapeHtml(group.description)}</p><div class="tdv4-basic-field-grid">${group.fields.map(renderBasicField).join('')}</div></section>`).join(''),
+      renderOverrideEditor(safe.portalEnvPatch.editor, [
+        { value: 'save', label: 'บันทึกอย่างเดียว', primary: false },
+        { value: 'apply', label: 'บันทึกและใช้ค่า', primary: true },
+      ]),
+      '</article></div></section>',
+      '<section class="tdv4-config-layout-panel"><details class="tdv4-details-panel tdv4-panel"><summary class="tdv4-details-summary">ดู snapshot ดิบจาก Server Bot</summary><p class="tdv4-config-column-copy">ใช้มุมนี้เพื่อตรวจค่าดิบและไฟล์ที่ bot อ่านกลับมา ไม่ใช่มุมหลักสำหรับผู้ใช้งานทั่วไป</p>',
+      `<textarea class="tdv4-editor" readonly>${escapeHtml(stringifyPretty(safe.workspace.rawSnapshot))}</textarea>`,
+      '</details></section>',
+      '</main></div></div>',
     ].join('');
   }
 
@@ -716,7 +973,7 @@
     if (!rootElement) {
       throw new Error('renderTenantServerConfigV4 requires a root element');
     }
-    const model = source && source.header && Array.isArray(source.sections)
+    const model = source && source.header && source.workspace
       ? source
       : createTenantServerConfigV4Model(source);
     rootElement.innerHTML = buildTenantServerConfigV4Html(model);

@@ -40,6 +40,7 @@ function createAdminServerLifecycle({
   ensureRole,
   ensureStepUpAuth,
   handlePostAction,
+  handleMutationAction,
   publishAdminLiveUpdate,
   sendText,
   closeAllLiveStreams,
@@ -110,7 +111,7 @@ function createAdminServerLifecycle({
       requiredRoleForPostPath,
       ensureRole,
       ensureStepUpAuth,
-      handlePostAction,
+      handleMutationAction: handleMutationAction || handlePostAction,
       publishAdminLiveUpdate,
       sendText,
     }));

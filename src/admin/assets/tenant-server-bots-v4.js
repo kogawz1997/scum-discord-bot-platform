@@ -7,27 +7,31 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
-  const NAV_GROUPS = [
+  const FALLBACK_NAV_GROUPS = [
     {
-      label: 'ภาพรวมงานหลัก',
+      label: 'ภาพรวม',
       items: [
         { label: 'แดชบอร์ด', href: '#dashboard' },
         { label: 'สถานะเซิร์ฟเวอร์', href: '#server-status' },
-        { label: 'ควบคุมการรีสตาร์ต', href: '#restart-control' },
+        { label: 'รีสตาร์ต', href: '#restart-control' },
       ],
     },
     {
-      label: 'ระบบและรันไทม์',
+      label: 'รันไทม์',
       items: [
-        { label: 'Delivery Agents', href: '#delivery-agents' },
-        { label: 'Server Bots', href: '#server-bots', current: true },
+        { label: 'Delivery Agent', href: '#delivery-agents' },
+        { label: 'Server Bot', href: '#server-bots', current: true },
         { label: 'ตั้งค่าเซิร์ฟเวอร์', href: '#server-config' },
-        { label: 'บันทึกและหลักฐาน', href: '#audit' },
       ],
     },
   ];
 
   const SYNC_SIGNALS = ['sync', 'watcher', 'watch', 'log', 'config', 'restart', 'read', 'monitor'];
+
+  function trimText(value, maxLen = 300) {
+    const text = String(value ?? '').trim();
+    return !text ? '' : text.slice(0, maxLen);
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -38,32 +42,34 @@
       .replace(/'/g, '&#39;');
   }
 
-  function formatNumber(value, fallback = '0') {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return fallback;
-    return new Intl.NumberFormat('th-TH').format(numeric);
-  }
-
-  function formatDateTime(value) {
-    if (!value) return 'ยังไม่เห็นการ sync';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'ยังไม่เห็นการ sync';
-    return new Intl.DateTimeFormat('th-TH', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
-  }
-
   function firstNonEmpty(values, fallback = '') {
-    for (const value of values) {
-      const normalized = String(value ?? '').trim();
-      if (normalized) return normalized;
+    const list = Array.isArray(values) ? values : [values];
+    for (const value of list) {
+      const text = trimText(value, 240);
+      if (text) return text;
     }
     return fallback;
   }
 
-  function listCount(list) {
-    return Array.isArray(list) ? list.length : 0;
+  function formatNumber(value, fallback = '0') {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? new Intl.NumberFormat('th-TH').format(numeric) : fallback;
+  }
+
+  function formatDateTime(value, fallback = 'ยังไม่เห็นการ sync') {
+    if (!value) return fallback;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? fallback
+      : new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  }
+
+  function statusTone(status) {
+    const text = trimText(status, 80).toLowerCase();
+    if (['online', 'ready', 'healthy', 'active'].includes(text)) return 'success';
+    if (['pending_activation', 'pending-activation', 'draft', 'provisioned', 'degraded', 'stale'].includes(text)) return 'warning';
+    if (['offline', 'revoked', 'outdated', 'error', 'failed'].includes(text)) return 'danger';
+    return 'muted';
   }
 
   function normalizeCapabilities(value) {
@@ -72,14 +78,17 @@
       : typeof value === 'string'
         ? value.split(/[,\n]+/g)
         : [];
-    return raw
-      .map((entry) => String(entry || '').trim().toLowerCase())
-      .filter(Boolean);
+    return raw.map((entry) => String(entry || '').trim().toLowerCase()).filter(Boolean);
   }
 
-  function signalText(row) {
-    const meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
-    return [
+  function isServerBot(row) {
+    const meta = row?.meta && typeof row.meta === 'object' ? row.meta : {};
+    const role = trimText(meta.agentRole || meta.role || row.role, 80).toLowerCase();
+    const scope = trimText(meta.agentScope || meta.scope || row.scope, 80).toLowerCase();
+    if (['sync', 'hybrid'].includes(role) || ['sync_only', 'sync-only', 'synconly', 'sync_execute', 'sync-execute'].includes(scope)) {
+      return true;
+    }
+    const text = [
       row?.runtimeKey,
       row?.channel,
       row?.name,
@@ -88,152 +97,12 @@
       row?.scope,
       meta.agentRole,
       meta.agentScope,
-      meta.role,
-      meta.scope,
-      meta.kind,
-      meta.mode,
-      meta.type,
-      meta.agentLabel,
-      ...(normalizeCapabilities(meta.capabilities || meta.features)),
+      ...normalizeCapabilities(meta.capabilities || meta.features),
     ]
       .map((entry) => String(entry || '').trim().toLowerCase())
       .filter(Boolean)
       .join(' ');
-  }
-
-  function isServerBot(row) {
-    const meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
-    const explicitRole = String(meta.agentRole || meta.role || row?.role || '').trim().toLowerCase();
-    const explicitScope = String(meta.agentScope || meta.scope || row?.scope || '').trim().toLowerCase();
-    if (['sync', 'hybrid'].includes(explicitRole)) return true;
-    if (['sync_only', 'sync-only', 'synconly', 'sync_execute', 'sync-execute'].includes(explicitScope)) return true;
-    const text = signalText(row);
     return SYNC_SIGNALS.some((token) => text.includes(token));
-  }
-
-  function statusTone(status) {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (['online', 'ready', 'healthy', 'active'].includes(normalized)) return 'success';
-    if (['pending_activation', 'pending-activation', 'draft', 'provisioned', 'degraded', 'stale'].includes(normalized)) return 'warning';
-    if (['offline', 'revoked', 'outdated', 'error', 'failed'].includes(normalized)) return 'danger';
-    return 'muted';
-  }
-
-  function serverLabel(row) {
-    const meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
-    return firstNonEmpty([meta.serverId, row?.serverId, row?.tenantServerId, 'ยังไม่ผูกเซิร์ฟเวอร์']);
-  }
-
-  function freshnessLabel(row) {
-    if (!row?.lastSeenAt) return 'ยังไม่เคย sync';
-    const diffMs = Date.now() - new Date(row.lastSeenAt).getTime();
-    if (!Number.isFinite(diffMs)) return 'ยังไม่เคย sync';
-    const diffMinutes = Math.floor(diffMs / 60000);
-    if (diffMinutes < 5) return 'สด';
-    if (diffMinutes < 30) return `${diffMinutes} นาทีที่แล้ว`;
-    return 'เริ่ม stale';
-  }
-
-  function configCapability(row) {
-    const text = signalText(row);
-    return text.includes('config') || text.includes('ini') || text.includes('apply')
-      ? 'พร้อมแก้ config'
-      : 'ยังไม่ชัดเจน';
-  }
-
-  function restartCapability(row) {
-    const text = signalText(row);
-    return text.includes('restart') || text.includes('service') || text.includes('script')
-      ? 'พร้อม restart'
-      : 'ยังไม่ชัดเจน';
-  }
-
-  function createTenantServerBotsV4Model(source) {
-    const state = source && typeof source === 'object' ? source : {};
-    const tenantName = firstNonEmpty([
-      state?.tenantConfig?.name,
-      state?.overview?.tenantName,
-      state?.me?.tenantId,
-      'Tenant Workspace',
-    ]);
-    const rows = Array.isArray(state?.agents) ? state.agents.filter(isServerBot) : [];
-    const online = rows.filter((row) => statusTone(row.status) === 'success').length;
-    const stale = rows.filter((row) => freshnessLabel(row) === 'เริ่ม stale').length;
-    const selected = rows[0] || null;
-    const supervisorItems = Array.isArray(state?.runtimeSupervisor?.items) ? state.runtimeSupervisor.items : [];
-    const missingBot = Math.max(0, Number(state?.overview?.serverCount || 0) - rows.length);
-
-    return {
-      shell: {
-        brand: 'SCUM TH',
-      surfaceLabel: 'แผงผู้เช่า',
-        workspaceLabel: tenantName,
-      environmentLabel: 'พื้นที่ผู้เช่า',
-        navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
-          ? state.__surfaceShell.navGroups
-          : NAV_GROUPS,
-      },
-      header: {
-        title: 'Server Bots',
-        subtitle: 'ดูตัวดูแลเซิร์ฟเวอร์สำหรับ log sync, config, และ restart โดยแยกจาก Delivery Agent ชัดเจน',
-        statusChips: [
-          { label: `${formatNumber(online, '0')} ตัวออนไลน์`, tone: online > 0 ? 'success' : 'muted' },
-          { label: `${formatNumber(stale, '0')} ตัวเริ่ม stale`, tone: stale > 0 ? 'warning' : 'muted' },
-          { label: `${formatNumber(missingBot, '0')} เซิร์ฟเวอร์ที่ยังไม่มี bot`, tone: missingBot > 0 ? 'warning' : 'muted' },
-          { label: `${formatNumber(listCount(supervisorItems), '0')} runtime ใน supervisor`, tone: 'info' },
-        ],
-        primaryAction: { label: 'สร้าง Server Bot', href: '#server-bots-new' },
-      },
-      summaryStrip: [
-        { label: 'ออนไลน์', value: formatNumber(online, '0'), detail: 'พร้อมอ่าน log และตอบงานจาก control plane', tone: online > 0 ? 'success' : 'muted' },
-        { label: 'เซิร์ฟเวอร์ที่ยังไม่มี Bot', value: formatNumber(missingBot, '0'), detail: 'เซิร์ฟเวอร์ที่อาจยังไม่มี runtime ประจำ', tone: missingBot > 0 ? 'warning' : 'muted' },
-        { label: 'งานรอจัดการ', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'ใช้ดูผลกระทบก่อนแก้ config หรือ restart', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
-        { label: 'งานที่ล้มเหลว', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'ภาระที่ควรเคลียร์ก่อน maintenance', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
-      ],
-      rows: rows.map((row) => ({
-        name: firstNonEmpty([row?.meta?.agentLabel, row?.runtimeKey, row?.name, 'Server Bot']),
-        server: serverLabel(row),
-        status: firstNonEmpty([row?.status, 'unknown']),
-        freshness: freshnessLabel(row),
-        config: configCapability(row),
-        restart: restartCapability(row),
-        lastSeenAt: formatDateTime(row?.lastSeenAt),
-        issue: firstNonEmpty([row?.reason, row?.meta?.warning, row?.meta?.lastError, 'พร้อมทำงานระดับเซิร์ฟเวอร์']),
-      })),
-      selected: selected
-        ? {
-            name: firstNonEmpty([selected?.meta?.agentLabel, selected?.runtimeKey, selected?.name, 'Server Bot']),
-            server: serverLabel(selected),
-            status: firstNonEmpty([selected?.status, 'unknown']),
-            freshness: freshnessLabel(selected),
-            config: configCapability(selected),
-            restart: restartCapability(selected),
-            lastSeenAt: formatDateTime(selected?.lastSeenAt),
-          }
-        : null,
-      diagnostics: {
-        queueCount: formatNumber(listCount(state?.queueItems), '0'),
-        deadLetterCount: formatNumber(listCount(state?.deadLetters), '0'),
-        reconcileAlerts: formatNumber(Number(state?.reconcile?.summary?.alerts || 0), '0'),
-        syncSignals: formatNumber(listCount(state?.notifications), '0'),
-      },
-      railCards: [
-        {
-          title: 'Checklist พร้อมใช้งาน',
-          body: 'online · sync สด · path พร้อม · restart method พร้อม',
-          meta: 'ให้ใช้ rail นี้เป็น quick read ก่อนเข้าไปหน้าตั้งค่าเซิร์ฟเวอร์หรือ restart control',
-          tone: 'info',
-        },
-        {
-          title: 'สิ่งที่ควรทำต่อ',
-          body: stale > 0 ? 'เปิดดู sync/logs ก่อน' : 'ถ้ายังไม่มีปัญหา ให้ตรวจ readiness ของ config และ restart ต่อ',
-          meta: stale > 0
-            ? 'runtime ที่เริ่ม stale มักกระทบทั้ง logs, config, และ restart workflow พร้อมกัน'
-            : 'ถ้าผู้ดูแลจะเปลี่ยน config หรือ restart ให้หน้านี้เป็นจุดตรวจสุขภาพก่อนเริ่มงาน',
-          tone: stale > 0 ? 'warning' : 'muted',
-        },
-      ],
-    };
   }
 
   function renderBadge(label, tone) {
@@ -241,149 +110,97 @@
   }
 
   function renderNavGroup(group) {
-    return [
-      '<section class="tdv4-nav-group">',
-      `<div class="tdv4-nav-group-label">${escapeHtml(group.label)}</div>`,
-      '<div class="tdv4-nav-items">',
-      ...(Array.isArray(group.items)
-        ? group.items.map((item) => {
-            const currentClass = item.current ? ' tdv4-nav-link-current' : '';
-            return `<a class="tdv4-nav-link${currentClass}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`;
-          })
-        : []),
-      '</div>',
-      '</section>',
-    ].join('');
+    return `<section class="tdv4-nav-group"><div class="tdv4-nav-group-label">${escapeHtml(group.label)}</div><div class="tdv4-nav-items">${(Array.isArray(group.items) ? group.items : []).map((item) => `<a class="tdv4-nav-link${item.current ? ' tdv4-nav-link-current' : ''}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`).join('')}</div></section>`;
   }
 
-  function renderSummaryCard(item) {
-    return [
-      `<article class="tdv4-kpi tdv4-tone-${escapeHtml(item.tone || 'muted')}">`,
-      `<div class="tdv4-kpi-label">${escapeHtml(item.label)}</div>`,
-      `<div class="tdv4-kpi-value">${escapeHtml(item.value)}</div>`,
-      `<div class="tdv4-kpi-detail">${escapeHtml(item.detail)}</div>`,
-      '</article>',
-    ].join('');
-  }
+  function createTenantServerBotsV4Model(source) {
+    const state = source && typeof source === 'object' ? source : {};
+    const rows = (Array.isArray(state.agents) ? state.agents : []).filter(isServerBot);
+    const provisioning = Array.isArray(state.agentProvisioning) ? state.agentProvisioning.filter(isServerBot) : [];
+    const online = rows.filter((row) => statusTone(row.status) === 'success').length;
+    const stale = rows.filter((row) => trimText(row?.status, 80).toLowerCase() === 'stale').length;
+    const selectedServerId = String(state?.activeServer?.id || state?.servers?.[0]?.id || '').trim();
+    const queueCount = Array.isArray(state.queueItems) ? state.queueItems.length : 0;
+    const failedCount = Array.isArray(state.deadLetters) ? state.deadLetters.length : 0;
+    const result = state?.__provisioningResult?.['server-bots'] || null;
 
-  function renderBotRow(row, selectedName) {
-    const current = row.name === selectedName ? ' tdv4-data-row-current' : '';
-    return [
-      `<article class="tdv4-data-row${current}">`,
-      `<div class="tdv4-data-main"><strong>${escapeHtml(row.name)}</strong><div class="code">${escapeHtml(row.server)}</div></div>`,
-      `<div>${renderBadge(row.status, statusTone(row.status))}</div>`,
-      `<div>${escapeHtml(row.freshness)}</div>`,
-      `<div>${escapeHtml(row.config)}</div>`,
-      `<div>${escapeHtml(row.restart)}</div>`,
-      `<div class="code">${escapeHtml(row.lastSeenAt)}</div>`,
-      `<div>${escapeHtml(row.issue)}</div>`,
-      '</article>',
-    ].join('');
-  }
-
-  function renderRailCard(item) {
-    return [
-      `<article class="tdv4-panel tdv4-rail-card tdv4-tone-${escapeHtml(item.tone || 'muted')}">`,
-      `<div class="tdv4-rail-title">${escapeHtml(item.title)}</div>`,
-      `<strong class="tdv4-rail-body">${escapeHtml(item.body)}</strong>`,
-      `<div class="tdv4-rail-detail">${escapeHtml(item.meta)}</div>`,
-      '</article>',
-    ].join('');
+    return {
+      shell: {
+        brand: 'SCUM TH',
+        surfaceLabel: 'แผงผู้เช่า',
+        workspaceLabel: firstNonEmpty([
+          state?.tenantLabel,
+          state?.tenantConfig?.name,
+          state?.overview?.tenantName,
+          state?.me?.tenantId,
+          'Tenant Workspace',
+        ]),
+        navGroups: Array.isArray(state?.__surfaceShell?.navGroups) ? state.__surfaceShell.navGroups : FALLBACK_NAV_GROUPS,
+      },
+      header: {
+        title: 'Server Bot',
+        subtitle: 'ใช้สำหรับอ่าน log, sync ข้อมูล, แก้ไฟล์ config และควบคุมเซิร์ฟเวอร์',
+        chips: [
+          { label: `${formatNumber(online)} ตัวออนไลน์`, tone: online ? 'success' : 'muted' },
+          { label: `${formatNumber(stale)} ตัวเริ่ม stale`, tone: stale ? 'warning' : 'muted' },
+          { label: `${formatNumber(provisioning.length)} token รอเปิดใช้`, tone: provisioning.length ? 'warning' : 'muted' },
+        ],
+      },
+      summary: [
+        {
+          label: 'พร้อม sync',
+          value: formatNumber(online),
+          detail: online ? 'มี bot ที่เชื่อมกับระบบแล้ว' : 'ยังไม่มี bot ที่ออนไลน์',
+          tone: online ? 'success' : 'warning',
+        },
+        {
+          label: 'งานรอจัดการ',
+          value: formatNumber(queueCount),
+          detail: queueCount ? 'ควรเช็กก่อนสั่ง apply หรือ restart' : 'ไม่มีงานค้างในคิว',
+          tone: queueCount ? 'warning' : 'success',
+        },
+        {
+          label: 'งานล้มเหลว',
+          value: formatNumber(failedCount),
+          detail: failedCount ? 'ควรเคลียร์งานล้มเหลวก่อนแตะไฟล์ config' : 'ยังไม่มีงานล้มเหลว',
+          tone: failedCount ? 'danger' : 'muted',
+        },
+      ],
+      servers: Array.isArray(state.servers) ? state.servers : [],
+      selectedServerId,
+      rows: rows.map((row) => ({
+        name: firstNonEmpty([row?.meta?.agentLabel, row?.runtimeKey, row?.name, 'Server Bot']),
+        server: firstNonEmpty([row?.meta?.serverId, row?.serverId, row?.tenantServerId, 'ยังไม่ผูกเซิร์ฟเวอร์']),
+        machine: firstNonEmpty([row?.hostname, row?.meta?.hostname, row?.meta?.machineFingerprint, 'ยังไม่เห็นชื่อเครื่อง']),
+        status: firstNonEmpty([row?.status, 'unknown']),
+        lastSeenAt: formatDateTime(row?.lastSeenAt),
+        config: normalizeCapabilities(row?.meta?.capabilities || row?.meta?.features).some((entry) => entry.includes('config')) ? 'พร้อมแก้ config' : 'รอเช็กสิทธิ์',
+        restart: normalizeCapabilities(row?.meta?.capabilities || row?.meta?.features).some((entry) => entry.includes('restart')) ? 'พร้อม restart' : 'รอเช็กสิทธิ์',
+      })),
+      tokens: provisioning.slice(0, 5).map((row) => ({
+        name: firstNonEmpty([row?.displayName, row?.name, row?.runtimeKey, 'Server Bot']),
+        expiresAt: formatDateTime(row?.expiresAt, 'ยังไม่กำหนดเวลา'),
+        status: firstNonEmpty([row?.status, 'pending_activation']),
+        runtimeKey: firstNonEmpty([row?.runtimeKey, row?.agentId, '-']),
+      })),
+      result,
+    };
   }
 
   function buildTenantServerBotsV4Html(model) {
-    const safeModel = model || createTenantServerBotsV4Model({});
-    return [
-      '<div class="tdv4-app">',
-      '<header class="tdv4-topbar">',
-      '<div class="tdv4-brand-row">',
-      `<div class="tdv4-brand-mark">${escapeHtml(safeModel.shell.brand)}</div>`,
-      '<div class="tdv4-brand-copy">',
-      `<div class="tdv4-surface-label">${escapeHtml(safeModel.shell.surfaceLabel)}</div>`,
-      `<div class="tdv4-workspace-label">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '</div>',
-      '</div>',
-      '<div class="tdv4-topbar-actions">',
-      renderBadge(safeModel.shell.environmentLabel, 'info'),
-      renderBadge('Server Bots', 'warning'),
-      '</div>',
-      '</header>',
-      '<div class="tdv4-shell tdv4-runtime-shell">',
-      '<aside class="tdv4-sidebar">',
-      `<div class="tdv4-sidebar-title">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-sidebar-copy">ศูนย์งานของตัวดูแลเซิร์ฟเวอร์ ใช้ดู sync, config, และ restart posture ก่อนทำงานเปลี่ยนแปลงฝั่งเซิร์ฟเวอร์</div>',
-      ...(Array.isArray(safeModel.shell.navGroups) ? safeModel.shell.navGroups.map(renderNavGroup) : []),
-      '</aside>',
-      '<main class="tdv4-main">',
-      '<section class="tdv4-pagehead tdv4-panel">',
-      '<div>',
-      `<h1 class="tdv4-page-title">${escapeHtml(safeModel.header.title)}</h1>`,
-      `<p class="tdv4-page-subtitle">${escapeHtml(safeModel.header.subtitle)}</p>`,
-      '<div class="tdv4-chip-row">',
-      ...(Array.isArray(safeModel.header.statusChips) ? safeModel.header.statusChips.map((chip) => renderBadge(chip.label, chip.tone)) : []),
-      '</div>',
-      '</div>',
-      '<div class="tdv4-pagehead-actions">',
-      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a>`,
-      '</div>',
-      '</section>',
-      '<section class="tdv4-kpi-strip tdv4-runtime-summary-strip">',
-      ...(Array.isArray(safeModel.summaryStrip) ? safeModel.summaryStrip.map(renderSummaryCard) : []),
-      '</section>',
-      '<section class="tdv4-dual-grid tdv4-runtime-main-grid">',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">Server runtime</div>',
-      '<h2 class="tdv4-section-title">ตาราง Server Bots</h2>',
-      '<div class="tdv4-data-header"><span>Runtime</span><span>Status</span><span>Sync freshness</span><span>Config</span><span>Restart</span><span>Last seen</span><span>Issue</span></div>',
-      '<div class="tdv4-data-table">',
-      ...(Array.isArray(safeModel.rows) && safeModel.rows.length
-        ? safeModel.rows.map((row) => renderBotRow(row, safeModel.selected?.name))
-        : ['<div class="tdv4-empty-state"><strong>ยังไม่มี Server Bot</strong><span>สร้างตัวดูแลเซิร์ฟเวอร์ก่อน เพื่อให้ระบบอ่าน log จัดการ config และสั่ง restart ได้จริง</span><a class="tdv4-button tdv4-button-primary" href="#server-bots-new">สร้าง Server Bot</a></div>']),
-      '</div>',
-      '</section>',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">ตัวที่เลือก</div>',
-      '<h2 class="tdv4-section-title">สรุป sync และความพร้อมระดับเซิร์ฟเวอร์</h2>',
-      (safeModel.selected
-        ? [
-            '<div class="tdv4-selected-runtime">',
-            `<strong>${escapeHtml(safeModel.selected.name)}</strong>`,
-            `<div>${renderBadge(safeModel.selected.status, statusTone(safeModel.selected.status))}</div>`,
-            `<div class="tdv4-kpi-detail">Server ${escapeHtml(safeModel.selected.server)} · freshness ${escapeHtml(safeModel.selected.freshness)}</div>`,
-            `<div class="tdv4-kpi-detail">Config ${escapeHtml(safeModel.selected.config)} · Restart ${escapeHtml(safeModel.selected.restart)}</div>`,
-            `<div class="tdv4-kpi-detail">Last seen ${escapeHtml(safeModel.selected.lastSeenAt)}</div>`,
-            '</div>',
-          ].join('')
-        : '<div class="tdv4-empty-state"><strong>ยังไม่ได้เลือก Server Bot</strong><span>เลือกตัวดูแลเซิร์ฟเวอร์จากตารางก่อน เพื่อดูความสดของ sync และความพร้อมในการแก้ config หรือ restart</span></div>'),
-      '</section>',
-      '</section>',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">Diagnostics</div>',
-      '<h2 class="tdv4-section-title">ภาระงานและสัญญาณที่ควรดูต่อ</h2>',
-      '<div class="tdv4-runtime-readiness-grid">',
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานรอจัดการ</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.queueCount)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">งานที่ล้มเหลว</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.deadLetterCount)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">สัญญาณจาก sync check</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.reconcileAlerts)}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">การแจ้งเตือนล่าสุด</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.diagnostics.syncSignals)}</div></article>`,
-      '</div>',
-      '</section>',
-      '</main>',
-      '<aside class="tdv4-rail">',
-      '<div class="tdv4-rail-sticky">',
-      `<div class="tdv4-rail-header">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-rail-copy">ใช้ rail นี้เป็น quick diagnostics ก่อนขยับไป Logs & Sync, Server Config, หรือ Restart Control</div>',
-      ...(Array.isArray(safeModel.railCards) ? safeModel.railCards.map(renderRailCard) : []),
-      '</div>',
-      '</aside>',
-      '</div>',
-      '</div>',
-    ].join('');
+    const safe = model && typeof model === 'object' ? model : createTenantServerBotsV4Model({});
+    const serverOptions = safe.servers
+      .map((server) => `<option value="${escapeHtml(server.id)}"${server.id === safe.selectedServerId ? ' selected' : ''}>${escapeHtml(firstNonEmpty([server.name, server.slug, server.id]))}</option>`)
+      .join('');
+    const result = safe.result && safe.result.instructions
+      ? `<article class="tdv4-panel tdv4-runtime-result tdv4-tone-success"><div class="tdv4-section-kicker">พร้อมติดตั้ง</div><h3 class="tdv4-section-title">${escapeHtml(safe.result.instructions.title)}</h3><p class="tdv4-section-copy">${escapeHtml(safe.result.instructions.detail || 'คัดลอกคำสั่งนี้ไปใช้บนเครื่องเซิร์ฟเวอร์ได้ทันที')}</p><textarea class="tdv4-editor tdv4-runtime-command" readonly>${escapeHtml(safe.result.instructions.command || '')}</textarea></article>`
+      : '';
+
+    return `<div class="tdv4-app"><div class="tdv4-topbar"><div class="tdv4-brand-row"><div class="tdv4-brand-mark">${escapeHtml(safe.shell.brand)}</div><div class="tdv4-brand-copy"><div class="tdv4-surface-label">${escapeHtml(safe.shell.surfaceLabel)}</div><div class="tdv4-workspace-label">${escapeHtml(safe.shell.workspaceLabel)}</div></div></div></div><div class="tdv4-shell tdv4-runtime-shell"><aside class="tdv4-sidebar">${(Array.isArray(safe.shell.navGroups) ? safe.shell.navGroups : []).map(renderNavGroup).join('')}</aside><main class="tdv4-main tdv4-stack"><section class="tdv4-pagehead"><div><h1 class="tdv4-page-title">${escapeHtml(safe.header.title)}</h1><p class="tdv4-page-subtitle">${escapeHtml(safe.header.subtitle)}</p><div class="tdv4-chip-row">${safe.header.chips.map((chip) => renderBadge(chip.label, chip.tone)).join('')}</div></div><div class="tdv4-pagehead-actions"><a class="tdv4-button tdv4-button-primary" href="#server-bots-provision">สร้าง Server Bot</a></div></section><section class="tdv4-kpi-strip tdv4-runtime-summary-strip">${safe.summary.map((item) => `<article class="tdv4-kpi tdv4-tone-${escapeHtml(item.tone)}"><div class="tdv4-kpi-label">${escapeHtml(item.label)}</div><div class="tdv4-kpi-value">${escapeHtml(item.value)}</div><div class="tdv4-kpi-detail">${escapeHtml(item.detail)}</div></article>`).join('')}</section><section class="tdv4-dual-grid tdv4-runtime-main-grid"><article class="tdv4-panel"><div class="tdv4-section-kicker">Create runtime</div><h2 class="tdv4-section-title">สร้าง Server Bot ใหม่</h2><p class="tdv4-section-copy">ออก setup token แล้วนำไปติดตั้งบนเครื่องที่อยู่ใกล้ไฟล์เซิร์ฟเวอร์และ SCUM.log</p><div class="tdv4-runtime-form"><div class="tdv4-runtime-form-fields"><label class="tdv4-basic-field"><div class="tdv4-basic-field-copy"><div class="tdv4-basic-field-label">เซิร์ฟเวอร์</div><div class="tdv4-basic-field-detail">เลือกเซิร์ฟเวอร์ที่ bot ตัวนี้จะดูแล</div></div><select class="tdv4-basic-input" data-runtime-server-id="server-bots">${serverOptions || '<option value="">ยังไม่มีเซิร์ฟเวอร์</option>'}</select></label><label class="tdv4-basic-field"><div class="tdv4-basic-field-copy"><div class="tdv4-basic-field-label">ชื่อที่ใช้เรียก</div><div class="tdv4-basic-field-detail">ชื่อที่ทีมงานจะเห็นในหน้ารันไทม์</div></div><input class="tdv4-basic-input" type="text" data-runtime-display-name="server-bots" value="Server Bot"></label><label class="tdv4-basic-field"><div class="tdv4-basic-field-copy"><div class="tdv4-basic-field-label">Runtime Key</div><div class="tdv4-basic-field-detail">คีย์อ้างอิงของตัว runtime บนเครื่องจริง</div></div><input class="tdv4-basic-input" type="text" data-runtime-runtime-key="server-bots" value="server-bot"></label></div><div class="tdv4-action-list"><button class="tdv4-button tdv4-button-primary" type="button" data-runtime-provision-button="server-bots"${safe.servers.length ? '' : ' disabled'}>สร้าง Server Bot</button></div></div>${result}</article><article class="tdv4-panel"><div class="tdv4-section-kicker">Current runtimes</div><h2 class="tdv4-section-title">รายการ Server Bot</h2><p class="tdv4-section-copy">ใช้หน้านี้ดูว่า bot ตัวใดพร้อมอ่าน log, แก้ config และรองรับ restart ได้แล้ว</p>${safe.rows.length ? `<div class="tdv4-data-table"><div class="tdv4-data-header"><span>ชื่อ</span><span>เซิร์ฟเวอร์</span><span>เครื่อง</span><span>สถานะ</span><span>ล่าสุด</span><span>Config</span><span>Restart</span></div>${safe.rows.map((row, index) => `<article class="tdv4-data-row${index === 0 ? ' tdv4-data-row-current' : ''}"><div class="tdv4-data-main"><strong>${escapeHtml(row.name)}</strong><span class="tdv4-kpi-detail">${escapeHtml(row.server)}</span></div><span>${escapeHtml(row.server)}</span><span>${escapeHtml(row.machine)}</span><span>${renderBadge(row.status, statusTone(row.status))}</span><span>${escapeHtml(row.lastSeenAt)}</span><span>${escapeHtml(row.config)}</span><span>${escapeHtml(row.restart)}</span></article>`).join('')}</div>` : '<div class="tdv4-empty-state"><strong>ยังไม่มี Server Bot</strong><p>เริ่มจากกดปุ่ม “สร้าง Server Bot” เพื่อออก token และคำสั่งติดตั้งบนเครื่องเซิร์ฟเวอร์</p></div>'}</article></section></main><aside class="tdv4-rail"><div class="tdv4-rail-sticky"><article class="tdv4-panel tdv4-rail-card tdv4-tone-info"><div class="tdv4-rail-title">ลำดับติดตั้ง</div><strong class="tdv4-rail-body">สร้าง · ติดตั้ง · Sync</strong><div class="tdv4-rail-detail">หลังออก token แล้ว ให้รันคำสั่งบนเครื่องที่เข้าถึงไฟล์ config และ SCUM.log ได้ จากนั้นรอ sync กลับเข้าระบบ</div></article><article class="tdv4-panel tdv4-rail-card tdv4-tone-warning"><div class="tdv4-rail-title">Token ที่ยังรอใช้</div>${safe.tokens.length ? safe.tokens.map((row) => `<div class="tdv4-list-item"><div class="tdv4-list-main"><strong>${escapeHtml(row.name)}</strong><p>Runtime: ${escapeHtml(row.runtimeKey)}</p></div><div class="tdv4-list-meta">${escapeHtml(row.expiresAt)}</div></div>`).join('') : '<div class="tdv4-empty-state"><strong>ยังไม่มี token ค้าง</strong><p>เมื่อสร้าง token ใหม่ ระบบจะแสดงไว้ที่นี่จนกว่าจะ activate</p></div>'}</article></div></aside></div></div>`;
   }
 
   function renderTenantServerBotsV4(rootElement, source) {
-    if (!rootElement) {
-      throw new Error('renderTenantServerBotsV4 requires a root element');
-    }
+    if (!rootElement) throw new Error('renderTenantServerBotsV4 requires a root element');
     const model = source && source.header && Array.isArray(source.rows)
       ? source
       : createTenantServerBotsV4Model(source);

@@ -8,31 +8,50 @@ const {
   createTenantDeliveryAgentsV4Model,
 } = require('../src/admin/assets/tenant-delivery-agents-v4.js');
 
-test('tenant delivery agents v4 model filters execute runtimes and builds readiness view', () => {
+test('tenant delivery agents v4 model filters execute runtimes and keeps provisioning context', () => {
   const model = createTenantDeliveryAgentsV4Model({
-    tenantConfig: { name: 'SCUM TH Production' },
+    tenantLabel: 'Codex Test Community',
+    activeServer: { id: 'server-alpha', name: 'Alpha Server' },
+    servers: [{ id: 'server-alpha', name: 'Alpha Server' }],
     agents: [
-      { runtimeKey: 'delivery-1', status: 'online', version: '1.4.2', lastSeenAt: '2026-03-26T08:00:00+07:00', meta: { agentRole: 'execute', agentScope: 'execute_only', serverId: 'server-1' } },
-      { runtimeKey: 'watcher-1', status: 'online', version: '1.3.0', lastSeenAt: '2026-03-26T08:00:00+07:00', meta: { agentRole: 'sync', agentScope: 'sync_only', serverId: 'server-1' } },
+      {
+        runtimeKey: 'delivery-1',
+        status: 'online',
+        version: '1.4.2',
+        lastSeenAt: '2026-03-27T10:00:00.000Z',
+        meta: { agentRole: 'execute', agentScope: 'execute_only', serverId: 'server-alpha' },
+      },
+      {
+        runtimeKey: 'watcher-1',
+        status: 'online',
+        lastSeenAt: '2026-03-27T10:00:00.000Z',
+        meta: { agentRole: 'sync', agentScope: 'sync_only', serverId: 'server-alpha' },
+      },
     ],
     queueItems: [{}, {}],
     deadLetters: [{}],
-    deliveryRuntime: { status: 'ready', mode: 'agent' },
   });
 
-  assert.equal(model.header.title, 'Delivery Agents');
+  assert.equal(model.header.title, 'Delivery Agent');
   assert.equal(model.rows.length, 1);
   assert.equal(model.rows[0].name, 'delivery-1');
-  assert.equal(model.readiness.queueCount, '2');
+  assert.equal(model.selectedServerId, 'server-alpha');
 });
 
-test('tenant delivery agents v4 html includes runtime table and readiness section', () => {
-  const html = buildTenantDeliveryAgentsV4Html(createTenantDeliveryAgentsV4Model({ tenantConfig: { name: 'Tenant Demo' }, agents: [] }));
+test('tenant delivery agents v4 html exposes provisioning hooks and current runtime table', () => {
+  const html = buildTenantDeliveryAgentsV4Html(createTenantDeliveryAgentsV4Model({
+    tenantLabel: 'Codex Test Community',
+    activeServer: { id: 'server-alpha', name: 'Alpha Server' },
+    servers: [{ id: 'server-alpha', name: 'Alpha Server' }],
+    agents: [],
+  }));
 
-  assert.match(html, /Delivery Agents/);
-  assert.match(html, /ตาราง Delivery Agents/);
-  assert.match(html, /คิวและสถานะรันไทม์ที่กระทบการส่งของ/);
-  assert.match(html, /Provisioning checklist/);
+  assert.match(html, /Delivery Agent/);
+  assert.match(html, /สร้าง Delivery Agent ใหม่/);
+  assert.match(html, /data-runtime-server-id="delivery-agents"/);
+  assert.match(html, /data-runtime-display-name="delivery-agents"/);
+  assert.match(html, /data-runtime-runtime-key="delivery-agents"/);
+  assert.match(html, /data-runtime-provision-button="delivery-agents"/);
 });
 
 test('tenant delivery agents preview html references parallel assets', () => {

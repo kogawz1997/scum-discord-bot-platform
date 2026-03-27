@@ -62,6 +62,11 @@ const PLATFORM_SCOPE_GROUPS = Object.freeze([
     scopes: ['server:read', 'server:write'],
   },
   {
+    key: 'server-control',
+    title: 'Server Control + Config',
+    scopes: ['config:read', 'config:write', 'server:control', 'backup:write'],
+  },
+  {
     key: 'analytics',
     title: 'Analytics + Monitoring',
     scopes: [

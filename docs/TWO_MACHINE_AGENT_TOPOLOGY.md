@@ -138,9 +138,7 @@ Do not reuse a setup token across machines. Device binding is intentionally one-
 Run:
 
 ```bat
-npm run doctor
-npm run security:check
-npm run readiness:prod
+npm run machine:validate:control-plane -- --production
 ```
 
 ### Machine B
@@ -148,14 +146,19 @@ npm run readiness:prod
 Run:
 
 ```bat
-npm run doctor:topology:prod
+npm run machine:validate:game-node -- --production
 ```
 
-Then confirm:
+If you split Machine B into separate runtime hosts, use:
 
-- `http://127.0.0.1:3212/healthz` for watcher if enabled
-- `http://127.0.0.1:3213/healthz` for console-agent
-- Machine A can reach `SCUM_CONSOLE_AGENT_BASE_URL`
+```bat
+npm run machine:validate:delivery-agent -- --production
+npm run machine:validate:server-bot -- --production
+```
+
+Detailed setup and role-specific env guidance:
+
+- [MACHINE_VALIDATION_GUIDE_TH.md](./MACHINE_VALIDATION_GUIDE_TH.md)
 
 ## Important Limits
 
@@ -166,11 +169,9 @@ Then confirm:
 ## Minimum Evidence Before Calling This Topology "Ready"
 
 - Machine A validation passes:
-  - `npm run doctor`
-  - `npm run security:check`
-  - `npm run readiness:prod`
+  - `npm run machine:validate:control-plane -- --production`
 - Machine B validation passes:
-  - `npm run doctor:topology:prod`
+  - `npm run machine:validate:game-node -- --production`
 - one end-to-end execute flow is captured from Machine A to Machine B
 - one sync flow is captured from Machine B back to Machine A
 - an operator note exists confirming that Windows session remained interactive during the test

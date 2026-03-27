@@ -292,6 +292,9 @@ const {
   upsertPlatformTenantConfig,
 } = require('./services/platformTenantConfigService');
 const {
+  createPlatformServerConfigService,
+} = require('./services/platformServerConfigService');
+const {
   createServerRegistryService,
 } = require('./domain/servers/serverRegistryService');
 const {
@@ -724,12 +727,28 @@ const {
   listProvisioningTokens: listPlatformAgentProvisioningTokens,
   recordSession: recordPlatformAgentSession,
   registerAgent: registerPlatformAgent,
+  revokeManagedAgentDevice: revokePlatformAgentDevice,
+  revokeProvisioningToken: revokePlatformAgentProvisioningToken,
   revokeAgentToken: revokePlatformAgentToken,
   rotateAgentToken: rotatePlatformAgentToken,
 } = agentRegistryService;
 const {
   ingestPayload: ingestPlatformAgentSync,
 } = syncIngestionService;
+const platformServerConfigService = createPlatformServerConfigService({
+  listServerRegistry: listPlatformServerRegistry,
+});
+const {
+  getServerConfigCategory,
+  getServerConfigWorkspace,
+  listServerConfigBackups,
+  createServerConfigSaveJob,
+  createServerConfigApplyJob,
+  createServerConfigRollbackJob,
+  claimNextServerConfigJob,
+  completeServerConfigJob,
+  upsertServerConfigSnapshot,
+} = platformServerConfigService;
 
 const handleAdminEntityPostRoute = createAdminEntityPostRoutes({
   sendJson,
@@ -813,6 +832,9 @@ const handleAdminPublicRoute = createAdminPublicRoutes({
   registerPlatformAgent,
   recordPlatformAgentSession,
   ingestPlatformAgentSync,
+  upsertServerConfigSnapshot,
+  claimNextServerConfigJob,
+  completeServerConfigJob,
   reconcileDeliveryState,
   dispatchPlatformWebhookEvent,
   ssoDiscordActive: SSO_DISCORD_ACTIVE,
@@ -911,6 +933,9 @@ const handleAdminGetRoute = createAdminGetRoutes({
   listPlatformAgentRuntimes,
   listPlatformServerRegistry,
   listPlatformServerLinks,
+  getServerConfigWorkspace,
+  getServerConfigCategory,
+  listServerConfigBackups,
   listPlatformAgentRegistry,
   listPlatformAgentProvisioningTokens,
   listPlatformAgentDevices,
@@ -1058,8 +1083,13 @@ const handleAdminPlatformPostRoute = createAdminPlatformPostRoutes({
   acceptPlatformLicenseLegal,
   createPlatformApiKey,
   createPlatformWebhookEndpoint,
+  createServerConfigApplyJob,
+  createServerConfigRollbackJob,
+  createServerConfigSaveJob,
   createPlatformAgentToken,
   createPlatformAgentProvisioningToken,
+  revokePlatformAgentDevice,
+  revokePlatformAgentProvisioningToken,
   revokePlatformAgentToken,
   rotatePlatformAgentToken,
   dispatchPlatformWebhookEvent,
@@ -1092,7 +1122,7 @@ const handleAdminAuditRoute = createAdminAuditRoutes({
 
 const {
   deriveRouteGroup,
-  handlePostAction,
+  handleMutationAction,
 } = createAdminRouteRuntime({
   sendJson,
   handleAdminAuthPostRoute,
@@ -1140,7 +1170,7 @@ const {
   requiredRoleForPostPath,
   ensureRole,
   ensureStepUpAuth,
-  handlePostAction,
+  handleMutationAction,
   publishAdminLiveUpdate,
   sendText,
   closeAllLiveStreams,

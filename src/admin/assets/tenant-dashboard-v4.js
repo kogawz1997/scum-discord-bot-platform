@@ -40,7 +40,7 @@
       tone: 'success',
       tag: 'เริ่มจากตรงนี้',
       title: 'เซิร์ฟเวอร์และสุขภาพระบบ',
-      detail: 'ใช้เมื่อคุณต้องเช็กสถานะเซิร์ฟเวอร์ ดูการเชื่อมต่อของบอต หรือเปิดงานแก้ปัญหาที่ค้างอยู่',
+      detail: 'ใช้เช็กสถานะเซิร์ฟเวอร์และบอต',
       actions: [
         { label: 'ดูสถานะเซิร์ฟเวอร์', href: '#server-status', primary: true },
         { label: 'เปิดกล่องเหตุขัดข้อง', href: '#incidents' },
@@ -51,7 +51,7 @@
       tone: 'warning',
       tag: 'ซัพพอร์ตผู้เล่น',
       title: 'คำสั่งซื้อและปัญหาที่ผู้เล่นพบ',
-      detail: 'เปิดงานประจำวันให้เร็วขึ้น เช่น ค้นหาคำสั่งซื้อ ตรวจสถานะส่งของ หรือดูข้อมูลผู้เล่นที่กำลังมีปัญหา',
+      detail: 'ใช้ดูคำสั่งซื้อ การส่งของ และข้อมูลผู้เล่น',
       actions: [
         { label: 'ดูคำสั่งซื้อล่าสุด', href: '#orders', primary: true },
         { label: 'ดูสถานะการส่งของ', href: '#delivery' },
@@ -62,7 +62,7 @@
       tone: 'info',
       tag: 'หลักฐานและการตั้งค่า',
       title: 'ตรวจค่า ใช้หลักฐาน และคุมความเสี่ยง',
-      detail: 'ใช้ก่อนเปลี่ยนค่าระบบหรือเมื่อคุณต้องย้อนดูหลักฐานการทำงานของทีมและของรันไทม์',
+      detail: 'ใช้ก่อนเปลี่ยนค่าระบบหรือเมื่อต้องย้อนดูหลักฐาน',
       actions: [
         { label: 'เปิดหน้าตั้งค่าเซิร์ฟเวอร์', href: '#server-config', primary: true },
         { label: 'เปิดบันทึกและหลักฐาน', href: '#audit' },
@@ -437,6 +437,11 @@
     return found ? normalizeStatus(found.status || found.state) : 'unknown';
   }
 
+  function hasAgentRecord(agents, matcher) {
+    const rows = Array.isArray(agents) ? agents : [];
+    return rows.some((item) => matcher(String(item?.role || item?.kind || item?.type || '').trim().toLowerCase()));
+  }
+
   function extractPackageName(legacyState) {
     const subscriptions = Array.isArray(legacyState?.subscriptions) ? legacyState.subscriptions : [];
     const activeSubscription = subscriptions.find((item) => String(item?.status || '').toLowerCase() === 'active') || subscriptions[0];
@@ -461,6 +466,18 @@
     ]);
   }
 
+  function hasActivePackage(legacyState) {
+    const subscriptions = Array.isArray(legacyState?.subscriptions) ? legacyState.subscriptions : [];
+    return subscriptions.some((item) => ['active', 'trial', 'trialing'].includes(String(item?.status || '').trim().toLowerCase()))
+      || !String(extractPackageName(legacyState) || '').includes('ยังไม่ระบุแพ็กเกจ');
+  }
+
+  function hasServerConfigSnapshot(legacyState) {
+    return String(legacyState?.serverConfigWorkspace?.snapshotStatus || '').trim().toLowerCase() === 'ready'
+      && Array.isArray(legacyState?.serverConfigWorkspace?.categories)
+      && legacyState.serverConfigWorkspace.categories.length > 0;
+  }
+
   function buildIssues(legacyState) {
     const issues = [];
     const deadLetters = listCount(legacyState?.deadLetters);
@@ -478,15 +495,15 @@
       issues.push({
         tone: 'danger',
         title: 'สถานะเซิร์ฟเวอร์ยังไม่พร้อม',
-        detail: 'ควรเปิดหน้าสถานะเซิร์ฟเวอร์ก่อน เพื่อดูว่าปัญหาอยู่ที่ Server Bot การเชื่อมต่อ หรือขั้นตอนรีสตาร์ตล่าสุด',
+        detail: 'เปิดหน้าสถานะเซิร์ฟเวอร์ก่อน เพื่อตรวจว่าปัญหาอยู่ที่ไหน',
         meta: statusLabel(serverStatus),
       });
     }
     if (deadLetters > 0) {
       issues.push({
         tone: 'danger',
-        title: 'มีรายการส่งของตกค้างใน dead-letter',
-        detail: 'ควรตรวจรายการที่ล้มเหลวและยืนยันสาเหตุ ก่อนตัดสินใจ replay หรือคืนสถานะให้ผู้เล่น',
+        title: 'มีงานล้มเหลวค้างอยู่',
+        detail: 'ตรวจสาเหตุก่อนสั่งลองใหม่หรือคืนสถานะให้ผู้เล่น',
         meta: `${formatNumber(deadLetters)} รายการ`,
       });
     }
@@ -494,7 +511,7 @@
       issues.push({
         tone: 'warning',
         title: 'คิวส่งของเริ่มสะสม',
-        detail: 'ดูภาระงานของ Delivery Agent และตรวจว่ามีคำสั่งซื้อใดติดอยู่ระหว่างรอประมวลผลนานผิดปกติหรือไม่',
+        detail: 'ตรวจภาระงานของ Delivery Agent และงานที่รอนานผิดปกติ',
         meta: `${formatNumber(queueDepth)} รายการ`,
       });
     }
@@ -502,7 +519,7 @@
       issues.push({
         tone: anomalyCount > 0 ? 'warning' : 'danger',
         title: 'พบสัญญาณผิดปกติจากงานตรวจสอบ',
-        detail: 'หน้า Audit และ Diagnostics มีรายละเอียดเหตุผิดปกติที่ควรยืนยันก่อนเปิดงานต่อกับผู้เล่นหรือทีมดูแลเซิร์ฟเวอร์',
+        detail: 'เปิด Audit หรือ Diagnostics เพื่อตรวจรายละเอียดก่อนทำงานต่อ',
         meta: `anomalies ${formatNumber(anomalyCount)} · abuse ${formatNumber(abuseCount)}`,
       });
     }
@@ -648,7 +665,28 @@
   }
 
   function buildSetupFlow(legacyState, serverStatus, executeStatus, syncStatus, issues) {
+    const hasSyncRuntime = hasAgentRecord(
+      legacyState?.agents,
+      (role) => role.includes('sync') || role.includes('server') || role.includes('watcher'),
+    );
+    const hasExecuteRuntime = hasAgentRecord(
+      legacyState?.agents,
+      (role) => role.includes('execute') || role.includes('delivery') || role.includes('console'),
+    );
+    const packageReady = hasActivePackage(legacyState);
+    const configReady = hasServerConfigSnapshot(legacyState);
+    const readyForDailyWork = serverStatus === 'online'
+      && executeStatus === 'online'
+      && syncStatus === 'online'
+      && configReady;
     const steps = [
+      {
+        key: 'package',
+        title: 'เลือกแพ็กเกจ',
+        detail: 'ยืนยันว่าแพ็กเกจเปิดสิทธิ์งานส่งของ บอต และการตั้งค่าเซิร์ฟเวอร์จริงแล้ว',
+        href: '#plan',
+        ready: packageReady,
+      },
       {
         key: 'server-bot',
         title: 'สร้าง Server Bot',
@@ -681,10 +719,10 @@
         : { label: 'ดูสถานะเซิร์ฟเวอร์', href: '#server-status' };
 
     return {
-      title: nextStep ? 'ทำตามลำดับนี้ก่อน เพื่อเปิดระบบให้พร้อม' : 'ระบบพร้อมแล้ว เริ่มจากงานสำคัญที่สุดได้เลย',
+      title: nextStep ? 'ทำตามลำดับนี้ก่อน' : 'ระบบพร้อมแล้ว',
       detail: nextStep
-        ? 'หน้าแดชบอร์ดนี้จะพาคุณไปทีละขั้น เพื่อไม่ให้เปิดงานขายหรือส่งของก่อนที่บอตจะพร้อม'
-        : 'เมื่อระบบหลักพร้อมแล้ว ให้เริ่มจากงานประจำวันหรือเคลียร์สัญญาณที่ยังเปิดอยู่',
+        ? 'ตั้งระบบหลักให้พร้อมก่อนเปิดงานขายหรือส่งของ'
+        : 'เริ่มจากงานประจำวันหรือสัญญาณที่ยังเปิดอยู่',
       primaryAction,
       secondaryActions: nextStep
         ? steps.filter((item) => item.key !== nextStep.key).map((item) => ({ label: item.title, href: item.href }))
@@ -692,6 +730,99 @@
             { label: 'ดูคำสั่งซื้อ', href: '#orders' },
             { label: 'ดูผู้เล่น', href: '#players' },
           ],
+      steps,
+    };
+  }
+
+  function buildSetupFlowV2(legacyState, serverStatus, executeStatus, syncStatus, issues) {
+    const hasSyncRuntime = hasAgentRecord(
+      legacyState?.agents,
+      (role) => role.includes('sync') || role.includes('server') || role.includes('watcher'),
+    );
+    const hasExecuteRuntime = hasAgentRecord(
+      legacyState?.agents,
+      (role) => role.includes('execute') || role.includes('delivery') || role.includes('console'),
+    );
+    const packageReady = hasActivePackage(legacyState);
+    const configReady = hasServerConfigSnapshot(legacyState);
+    const readyForDailyWork = serverStatus === 'online'
+      && executeStatus === 'online'
+      && syncStatus === 'online'
+      && configReady;
+    const steps = [
+      {
+        key: 'package',
+        title: 'เลือกแพ็กเกจ',
+        detail: 'ยืนยันว่าแพ็กเกจเปิดสิทธิ์หลักของเซิร์ฟเวอร์นี้แล้ว',
+        href: '#plan',
+        ready: packageReady,
+      },
+      {
+        key: 'create-server-bot',
+        title: 'สร้าง Server Bot',
+        detail: 'สร้างตัวดูแลเซิร์ฟเวอร์สำหรับ log, sync และงานควบคุม',
+        href: '#server-bots',
+        ready: hasSyncRuntime,
+      },
+      {
+        key: 'install-server-bot',
+        title: 'ติดตั้ง Server Bot',
+        detail: 'ให้ Server Bot ออนไลน์และส่งข้อมูลล่าสุดกลับเข้าระบบ',
+        href: '#server-bots',
+        ready: syncStatus === 'online',
+      },
+      {
+        key: 'create-delivery-agent',
+        title: 'สร้าง Delivery Agent',
+        detail: 'สร้างตัวส่งของสำหรับงานที่ต้องทำในเกมจริง',
+        href: '#delivery-agents',
+        ready: hasExecuteRuntime,
+      },
+      {
+        key: 'install-delivery-agent',
+        title: 'ติดตั้ง Delivery Agent',
+        detail: 'ให้ตัวส่งของออนไลน์และพร้อมรับงานทันที',
+        href: '#delivery-agents',
+        ready: executeStatus === 'online',
+      },
+      {
+        key: 'configure-server',
+        title: 'ตั้งค่าเซิร์ฟเวอร์',
+        detail: 'ตรวจและบันทึกค่าหลักของเซิร์ฟเวอร์ก่อนเปิดใช้งานจริง',
+        href: '#server-config',
+        ready: configReady,
+      },
+      {
+        key: 'start-using',
+        title: 'เริ่มใช้งานจริง',
+        detail: 'ตรวจสถานะ คิวงาน และการซิงก์ให้พร้อมสำหรับงานประจำวัน',
+        href: '#server-status',
+        ready: readyForDailyWork,
+      },
+    ];
+
+    const completedSteps = steps.filter((item) => item.ready).length;
+    const nextStep = steps.find((item) => !item.ready) || null;
+    const hasIssues = Array.isArray(issues) && issues.length > 0;
+    const primaryAction = nextStep
+      ? { label: `${nextStep.title} (แนะนำ)`, href: nextStep.href }
+      : hasIssues
+        ? { label: 'เปิดกล่องปัญหา (แนะนำ)', href: '#incidents' }
+        : { label: 'ดูสถานะเซิร์ฟเวอร์', href: '#server-status' };
+
+    return {
+      title: nextStep ? 'ทำตามลำดับนี้ก่อน' : 'ระบบพร้อมใช้งานแล้ว',
+      detail: nextStep
+        ? `ตั้งค่าระบบหลักให้ครบก่อนเปิดงานจริง ตอนนี้ทำแล้ว ${completedSteps}/${steps.length} ขั้น`
+        : 'ระบบหลักพร้อมแล้ว เริ่มดูคิวงาน ผู้เล่น หรือการตั้งค่าต่อได้ทันที',
+      primaryAction,
+      secondaryActions: nextStep
+        ? steps.filter((item) => item.key !== nextStep.key).map((item) => ({ label: item.title, href: item.href }))
+        : [
+            { label: 'ดูคำสั่งซื้อ', href: '#orders' },
+            { label: 'ดูผู้เล่น', href: '#players' },
+          ],
+      completedSteps,
       steps,
     };
   }
@@ -726,7 +857,61 @@
     );
     const lastSyncAt = extractLastSync(state);
     const issues = buildIssues(state);
-    const setupFlow = buildSetupFlow(state, serverStatus, executeStatus, syncStatus, issues);
+    const setupFlow = buildSetupFlowV2(state, serverStatus, executeStatus, syncStatus, issues);
+    const setupReady = Array.isArray(setupFlow?.steps) && setupFlow.steps.every((step) => step.ready);
+    const leadingIssue = Array.isArray(issues) && issues.length > 0 ? issues[0] : null;
+    const decisionPanel = !setupReady
+      ? {
+          title: 'ตั้งระบบหลักให้พร้อมก่อน',
+          detail: 'เริ่มจากลำดับแนะนำก่อน เพื่อไม่ให้เปิดงานขายหรือส่งของทั้งที่บอตยังไม่พร้อม',
+          primaryAction: setupFlow.primaryAction,
+          secondaryActions: setupFlow.secondaryActions,
+          checkpoints: [
+            { label: 'เซิร์ฟเวอร์', value: statusLabel(serverStatus), detail: 'ดูความพร้อมของเซิร์ฟเวอร์', tone: toneForStatus(serverStatus) },
+            { label: 'Delivery Agent', value: statusLabel(executeStatus), detail: 'ตัวส่งของในเกม', tone: toneForStatus(executeStatus) },
+            { label: 'Server Bot', value: statusLabel(syncStatus), detail: 'ตัวอ่าน log และคุมเซิร์ฟเวอร์', tone: toneForStatus(syncStatus) },
+          ],
+          leadingIssue,
+        }
+      : leadingIssue
+        ? {
+            title: 'ระบบพร้อมแล้ว แต่ยังมีเรื่องที่ต้องดู',
+            detail: 'เริ่มจากสัญญาณที่กระทบผู้เล่นหรือคิวงานก่อน แล้วค่อยไปต่อที่งานอื่น',
+            primaryAction: {
+              label: 'เปิดปัญหาที่ควรจัดการก่อน (แนะนำ)',
+              href: '#dashboard-issues',
+            },
+            secondaryActions: [
+              { label: 'ดูสถานะเซิร์ฟเวอร์', href: '#server-status' },
+              { label: 'ดูคำสั่งซื้อ', href: '#orders' },
+              { label: 'ดูผู้เล่น', href: '#players' },
+            ],
+          checkpoints: [
+              { label: 'เซิร์ฟเวอร์', value: statusLabel(serverStatus), detail: 'พร้อมสำหรับงานประจำวันหรือไม่', tone: toneForStatus(serverStatus) },
+              { label: 'งานค้าง', value: formatNumber(listCount(state?.queueItems), '0'), detail: `${formatNumber(listCount(state?.deadLetters), '0')} งานล้มเหลว`, tone: listCount(state?.deadLetters) > 0 ? 'danger' : listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
+              { label: 'sync ล่าสุด', value: formatRelative(lastSyncAt), detail: formatDateTime(lastSyncAt), tone: 'muted' },
+            ],
+            leadingIssue,
+          }
+        : {
+            title: 'ระบบพร้อมสำหรับงานประจำวัน',
+            detail: 'ไม่มีสัญญาณเร่งด่วน คุณไปต่อที่คำสั่งซื้อ ผู้เล่น หรือการตั้งค่าได้ทันที',
+            primaryAction: {
+              label: 'ดูคำสั่งซื้อล่าสุด (แนะนำ)',
+              href: '#orders',
+            },
+            secondaryActions: [
+              { label: 'ดูสถานะเซิร์ฟเวอร์', href: '#server-status' },
+              { label: 'ดูผู้เล่น', href: '#players' },
+              { label: 'ตั้งค่าเซิร์ฟเวอร์', href: '#server-config' },
+            ],
+            checkpoints: [
+              { label: 'เซิร์ฟเวอร์', value: statusLabel(serverStatus), detail: 'พร้อมรับงานหรือไม่', tone: toneForStatus(serverStatus) },
+              { label: 'Delivery Agent', value: statusLabel(executeStatus), detail: 'พร้อมส่งของ', tone: toneForStatus(executeStatus) },
+              { label: 'Server Bot', value: statusLabel(syncStatus), detail: 'พร้อมดูแลเซิร์ฟเวอร์', tone: toneForStatus(syncStatus) },
+            ],
+            leadingIssue: null,
+          };
 
     return {
       shell: {
@@ -741,7 +926,7 @@
       notice: state?.__surfaceNotice || null,
       header: {
         title: tenantName,
-        subtitle: 'ศูนย์งานประจำวันของผู้ดูแลเซิร์ฟเวอร์ จัดลำดับงานที่ต้องทำก่อนและพาไปหน้าที่เกี่ยวข้องทันที',
+        subtitle: 'ศูนย์งานประจำวันของผู้ดูแลเซิร์ฟเวอร์ เปิดมาแล้วรู้ว่าควรทำอะไรก่อน',
         statusChips: [
           { label: extractPackageName(state), tone: 'info' },
           { label: `เซิร์ฟเวอร์ ${statusLabel(serverStatus)}`, tone: toneForStatus(serverStatus) },
@@ -749,23 +934,19 @@
           { label: `Server Bot ${statusLabel(syncStatus)}`, tone: toneForStatus(syncStatus) },
           { label: `sync ล่าสุด ${formatRelative(lastSyncAt)}`, tone: 'muted' },
         ],
-        primaryAction: {
-          label: serverStatus === 'online' ? 'ดูสถานะเซิร์ฟเวอร์' : 'ตั้งค่า runtime',
-          href: serverStatus === 'online' ? '#server-status' : '#server-bots',
-        },
         primaryAction: setupFlow.primaryAction,
       },
       kpis: [
         {
           label: 'แพ็กเกจปัจจุบัน',
           value: extractPackageName(state),
-          detail: 'สิทธิ์ใช้งานหลักของ tenant นี้',
+          detail: 'สิทธิ์หลักของ tenant นี้',
           tone: 'info',
         },
         {
           label: 'สถานะเซิร์ฟเวอร์',
           value: statusLabel(serverStatus),
-          detail: 'พร้อมใช้งานสำหรับงานประจำวันหรือไม่',
+          detail: 'พร้อมใช้งานหรือไม่',
           tone: toneForStatus(serverStatus),
         },
         {
@@ -787,12 +968,14 @@
           tone: 'muted',
         },
         {
-          label: 'คำสั่งซื้อรอดำเนินการ',
+          label: 'งานที่รอดำเนินการ',
           value: formatNumber(listCount(state?.queueItems), '0'),
-          detail: `${formatNumber(listCount(state?.deadLetters), '0')} รายการอยู่ใน dead-letter`,
+          detail: `${formatNumber(listCount(state?.deadLetters), '0')} งานล้มเหลว`,
           tone: listCount(state?.deadLetters) > 0 ? 'warning' : 'success',
         },
       ],
+      decisionPanel,
+      setupReady,
       setupFlow,
       taskGroups: DEFAULT_TASK_GROUPS,
       issues,
@@ -844,6 +1027,20 @@
     ].join('');
   }
 
+  function renderSetupStepV2(step, index) {
+    return [
+      `<article class="tdv4-setup-step tdv4-tone-${escapeHtml(step.ready ? 'success' : 'warning')}">`,
+      `<div class="tdv4-setup-step-index">${escapeHtml(String(index + 1))}</div>`,
+      '<div class="tdv4-setup-step-copy">',
+      `<strong class="tdv4-setup-step-title">${escapeHtml(step.title)}</strong>`,
+      `<p class="tdv4-kpi-detail">${escapeHtml(step.detail)}</p>`,
+      `<a class="tdv4-setup-step-link" href="${escapeHtml(step.href || '#')}">${escapeHtml(step.ready ? 'เปิดดูอีกครั้ง' : 'ไปทำขั้นนี้')}</a>`,
+      '</div>',
+      `<div class="tdv4-setup-step-state">${renderBadge(step.ready ? 'พร้อมแล้ว' : 'ยังต้องทำ', step.ready ? 'success' : 'warning')}</div>`,
+      '</article>',
+    ].join('');
+  }
+
   function renderTaskGroup(group) {
     return [
       `<section class="tdv4-panel tdv4-task-group tdv4-tone-${escapeHtml(group.tone || 'muted')}">`,
@@ -852,8 +1049,12 @@
       `<p class="tdv4-section-copy">${escapeHtml(group.detail)}</p>`,
       '<div class="tdv4-action-list">',
       ...(Array.isArray(group.actions) ? group.actions.map((action) => {
-        const className = action.primary ? 'tdv4-button tdv4-button-primary' : 'tdv4-button tdv4-button-secondary';
-        return `<a class="${className}" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label)}</a>`;
+        return [
+          '<div class="tdv4-action-entry">',
+          action.primary ? '<span class="tdv4-action-recommend">แนะนำ</span>' : '',
+          `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label)}</a>`,
+          '</div>',
+        ].join('');
       }) : []),
       '</div>',
       '</section>',
@@ -914,6 +1115,54 @@
     ].join('');
   }
 
+  function renderIssueList(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="tdv4-empty-state"><strong>ยังไม่มีเรื่องเร่งด่วนที่ต้องเปิดดูก่อน</strong><p>ตอนนี้ยังไม่พบปัญหาที่กระทบงานประจำวัน ลองเปิดคำสั่งซื้อหรือสถานะเซิร์ฟเวอร์ต่อได้เลย</p><a class="tdv4-button tdv4-button-secondary" href="#orders">ดูคำสั่งซื้อ</a></div>';
+    }
+    return items.map(renderIssue).join('');
+  }
+
+  function renderActivityList(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="tdv4-empty-state"><strong>ยังไม่มีกิจกรรมล่าสุดให้ติดตาม</strong><p>ถ้ายังไม่มีการเปลี่ยนแปลงใหม่ ให้ใช้เวลานี้ตรวจสถานะเซิร์ฟเวอร์หรือทบทวนการตั้งค่าแทน</p><a class="tdv4-button tdv4-button-secondary" href="#server-status">ดูสถานะเซิร์ฟเวอร์</a></div>';
+    }
+    return items.map(renderActivity).join('');
+  }
+
+  function renderDecisionPanel(panel) {
+    if (!panel) return '';
+    return [
+      '<section class="tdv4-panel tdv4-priority-panel">',
+      '<div class="tdv4-priority-grid">',
+      '<div class="tdv4-stack">',
+      '<span class="tdv4-section-kicker">ควรทำอะไรก่อน</span>',
+      `<h2 class="tdv4-section-title">${escapeHtml(panel.title || '')}</h2>`,
+      `<p class="tdv4-section-copy">${escapeHtml(panel.detail || '')}</p>`,
+      panel.leadingIssue
+        ? `<div class="tdv4-priority-note tdv4-tone-${escapeHtml(panel.leadingIssue.tone || 'warning')}"><strong>${escapeHtml(panel.leadingIssue.title || '')}</strong><p>${escapeHtml(panel.leadingIssue.detail || '')}</p></div>`
+        : '',
+      '<div class="tdv4-priority-checkpoints">',
+      ...(Array.isArray(panel.checkpoints) ? panel.checkpoints.map((item) => [
+        `<article class="tdv4-priority-item tdv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+        `<span class="tdv4-kpi-label">${escapeHtml(item.label || '')}</span>`,
+        `<strong class="tdv4-kpi-value">${escapeHtml(item.value || '-')}</strong>`,
+        `<p class="tdv4-kpi-detail">${escapeHtml(item.detail || '')}</p>`,
+        '</article>',
+      ].join('')) : []),
+      '</div>',
+      '</div>',
+      '<div class="tdv4-stack tdv4-priority-actions">',
+      '<span class="tdv4-action-recommend">แนะนำ</span>',
+      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(panel.primaryAction && panel.primaryAction.href || '#')}">${escapeHtml(panel.primaryAction && panel.primaryAction.label || 'เปิดต่อ')}</a>`,
+      '<div class="tdv4-priority-secondary">',
+      ...(Array.isArray(panel.secondaryActions) ? panel.secondaryActions.map((action) => `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`) : []),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</section>',
+    ].join('');
+  }
+
   function buildTenantDashboardV4Html(model) {
     const safeModel = model || createTenantDashboardV4Model({});
     return [
@@ -935,7 +1184,7 @@
       '<div class="tdv4-shell">',
       '<aside class="tdv4-sidebar">',
       `<div class="tdv4-sidebar-title">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-sidebar-copy">จัดระเบียบงานประจำวันให้เห็นว่าอะไรต้องทำก่อน และควรไปหน้าต่อไปที่ไหน</div>',
+      '<div class="tdv4-sidebar-copy">ดูว่างานไหนต้องทำก่อน แล้วค่อยไปหน้าที่เกี่ยวข้อง</div>',
       ...(Array.isArray(safeModel.shell.navGroups) ? safeModel.shell.navGroups.map(renderNavGroup) : []),
       '</aside>',
       '<main class="tdv4-main">',
@@ -948,7 +1197,7 @@
       '</div>',
       '</div>',
       '<div class="tdv4-pagehead-actions">',
-      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a>`,
+      `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a>`,
       '</div>',
       '</section>',
       safeModel.notice
@@ -957,14 +1206,16 @@
       '<section class="tdv4-kpi-strip">',
       ...(Array.isArray(safeModel.kpis) ? safeModel.kpis.map(renderKpi) : []),
       '</section>',
-      safeModel.setupFlow
+      renderDecisionPanel(safeModel.decisionPanel),
+      safeModel.setupFlow && !safeModel.setupReady
         ? [
           '<section class="tdv4-panel tdv4-setup-flow-panel">',
           '<div class="tdv4-panel-head">',
           '<div class="tdv4-stack">',
-          '<span class="tdv4-section-kicker">Setup flow</span>',
+          '<span class="tdv4-section-kicker">ตั้งค่าระบบ</span>',
           `<h2 class="tdv4-section-title">${escapeHtml(safeModel.setupFlow.title || '')}</h2>`,
           `<p class="tdv4-section-copy">${escapeHtml(safeModel.setupFlow.detail || '')}</p>`,
+          `<div class="tdv4-chip-row">${renderBadge(`ทำแล้ว ${String(safeModel.setupFlow.completedSteps || 0)}/${String((safeModel.setupFlow.steps || []).length || 0)} ขั้น`, 'info')}</div>`,
           '</div>',
           '<div class="tdv4-action-list tdv4-setup-flow-actions">',
           `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.setupFlow.primaryAction.href || '#')}">${escapeHtml(safeModel.setupFlow.primaryAction.label || '')}</a>`,
@@ -972,50 +1223,56 @@
           '</div>',
           '</div>',
           '<div class="tdv4-setup-flow-grid">',
-          ...((Array.isArray(safeModel.setupFlow.steps) ? safeModel.setupFlow.steps : []).map(renderSetupStep)),
+          ...((Array.isArray(safeModel.setupFlow.steps) ? safeModel.setupFlow.steps : []).map(renderSetupStepV2)),
           '</div>',
           '</section>',
         ].join('')
         : '',
-      '<section class="tdv4-task-grid">',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">ตัวเลือกอื่น</div>',
+      '<h2 class="tdv4-section-title">งานที่ไปต่อได้</h2>',
+      '<p class="tdv4-section-copy">เลือกงานที่กำลังทำได้จากบล็อกนี้</p>',
+      '<div class="tdv4-task-grid">',
       ...(Array.isArray(safeModel.taskGroups) ? safeModel.taskGroups.map(renderTaskGroup) : []),
+      '</div>',
       '</section>',
       '<section class="tdv4-dual-grid">',
       '<div class="tdv4-stack">',
-      '<section class="tdv4-panel">',
+      '<section id="dashboard-issues" class="tdv4-panel">',
       '<div class="tdv4-section-kicker">กล่องเหตุที่ต้องจัดการก่อน</div>',
       '<h2 class="tdv4-section-title">ปัญหาที่กระทบงานประจำวัน</h2>',
-      '<p class="tdv4-section-copy">เริ่มจากตรงนี้เมื่อคุณต้องตัดสินใจว่าเรื่องใดควรเปิดทำก่อน เพื่อไม่ให้ผู้เล่นหรือรันไทม์ค้างงานต่อ</p>',
+      '<p class="tdv4-section-copy">เริ่มจากตรงนี้เมื่อมีเรื่องเร่งด่วน</p>',
       '<div class="tdv4-list">',
-      ...(Array.isArray(safeModel.issues) ? safeModel.issues.map(renderIssue) : []),
+      renderIssueList(safeModel.issues),
       '</div>',
       '</section>',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">สัญญาณแพลตฟอร์ม</div>',
-      '<h2 class="tdv4-section-title">บริบทของ tenant ตอนนี้</h2>',
-      '<p class="tdv4-section-copy">ช่วยให้รู้ว่าควรแก้เรื่องสิทธิ์ใช้ โควตา หรือการเชื่อมต่อก่อนลงไปทำงานย่อย</p>',
-      '<div class="tdv4-context-grid">',
-      ...(Array.isArray(safeModel.contextBlocks) ? safeModel.contextBlocks.map(renderContextBlock) : []),
-      '</div>',
-      '</section>',
-      '</div>',
-      '<div class="tdv4-stack">',
       '<section class="tdv4-panel">',
       '<div class="tdv4-section-kicker">มุมมองผลกระทบ</div>',
       '<h2 class="tdv4-section-title">ตัวเลขที่ต้องเห็นก่อนเปิดงานต่อ</h2>',
-      '<p class="tdv4-section-copy">ใช้ยืนยันว่าการส่งของ ร้านค้า และฐานผู้เล่นยังอยู่ในสภาพที่พร้อมใช้งาน</p>',
+      '<p class="tdv4-section-copy">ใช้ยืนยันว่าร้านค้า การส่งของ และฐานผู้เล่นยังพร้อมใช้งาน</p>',
       '<div class="tdv4-highlight-grid">',
       ...(Array.isArray(safeModel.highlights) ? safeModel.highlights.map(renderHighlight) : []),
       '</div>',
       '</section>',
+      '</div>',
+      '<div class="tdv4-stack">',
       '<section class="tdv4-panel">',
       '<div class="tdv4-section-kicker">กิจกรรมล่าสุด</div>',
       '<h2 class="tdv4-section-title">ลำดับเหตุการณ์ที่เกี่ยวข้องกับ tenant นี้</h2>',
-      '<p class="tdv4-section-copy">เมื่อมีการเปลี่ยนแปลงจากระบบหรือผู้ดูแล คุณจะเห็นภาพรวมแบบอ่านเร็วได้จากจุดนี้</p>',
+      '<p class="tdv4-section-copy">ดูการเปลี่ยนแปลงล่าสุดของ tenant นี้ได้จากจุดนี้</p>',
       '<div class="tdv4-list">',
-      ...(Array.isArray(safeModel.activity) ? safeModel.activity.map(renderActivity) : []),
+      renderActivityList(safeModel.activity),
       '</div>',
       '</section>',
+      `<details class="tdv4-panel tdv4-details-panel"${safeModel.setupReady ? '' : ' open'}>`,
+      '<summary class="tdv4-details-summary">บริบทเพิ่มเติมของ tenant</summary>',
+      '<div class="tdv4-stack">',
+      '<p class="tdv4-section-copy">ใช้ดูโควตา สิทธิ์ใช้งาน และบริบทเพิ่มเติมเมื่อจำเป็น</p>',
+      '<div class="tdv4-context-grid">',
+      ...(Array.isArray(safeModel.contextBlocks) ? safeModel.contextBlocks.map(renderContextBlock) : []),
+      '</div>',
+      '</div>',
+      '</details>',
       '</div>',
       '</section>',
       '</main>',

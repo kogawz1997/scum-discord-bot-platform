@@ -57,15 +57,16 @@ test('owner dashboard v4 model maps current owner state into command-center cont
   assert.equal(model.kpis.length, 6);
   assert.equal(model.actionGroups.length, 3);
   assert.ok(model.attentionRows.length >= 1);
+  assert.ok(model.decisionPanel);
   assert.ok(model.incidentFeed.some((item) => item.title.includes('/admin/api/platform/overview')));
 });
 
-test('owner dashboard v4 html includes shell, action hub, and attention center', () => {
+test('owner dashboard v4 html includes shell, decision panel, and activity regions', () => {
   const html = buildOwnerDashboardV4Html(createOwnerDashboardV4Model({}));
   assert.match(html, /odv4-topbar/);
-  assert.match(html, /เลือก workflow ให้ตรงกับงาน/);
-  assert.match(html, /ผู้เช่าที่เจ้าของระบบควรเปิดดูก่อน/);
-  assert.match(html, /เหตุการณ์และการแจ้งเตือนที่เพิ่งเกิดขึ้น/);
+  assert.match(html, /odv4-priority-panel/);
+  assert.match(html, /odv4-task-grid/);
+  assert.match(html, /odv4-feed/);
 });
 
 test('owner dashboard preview references parallel assets', () => {

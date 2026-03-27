@@ -8,89 +8,148 @@ const {
   createTenantServerConfigV4Model,
 } = require('../src/admin/assets/tenant-server-config-v4.js');
 
-test('tenant server config v4 model exposes readable summaries for each editor', () => {
-  const model = createTenantServerConfigV4Model({
-    me: { tenantId: 'tenant-prod-001' },
-    tenantConfig: {
-      name: 'SCUM TH Production',
-      updatedAt: '2026-03-26T08:00:00+07:00',
-      featureFlags: { bot_log: true },
-      configPatch: { maxPlayers: 50, restartGraceMinutes: 5 },
-      portalEnvPatch: { publicTheme: 'scum-dark' },
-    },
-    draft: {
-      featureFlags: { bot_log: true, shop_module: true },
-      configPatch: { maxPlayers: 64, restartGraceMinutes: 10 },
-      portalEnvPatch: { publicTheme: 'scum-dark' },
-    },
-  });
-
-  assert.equal(model.header.title, 'ตั้งค่าเซิร์ฟเวอร์');
-  assert.equal(model.sections.length, 4);
-  assert.equal(model.editors.length, 3);
-  assert.ok(model.editors.every((editor) => typeof editor.headline === 'string' && editor.headline.length > 0));
-  assert.ok(model.editors.some((editor) => Array.isArray(editor.items) && editor.items.length > 0));
-  assert.ok(model.summaryCards.some((item) => /การเปลี่ยนแปลง/.test(item.value)));
-});
-
-test('tenant server config v4 html includes readable summary and advanced editor', () => {
-  const html = buildTenantServerConfigV4Html(createTenantServerConfigV4Model({
-    me: { tenantId: 'tenant-demo' },
-    tenantConfig: { name: 'Tenant Demo', featureFlags: {}, configPatch: {}, portalEnvPatch: {} },
-  }));
-
-  assert.match(html, /ตั้งค่าเซิร์ฟเวอร์/);
-  assert.match(html, /ระบบจัดหมวดให้แล้ว/);
-  assert.match(html, /ยังไม่มีการ override feature flags/);
-  assert.match(html, /แก้แบบ JSON ขั้นสูง/);
-  assert.match(html, /tdv4-readable-summary/);
-  assert.match(html, /data-config-action="save"/);
-  assert.match(html, /data-config-action="apply"/);
-  assert.match(html, /data-config-action="restart"/);
-});
-
-test('tenant server config v4 exposes feature flags as editable controls', () => {
-  const html = buildTenantServerConfigV4Html(createTenantServerConfigV4Model({
-    me: { tenantId: 'tenant-demo' },
+function createFixture() {
+  return {
+    tenantLabel: 'Codex Test Community',
+    activeServer: { id: 'server-alpha', name: 'Alpha Server' },
     overview: {
       tenantFeatureAccess: {
-        package: {
-          id: 'FULL_OPTION',
-          features: ['server_settings', 'shop_module'],
-        },
-        enabledFeatureKeys: ['server_settings', 'shop_module', 'orders_module'],
+        package: { features: ['server_settings', 'orders_module', 'player_module', 'sync_agent', 'execute_agent'] },
         features: [
-          { key: 'server_settings', title: 'Server Settings', category: 'server', enabled: true },
-          { key: 'shop_module', title: 'Shop Module', category: 'commerce', enabled: true },
-          { key: 'orders_module', title: 'Orders Module', category: 'commerce', enabled: true },
+          { key: 'server_settings', title: 'Server Settings' },
+          { key: 'orders_module', title: 'Orders Module' },
+          { key: 'player_module', title: 'Player Module' },
+          { key: 'sync_agent', title: 'Server Bot' },
+          { key: 'execute_agent', title: 'Delivery Agent' },
         ],
       },
     },
     tenantConfig: {
-      name: 'Tenant Demo',
-      featureFlags: {},
-      configPatch: {},
-      portalEnvPatch: {},
+      featureFlags: { orders_module: false },
+      configPatch: {
+        serverLabel: 'Alpha Server',
+        deliveryQueueBatchSize: 12,
+        maintenanceModeEnabled: true,
+      },
+      portalEnvPatch: {
+        publicTheme: 'midnight-ops',
+        communityFeedEnabled: true,
+      },
     },
-    draft: {
-      featureFlags: { orders_module: true },
-      configPatch: {},
-      portalEnvPatch: {},
+    serverConfigWorkspace: {
+      snapshotStatus: 'ready',
+      snapshotCollectedAt: '2026-03-27T10:00:00.000Z',
+      snapshotUpdatedBy: 'server-bot-alpha',
+      files: [
+        { file: 'ServerSettings.ini', label: 'Server Settings', exists: true },
+        { file: 'AdminUsers.ini', label: 'Admin Users', exists: true, rawEntries: ['76561198000000000', 'AdminSteam'] },
+        { file: 'BannedUsers.ini', label: 'Banned Users', exists: true, rawEntries: ['76561198000000001'] },
+      ],
+      backups: [{
+        id: 'backup-1',
+        file: 'ServerSettings.ini',
+        createdAt: '2026-03-27T09:00:00.000Z',
+        changedBy: 'admin',
+        changeSummary: [{ key: 'MaxPlayers' }],
+      }],
+      categories: [
+        {
+          key: 'general',
+          label: 'General',
+          description: 'Core server identity.',
+          groups: [
+            {
+              key: 'identity',
+              label: 'Identity',
+              settings: [
+                {
+                  id: 'cfg-general-name',
+                  file: 'ServerSettings.ini',
+                  section: 'General',
+                  key: 'ServerName',
+                  label: 'Server Name',
+                  description: 'Name shown to players.',
+                  type: 'string',
+                  currentValue: 'SCUM TH Alpha',
+                  defaultValue: 'SCUM TH',
+                  requiresRestart: true,
+                },
+                {
+                  id: 'cfg-general-players',
+                  file: 'ServerSettings.ini',
+                  section: 'General',
+                  key: 'MaxPlayers',
+                  label: 'Max Players',
+                  description: 'Player slot limit.',
+                  type: 'number',
+                  currentValue: 80,
+                  defaultValue: 64,
+                  min: 1,
+                  max: 100,
+                  requiresRestart: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      advanced: {
+        rawSnapshot: {
+          status: 'ready',
+          files: [{ file: 'ServerSettings.ini', settings: [{ section: 'General', key: 'ServerName', value: 'SCUM TH Alpha' }] }],
+        },
+      },
     },
-  }));
+  };
+}
 
-  assert.match(html, /tdv4-config-control-block/);
-  assert.match(html, /data-feature-flag-toggle/);
-  assert.match(html, /data-feature-flag-key="orders_module"/);
-  assert.match(html, /data-config-patch-field="maxPlayers"/);
-  assert.match(html, /ค่าพื้นฐานที่แก้ได้จากฟอร์ม/);
+test('tenant server config model builds a real server-bot workspace', () => {
+  const model = createTenantServerConfigV4Model(createFixture());
+
+  assert.equal(model.header.title, 'ตั้งค่าเซิร์ฟเวอร์');
+  assert.equal(model.workspace.available, true);
+  assert.equal(model.workspace.categories.length >= 2, true);
+  assert.equal(model.workspace.categories[0].key, 'general');
+  assert.ok(model.workspace.categories.some((category) => category.key === 'security'));
+  assert.equal(model.workspace.backups.length, 1);
+  assert.equal(model.featureFlags.items.length, 5);
+  assert.equal(model.configPatch.groups.length > 0, true);
+  assert.equal(model.portalEnvPatch.groups.length > 0, true);
 });
 
-test('tenant server config preview html references parallel assets', () => {
+test('tenant server config html renders category form, save actions, and advanced editors', () => {
+  const html = buildTenantServerConfigV4Html(createTenantServerConfigV4Model(createFixture()));
+
+  assert.match(html, /ตั้งค่าเซิร์ฟเวอร์/);
+  assert.match(html, /data-server-config-save-mode="save_only"/);
+  assert.match(html, /data-server-config-save-mode="save_apply"/);
+  assert.match(html, /data-server-config-save-mode="save_restart"/);
+  assert.match(html, /data-config-category-tab="general"/);
+  assert.match(html, /data-config-category-panel="general"/);
+  assert.match(html, /data-server-config-field/);
+  assert.match(html, /data-setting-file="ServerSettings\.ini"/);
+  assert.match(html, /data-setting-key="ServerName"/);
+  assert.match(html, /data-setting-file="AdminUsers\.ini"/);
+  assert.match(html, /data-setting-file="BannedUsers\.ini"/);
+  assert.match(html, /data-setting-type="line-list"/);
+  assert.match(html, /data-line-list-add/);
+  assert.match(html, /76561198000000000/);
+  assert.match(html, /data-server-config-rollback="backup-1"/);
+  assert.match(html, /data-feature-flag-toggle/);
+  assert.match(html, /data-config-patch-field="serverLabel"/);
+  assert.match(html, /data-portal-env-field="publicTheme"/);
+  assert.match(html, /tdv4-editor-featureFlags/);
+  assert.match(html, /tdv4-editor-configPatch/);
+  assert.match(html, /tdv4-editor-portalEnvPatch/);
+  assert.match(html, /ดู snapshot ดิบจาก Server Bot/);
+});
+
+test('tenant server config preview html points to the live asset pair', () => {
   const previewPath = path.join(__dirname, '..', 'src', 'admin', 'v4', 'tenant-server-config-v4.preview.html');
   const html = fs.readFileSync(previewPath, 'utf8');
 
   assert.match(html, /\.\.\/assets\/tenant-server-config-v4\.css/);
   assert.match(html, /\.\.\/assets\/tenant-server-config-v4\.js/);
   assert.match(html, /tenantServerConfigV4PreviewRoot/);
+  assert.match(html, /serverConfigWorkspace/);
 });

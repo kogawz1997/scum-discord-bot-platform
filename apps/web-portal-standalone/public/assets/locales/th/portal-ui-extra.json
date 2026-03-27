@@ -1,0 +1,33 @@
+{
+  "dictionary": {
+    "shell.player.documentTitle": "SCUM TH Platform | พอร์ทัลผู้เล่น",
+    "shell.player.title": "พอร์ทัลผู้เล่น",
+    "shell.player.detail": "ร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และข่าวสารของชุมชนในจุดเดียว",
+    "shell.player.service": "บริการ",
+    "shell.player.status.loading": "กำลังเตรียมพอร์ทัลผู้เล่น",
+    "shell.common.refresh": "รีเฟรชข้อมูล",
+    "shell.role.player": "ผู้เล่น",
+    "shell.role.service": "บริการ",
+    "player.app.status.loading": "กำลังโหลดข้อมูลผู้เล่น...",
+    "player.app.card.loadingTitle": "กำลังเตรียมข้อมูลผู้เล่น",
+    "player.app.card.loadingDetail": "กำลังดึงร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และข่าวสารของชุมชน",
+    "player.app.status.ready": "พร้อมใช้งาน",
+    "player.app.card.loadFailedTitle": "โหลดพอร์ทัลผู้เล่นไม่สำเร็จ",
+    "player.app.status.loadFailed": "โหลดข้อมูลไม่สำเร็จ",
+    "player.app.card.emptyTitle": "ยังไม่มีข้อมูล",
+    "player.app.card.emptyDetail": "รอให้ระบบดึงข้อมูลล่าสุดก่อน",
+    "player.app.page.home": "หน้าหลัก",
+    "player.app.page.commerce": "ร้านค้า กระเป๋าเงิน และคำสั่งซื้อ",
+    "player.app.page.stats": "สถิติ กิจกรรม และการช่วยเหลือ",
+    "player.nav.group.start": "เริ่มต้น",
+    "player.nav.group.commerce": "ร้านค้าและกระเป๋าเงิน",
+    "player.nav.group.community": "ชุมชน",
+    "player.nav.home": "หน้าหลัก",
+    "player.nav.commerce": "ร้านค้า กระเป๋าเงิน และคำสั่งซื้อ",
+    "player.nav.commerceLocked": "ร้านค้า กระเป๋าเงิน และคำสั่งซื้อ (ยังไม่เปิด)",
+    "player.nav.stats": "สถิติ กิจกรรม และการช่วยเหลือ",
+    "player.nav.statsLocked": "สถิติ กิจกรรม และการช่วยเหลือ (ยังไม่เปิด)",
+    "player.notice.lockedTitle": "เซิร์ฟนี้ยังไม่เปิดพื้นที่นี้ให้ผู้เล่น",
+    "player.notice.lockedDetail": "แพ็กเกจของเซิร์ฟเวอร์นี้ยังไม่เปิดหน้านี้สำหรับผู้เล่น ระบบจึงพากลับมาที่พื้นที่ที่ใช้งานได้ก่อน"
+  }
+}

@@ -1,5 +1,9 @@
 'use strict';
 
+const fs = require('node:fs');
+
+const { getFilePath } = require('../../store/_persist');
+
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -16,14 +20,33 @@ function resolveControlPlaneBaseUrl(env = process.env) {
   return explicit ? explicit.replace(/\/+$/, '') : '';
 }
 
+function readPlatformAgentState(env = process.env) {
+  const runtimeKey = trimText(
+    env.PLATFORM_AGENT_RUNTIME_KEY
+    || env.SCUM_SERVER_BOT_RUNTIME_KEY
+    || env.SCUM_SYNC_RUNTIME_KEY
+    || 'platform-agent',
+    120,
+  ).replace(/[^a-z0-9._-]+/gi, '-').toLowerCase();
+  const filePath = trimText(env.PLATFORM_AGENT_STATE_FILE, 600)
+    || getFilePath(`platform-agent-${runtimeKey}.json`);
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
 async function postAgentSyncPayload(input = {}, env = process.env) {
   const baseUrl = resolveControlPlaneBaseUrl(env);
+  const state = readPlatformAgentState(env);
   const token = trimText(
     env.SCUM_SYNC_AGENT_TOKEN
       || env.PLATFORM_AGENT_TOKEN
       || env.SCUM_AGENT_TOKEN,
     500,
-  );
+  ) || trimText(state?.rawKey, 1200);
   if (!baseUrl) {
     return { ok: false, reason: 'control-plane-base-url-missing' };
   }

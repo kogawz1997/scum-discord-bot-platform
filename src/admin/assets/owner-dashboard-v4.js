@@ -29,17 +29,17 @@
   ];
 
   const ACTION_GROUPS = [
-    { tone: 'warning', tag: 'งานด่วน', title: 'ซัพพอร์ตและเหตุการณ์', detail: 'เริ่มที่นี่เมื่อมีผู้เช่าแจ้งปัญหา คิวงานค้าง หรือมีสัญญาณที่เจ้าของระบบควรเปิดดูก่อนอย่างอื่น', actions: [
+    { tone: 'warning', tag: 'งานด่วน', title: 'ซัพพอร์ตและเหตุการณ์', detail: 'ใช้เมื่อมีผู้เช่าแจ้งปัญหาหรือมีสัญญาณผิดปกติ', actions: [
       { label: 'เปิดกล่องเหตุการณ์', href: '#incidents', primary: true },
       { label: 'เปิดคิวซัพพอร์ต', href: '#support' },
       { label: 'ตรวจเส้นทางการส่งของ', href: '#jobs' },
     ] },
-    { tone: 'info', tag: 'หลักฐาน', title: 'ความปลอดภัยและออดิท', detail: 'ใช้เมื่อจำเป็นต้องย้อนดูหลักฐาน ตรวจสิทธิ์การเข้าถึง หรือยืนยันว่าเส้นทางการทำงานยังปลอดภัยก่อนเปลี่ยนค่าระบบ', actions: [
+    { tone: 'info', tag: 'หลักฐาน', title: 'ความปลอดภัยและออดิท', detail: 'ใช้เมื่ออยากย้อนดูหลักฐานหรือเช็กสิทธิ์การเข้าถึง', actions: [
       { label: 'เปิดบันทึกออดิท', href: '#audit', primary: true },
       { label: 'ดูเซสชันและสิทธิ์', href: '#security' },
       { label: 'ดูสุขภาพรันไทม์', href: '#runtime-health' },
     ] },
-    { tone: 'success', tag: 'ธุรกิจ', title: 'รายได้และสถานะการขาย', detail: 'คุมการต่ออายุ โควตา และแพ็กเกจให้เห็นก่อน เพื่อไม่ให้ปัญหาของผู้เช่ากลายเป็น churn หรือรายได้หายโดยไม่รู้ตัว', actions: [
+    { tone: 'success', tag: 'ธุรกิจ', title: 'รายได้และสถานะการขาย', detail: 'ใช้ดูการต่ออายุ โควตา และแพ็กเกจของผู้เช่า', actions: [
       { label: 'ดูผู้เช่า', href: '#tenants', primary: true },
       { label: 'เช็กการต่ออายุ', href: '#subscriptions' },
       { label: 'เปิดหน้าแพ็กเกจ', href: '#packages' },
@@ -241,15 +241,65 @@
     const subscriptions = analytics.subscriptions || {};
     const hotspot = buildHotspot(state);
     const feed = buildIncidentFeed(state);
+    const attentionRows = buildAttentionRows(state);
     const expiringCount = (Array.isArray(state.subscriptions) ? state.subscriptions : []).filter((row) => {
       const renewsAt = parseDate(row.renewsAt || row.expiresAt || row.endsAt);
       return renewsAt && (renewsAt.getTime() - Date.now()) <= 1000 * 60 * 60 * 24 * 14;
     }).length;
+    const degradedRuntimeCount = Math.max(runtimeRows.length - readyRuntimes, 0);
+    const openSignalCount = listCount(state.notifications) + listCount(state.incidentInbox) + listCount(state.securityEvents);
     const primaryAction = expiringCount > 0
       ? { label: 'ดูรายการใกล้ต่ออายุ (แนะนำ)', href: '#subscriptions' }
       : feed.length > 0
         ? { label: 'เปิดกล่องเหตุการณ์ (แนะนำ)', href: '#incidents' }
         : { label: 'เปิดรายชื่อผู้เช่า', href: '#tenants' };
+    const decisionPanel = expiringCount > 0
+      ? {
+          title: 'เริ่มจากรายการใกล้ต่ออายุ',
+          detail: 'ตรวจรายการที่ใกล้หมดอายุก่อน เพื่อไม่ให้บริการสะดุดและไม่ให้เคสซัพพอร์ตเพิ่ม',
+          primaryAction,
+          secondaryActions: [
+            { label: 'ดูผู้เช่าที่ต้องติดตาม', href: '#tenants' },
+            { label: 'ดูสุขภาพรันไทม์', href: '#runtime-health' },
+            { label: 'เปิดบันทึกออดิท', href: '#audit' },
+          ],
+          checkpoints: [
+            { label: 'ใกล้ต่ออายุ', value: `${formatNumber(expiringCount, '0')} ราย`, detail: 'ควรเปิดดูก่อน', tone: 'danger' },
+            { label: 'ผู้เช่าที่ต้องตาม', value: `${formatNumber(attentionRows.length, '0')} ราย`, detail: 'ลิสต์สั้นที่ควรเปิดต่อ', tone: attentionRows.length > 0 ? 'warning' : 'muted' },
+            { label: 'สัญญาณเปิดอยู่', value: `${formatNumber(openSignalCount, '0')} รายการ`, detail: 'รวมแจ้งเตือนหลัก', tone: openSignalCount > 0 ? 'warning' : 'success' },
+          ],
+        }
+      : degradedRuntimeCount > 0
+        ? {
+            title: 'มีบริการที่ยังไม่พร้อม',
+            detail: 'ตรวจรันไทม์ที่ยังมีปัญหาก่อนแตะคิวผู้เช่าหรือสั่งงานต่อ',
+            primaryAction,
+            secondaryActions: [
+              { label: 'ดูเหตุการณ์ล่าสุด', href: '#incidents' },
+              { label: 'ดูผู้เช่าที่ได้รับผลกระทบ', href: '#tenants' },
+              { label: 'เปิดหน้าความปลอดภัย', href: '#security' },
+            ],
+            checkpoints: [
+              { label: 'รันไทม์ที่ต้องตาม', value: `${formatNumber(degradedRuntimeCount, '0')} บริการ`, detail: 'ยืนยัน heartbeat ก่อน', tone: 'warning' },
+              { label: 'สัญญาณใหม่', value: `${formatNumber(feed.length, '0')} รายการ`, detail: 'มีเรื่องที่ควรเปิดดู', tone: feed.length > 0 ? 'warning' : 'muted' },
+              { label: 'ผู้เช่าที่ใช้งานอยู่', value: `${formatNumber(tenants.active || listCount(state.tenants), '0')} ราย`, detail: 'ใช้ประเมินผลกระทบ', tone: 'info' },
+            ],
+          }
+        : {
+            title: 'ภาพรวมวันนี้พร้อมดูแล',
+            detail: 'ถ้าไม่มีเรื่องเร่งด่วน ให้เริ่มจากผู้เช่าที่ต้องติดตามหรือรายการธุรกิจสำคัญ',
+            primaryAction,
+            secondaryActions: [
+              { label: 'เปิดรายชื่อผู้เช่า', href: '#tenants' },
+              { label: 'ดูแพ็กเกจและการสมัครใช้', href: '#subscriptions' },
+              { label: 'เปิดกล่องเหตุการณ์', href: '#incidents' },
+            ],
+            checkpoints: [
+              { label: 'รายได้ที่ติดตามได้', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : 'ยังไม่มีข้อมูล', detail: 'รายได้ประจำของแพลตฟอร์ม', tone: 'success' },
+              { label: 'ผู้เช่าที่ใช้งานอยู่', value: `${formatNumber(tenants.active || listCount(state.tenants), '0')} ราย`, detail: 'ผู้เช่าที่กำลังเปิดบริการ', tone: 'info' },
+              { label: 'สัญญาณใหม่', value: `${formatNumber(openSignalCount, '0')} รายการ`, detail: 'ถ้าไม่มี ให้เดินงานต่อได้', tone: openSignalCount > 0 ? 'warning' : 'success' },
+            ],
+          };
     return {
       shell: {
         brand: 'SCUM TH',
@@ -260,26 +310,26 @@
       },
       header: {
         title: 'ภาพรวมเจ้าของระบบ',
-        subtitle: 'เห็นสุขภาพของผู้เช่า รันไทม์ ความเสี่ยง และเรื่องที่ควรจัดการก่อนจากศูนย์ควบคุมหน้าเดียว',
+        subtitle: 'ดูผู้เช่า รายได้ สุขภาพระบบ และเรื่องที่ควรจัดการก่อนจากหน้าเดียว',
         statusChips: [
           { label: `${formatNumber(tenants.total || listCount(state.tenants), '0')} ผู้เช่า`, tone: 'info' },
           { label: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')} รันไทม์พร้อม`, tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
           { label: `${formatNumber(feed.length, '0')} สัญญาณที่ยังเปิดอยู่`, tone: feed.length > 0 ? 'warning' : 'success' },
           { label: `${formatNumber(expiringCount, '0')} รายใกล้ต่ออายุ`, tone: expiringCount > 0 ? 'danger' : 'muted' },
         ],
-        primaryAction: { label: 'เปิดกล่องเหตุการณ์', href: '#incidents' },
         primaryAction,
       },
       kpis: [
+        { label: 'รายได้ประจำ', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : 'ยังไม่มีข้อมูล', detail: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} รายใกล้ต่ออายุ` : 'รายได้ที่ติดตามได้', tone: expiringCount > 0 ? 'danger' : 'info' },
         { label: 'ผู้เช่าที่ใช้งานอยู่', value: formatNumber(tenants.active || listCount(state.tenants), '0'), detail: `${formatNumber(tenants.trialing, '0')} ทดลอง · ${formatNumber(tenants.reseller, '0')} ตัวแทน`, tone: 'info' },
-        { label: 'ความพร้อมของรันไทม์', value: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')}`, detail: 'บริการที่เจ้าของระบบต้องดูแลโดยตรง', tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
-        { label: 'เอเจนต์ที่ออนไลน์', value: formatNumber((Array.isArray(state.agents) ? state.agents : []).filter((row) => toneForStatus(row.status) === 'success').length, '0'), detail: `${formatNumber(listCount(state.agents), '0')} รันไทม์ที่ลงทะเบียนไว้`, tone: 'success' },
-        { label: 'เหตุการณ์ที่เปิดอยู่', value: formatNumber(listCount(state.notifications) + listCount(state.incidentInbox), '0'), detail: `${formatNumber(listCount(state.securityEvents), '0')} สัญญาณด้านความปลอดภัย`, tone: listCount(state.notifications) > 0 ? 'warning' : 'muted' },
+        { label: 'ใกล้ต่ออายุ', value: formatNumber(expiringCount, '0'), detail: expiringCount > 0 ? 'ควรเปิดดูก่อน' : 'ยังไม่มีรายการเร่งด่วน', tone: expiringCount > 0 ? 'danger' : 'success' },
+        { label: 'รันไทม์พร้อม', value: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')}`, detail: 'บริการหลักของแพลตฟอร์ม', tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
+        { label: 'สัญญาณเปิดอยู่', value: formatNumber(openSignalCount, '0'), detail: `${formatNumber(listCount(state.securityEvents), '0')} สัญญาณความปลอดภัย`, tone: openSignalCount > 0 ? 'warning' : 'muted' },
         { label: 'อัตราส่งของสำเร็จ', value: `${formatNumber(delivery.successRate, '0')}%`, detail: `${formatNumber(delivery.purchaseCount30d, '0')} คำสั่งซื้อในช่วง 30 วัน`, tone: 'success' },
-        { label: 'มุมมองเชิงพาณิชย์', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : formatNumber(expiringCount, '0'), detail: Number(subscriptions.mrr) > 0 ? 'รายได้ประจำที่ตรวจจับได้' : 'มีรายการที่ใกล้ต่ออายุ', tone: expiringCount > 0 ? 'danger' : 'info' },
       ],
+      decisionPanel,
       actionGroups: ACTION_GROUPS,
-      attentionRows: buildAttentionRows(state),
+      attentionRows,
       incidentFeed: feed,
       railCards: [
         { title: 'ภาพรวมเชิงพาณิชย์', body: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} รายการใกล้ต่ออายุหรือหมดอายุ` : 'ตอนนี้ยังไม่เห็นแรงกดดันด้านการต่ออายุที่ต้องรีบจัดการ', meta: Number(subscriptions.mrr) > 0 ? `รายได้ที่ติดตามได้ ฿${formatNumber(subscriptions.mrr, '0')}` : 'ใช้หน้านี้ทบทวนแพ็กเกจและการสมัครใช้', tone: expiringCount > 0 ? 'danger' : 'success' },
@@ -320,12 +370,17 @@
       `<h3 class="odv4-section-title">${escapeHtml(item.title || '')}</h3>`,
       `<p class="odv4-section-copy">${escapeHtml(item.detail || '')}</p>`,
       '<div class="odv4-action-list">',
-      ...(Array.isArray(item.actions) ? item.actions : []).map((action) => `<a class="${action.primary ? 'odv4-button odv4-button-primary' : 'odv4-button odv4-button-secondary'}" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`),
+      ...(Array.isArray(item.actions) ? item.actions : []).map((action) => [
+        '<div class="odv4-action-entry">',
+        action.primary ? '<span class="odv4-action-recommend">แนะนำ</span>' : '',
+        `<a class="odv4-button odv4-button-secondary" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`,
+        '</div>',
+      ].join('')),
       '</div></article>',
     ].join('')).join('');
   }
   function renderAttentionRows(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีผู้เช่าที่ต้องจับตาในตัวอย่างปัจจุบัน</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state"><strong>ยังไม่มีผู้เช่าที่ต้องเปิดดูก่อน</strong><p>ตอนนี้ยังไม่พบสัญญาณเร่งด่วนจากโควตาหรือการต่ออายุ</p><a class="odv4-button odv4-button-secondary" href="#tenants">เปิดรายชื่อผู้เช่า</a></div>';
     return items.map((item) => [
       `<article class="odv4-list-item odv4-tone-${escapeHtml(item.tone || 'muted')}">`,
       `<div class="odv4-list-main"><strong>${escapeHtml(item.name || '-')}</strong><p>${escapeHtml(item.detail || '')}</p></div>`,
@@ -334,7 +389,7 @@
     ].join('')).join('');
   }
   function renderFeed(items) {
-    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ยังไม่มีสัญญาณใหม่ที่เจ้าของระบบต้องเปิดดูในตัวอย่างปัจจุบัน</div>';
+    if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state"><strong>ยังไม่มีสัญญาณใหม่</strong><p>ถ้าต้องการตรวจต่อ ให้เปิดสุขภาพรันไทม์หรือบันทึกออดิทได้เลย</p><a class="odv4-button odv4-button-secondary" href="#runtime-health">ดูสุขภาพรันไทม์</a></div>';
     return items.map((item) => [
       `<article class="odv4-feed-item odv4-tone-${escapeHtml(toneForStatus(item.severity || 'warning'))}">`,
       `<div class="odv4-feed-meta"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(item.severity || 'warning'))}">${escapeHtml(item.source || 'signal')}</span><span>${escapeHtml(formatDateTime(item.time))}</span></div>`,
@@ -342,6 +397,36 @@
       item.detail ? `<p>${escapeHtml(item.detail)}</p>` : '',
       '</article>',
     ].join('')).join('');
+  }
+  function renderDecisionPanel(panel) {
+    if (!panel) return '';
+    return [
+      '<section class="odv4-panel odv4-priority-panel">',
+      '<div class="odv4-priority-grid">',
+      '<div class="odv4-stack">',
+      '<span class="odv4-section-kicker">ควรเริ่มตรงไหนก่อน</span>',
+      `<h2 class="odv4-section-title">${escapeHtml(panel.title || '')}</h2>`,
+      `<p class="odv4-section-copy">${escapeHtml(panel.detail || '')}</p>`,
+      '<div class="odv4-priority-checkpoints">',
+      ...(Array.isArray(panel.checkpoints) ? panel.checkpoints.map((item) => [
+        `<article class="odv4-priority-item odv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+        `<span class="odv4-kpi-label">${escapeHtml(item.label || '')}</span>`,
+        `<strong class="odv4-kpi-value">${escapeHtml(item.value || '-')}</strong>`,
+        `<p class="odv4-kpi-detail">${escapeHtml(item.detail || '')}</p>`,
+        '</article>',
+      ].join('')) : []),
+      '</div>',
+      '</div>',
+      '<div class="odv4-stack odv4-priority-actions">',
+      '<span class="odv4-action-recommend">แนะนำ</span>',
+      `<a class="odv4-button odv4-button-primary" href="${escapeHtml(panel.primaryAction && panel.primaryAction.href || '#')}">${escapeHtml(panel.primaryAction && panel.primaryAction.label || 'เปิดต่อ')}</a>`,
+      '<div class="odv4-priority-secondary">',
+      ...(Array.isArray(panel.secondaryActions) ? panel.secondaryActions.map((action) => `<a class="odv4-button odv4-button-secondary" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`) : []),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</section>',
+    ].join('');
   }
   function renderRailCards(items) {
     return (Array.isArray(items) ? items : []).map((item) => [
@@ -369,15 +454,16 @@
       '</aside><main class="odv4-main">',
       '<section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">ศูนย์ควบคุมเจ้าของระบบ</span>',
       `<h1 class="odv4-page-title">${escapeHtml(safeModel.header.title || '')}</h1><p class="odv4-page-subtitle">${escapeHtml(safeModel.header.subtitle || '')}</p><div class="odv4-chip-row">${renderChips(safeModel.header.statusChips)}</div></div>`,
-      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'Open')}</a></div></section>`,
+      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'Open')}</a></div></section>`,
       `<section class="odv4-kpi-strip">${renderKpis(safeModel.kpis)}</section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">เริ่มจากตรงนี้</span><h2 class="odv4-section-title">เลือก workflow ให้ตรงกับงาน</h2><p class="odv4-section-copy">แต่ละกลุ่มด้านล่างถูกจัดไว้เพื่อลดการเดา เริ่มจากเส้นทางที่ตรงกับปัญหาที่กำลังเจอแทนการเปิดทุกหน้าไล่ดู</p></div>',
+      renderDecisionPanel(safeModel.decisionPanel),
+      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ตัวเลือกอื่น</span><h2 class="odv4-section-title">เลือกงานที่ต้องทำต่อ</h2><p class="odv4-section-copy">เลือกเส้นทางที่ตรงกับงานที่กำลังทำได้เลย</p></div>',
       `<div class="odv4-task-grid">${renderActionGroups(safeModel.actionGroups)}</div></section>`,
-      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ต้องดูต่อ</span><h2 class="odv4-section-title">ผู้เช่าที่เจ้าของระบบควรเปิดดูก่อน</h2><p class="odv4-section-copy">ลิสต์สั้นนี้ช่วยตอบทันทีว่าใครควรได้รับการดูแลต่อ โดยไม่ต้องไล่เปิดทั้ง registry</p></div>',
+      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ต้องดูต่อ</span><h2 class="odv4-section-title">ผู้เช่าที่ควรเปิดดูก่อน</h2><p class="odv4-section-copy">ลิสต์สั้นสำหรับเปิดงานต่อทันที</p></div>',
       `<div class="odv4-list">${renderAttentionRows(safeModel.attentionRows)}</div></section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">สัญญาณล่าสุด</span><h2 class="odv4-section-title">เหตุการณ์และการแจ้งเตือนที่เพิ่งเกิดขึ้น</h2><p class="odv4-section-copy">รวมเหตุการณ์จาก monitoring, request pressure และสัญญาณด้านความปลอดภัยที่เจ้าของระบบควรรู้ก่อน</p></div>',
+      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">สัญญาณล่าสุด</span><h2 class="odv4-section-title">เหตุการณ์และการแจ้งเตือนล่าสุด</h2><p class="odv4-section-copy">รวมสัญญาณหลักที่ควรรู้ก่อน</p></div>',
       `<div class="odv4-feed">${renderFeed(safeModel.incidentFeed)}</div></section></div></main>`,
-      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">บริบทเจ้าของระบบ</div><p class="odv4-rail-copy">คุมแรงกดดันด้านรายได้ ซัพพอร์ต และจุดเสี่ยงของแพลตฟอร์มไว้ข้างมือระหว่างทำงาน</p>${renderRailCards(safeModel.railCards)}</div></aside>`,
+      `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">บริบทเจ้าของระบบ</div><p class="odv4-rail-copy">ดูรายได้ ซัพพอร์ต และจุดเสี่ยงได้จากด้านขวา</p>${renderRailCards(safeModel.railCards)}</div></aside>`,
       '</div></div>',
     ].join('');
   }

@@ -39,6 +39,9 @@ function createAdminPublicRoutes(deps) {
     registerPlatformAgent,
     recordPlatformAgentSession,
     ingestPlatformAgentSync,
+    upsertServerConfigSnapshot,
+    claimNextServerConfigJob,
+    completeServerConfigJob,
     reconcileDeliveryState,
     dispatchPlatformWebhookEvent,
     ssoDiscordActive,
@@ -638,6 +641,83 @@ function createAdminPublicRoutes(deps) {
               server: result.server,
               agent: result.agent,
             },
+          });
+          return true;
+        }
+
+        if (req.method === 'POST' && pathname === '/platform/api/v1/server-config/snapshot') {
+          const platformAuth = await ensurePlatformApiKeyAny(req, res, [
+            ['config:write'],
+            ['agent:sync'],
+          ]);
+          if (!platformAuth) return true;
+          const body = await readJsonBody(req);
+          const result = await upsertServerConfigSnapshot?.({
+            tenantId: requiredString(body, 'tenantId') || platformAuth.tenant?.id || null,
+            serverId: requiredString(body, 'serverId'),
+            runtimeKey: requiredString(body, 'runtimeKey'),
+            snapshot: body.snapshot,
+            lastJobId: requiredString(body, 'lastJobId'),
+            lastError: requiredString(body, 'lastError'),
+          }, 'platform-api');
+          if (!result?.ok) {
+            sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-snapshot-failed' });
+            return true;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            data: result,
+          });
+          return true;
+        }
+
+        if (req.method === 'GET' && pathname === '/platform/api/v1/server-config/jobs/next') {
+          const platformAuth = await ensurePlatformApiKeyAny(req, res, [
+            ['config:write'],
+            ['server:control'],
+          ]);
+          if (!platformAuth) return true;
+          const result = await claimNextServerConfigJob?.({
+            tenantId: requiredString(urlObj.searchParams.get('tenantId')) || platformAuth.tenant?.id || null,
+            serverId: requiredString(urlObj.searchParams.get('serverId')),
+            runtimeKey: requiredString(urlObj.searchParams.get('runtimeKey')),
+          }, 'platform-api');
+          if (!result?.ok) {
+            sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-job-claim-failed' });
+            return true;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            data: result,
+          });
+          return true;
+        }
+
+        if (req.method === 'POST' && pathname === '/platform/api/v1/server-config/jobs/result') {
+          const platformAuth = await ensurePlatformApiKeyAny(req, res, [
+            ['config:write'],
+            ['server:control'],
+          ]);
+          if (!platformAuth) return true;
+          const body = await readJsonBody(req);
+          const result = await completeServerConfigJob?.({
+            tenantId: requiredString(body, 'tenantId') || platformAuth.tenant?.id || null,
+            serverId: requiredString(body, 'serverId'),
+            runtimeKey: requiredString(body, 'runtimeKey'),
+            jobId: requiredString(body, 'jobId'),
+            status: requiredString(body, 'status'),
+            result: body.result,
+            error: requiredString(body, 'error'),
+            backups: body.backups,
+            snapshot: body.snapshot,
+          }, 'platform-api');
+          if (!result?.ok) {
+            sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-job-result-failed' });
+            return true;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            data: result,
           });
           return true;
         }

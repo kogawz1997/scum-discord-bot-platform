@@ -23,8 +23,13 @@ function createAdminPlatformPostRoutes(deps) {
     acceptPlatformLicenseLegal,
     createPlatformApiKey,
     createPlatformWebhookEndpoint,
+    createServerConfigApplyJob,
+    createServerConfigRollbackJob,
+    createServerConfigSaveJob,
     createPlatformAgentToken,
     createPlatformAgentProvisioningToken,
+    revokePlatformAgentDevice,
+    revokePlatformAgentProvisioningToken,
     revokePlatformAgentToken,
     rotatePlatformAgentToken,
     dispatchPlatformWebhookEvent,
@@ -45,6 +50,77 @@ function createAdminPlatformPostRoutes(deps) {
       res,
       auth,
     } = context;
+
+    const serverConfigApplyMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/apply$/);
+    if (req?.method === 'POST' && serverConfigApplyMatch) {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId') || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const result = await createServerConfigApplyJob?.({
+        tenantId,
+        serverId: serverConfigApplyMatch[1],
+        applyMode: requiredString(body, 'applyMode') || 'save_apply',
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-apply-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
+    const serverConfigRollbackMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/rollback$/);
+    if (req?.method === 'POST' && serverConfigRollbackMatch) {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId') || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const result = await createServerConfigRollbackJob?.({
+        tenantId,
+        serverId: serverConfigRollbackMatch[1],
+        backupId: requiredString(body, 'backupId'),
+        applyMode: requiredString(body, 'applyMode') || 'save_restart',
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-rollback-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
+    const serverConfigPatchMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config$/);
+    if (req?.method === 'PATCH' && serverConfigPatchMatch) {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId') || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const result = await createServerConfigSaveJob?.({
+        tenantId,
+        serverId: serverConfigPatchMatch[1],
+        changes: Array.isArray(body?.changes) ? body.changes : [],
+        applyMode: requiredString(body, 'applyMode') || 'save_only',
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-save-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
 
     if (pathname === '/admin/api/backup/create') {
       if (getAuthTenantId(auth)) {
@@ -381,9 +457,24 @@ function createAdminPlatformPostRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/admin/api/platform/agent-provision/revoke') {
+      const result = await revokePlatformAgentProvisioningToken?.({
+        tokenId: requiredString(body, 'tokenId'),
+        tenantId: getAuthTenantId(auth) || requiredString(body, 'tenantId'),
+        revokeReason: requiredString(body, 'revokeReason'),
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-provision-revoke-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
     if (pathname === '/admin/api/platform/agent-token/revoke') {
       const result = await revokePlatformAgentToken({
         apiKeyId: requiredString(body, 'apiKeyId'),
+        tenantId: getAuthTenantId(auth) || requiredString(body, 'tenantId'),
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-token-revoke-failed' });
@@ -393,9 +484,24 @@ function createAdminPlatformPostRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/admin/api/platform/agent-device/revoke') {
+      const result = await revokePlatformAgentDevice?.({
+        deviceId: requiredString(body, 'deviceId'),
+        tenantId: getAuthTenantId(auth) || requiredString(body, 'tenantId'),
+        revokeReason: requiredString(body, 'revokeReason'),
+      }, `admin-web:${auth?.user || 'unknown'}`);
+      if (!result?.ok) {
+        sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-device-revoke-failed' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
     if (pathname === '/admin/api/platform/agent-token/rotate') {
       const result = await rotatePlatformAgentToken({
         apiKeyId: requiredString(body, 'apiKeyId'),
+        tenantId: getAuthTenantId(auth) || requiredString(body, 'tenantId'),
         name: requiredString(body, 'name'),
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {

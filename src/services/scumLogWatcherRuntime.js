@@ -72,11 +72,13 @@ const SYNC_SERVER_ID = String(
 ).trim();
 const SYNC_AGENT_ID = String(
   process.env.SCUM_SYNC_AGENT_ID
+    || process.env.SCUM_SERVER_BOT_AGENT_ID
     || process.env.SCUM_AGENT_ID
     || 'scum-sync-agent',
 ).trim();
 const SYNC_RUNTIME_KEY = String(
   process.env.SCUM_SYNC_RUNTIME_KEY
+    || process.env.SCUM_SERVER_BOT_RUNTIME_KEY
     || process.env.SCUM_AGENT_RUNTIME_KEY
     || 'scum-log-watcher',
 ).trim();

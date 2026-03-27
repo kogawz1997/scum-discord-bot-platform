@@ -54,6 +54,10 @@
     payload: null,
     refreshing: false,
     ownerTenantOptions: [],
+    provisioningResult: {
+      'delivery-agents': null,
+      'server-bots': null,
+    },
   };
 
   function resolveTenantLabel(tenantId) {
@@ -640,11 +644,16 @@
         reconcile,
         quota,
         tenantConfig,
+        servers,
         subscriptions,
         licenses,
         apiKeys,
         webhooks,
         agents,
+        agentProvisioning,
+        agentDevices,
+        agentCredentials,
+        agentSessions,
         dashboardCards,
         shopItems,
         queueItems,
@@ -666,11 +675,16 @@
         previewTenant
           ? Promise.resolve(buildPreviewTenantConfigFallback(scopedTenantId))
           : api(`/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/servers?tenantId=${encodeURIComponent(scopedTenantId)}`, []),
         previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
         previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/licenses?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
         previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/apikeys?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
         previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/webhooks?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
         previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agents?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-provisioning?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-devices?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-credentials?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
+        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-sessions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
         previewTenant ? Promise.resolve(null) : api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null),
         previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }),
         api(`/admin/api/delivery/queue?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
@@ -682,6 +696,15 @@
         api('/admin/api/purchase/statuses', { knownStatuses: [], allowedTransitions: [] }),
         previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
       ]);
+
+      const serverRows = Array.isArray(servers) ? servers : [];
+      const activeServer = serverRows[0] || null;
+      const serverConfigWorkspace = (!previewTenant && activeServer?.id)
+        ? await api(
+          `/admin/api/platform/servers/${encodeURIComponent(activeServer.id)}/config?tenantId=${encodeURIComponent(scopedTenantId)}`,
+          null,
+        ).catch(() => null)
+        : null;
 
       const playerRows = Array.isArray(players?.items) ? players.items : [];
       const selectedUserId = readUserIdFromUrl() || pickFirstPlayerId(playerRows);
@@ -697,6 +720,9 @@
         me,
         tenantId: scopedTenantId,
         tenantLabel: resolveTenantLabel(scopedTenantId),
+        servers: serverRows,
+        activeServer,
+        serverConfigWorkspace,
         overview,
         reconcile,
         quota,
@@ -706,6 +732,10 @@
         apiKeys,
         webhooks,
         agents,
+        agentProvisioning: Array.isArray(agentProvisioning) ? agentProvisioning : [],
+        agentDevices: Array.isArray(agentDevices) ? agentDevices : [],
+        agentCredentials: Array.isArray(agentCredentials) ? agentCredentials : [],
+        agentSessions: Array.isArray(agentSessions) ? agentSessions : [],
         dashboardCards,
         shopItems: Array.isArray(shopItems?.items) ? shopItems.items : [],
         queueItems: Array.isArray(queueItems?.items) ? queueItems.items : [],
@@ -748,6 +778,7 @@
       },
       __surfaceNotice: surfaceState.notice,
       __surfaceAccess: surfaceState.pageAccess,
+      __provisioningResult: state.provisioningResult,
     };
     const page = surfaceState.resolvedPage;
     const renderers = {
@@ -780,9 +811,303 @@
     button.textContent = busy ? label : button.dataset.originalLabel;
   }
 
+  function getServerConfigFieldNodes() {
+    return Array.from(document.querySelectorAll('[data-server-config-field][data-setting-file][data-setting-key]'));
+  }
+
+  function normalizeLineListEntries(value) {
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => String(entry || '').trim())
+        .filter(Boolean);
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        return normalizeLineListEntries(parsed);
+      } catch {
+        return value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  }
+
+  function readTypedFieldValue(node) {
+    const type = String(node?.getAttribute('data-setting-type') || '').trim().toLowerCase();
+    if (type === 'line-list') {
+      return normalizeLineListEntries(node?.value || '');
+    }
+    if (type === 'boolean') {
+      return Boolean(node?.checked);
+    }
+    if (type === 'number') {
+      const numeric = Number(node?.value);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+    return String(node?.value || '');
+  }
+
+  function readOriginalFieldValue(node) {
+    const type = String(node?.getAttribute('data-setting-type') || '').trim().toLowerCase();
+    const raw = String(node?.getAttribute('data-current-value') || '');
+    if (type === 'line-list') {
+      return normalizeLineListEntries(raw);
+    }
+    if (type === 'boolean') {
+      return raw === 'true';
+    }
+    if (type === 'number') {
+      const numeric = Number(raw);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+    return raw;
+  }
+
+  function valuesEqual(left, right, type) {
+    if (type === 'line-list') {
+      const leftList = normalizeLineListEntries(left);
+      const rightList = normalizeLineListEntries(right);
+      return leftList.length === rightList.length && leftList.every((value, index) => value === rightList[index]);
+    }
+    if (type === 'number') {
+      return Number(left) === Number(right);
+    }
+    return String(left) === String(right);
+  }
+
+  function buildServerConfigChangesFromUi() {
+    return getServerConfigFieldNodes().map((node) => {
+      const type = String(node.getAttribute('data-setting-type') || '').trim().toLowerCase();
+      const value = readTypedFieldValue(node);
+      const currentValue = readOriginalFieldValue(node);
+      return {
+        node,
+        file: String(node.getAttribute('data-setting-file') || '').trim(),
+        section: String(node.getAttribute('data-setting-section') || '').trim(),
+        key: String(node.getAttribute('data-setting-key') || '').trim(),
+        type,
+        value,
+        currentValue,
+        changed: !valuesEqual(value, currentValue, type),
+      };
+    }).filter((entry) => entry.file && entry.key);
+  }
+
+  function syncLineListFieldValue(node) {
+    if (!node) return;
+    const card = node.closest('[data-setting-card]');
+    const inputs = Array.from(card?.querySelectorAll('[data-line-list-entry]') || []);
+    const entries = normalizeLineListEntries(inputs.map((input) => input.value));
+    node.value = JSON.stringify(entries);
+    const countNode = card?.querySelector('[data-line-list-count]');
+    if (countNode) {
+      countNode.textContent = entries.length ? `${entries.length} รายการ` : 'ยังไม่มีรายการ';
+    }
+  }
+
+  function createLineListRow(value = '', disabled = false) {
+    const row = document.createElement('div');
+    row.className = 'tdv4-line-list-row';
+
+    const input = document.createElement('input');
+    input.className = 'tdv4-basic-input tdv4-line-list-input';
+    input.type = 'text';
+    input.value = value;
+    input.setAttribute('data-line-list-entry', '');
+
+    const button = document.createElement('button');
+    button.className = 'tdv4-button tdv4-button-secondary tdv4-line-list-remove';
+    button.type = 'button';
+    button.setAttribute('data-line-list-remove', '');
+    button.textContent = 'ลบ';
+
+    if (disabled) {
+      input.disabled = true;
+      button.disabled = true;
+    }
+
+    row.appendChild(input);
+    row.appendChild(button);
+    return row;
+  }
+
+  function wireLineListField(node, previewMode) {
+    const card = node?.closest('[data-setting-card]');
+    const list = card?.querySelector('[data-line-list-list]');
+    const addButton = card?.querySelector('[data-line-list-add]');
+    if (!card || !list || !addButton) return;
+
+    if (previewMode) {
+      addButton.disabled = true;
+      list.querySelectorAll('[data-line-list-entry], [data-line-list-remove]').forEach((element) => {
+        element.disabled = true;
+      });
+    }
+
+    list.addEventListener('input', (event) => {
+      const input = event.target.closest('[data-line-list-entry]');
+      if (!input) return;
+      syncLineListFieldValue(node);
+      updateServerConfigFieldState(node);
+      updateServerConfigHelpFromField(node);
+      updateServerConfigSavebar();
+      setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
+    });
+
+    list.addEventListener('focusin', (event) => {
+      if (event.target.closest('[data-line-list-entry]')) {
+        updateServerConfigHelpFromField(node);
+      }
+    });
+
+    list.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('[data-line-list-remove]');
+      if (!removeButton || previewMode) return;
+      const row = removeButton.closest('.tdv4-line-list-row');
+      if (row) {
+        row.remove();
+      }
+      if (!list.querySelector('[data-line-list-entry]')) {
+        list.appendChild(createLineListRow(''));
+      }
+      syncLineListFieldValue(node);
+      updateServerConfigFieldState(node);
+      updateServerConfigHelpFromField(node);
+      updateServerConfigSavebar();
+      setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
+    });
+
+    addButton.addEventListener('click', () => {
+      if (previewMode) return;
+      const row = createLineListRow('');
+      list.appendChild(row);
+      row.querySelector('[data-line-list-entry]')?.focus();
+      syncLineListFieldValue(node);
+      updateServerConfigFieldState(node);
+      updateServerConfigHelpFromField(node);
+      updateServerConfigSavebar();
+      setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
+    });
+
+    syncLineListFieldValue(node);
+  }
+
+  function updateServerConfigFieldState(node) {
+    const card = node?.closest('[data-setting-card]');
+    if (!card) return;
+    const type = String(node.getAttribute('data-setting-type') || '').trim().toLowerCase();
+    const changed = !valuesEqual(readTypedFieldValue(node), readOriginalFieldValue(node), type);
+    card.classList.toggle('is-dirty', changed);
+  }
+
+  function updateServerConfigHelpFromField(node) {
+    if (!node) return;
+    const helpTitle = document.querySelector('[data-server-config-help-title]');
+    const helpDescription = document.querySelector('[data-server-config-help-description]');
+    const helpMeta = document.querySelector('[data-server-config-help-meta]');
+    const badgeRow = helpTitle?.parentElement?.querySelector('.tdv4-config-key-row');
+    if (helpTitle) {
+      helpTitle.textContent = String(node.getAttribute('data-setting-label') || '').trim() || 'ค่าที่เลือก';
+    }
+    if (helpDescription) {
+      helpDescription.textContent = String(node.getAttribute('data-setting-description') || '').trim() || 'ยังไม่มีคำอธิบายเพิ่มเติม';
+    }
+    if (helpMeta) {
+      const fileLabel = String(node.getAttribute('data-setting-file-label') || '').trim() || '-';
+      const rawKey = String(node.getAttribute('data-setting-raw-key') || '').trim() || '-';
+      const restart = String(node.getAttribute('data-setting-requires-restart') || '').trim() === 'true'
+        ? 'ค่าชุดนี้ต้องรีสตาร์ต'
+        : 'ค่าชุดนี้ใช้ได้โดยไม่ต้องรีสตาร์ต';
+      helpMeta.textContent = `ไฟล์ ${fileLabel} · ${rawKey} · ${restart}`;
+    }
+    if (badgeRow) {
+      const currentLabel = String(node.getAttribute('data-setting-current-label') || '').trim() || '-';
+      const defaultLabel = String(node.getAttribute('data-setting-default-label') || '').trim() || '-';
+      badgeRow.innerHTML = [
+        `<span class="tdv4-badge tdv4-badge-info">ค่าปัจจุบัน: ${escapeHtml(currentLabel)}</span>`,
+        `<span class="tdv4-badge tdv4-badge-muted">ค่าเริ่มต้น: ${escapeHtml(defaultLabel)}</span>`,
+        String(node.getAttribute('data-setting-requires-restart') || '').trim() === 'true'
+          ? '<span class="tdv4-badge tdv4-badge-warning">ต้องรีสตาร์ต</span>'
+          : '',
+      ].join('');
+    }
+  }
+
+  function updateServerConfigSavebar() {
+    const changeNode = document.querySelector('[data-server-config-change-count]');
+    if (!changeNode) return;
+    const changedCount = buildServerConfigChangesFromUi().filter((entry) => entry.changed).length;
+    changeNode.textContent = changedCount
+      ? `มีค่าที่แก้ค้างอยู่ ${changedCount} จุด`
+      : 'ยังไม่มีค่าที่แก้ค้างอยู่';
+  }
+
+  function switchServerConfigCategory(categoryKey) {
+    const tabs = Array.from(document.querySelectorAll('[data-config-category-tab]'));
+    const panels = Array.from(document.querySelectorAll('[data-config-category-panel]'));
+    tabs.forEach((tab) => {
+      const current = String(tab.getAttribute('data-config-category-tab') || '').trim() === categoryKey;
+      tab.classList.toggle('is-current', current);
+      tab.setAttribute('aria-pressed', current ? 'true' : 'false');
+    });
+    panels.forEach((panel) => {
+      const current = String(panel.getAttribute('data-config-category-panel') || '').trim() === categoryKey;
+      panel.hidden = !current;
+      panel.classList.toggle('tdv4-config-category-panel-current', current);
+    });
+    const firstField = document.querySelector(`[data-config-category-panel="${categoryKey}"] [data-server-config-field]`);
+    updateServerConfigHelpFromField(firstField);
+  }
+
+  function slugifyRuntimeKey(value, fallbackPrefix) {
+    const base = String(value || '').trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const safeBase = base || `${fallbackPrefix}-${Date.now()}`;
+    return safeBase.length <= 80 ? safeBase : safeBase.slice(0, 80);
+  }
+
+  function buildProvisioningInstructions(kind, payload) {
+    const bootstrap = payload?.bootstrap || {};
+    const setupToken = String(payload?.rawSetupToken || '').trim();
+    const runtimeKey = String(bootstrap.runtimeKey || '').trim();
+    const platformUrl = `${window.location.protocol}//${window.location.host}`;
+    if (!setupToken || !runtimeKey) return null;
+    const commonLines = [
+      `$env:PLATFORM_API_BASE_URL="${platformUrl}"`,
+      `$env:PLATFORM_AGENT_SETUP_TOKEN="${setupToken}"`,
+      `$env:PLATFORM_TENANT_ID="${String(bootstrap.tenantId || '').trim()}"`,
+      `$env:PLATFORM_SERVER_ID="${String(bootstrap.serverId || '').trim()}"`,
+    ];
+    if (kind === 'server-bots') {
+      return {
+        title: 'คำสั่งติดตั้ง Server Bot',
+        command: [
+          ...commonLines,
+          `$env:SCUM_SERVER_BOT_AGENT_ID="${String(bootstrap.agentId || runtimeKey).trim()}"`,
+          `$env:SCUM_SERVER_BOT_RUNTIME_KEY="${runtimeKey}"`,
+          '$env:SCUM_SERVER_CONFIG_ROOT="C:\\SCUM\\Config"',
+          'node C:\\new\\apps\\watcher\\server.js',
+        ].join('\n'),
+        detail: 'ปรับ SCUM_SERVER_CONFIG_ROOT ให้ตรงกับเครื่องเซิร์ฟเวอร์ก่อนรัน',
+      };
+    }
+    return {
+      title: 'คำสั่งติดตั้ง Delivery Agent',
+      command: [
+        ...commonLines,
+        `$env:SCUM_AGENT_ID="${String(bootstrap.agentId || runtimeKey).trim()}"`,
+        `$env:SCUM_AGENT_RUNTIME_KEY="${runtimeKey}"`,
+        'node C:\\new\\apps\\agent\\server.js',
+      ].join('\n'),
+      detail: 'รันบนเครื่องที่ใช้ส่งของในเกมและมี SCUM client เปิดอยู่',
+    };
+  }
+
   function collectServerConfigDraft() {
     syncFeatureFlagsTextareaFromUi(state.payload);
     syncConfigPatchTextareaFromUi();
+    syncPortalEnvPatchTextareaFromUi();
     const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
     const configPatchNode = document.getElementById('tdv4-editor-configPatch');
     const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
@@ -799,6 +1124,10 @@
 
   function getConfigPatchFieldNodes() {
     return Array.from(document.querySelectorAll('[data-config-patch-field][data-field-type]'));
+  }
+
+  function getPortalEnvFieldNodes() {
+    return Array.from(document.querySelectorAll('[data-portal-env-field][data-field-type]'));
   }
 
   function buildFeatureFlagPatchFromUi(renderState) {
@@ -933,6 +1262,83 @@
     });
   }
 
+  function buildPortalEnvPatchFromUi() {
+    const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+    const draft = parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal Env Patch', { emptyAsObject: true });
+    const fields = getPortalEnvFieldNodes();
+    if (!fields.length) return draft;
+    const nextPatch = {};
+    const controlledKeys = new Set(fields.map((node) => String(node.getAttribute('data-portal-env-field') || '').trim()).filter(Boolean));
+    Object.entries(draft || {}).forEach(([key, value]) => {
+      if (!controlledKeys.has(key)) {
+        nextPatch[key] = value;
+      }
+    });
+    fields.forEach((node) => {
+      const key = String(node.getAttribute('data-portal-env-field') || '').trim();
+      const type = String(node.getAttribute('data-field-type') || 'text').trim();
+      const defaultValueRaw = String(node.getAttribute('data-default-value') || '').trim();
+      if (!key) return;
+      if (type === 'boolean') {
+        const nextValue = Boolean(node.checked);
+        const defaultValue = defaultValueRaw === 'true';
+        if (nextValue !== defaultValue) {
+          nextPatch[key] = nextValue;
+        }
+        return;
+      }
+      const rawValue = String(node.value || '').trim();
+      if (!rawValue) return;
+      if (type === 'number') {
+        const numeric = Number(rawValue);
+        if (!Number.isFinite(numeric)) return;
+        const normalized = Math.trunc(numeric);
+        if (String(normalized) !== defaultValueRaw) {
+          nextPatch[key] = normalized;
+        }
+        return;
+      }
+      if (rawValue !== defaultValueRaw) {
+        nextPatch[key] = rawValue;
+      }
+    });
+    return nextPatch;
+  }
+
+  function syncPortalEnvPatchTextareaFromUi() {
+    const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+    if (!portalEnvPatchNode) return;
+    const nextPatch = buildPortalEnvPatchFromUi();
+    portalEnvPatchNode.value = JSON.stringify(nextPatch, null, 2);
+  }
+
+  function syncPortalEnvPatchFieldsFromTextarea() {
+    const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+    const fields = getPortalEnvFieldNodes();
+    if (!portalEnvPatchNode || !fields.length) return;
+    const draft = parseConfigJsonInput(portalEnvPatchNode.value, 'Portal Env Patch', { emptyAsObject: true });
+    fields.forEach((node) => {
+      const key = String(node.getAttribute('data-portal-env-field') || '').trim();
+      const type = String(node.getAttribute('data-field-type') || 'text').trim();
+      const defaultValueRaw = String(node.getAttribute('data-default-value') || '').trim();
+      if (!key) return;
+      const nextValue = Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : defaultValueRaw;
+      if (type === 'boolean') {
+        node.checked = nextValue === true || String(nextValue).trim().toLowerCase() === 'true';
+        const hint = node.parentElement?.querySelector('.tdv4-basic-toggle-hint');
+        if (hint) {
+          hint.textContent = node.checked ? 'เปิด' : 'ปิด';
+        }
+        return;
+      }
+      if (type === 'number') {
+        node.value = Number.isFinite(Number(nextValue)) ? String(Math.trunc(Number(nextValue))) : defaultValueRaw;
+        return;
+      }
+      node.value = String(nextValue ?? '');
+    });
+  }
+
   async function saveTenantServerConfig(renderState, mode, triggerButton) {
     const scopedTenantId = String(renderState?.tenantConfig?.tenantId || renderState?.tenantId || renderState?.me?.tenantId || '').trim();
     if (!scopedTenantId) {
@@ -969,12 +1375,237 @@
     );
   }
 
+  function createRuntimeLocalId(prefix) {
+    const safePrefix = String(prefix || 'runtime').trim() || 'runtime';
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return `${safePrefix}-${window.crypto.randomUUID()}`;
+    }
+    return `${safePrefix}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  }
+
+  function getRenderTenantId(renderState) {
+    return String(renderState?.tenantConfig?.tenantId || renderState?.tenantId || renderState?.me?.tenantId || '').trim();
+  }
+
+  function getRenderServerId(renderState) {
+    return String(renderState?.activeServer?.id || renderState?.servers?.[0]?.id || '').trim();
+  }
+
+  async function queueServerConfigSave(renderState, applyMode, triggerButton) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverId = getRenderServerId(renderState);
+    if (!tenantId || !serverId) {
+      throw new Error('ยังไม่พบเซิร์ฟเวอร์ที่ใช้บันทึกค่า');
+    }
+
+    const normalizedApplyMode = ['save_only', 'save_apply', 'save_restart'].includes(String(applyMode || '').trim())
+      ? String(applyMode || '').trim()
+      : 'save_only';
+    const changedEntries = buildServerConfigChangesFromUi().filter((entry) => entry.changed);
+    const requiresRestart = changedEntries.some((entry) => String(entry?.node?.getAttribute('data-setting-requires-restart') || '').trim() === 'true');
+    const busyLabel = normalizedApplyMode === 'save_restart'
+      ? 'กำลังบันทึกและรีสตาร์ต...'
+      : normalizedApplyMode === 'save_apply'
+        ? 'กำลังบันทึกและใช้ค่า...'
+        : 'กำลังบันทึก...';
+
+    setActionButtonBusy(triggerButton, true, busyLabel);
+    try {
+      if (!changedEntries.length) {
+        if (normalizedApplyMode === 'save_only') {
+          setStatus('ยังไม่มีค่าที่เปลี่ยนจากค่าปัจจุบัน', 'muted');
+          return null;
+        }
+        const applyResult = await apiRequest(
+          `/admin/api/platform/servers/${encodeURIComponent(serverId)}/config/apply`,
+          {
+            method: 'POST',
+            body: {
+              tenantId,
+              applyMode: normalizedApplyMode,
+            },
+          },
+          null,
+        );
+        await refreshState({ silent: true });
+        setStatus(
+          normalizedApplyMode === 'save_restart'
+            ? 'ส่งคำขอ apply และ restart ไปยัง Server Bot แล้ว'
+            : 'ส่งคำขอ apply ไปยัง Server Bot แล้ว',
+          'success',
+        );
+        return applyResult;
+      }
+
+      const patchResult = await apiRequest(
+        `/admin/api/platform/servers/${encodeURIComponent(serverId)}/config`,
+        {
+          method: 'PATCH',
+          body: {
+            tenantId,
+            applyMode: normalizedApplyMode,
+            changes: changedEntries.map((entry) => ({
+              file: entry.file,
+              section: entry.section,
+              key: entry.key,
+              value: entry.value,
+            })),
+          },
+        },
+        null,
+      );
+      await refreshState({ silent: true });
+      setStatus(
+        normalizedApplyMode === 'save_restart'
+          ? 'บันทึกค่าแล้ว และส่งงานรีสตาร์ตไปยัง Server Bot แล้ว'
+          : normalizedApplyMode === 'save_apply'
+            ? 'บันทึกค่าแล้ว และส่งงาน apply ไปยัง Server Bot แล้ว'
+            : requiresRestart
+              ? 'บันทึกค่าแล้ว บางค่ายังต้องรีสตาร์ตจึงจะมีผล'
+              : 'บันทึกค่าแล้ว',
+        requiresRestart && normalizedApplyMode === 'save_only' ? 'warning' : 'success',
+      );
+      return patchResult;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
+  async function queueServerConfigRollback(renderState, backupId, triggerButton) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverId = getRenderServerId(renderState);
+    const normalizedBackupId = String(backupId || '').trim();
+    if (!tenantId || !serverId || !normalizedBackupId) {
+      throw new Error('ยังไม่พบข้อมูลสำรองที่ต้องการกู้คืน');
+    }
+    setActionButtonBusy(triggerButton, true, 'กำลังกู้คืน...');
+    try {
+      const result = await apiRequest(
+        `/admin/api/platform/servers/${encodeURIComponent(serverId)}/config/rollback`,
+        {
+          method: 'POST',
+          body: {
+            tenantId,
+            backupId: normalizedBackupId,
+            applyMode: 'save_restart',
+          },
+        },
+        null,
+      );
+      await refreshState({ silent: true });
+      setStatus('ส่งคำขอกู้คืนและรีสตาร์ตไปยัง Server Bot แล้ว', 'success');
+      return result;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
+  function resolveProvisioningServer(renderState, serverId) {
+    const rows = Array.isArray(renderState?.servers) ? renderState.servers : [];
+    return rows.find((row) => String(row?.id || '').trim() === serverId) || null;
+  }
+
+  function getServerGuildId(serverRow) {
+    return String(
+      serverRow?.guildId
+      || serverRow?.metadata?.guildId
+      || serverRow?.meta?.guildId
+      || '',
+    ).trim();
+  }
+
+  function buildRuntimeProvisioningPayload(kind, renderState, serverId, displayName, runtimeKeyInput) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverRow = resolveProvisioningServer(renderState, serverId);
+    if (!tenantId) {
+      throw new Error('ยังไม่พบ tenant สำหรับออก token');
+    }
+    if (!serverRow) {
+      throw new Error('เลือกเซิร์ฟเวอร์ก่อนสร้าง runtime');
+    }
+
+    const runtimeKey = slugifyRuntimeKey(
+      runtimeKeyInput || displayName || `${kind}-${serverId}`,
+      kind === 'server-bots' ? 'server-bot' : 'delivery-agent',
+    );
+    const isServerBot = kind === 'server-bots';
+
+    return {
+      id: createRuntimeLocalId(isServerBot ? 'srvprov' : 'dlvprov'),
+      tokenId: createRuntimeLocalId('setuptoken'),
+      tenantId,
+      serverId: String(serverRow.id || '').trim(),
+      guildId: getServerGuildId(serverRow) || String(serverRow.id || '').trim(),
+      agentId: createRuntimeLocalId(isServerBot ? 'srvbot' : 'dagent'),
+      runtimeKey,
+      role: isServerBot ? 'sync' : 'execute',
+      scope: isServerBot ? 'sync_only' : 'execute_only',
+      name: displayName,
+      displayName,
+      minimumVersion: '0.0.0',
+      expiresAt: new Date(Date.now() + (72 * 60 * 60 * 1000)).toISOString(),
+      metadata: {
+        kind,
+        source: 'tenant-web',
+        surface: 'tenant-v4',
+      },
+    };
+  }
+
+  async function queueRuntimeProvisioning(kind, renderState, triggerButton) {
+    const serverNode = document.querySelector(`[data-runtime-server-id="${kind}"]`);
+    const displayNode = document.querySelector(`[data-runtime-display-name="${kind}"]`);
+    const runtimeKeyNode = document.querySelector(`[data-runtime-runtime-key="${kind}"]`);
+    const serverId = String(serverNode?.value || '').trim();
+    const displayName = String(displayNode?.value || '').trim() || (kind === 'server-bots' ? 'Server Bot' : 'Delivery Agent');
+    const runtimeKey = String(runtimeKeyNode?.value || '').trim();
+    const payload = buildRuntimeProvisioningPayload(kind, renderState, serverId, displayName, runtimeKey);
+
+    setActionButtonBusy(
+      triggerButton,
+      true,
+      kind === 'server-bots' ? 'กำลังสร้าง Server Bot...' : 'กำลังสร้าง Delivery Agent...',
+    );
+    try {
+      const result = await apiRequest(
+        '/admin/api/platform/agent-provision',
+        {
+          method: 'POST',
+          body: payload,
+        },
+        null,
+      );
+      state.provisioningResult[kind] = {
+        ...result,
+        instructions: buildProvisioningInstructions(kind, result),
+      };
+      renderCurrentPage();
+      await refreshState({ silent: true });
+      setStatus(
+        kind === 'server-bots'
+          ? 'สร้าง Server Bot และออก setup token เรียบร้อยแล้ว'
+          : 'สร้าง Delivery Agent และออก setup token เรียบร้อยแล้ว',
+        'success',
+      );
+      return result;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
   function wireServerConfigPage(renderState, surfaceState) {
-    const buttons = Array.from(document.querySelectorAll('[data-config-action]'));
-    if (!buttons.length) return;
+    const overrideButtons = Array.from(document.querySelectorAll('[data-config-action]'));
+    const saveButtons = Array.from(document.querySelectorAll('[data-server-config-save-mode]'));
+    const rollbackButtons = Array.from(document.querySelectorAll('[data-server-config-rollback]'));
+    const categoryTabs = Array.from(document.querySelectorAll('[data-config-category-tab]'));
+    const fieldNodes = getServerConfigFieldNodes();
     const previewMode = Boolean(surfaceState?.featureAccess?.previewMode);
     const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
     const configPatchNode = document.getElementById('tdv4-editor-configPatch');
+    const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+
+    if (!overrideButtons.length && !saveButtons.length && !fieldNodes.length) return;
+
     getFeatureFlagToggleNodes().forEach((node) => {
       if (previewMode) {
         node.disabled = true;
@@ -1000,6 +1631,54 @@
         setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
       });
     });
+    getPortalEnvFieldNodes().forEach((node) => {
+      if (previewMode) {
+        node.disabled = true;
+      }
+      const eventName = String(node.getAttribute('data-field-type') || '') === 'boolean' ? 'change' : 'input';
+      node.addEventListener(eventName, () => {
+        syncPortalEnvPatchTextareaFromUi();
+        if (String(node.getAttribute('data-field-type') || '') === 'boolean') {
+          const hint = node.parentElement?.querySelector('.tdv4-basic-toggle-hint');
+          if (hint) {
+            hint.textContent = node.checked ? 'เปิด' : 'ปิด';
+          }
+        }
+        setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
+      });
+    });
+
+    categoryTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const categoryKey = String(tab.getAttribute('data-config-category-tab') || '').trim();
+        if (!categoryKey) return;
+        switchServerConfigCategory(categoryKey);
+      });
+    });
+
+    fieldNodes.forEach((node) => {
+      if (previewMode) {
+        node.disabled = true;
+      }
+      const settingType = String(node.getAttribute('data-setting-type') || '').trim().toLowerCase();
+      if (settingType === 'line-list') {
+        wireLineListField(node, previewMode);
+        updateServerConfigFieldState(node);
+        return;
+      }
+      node.addEventListener('focus', () => {
+        updateServerConfigHelpFromField(node);
+      });
+      const eventName = settingType === 'boolean' ? 'change' : 'input';
+      node.addEventListener(eventName, () => {
+        updateServerConfigFieldState(node);
+        updateServerConfigHelpFromField(node);
+        updateServerConfigSavebar();
+        setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
+      });
+      updateServerConfigFieldState(node);
+    });
+
     featureFlagsNode?.addEventListener('input', () => {
       try {
         syncFeatureFlagTogglesFromTextarea(renderState);
@@ -1014,7 +1693,15 @@
         // Keep existing basic field state while the operator is typing invalid JSON.
       }
     });
-    buttons.forEach((button) => {
+    portalEnvPatchNode?.addEventListener('input', () => {
+      try {
+        syncPortalEnvPatchFieldsFromTextarea();
+      } catch {
+        // Keep existing basic field state while the operator is typing invalid JSON.
+      }
+    });
+
+    overrideButtons.forEach((button) => {
       const action = String(button.getAttribute('data-config-action') || '').trim();
       if (previewMode) {
         button.disabled = true;
@@ -1039,17 +1726,110 @@
         }
       });
     });
+
+    saveButtons.forEach((button) => {
+      const applyMode = String(button.getAttribute('data-server-config-save-mode') || '').trim();
+      if (previewMode) {
+        button.disabled = true;
+        return;
+      }
+      button.addEventListener('click', async () => {
+        try {
+          const changedEntries = buildServerConfigChangesFromUi().filter((entry) => entry.changed);
+          const requiresRestart = changedEntries.some((entry) => String(entry?.node?.getAttribute('data-setting-requires-restart') || '').trim() === 'true');
+          const confirmMessage = changedEntries.length
+            ? applyMode === 'save_restart'
+              ? 'บันทึกค่าชุดนี้และรีสตาร์ตเซิร์ฟเวอร์ต่อเลยหรือไม่'
+              : applyMode === 'save_apply'
+                ? 'บันทึกค่าชุดนี้และส่งงาน apply ไปยัง Server Bot ตอนนี้หรือไม่'
+                : requiresRestart
+                  ? 'บันทึกค่าชุดนี้หรือไม่ บางค่ายังต้องรีสตาร์ตจึงจะมีผล'
+                  : 'บันทึกค่าชุดนี้ตอนนี้หรือไม่'
+            : applyMode === 'save_restart'
+              ? 'ยังไม่มีค่าที่เปลี่ยน แต่ต้องการสั่ง apply และรีสตาร์ตเลยหรือไม่'
+              : 'ยังไม่มีค่าที่เปลี่ยน ต้องการสั่ง apply ค่าปัจจุบันเลยหรือไม่';
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await queueServerConfigSave(renderState, applyMode, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+
+    rollbackButtons.forEach((button) => {
+      const backupId = String(button.getAttribute('data-server-config-rollback') || '').trim();
+      if (previewMode || !backupId) {
+        if (previewMode) {
+          button.disabled = true;
+        }
+        return;
+      }
+      button.addEventListener('click', async () => {
+        try {
+          if (!window.confirm('กู้คืนจาก backup นี้และสั่งรีสตาร์ตเซิร์ฟเวอร์เลยหรือไม่')) {
+            return;
+          }
+          await queueServerConfigRollback(renderState, backupId, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+
     document.querySelectorAll('.tdv4-editor').forEach((node) => {
       node.addEventListener('input', () => {
         setStatus('มีการแก้ไขที่ยังไม่บันทึก', 'warning');
       });
     });
     syncConfigPatchFieldsFromTextarea();
+    syncPortalEnvPatchFieldsFromTextarea();
+    updateServerConfigSavebar();
+    if (categoryTabs.length) {
+      const currentTab = categoryTabs.find((tab) => tab.classList.contains('is-current')) || categoryTabs[0];
+      const currentCategory = String(currentTab?.getAttribute('data-config-category-tab') || '').trim();
+      if (currentCategory) {
+        switchServerConfigCategory(currentCategory);
+      }
+    } else if (fieldNodes.length) {
+      updateServerConfigHelpFromField(fieldNodes[0]);
+    }
+  }
+
+  function wireRuntimeProvisioningPage(kind, renderState, surfaceState) {
+    const button = document.querySelector(`[data-runtime-provision-button="${kind}"]`);
+    if (!button) return;
+    if (Boolean(surfaceState?.featureAccess?.previewMode)) {
+      button.disabled = true;
+      return;
+    }
+    button.addEventListener('click', async () => {
+      try {
+        const confirmMessage = kind === 'server-bots'
+          ? 'สร้าง Server Bot ใหม่สำหรับเซิร์ฟเวอร์นี้หรือไม่'
+          : 'สร้าง Delivery Agent ใหม่สำหรับเซิร์ฟเวอร์นี้หรือไม่';
+        if (!window.confirm(confirmMessage)) {
+          return;
+        }
+        await queueRuntimeProvisioning(kind, renderState, button);
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      }
+    });
   }
 
   function wirePageInteractions(page, renderState, surfaceState) {
     if (page === 'server-config') {
       wireServerConfigPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'delivery-agents') {
+      wireRuntimeProvisioningPage('delivery-agents', renderState, surfaceState);
+      return;
+    }
+    if (page === 'server-bots') {
+      wireRuntimeProvisioningPage('server-bots', renderState, surfaceState);
     }
   }
 

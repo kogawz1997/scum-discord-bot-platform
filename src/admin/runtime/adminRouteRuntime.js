@@ -15,24 +15,26 @@ function createAdminRouteRuntime(deps = {}) {
     handleAdminPlatformPostRoute,
   } = deps;
 
-  async function handlePostAction(client, req, urlObj, pathname, body, res, auth) {
-    if (await handleAdminAuthPostRoute({ pathname, body, res, auth })) {
+  async function handleMutationAction(client, req, urlObj, pathname, body, res, auth) {
+    const method = String(req?.method || 'POST').trim().toUpperCase();
+
+    if (method === 'POST' && await handleAdminAuthPostRoute({ pathname, body, res, auth })) {
       return;
     }
 
-    if (await handleAdminEntityPostRoute({ client, req, pathname, body, res, auth })) {
+    if (method === 'POST' && await handleAdminEntityPostRoute({ client, req, pathname, body, res, auth })) {
       return;
     }
 
-    if (await handleAdminConfigPostRoute({ req, pathname, body, res, auth })) {
+    if (method === 'POST' && await handleAdminConfigPostRoute({ req, pathname, body, res, auth })) {
       return;
     }
 
-    if (await handleAdminCommerceDeliveryPostRoute({ client, pathname, body, res, auth })) {
+    if (method === 'POST' && await handleAdminCommerceDeliveryPostRoute({ client, pathname, body, res, auth })) {
       return;
     }
 
-    if (await handleAdminPortalPostRoute({ req, res, urlObj, pathname, body })) {
+    if (method === 'POST' && await handleAdminPortalPostRoute({ req, res, urlObj, pathname, body })) {
       return;
     }
 
@@ -55,7 +57,8 @@ function createAdminRouteRuntime(deps = {}) {
 
   return {
     deriveRouteGroup,
-    handlePostAction,
+    handleMutationAction,
+    handlePostAction: handleMutationAction,
   };
 }
 

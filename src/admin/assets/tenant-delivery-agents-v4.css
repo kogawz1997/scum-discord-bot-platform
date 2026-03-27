@@ -12,6 +12,23 @@
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
 }
 
+.tdv4-runtime-form,
+.tdv4-runtime-result {
+  display: grid;
+  gap: 16px;
+}
+
+.tdv4-runtime-form-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.tdv4-runtime-command {
+  min-height: 200px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.84rem;
+}
+
 .tdv4-data-header,
 .tdv4-data-row {
   display: grid;

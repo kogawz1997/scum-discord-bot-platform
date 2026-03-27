@@ -29,7 +29,7 @@ function createAdminRequestHandler(deps) {
     requiredRoleForPostPath,
     ensureRole,
     ensureStepUpAuth,
-    handlePostAction,
+    handleMutationAction,
     publishAdminLiveUpdate,
     sendText,
   } = deps;
@@ -109,7 +109,7 @@ function createAdminRequestHandler(deps) {
         }
 
         if (
-          req.method === 'POST'
+          (req.method === 'POST' || req.method === 'PATCH')
           && !shouldBypassRestoreMaintenance(pathname)
           && isAdminRestoreMaintenanceActive()
         ) {
@@ -127,15 +127,15 @@ function createAdminRequestHandler(deps) {
           return undefined;
         }
 
-        if (req.method === 'POST') {
-          const permission = getAdminPermissionForPath(pathname, 'POST');
+        if (req.method === 'POST' || req.method === 'PATCH') {
+          const permission = getAdminPermissionForPath(pathname, req.method);
           const requiredRole = permission?.minRole || requiredRoleForPostPath(pathname);
           const auth = ensureRole(req, urlObj, requiredRole, res);
           if (!auth) return undefined;
           const body = await readJsonBody(req);
           const elevatedAuth = ensureStepUpAuth(req, res, auth, body, permission);
           if (!elevatedAuth) return undefined;
-          const out = await handlePostAction(client, req, urlObj, pathname, body, res, auth);
+          const out = await handleMutationAction(client, req, urlObj, pathname, body, res, auth);
           if (
             res.statusCode >= 200 &&
             res.statusCode < 300 &&

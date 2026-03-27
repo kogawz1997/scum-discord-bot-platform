@@ -17,6 +17,9 @@ const {
   listAgentTokenBindings,
   listServers,
   recordAgentSession,
+  revokeAgentCredential,
+  revokeAgentDevice,
+  revokeAgentProvisioningToken,
   revokeAgentTokenBinding,
   upsertAgent,
   upsertAgentCredential,
@@ -124,6 +127,18 @@ function createAgentRegistryService(deps = {}) {
       serverId: normalized.serverId,
     })[0] || null;
     if (!server) return { ok: false, reason: 'server-not-found' };
+
+    const activeProvisioningTokens = listAgentProvisioningTokens({
+      tenantId: normalized.tenantId,
+      serverId: normalized.serverId,
+      agentId: normalized.agentId,
+      status: 'pending_activation',
+    });
+    for (const row of activeProvisioningTokens) {
+      revokeAgentProvisioningToken(row.id, actor, {
+        revokeReason: 'superseded-by-new-token',
+      });
+    }
 
     const rawSetupToken = createOneTimeSetupToken();
     const tokenResult = upsertAgentProvisioningToken({
@@ -291,6 +306,18 @@ function createAgentRegistryService(deps = {}) {
       activatedCredentialId: credential.apiKey?.id || null,
     }, actor);
 
+    const staleProvisioningTokens = listAgentProvisioningTokens({
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      agentId: provisioningToken.agentId,
+      status: 'pending_activation',
+    }).filter((row) => String(row?.id || '') !== String(provisioningToken.id || ''));
+    for (const row of staleProvisioningTokens) {
+      revokeAgentProvisioningToken(row.id, actor, {
+        revokeReason: 'superseded-after-activation',
+      });
+    }
+
     return {
       ok: true,
       agent: agentResult.agent,
@@ -305,11 +332,27 @@ function createAgentRegistryService(deps = {}) {
   async function revokeAgentToken(input = {}, actor = 'system') {
     const apiKeyId = trimText(input.apiKeyId, 120);
     if (!apiKeyId) return { ok: false, reason: 'invalid-api-key-id' };
+    const credential = listAgentCredentials({ apiKeyId })[0] || null;
+    const binding = listAgentTokenBindings({ apiKeyId })[0] || null;
+    const scopedTenantId = trimText(input.tenantId, 120);
+    const bindingTenantId = trimText(binding?.tenantId, 120);
+    const credentialTenantId = trimText(credential?.tenantId, 120);
+    const effectiveTenantId = credentialTenantId || bindingTenantId || '';
+    if (scopedTenantId && effectiveTenantId && effectiveTenantId !== scopedTenantId) {
+      return { ok: false, reason: 'tenant-scope-mismatch' };
+    }
     if (typeof revokePlatformApiKey === 'function') {
       const result = await revokePlatformApiKey(apiKeyId, actor);
       if (!result.ok) return result;
     }
-    return revokeAgentTokenBinding(apiKeyId, actor);
+    const bindingResult = revokeAgentTokenBinding(apiKeyId, actor);
+    if (!bindingResult.ok) return bindingResult;
+    if (credential?.id) {
+      revokeAgentCredential(credential.id, actor, {
+        revokeReason: 'api-key-revoked',
+      });
+    }
+    return bindingResult;
   }
 
   async function rotateAgentToken(input = {}, actor = 'system') {
@@ -317,6 +360,10 @@ function createAgentRegistryService(deps = {}) {
     if (!apiKeyId) return { ok: false, reason: 'invalid-api-key-id' };
     const binding = listAgentTokenBindings({ apiKeyId })[0] || null;
     if (!binding) return { ok: false, reason: 'agent-token-binding-not-found' };
+    const scopedTenantId = trimText(input.tenantId, 120);
+    if (scopedTenantId && String(binding.tenantId || '') !== scopedTenantId) {
+      return { ok: false, reason: 'tenant-scope-mismatch' };
+    }
     if (typeof rotatePlatformApiKey === 'function') {
       const rotated = await rotatePlatformApiKey({
         apiKeyId,
@@ -331,6 +378,31 @@ function createAgentRegistryService(deps = {}) {
         status: 'active',
         revokedAt: null,
       }, actor);
+      const previousCredential = listAgentCredentials({ apiKeyId })[0] || null;
+      upsertAgentCredential({
+        id: rotated.apiKey?.id,
+        tenantId: binding.tenantId,
+        serverId: binding.serverId,
+        guildId: binding.guildId || null,
+        agentId: binding.agentId,
+        apiKeyId: rotated.apiKey?.id,
+        keyPrefix: String(rotated.rawKey || '').slice(0, 16),
+        role: binding.role,
+        scope: binding.scope,
+        minVersion: binding.minVersion,
+        deviceId: previousCredential?.deviceId || null,
+        lastIssuedAt: new Date().toISOString(),
+        lastRotatedAt: new Date().toISOString(),
+        metadata: {
+          rotatedFromApiKeyId: apiKeyId,
+        },
+      }, actor);
+      if (previousCredential?.id) {
+        revokeAgentCredential(previousCredential.id, actor, {
+          revokeReason: 'api-key-rotated',
+          rotatedToApiKeyId: rotated.apiKey?.id || null,
+        });
+      }
       revokeAgentTokenBinding(apiKeyId, actor);
       return {
         ok: true,
@@ -353,8 +425,33 @@ function createAgentRegistryService(deps = {}) {
       status: 'active',
       revokedAt: null,
     }, actor);
+    const previousCredential = listAgentCredentials({ apiKeyId })[0] || null;
+    upsertAgentCredential({
+      id: created.apiKey?.id,
+      tenantId: binding.tenantId,
+      serverId: binding.serverId,
+      guildId: binding.guildId || null,
+      agentId: binding.agentId,
+      apiKeyId: created.apiKey?.id,
+      keyPrefix: String(created.rawKey || '').slice(0, 16),
+      role: binding.role,
+      scope: binding.scope,
+      minVersion: binding.minVersion,
+      deviceId: previousCredential?.deviceId || null,
+      lastIssuedAt: new Date().toISOString(),
+      lastRotatedAt: new Date().toISOString(),
+      metadata: {
+        rotatedFromApiKeyId: apiKeyId,
+      },
+    }, actor);
     if (typeof revokePlatformApiKey === 'function') {
       await revokePlatformApiKey(apiKeyId, actor).catch(() => null);
+    }
+    if (previousCredential?.id) {
+      revokeAgentCredential(previousCredential.id, actor, {
+        revokeReason: 'api-key-rotated',
+        rotatedToApiKeyId: created.apiKey?.id || null,
+      });
     }
     revokeAgentTokenBinding(apiKeyId, actor);
     return {
@@ -362,6 +459,54 @@ function createAgentRegistryService(deps = {}) {
       apiKey: created.apiKey,
       rawKey: created.rawKey,
     };
+  }
+
+  async function revokeProvisioningToken(input = {}, actor = 'system') {
+    const tokenId = trimText(input.tokenId || input.id, 120);
+    if (!tokenId) return { ok: false, reason: 'invalid-agent-provisioning-token-id' };
+    const token = listAgentProvisioningTokens({ tokenId })[0] || null;
+    if (!token) return { ok: false, reason: 'agent-provisioning-token-not-found' };
+    const scopedTenantId = trimText(input.tenantId, 120);
+    if (scopedTenantId && String(token.tenantId || '') !== scopedTenantId) {
+      return { ok: false, reason: 'tenant-scope-mismatch' };
+    }
+    return revokeAgentProvisioningToken(tokenId, actor, {
+      revokeReason: trimText(input.revokeReason, 120) || 'manual-revoke',
+    });
+  }
+
+  async function revokeManagedAgentDevice(input = {}, actor = 'system') {
+    const deviceId = trimText(input.deviceId || input.id, 120);
+    if (!deviceId) return { ok: false, reason: 'invalid-agent-device-id' };
+    const device = listAgentDevices({ deviceId })[0] || null;
+    if (!device) return { ok: false, reason: 'agent-device-not-found' };
+    const scopedTenantId = trimText(input.tenantId, 120);
+    if (scopedTenantId && String(device.tenantId || '') !== scopedTenantId) {
+      return { ok: false, reason: 'tenant-scope-mismatch' };
+    }
+    const result = revokeAgentDevice(deviceId, actor, {
+      revokeReason: trimText(input.revokeReason, 120) || 'manual-revoke',
+    });
+    if (!result.ok) return result;
+
+    const credentialRows = listAgentCredentials({
+      tenantId: device.tenantId,
+      serverId: device.serverId,
+      agentId: device.agentId,
+    }).filter((row) => String(row?.deviceId || '') === String(deviceId));
+    for (const row of credentialRows) {
+      revokeAgentCredential(row.id, actor, {
+        revokeReason: 'device-revoked',
+        deviceId,
+      });
+      if (row.apiKeyId) {
+        revokeAgentTokenBinding(row.apiKeyId, actor);
+        if (typeof revokePlatformApiKey === 'function') {
+          await revokePlatformApiKey(row.apiKeyId, actor).catch(() => null);
+        }
+      }
+    }
+    return result;
   }
 
   async function registerAgent(input = {}, auth = {}, actor = 'platform-agent') {
@@ -430,6 +575,31 @@ function createAgentRegistryService(deps = {}) {
       scope: agent.scope,
       guildId: normalized.guildId || agent.guildId || null,
     }, actor);
+    const credential = listAgentCredentials({ apiKeyId: auth.apiKeyId })[0] || null;
+    const currentDevice = credential?.deviceId
+      ? listAgentDevices({ deviceId: credential.deviceId })[0] || null
+      : null;
+    if (credential?.deviceId && currentDevice?.machineFingerprintHash) {
+      upsertAgentDevice({
+        id: credential.deviceId,
+        tenantId: agent.tenantId,
+        serverId: agent.serverId,
+        guildId: agent.guildId || null,
+        agentId: agent.agentId,
+        runtimeKey: normalized.runtimeKey || agent.runtimeKey,
+        machineFingerprintHash: currentDevice.machineFingerprintHash,
+        hostname: normalized.hostname || agent.hostname || null,
+        status: 'online',
+        credentialId: credential.id,
+        metadata: {
+          ...(currentDevice.metadata || {}),
+          lastSessionId: session.session?.sessionId || normalized.sessionId,
+        },
+        firstSeenAt: currentDevice.firstSeenAt,
+        lastSeenAt: normalized.heartbeatAt || new Date().toISOString(),
+        createdAt: currentDevice.createdAt,
+      }, actor);
+    }
     await recordPlatformAgentHeartbeat?.({
       tenantId: normalized.tenantId,
       runtimeKey: normalized.runtimeKey,
@@ -560,6 +730,8 @@ function createAgentRegistryService(deps = {}) {
     listProvisioningTokens,
     recordSession,
     registerAgent,
+    revokeManagedAgentDevice,
+    revokeProvisioningToken,
     revokeAgentToken,
     rotateAgentToken,
   };

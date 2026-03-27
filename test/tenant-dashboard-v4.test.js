@@ -29,22 +29,27 @@ test('tenant dashboard v4 model maps legacy tenant state into operator-first con
 
   assert.equal(model.header.title, 'SCUM TH Production');
   assert.equal(model.kpis.length, 6);
+  assert.equal(model.setupFlow.steps.length, 7);
+  assert.equal(model.setupFlow.completedSteps, 4);
   assert.equal(model.taskGroups.length, 3);
-  assert.ok(model.issues.some((item) => item.title.includes('dead-letter')));
+  assert.ok(model.issues.some((item) => item.title.includes('ล้มเหลว')));
   assert.ok(model.contextBlocks.some((item) => item.label === 'สถานะแพ็กเกจ'));
   assert.ok(model.railCards.length >= 3);
+  assert.ok(model.decisionPanel);
 });
 
-test('tenant dashboard v4 html includes shell, task groups, and issue center', () => {
+test('tenant dashboard v4 html includes shell, decision panel, and issue center', () => {
   const html = buildTenantDashboardV4Html(createTenantDashboardV4Model({
     me: { tenantId: 'tenant-demo' },
     tenantConfig: { name: 'Tenant Demo' },
   }));
 
   assert.match(html, /tdv4-topbar/);
-  assert.match(html, /เซิร์ฟเวอร์และสุขภาพระบบ/);
-  assert.match(html, /ปัญหาที่กระทบงานประจำวัน/);
-  assert.match(html, /ลำดับเหตุการณ์ที่เกี่ยวข้องกับ tenant นี้/);
+  assert.match(html, /tdv4-priority-panel/);
+  assert.match(html, /dashboard-issues/);
+  assert.match(html, /tdv4-details-panel/);
+  assert.match(html, /ทำแล้ว 0\/7 ขั้น/);
+  assert.match(html, /ไปทำขั้นนี้/);
 });
 
 test('tenant dashboard v4 preview html references parallel assets', () => {

@@ -1,0 +1,33 @@
+{
+  "dictionary": {
+    "shell.player.documentTitle": "SCUM TH Platform | Player Portal",
+    "shell.player.title": "Player Portal",
+    "shell.player.detail": "Shop, wallet, orders, stats, and community updates in one place.",
+    "shell.player.service": "Service",
+    "shell.player.status.loading": "Preparing player portal",
+    "shell.common.refresh": "Refresh data",
+    "shell.role.player": "Player",
+    "shell.role.service": "Service",
+    "player.app.status.loading": "Loading player data...",
+    "player.app.card.loadingTitle": "Preparing player data",
+    "player.app.card.loadingDetail": "Loading wallet, shop, orders, stats, and community updates.",
+    "player.app.status.ready": "Ready",
+    "player.app.card.loadFailedTitle": "Could not load player portal",
+    "player.app.status.loadFailed": "Load failed",
+    "player.app.card.emptyTitle": "No player data yet",
+    "player.app.card.emptyDetail": "Wait for the latest player data to load.",
+    "player.app.page.home": "Home",
+    "player.app.page.commerce": "Shop, wallet, and orders",
+    "player.app.page.stats": "Stats, events, and support",
+    "player.nav.group.start": "Start",
+    "player.nav.group.commerce": "Shop and wallet",
+    "player.nav.group.community": "Community",
+    "player.nav.home": "Home",
+    "player.nav.commerce": "Shop, Wallet & Orders",
+    "player.nav.commerceLocked": "Shop, Wallet & Orders (Locked)",
+    "player.nav.stats": "Stats, Events & Support",
+    "player.nav.statsLocked": "Stats, Events & Support (Locked)",
+    "player.notice.lockedTitle": "This server has not opened this area yet",
+    "player.notice.lockedDetail": "This server package has not opened this page for players yet, so the portal returned you to an available area first."
+  }
+}

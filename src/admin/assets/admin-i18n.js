@@ -3,6 +3,11 @@
 
   const STORAGE_KEY = 'scum.ui.language';
   const DEFAULT_LOCALE = 'en';
+  const EXTERNAL_LOCALE_PATHS = Object.freeze({
+    en: '/admin/assets/locales/en/admin-ui-extra.json',
+    th: '/admin/assets/locales/th/admin-ui-extra.json',
+  });
+  const LOADED_EXTERNAL_LOCALES = new Set();
   const SUPPORTED_LANGUAGES = [
     ['en', 'English'],
     ['th', 'ไทย'],
@@ -2985,6 +2990,48 @@
     document.documentElement.lang = currentLocale;
   }
 
+  function mergeLocaleBundle(locale, bundle = {}) {
+    const normalizedLocale = normalizeLocale(locale);
+    const dictionary = bundle && typeof bundle.dictionary === 'object' && !Array.isArray(bundle.dictionary)
+      ? bundle.dictionary
+      : bundle;
+    if (dictionary && typeof dictionary === 'object' && !Array.isArray(dictionary)) {
+      DICTIONARY[normalizedLocale] = DICTIONARY[normalizedLocale] || {};
+      Object.assign(DICTIONARY[normalizedLocale], dictionary);
+    }
+    if (bundle && typeof bundle.literals === 'object' && !Array.isArray(bundle.literals)) {
+      STATIC_LITERAL_TRANSLATIONS[normalizedLocale] = STATIC_LITERAL_TRANSLATIONS[normalizedLocale] || {};
+      Object.assign(STATIC_LITERAL_TRANSLATIONS[normalizedLocale], bundle.literals);
+    }
+  }
+
+  async function ensureExternalLocale(locale) {
+    const normalizedLocale = normalizeLocale(locale);
+    if (LOADED_EXTERNAL_LOCALES.has(normalizedLocale)) return;
+    LOADED_EXTERNAL_LOCALES.add(normalizedLocale);
+    const source = EXTERNAL_LOCALE_PATHS[normalizedLocale];
+    if (!source || typeof fetch !== 'function') return;
+    try {
+      const response = await fetch(source, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) return;
+      const bundle = await response.json().catch(() => null);
+      if (bundle && typeof bundle === 'object') {
+        mergeLocaleBundle(normalizedLocale, bundle);
+      }
+    } catch {
+      // Keep inline locale dictionary as the fallback.
+    }
+  }
+
+  function emitLocaleChange() {
+    window.dispatchEvent(new CustomEvent('ui-language-change', {
+      detail: { locale: currentLocale },
+    }));
+  }
+
   function syncSelectors() {
     document.querySelectorAll('[data-language-select]').forEach((select) => {
       const currentValue = String(select.value || '').trim();
@@ -2995,18 +3042,17 @@
     });
   }
 
-  function setLocale(locale, options = {}) {
+  async function setLocale(locale, options = {}) {
     currentLocale = normalizeLocale(locale);
     if (options.persist !== false) {
       try {
         window.localStorage.setItem(STORAGE_KEY, currentLocale);
       } catch {}
     }
+    await ensureExternalLocale(currentLocale);
     syncSelectors();
     applyTranslations(document);
-    window.dispatchEvent(new CustomEvent('ui-language-change', {
-      detail: { locale: currentLocale },
-    }));
+    emitLocaleChange();
   }
 
   Object.assign(DICTIONARY.en, {
@@ -5362,7 +5408,12 @@
   function initialize(selectIds = []) {
     currentLocale = detectLocale();
     selectIds.forEach((id) => initSelector(id));
+    syncSelectors();
     applyTranslations(document);
+    void ensureExternalLocale(currentLocale).finally(() => {
+      applyTranslations(document);
+      emitLocaleChange();
+    });
   }
 
   window.AdminUiI18n = {
@@ -5371,6 +5422,7 @@
     },
     t,
     translateLiterals: applyLiteralTranslations,
+    apply: applyTranslations,
     setLocale,
     init: initialize,
   };

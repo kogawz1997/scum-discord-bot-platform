@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>SCUM TH Platform | พอร์ทัลผู้เล่น</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-ui-1">
-  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css?v=20260327-ui-1">
-  <link rel="stylesheet" href="/player/assets/ui/player-home-v4.css?v=20260327-ui-1">
-  <link rel="stylesheet" href="/player/assets/ui/player-commerce-v4.css?v=20260327-ui-1">
-  <link rel="stylesheet" href="/player/assets/ui/player-stats-events-support-v4.css?v=20260327-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-ui-2">
+  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css?v=20260327-ui-2">
+  <link rel="stylesheet" href="/player/assets/ui/player-home-v4.css?v=20260327-ui-2">
+  <link rel="stylesheet" href="/player/assets/ui/player-commerce-v4.css?v=20260327-ui-2">
+  <link rel="stylesheet" href="/player/assets/ui/player-stats-events-support-v4.css?v=20260327-ui-2">
 </head>
 <body class="player-shell-v3" data-surface="player-v4">
   <div class="site-shell">
@@ -18,28 +18,39 @@
         <a class="site-brand" href="/player">
           <span class="site-brand-mark">SCUM</span>
           <span class="site-brand-copy">
-            <strong class="site-brand-title">พอร์ทัลผู้เล่น</strong>
-            <span class="site-brand-detail">ร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และกิจกรรมของชุมชน</span>
+            <strong class="site-brand-title" data-i18n="shell.player.title">พอร์ทัลผู้เล่น</strong>
+            <span class="site-brand-detail" data-i18n="shell.player.detail">ร้านค้า กระเป๋าเงิน คำสั่งซื้อ สถิติ และข่าวสารของชุมชนในจุดเดียว</span>
           </span>
         </a>
         <nav class="site-nav" aria-label="Player sections">
-          <a class="site-nav-link is-active" href="/player">ผู้เล่น</a>
-          <a class="site-nav-link" href="/landing">บริการ</a>
+          <a class="site-nav-link is-active" href="/player" data-i18n="shell.role.player">ผู้เล่น</a>
+          <a class="site-nav-link" href="/landing" data-i18n="shell.player.service">บริการ</a>
         </nav>
       </div>
       <div class="site-topbar-tools">
-        <span id="playerV4Status" class="surface-status" data-tone="muted">กำลังเตรียมพอร์ทัลผู้เล่น</span>
-        <button id="playerV4RefreshBtn" class="site-button site-button-primary" type="button">รีเฟรชข้อมูล</button>
+        <span id="playerV4Status" class="surface-status" data-tone="muted" data-i18n="shell.player.status.loading">กำลังเตรียมพอร์ทัลผู้เล่น</span>
+        <button id="playerV4RefreshBtn" class="site-button site-button-primary" type="button" data-i18n="shell.common.refresh">รีเฟรชข้อมูล</button>
       </div>
     </header>
     <main class="surface-stage">
       <div id="playerV4AppRoot" class="surface-mount" aria-live="polite"></div>
     </main>
   </div>
-  <script src="/player/assets/ui/player-v4-shared.js?v=20260327-ui-1"></script>
-  <script src="/player/assets/ui/player-home-v4.js?v=20260327-ui-1"></script>
-  <script src="/player/assets/ui/player-commerce-v4.js?v=20260327-ui-1"></script>
-  <script src="/player/assets/ui/player-stats-events-support-v4.js?v=20260327-ui-1"></script>
-  <script src="/player/assets/ui/player-v4-app.js?v=20260327-ui-1"></script>
+  <script src="/player/assets/portal-i18n.js?v=20260327-ui-2"></script>
+  <script>
+    window.PortalUiI18n?.init();
+    const applyPlayerShellLocale = () => {
+      if (!window.PortalUiI18n) return;
+      document.title = window.PortalUiI18n.t('shell.player.documentTitle', document.title);
+      window.PortalUiI18n.apply(document);
+    };
+    applyPlayerShellLocale();
+    window.addEventListener('ui-language-change', applyPlayerShellLocale);
+  </script>
+  <script src="/player/assets/ui/player-v4-shared.js?v=20260327-ui-2"></script>
+  <script src="/player/assets/ui/player-home-v4.js?v=20260327-ui-2"></script>
+  <script src="/player/assets/ui/player-commerce-v4.js?v=20260327-ui-2"></script>
+  <script src="/player/assets/ui/player-stats-events-support-v4.js?v=20260327-ui-2"></script>
+  <script src="/player/assets/ui/player-v4-app.js?v=20260327-ui-2"></script>
 </body>
 </html>

@@ -146,8 +146,32 @@ test('platform provisioning activates device-bound agents and exposes package an
   assert.match(setupToken, /^stp_[a-f0-9]+\.[a-f0-9]+$/);
   assert.equal(String(provision.data.data?.bootstrap?.agentType || ''), 'execute');
 
-  const activate = await request('/platform/api/v1/agent/activate', 'POST', {
+  const reprovision = await request('/admin/api/platform/agent-provision', 'POST', {
+    tenantId,
+    serverId,
+    guildId,
+    agentId,
+    runtimeKey: 'execute-agent-runtime',
+    role: 'execute',
+    scope: 'execute_only',
+    minimumVersion: '1.2.3',
+    expiresAt: '2026-12-31T00:00:00.000Z',
+  }, cookie);
+  assert.equal(reprovision.res.status, 200);
+  assert.equal(reprovision.data.ok, true);
+  const latestSetupToken = String(reprovision.data.data?.rawSetupToken || '');
+  assert.match(latestSetupToken, /^stp_[a-f0-9]+\.[a-f0-9]+$/);
+  assert.notEqual(latestSetupToken, setupToken);
+
+  const activateRevokedSetupToken = await request('/platform/api/v1/agent/activate', 'POST', {
     setupToken,
+    machineFingerprint: 'machine-fingerprint-old',
+  });
+  assert.equal(activateRevokedSetupToken.res.status, 400);
+  assert.equal(String(activateRevokedSetupToken.data.error || ''), 'setup-token-revoked');
+
+  const activate = await request('/platform/api/v1/agent/activate', 'POST', {
+    setupToken: latestSetupToken,
     machineFingerprint: 'machine-fingerprint-a',
     hostname: 'machine-a',
     version: '1.2.3',
@@ -159,7 +183,7 @@ test('platform provisioning activates device-bound agents and exposes package an
   assert.match(rawAgentKey, /^sk_/);
 
   const activateAgain = await request('/platform/api/v1/agent/activate', 'POST', {
-    setupToken,
+    setupToken: latestSetupToken,
     machineFingerprint: 'machine-fingerprint-b',
   });
   assert.equal(activateAgain.res.status, 400);
@@ -208,5 +232,27 @@ test('platform provisioning activates device-bound agents and exposes package an
 
   const credentialRows = await request(`/admin/api/platform/agent-credentials?tenantId=${tenantId}`, 'GET', null, cookie);
   assert.equal(credentialRows.res.status, 200);
-  assert.ok(credentialRows.data.data.some((entry) => String(entry.agentId || '') === agentId));
+  const activatedCredential = credentialRows.data.data.find((entry) => String(entry.agentId || '') === agentId);
+  assert.ok(activatedCredential);
+
+  const revokeDevice = await request('/admin/api/platform/agent-device/revoke', 'POST', {
+    tenantId,
+    deviceId: String(deviceRows.data.data[0]?.id || ''),
+    revokeReason: 'security-reset',
+  }, cookie);
+  assert.equal(revokeDevice.res.status, 200);
+  assert.equal(revokeDevice.data.ok, true);
+
+  const revokedSession = await request('/platform/api/v1/agent/session', 'POST', {
+    tenantId,
+    serverId,
+    guildId,
+    agentId,
+    runtimeKey: 'execute-agent-runtime',
+    sessionId: 'agent-session-after-revoke',
+    heartbeatAt: '2026-03-26T10:00:00.000Z',
+  }, '', {
+    authorization: `Bearer ${rawAgentKey}`,
+  });
+  assert.equal(revokedSession.res.status, 401);
 });

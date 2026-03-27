@@ -92,6 +92,9 @@ function createAdminGetRoutes(deps) {
     listPlatformAgentRuntimes,
     listPlatformServerRegistry,
     listPlatformServerLinks,
+    getServerConfigWorkspace,
+    getServerConfigCategory,
+    listServerConfigBackups,
     listPlatformAgentRegistry,
     listPlatformAgentProvisioningTokens,
     listPlatformAgentDevices,
@@ -562,6 +565,67 @@ function createAdminGetRoutes(deps) {
         data: await listPlatformServerRegistry({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
+        }),
+      });
+      return true;
+    }
+
+    const serverConfigBackupsMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/backups$/);
+    if (serverConfigBackupsMatch) {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
+        required: true,
+      });
+      if (!tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await listServerConfigBackups({
+          tenantId,
+          serverId: serverConfigBackupsMatch[1],
+          limit: asInt(urlObj.searchParams.get('limit'), 30) || 30,
+        }),
+      });
+      return true;
+    }
+
+    const serverConfigCategoryMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/([^/]+)$/);
+    if (serverConfigCategoryMatch) {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
+        required: true,
+      });
+      if (!tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await getServerConfigCategory({
+          tenantId,
+          serverId: serverConfigCategoryMatch[1],
+          category: serverConfigCategoryMatch[2],
+          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
+        }),
+      });
+      return true;
+    }
+
+    const serverConfigWorkspaceMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config$/);
+    if (serverConfigWorkspaceMatch) {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
+        required: true,
+      });
+      if (!tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: await getServerConfigWorkspace({
+          tenantId,
+          serverId: serverConfigWorkspaceMatch[1],
+          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
         }),
       });
       return true;
