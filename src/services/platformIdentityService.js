@@ -3,6 +3,25 @@
 const crypto = require('node:crypto');
 
 const { prisma } = require('../prisma');
+const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+
+const PLATFORM_IDENTITY_TABLES = Object.freeze([
+  'platform_users',
+  'platform_user_identities',
+  'platform_memberships',
+  'platform_password_reset_tokens',
+  'platform_verification_tokens',
+  'platform_player_profiles',
+]);
+
+const PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV = 'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP';
+
+let cachedIdentitySchemaState = null;
+let cachedIdentitySchemaKey = '';
+let cachedPlatformUserPasswordColumnState = null;
+let cachedPlatformUserPasswordColumnKey = '';
+let cachedVerificationTokenColumnState = null;
+let cachedVerificationTokenColumnKey = '';
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -33,12 +52,324 @@ function createRawToken(prefix = 'rst') {
   return `${prefix}_${crypto.randomBytes(12).toString('hex')}.${crypto.randomBytes(20).toString('hex')}`;
 }
 
-async function ensurePlatformIdentityTables(db = prisma) {
+function escapeSqlLiteral(value) {
+  return String(value || '').replaceAll("'", "''");
+}
+
+function getIdentitySchemaCacheKey(env = process.env) {
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  return JSON.stringify({
+    engine: runtime.engine,
+    provider: runtime.provider,
+    rawUrl: runtime.rawUrl,
+    nodeEnv: trimText(env.NODE_ENV, 32).toLowerCase(),
+    runtimeBootstrap: trimText(env[PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV], 32).toLowerCase(),
+  });
+}
+
+function isRuntimeIdentityBootstrapAllowed(env = process.env) {
+  const explicit = trimText(env[PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV], 32).toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(explicit)) return true;
+  if (['0', 'false', 'no', 'off'].includes(explicit)) return false;
+  const nodeEnv = trimText(env.NODE_ENV, 32).toLowerCase();
+  return nodeEnv !== 'production';
+}
+
+function buildIdentitySchemaRequiredError(details = {}) {
+  const error = new Error(
+    'Platform identity schema is not ready. Run the database migrations or temporarily enable runtime bootstrap for local/dev.',
+  );
+  error.code = 'PLATFORM_IDENTITY_SCHEMA_REQUIRED';
+  error.statusCode = 500;
+  error.identitySchema = details;
+  return error;
+}
+
+function buildIdentityPasswordColumnRequiredError(details = {}) {
+  const error = new Error(
+    'Platform identity auth schema is not ready. The platform_users.passwordHash column is required before enabling password-based auth.',
+  );
+  error.code = 'PLATFORM_IDENTITY_PASSWORD_COLUMN_REQUIRED';
+  error.statusCode = 500;
+  error.identitySchema = details;
+  return error;
+}
+
+function buildIdentityVerificationTokenSchemaRequiredError(details = {}) {
+  const error = new Error(
+    'Platform identity token schema is not ready. The platform_verification_tokens compatibility columns are required before enabling workspace auth.',
+  );
+  error.code = 'PLATFORM_IDENTITY_VERIFICATION_TOKEN_SCHEMA_REQUIRED';
+  error.statusCode = 500;
+  error.identitySchema = details;
+  return error;
+}
+
+async function queryTableExists(db, runtime, tableName) {
+  const escapedTable = escapeSqlLiteral(tableName);
+  if (runtime.engine === 'postgresql') {
+    const rows = await db.$queryRawUnsafe(`
+      SELECT table_name AS name
+      FROM information_schema.tables
+      WHERE table_schema = current_schema()
+        AND table_name = '${escapedTable}'
+      LIMIT 1
+    `);
+    return Array.isArray(rows) && rows.length > 0;
+  }
+  if (runtime.engine === 'sqlite') {
+    const rows = await db.$queryRawUnsafe(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+        AND name = '${escapedTable}'
+      LIMIT 1
+    `);
+    return Array.isArray(rows) && rows.length > 0;
+  }
+  return true;
+}
+
+async function queryColumnExists(db, runtime, tableName, columnName) {
+  const escapedTable = escapeSqlLiteral(tableName);
+  const escapedColumn = escapeSqlLiteral(columnName);
+  if (runtime.engine === 'postgresql') {
+    const rows = await db.$queryRawUnsafe(`
+      SELECT column_name AS name
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = '${escapedTable}'
+        AND column_name = '${escapedColumn}'
+      LIMIT 1
+    `);
+    return Array.isArray(rows) && rows.length > 0;
+  }
+  if (runtime.engine === 'sqlite') {
+    const rows = await db.$queryRawUnsafe(`PRAGMA table_info('${escapedTable}')`);
+    return Array.isArray(rows) && rows.some((row) => trimText(row?.name, 160) === columnName);
+  }
+  return true;
+}
+
+async function getPlatformIdentitySchemaState(db = prisma, env = process.env) {
+  const cacheKey = getIdentitySchemaCacheKey(env);
+  if (cachedIdentitySchemaKey === cacheKey && cachedIdentitySchemaState) {
+    return cachedIdentitySchemaState;
+  }
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  const missingTables = [];
+  for (const tableName of PLATFORM_IDENTITY_TABLES) {
+    const exists = await queryTableExists(db, runtime, tableName);
+    if (!exists) {
+      missingTables.push(tableName);
+    }
+  }
+  const state = Object.freeze({
+    runtime,
+    missingTables,
+    ready: missingTables.length === 0,
+    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+  });
+  cachedIdentitySchemaKey = cacheKey;
+  cachedIdentitySchemaState = state;
+  return state;
+}
+
+function invalidateIdentitySchemaCaches() {
+  cachedIdentitySchemaKey = '';
+  cachedIdentitySchemaState = null;
+  cachedPlatformUserPasswordColumnKey = '';
+  cachedPlatformUserPasswordColumnState = null;
+  cachedVerificationTokenColumnKey = '';
+  cachedVerificationTokenColumnState = null;
+}
+
+async function getPlatformUserPasswordColumnState(db = prisma, env = process.env) {
+  const cacheKey = getIdentitySchemaCacheKey(env);
+  if (cachedPlatformUserPasswordColumnKey === cacheKey && cachedPlatformUserPasswordColumnState) {
+    return cachedPlatformUserPasswordColumnState;
+  }
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  const exists = await queryColumnExists(db, runtime, 'platform_users', 'passwordHash');
+  const state = Object.freeze({
+    runtime,
+    exists,
+    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+  });
+  cachedPlatformUserPasswordColumnKey = cacheKey;
+  cachedPlatformUserPasswordColumnState = state;
+  return state;
+}
+
+async function getVerificationTokenColumnState(db = prisma, env = process.env) {
+  const cacheKey = getIdentitySchemaCacheKey(env);
+  if (cachedVerificationTokenColumnKey === cacheKey && cachedVerificationTokenColumnState) {
+    return cachedVerificationTokenColumnState;
+  }
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  const requiredColumns = ['previewAccountId', 'purpose', 'tokenType', 'target'];
+  const missingColumns = [];
+  for (const columnName of requiredColumns) {
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await queryColumnExists(db, runtime, 'platform_verification_tokens', columnName);
+    if (!exists) {
+      missingColumns.push(columnName);
+    }
+  }
+  const state = Object.freeze({
+    runtime,
+    missingColumns,
+    ready: missingColumns.length === 0,
+    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+  });
+  cachedVerificationTokenColumnKey = cacheKey;
+  cachedVerificationTokenColumnState = state;
+  return state;
+}
+
+async function ensurePlatformVerificationTokenColumns(db = prisma, options = {}) {
+  const env = options.env || process.env;
+  const columnState = await getVerificationTokenColumnState(db, env);
+  if (columnState.ready) {
+    return {
+      ok: true,
+      bootstrapped: false,
+      columns: columnState,
+    };
+  }
+  if (!columnState.runtimeBootstrapAllowed) {
+    throw buildIdentityVerificationTokenSchemaRequiredError({
+      table: 'platform_verification_tokens',
+      missingColumns: columnState.missingColumns,
+      runtime: columnState.runtime,
+      env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+    });
+  }
+  const alterStatements = {
+    previewAccountId: 'ALTER TABLE platform_verification_tokens ADD COLUMN previewAccountId TEXT',
+    purpose: "ALTER TABLE platform_verification_tokens ADD COLUMN purpose TEXT DEFAULT 'email_verification'",
+    tokenType: 'ALTER TABLE platform_verification_tokens ADD COLUMN tokenType TEXT',
+    target: 'ALTER TABLE platform_verification_tokens ADD COLUMN target TEXT',
+  };
+  for (const columnName of columnState.missingColumns) {
+    const sql = alterStatements[columnName];
+    if (!sql) continue;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await db.$executeRawUnsafe(sql);
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (
+        !message.includes('duplicate column')
+        && !message.includes('already exists')
+        && !message.includes('duplicate_column')
+      ) {
+        throw error;
+      }
+    }
+  }
+  await db.$executeRawUnsafe(`
+    UPDATE platform_verification_tokens
+    SET purpose = COALESCE(NULLIF(purpose, ''), NULLIF(tokenType, ''), 'email_verification')
+    WHERE purpose IS NULL OR purpose = ''
+  `);
+  await db.$executeRawUnsafe(`
+    UPDATE platform_verification_tokens
+    SET tokenType = COALESCE(NULLIF(tokenType, ''), NULLIF(purpose, ''), 'email_verification')
+    WHERE tokenType IS NULL OR tokenType = ''
+  `);
+  await db.$executeRawUnsafe(`
+    UPDATE platform_verification_tokens
+    SET target = COALESCE(NULLIF(target, ''), email)
+    WHERE (target IS NULL OR target = '')
+      AND email IS NOT NULL
+  `);
+  await db.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS platform_verification_tokens_email_hash_key ON platform_verification_tokens(email, tokenHash)');
+  await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_preview_exp_idx ON platform_verification_tokens(previewAccountId, expiresAt)');
+  await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_user_purpose_exp_idx ON platform_verification_tokens(userId, purpose, expiresAt)');
+  await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_email_purpose_exp_idx ON platform_verification_tokens(email, purpose, expiresAt)');
+  invalidateIdentitySchemaCaches();
+  return {
+    ok: true,
+    bootstrapped: true,
+    columns: await getVerificationTokenColumnState(db, env),
+  };
+}
+
+async function ensurePlatformUserPasswordColumn(db = prisma, options = {}) {
+  const env = options.env || process.env;
+  await ensurePlatformIdentityTables(db, { env });
+  const passwordColumnState = await getPlatformUserPasswordColumnState(db, env);
+  if (passwordColumnState.exists) {
+    return {
+      ok: true,
+      bootstrapped: false,
+      column: passwordColumnState,
+    };
+  }
+  if (!passwordColumnState.runtimeBootstrapAllowed) {
+    throw buildIdentityPasswordColumnRequiredError({
+      column: 'platform_users.passwordHash',
+      runtime: passwordColumnState.runtime,
+      env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+    });
+  }
+  try {
+    await db.$executeRawUnsafe('ALTER TABLE platform_users ADD COLUMN passwordHash TEXT');
+  } catch (error) {
+    const message = String(error?.message || '').toLowerCase();
+    if (
+      !message.includes('duplicate column')
+      && !message.includes('already exists')
+      && !message.includes('duplicate_column')
+    ) {
+      throw error;
+    }
+  }
+  invalidateIdentitySchemaCaches();
+  return {
+    ok: true,
+    bootstrapped: true,
+    column: await getPlatformUserPasswordColumnState(db, env),
+  };
+}
+
+async function ensurePlatformIdentityTables(db = prisma, options = {}) {
+  const env = options.env || process.env;
+  const schemaState = await getPlatformIdentitySchemaState(db, env);
+  if (schemaState.ready) {
+    await ensurePlatformVerificationTokenColumns(db, { env });
+    return {
+      ok: true,
+      bootstrapped: false,
+      schema: schemaState,
+    };
+  }
+  if (!schemaState.runtimeBootstrapAllowed) {
+    throw buildIdentitySchemaRequiredError({
+      missingTables: schemaState.missingTables,
+      runtime: schemaState.runtime,
+      env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+    });
+  }
   await db.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS platform_users (
       id TEXT PRIMARY KEY,
       primaryEmail TEXT UNIQUE,
       displayName TEXT,
+      passwordHash TEXT,
       locale TEXT NOT NULL DEFAULT 'en',
       status TEXT NOT NULL DEFAULT 'active',
       metadataJson TEXT,
@@ -105,10 +436,12 @@ async function ensurePlatformIdentityTables(db = prisma) {
       id TEXT PRIMARY KEY,
       userId TEXT,
       previewAccountId TEXT,
-      email TEXT NOT NULL,
+      email TEXT,
       purpose TEXT NOT NULL DEFAULT 'email_verification',
+      tokenType TEXT,
       tokenPrefix TEXT NOT NULL,
       tokenHash TEXT NOT NULL,
+      target TEXT,
       expiresAt TEXT NOT NULL,
       consumedAt TEXT,
       metadataJson TEXT,
@@ -118,6 +451,8 @@ async function ensurePlatformIdentityTables(db = prisma) {
   `);
   await db.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS platform_verification_tokens_email_hash_key ON platform_verification_tokens(email, tokenHash)');
   await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_preview_exp_idx ON platform_verification_tokens(previewAccountId, expiresAt)');
+  await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_user_purpose_exp_idx ON platform_verification_tokens(userId, purpose, expiresAt)');
+  await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_verification_tokens_email_purpose_exp_idx ON platform_verification_tokens(email, purpose, expiresAt)');
   await db.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS platform_player_profiles (
       id TEXT PRIMARY KEY,
@@ -138,6 +473,13 @@ async function ensurePlatformIdentityTables(db = prisma) {
   await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_player_profiles_tenantId_steamId_idx ON platform_player_profiles(tenantId, steamId)');
   await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_player_profiles_tenantId_discordUserId_idx ON platform_player_profiles(tenantId, discordUserId)');
   await db.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS platform_player_profiles_verificationState_updatedAt_idx ON platform_player_profiles(verificationState, updatedAt)');
+  invalidateIdentitySchemaCaches();
+  await ensurePlatformVerificationTokenColumns(db, { env });
+  return {
+    ok: true,
+    bootstrapped: true,
+    schema: await getPlatformIdentitySchemaState(db, env),
+  };
 }
 
 function parseJsonObject(value) {
@@ -150,86 +492,111 @@ function parseJsonObject(value) {
   }
 }
 
+function normalizeRowLookupKey(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[_\s-]+/g, '')
+    .toLowerCase();
+}
+
+function getRowValue(row, ...keys) {
+  if (!row || typeof row !== 'object') return undefined;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(row, key) && row[key] !== undefined) {
+      return row[key];
+    }
+  }
+  const lookup = new Map();
+  for (const [key, value] of Object.entries(row)) {
+    lookup.set(normalizeRowLookupKey(key), value);
+  }
+  for (const key of keys) {
+    const resolved = lookup.get(normalizeRowLookupKey(key));
+    if (resolved !== undefined) return resolved;
+  }
+  return undefined;
+}
+
 function normalizeUserRow(row) {
   if (!row) return null;
   return {
-    id: trimText(row.id, 160) || null,
-    primaryEmail: normalizeEmail(row.primaryEmail),
-    displayName: trimText(row.displayName, 200) || null,
-    locale: trimText(row.locale, 16) || 'en',
-    status: trimText(row.status, 40) || 'active',
-    metadata: parseJsonObject(row.metadataJson),
-    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    id: trimText(getRowValue(row, 'id'), 160) || null,
+    primaryEmail: normalizeEmail(getRowValue(row, 'primaryEmail')),
+    displayName: trimText(getRowValue(row, 'displayName'), 200) || null,
+    locale: trimText(getRowValue(row, 'locale'), 16) || 'en',
+    status: trimText(getRowValue(row, 'status'), 40) || 'active',
+    metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
+    createdAt: getRowValue(row, 'createdAt') ? new Date(getRowValue(row, 'createdAt')).toISOString() : null,
+    updatedAt: getRowValue(row, 'updatedAt') ? new Date(getRowValue(row, 'updatedAt')).toISOString() : null,
   };
 }
 
 function normalizeIdentityRow(row) {
   if (!row) return null;
   return {
-    id: trimText(row.id, 160) || null,
-    userId: trimText(row.userId, 160) || null,
-    provider: trimText(row.provider, 80) || null,
-    providerUserId: trimText(row.providerUserId, 200) || null,
-    providerEmail: normalizeEmail(row.providerEmail),
-    displayName: trimText(row.displayName, 200) || null,
-    avatarUrl: trimText(row.avatarUrl, 600) || null,
-    verifiedAt: row.verifiedAt ? new Date(row.verifiedAt).toISOString() : null,
-    linkedAt: row.linkedAt ? new Date(row.linkedAt).toISOString() : null,
-    metadata: parseJsonObject(row.metadataJson),
+    id: trimText(getRowValue(row, 'id'), 160) || null,
+    userId: trimText(getRowValue(row, 'userId'), 160) || null,
+    provider: trimText(getRowValue(row, 'provider'), 80) || null,
+    providerUserId: trimText(getRowValue(row, 'providerUserId'), 200) || null,
+    providerEmail: normalizeEmail(getRowValue(row, 'providerEmail')),
+    displayName: trimText(getRowValue(row, 'displayName'), 200) || null,
+    avatarUrl: trimText(getRowValue(row, 'avatarUrl'), 600) || null,
+    verifiedAt: getRowValue(row, 'verifiedAt') ? new Date(getRowValue(row, 'verifiedAt')).toISOString() : null,
+    linkedAt: getRowValue(row, 'linkedAt') ? new Date(getRowValue(row, 'linkedAt')).toISOString() : null,
+    metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
   };
 }
 
 function normalizeMembershipRow(row) {
   if (!row) return null;
   return {
-    id: trimText(row.id, 160) || null,
-    userId: trimText(row.userId, 160) || null,
-    tenantId: trimText(row.tenantId, 160) || null,
-    membershipType: trimText(row.membershipType, 80) || 'tenant',
-    role: trimText(row.role, 80) || 'member',
-    status: trimText(row.status, 40) || 'active',
-    isPrimary: row.isPrimary === true || Number(row.isPrimary) === 1,
-    acceptedAt: row.acceptedAt ? new Date(row.acceptedAt).toISOString() : null,
-    revokedAt: row.revokedAt ? new Date(row.revokedAt).toISOString() : null,
-    metadata: parseJsonObject(row.metadataJson),
-    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    id: trimText(getRowValue(row, 'id'), 160) || null,
+    userId: trimText(getRowValue(row, 'userId'), 160) || null,
+    tenantId: trimText(getRowValue(row, 'tenantId'), 160) || null,
+    membershipType: trimText(getRowValue(row, 'membershipType'), 80) || 'tenant',
+    role: trimText(getRowValue(row, 'role'), 80) || 'member',
+    status: trimText(getRowValue(row, 'status'), 40) || 'active',
+    isPrimary: getRowValue(row, 'isPrimary') === true || Number(getRowValue(row, 'isPrimary')) === 1,
+    acceptedAt: getRowValue(row, 'acceptedAt') ? new Date(getRowValue(row, 'acceptedAt')).toISOString() : null,
+    revokedAt: getRowValue(row, 'revokedAt') ? new Date(getRowValue(row, 'revokedAt')).toISOString() : null,
+    metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
+    createdAt: getRowValue(row, 'createdAt') ? new Date(getRowValue(row, 'createdAt')).toISOString() : null,
+    updatedAt: getRowValue(row, 'updatedAt') ? new Date(getRowValue(row, 'updatedAt')).toISOString() : null,
   };
 }
 
 function normalizePlayerProfileRow(row) {
   if (!row) return null;
   return {
-    id: trimText(row.id, 160) || null,
-    userId: trimText(row.userId, 160) || null,
-    tenantId: trimText(row.tenantId, 160) || null,
-    discordUserId: trimText(row.discordUserId, 200) || null,
-    steamId: trimText(row.steamId, 200) || null,
-    inGameName: trimText(row.inGameName, 200) || null,
-    verificationState: trimText(row.verificationState, 80) || 'unverified',
-    linkedAt: row.linkedAt ? new Date(row.linkedAt).toISOString() : null,
-    lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt).toISOString() : null,
-    metadata: parseJsonObject(row.metadataJson),
-    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    id: trimText(getRowValue(row, 'id'), 160) || null,
+    userId: trimText(getRowValue(row, 'userId'), 160) || null,
+    tenantId: trimText(getRowValue(row, 'tenantId'), 160) || null,
+    discordUserId: trimText(getRowValue(row, 'discordUserId'), 200) || null,
+    steamId: trimText(getRowValue(row, 'steamId'), 200) || null,
+    inGameName: trimText(getRowValue(row, 'inGameName'), 200) || null,
+    verificationState: trimText(getRowValue(row, 'verificationState'), 80) || 'unverified',
+    linkedAt: getRowValue(row, 'linkedAt') ? new Date(getRowValue(row, 'linkedAt')).toISOString() : null,
+    lastSeenAt: getRowValue(row, 'lastSeenAt') ? new Date(getRowValue(row, 'lastSeenAt')).toISOString() : null,
+    metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
+    createdAt: getRowValue(row, 'createdAt') ? new Date(getRowValue(row, 'createdAt')).toISOString() : null,
+    updatedAt: getRowValue(row, 'updatedAt') ? new Date(getRowValue(row, 'updatedAt')).toISOString() : null,
   };
 }
 
 function normalizeTokenRow(row) {
   if (!row) return null;
   return {
-    id: trimText(row.id, 160) || null,
-    userId: trimText(row.userId, 160) || null,
-    previewAccountId: trimText(row.previewAccountId, 160) || null,
-    email: normalizeEmail(row.email) || null,
-    purpose: trimText(row.purpose, 80) || null,
-    tokenPrefix: trimText(row.tokenPrefix, 120) || null,
-    expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
-    consumedAt: row.consumedAt ? new Date(row.consumedAt).toISOString() : null,
-    metadata: parseJsonObject(row.metadataJson),
-    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    id: trimText(getRowValue(row, 'id'), 160) || null,
+    userId: trimText(getRowValue(row, 'userId'), 160) || null,
+    previewAccountId: trimText(getRowValue(row, 'previewAccountId'), 160) || null,
+    email: normalizeEmail(getRowValue(row, 'email')) || null,
+    purpose: trimText(getRowValue(row, 'purpose'), 80) || null,
+    tokenPrefix: trimText(getRowValue(row, 'tokenPrefix'), 120) || null,
+    expiresAt: getRowValue(row, 'expiresAt') ? new Date(getRowValue(row, 'expiresAt')).toISOString() : null,
+    consumedAt: getRowValue(row, 'consumedAt') ? new Date(getRowValue(row, 'consumedAt')).toISOString() : null,
+    metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
+    createdAt: getRowValue(row, 'createdAt') ? new Date(getRowValue(row, 'createdAt')).toISOString() : null,
+    updatedAt: getRowValue(row, 'updatedAt') ? new Date(getRowValue(row, 'updatedAt')).toISOString() : null,
   };
 }
 
@@ -343,8 +710,8 @@ async function findPlayerProfile(db, userId, tenantId = null) {
     FROM platform_player_profiles
     WHERE userId = ${normalizedUserId}
       AND (
-        (${normalizedTenantId} IS NULL AND tenantId IS NULL)
-        OR tenantId = ${normalizedTenantId}
+        (CAST(${normalizedTenantId} AS TEXT) IS NULL AND tenantId IS NULL)
+        OR tenantId = CAST(${normalizedTenantId} AS TEXT)
       )
     ORDER BY updatedAt DESC
     LIMIT 1
@@ -373,10 +740,10 @@ async function findPlayerProfileByExternalIds(db, input = {}) {
       createdAt,
       updatedAt
     FROM platform_player_profiles
-    WHERE (${tenantId} IS NULL OR tenantId = ${tenantId})
+    WHERE (CAST(${tenantId} AS TEXT) IS NULL OR tenantId = CAST(${tenantId} AS TEXT))
       AND (
-        (${discordUserId} IS NOT NULL AND discordUserId = ${discordUserId})
-        OR (${steamId} IS NOT NULL AND steamId = ${steamId})
+        (CAST(${discordUserId} AS TEXT) IS NOT NULL AND discordUserId = CAST(${discordUserId} AS TEXT))
+        OR (CAST(${steamId} AS TEXT) IS NOT NULL AND steamId = CAST(${steamId} AS TEXT))
       )
     ORDER BY updatedAt DESC
     LIMIT 1
@@ -531,7 +898,7 @@ async function ensurePlatformUserIdentity(input = {}, db = prisma) {
           role = COALESCE(${role}, role),
           status = ${'active'},
           isPrimary = CASE WHEN isPrimary = 1 THEN 1 ELSE ${membership.isPrimary ? 1 : 1} END,
-          acceptedAt = COALESCE(acceptedAt, CURRENT_TIMESTAMP),
+          acceptedAt = COALESCE(acceptedAt, CAST(CURRENT_TIMESTAMP AS TEXT)),
           metadataJson = ${JSON.stringify(membershipMetadata)},
           updatedAt = CURRENT_TIMESTAMP
         WHERE id = ${membership.id}
@@ -727,7 +1094,7 @@ async function issueEmailVerificationToken(input = {}, db = prisma) {
   const rowId = createId('vfy');
   await db.$executeRaw`
     INSERT INTO platform_verification_tokens (
-      id, userId, previewAccountId, email, purpose, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
+      id, userId, previewAccountId, email, purpose, tokenType, tokenPrefix, tokenHash, target, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
     )
     VALUES (
       ${rowId},
@@ -735,8 +1102,10 @@ async function issueEmailVerificationToken(input = {}, db = prisma) {
       ${trimText(input.previewAccountId, 160) || null},
       ${email},
       ${'email_verification'},
+      ${'email_verification'},
       ${tokenPrefix},
       ${tokenHash},
+      ${email},
       ${expiresAt},
       ${null},
       ${JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {})},
@@ -875,8 +1244,11 @@ module.exports = {
   completePasswordReset,
   ensurePlatformIdentityTables,
   ensurePlatformPlayerIdentity,
+  ensurePlatformUserPasswordColumn,
   ensurePlatformUserIdentity,
+  getPlatformUserPasswordColumnState,
   getIdentitySummaryForPreviewAccount,
+  invalidateIdentitySchemaCaches,
   issueEmailVerificationToken,
   issuePasswordResetToken,
   upsertPlatformPlayerProfile,

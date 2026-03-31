@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>SCUM TH Platform | เข้าสู่ระบบเจ้าของระบบ</title>
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
+  <style>
+    .auth-stage {
+      width: min(1320px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 32px 0 40px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 0.76fr);
+      gap: 24px;
+    }
+    .auth-panel,
+    .auth-form-shell {
+      padding: 28px;
+      border: 1px solid rgba(191,170,112,.16);
+      border-radius: 24px;
+      background: rgba(13,20,17,.94);
+      box-shadow: 0 24px 56px rgba(0,0,0,.26);
+      display: grid;
+      gap: 18px;
+    }
+    .auth-panel h1,
+    .auth-form-shell h2 {
+      margin: 0;
+      font-size: clamp(2rem, 2.8vw, 3rem);
+      line-height: 1.04;
+      letter-spacing: -.04em;
+    }
+    .auth-panel p,
+    .auth-form-shell p,
+    .auth-note {
+      margin: 0;
+      color: rgba(243,237,225,.74);
+      line-height: 1.68;
+    }
+    .auth-grid,
+    .auth-card-stack {
+      display: grid;
+      gap: 16px;
+    }
+    .auth-card {
+      padding: 18px;
+      border: 1px solid rgba(191,170,112,.14);
+      border-radius: 18px;
+      background: rgba(255,255,255,.02);
+      display: grid;
+      gap: 8px;
+    }
+    .auth-card strong {
+      font-size: 1rem;
+    }
+    .auth-field {
+      display: grid;
+      gap: 8px;
+    }
+    .auth-field span {
+      color: rgba(243,237,225,.78);
+      font-size: .88rem;
+    }
+    .auth-input {
+      height: 46px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(191,170,112,.16);
+      background: rgba(255,255,255,.03);
+      color: #f3ede1;
+      font: inherit;
+    }
+    .auth-input::placeholder {
+      color: rgba(243,237,225,.42);
+    }
+    .auth-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .auth-error {
+      min-height: 22px;
+      color: #d67f72;
+      font-size: .84rem;
+    }
+    .auth-visual {
+      min-height: 220px;
+      border-radius: 20px;
+      border: 1px solid rgba(191,170,112,.14);
+      background:
+        linear-gradient(180deg, rgba(7,10,8,.18), rgba(8,10,8,.54)),
+        url('/admin/assets/owner-panel-scene.svg');
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    @media (max-width: 980px) {
+      .auth-stage {
+        width: min(100%, calc(100% - 32px));
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="surface-body surface-owner">
+  <div class="surface-app">
+    <header class="surface-globalbar">
+      <div class="surface-globalbar-main">
+        <a class="surface-brand" href="/owner/login">
+          <span class="surface-brand-mark">SCUM</span>
+          <span class="surface-brand-copy">
+            <span class="surface-brand-eyebrow">เจ้าของระบบ</span>
+            <strong class="surface-brand-title">เข้าสู่ระบบเจ้าของแพลตฟอร์ม</strong>
+            <span class="surface-brand-detail">ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูภาพรวมลูกค้า แพ็กเกจ รายได้ ความปลอดภัย และสถานะระบบทั้งหมด</span>
+          </span>
+        </a>
+      </div>
+      <div class="surface-globalbar-tools">
+        <nav class="surface-role-switch" aria-label="สลับพื้นที่">
+          <a class="surface-role-link is-active" href="/owner/login">เข้าสู่ระบบ</a>
+          <a class="surface-role-link" href="/landing">หน้าเว็บสาธารณะ</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="surface-stage">
+      <section class="auth-stage">
+        <article class="auth-panel">
+          <span class="surface-brand-eyebrow">การควบคุมแพลตฟอร์ม</span>
+          <h1>เข้าสู่เว็บเจ้าของระบบโดยตรง</h1>
+          <p>เว็บนี้ใช้สำหรับเจ้าของแพลตฟอร์มและทีมปฏิบัติการระดับแพลตฟอร์มเท่านั้น หลังเข้าสู่ระบบแล้ว ระบบจะพาไปยังพื้นที่เจ้าของระบบที่แยกจากพื้นที่ผู้ดูแลลูกค้าอย่างชัดเจน</p>
+          <div class="auth-visual"></div>
+          <div class="auth-card-stack">
+            <div class="auth-card">
+              <strong>ภาพรวมธุรกิจ</strong>
+              <p>ดูลูกค้า แพ็กเกจ รายได้ การสมัครใช้ และสถานะเชิงธุรกิจของแพลตฟอร์ม</p>
+            </div>
+            <div class="auth-card">
+              <strong>ปฏิบัติการแพลตฟอร์ม</strong>
+              <p>ตรวจสุขภาพระบบ คิวงาน บอตที่เชื่อมต่อ เหตุการณ์ความปลอดภัย และข้อมูลสำหรับการช่วยเหลือลูกค้า</p>
+            </div>
+          </div>
+        </article>
+
+        <section class="auth-form-shell">
+          <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
+          <h2>เข้าสู่ระบบเจ้าของระบบ</h2>
+          <p>ถ้าเปิด 2FA ไว้ ระบบจะถามรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
+          <form id="loginForm" class="auth-grid" novalidate>
+            <label class="auth-field">
+              <span>ชื่อผู้ใช้</span>
+              <input id="usernameInput" class="auth-input" name="username" autocomplete="username" placeholder="owner" required>
+            </label>
+            <label class="auth-field">
+              <span>รหัสผ่าน</span>
+              <input id="passwordInput" class="auth-input" name="password" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
+            </label>
+            <label id="otpWrap" class="auth-field" hidden>
+              <span>รหัส 2FA</span>
+              <input id="otpInput" class="auth-input" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+            </label>
+            <div id="errorBox" class="auth-error" aria-live="polite"></div>
+            <div class="auth-actions">
+              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบเจ้าของระบบ</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="/admin/assets/admin-login-v4.js?v=20260331-owner-login-th-1"></script>
+</body>
+</html>

@@ -29,7 +29,12 @@ test('admin live templates expose login and V4 shells', () => {
     /id="ownerV4RefreshBtn"/,
     /owner-v4-app\.js/,
     /owner-dashboard-v4\.css/,
+    /href="\/owner\/tenants"/,
+    /href="\/owner\/runtime"/,
   ]);
+  const ownerHtml = read(path.join('src', 'admin', 'owner-console.html'));
+  assert.doesNotMatch(ownerHtml, /href="\/tenant"/);
+  assert.doesNotMatch(ownerHtml, /player\/login/);
 
   assertLiveTemplate(path.join('src', 'admin', 'tenant-console.html'), [
     /id="tenantV4AppRoot"/,
@@ -37,9 +42,12 @@ test('admin live templates expose login and V4 shells', () => {
     /tenant-v4-app\.js/,
     /tenant-dashboard-v4\.css/,
   ]);
+
+  const tenantHtml = read(path.join('src', 'admin', 'tenant-console.html'));
+  assert.doesNotMatch(tenantHtml, /tenantOwnerScopeWrap/);
 });
 
-test('portal public templates expose preview auth flow and marketing routes', () => {
+test('portal public templates expose public access chooser and marketing routes', () => {
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'landing.html'), [
     /platform-site-v3\.css/,
     /href="\/signup"/,
@@ -58,8 +66,9 @@ test('portal public templates expose preview auth flow and marketing routes', ()
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'login.html'), [
-    /id="previewLoginForm"/,
-    /id="previewLoginEmail"/,
+    /id="tenantLoginLink"/,
+    /id="playerLoginLink"/,
+    /id="publicAccessStatus"/,
     /public-auth-v2\.js/,
   ]);
 

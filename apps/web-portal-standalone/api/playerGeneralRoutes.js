@@ -14,6 +14,7 @@ function createPlayerGeneralRoutes(deps) {
     sendJson,
     readJsonBody,
     buildClearSessionCookie,
+    buildSessionCookie,
     normalizeText,
     normalizeAmount,
     normalizePurchaseStatus,
@@ -27,6 +28,10 @@ function createPlayerGeneralRoutes(deps) {
     getPlayerDashboard,
     resolveSessionSteamLink,
     removeSession,
+    createSession,
+    updateSession,
+    requestPlayerMagicLink,
+    consumePlayerMagicLink,
     listTopWallets,
     listAllStats,
     getStats,
@@ -64,10 +69,172 @@ function createPlayerGeneralRoutes(deps) {
     msToDaysHours,
     transferCoins,
     isDiscordId,
+    listServerRegistry,
   } = deps;
+  const safeNormalizeText = typeof normalizeText === 'function'
+    ? normalizeText
+    : (value) => String(value || '').trim();
+  const safeNormalizeAmount = typeof normalizeAmount === 'function'
+    ? normalizeAmount
+    : (value, fallback = 0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : fallback;
+    };
 
   async function getFeatureAccess(session) {
     return loadPlayerFeatureAccess(deps.getTenantFeatureAccess, session);
+  }
+
+  async function readOptionalPlayerData(label, readFn, fallback) {
+    try {
+      return await Promise.resolve().then(() => readFn());
+    } catch (error) {
+      console.warn(`[player-portal] optional player data unavailable (${label})`, error?.message || error);
+      return fallback;
+    }
+  }
+
+  function normalizeEconomySnapshot(raw) {
+    return {
+      currencySymbol: normalizeText(raw?.currencySymbol) || 'Coins',
+      dailyReward: normalizeAmount(raw?.dailyReward, 0),
+      weeklyReward: normalizeAmount(raw?.weeklyReward, 0),
+    };
+  }
+
+  function normalizeServerStatusSnapshot(raw) {
+    return {
+      onlinePlayers: normalizeAmount(raw?.onlinePlayers, 0),
+      maxPlayers: normalizeAmount(raw?.maxPlayers, 0),
+      pingMs: raw?.pingMs == null ? null : normalizeAmount(raw?.pingMs, 0),
+      uptimeMinutes: normalizeAmount(raw?.uptimeMinutes, 0),
+      lastUpdated: raw?.lastUpdated || null,
+    };
+  }
+
+  function normalizeLuckyWheelConfigSnapshot(raw) {
+    const rewards = Array.isArray(raw?.rewards)
+      ? raw.rewards.map((row) => ({
+        id: normalizeText(row?.id) || 'reward',
+        label: normalizeText(row?.label || row?.id) || 'Reward',
+        type: normalizeText(row?.type || 'coins') || 'coins',
+        amount: normalizeAmount(row?.amount, 0),
+        weight: Math.max(1, normalizeAmount(row?.weight, 1)),
+        itemId: normalizeText(row?.itemId) || null,
+        gameItemId: normalizeText(row?.gameItemId) || null,
+        quantity: normalizeAmount(row?.quantity, 0),
+        iconUrl: normalizeText(row?.iconUrl) || null,
+      }))
+      : [];
+    return {
+      enabled: raw?.enabled === true,
+      cooldownMs: normalizeAmount(raw?.cooldownMs, 0),
+      rewards,
+      tips: Array.isArray(raw?.tips)
+        ? raw.tips.map((line) => normalizeText(line)).filter(Boolean)
+        : [],
+    };
+  }
+
+  function normalizeMapPortalSnapshot(raw) {
+    return {
+      enabled: raw?.enabled === true,
+      embedEnabled: raw?.embedEnabled === true,
+      embedUrl: normalizeText(raw?.embedUrl) || null,
+      externalUrl: normalizeText(raw?.externalUrl) || null,
+    };
+  }
+
+  function buildFallbackWheelState(wheelConfig) {
+    const normalizedConfig = normalizeLuckyWheelConfigSnapshot(wheelConfig);
+    return {
+      enabled: normalizedConfig.enabled,
+      cooldownMs: normalizedConfig.cooldownMs,
+      canSpin: false,
+      remainingMs: 0,
+      remainingText: normalizedConfig.enabled ? 'Temporarily unavailable' : 'Disabled',
+      nextSpinAt: null,
+      lastSpinAt: null,
+      totalSpins: 0,
+      history: [],
+      rewards: normalizedConfig.rewards,
+    };
+  }
+
+  function normalizeServerRegistryEntry(row) {
+    const id = safeNormalizeText(row?.id);
+    if (!id) return null;
+    const guildLinks = Array.isArray(row?.guildLinks)
+      ? row.guildLinks
+        .map((entry) => ({
+          id: safeNormalizeText(entry?.id) || null,
+          guildId: safeNormalizeText(entry?.guildId) || null,
+          status: safeNormalizeText(entry?.status || 'active').toLowerCase() || 'active',
+        }))
+        .filter((entry) => entry.guildId)
+      : [];
+    const status = safeNormalizeText(row?.status || 'active').toLowerCase() || 'active';
+    const name = safeNormalizeText(row?.name) || id;
+    return {
+      id,
+      name,
+      status,
+      locale: safeNormalizeText(row?.locale) || null,
+      guildCount: guildLinks.length,
+      guildLinks,
+      label: guildLinks.length > 0 ? `${name} (${guildLinks.length} guild)` : name,
+    };
+  }
+
+  async function resolvePlayerServerState(session) {
+    const tenantId = safeNormalizeText(session?.tenantId);
+    const preferredServerId = safeNormalizeText(session?.activeServerId) || null;
+    const preferredServerName = safeNormalizeText(session?.activeServerName) || null;
+    if (!tenantId || typeof listServerRegistry !== 'function') {
+      return {
+        tenantId: tenantId || null,
+        count: 0,
+        items: [],
+        activeServerId: preferredServerId,
+        activeServerName: preferredServerName,
+        effectiveServerId: preferredServerId,
+        effectiveServerName: preferredServerName,
+        selectionRequired: false,
+      };
+    }
+
+    const rows = await Promise.resolve(listServerRegistry({ tenantId }));
+    const items = (Array.isArray(rows) ? rows : [])
+      .map(normalizeServerRegistryEntry)
+      .filter(Boolean)
+      .sort((left, right) => {
+        const leftActive = left.status === 'active' ? 0 : 1;
+        const rightActive = right.status === 'active' ? 0 : 1;
+        if (leftActive !== rightActive) return leftActive - rightActive;
+        return left.name.localeCompare(right.name, 'en');
+      });
+
+    const persistedServer = preferredServerId
+      ? items.find((entry) => entry.id === preferredServerId) || null
+      : null;
+    const singleServerSelection = !persistedServer && items.length === 1 ? items[0] : null;
+    const effectiveServer = persistedServer
+      || singleServerSelection
+      || items.find((entry) => entry.status === 'active')
+      || items[0]
+      || null;
+    const activeServer = persistedServer || singleServerSelection || null;
+
+    return {
+      tenantId,
+      count: items.length,
+      items,
+      activeServerId: activeServer?.id || null,
+      activeServerName: activeServer?.name || null,
+      effectiveServerId: effectiveServer?.id || preferredServerId || null,
+      effectiveServerName: effectiveServer?.name || preferredServerName || null,
+      selectionRequired: items.length > 1 && !persistedServer,
+    };
   }
 
   return async function handlePlayerGeneralRoute(context) {
@@ -79,8 +246,10 @@ function createPlayerGeneralRoutes(deps) {
       method,
       session,
     } = context;
+    const playerServerState = session ? await resolvePlayerServerState(session) : null;
     const tenantOptions = {
       tenantId: session?.tenantId || undefined,
+      serverId: playerServerState?.effectiveServerId || session?.activeServerId || undefined,
     };
 
     if (pathname === '/player/api/me' && method === 'GET') {
@@ -95,13 +264,108 @@ function createPlayerGeneralRoutes(deps) {
           role: session.role,
           discordId: session.discordId,
           authMethod: session.authMethod,
+          primaryEmail: normalizeText(session.primaryEmail) || null,
           avatarUrl: normalizeText(session.avatarUrl)
             || normalizeText(account?.avatarUrl)
             || null,
           accountStatus: account?.isActive === false ? 'inactive' : 'active',
           steamLinked: Boolean(link?.linked),
+          tenantId: tenantOptions.tenantId || null,
+          activeServerId: playerServerState?.activeServerId || null,
+          activeServerName: playerServerState?.activeServerName || null,
+          effectiveServerId: playerServerState?.effectiveServerId || null,
+          effectiveServerName: playerServerState?.effectiveServerName || null,
+          serverSelectionRequired: playerServerState?.selectionRequired === true,
         },
       });
+      return true;
+    }
+
+    if (pathname === '/player/api/servers' && method === 'GET') {
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          tenantId: tenantOptions.tenantId || null,
+          count: safeNormalizeAmount(playerServerState?.count, 0),
+          activeServerId: playerServerState?.activeServerId || null,
+          activeServerName: playerServerState?.activeServerName || null,
+          effectiveServerId: playerServerState?.effectiveServerId || null,
+          effectiveServerName: playerServerState?.effectiveServerName || null,
+          selectionRequired: playerServerState?.selectionRequired === true,
+          items: Array.isArray(playerServerState?.items) ? playerServerState.items : [],
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/session/server' && method === 'POST') {
+      if (!tenantOptions.tenantId) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'tenant-required',
+        });
+        return true;
+      }
+      const body = await readJsonBody(req);
+      const serverId = normalizeText(body?.serverId || body?.id);
+      if (!serverId) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'missing-server',
+          data: {
+            message: 'Choose a server before continuing',
+          },
+        });
+        return true;
+      }
+      const items = Array.isArray(playerServerState?.items) ? playerServerState.items : [];
+      const targetServer = items.find((entry) => entry.id === serverId) || null;
+      if (!targetServer) {
+        sendJson(res, 404, {
+          ok: false,
+          error: 'server-not-found',
+        });
+        return true;
+      }
+      if (typeof updateSession !== 'function') {
+        sendJson(res, 500, {
+          ok: false,
+          error: 'session-update-unavailable',
+        });
+        return true;
+      }
+      const sessionToken = updateSession(req, {
+        activeServerId: targetServer.id,
+        activeServerName: targetServer.name,
+      });
+      if (!sessionToken) {
+        sendJson(res, 401, {
+          ok: false,
+          error: 'session-update-failed',
+        });
+        return true;
+      }
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          data: {
+            tenantId: tenantOptions.tenantId,
+            count: safeNormalizeAmount(playerServerState?.count, 0),
+            activeServerId: targetServer.id,
+            activeServerName: targetServer.name,
+            effectiveServerId: targetServer.id,
+            effectiveServerName: targetServer.name,
+            selectionRequired: false,
+            items,
+            message: `Now viewing ${targetServer.name}`,
+          },
+        },
+        {
+          'Set-Cookie': buildSessionCookie(sessionToken, req),
+        },
+      );
       return true;
     }
 
@@ -111,6 +375,81 @@ function createPlayerGeneralRoutes(deps) {
         ok: true,
         data: buildPlayerPortalFeatureAccess(featureAccess),
       });
+      return true;
+    }
+
+    if (pathname === '/player/api/auth/email/request' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const result = typeof requestPlayerMagicLink === 'function'
+        ? await requestPlayerMagicLink({
+          email: body?.email,
+        })
+        : { ok: false, reason: 'email-magic-link-not-configured' };
+      if (!result?.ok) {
+        sendJson(res, 400, {
+          ok: false,
+          error: result?.reason || 'email-magic-link-request-failed',
+        });
+        return true;
+      }
+      const debugUrl = result?.debugToken
+        ? `/player/login?token=${encodeURIComponent(String(result.debugToken || ''))}`
+        : null;
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          requested: result?.requested === true,
+          queued: result?.queued === true,
+          debugUrl,
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/auth/email/complete' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const result = typeof consumePlayerMagicLink === 'function'
+        ? await consumePlayerMagicLink({
+          token: body?.token,
+          email: body?.email,
+        })
+        : { ok: false, reason: 'email-magic-link-not-configured' };
+      if (!result?.ok || !result?.discordUserId) {
+        sendJson(res, 400, {
+          ok: false,
+          error: result?.reason || 'email-magic-link-complete-failed',
+        });
+        return true;
+      }
+      const nextServerState = await resolvePlayerServerState({
+        tenantId: result?.profile?.tenantId || null,
+      });
+      const sessionId = createSession({
+        user: normalizeText(result?.user?.displayName) || normalizeText(result?.user?.primaryEmail) || result.discordUserId,
+        role: 'player',
+        discordId: result.discordUserId,
+        authMethod: 'email-magic-link',
+        primaryEmail: normalizeText(result?.user?.primaryEmail) || normalizeText(body?.email) || null,
+        avatarUrl: null,
+        platformUserId: result?.user?.id || null,
+        platformProfileId: result?.profile?.id || null,
+        tenantId: result?.profile?.tenantId || null,
+        activeServerId: nextServerState?.activeServerId || null,
+        activeServerName: nextServerState?.activeServerName || null,
+      });
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          data: {
+            nextUrl: '/player/home',
+          },
+        },
+        {
+          'Set-Cookie': buildSessionCookie(sessionId, req),
+        },
+      );
       return true;
     }
 
@@ -128,17 +467,38 @@ function createPlayerGeneralRoutes(deps) {
     if (pathname === '/player/api/server/info' && method === 'GET') {
       const serverInfo = config.serverInfo || {};
       const raidTimes = Array.isArray(config.raidTimes) ? config.raidTimes : [];
-      const status = getStatus();
-      const economy = getEconomyConfig();
-      const luckyWheel = getLuckyWheelConfig();
-      const mapPortal = getMapPortalConfig();
+      const [status, economy, luckyWheel, mapPortal] = await Promise.all([
+        readOptionalPlayerData(
+          'server-status',
+          () => (typeof getStatus === 'function' ? getStatus(tenantOptions) : null),
+          null,
+        ),
+        readOptionalPlayerData(
+          'economy-config',
+          () => (typeof getEconomyConfig === 'function' ? getEconomyConfig() : null),
+          null,
+        ),
+        readOptionalPlayerData(
+          'lucky-wheel-config',
+          () => (typeof getLuckyWheelConfig === 'function' ? getLuckyWheelConfig() : null),
+          null,
+        ),
+        readOptionalPlayerData(
+          'map-portal-config',
+          () => (typeof getMapPortalConfig === 'function' ? getMapPortalConfig() : null),
+          null,
+        ),
+      ]);
       const rulesShort = Array.isArray(serverInfo.rulesShort)
         ? serverInfo.rulesShort.map((line) => normalizeText(line)).filter(Boolean)
         : [];
+      const safeEconomy = normalizeEconomySnapshot(economy);
+      const safeWheel = normalizeLuckyWheelConfigSnapshot(luckyWheel);
+      const safeMapPortal = normalizeMapPortalSnapshot(mapPortal);
       sendJson(res, 200, {
         ok: true,
         data: {
-          economy,
+          economy: safeEconomy,
           serverInfo: {
             name: normalizeText(serverInfo.name) || 'SCUM Server',
             description: normalizeText(serverInfo.description),
@@ -149,11 +509,11 @@ function createPlayerGeneralRoutes(deps) {
             website: normalizeText(serverInfo.website),
           },
           raidTimes: raidTimes.map((line) => normalizeText(line)).filter(Boolean),
-          tips: luckyWheel.tips,
+          tips: safeWheel.tips,
           luckyWheel: {
-            enabled: luckyWheel.enabled,
-            cooldownMs: luckyWheel.cooldownMs,
-            rewards: luckyWheel.rewards.map((row) => ({
+            enabled: safeWheel.enabled,
+            cooldownMs: safeWheel.cooldownMs,
+            rewards: safeWheel.rewards.map((row) => ({
               id: row.id,
               label: row.label,
               type: row.type,
@@ -165,8 +525,16 @@ function createPlayerGeneralRoutes(deps) {
               iconUrl: row.iconUrl || null,
             })),
           },
-          mapPortal,
-          status,
+          mapPortal: safeMapPortal,
+          scope: {
+            tenantId: tenantOptions.tenantId || null,
+            activeServerId: playerServerState?.activeServerId || null,
+            activeServerName: playerServerState?.activeServerName || null,
+            effectiveServerId: playerServerState?.effectiveServerId || null,
+            effectiveServerName: playerServerState?.effectiveServerName || null,
+            selectionRequired: playerServerState?.selectionRequired === true,
+          },
+          status: normalizeServerStatusSnapshot(status),
         },
       });
       return true;
@@ -299,6 +667,7 @@ function createPlayerGeneralRoutes(deps) {
           displayName: normalizeText(account?.displayName)
             || normalizeText(session.user)
             || null,
+          primaryEmail: normalizeText(session.primaryEmail) || null,
           accountStatus: account?.isActive === false ? 'inactive' : 'active',
           createdAt: account?.createdAt || null,
           updatedAt: account?.updatedAt || null,
@@ -413,12 +782,8 @@ function createPlayerGeneralRoutes(deps) {
         return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['wallet_module']);
       }
       const limit = asInt(urlObj.searchParams.get('limit'), 50, 1, 500);
-      const wallet = await getWallet(session.discordId, {
-        tenantId: session?.tenantId || undefined,
-      });
-      const rows = await listWalletLedger(session.discordId, limit, {
-        tenantId: session?.tenantId || undefined,
-      });
+      const wallet = await getWallet(session.discordId, tenantOptions);
+      const rows = await listWalletLedger(session.discordId, limit, tenantOptions);
       const items = rows.map((row) => ({
         id: row.id,
         delta: normalizeAmount(row.delta, 0) * (Number(row.delta || 0) < 0 ? -1 : 1),
@@ -591,11 +956,26 @@ function createPlayerGeneralRoutes(deps) {
       if (!hasFeatureAccess(featureAccess, ['event_module', 'promo_module'])) {
         return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module', 'promo_module']);
       }
-      const wheelConfig = getLuckyWheelConfig();
       const limit = asInt(urlObj.searchParams.get('limit'), 20, 1, 80);
+      const wheelConfig = normalizeLuckyWheelConfigSnapshot(
+        await readOptionalPlayerData(
+          'lucky-wheel-config',
+          () => (typeof getLuckyWheelConfig === 'function' ? getLuckyWheelConfig() : null),
+          null,
+        ),
+      );
+      const wheelState = await readOptionalPlayerData(
+        'wheel-state',
+        () => (
+          typeof buildWheelStatePayload === 'function'
+            ? buildWheelStatePayload(session.discordId, wheelConfig, limit, tenantOptions)
+            : null
+        ),
+        null,
+      );
       sendJson(res, 200, {
         ok: true,
-        data: await buildWheelStatePayload(session.discordId, wheelConfig, limit, tenantOptions),
+        data: wheelState || buildFallbackWheelState(wheelConfig),
       });
       return true;
     }
@@ -700,9 +1080,7 @@ function createPlayerGeneralRoutes(deps) {
       const limit = asInt(urlObj.searchParams.get('limit'), 30, 1, 100);
       const [purchasesRaw, ledgerRaw, rentLink] = await Promise.all([
         deps.listUserPurchases(session.discordId, tenantOptions),
-        listWalletLedger(session.discordId, limit, {
-          tenantId: tenantOptions.tenantId,
-        }),
+        listWalletLedger(session.discordId, limit, tenantOptions),
         resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
       let rentalRaw = [];
@@ -967,9 +1345,7 @@ function createPlayerGeneralRoutes(deps) {
     }
 
     if (pathname === '/player/api/dashboard' && method === 'GET') {
-      const dashboard = await getPlayerDashboard(session.discordId, {
-        tenantId: session?.tenantId || undefined,
-      });
+      const dashboard = await getPlayerDashboard(session.discordId, tenantOptions);
       if (!dashboard?.ok) {
         sendJson(res, 400, {
           ok: false,
@@ -1033,6 +1409,14 @@ function createPlayerGeneralRoutes(deps) {
         data: {
           ...dashboard.data,
           steamLink: link,
+          serverScope: {
+            tenantId: tenantOptions.tenantId || null,
+            activeServerId: playerServerState?.activeServerId || null,
+            activeServerName: playerServerState?.activeServerName || null,
+            effectiveServerId: playerServerState?.effectiveServerId || null,
+            effectiveServerName: playerServerState?.effectiveServerName || null,
+            selectionRequired: playerServerState?.selectionRequired === true,
+          },
           latestOrder: latestPurchase,
           missionsSummary: {
             dailyClaimable: Boolean(dailyCheck?.ok),

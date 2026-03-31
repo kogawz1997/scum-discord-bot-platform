@@ -86,7 +86,7 @@
             locale: window.PortalUiI18n?.getLocale?.() || 'en',
           }),
         });
-        window.location.href = data?.nextUrl || '/preview';
+        window.location.href = data?.nextUrl || '/tenant/onboarding';
       } catch (error) {
         setStatus(status, error?.message || t('public.workspaceSignup.error', 'สร้างบัญชีและพื้นที่ทำงานไม่สำเร็จ'), 'error');
       } finally {
@@ -96,39 +96,24 @@
   }
 
   async function initLoginPage() {
-    const form = $('previewLoginForm');
-    if (!form) return;
-    const submit = $('previewLoginSubmit');
-    const status = $('previewLoginStatus');
-    const sessionBox = $('previewLoginSession');
+    const tenantLink = $('tenantLoginLink');
+    const playerLink = $('playerLoginLink');
+    const status = $('publicAccessStatus');
+    if (!tenantLink && !playerLink) return;
 
+    setStatus(status, 'Loading access links...');
     try {
-      const data = await requestJson('/api/public/session');
-      if (data?.session && data?.preview?.account && sessionBox) {
-        sessionBox.hidden = false;
-        sessionBox.innerHTML = `<strong>${t('public.workspaceLogin.resumeTitle', 'พร้อมกลับไปยังพื้นที่เดิม')}</strong><p>${t('public.workspaceLogin.resumeDetail', 'ระบบพบเซสชันล่าสุดของคุณแล้ว สามารถกลับไปทำงานต่อจากจุดเดิมได้ทันที')}</p><div class="button-row"><a class="button button-primary" href="/preview">${t('public.workspaceLogin.resumeAction', 'เปิดพื้นที่ของคุณ')}</a></div>`;
+      const data = await requestJson('/api/public/product-links');
+      if (tenantLink && data?.tenantLoginUrl) {
+        tenantLink.href = data.tenantLoginUrl;
       }
-    } catch {}
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (submit) submit.disabled = true;
-      setStatus(status, t('public.workspaceLogin.working', 'กำลังเข้าสู่ระบบ...'));
-      try {
-        const data = await requestJson('/api/public/login', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: $('previewLoginEmail')?.value || '',
-            password: $('previewLoginPassword')?.value || '',
-          }),
-        });
-        window.location.href = data?.nextUrl || '/preview';
-      } catch (error) {
-        setStatus(status, error?.message || t('public.workspaceLogin.error', 'เข้าสู่ระบบไม่สำเร็จ'), 'error');
-      } finally {
-        if (submit) submit.disabled = false;
+      if (playerLink && data?.playerLoginUrl) {
+        playerLink.href = data.playerLoginUrl;
       }
-    });
+      setStatus(status, 'Choose Tenant Admin or Player Portal to continue.', 'success');
+    } catch (error) {
+      setStatus(status, error?.message || 'Could not load product links.', 'error');
+    }
   }
 
   async function initForgotPasswordPage() {
@@ -455,8 +440,8 @@
       signupCta.href = `/signup?package=${encodeURIComponent(packageId)}`;
       requestJson('/api/public/session')
         .then((data) => {
-          if (!data?.session || !data?.preview?.account) {
-            setStatus(status, t('public.checkout.signupFirst', 'Create a preview workspace first to open checkout.'));
+          if (!data?.session) {
+            setStatus(status, t('public.checkout.signupFirst', 'Create your tenant workspace first, then continue in the real product.'));
             return;
           }
           signupCta.textContent = t('public.checkout.open', 'Open checkout');
@@ -484,7 +469,7 @@
           });
         })
         .catch(() => {
-          setStatus(status, t('public.checkout.signupFirst', 'Create a preview workspace first to open checkout.'));
+          setStatus(status, t('public.checkout.signupFirst', 'Create your tenant workspace first, then continue in the real product.'));
         });
     }
   }
@@ -523,7 +508,7 @@
           : t('public.payment.pendingCopy', 'The checkout was updated. You can review the workspace status or return to checkout.');
       }
       if (primary) {
-        primary.href = result?.nextUrl || '/preview';
+        primary.href = result?.nextUrl || '/tenant/onboarding';
         primary.textContent = isPaid
           ? t('public.payment.primaryWorkspace', 'Open your workspace')
           : t('public.payment.primaryReview', 'Review workspace');
@@ -544,7 +529,7 @@
         primary.textContent = t('public.payment.retry', 'Retry checkout');
       }
       if (secondary) {
-        secondary.href = '/preview';
+        secondary.href = '/tenant/login';
         secondary.textContent = t('public.payment.secondaryWorkspace', 'Open workspace');
       }
     }

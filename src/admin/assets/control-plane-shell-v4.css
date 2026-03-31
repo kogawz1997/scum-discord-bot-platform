@@ -234,8 +234,20 @@ body.surface-body {
 
 .surface-select option,
 .surface-select optgroup {
-  color: #f3ede1;
-  background: #101715;
+  color: CanvasText !important;
+  background: Canvas !important;
+}
+
+.surface-select option:checked,
+.surface-select option:hover,
+.surface-select option:focus {
+  color: HighlightText !important;
+  background: Highlight !important;
+}
+
+.surface-select option:disabled,
+.surface-select optgroup {
+  color: GrayText !important;
 }
 
 .surface-select-wrap {

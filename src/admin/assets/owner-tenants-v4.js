@@ -10,7 +10,7 @@
   const NAV_GROUPS = [
     { label: 'แพลตฟอร์ม', items: [
       { label: 'ภาพรวม', href: '#overview' },
-      { label: 'ผู้เช่า', href: '#tenants', current: true },
+      { label: 'ลูกค้า', href: '#tenants', current: true },
       { label: 'แพ็กเกจ', href: '#packages' },
       { label: 'การสมัครใช้', href: '#subscriptions' },
     ] },
@@ -173,34 +173,34 @@
     const hasExpiring = Number(context.expiringCount || 0) > 0;
     const hasUrgent = Number(context.dangerCount || 0) > 0;
     const base = {
-      pageKicker: 'ทะเบียนงานลูกค้าและผู้เช่า',
-      headerTitle: 'ผู้เช่าและสถานะเชิงพาณิชย์',
+      pageKicker: 'ทะเบียนลูกค้าและสถานะเชิงพาณิชย์',
+      headerTitle: 'ลูกค้าและสถานะเชิงพาณิชย์',
       headerSubtitle: 'รวมแผน การต่ออายุ โควตา และบริบทลูกค้าไว้ในหน้าเดียวเพื่อให้ตัดสินใจได้เร็ว',
       primaryAction: hasUrgent
         ? { label: 'เปิดรายการที่ต้องจัดการก่อน (แนะนำ)', href: '#billing' }
         : hasExpiring
           ? { label: 'ดูรายการใกล้ต่ออายุ (แนะนำ)', href: '#subscriptions' }
-          : { label: 'สร้างผู้เช่ารายใหม่', href: '#create-tenant' },
+          : { label: 'สร้างลูกค้ารายใหม่', href: '#create-tenant' },
       secondaryActions: [
-        { label: 'ดูผู้เช่าทั้งหมด', href: '#tenants' },
+        { label: 'ดูลูกค้าทั้งหมด', href: '#tenants' },
         { label: 'เปิดเคสซัพพอร์ต', href: '#support' },
       ],
       nextActionsKicker: 'ควรทำอะไรก่อน',
       nextActionsTitle: 'เริ่มจากเรื่องที่กระทบรายได้และบริการก่อน',
       nextActionsCopy: 'เริ่มจากเรื่องรายได้ ซัพพอร์ต และผู้เช่าที่เสี่ยงก่อน แล้วค่อยลงรายละเอียด',
       registryKicker: 'ทะเบียน',
-      registryTitle: 'รายชื่อผู้เช่า',
-      registryCopy: 'ตารางนี้ตั้งใจทำให้หาผู้เช่าและตัดสินใจต่อได้เร็ว ไม่ใช่กำแพงข้อมูล',
-      spotlightKicker: 'ผู้เช่าที่ควรเปิดดูก่อน',
-      spotlightEmptyTitle: 'ผู้เช่าที่ควรเปิดดูก่อน',
+      registryTitle: 'รายชื่อลูกค้า',
+      registryCopy: 'ตารางนี้ตั้งใจทำให้หาลูกค้าและตัดสินใจต่อได้เร็ว ไม่ใช่กำแพงข้อมูล',
+      spotlightKicker: 'ลูกค้าที่ควรเปิดดูก่อน',
+      spotlightEmptyTitle: 'ลูกค้าที่ควรเปิดดูก่อน',
       spotlightTitleMode: 'name',
-      spotlightCopy: 'ใช้การ์ดนี้ช่วยชี้ว่าควรเปิดผู้เช่ารายใดก่อนลงลึก',
-      spotlightEmptyCopy: 'เลือกผู้เช่าจากทะเบียนเพื่อดูสุขภาพระบบ บริบทซัพพอร์ต และสถานะเชิงพาณิชย์ต่อทันที',
-      spotlightNextTitle: 'อยู่ในบริบทของผู้เช่ารายนี้ต่อ',
+      spotlightCopy: 'ใช้การ์ดนี้ช่วยชี้ว่าควรเปิดลูกค้ารายใดก่อนลงลึก',
+      spotlightEmptyCopy: 'เลือกลูกค้าจากทะเบียนเพื่อดูสุขภาพระบบ บริบทซัพพอร์ต และสถานะเชิงพาณิชย์ต่อทันที',
+      spotlightNextTitle: 'อยู่ในบริบทของลูกค้ารายนี้ต่อ',
       spotlightNextItems: ['เปิดเคสซัพพอร์ต', 'ส่งออก diagnostics', 'ทบทวน billing และการต่ออายุ'],
       blockOrder: ['nextActions', 'registry', 'spotlight'],
       railHeader: 'บริบทเจ้าของระบบ',
-      railCopy: 'เก็บงานซัพพอร์ตและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนผู้เช่า เพื่อไม่ให้หลุดบริบท',
+      railCopy: 'เก็บงานซัพพอร์ตและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนลูกค้า เพื่อไม่ให้หลุดบริบท',
     };
 
     if (route === 'packages') {

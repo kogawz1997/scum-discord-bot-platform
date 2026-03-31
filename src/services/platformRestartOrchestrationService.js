@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { Prisma } = require('@prisma/client');
 
 const { prisma } = require('../prisma');
 const { normalizeRestartServerPayload } = require('../contracts/jobs/jobContracts');
@@ -350,7 +351,7 @@ async function listRestartPlans(filters = {}, db = prisma) {
   const serverId = trimText(filters.serverId, 160) || null;
   const status = trimText(filters.status, 60) || null;
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
-  const rows = await db.$queryRaw`
+  const rows = await db.$queryRaw(Prisma.sql`
     SELECT
       id,
       tenant_id AS "tenantId",
@@ -370,12 +371,13 @@ async function listRestartPlans(filters = {}, db = prisma) {
       created_at AS "createdAt",
       updated_at AS "updatedAt"
     FROM platform_restart_plans
-    WHERE (${tenantId} IS NULL OR tenant_id = ${tenantId})
-      AND (${serverId} IS NULL OR server_id = ${serverId})
-      AND (${status} IS NULL OR status = ${status})
+    WHERE 1 = 1
+    ${tenantId ? Prisma.sql` AND tenant_id = ${tenantId}` : Prisma.empty}
+    ${serverId ? Prisma.sql` AND server_id = ${serverId}` : Prisma.empty}
+    ${status ? Prisma.sql` AND status = ${status}` : Prisma.empty}
     ORDER BY scheduled_for DESC, created_at DESC
     LIMIT ${limit}
-  `;
+  `);
   return Array.isArray(rows) ? rows.map(normalizePlanRow).filter(Boolean) : [];
 }
 
@@ -386,7 +388,7 @@ async function listRestartAnnouncements(filters = {}, db = prisma) {
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.status, 60) || null;
   const limit = Math.max(1, Math.min(400, asInt(filters.limit, 40, 1)));
-  const rows = await db.$queryRaw`
+  const rows = await db.$queryRaw(Prisma.sql`
     SELECT
       id,
       plan_id AS "planId",
@@ -402,13 +404,14 @@ async function listRestartAnnouncements(filters = {}, db = prisma) {
       created_at AS "createdAt",
       updated_at AS "updatedAt"
     FROM platform_restart_announcements
-    WHERE (${tenantId} IS NULL OR tenant_id = ${tenantId})
-      AND (${serverId} IS NULL OR server_id = ${serverId})
-      AND (${planId} IS NULL OR plan_id = ${planId})
-      AND (${status} IS NULL OR status = ${status})
+    WHERE 1 = 1
+    ${tenantId ? Prisma.sql` AND tenant_id = ${tenantId}` : Prisma.empty}
+    ${serverId ? Prisma.sql` AND server_id = ${serverId}` : Prisma.empty}
+    ${planId ? Prisma.sql` AND plan_id = ${planId}` : Prisma.empty}
+    ${status ? Prisma.sql` AND status = ${status}` : Prisma.empty}
     ORDER BY scheduled_for DESC, created_at DESC
     LIMIT ${limit}
-  `;
+  `);
   return Array.isArray(rows) ? rows.map(normalizeAnnouncementRow).filter(Boolean) : [];
 }
 
@@ -419,7 +422,7 @@ async function listRestartExecutions(filters = {}, db = prisma) {
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.resultStatus || filters.status, 60) || null;
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
-  const rows = await db.$queryRaw`
+  const rows = await db.$queryRaw(Prisma.sql`
     SELECT
       id,
       plan_id AS "planId",
@@ -436,13 +439,14 @@ async function listRestartExecutions(filters = {}, db = prisma) {
       created_at AS "createdAt",
       updated_at AS "updatedAt"
     FROM platform_restart_executions
-    WHERE (${tenantId} IS NULL OR tenant_id = ${tenantId})
-      AND (${serverId} IS NULL OR server_id = ${serverId})
-      AND (${planId} IS NULL OR plan_id = ${planId})
-      AND (${status} IS NULL OR result_status = ${status})
+    WHERE 1 = 1
+    ${tenantId ? Prisma.sql` AND tenant_id = ${tenantId}` : Prisma.empty}
+    ${serverId ? Prisma.sql` AND server_id = ${serverId}` : Prisma.empty}
+    ${planId ? Prisma.sql` AND plan_id = ${planId}` : Prisma.empty}
+    ${status ? Prisma.sql` AND result_status = ${status}` : Prisma.empty}
     ORDER BY started_at DESC, created_at DESC
     LIMIT ${limit}
-  `;
+  `);
   return Array.isArray(rows) ? rows.map(normalizeExecutionRow).filter(Boolean) : [];
 }
 

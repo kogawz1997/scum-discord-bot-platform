@@ -22,6 +22,7 @@ Set-Location (Resolve-Path (Join-Path $PSScriptRoot '..'))
 
 $ExecutionNodeProfiles = @('machine-b-game-bot')
 $ControlPlaneProfiles = @('production', 'single-host-prod', 'multi-tenant-prod', 'machine-a-control-plane')
+$PrismaProvider = if ($env:PRISMA_SCHEMA_PROVIDER) { $env:PRISMA_SCHEMA_PROVIDER } elseif ($env:DATABASE_PROVIDER) { $env:DATABASE_PROVIDER } else { 'sqlite' }
 
 if ($PrepareEnv) {
   Write-Step "Preparing env files for profile $Profile"
@@ -44,11 +45,11 @@ if ($ExecutionNodeProfiles -contains $Profile) {
 
 if ($ControlPlaneProfiles -contains $Profile) {
   Write-Step "Generating Prisma client"
-  Invoke-Step @('npx.cmd', 'prisma', 'generate', '--schema', 'prisma/schema.prisma')
+  Invoke-Step @('node', 'scripts/prisma-with-provider.js', '--provider', $PrismaProvider, 'generate')
 
   Write-Step "Applying Prisma migrations when available"
   try {
-    Invoke-Step @('npx.cmd', 'prisma', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma')
+    Invoke-Step @('node', 'scripts/prisma-with-provider.js', '--provider', $PrismaProvider, 'migrate', 'deploy')
   } catch {
     Write-Host "[platform-bootstrap] prisma migrate deploy skipped or baseline-required, continuing with platform schema upgrade" -ForegroundColor Yellow
   }

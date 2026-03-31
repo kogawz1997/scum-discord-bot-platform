@@ -77,7 +77,16 @@ function normalizeJobStatus(value, fallback = 'queued') {
 
 function normalizeJobType(value, fallback = 'config_update') {
   const normalized = trimText(value, 60).toLowerCase();
-  if (['config_update', 'apply', 'rollback'].includes(normalized)) {
+  if ([
+    'config_update',
+    'apply',
+    'rollback',
+    'server_start',
+    'server_stop',
+    'probe_sync',
+    'probe_config_access',
+    'probe_restart',
+  ].includes(normalized)) {
     return normalized;
   }
   return fallback;
@@ -127,6 +136,10 @@ const FILE_LABEL_FALLBACKS = Object.freeze({
   'AdminUsers.ini': 'Admin Users',
   'BannedUsers.ini': 'Banned Users',
 });
+
+function normalizeCategoryKey(value) {
+  return trimText(value, 120).toLowerCase();
+}
 
 function sanitizeDisplayText(value, fallback = '') {
   const text = trimText(value, 500);
@@ -202,6 +215,93 @@ function buildSettingRow(definition, currentValue, options = {}) {
   };
 }
 
+function inferSnapshotSettingType(setting = {}) {
+  const explicitType = trimText(setting.type, 40).toLowerCase();
+  if (['boolean', 'number', 'select', 'string'].includes(explicitType)) {
+    return explicitType;
+  }
+  const raw = trimText(
+    Object.prototype.hasOwnProperty.call(setting, 'rawValue') ? setting.rawValue : setting.value,
+    4000,
+  );
+  const normalized = raw.toLowerCase();
+  if (['true', 'false', 'yes', 'no', 'on', 'off', 'enabled', 'disabled'].includes(normalized)) {
+    return 'boolean';
+  }
+  if (/^-?\d+(?:\.\d+)?$/.test(raw)) {
+    if ((raw === '0' || raw === '1') && /^(allow|enable|enabled|disable|disabled|is|has|use|can)/i.test(trimText(setting.key, 160))) {
+      return 'boolean';
+    }
+    return 'number';
+  }
+  return 'string';
+}
+
+function buildDynamicCategoryDisplay(categoryKey, sectionName = '') {
+  const normalizedCategoryKey = normalizeCategoryKey(categoryKey) || 'advanced';
+  const title = trimText(sectionName, 120) || normalizedCategoryKey;
+  return {
+    key: normalizedCategoryKey,
+    label: humanizeIdentifier(title),
+    description: sectionName
+      ? `Discovered from the ${trimText(sectionName, 120)} section of the live server config.`
+      : 'Discovered from the live server config snapshot.',
+    labelKey: null,
+    descriptionKey: null,
+  };
+}
+
+function deriveSnapshotCategoryKey(setting = {}, categoryMap = new Map()) {
+  const declaredCategory = normalizeCategoryKey(setting.category);
+  if (declaredCategory) return declaredCategory;
+  const sectionCategory = normalizeCategoryKey(setting.section);
+  if (sectionCategory && categoryMap.has(sectionCategory)) return sectionCategory;
+  return sectionCategory || 'advanced';
+}
+
+function buildDiscoveredSettingRow(snapshotSetting = {}, options = {}) {
+  const file = trimText(snapshotSetting.file, 200);
+  const section = trimText(snapshotSetting.section, 160);
+  const key = trimText(snapshotSetting.key, 160);
+  const type = inferSnapshotSettingType(snapshotSetting);
+  const value = Object.prototype.hasOwnProperty.call(snapshotSetting, 'value')
+    ? snapshotSetting.value
+    : snapshotSetting.rawValue;
+  const id = trimText(snapshotSetting.id, 200)
+    || `snapshot.${file}.${section}.${key}`.replace(/[^\w.-]+/g, '_');
+  return {
+    id,
+    file,
+    category: normalizeCategoryKey(options.categoryKey || snapshotSetting.category || section) || 'advanced',
+    categoryLabel: humanizeIdentifier(trimText(options.categoryKey || snapshotSetting.category || section, 120) || 'advanced'),
+    group: trimText(snapshotSetting.group, 120) || normalizeCategoryKey(section) || 'additional',
+    groupLabel: humanizeIdentifier(trimText(snapshotSetting.group, 120) || section || 'additional'),
+    section,
+    key,
+    label: sanitizeDisplayText(snapshotSetting.label, humanizeIdentifier(key)),
+    labelKey: trimText(snapshotSetting.labelKey, 240) || null,
+    description: sanitizeDisplayText(
+      snapshotSetting.description,
+      section ? `Discovered from the live ${section} section.` : 'Discovered from the live server config.',
+    ),
+    descriptionKey: trimText(snapshotSetting.descriptionKey, 240) || null,
+    type,
+    value,
+    currentValue: value,
+    defaultValue: Object.prototype.hasOwnProperty.call(snapshotSetting, 'defaultValue')
+      ? snapshotSetting.defaultValue
+      : null,
+    min: Number.isFinite(Number(snapshotSetting.min)) ? Number(snapshotSetting.min) : null,
+    max: Number.isFinite(Number(snapshotSetting.max)) ? Number(snapshotSetting.max) : null,
+    options: Array.isArray(snapshotSetting.options) ? snapshotSetting.options.map((entry) => ({ ...entry })) : [],
+    requiresRestart: snapshotSetting.requiresRestart === true,
+    visibility: trimText(snapshotSetting.visibility, 40) || 'advanced',
+    sourceFileLabel: options.sourceFileLabel || FILE_LABEL_FALLBACKS[file] || file,
+    hasCurrentValue: Object.prototype.hasOwnProperty.call(snapshotSetting, 'value')
+      || Object.prototype.hasOwnProperty.call(snapshotSetting, 'rawValue'),
+  };
+}
+
 function buildSnapshotSettingKey(file, section, key) {
   return [
     trimText(file, 200).toLowerCase(),
@@ -249,15 +349,21 @@ function normalizeSnapshotFile(file = {}) {
           group: trimText(setting.group, 120),
           section: trimText(setting.section, 160),
           key: trimText(setting.key, 160),
+          type: trimText(setting.type, 40) || null,
           value: Object.prototype.hasOwnProperty.call(setting, 'value') ? setting.value : null,
           rawValue: Object.prototype.hasOwnProperty.call(setting, 'rawValue') ? setting.rawValue : null,
           defaultValue: Object.prototype.hasOwnProperty.call(setting, 'defaultValue')
             ? setting.defaultValue
             : null,
+          min: Number.isFinite(Number(setting.min)) ? Number(setting.min) : null,
+          max: Number.isFinite(Number(setting.max)) ? Number(setting.max) : null,
+          options: Array.isArray(setting.options) ? setting.options.map((entry) => ({ ...entry })) : [],
           requiresRestart: setting.requiresRestart === true,
           visibility: trimText(setting.visibility, 40) || 'basic',
           label: trimText(setting.label, 240) || null,
+          labelKey: trimText(setting.labelKey, 240) || null,
           description: trimText(setting.description, 600) || null,
+          descriptionKey: trimText(setting.descriptionKey, 240) || null,
         }))
       : [],
     rawEntries: Array.isArray(file.rawEntries)
@@ -370,25 +476,61 @@ function buildWorkspaceFromSnapshot(server, snapshotRow, backups = []) {
   const fileDefinitions = getConfigFileDefinitions().map(getFileDisplay);
   const fileLabelMap = new Map(fileDefinitions.map((entry) => [entry.file, entry.label]));
   const settingDefinitions = getConfigSettingDefinitions();
-  const categories = categoryDefinitions.map((category) => {
-    const rows = settingDefinitions
-      .filter((definition) => String(definition.category || '').trim().toLowerCase() === category.key)
-      .map((definition) => {
-        const snapshotValue = snapshotIndex.settingIndex.get(
-          buildSnapshotSettingKey(definition.file, definition.section, definition.key),
-        );
-        const value = snapshotValue
-          ? snapshotValue.value
-          : Object.prototype.hasOwnProperty.call(definition, 'defaultValue')
-            ? definition.defaultValue
-            : null;
-        return buildSettingRow(definition, value, {
-          hasCurrentValue: Boolean(snapshotValue),
-          sourceFileLabel: fileLabelMap.get(definition.file) || definition.file,
+  const categoryMap = new Map(categoryDefinitions.map((category) => [
+    category.key,
+    { ...category, settings: [] },
+  ]));
+  const knownSettingKeys = new Set();
+
+  for (const definition of settingDefinitions) {
+    const categoryKey = normalizeCategoryKey(definition.category);
+    if (!categoryMap.has(categoryKey)) {
+      categoryMap.set(categoryKey, { ...buildDynamicCategoryDisplay(categoryKey), settings: [] });
+    }
+    const snapshotKey = buildSnapshotSettingKey(definition.file, definition.section, definition.key);
+    knownSettingKeys.add(snapshotKey);
+    const snapshotValue = snapshotIndex.settingIndex.get(snapshotKey);
+    const value = snapshotValue
+      ? snapshotValue.value
+      : Object.prototype.hasOwnProperty.call(definition, 'defaultValue')
+        ? definition.defaultValue
+        : null;
+    categoryMap.get(categoryKey).settings.push(buildSettingRow(definition, value, {
+      hasCurrentValue: Boolean(snapshotValue),
+      sourceFileLabel: fileLabelMap.get(definition.file) || definition.file,
+    }));
+  }
+
+  for (const file of snapshotIndex.files) {
+    for (const snapshotSetting of Array.isArray(file?.settings) ? file.settings : []) {
+      const fileName = trimText(snapshotSetting.file || file.file, 200);
+      const section = trimText(snapshotSetting.section, 160);
+      const key = trimText(snapshotSetting.key, 160);
+      if (!fileName || !key) continue;
+      const snapshotKey = buildSnapshotSettingKey(fileName, section, key);
+      if (knownSettingKeys.has(snapshotKey)) continue;
+      const categoryKey = deriveSnapshotCategoryKey(snapshotSetting, categoryMap);
+      if (!categoryMap.has(categoryKey)) {
+        categoryMap.set(categoryKey, {
+          ...buildDynamicCategoryDisplay(categoryKey, section),
+          settings: [],
         });
-      });
+      }
+      categoryMap.get(categoryKey).settings.push(buildDiscoveredSettingRow(snapshotSetting, {
+        categoryKey,
+        sourceFileLabel: fileLabelMap.get(fileName) || fileName,
+      }));
+    }
+  }
+
+  const categories = Array.from(categoryMap.values()).map((category) => {
+    const rows = Array.isArray(category.settings) ? category.settings : [];
     return {
-      ...category,
+      key: category.key,
+      label: category.label,
+      description: category.description,
+      labelKey: category.labelKey || null,
+      descriptionKey: category.descriptionKey || null,
       groups: splitIntoGroups(rows),
       settingCount: rows.length,
     };
@@ -887,6 +1029,74 @@ function createPlatformServerConfigService(deps = {}) {
     });
   }
 
+  async function createServerBotActionJob(input = {}, actor = 'admin-web') {
+    const tenantId = normalizeTenantId(input.tenantId);
+    const serverId = normalizeServerId(input.serverId);
+    const jobType = normalizeJobType(input.jobType, '');
+    if (!tenantId || !serverId || !jobType) {
+      return { ok: false, reason: 'server-bot-action-invalid' };
+    }
+    const server = await resolveServer(tenantId, serverId);
+    if (!server) return { ok: false, reason: 'server-not-found' };
+    const supportedActions = new Set([
+      'server_start',
+      'server_stop',
+      'probe_sync',
+      'probe_config_access',
+      'probe_restart',
+    ]);
+    if (!supportedActions.has(jobType)) {
+      return { ok: false, reason: 'server-bot-action-unsupported' };
+    }
+    const jobId = trimText(input.jobId, 160) || createId('cfgjob');
+    const meta = {
+      controlAction: jobType,
+      requestedApplyMode: 'save_only',
+      displayName: trimText(input.displayName, 160) || null,
+    };
+    return withTenantConfigDb(tenantId, async (db) => {
+      await ensurePlatformServerConfigTables(db);
+      await db.$executeRaw`
+        INSERT INTO platform_server_config_jobs (
+          id,
+          tenant_id,
+          server_id,
+          job_type,
+          apply_mode,
+          status,
+          requested_by,
+          requested_at,
+          changes_json,
+          result_json,
+          error_text,
+          meta_json
+        )
+        VALUES (
+          ${jobId},
+          ${tenantId},
+          ${serverId},
+          ${jobType},
+          ${'save_only'},
+          ${'queued'},
+          ${trimText(actor, 200) || 'admin-web'},
+          CURRENT_TIMESTAMP,
+          ${JSON.stringify([])},
+          ${JSON.stringify({})},
+          ${null},
+          ${JSON.stringify({
+            ...meta,
+            serverName: trimText(server.name, 200) || null,
+            runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
+          })}
+        )
+      `;
+      return {
+        ok: true,
+        job: await readJobRow(db, jobId),
+      };
+    });
+  }
+
   async function claimNextServerConfigJob(input = {}, actor = 'server-bot') {
     const tenantId = normalizeTenantId(input.tenantId);
     const serverId = normalizeServerId(input.serverId);
@@ -1097,6 +1307,7 @@ function createPlatformServerConfigService(deps = {}) {
     createServerConfigSaveJob,
     createServerConfigApplyJob,
     createServerConfigRollbackJob,
+    createServerBotActionJob,
     claimNextServerConfigJob,
     completeServerConfigJob,
     upsertServerConfigSnapshot,
@@ -1104,5 +1315,6 @@ function createPlatformServerConfigService(deps = {}) {
 }
 
 module.exports = {
+  buildWorkspaceFromSnapshot,
   createPlatformServerConfigService,
 };

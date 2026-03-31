@@ -3,6 +3,13 @@
  * runtime actions. Grouped outside the main admin server file.
  */
 
+const {
+  requireTenantActionEntitlement,
+} = require('./tenantRouteEntitlements');
+const {
+  requireTenantPermission,
+} = require('./tenantRoutePermissions');
+
 function createAdminCommerceDeliveryPostRoutes(deps) {
   const {
     sendJson,
@@ -16,7 +23,9 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     creditCoins,
     debitCoins,
     addShopItemForAdmin,
+    updateShopItemForAdmin,
     setShopItemPriceForAdmin,
+    setShopItemStatusForAdmin,
     deleteShopItemForAdmin,
     updatePurchaseStatusForActor,
     queueLeaderboardRefreshForAllGuilds,
@@ -41,6 +50,8 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     getRentBikeRuntime,
     updateScumStatusForAdmin,
     getStatus,
+    getTenantFeatureAccess,
+    buildTenantProductEntitlements,
   } = deps;
 
   return async function handleAdminCommerceDeliveryPostRoute(context) {
@@ -55,6 +66,27 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     const authTenantId = String(auth?.tenantId || '').trim() || undefined;
 
     if (pathname === '/admin/api/wallet/set') {
+      const tenantId = authTenantId || requiredString(body, 'tenantId');
+      const playerPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_players',
+        message: 'Your tenant role cannot change player balances.',
+      });
+      if (!playerPermission.allowed) return true;
+      if (tenantId) {
+        const walletCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_players',
+          message: 'Wallet adjustments are locked until the current package includes player management.',
+        });
+        if (!walletCheck.allowed) return true;
+      }
       const userId = requiredString(body, 'userId');
       const balance = asInt(body.balance);
       if (!userId || balance == null) {
@@ -79,6 +111,27 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/wallet/add') {
+      const tenantId = authTenantId || requiredString(body, 'tenantId');
+      const playerPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_players',
+        message: 'Your tenant role cannot change player balances.',
+      });
+      if (!playerPermission.allowed) return true;
+      if (tenantId) {
+        const walletCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_players',
+          message: 'Wallet adjustments are locked until the current package includes player management.',
+        });
+        if (!walletCheck.allowed) return true;
+      }
       const userId = requiredString(body, 'userId');
       const amount = asInt(body.amount);
       if (!userId || amount == null) {
@@ -103,6 +156,27 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/wallet/remove') {
+      const tenantId = authTenantId || requiredString(body, 'tenantId');
+      const playerPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_players',
+        message: 'Your tenant role cannot change player balances.',
+      });
+      if (!playerPermission.allowed) return true;
+      if (tenantId) {
+        const walletCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_players',
+          message: 'Wallet adjustments are locked until the current package includes player management.',
+        });
+        if (!walletCheck.allowed) return true;
+      }
       const userId = requiredString(body, 'userId');
       const amount = asInt(body.amount);
       if (!userId || amount == null) {
@@ -134,6 +208,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const donationPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_donations',
+        message: 'Your tenant role cannot create donation packages.',
+      });
+      if (!donationPermission.allowed) return true;
+      if (tenantId) {
+        const donationCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_donations',
+          message: 'Donation package creation is locked until the current package includes donation tools.',
+        });
+        if (!donationCheck.allowed) return true;
+      }
       const id = requiredString(body, 'id');
       const name = requiredString(body, 'name');
       const price = asInt(body.price);
@@ -203,6 +297,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const donationPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_donations',
+        message: 'Your tenant role cannot change donation package pricing.',
+      });
+      if (!donationPermission.allowed) return true;
+      if (tenantId) {
+        const donationCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_donations',
+          message: 'Donation package pricing is locked until the current package includes donation tools.',
+        });
+        if (!donationCheck.allowed) return true;
+      }
       const idOrName = requiredString(body, 'idOrName');
       const price = asInt(body.price);
       if (!idOrName || price == null) {
@@ -222,6 +336,117 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/admin/api/shop/update') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
+      const donationPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_donations',
+        message: 'Your tenant role cannot edit donation packages.',
+      });
+      if (!donationPermission.allowed) return true;
+      if (tenantId) {
+        const donationCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_donations',
+          message: 'Donation package edits are locked until the current package includes donation tools.',
+        });
+        if (!donationCheck.allowed) return true;
+      }
+      const idOrName = requiredString(body, 'idOrName');
+      const name = requiredString(body, 'name');
+      const price = asInt(body.price);
+      const description = String(body.description || '').trim();
+      const kindRaw = requiredString(body, 'kind') || 'item';
+      const kind = String(kindRaw).trim().toLowerCase() === 'vip' ? 'vip' : 'item';
+      if (!idOrName || !name || price == null || !description) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = await updateShopItemForAdmin({
+        tenantId,
+        idOrName,
+        name,
+        price,
+        description,
+        kind,
+        gameItemId: requiredString(body, 'gameItemId'),
+        quantity: asInt(body.quantity) ?? 1,
+      });
+      if (!result.ok && result.reason === 'not-found') {
+        sendJson(res, 404, { ok: false, error: 'Resource not found' });
+        return true;
+      }
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, error: result.error || result.reason || 'Invalid request payload' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.item });
+      return true;
+    }
+
+    if (pathname === '/admin/api/shop/status') {
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(body, 'tenantId'),
+      );
+      if (tenantId === null && getAuthTenantId(auth)) return true;
+      const donationPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_donations',
+        message: 'Your tenant role cannot enable or disable donation packages.',
+      });
+      if (!donationPermission.allowed) return true;
+      if (tenantId) {
+        const donationCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_donations',
+          message: 'Donation package visibility is locked until the current package includes donation tools.',
+        });
+        if (!donationCheck.allowed) return true;
+      }
+      const idOrName = requiredString(body, 'idOrName');
+      const status = requiredString(body, 'status');
+      if (!idOrName || !status) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = await setShopItemStatusForAdmin({
+        tenantId,
+        idOrName,
+        status,
+      });
+      if (!result.ok && result.reason === 'not-found') {
+        sendJson(res, 404, { ok: false, error: 'Resource not found' });
+        return true;
+      }
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, error: result.error || result.reason || 'Invalid request payload' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.item });
+      return true;
+    }
+
     if (pathname === '/admin/api/shop/delete') {
       const tenantId = resolveScopedTenantId(
         req,
@@ -230,6 +455,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const donationPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_donations',
+        message: 'Your tenant role cannot delete donation packages.',
+      });
+      if (!donationPermission.allowed) return true;
+      if (tenantId) {
+        const donationCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_donations',
+          message: 'Donation package deletion is locked until the current package includes donation tools.',
+        });
+        if (!donationCheck.allowed) return true;
+      }
       const idOrName = requiredString(body, 'idOrName');
       if (!idOrName) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -256,6 +501,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot change order status.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Order status changes are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       const status = requiredString(body, 'status');
       if (!code || !status) {
@@ -314,6 +579,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot enqueue delivery jobs.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery retries are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -339,6 +624,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot retry failed deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery retries are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -361,6 +666,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot retry failed deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery retries are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const codes = parseStringArray(body?.codes);
       if (codes.length === 0) {
         sendJson(res, 400, { ok: false, error: 'codes is required' });
@@ -381,6 +706,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot retry dead-letter deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery retries are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -409,6 +754,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot retry dead-letter deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery retries are locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const codes = parseStringArray(body?.codes);
       if (codes.length === 0) {
         sendJson(res, 400, { ok: false, error: 'codes is required' });
@@ -432,6 +797,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot clear dead-letter deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery cleanup is locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -454,6 +839,26 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const ordersPermission = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_orders',
+        message: 'Your tenant role cannot cancel deliveries.',
+      });
+      if (!ordersPermission.allowed) return true;
+      if (tenantId) {
+        const orderCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey: 'can_manage_orders',
+          message: 'Delivery cancellation is locked until the current package includes order tools.',
+        });
+        if (!orderCheck.allowed) return true;
+      }
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });

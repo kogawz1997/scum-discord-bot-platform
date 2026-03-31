@@ -1,6 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = 'file:./prisma/test.db';
+process.env.DATABASE_PROVIDER = 'sqlite';
+process.env.PRISMA_SCHEMA_PROVIDER = 'sqlite';
+process.env.PRISMA_TEST_DATABASE_URL = 'file:./prisma/test.db';
+process.env.PRISMA_TEST_DATABASE_PROVIDER = 'sqlite';
+
 const { prisma } = require('../src/prisma');
 const {
   completeEmailVerification,

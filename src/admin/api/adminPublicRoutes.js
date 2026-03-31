@@ -18,6 +18,7 @@ function createAdminPublicRoutes(deps) {
     isAuthorized,
     getAuthContext,
     getLoginHtml,
+    getTenantLoginHtml,
     getOwnerConsoleHtml,
     getTenantConsoleHtml,
     getDashboardHtml,
@@ -63,6 +64,12 @@ function createAdminPublicRoutes(deps) {
     recordAdminSecuritySignal,
     createSession,
     buildSessionCookie,
+    buildClearSessionCookie,
+    invalidateSession,
+    authenticateTenantUser,
+    consumeTenantBootstrapToken,
+    resolveTenantSessionAccessContext,
+    resolveAdminSessionAccessContext,
   } = deps;
 
   function extractHostname(rawHost) {
@@ -81,7 +88,54 @@ function createAdminPublicRoutes(deps) {
     return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
   }
 
+  function trimTrailingSlash(value) {
+    return String(value || '').trim().replace(/\/+$/, '');
+  }
+
+  function buildSurfaceBaseUrl(surface, req) {
+    const normalizedSurface = String(surface || '').trim().toLowerCase();
+    const configuredBase = normalizedSurface === 'owner'
+      ? trimTrailingSlash(process.env.OWNER_WEB_BASE_URL)
+      : normalizedSurface === 'tenant'
+        ? trimTrailingSlash(process.env.TENANT_WEB_BASE_URL)
+        : normalizedSurface === 'player'
+          ? trimTrailingSlash(process.env.WEB_PORTAL_BASE_URL)
+          : '';
+    if (configuredBase) return configuredBase;
+
+    const requestHost = String(req?.headers?.host || '').trim();
+    const requestHostname = extractHostname(requestHost) || '127.0.0.1';
+    if (!isLoopbackHostname(requestHostname)) {
+      return '';
+    }
+
+    if (normalizedSurface === 'owner') {
+      return `http://${requestHostname}:${String(process.env.OWNER_WEB_PORT || '3201').trim() || '3201'}`;
+    }
+    if (normalizedSurface === 'tenant') {
+      return `http://${requestHostname}:${String(process.env.TENANT_WEB_PORT || '3202').trim() || '3202'}`;
+    }
+    if (normalizedSurface === 'player') {
+      return `http://${requestHostname}:${String(process.env.WEB_PORTAL_PORT || '3300').trim() || '3300'}`;
+    }
+    return '';
+  }
+
+  function buildSurfaceRedirectUrl(surface, req, pathname, search = '') {
+    const baseUrl = buildSurfaceBaseUrl(surface, req);
+    if (!baseUrl) return null;
+    try {
+      const target = new URL(pathname, baseUrl);
+      target.search = String(search || '');
+      return target.toString();
+    } catch {
+      return null;
+    }
+  }
+
   function buildPlayerPortalUrl(req, urlObj, pathname) {
+    const splitSurfaceTarget = buildSurfaceRedirectUrl('player', req, pathname, urlObj?.search || '');
+    if (splitSurfaceTarget) return splitSurfaceTarget;
     const requestHost = String(req?.headers?.host || '').trim();
     const requestHostname = extractHostname(requestHost);
     const search = String(urlObj?.search || '');
@@ -108,30 +162,30 @@ function createAdminPublicRoutes(deps) {
     const tab = String(query?.get('tab') || '').trim().toLowerCase();
     const isTenantScoped = Boolean(auth?.tenantId);
     const ownerTabTargets = {
-      auth: '/owner#security',
-      platform: '/owner#fleet',
-      metrics: '/owner#observability',
-      control: '/owner#control',
-      config: '/owner#control',
-      danger: '/owner#recovery',
-      delivery: '/owner#observability',
-      economy: '/owner#audit',
-      players: '/owner#fleet',
-      community: '/owner#fleet',
-      moderation: '/owner#fleet',
+      auth: '/owner/audit',
+      platform: '/owner/runtime',
+      metrics: '/owner/analytics',
+      control: '/owner/settings',
+      config: '/owner/settings',
+      danger: '/owner/audit',
+      delivery: '/owner/runtime',
+      economy: '/owner/subscriptions',
+      players: '/owner/tenants',
+      community: '/owner/tenants',
+      moderation: '/owner/audit',
     };
     const tenantTabTargets = {
-      auth: '/tenant#audit',
-      platform: '/tenant#plan-integrations',
-      metrics: '/tenant#insights',
-      control: '/tenant#config',
-      config: '/tenant#config',
-      danger: '/tenant#actions',
-      delivery: '/tenant#commerce',
-      economy: '/tenant#commerce',
-      players: '/tenant#players',
-      community: '/tenant#support-tools',
-      moderation: '/tenant#players',
+      auth: '/tenant/roles',
+      platform: '/tenant/settings',
+      metrics: '/tenant/logs-sync',
+      control: '/tenant/server/config',
+      config: '/tenant/server/config',
+      danger: '/tenant/server/restarts',
+      delivery: '/tenant/orders',
+      economy: '/tenant/orders',
+      players: '/tenant/players',
+      community: '/tenant/events',
+      moderation: '/tenant/players',
     };
     const tabTargets = isTenantScoped ? tenantTabTargets : ownerTabTargets;
     const target = tabTargets[tab];
@@ -141,13 +195,37 @@ function createAdminPublicRoutes(deps) {
 
   function buildAdminLoginRoute(pathname) {
     const raw = String(pathname || '').trim().toLowerCase();
-    if (raw === '/owner' || raw === '/owner/' || raw === '/owner/login' || raw === '/owner/login/') {
+    if (raw === '/owner' || raw === '/owner/' || raw === '/owner/login' || raw === '/owner/login/' || raw.startsWith('/owner/')) {
       return '/owner/login';
     }
-    if (raw === '/tenant' || raw === '/tenant/' || raw === '/tenant/login' || raw === '/tenant/login/') {
+    if (raw === '/tenant' || raw === '/tenant/' || raw === '/tenant/login' || raw === '/tenant/login/' || raw.startsWith('/tenant/')) {
       return '/tenant/login';
     }
     return '/admin/login';
+  }
+
+  function normalizeTenantNextUrl(value, fallback = '') {
+    const text = String(value || '').trim();
+    if (!text) return fallback;
+    if (!text.startsWith('/tenant')) return fallback;
+    if (text.startsWith('//') || /[\r\n]/.test(text)) return fallback;
+    return text;
+  }
+
+  function buildTenantLoginSearch(pathname, search = '', options = {}) {
+    const params = new URLSearchParams();
+    if (options.switch === true) {
+      params.set('switch', '1');
+    }
+    const nextUrl = normalizeTenantNextUrl(
+      `${String(pathname || '').trim()}${String(search || '').trim()}`,
+      '',
+    );
+    if (nextUrl && nextUrl !== '/tenant' && nextUrl !== '/tenant/') {
+      params.set('next', nextUrl);
+    }
+    const query = params.toString();
+    return query ? `?${query}` : '';
   }
 
   function getRequestedSurface(pathname) {
@@ -157,18 +235,89 @@ function createAdminPublicRoutes(deps) {
     return 'admin';
   }
 
+  function isOwnerConsolePath(pathname) {
+    const raw = String(pathname || '').trim().toLowerCase();
+    return raw === '/owner' || raw === '/owner/' || (raw.startsWith('/owner/') && !raw.startsWith('/owner/login') && !raw.startsWith('/owner/api/'));
+  }
+
+  function isTenantConsolePath(pathname) {
+    const raw = String(pathname || '').trim().toLowerCase();
+    return raw === '/tenant' || raw === '/tenant/' || (raw.startsWith('/tenant/') && !raw.startsWith('/tenant/login') && !raw.startsWith('/tenant/api/'));
+  }
+
   function isOwnerAuth(auth) {
     return String(auth?.role || '').trim().toLowerCase() === 'owner';
   }
 
+  function isPlatformOwnerAuth(auth) {
+    return isOwnerAuth(auth) && !auth?.tenantId;
+  }
+
   function canAccessTenantSurface(auth) {
-    return isOwnerAuth(auth) || Boolean(auth?.tenantId);
+    return Boolean(auth?.tenantId);
   }
 
   function getDefaultSurfaceTarget(auth) {
-    if (isOwnerAuth(auth)) return '/owner';
     if (auth?.tenantId) return '/tenant';
+    if (isPlatformOwnerAuth(auth)) return '/owner';
     return '/admin/login';
+  }
+
+  async function getEffectiveAuth(req, urlObj, res = null) {
+    const auth = getAuthContext(req, urlObj);
+    if (!auth || auth.mode !== 'session') {
+      return auth;
+    }
+    let resolved = null;
+    let invalidReason = 'admin-session-invalid';
+    let defaultAuthMethod = 'password-db';
+    if (auth.tenantId) {
+      if (typeof resolveTenantSessionAccessContext !== 'function') {
+        return auth;
+      }
+      resolved = await resolveTenantSessionAccessContext({
+        tenantId: auth.tenantId,
+        userId: auth.userId,
+        email: auth.primaryEmail || auth.user,
+        authMethod: auth.authMethod,
+      });
+      invalidReason = 'tenant-session-invalid';
+      defaultAuthMethod = 'platform-user-password';
+    } else {
+      if (typeof resolveAdminSessionAccessContext !== 'function') {
+        return auth;
+      }
+      resolved = await resolveAdminSessionAccessContext({
+        username: auth.user,
+        authMethod: auth.authMethod,
+      });
+    }
+    if (!resolved?.ok || !resolved?.authContext) {
+      if (typeof invalidateSession === 'function' && auth.sessionId) {
+        invalidateSession(auth.sessionId, {
+          actor: auth.user || 'system',
+          reason: resolved?.reason || invalidReason,
+        });
+      }
+      req.__resolvedAdminAuthContext = null;
+      if (res && typeof buildClearSessionCookie === 'function') {
+        if (typeof res.setHeader === 'function') {
+          res.setHeader('Set-Cookie', buildClearSessionCookie(req));
+        } else {
+          res.headers = { ...(res.headers || {}), 'Set-Cookie': buildClearSessionCookie(req) };
+        }
+      }
+      return null;
+    }
+    const effectiveAuth = {
+      ...auth,
+      ...resolved.authContext,
+      mode: auth.mode,
+      sessionId: auth.sessionId,
+      authMethod: auth.authMethod || resolved.authContext.authMethod || defaultAuthMethod,
+    };
+    req.__resolvedAdminAuthContext = effectiveAuth;
+    return effectiveAuth;
   }
 
   function extractPlatformApiKey(req) {
@@ -307,54 +456,127 @@ function createAdminPublicRoutes(deps) {
         || pathname === '/tenant/login/'
       )
     ) {
-      if (isAuthorized(req, urlObj)) {
-        const auth = getAuthContext(req, urlObj);
+      const auth = await getEffectiveAuth(req, urlObj, res);
+      if (auth) {
         const requestedSurface = getRequestedSurface(pathname);
         const canAccessRequestedSurface = (
           requestedSurface === 'admin'
-          || (requestedSurface === 'owner' && isOwnerAuth(auth))
+          || (requestedSurface === 'owner' && isPlatformOwnerAuth(auth))
           || (requestedSurface === 'tenant' && canAccessTenantSurface(auth))
         );
         if (canAccessRequestedSurface) {
           const target = requestedSurface === 'owner'
-            ? '/owner'
+            ? (buildSurfaceRedirectUrl('owner', req, '/owner') || '/owner')
             : requestedSurface === 'tenant'
-              ? '/tenant'
-              : getDefaultSurfaceTarget(auth);
+              ? (buildSurfaceRedirectUrl('tenant', req, '/tenant') || '/tenant')
+              : (() => {
+                const defaultTarget = getDefaultSurfaceTarget(auth);
+                return defaultTarget === '/owner'
+                  ? (buildSurfaceRedirectUrl('owner', req, '/owner') || defaultTarget)
+                  : defaultTarget === '/tenant'
+                    ? (buildSurfaceRedirectUrl('tenant', req, '/tenant') || defaultTarget)
+                    : defaultTarget;
+              })();
           res.writeHead(302, { Location: target });
           res.end();
           return true;
         }
-        if (requestedSurface === 'owner') {
-          res.writeHead(302, { Location: '/tenant' });
+      } else if (pathname.startsWith('/owner/login')) {
+        const target = buildSurfaceRedirectUrl('owner', req, '/owner/login', urlObj?.search || '');
+        if (target) {
+          res.writeHead(302, { Location: target });
+          res.end();
+          return true;
+        }
+      } else if (pathname.startsWith('/tenant/login')) {
+        const target = buildSurfaceRedirectUrl('tenant', req, '/tenant/login', urlObj?.search || '');
+        if (target) {
+          res.writeHead(302, { Location: target });
           res.end();
           return true;
         }
       }
-      sendHtml(res, 200, getLoginHtml());
+      const loginHtml = pathname.startsWith('/tenant/login')
+        ? (typeof getTenantLoginHtml === 'function' ? getTenantLoginHtml() : getLoginHtml())
+        : getLoginHtml();
+      sendHtml(res, 200, loginHtml);
+      return true;
+    }
+
+    if (req.method === 'POST' && pathname === '/tenant/api/auth/login') {
+      const body = await readJsonBody(req);
+      const nextUrl = normalizeTenantNextUrl(
+        body?.nextUrl || body?.next || urlObj?.searchParams?.get('next'),
+        '/tenant/onboarding',
+      ) || '/tenant/onboarding';
+      const result = await authenticateTenantUser?.({
+        email: requiredString(body, 'email'),
+        password: requiredString(body, 'password'),
+      });
+      if (!result?.ok || !result?.membership?.tenantId) {
+        sendJson(res, 401, {
+          ok: false,
+          error: result?.reason || 'tenant-login-failed',
+        });
+        return true;
+      }
+      req.__pendingAdminTenantId = result.membership.tenantId;
+      req.__pendingAdminSessionContext = {
+        userId: result.user?.id || null,
+        primaryEmail: result.user?.primaryEmail || null,
+        tenantMembershipId: result.membership?.id || null,
+        tenantMembershipType: result.membership?.membershipType || 'tenant',
+        tenantMembershipStatus: result.membership?.status || 'active',
+      };
+      const sessionId = createSession(
+        result.user?.primaryEmail || result.user?.displayName || result.membership.tenantId,
+        result.membership.role || 'viewer',
+        'platform-user-password',
+        req,
+      );
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          data: {
+            tenantId: result.membership.tenantId,
+            role: result.membership.role || 'viewer',
+            nextUrl,
+          },
+        },
+        {
+          'Set-Cookie': buildSessionCookie(sessionId, req),
+        },
+      );
       return true;
     }
 
     if (req.method === 'GET' && (pathname === '/admin' || pathname === '/admin/')) {
-      if (!isAuthorized(req, urlObj)) {
+      const auth = await getEffectiveAuth(req, urlObj, res);
+      if (!auth) {
         res.writeHead(302, { Location: '/admin/login' });
         res.end();
         return true;
       }
-      const auth = getAuthContext(req, urlObj);
       const target = getDefaultSurfaceTarget(auth);
-      res.writeHead(302, { Location: target });
+      const redirectedTarget = target === '/owner'
+        ? (buildSurfaceRedirectUrl('owner', req, '/owner') || target)
+        : target === '/tenant'
+          ? (buildSurfaceRedirectUrl('tenant', req, '/tenant') || target)
+          : target;
+      res.writeHead(302, { Location: redirectedTarget });
       res.end();
       return true;
     }
 
     if (req.method === 'GET' && (pathname === '/admin/legacy' || pathname === '/admin/legacy/')) {
-      if (!isAuthorized(req, urlObj)) {
+      const auth = await getEffectiveAuth(req, urlObj, res);
+      if (!auth) {
         res.writeHead(302, { Location: '/admin/login' });
         res.end();
         return true;
       }
-      const auth = getAuthContext(req, urlObj);
       const fallbackEnabled = String(urlObj?.searchParams?.get('fallback') || '').trim() === '1';
       if (!fallbackEnabled) {
         const target = buildLegacyFallbackTarget(auth, urlObj);
@@ -366,15 +588,29 @@ function createAdminPublicRoutes(deps) {
       return true;
     }
 
-    if (req.method === 'GET' && (pathname === '/owner' || pathname === '/owner/')) {
-      if (!isAuthorized(req, urlObj)) {
+    if (req.method === 'GET' && isOwnerConsolePath(pathname)) {
+      const splitOwnerTarget = buildSurfaceRedirectUrl('owner', req, pathname, urlObj?.search || '');
+      const auth = await getEffectiveAuth(req, urlObj, res);
+      if (!auth) {
+        if (splitOwnerTarget) {
+          res.writeHead(302, {
+            Location: buildSurfaceRedirectUrl('owner', req, '/owner/login', '') || splitOwnerTarget,
+          });
+          res.end();
+          return true;
+        }
         res.writeHead(302, { Location: buildAdminLoginRoute(pathname) });
         res.end();
         return true;
       }
-      const auth = getAuthContext(req, urlObj);
-      if (!isOwnerAuth(auth)) {
-        res.writeHead(302, { Location: '/owner/login?switch=1' });
+      if (!isPlatformOwnerAuth(auth)) {
+        const fallbackTarget = buildSurfaceRedirectUrl('owner', req, '/owner/login', '?switch=1') || '/owner/login?switch=1';
+        res.writeHead(302, { Location: fallbackTarget });
+        res.end();
+        return true;
+      }
+      if (splitOwnerTarget) {
+        res.writeHead(302, { Location: splitOwnerTarget });
         res.end();
         return true;
       }
@@ -382,15 +618,63 @@ function createAdminPublicRoutes(deps) {
       return true;
     }
 
-    if (req.method === 'GET' && (pathname === '/tenant' || pathname === '/tenant/')) {
-      if (!isAuthorized(req, urlObj)) {
-        res.writeHead(302, { Location: buildAdminLoginRoute(pathname) });
+    if (req.method === 'GET' && isTenantConsolePath(pathname)) {
+      const bootstrapToken = requiredString(urlObj.searchParams.get('bootstrap'));
+      const existingAuth = await getEffectiveAuth(req, urlObj, res);
+      if (!existingAuth && bootstrapToken && typeof consumeTenantBootstrapToken === 'function') {
+        const bootstrap = await consumeTenantBootstrapToken({ token: bootstrapToken });
+        if (bootstrap?.ok && bootstrap?.membership?.tenantId) {
+          req.__pendingAdminTenantId = bootstrap.membership.tenantId;
+          req.__pendingAdminSessionContext = {
+            userId: bootstrap.user?.id || null,
+            primaryEmail: bootstrap.user?.primaryEmail || bootstrap.token?.email || null,
+            tenantMembershipId: bootstrap.membership?.id || null,
+            tenantMembershipType: bootstrap.membership?.membershipType || 'tenant',
+            tenantMembershipStatus: bootstrap.membership?.status || 'active',
+          };
+          const sessionId = createSession(
+            bootstrap.user?.primaryEmail || bootstrap.token?.email || bootstrap.membership.tenantId,
+            bootstrap.membership.role || 'owner',
+            'tenant-bootstrap',
+            req,
+          );
+          res.writeHead(302, {
+            Location: pathname,
+            'Set-Cookie': buildSessionCookie(sessionId, req),
+          });
+          res.end();
+          return true;
+        }
+      }
+      const splitTenantTarget = buildSurfaceRedirectUrl('tenant', req, pathname, urlObj?.search || '');
+      const auth = existingAuth;
+      if (!auth) {
+        const tenantLoginSearch = buildTenantLoginSearch(pathname, urlObj?.search || '');
+        if (splitTenantTarget) {
+          res.writeHead(302, {
+            Location: buildSurfaceRedirectUrl('tenant', req, '/tenant/login', tenantLoginSearch) || splitTenantTarget,
+          });
+          res.end();
+          return true;
+        }
+        const fallbackRoute = buildAdminLoginRoute(pathname);
+        res.writeHead(302, {
+          Location: fallbackRoute === '/tenant/login'
+            ? `/tenant/login${tenantLoginSearch}`
+            : fallbackRoute,
+        });
         res.end();
         return true;
       }
-      const auth = getAuthContext(req, urlObj);
       if (!canAccessTenantSurface(auth)) {
-        res.writeHead(302, { Location: '/tenant/login?switch=1' });
+        const tenantLoginSearch = buildTenantLoginSearch(pathname, urlObj?.search || '', { switch: true });
+        const redirectTarget = buildSurfaceRedirectUrl('tenant', req, '/tenant/login', tenantLoginSearch) || `/tenant/login${tenantLoginSearch}`;
+        res.writeHead(302, { Location: redirectTarget });
+        res.end();
+        return true;
+      }
+      if (splitTenantTarget) {
+        res.writeHead(302, { Location: splitTenantTarget });
         res.end();
         return true;
       }
@@ -407,10 +691,13 @@ function createAdminPublicRoutes(deps) {
     }
 
     if (req.method === 'GET' && pathname === '/platform/api/v1/public/packages') {
+      const packages = typeof getPackageCatalog === 'function'
+        ? await Promise.resolve(getPackageCatalog({ status: 'active' }))
+        : [];
       sendJson(res, 200, {
         ok: true,
         data: {
-          packages: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+          packages,
           features: typeof getFeatureCatalog === 'function' ? getFeatureCatalog() : [],
         },
       });

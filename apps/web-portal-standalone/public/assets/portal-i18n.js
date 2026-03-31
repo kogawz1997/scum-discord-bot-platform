@@ -1890,6 +1890,72 @@
     }
   }
 
+  Object.assign(EN, {
+    'player.login.failureHint': 'If sign-in fails, verify the standalone portal OAuth settings for this portal.',
+    'player.home.walletDetail': 'See your balance, rewards, and the next safe wallet action at a glance.',
+    'player.home.serverSnapshotDetail': 'Quick server and delivery status helps you decide whether to wait or continue.',
+    'player.wallet.summaryDetail': 'A simple wallet view for your balance, rewards, and recent changes.',
+    'player.orders.summaryDetail': 'Review delivery status, order status, and the most important trust signals in one place.',
+    'landing.heroSubtitle': 'The platform stays multi-tenant and role-based. Platform owner control, server admin operations, and player journeys are intentionally separated while sharing the same services, data contracts, and trust model.',
+    'landing.readinessTitle': 'Service Health',
+    'showcase.subtitle': 'Overview of how the platform is structured across owner, admin, and player experiences while staying compatible with the current service model.',
+  });
+
+  Object.assign(TH, {
+    'player.login.failureHint': 'หากเข้าสู่ระบบไม่ได้ ให้ตรวจสอบการตั้งค่า OAuth ของพอร์ทัลนี้',
+    'player.home.walletDetail': 'ดูยอดคงเหลือ รางวัล และการจัดการกระเป๋าเงินที่ควรทำต่อได้อย่างรวดเร็ว',
+    'player.home.serverSnapshotDetail': 'ดูสถานะเซิร์ฟเวอร์และการส่งของแบบรวดเร็วเพื่อช่วยตัดสินใจว่าควรรอหรือทำต่อ',
+    'player.wallet.summaryDetail': 'มุมมองกระเป๋าเงินแบบเรียบง่ายสำหรับยอดคงเหลือ รางวัล และการเปลี่ยนแปลงล่าสุด',
+    'player.orders.summaryDetail': 'ตรวจดูสถานะการส่ง สถานะคำสั่งซื้อ และสัญญาณความน่าเชื่อถือที่สำคัญในจุดเดียว',
+    'landing.heroSubtitle': 'ระบบยังคงเป็น multi-tenant และแยกตามบทบาทอย่างชัดเจน โดย owner, admin และ player ใช้บริการและโครงข้อมูลเดียวกันโดยไม่ปนกัน',
+    'landing.readinessTitle': 'สถานะบริการ',
+    'showcase.subtitle': 'ภาพรวมว่า owner, admin และ player ถูกจัดโครงสร้างอย่างไร โดยยังเข้ากันได้กับรูปแบบบริการปัจจุบัน',
+  });
+
+  Object.assign(EN, {
+    'landing.liveEyebrow': 'Live status',
+    'public.landing.ownerDetail': 'Manages tenant fleet, service health, security status, audit visibility, and guarded global configuration.',
+    'public.landing.ownerOnly.detail': 'Platform health, service health, security, audit, backup, recovery, and tenant fleet visibility stay in the owner surface.',
+    'public.landing.step.two.title': 'Check service health',
+    'public.landing.step.two.detail': 'Owner overview and admin snapshot make service, queue, and alert status visible before changes are applied.',
+    'showcase.ownerCardDetail': 'System health, service health, tenant fleet visibility, audit, security, backup, and guarded configuration belong here.',
+    'showcase.compat.legacyDetail': 'High-density emergency tools remain reachable, but no longer drive the primary user experience.',
+    'trial.overlayDetail': 'Validate role routing, service health, delivery safety, and player trust before opening the server community.',
+    'trial.communityCheck.1': 'Tenant catalog, queue, failed jobs, and delivery support tools are usable without owner access.',
+    'trial.communityCheck.3': 'Legacy tools are still reachable as fallback only, not the default operator route.',
+    'public.login.snapshotKicker': 'Sign-in status',
+    'public.preview.pageLead': 'Loading package access and preview mode.',
+    'public.preview.identityDetail': 'Discord, Steam, and in-game profile matching are shown here so the user understands account readiness before going live.',
+    'public.preview.stat.apiKeysDetail': 'Preview quota status',
+  });
+
+  Object.assign(TH, {
+    'landing.liveEyebrow': 'สถานะล่าสุด',
+    'public.landing.ownerDetail': 'ใช้ติดตามผู้เช่า สถานะบริการ ความปลอดภัย การมองเห็น audit และการตั้งค่าระดับระบบที่มี guard',
+    'public.landing.ownerOnly.detail': 'สุขภาพแพลตฟอร์ม สถานะบริการ ความปลอดภัย audit การสำรองข้อมูล การกู้คืน และภาพรวมผู้เช่า อยู่ในพื้นที่ของเจ้าของระบบ',
+    'public.landing.step.two.title': 'ตรวจสถานะบริการ',
+    'public.landing.step.two.detail': 'ภาพรวมของเจ้าของระบบและผู้ดูแลเซิร์ฟเวอร์ช่วยให้เห็นสถานะคิว การแจ้งเตือน และความพร้อมของระบบก่อนเปลี่ยนค่า',
+    'showcase.ownerCardDetail': 'สุขภาพระบบ สถานะบริการ ภาพรวมผู้เช่า audit ความปลอดภัย แบ็กอัป และการตั้งค่าที่มี guard อยู่ในหน้าฝั่ง owner',
+    'showcase.compat.legacyDetail': 'หน้าเครื่องมือแบบเก่ายังเข้าถึงได้เมื่อจำเป็น แต่ไม่ใช่เส้นทางหลักของผู้ใช้แล้ว',
+    'trial.overlayDetail': 'ตรวจเส้นทางของบทบาท สถานะบริการ ความปลอดภัยของการส่งของ และความเชื่อมั่นของผู้เล่นก่อนเปิดชุมชน',
+    'trial.communityCheck.1': 'เครื่องมือ catalog, queue, งานที่ล้มเหลว และ delivery support ของ tenant ใช้งานได้โดยไม่ต้องใช้ owner access',
+    'trial.communityCheck.3': 'เครื่องมือเดิมยังเข้าได้เป็นทางสำรองเท่านั้น ไม่ใช่เส้นทางหลักของผู้ดูแล',
+    'public.login.snapshotKicker': 'สถานะการเข้าสู่ระบบ',
+    'public.preview.pageLead': 'กำลังโหลดสิทธิ์แพ็กเกจและโหมดพรีวิว',
+    'public.preview.identityDetail': 'หน้านี้จะแสดงการเชื่อม Discord, Steam และการจับคู่โปรไฟล์ในเกม เพื่อให้ผู้ใช้เห็นความพร้อมของบัญชีก่อนเปิดใช้จริง',
+    'public.preview.stat.apiKeysDetail': 'สถานะโควต้าในโหมดพรีวิว',
+  });
+
+  Object.assign(EN, {
+    'public.trial.runtimeDetail': 'Validate service health, service readiness, and alert visibility from the owner console before tenant onboarding.',
+    'trial.ownerCheck.1': 'Service health looks stable and major owner alerts are understood.',
+  });
+
+  Object.assign(TH, {
+    'public.trial.runtimeDetail': 'ตรวจสถานะบริการ ความพร้อมของระบบ และการมองเห็นการแจ้งเตือนจากหน้า owner ก่อนเริ่ม onboarding ผู้เช่า',
+    'trial.ownerCheck.1': 'สถานะบริการดูเสถียร และมีความเข้าใจการแจ้งเตือนหลักของ owner แล้ว',
+  });
+
   async function ensureExternalLocale(locale) {
     const normalizedLocale = normalizeLocale(locale);
     if (LOADED_EXTERNAL_LOCALES.has(normalizedLocale)) return;

@@ -3,17 +3,26 @@
  * redeem, VIP, moderation, and lightweight stats surfaces.
  */
 
+const {
+  requireTenantActionEntitlement,
+} = require('./tenantRouteEntitlements');
+const {
+  requireTenantPermission,
+} = require('./tenantRoutePermissions');
+
 function createAdminEntityPostRoutes(deps) {
   const {
     sendJson,
     requiredString,
     asInt,
+    resolveScopedTenantId,
     claimSupportTicket,
     closeSupportTicket,
     tryNotifyTicket,
     createBountyForUser,
     cancelBountyForUser,
     createServerEvent,
+    updateServerEvent,
     startServerEvent,
     finishServerEvent,
     joinServerEvent,
@@ -34,17 +43,68 @@ function createAdminEntityPostRoutes(deps) {
     addDeathsForUser,
     addPlaytimeForUser,
     queueLeaderboardRefreshForAllGuilds,
+    getTenantFeatureAccess,
+    buildTenantProductEntitlements,
   } = deps;
 
   return async function handleAdminEntityPostRoute(context) {
     const {
       client,
+      req,
       pathname,
       body,
       res,
       auth,
     } = context;
-    const scopedTenantId = String(auth?.tenantId || '').trim() || undefined;
+    const requestedTenantId = requiredString(body, 'tenantId') || String(auth?.tenantId || '').trim() || undefined;
+    const scopedTenantId = typeof resolveScopedTenantId === 'function'
+      ? resolveScopedTenantId(req, res, auth, requestedTenantId, { required: false })
+      : requestedTenantId;
+    if (requestedTenantId && scopedTenantId === null) {
+      return true;
+    }
+
+    async function requirePlayerManagement(message) {
+      const permissionCheck = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_players',
+        message: 'Your tenant role cannot run player management actions.',
+      });
+      if (!permissionCheck.allowed) return permissionCheck;
+      if (!scopedTenantId) return { allowed: true };
+      return requireTenantActionEntitlement({
+        sendJson,
+        res,
+        getTenantFeatureAccess,
+        buildTenantProductEntitlements,
+        tenantId: scopedTenantId,
+        actionKey: 'can_manage_players',
+        message,
+      });
+    }
+
+    async function requireEventManagement(message) {
+      const permissionCheck = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: 'manage_events',
+        message: 'Your tenant role cannot run event management actions.',
+      });
+      if (!permissionCheck.allowed) return permissionCheck;
+      if (!scopedTenantId) return { allowed: true };
+      return requireTenantActionEntitlement({
+        sendJson,
+        res,
+        getTenantFeatureAccess,
+        buildTenantProductEntitlements,
+        tenantId: scopedTenantId,
+        actionKey: 'can_manage_events',
+        message,
+      });
+    }
 
     if (pathname === '/admin/api/ticket/claim') {
       const channelId = requiredString(body, 'channelId');
@@ -88,6 +148,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/bounty/create') {
+      const playerCheck = await requirePlayerManagement(
+        'Player operations are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const targetName = requiredString(body, 'targetName');
       const amount = asInt(body.amount);
       const createdBy = requiredString(body, 'createdBy') || auth?.user || 'admin-web';
@@ -110,6 +174,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/bounty/cancel') {
+      const playerCheck = await requirePlayerManagement(
+        'Player operations are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const id = asInt(body.id);
       if (id == null) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -130,6 +198,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/event/create') {
+      const eventCheck = await requireEventManagement(
+        'Event creation is locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
       const name = requiredString(body, 'name');
       const time = requiredString(body, 'time');
       const reward = requiredString(body, 'reward');
@@ -152,6 +224,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/event/start') {
+      const eventCheck = await requireEventManagement(
+        'Event activation is locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
       const id = asInt(body.id);
       if (id == null) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -166,7 +242,39 @@ function createAdminEntityPostRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/admin/api/event/update') {
+      const eventCheck = await requireEventManagement(
+        'Event updates are locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
+      const id = asInt(body.id);
+      const name = requiredString(body, 'name');
+      const time = requiredString(body, 'time');
+      const reward = requiredString(body, 'reward');
+      if (id == null || !name || !time || !reward) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = await updateServerEvent({
+        id,
+        name,
+        time,
+        reward,
+        tenantId: scopedTenantId,
+      });
+      if (!result.ok) {
+        sendJson(res, result.reason === 'not-found' ? 404 : 400, { ok: false, error: result.reason || 'Invalid request payload' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.event });
+      return true;
+    }
+
     if (pathname === '/admin/api/event/end') {
+      const eventCheck = await requireEventManagement(
+        'Event deactivation is locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
       const id = asInt(body.id);
       if (id == null) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -218,6 +326,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/link/set') {
+      const playerCheck = await requirePlayerManagement(
+        'Linked account changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const steamId = requiredString(body, 'steamId');
       const userId = requiredString(body, 'userId');
       const inGameName = requiredString(body, 'inGameName');
@@ -242,6 +354,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/link/remove') {
+      const playerCheck = await requirePlayerManagement(
+        'Linked account changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const steamId = requiredString(body, 'steamId');
       const userId = requiredString(body, 'userId');
       if (!steamId && !userId) {
@@ -258,6 +374,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/player/account/upsert') {
+      const playerCheck = await requirePlayerManagement(
+        'Player account changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       if (!userId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -281,6 +401,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/player/steam/bind') {
+      const playerCheck = await requirePlayerManagement(
+        'Steam binding is locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const steamId = requiredString(body, 'steamId');
       if (!userId || !steamId) {
@@ -297,6 +421,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/player/steam/unbind') {
+      const playerCheck = await requirePlayerManagement(
+        'Steam binding is locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       if (!userId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -312,6 +440,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/vip/set') {
+      const playerCheck = await requirePlayerManagement(
+        'VIP changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const planId = requiredString(body, 'planId');
       const durationDays = asInt(body.durationDays);
@@ -337,6 +469,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/vip/remove') {
+      const playerCheck = await requirePlayerManagement(
+        'VIP changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       if (!userId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -352,6 +488,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/redeem/add') {
+      const playerCheck = await requirePlayerManagement(
+        'Redeem code changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const code = requiredString(body, 'code');
       const type = requiredString(body, 'type');
       if (!code || !type) {
@@ -370,6 +510,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/redeem/delete') {
+      const playerCheck = await requirePlayerManagement(
+        'Redeem code changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -385,6 +529,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/redeem/reset-usage') {
+      const playerCheck = await requirePlayerManagement(
+        'Redeem code changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -400,6 +548,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/moderation/add') {
+      const playerCheck = await requirePlayerManagement(
+        'Moderation actions are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const type = requiredString(body, 'type');
       const reason = requiredString(body, 'reason');
@@ -428,6 +580,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/welcome/revoke') {
+      const playerCheck = await requirePlayerManagement(
+        'Player welcome-pack actions are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       if (!userId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -443,12 +599,20 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/welcome/clear') {
+      const playerCheck = await requirePlayerManagement(
+        'Player welcome-pack actions are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const result = clearWelcomePackClaimsForAdmin({ tenantId: scopedTenantId });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
 
     if (pathname === '/admin/api/stats/add-kill') {
+      const playerCheck = await requirePlayerManagement(
+        'Player stat changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const amount = asInt(body.amount);
       if (!userId || amount == null) {
@@ -466,6 +630,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/stats/add-death') {
+      const playerCheck = await requirePlayerManagement(
+        'Player stat changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const amount = asInt(body.amount);
       if (!userId || amount == null) {
@@ -483,6 +651,10 @@ function createAdminEntityPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/stats/add-playtime') {
+      const playerCheck = await requirePlayerManagement(
+        'Player stat changes are locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const minutes = asInt(body.minutes);
       if (!userId || minutes == null) {

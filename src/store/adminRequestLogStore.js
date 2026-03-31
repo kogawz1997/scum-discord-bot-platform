@@ -3,7 +3,8 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 
-const { atomicWriteJson, getFilePath } = require('./_persist');
+const { prisma } = require('../prisma');
+const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
 
 const FILE_PATH = getFilePath('admin-request-log.json');
 const MAX_ENTRIES = Math.max(
@@ -11,8 +12,10 @@ const MAX_ENTRIES = Math.max(
   Math.min(5000, Math.trunc(Number(process.env.ADMIN_WEB_REQUEST_LOG_MAX || 800) || 800)),
 );
 
-let entries = null;
-let persistTimer = null;
+let entries = [];
+let initPromise = null;
+let writeQueue = Promise.resolve();
+let mutationVersion = 0;
 
 function nowIso() {
   return new Date().toISOString();
@@ -50,10 +53,16 @@ function averageFromValues(values = []) {
 }
 
 function percentileFromValues(values = [], percentile = 95) {
-  const numbers = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value)).sort((left, right) => left - right);
+  const numbers = values
+    .filter((value) => Number.isFinite(Number(value)))
+    .map((value) => Number(value))
+    .sort((left, right) => left - right);
   if (numbers.length === 0) return null;
   const normalizedPercentile = Math.max(0, Math.min(100, Number(percentile) || 0));
-  const rank = Math.max(0, Math.min(numbers.length - 1, Math.ceil((normalizedPercentile / 100) * numbers.length) - 1));
+  const rank = Math.max(
+    0,
+    Math.min(numbers.length - 1, Math.ceil((normalizedPercentile / 100) * numbers.length) - 1),
+  );
   return numbers[rank];
 }
 
@@ -62,9 +71,8 @@ function summarizeRouteHotspots(entriesToSummarize = [], limit = 5) {
   for (const entry of entriesToSummarize) {
     const routeGroup = normalizeString(entry?.routeGroup, 120) || 'unknown';
     const samplePath = normalizeString(entry?.path, 260) || '/';
-    const key = routeGroup;
-    if (!grouped.has(key)) {
-      grouped.set(key, {
+    if (!grouped.has(routeGroup)) {
+      grouped.set(routeGroup, {
         routeGroup,
         samplePath,
         requests: 0,
@@ -76,7 +84,7 @@ function summarizeRouteHotspots(entriesToSummarize = [], limit = 5) {
         latestAt: null,
       });
     }
-    const bucket = grouped.get(key);
+    const bucket = grouped.get(routeGroup);
     bucket.requests += 1;
     if (Number(entry?.statusCode || 0) >= 400) bucket.errors += 1;
     if (Number(entry?.statusCode || 0) >= 500) bucket.serverErrors += 1;
@@ -158,52 +166,203 @@ function normalizeEntry(entry = {}) {
   };
 }
 
-function schedulePersist() {
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    const payload = Array.isArray(entries) ? entries.slice(-MAX_ENTRIES) : [];
-    try {
-      atomicWriteJson(FILE_PATH, payload);
-    } catch (error) {
-      console.error('[adminRequestLogStore] failed to persist:', error.message);
+function serializeEntryRow(entry = {}) {
+  const normalized = normalizeEntry(entry);
+  return {
+    id: normalized.id,
+    occurredAt: new Date(normalized.at),
+    method: normalized.method,
+    path: normalized.path,
+    routeGroup: normalized.routeGroup,
+    statusCode: normalized.statusCode,
+    statusClass: normalized.statusClass,
+    latencyMs: normalized.latencyMs,
+    ok: normalized.ok,
+    authMode: normalized.authMode,
+    user: normalized.user,
+    role: normalized.role,
+    tenantId: normalized.tenantId,
+    ip: normalized.ip,
+    origin: normalized.origin,
+    userAgent: normalized.userAgent,
+    source: normalized.source,
+    note: normalized.note,
+    error: normalized.error,
+  };
+}
+
+function getRequestLogDelegate(client = prisma) {
+  if (!client || typeof client !== 'object') return null;
+  const delegate = client.platformAdminRequestLog;
+  if (!delegate || typeof delegate.findMany !== 'function') return null;
+  return delegate;
+}
+
+function getPersistenceMode() {
+  const explicit = String(process.env.ADMIN_REQUEST_LOG_STORE_MODE || '').trim().toLowerCase();
+  if (explicit === 'file') return 'file';
+  if (explicit === 'db') return 'db';
+  if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
+    return 'db';
+  }
+  return 'auto';
+}
+
+function shouldFallbackToFile(error) {
+  const code = String(error?.code || '').trim().toUpperCase();
+  if (['P2021', 'P2022', 'P1017'].includes(code)) return true;
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('no such table')
+    || message.includes('does not exist')
+    || message.includes('unknown table')
+    || message.includes('error validating datasource')
+    || message.includes('url must start with the protocol')
+    || message.includes('platformadminrequestlog');
+}
+
+async function runWithPreferredPersistence(dbWork, fileWork) {
+  const mode = getPersistenceMode();
+  const delegate = getRequestLogDelegate();
+  if (mode === 'file' || !delegate) {
+    return fileWork();
+  }
+  try {
+    return await dbWork(delegate);
+  } catch (error) {
+    if (mode === 'db' || !shouldFallbackToFile(error)) {
+      throw error;
     }
-  }, 250);
-  if (typeof persistTimer.unref === 'function') {
-    persistTimer.unref();
+    return fileWork();
   }
 }
 
-function initAdminRequestLogStore() {
-  if (entries) return entries;
+function queueWrite(work, label) {
+  writeQueue = writeQueue
+    .then(async () => {
+      await work();
+    })
+    .catch((error) => {
+      console.error(`[adminRequestLogStore] ${label} failed:`, error.message);
+    });
+  return writeQueue;
+}
+
+function writeEntriesToDisk() {
+  const payload = Array.isArray(entries) ? entries.slice(-MAX_ENTRIES) : [];
+  atomicWriteJson(FILE_PATH, payload);
+}
+
+async function writeEntriesToDatabase(delegate = getRequestLogDelegate()) {
+  if (!delegate) return;
+  const rows = (Array.isArray(entries) ? entries : [])
+    .slice(-MAX_ENTRIES)
+    .map(serializeEntryRow);
+  await delegate.deleteMany({});
+  if (rows.length > 0) {
+    await delegate.createMany({ data: rows });
+  }
+}
+
+async function hydrateFromDisk() {
   try {
     if (fs.existsSync(FILE_PATH)) {
       const raw = fs.readFileSync(FILE_PATH, 'utf8');
       if (raw.trim()) {
         const parsed = JSON.parse(raw);
-        entries = Array.isArray(parsed) ? parsed.map((entry) => normalizeEntry(entry)) : [];
-        return entries;
+        return Array.isArray(parsed) ? parsed.map((entry) => normalizeEntry(entry)) : [];
       }
     }
   } catch (error) {
     console.error('[adminRequestLogStore] failed to hydrate:', error.message);
   }
-  entries = buildDefaultEntries();
-  return entries;
+  return buildDefaultEntries();
+}
+
+async function hydrateFromDatabase(delegate = getRequestLogDelegate()) {
+  if (!delegate) {
+    return buildDefaultEntries();
+  }
+  const rows = await delegate.findMany({
+    orderBy: { occurredAt: 'asc' },
+    take: MAX_ENTRIES,
+  });
+  return Array.isArray(rows) ? rows.map((entry) => normalizeEntry({
+    id: entry.id,
+    at: entry.occurredAt,
+    method: entry.method,
+    path: entry.path,
+    routeGroup: entry.routeGroup,
+    statusCode: entry.statusCode,
+    latencyMs: entry.latencyMs,
+    authMode: entry.authMode,
+    user: entry.user,
+    role: entry.role,
+    tenantId: entry.tenantId,
+    ip: entry.ip,
+    origin: entry.origin,
+    userAgent: entry.userAgent,
+    source: entry.source,
+    note: entry.note,
+    error: entry.error,
+  })) : [];
+}
+
+function mergeHydratedEntries(hydrated = []) {
+  const currentById = new Map((Array.isArray(entries) ? entries : []).map((entry) => [entry.id, entry]));
+  for (const entry of Array.isArray(hydrated) ? hydrated : []) {
+    if (!currentById.has(entry.id)) {
+      currentById.set(entry.id, entry);
+    }
+  }
+  entries = Array.from(currentById.values())
+    .sort((left, right) => String(left.at || '').localeCompare(String(right.at || '')))
+    .slice(-MAX_ENTRIES);
+}
+
+function initAdminRequestLogStore() {
+  if (!initPromise) {
+    const startVersion = mutationVersion;
+    initPromise = runWithPreferredPersistence(
+      (delegate) => hydrateFromDatabase(delegate),
+      () => hydrateFromDisk(),
+    ).then((hydrated) => {
+      if (startVersion === mutationVersion) {
+        entries = Array.isArray(hydrated) ? hydrated.slice(-MAX_ENTRIES) : buildDefaultEntries();
+      } else {
+        mergeHydratedEntries(hydrated);
+      }
+      return entries;
+    }).catch(async (error) => {
+      if (getPersistenceMode() === 'db' || !shouldFallbackToFile(error)) {
+        throw error;
+      }
+      console.error('[adminRequestLogStore] failed to hydrate from prisma:', error.message);
+      entries = await hydrateFromDisk();
+      return entries;
+    });
+  }
+  return initPromise;
 }
 
 function recordAdminRequestLog(entry = {}) {
-  initAdminRequestLogStore();
+  void initAdminRequestLogStore();
+  mutationVersion += 1;
   entries.push(normalizeEntry(entry));
   if (entries.length > MAX_ENTRIES) {
     entries.splice(0, entries.length - MAX_ENTRIES);
   }
-  schedulePersist();
+  queueWrite(
+    () => runWithPreferredPersistence(
+      (delegate) => writeEntriesToDatabase(delegate),
+      async () => writeEntriesToDisk(),
+    ),
+    'persist',
+  );
   return entries[entries.length - 1];
 }
 
 function listAdminRequestLogs(options = {}) {
-  initAdminRequestLogStore();
+  void initAdminRequestLogStore();
   const limit = Math.max(1, Math.min(MAX_ENTRIES, Math.trunc(Number(options.limit || 200) || 200)));
   const windowMs = Number.isFinite(Number(options.windowMs))
     ? Math.max(60 * 1000, Math.trunc(Number(options.windowMs) || 0))
@@ -237,13 +396,21 @@ function listAdminRequestLogs(options = {}) {
 }
 
 function clearAdminRequestLogs() {
+  void initAdminRequestLogStore();
+  mutationVersion += 1;
   entries = buildDefaultEntries();
-  schedulePersist();
+  queueWrite(
+    () => runWithPreferredPersistence(
+      (delegate) => writeEntriesToDatabase(delegate),
+      async () => writeEntriesToDisk(),
+    ),
+    'clear',
+  );
   return [];
 }
 
 function getAdminRequestLogMetrics(options = {}) {
-  initAdminRequestLogStore();
+  void initAdminRequestLogStore();
   const windowMs = Math.max(
     60 * 1000,
     Math.trunc(Number(options.windowMs || 15 * 60 * 1000) || 15 * 60 * 1000),
@@ -272,7 +439,13 @@ function getAdminRequestLogMetrics(options = {}) {
   };
 }
 
-initAdminRequestLogStore();
+function waitForAdminRequestLogPersistence() {
+  return writeQueue;
+}
+
+void initAdminRequestLogStore().catch((error) => {
+  console.error('[adminRequestLogStore] init failed:', error.message);
+});
 
 module.exports = {
   clearAdminRequestLogs,
@@ -280,4 +453,5 @@ module.exports = {
   initAdminRequestLogStore,
   listAdminRequestLogs,
   recordAdminRequestLog,
+  waitForAdminRequestLogPersistence,
 };

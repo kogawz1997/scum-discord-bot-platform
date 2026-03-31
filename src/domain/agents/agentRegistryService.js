@@ -6,6 +6,7 @@ const {
   deriveScopesForAgent,
   normalizeAgentRegistrationInput,
   normalizeAgentSessionInput,
+  resolveStrictAgentRoleScope,
   trimText,
 } = require('../../contracts/agent/agentContracts');
 const {
@@ -75,7 +76,16 @@ function createAgentRegistryService(deps = {}) {
   }
 
   async function createAgentToken(input = {}, actor = 'system') {
-    const normalized = normalizeAgentRegistrationInput(input);
+    const strictProfile = resolveStrictAgentRoleScope(input);
+    if (!strictProfile.ok) {
+      return { ok: false, reason: strictProfile.reason || 'invalid-agent-runtime-boundary' };
+    }
+    const normalized = normalizeAgentRegistrationInput({
+      ...input,
+      role: strictProfile.role,
+      scope: strictProfile.scope,
+      runtimeKind: strictProfile.runtimeKind,
+    });
     if (!normalized.tenantId || !normalized.serverId || !normalized.agentId) {
       return { ok: false, reason: 'invalid-agent-token' };
     }
@@ -116,7 +126,16 @@ function createAgentRegistryService(deps = {}) {
   }
 
   async function createAgentProvisioningToken(input = {}, actor = 'system') {
-    const normalized = normalizeAgentRegistrationInput(input);
+    const strictProfile = resolveStrictAgentRoleScope(input);
+    if (!strictProfile.ok) {
+      return { ok: false, reason: strictProfile.reason || 'invalid-agent-runtime-boundary' };
+    }
+    const normalized = normalizeAgentRegistrationInput({
+      ...input,
+      role: strictProfile.role,
+      scope: strictProfile.scope,
+      runtimeKind: strictProfile.runtimeKind,
+    });
     if (!normalized.tenantId || !normalized.serverId || !normalized.agentId) {
       return { ok: false, reason: 'invalid-agent-provisioning-token' };
     }
@@ -175,9 +194,9 @@ function createAgentRegistryService(deps = {}) {
         serverId: normalized.serverId,
         guildId: normalized.guildId || server.guildId || null,
         agentId: normalized.agentId,
-        agentType: normalized.role,
-        role: normalized.role,
-        scope: normalized.scope,
+        agentType: strictProfile.role,
+        role: strictProfile.role,
+        scope: strictProfile.scope,
         runtimeKey: normalized.runtimeKey || null,
       },
       agent: agentResult.agent,
@@ -207,6 +226,14 @@ function createAgentRegistryService(deps = {}) {
       serverId: provisioningToken.serverId,
     })[0] || null;
     if (!server) return { ok: false, reason: 'server-not-found' };
+    const strictProvisioningProfile = resolveStrictAgentRoleScope({
+      role: provisioningToken.role,
+      scope: provisioningToken.scope,
+      metadata: provisioningToken.metadata,
+    });
+    if (!strictProvisioningProfile.ok) {
+      return { ok: false, reason: 'invalid-provisioning-token-runtime-boundary' };
+    }
 
     const machineFingerprintHash = sha256(machineFingerprint);
     const existingDevices = listAgentDevices({
@@ -223,7 +250,7 @@ function createAgentRegistryService(deps = {}) {
       tenantId: provisioningToken.tenantId,
       name: trimText(input.name, 160) || `agent-${provisioningToken.agentId}-${provisioningToken.scope}`,
       status: 'active',
-      scopes: deriveScopesForAgent(provisioningToken.role, provisioningToken.scope),
+      scopes: deriveScopesForAgent(strictProvisioningProfile.role, strictProvisioningProfile.scope),
     }, actor);
     if (!credential.ok) return credential;
 
@@ -254,8 +281,8 @@ function createAgentRegistryService(deps = {}) {
       agentId: provisioningToken.agentId,
       apiKeyId: credential.apiKey?.id,
       keyPrefix: String(credential.rawKey || '').slice(0, 16),
-      role: provisioningToken.role,
-      scope: provisioningToken.scope,
+      role: strictProvisioningProfile.role,
+      scope: strictProvisioningProfile.scope,
       minVersion: provisioningToken.minVersion,
       deviceId,
       lastIssuedAt: now,
@@ -272,8 +299,8 @@ function createAgentRegistryService(deps = {}) {
       guildId: provisioningToken.guildId || server.guildId || null,
       agentId: provisioningToken.agentId,
       apiKeyId: credential.apiKey?.id,
-      role: provisioningToken.role,
-      scope: provisioningToken.scope,
+      role: strictProvisioningProfile.role,
+      scope: strictProvisioningProfile.scope,
       minVersion: provisioningToken.minVersion,
       status: 'active',
     }, actor);
@@ -286,8 +313,8 @@ function createAgentRegistryService(deps = {}) {
       agentId: provisioningToken.agentId,
       runtimeKey: trimText(input.runtimeKey, 160) || provisioningToken.runtimeKey || `${provisioningToken.agentId}-runtime`,
       displayName: trimText(input.displayName, 160) || null,
-      role: provisioningToken.role,
-      scope: provisioningToken.scope,
+      role: strictProvisioningProfile.role,
+      scope: strictProvisioningProfile.scope,
       channel: trimText(input.channel, 80) || null,
       version: trimText(input.version, 80) || null,
       minimumVersion: provisioningToken.minVersion,
@@ -522,13 +549,20 @@ function createAgentRegistryService(deps = {}) {
       tenantId: normalized.tenantId,
     })[0] || null;
     if (!binding) return { ok: false, reason: 'agent-token-binding-not-found' };
+    const strictBindingProfile = resolveStrictAgentRoleScope({
+      role: binding.role,
+      scope: binding.scope,
+    });
+    if (!strictBindingProfile.ok) {
+      return { ok: false, reason: 'agent-token-binding-runtime-boundary-invalid' };
+    }
     if (binding.serverId !== normalized.serverId || binding.agentId !== normalized.agentId) {
       return { ok: false, reason: 'agent-registration-scope-mismatch' };
     }
     const result = upsertAgent({
       ...normalized,
-      role: binding.role || normalized.role,
-      scope: binding.scope || normalized.scope,
+      role: strictBindingProfile.role,
+      scope: strictBindingProfile.scope,
       status: 'active',
       guildId: normalized.guildId || binding.guildId || null,
       minimumVersion: binding.minVersion || normalized.minimumVersion || null,
@@ -545,8 +579,8 @@ function createAgentRegistryService(deps = {}) {
         agentId: normalized.agentId,
         serverId: normalized.serverId,
         guildId: normalized.guildId || binding.guildId || null,
-        agentRole: binding.role || normalized.role,
-        agentScope: binding.scope || normalized.scope,
+        agentRole: strictBindingProfile.role,
+        agentScope: strictBindingProfile.scope,
         baseUrl: normalized.baseUrl || null,
         hostname: normalized.hostname || null,
       },
@@ -569,10 +603,18 @@ function createAgentRegistryService(deps = {}) {
       agentId: normalized.agentId,
     })[0] || null;
     if (!agent) return { ok: false, reason: 'agent-not-registered' };
-    const session = recordAgentSession({
-      ...normalized,
+    const strictAgentProfile = resolveStrictAgentRoleScope({
       role: agent.role,
       scope: agent.scope,
+      metadata: agent.metadata,
+    });
+    if (!strictAgentProfile.ok) {
+      return { ok: false, reason: 'agent-runtime-boundary-invalid' };
+    }
+    const session = recordAgentSession({
+      ...normalized,
+      role: strictAgentProfile.role,
+      scope: strictAgentProfile.scope,
       guildId: normalized.guildId || agent.guildId || null,
     }, actor);
     const credential = listAgentCredentials({ apiKeyId: auth.apiKeyId })[0] || null;
@@ -614,8 +656,8 @@ function createAgentRegistryService(deps = {}) {
         agentId: agent.agentId,
         serverId: agent.serverId,
         guildId: agent.guildId || null,
-        agentRole: agent.role,
-        agentScope: agent.scope,
+        agentRole: strictAgentProfile.role,
+        agentScope: strictAgentProfile.scope,
         diagnostics: normalized.diagnostics,
       },
     }, actor).catch(() => null);

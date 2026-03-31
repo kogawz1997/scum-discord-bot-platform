@@ -77,12 +77,21 @@ function createAdminRequestRuntime(options = {}) {
       const normalized = normalizeOrigin(value);
       if (normalized) out.add(normalized);
     };
+    const splitOriginDefaults = [
+      process.env.OWNER_WEB_BASE_URL,
+      process.env.TENANT_WEB_BASE_URL,
+      'http://127.0.0.1:3201',
+      'http://localhost:3201',
+      'http://127.0.0.1:3202',
+      'http://localhost:3202',
+    ];
 
     add(`http://127.0.0.1:${port}`);
     add(`http://localhost:${port}`);
     if (host && host !== '0.0.0.0' && host !== '::') {
       add(`http://${host}:${port}`);
     }
+    splitOriginDefaults.forEach(add);
 
     for (const item of String(adminWebAllowedOrigins || '').split(',')) {
       add(item);

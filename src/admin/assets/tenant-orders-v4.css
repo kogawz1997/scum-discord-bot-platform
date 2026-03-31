@@ -1,16 +1,16 @@
-@import url("./tenant-dashboard-v4.css");
+@import url("./tenant-dashboard-v4.css?v=20260330-layout-balance-3");
 
 .tdv4-orders-shell {
-  grid-template-columns: 290px minmax(0, 1fr) 300px;
+  grid-template-columns: var(--tdv4-layout-sidebar, 248px) minmax(0, 1fr) var(--tdv4-layout-rail, 300px);
 }
 
 .tdv4-orders-summary-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--tdv4-summary-min, 220px), 1fr));
 }
 
 .tdv4-orders-filter-grid,
 .tdv4-orders-main-grid {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .tdv4-filter-grid,
@@ -124,7 +124,7 @@
 
 @media (max-width: 1440px) {
   .tdv4-orders-shell {
-    grid-template-columns: 270px minmax(0, 1fr);
+    grid-template-columns: 232px minmax(0, 1fr);
   }
 
   .tdv4-orders-summary-strip,

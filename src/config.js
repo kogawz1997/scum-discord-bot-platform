@@ -120,6 +120,30 @@ function sanitizeMojibakeInPlace(current, defaults) {
   return current;
 }
 
+function normalizeFixtureText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLegacyFixtureShopItem(item) {
+  if (!isPlainObject(item)) return false;
+  const id = normalizeFixtureText(item.id).replace(/[_\s]+/g, '-');
+  const name = normalizeFixtureText(item.name);
+  const description = normalizeFixtureText(item.description);
+  return (
+    /(?:^|[-.])(test|fixture)(?:[-.]|$)/.test(id)
+    || /(?:\((test|fixture)\)|\[(test|fixture)\]|(?:^|[\s-])(test|fixture)(?:$|[\s-]))/.test(name)
+    || /\b(test item|fixture item|integration test|for delivery test)\b/.test(description)
+  );
+}
+
+function sanitizeLegacyShopItemsInPlace(config) {
+  if (!isPlainObject(config)) return config;
+  const items = config?.shop?.initialItems;
+  if (!Array.isArray(items)) return config;
+  config.shop.initialItems = items.filter((item) => !isLegacyFixtureShopItem(item));
+  return config;
+}
+
 const defaultConfig = {
   economy: {
     currencySymbol: '💰',
@@ -167,14 +191,6 @@ const defaultConfig = {
         price: 2000,
         description: 'กล่องสุ่มของในเกม (สตาฟเป็นคนแจกในเกมตาม code)',
         kind: 'loot-box',
-      },
-      {
-        id: 'm1911-test',
-        name: 'M1911 Pistol (Test)',
-        price: 123,
-        description: 'A test item for delivery.',
-        kind: 'item',
-        gameItemId: 'Weapon_M1911',
       },
     ],
   },
@@ -543,8 +559,10 @@ const defaultConfig = {
   },
 };
 
+sanitizeLegacyShopItemsInPlace(defaultConfig);
 const runtimeConfig = deepClone(defaultConfig);
 sanitizeMojibakeInPlace(runtimeConfig, defaultConfig);
+sanitizeLegacyShopItemsInPlace(runtimeConfig);
 
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
@@ -559,6 +577,7 @@ function queueDbWrite(work, label) {
 
 function persistConfigToPrisma(snapshot) {
   if (!isPlainObject(snapshot)) return;
+  sanitizeLegacyShopItemsInPlace(snapshot);
   const configJson = JSON.stringify(snapshot);
   queueDbWrite(
     async () => {
@@ -605,6 +624,7 @@ async function hydrateConfigFromPrisma() {
     const merged = deepClone(defaultConfig);
     mergePatchInPlace(merged, parsed);
     sanitizeMojibakeInPlace(merged, defaultConfig);
+    sanitizeLegacyShopItemsInPlace(merged);
     replaceValueInPlace(runtimeConfig, merged);
     persistConfigToPrisma(getConfigSnapshot());
   } catch (error) {
@@ -634,6 +654,7 @@ function updateConfigPatch(patch) {
   mutationVersion += 1;
   mergePatchInPlace(runtimeConfig, patch);
   sanitizeMojibakeInPlace(runtimeConfig, defaultConfig);
+  sanitizeLegacyShopItemsInPlace(runtimeConfig);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
   return snapshot;
@@ -647,6 +668,7 @@ function setFullConfig(nextConfig) {
   const merged = deepClone(defaultConfig);
   mergePatchInPlace(merged, nextConfig);
   sanitizeMojibakeInPlace(merged, defaultConfig);
+  sanitizeLegacyShopItemsInPlace(merged);
   replaceValueInPlace(runtimeConfig, merged);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
@@ -656,6 +678,7 @@ function setFullConfig(nextConfig) {
 function resetConfigToDefault() {
   mutationVersion += 1;
   replaceValueInPlace(runtimeConfig, defaultConfig);
+  sanitizeLegacyShopItemsInPlace(runtimeConfig);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
   return snapshot;

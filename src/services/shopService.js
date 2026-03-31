@@ -5,8 +5,10 @@ const {
   createPurchase,
   setPurchaseStatusByCode,
   addShopItem,
+  updateShopItem,
   deleteShopItem,
   setShopItemPrice,
+  setShopItemStatus,
 } = require('../store/memoryStore');
 const { getLinkByUserId } = require('../store/linkStore');
 const {
@@ -169,10 +171,12 @@ async function createQueuedPurchase(params = {}) {
     params.enqueuePurchaseDeliveryFn || enqueuePurchaseDelivery;
 
   const tenantId = params.tenantId || item?.tenantId || null;
-  const purchase = await createPurchaseFn(userId, item, { tenantId });
+  const serverId = String(params.serverId || '').trim() || null;
+  const purchase = await createPurchaseFn(userId, item, { tenantId, serverId });
   const delivery = await enqueuePurchaseDeliveryFn(purchase, {
     guildId: params.guildId || null,
     tenantId: tenantId || purchase?.tenantId || null,
+    serverId,
     ...(params.deliveryOptions && typeof params.deliveryOptions === 'object'
       ? params.deliveryOptions
       : {}),
@@ -209,12 +213,14 @@ async function createVipPurchase(params = {}) {
   }
 
   const tenantId = params.tenantId || item?.tenantId || null;
+  const serverId = String(params.serverId || '').trim() || null;
   const scopeOptions = {
     tenantId,
+    serverId,
     defaultTenantId: String(params.defaultTenantId || '').trim() || null,
     env: params.env,
   };
-  const purchase = await createPurchaseFn(userId, item, { tenantId });
+  const purchase = await createPurchaseFn(userId, item, { tenantId, serverId });
 
   const previousMembership = getMembershipFn(userId, scopeOptions);
   const now = params.now instanceof Date ? params.now : new Date();
@@ -236,10 +242,12 @@ async function createVipPurchase(params = {}) {
       actor,
       reason: 'vip-activated',
       tenantId: tenantId || purchase?.tenantId || null,
+      serverId,
       meta: {
         source,
         planId: vipPlan.id,
         durationDays: Number(vipPlan.durationDays || 0),
+        serverId,
       },
     });
 
@@ -286,6 +294,16 @@ async function purchaseShopItemForUser(params = {}) {
     return { ok: false, reason: 'item-not-found' };
   }
   const tenantId = String(params.tenantId || item?.tenantId || '').trim() || null;
+  const serverId = String(params.serverId || '').trim() || null;
+  if (String(item?.status || '').trim().toLowerCase() === 'disabled') {
+    return {
+      ok: false,
+      reason: 'item-disabled',
+      item,
+      kind: normalizeShopKind(item.kind),
+      tenantId,
+    };
+  }
 
   const kind = normalizeShopKind(item.kind);
   if (isGameItemShopKind(kind) && params.requireSteamLink !== false) {
@@ -339,6 +357,7 @@ async function purchaseShopItemForUser(params = {}) {
         itemName: item.name,
         ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
       },
+      serverId,
     });
     if (!debit.ok) {
       return {
@@ -353,7 +372,7 @@ async function purchaseShopItemForUser(params = {}) {
     balance = Number(debit.balance || 0);
     debitApplied = price;
   } else {
-    balance = Number((await getWallet(userId))?.balance || 0);
+    balance = Number((await getWallet(userId, { serverId }))?.balance || 0);
   }
 
   try {
@@ -365,6 +384,7 @@ async function purchaseShopItemForUser(params = {}) {
       item,
       guildId: params.guildId || null,
       tenantId,
+      serverId,
       actor,
       source,
       deliveryOptions: params.deliveryOptions,
@@ -397,6 +417,7 @@ async function purchaseShopItemForUser(params = {}) {
           itemName: item.name,
           rollbackReason: String(error?.message || error),
         },
+        serverId,
       }).catch(() => null);
     }
     return {
@@ -480,6 +501,63 @@ async function setShopItemPriceForAdmin(params = {}) {
   return { ok: true, item };
 }
 
+async function updateShopItemForAdmin(params = {}) {
+  const idOrName = String(params.idOrName || '').trim();
+  const name = String(params.name || '').trim();
+  const price = Number(params.price);
+  const description = String(params.description || '').trim();
+  const kind = normalizeShopKind(params.kind);
+  if (!idOrName || !name || !description || !Number.isFinite(price) || price <= 0) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  try {
+    const item = await updateShopItem(idOrName, {
+      name,
+      price,
+      description,
+      kind,
+      gameItemId: kind === 'item' ? String(params.gameItemId || '').trim() || null : null,
+      quantity: kind === 'item' ? normalizeQty(params.quantity) : 1,
+      iconUrl: String(params.iconUrl || '').trim() || null,
+      deliveryItems: Array.isArray(params.deliveryItems) ? params.deliveryItems : undefined,
+      deliveryProfile: params.deliveryProfile,
+      deliveryTeleportMode: params.deliveryTeleportMode,
+      deliveryTeleportTarget: params.deliveryTeleportTarget,
+      deliveryPreCommands: params.deliveryPreCommands,
+      deliveryPostCommands: params.deliveryPostCommands,
+      deliveryReturnTarget: params.deliveryReturnTarget,
+      status: params.status,
+    }, {
+      tenantId: params.tenantId || null,
+    });
+    if (!item) {
+      return { ok: false, reason: 'not-found' };
+    }
+    return { ok: true, item };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'update-failed',
+      error: String(error?.message || error),
+    };
+  }
+}
+
+async function setShopItemStatusForAdmin(params = {}) {
+  const idOrName = String(params.idOrName || '').trim();
+  const status = String(params.status || '').trim().toLowerCase();
+  if (!idOrName || !status) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+  const item = await setShopItemStatus(idOrName, status, {
+    tenantId: params.tenantId || null,
+  });
+  if (!item) {
+    return { ok: false, reason: 'not-found' };
+  }
+  return { ok: true, item };
+}
+
 async function deleteShopItemForAdmin(params = {}) {
   const idOrName = String(params.idOrName || '').trim();
   if (!idOrName) {
@@ -505,6 +583,8 @@ module.exports = {
   createQueuedPurchase,
   purchaseShopItemForUser,
   addShopItemForAdmin,
+  updateShopItemForAdmin,
   setShopItemPriceForAdmin,
+  setShopItemStatusForAdmin,
   deleteShopItemForAdmin,
 };

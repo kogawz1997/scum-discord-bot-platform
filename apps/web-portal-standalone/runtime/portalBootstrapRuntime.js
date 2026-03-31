@@ -94,7 +94,18 @@ const {
 const {
   ensurePlatformPlayerIdentity,
 } = require('../../../src/services/platformIdentityService');
+const {
+  createServerRegistryService,
+} = require('../../../src/domain/servers/serverRegistryService');
+const {
+  createPersistentRuntimeStore,
+} = require('../../../src/store/runtimeStateStore');
 const { publicPreviewService } = require('../../../src/services/publicPreviewService');
+const {
+  registerTenantOwnerAccount,
+  requestPlayerMagicLink,
+  consumePlayerMagicLink,
+} = require('../../../src/services/platformWorkspaceAuthService');
 const config = require('../../../src/config');
 const { resolveDefaultTenantId } = require('../../../src/prisma');
 
@@ -110,6 +121,7 @@ const {
   createPlayerGeneralRoutes,
 } = require('../api/playerGeneralRoutes');
 const {
+  buildAdminProductUrl,
   buildLegacyAdminUrl,
   buildPortalHealthPayload,
   buildPortalRuntimeSettings,
@@ -170,6 +182,7 @@ function createPortalBootstrapRuntime({
     legacyAdminUrl,
     sessionTtlMs,
     sessionCookieName,
+    sessionSecret,
     sessionCookieSameSite,
     sessionCookiePath,
     sessionCookieDomain,
@@ -208,9 +221,22 @@ function createPortalBootstrapRuntime({
     allowedDiscordIdsRaw,
   } = settings || {};
 
-  const sessions = new Map();
-  const oauthStates = new Map();
-  const previewSessions = new Map();
+  const sessions = createPersistentRuntimeStore({
+    filename: 'portal-runtime-sessions.json',
+    expiryField: 'expiresAt',
+    persistDelayMs: 50,
+  });
+  const oauthStates = createPersistentRuntimeStore({
+    filename: 'portal-runtime-oauth-states.json',
+    expiryField: 'expiresAt',
+    persistDelayMs: 50,
+  });
+  const previewSessions = createPersistentRuntimeStore({
+    filename: 'portal-runtime-preview-sessions.json',
+    expiryField: 'expiresAt',
+    persistDelayMs: 50,
+  });
+  const { listServerRegistry } = createServerRegistryService();
   const partyChatLastSentAt = new Map();
   const allowedDiscordIds = parseCsvSet(allowedDiscordIdsRaw || '');
 
@@ -264,6 +290,7 @@ function createPortalBootstrapRuntime({
     normalizeHttpUrl,
     printStartupHints,
     readJsonBody,
+    readRawBody,
     resolvePartyContext,
     serializeCartResolved,
     sortLeaderboardRows,
@@ -319,6 +346,7 @@ function createPortalBootstrapRuntime({
     oauthStateTtlMs,
     sessionTtlMs,
     sessionCookieName,
+    sessionSecret,
     sessionCookiePath,
     sessionCookieSameSite,
     sessionCookieDomain,
@@ -415,6 +443,7 @@ function createPortalBootstrapRuntime({
       sendJson,
       readJsonBody,
       buildClearSessionCookie,
+      buildSessionCookie,
       normalizeText,
       normalizeAmount,
       normalizePurchaseStatus,
@@ -428,6 +457,10 @@ function createPortalBootstrapRuntime({
       getPlayerDashboard,
       resolveSessionSteamLink,
       removeSession,
+      createSession,
+      updateSession: portalAuthRuntime.updateSession,
+      requestPlayerMagicLink,
+      consumePlayerMagicLink,
       listTopWallets,
       listAllStats,
       getStats,
@@ -465,6 +498,7 @@ function createPortalBootstrapRuntime({
       msToDaysHours,
       transferCoins,
       isDiscordId,
+      listServerRegistry,
       listUserPurchases,
       claimDaily,
       claimWeekly,
@@ -507,6 +541,7 @@ function createPortalBootstrapRuntime({
         avatarUrl: null,
       }),
       buildSessionCookie,
+      buildAdminProductUrl: (pathname, search) => buildAdminProductUrl(legacyAdminUrl, pathname, search),
       buildLegacyAdminUrl: (pathname, search) => buildLegacyAdminUrl(legacyAdminUrl, pathname, search),
       getCanonicalRedirectUrl,
       sendJson,
@@ -525,6 +560,7 @@ function createPortalBootstrapRuntime({
       readJsonBody,
       readRawBody,
       getPlatformPublicOverview,
+      registerTenantOwnerAccount,
       registerPreviewAccount: publicPreviewService.registerPreviewAccount,
       authenticatePreviewAccount: publicPreviewService.authenticatePreviewAccount,
       getPreviewState: publicPreviewService.getPreviewState,
@@ -537,6 +573,7 @@ function createPortalBootstrapRuntime({
       finalizeCheckoutSession,
       processBillingWebhookEvent,
       billingWebhookSecret: String(process.env.PLATFORM_BILLING_WEBHOOK_SECRET || '').trim(),
+      buildAdminProductUrl: (pathname, search) => buildAdminProductUrl(legacyAdminUrl, pathname, search),
       createPreviewSession,
       getPreviewSession,
       buildPreviewSessionCookie,
@@ -547,6 +584,10 @@ function createPortalBootstrapRuntime({
       sendJson,
       verifyOrigin,
       getSession,
+      requestPlayerMagicLink,
+      consumePlayerMagicLink,
+      createSession,
+      buildSessionCookie,
       isDiscordId,
       cleanupRuntimeState: () => {
         cleanupRuntimeState();

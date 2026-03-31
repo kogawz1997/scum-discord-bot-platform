@@ -30,6 +30,13 @@ function createPortalEnvRuntime(deps = {}) {
   const sessionCookieName =
     String(processEnv.WEB_PORTAL_SESSION_COOKIE_NAME || 'scum_portal_session').trim()
       || 'scum_portal_session';
+  const sessionSecret = String(
+    processEnv.WEB_PORTAL_SESSION_SECRET
+      || processEnv.WEB_PORTAL_DISCORD_CLIENT_SECRET
+      || processEnv.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
+      || processEnv.DISCORD_CLIENT_SECRET
+      || baseUrl,
+  ).trim();
   const sessionCookieSameSite = normalizeSameSite(
     processEnv.WEB_PORTAL_COOKIE_SAMESITE || 'lax',
   );
@@ -111,6 +118,7 @@ function createPortalEnvRuntime(deps = {}) {
     legacyAdminUrl,
     sessionTtlMs,
     sessionCookieName,
+    sessionSecret,
     sessionCookieSameSite,
     sessionCookiePath,
     sessionCookieDomain,

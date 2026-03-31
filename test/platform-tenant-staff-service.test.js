@@ -12,6 +12,8 @@ const {
   updateTenantStaffRole,
 } = require('../src/services/platformTenantStaffService');
 
+const hasPostgresDatabaseUrl = /^postgres(?:ql)?:\/\//i.test(String(process.env.DATABASE_URL || '').trim());
+
 async function cleanupTenantStaffFixtures() {
   await ensurePlatformIdentityTables(prisma);
   await prisma.$executeRawUnsafe(`
@@ -29,8 +31,19 @@ async function cleanupTenantStaffFixtures() {
   `).catch(() => null);
 }
 
-test('platform tenant staff service invites, lists, updates, and revokes tenant staff', async (t) => {
-  await cleanupTenantStaffFixtures();
+test('platform tenant staff service invites, lists, updates, and revokes tenant staff', {
+  skip: !hasPostgresDatabaseUrl && 'DATABASE_URL is not configured for PostgreSQL integration tests.',
+}, async (t) => {
+  try {
+    await cleanupTenantStaffFixtures();
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/validating datasource|postgresql:\/\//i.test(message)) {
+      t.skip('PostgreSQL integration fixtures are not available in this environment.');
+      return;
+    }
+    throw error;
+  }
   t.after(cleanupTenantStaffFixtures);
 
   const invited = await inviteTenantStaff({
@@ -39,23 +52,27 @@ test('platform tenant staff service invites, lists, updates, and revokes tenant 
     displayName: 'Staff Example',
     role: 'manager',
     locale: 'th',
-  }, 'test-suite');
+  }, { actor: 'test-suite', role: 'owner', email: 'owner@example.com' });
 
   assert.equal(invited.ok, true);
   assert.equal(String(invited.staff?.tenantId || ''), 'tenant-staff-test');
-  assert.equal(String(invited.staff?.role || ''), 'manager');
+  assert.equal(String(invited.staff?.role || ''), 'admin');
   assert.equal(String(invited.staff?.status || ''), 'invited');
+  assert.deepEqual(invited.staff?.management?.roleOptions, ['owner', 'admin', 'staff', 'viewer']);
 
-  const listed = await listTenantStaffMemberships('tenant-staff-test');
+  const listed = await listTenantStaffMemberships('tenant-staff-test', {
+    actor: { role: 'owner', email: 'owner@example.com' },
+  });
   assert.equal(listed.length, 1);
   assert.equal(String(listed[0]?.user?.email || ''), 'staff@example.com');
+  assert.equal(listed[0]?.management?.canManage, true);
 
   const updated = await updateTenantStaffRole({
     tenantId: 'tenant-staff-test',
     membershipId: invited.staff.membershipId,
     role: 'admin',
     status: 'active',
-  }, 'test-suite');
+  }, { actor: 'test-suite', role: 'owner', email: 'owner@example.com' });
 
   assert.equal(updated.ok, true);
   assert.equal(String(updated.staff?.role || ''), 'admin');
@@ -65,7 +82,7 @@ test('platform tenant staff service invites, lists, updates, and revokes tenant 
     tenantId: 'tenant-staff-test',
     membershipId: invited.staff.membershipId,
     revokeReason: 'test cleanup',
-  }, 'test-suite');
+  }, { actor: 'test-suite', role: 'owner', email: 'owner@example.com' });
 
   assert.equal(revoked.ok, true);
   assert.equal(String(revoked.staff?.status || ''), 'revoked');

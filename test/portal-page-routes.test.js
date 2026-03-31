@@ -31,6 +31,7 @@ function buildRoutes(overrides = {}) {
     tryServePortalStaticAsset: async () => false,
     tryServeStaticScumIcon: async () => false,
     buildLegacyAdminUrl: (pathname) => `https://admin.example.com${pathname}`,
+    buildAdminProductUrl: (pathname) => `https://admin.example.com${pathname}`,
     getCanonicalRedirectUrl: () => null,
     sendJson: (res, statusCode, payload) => {
       res.writeHead(statusCode, { 'content-type': 'application/json' });
@@ -112,6 +113,24 @@ test('portal page routes gate /player behind session', async () => {
   assert.equal(res.headers.Location, '/player/login');
 });
 
+test('portal page routes leave player api GET routes for the api runtime', async () => {
+  const handler = buildRoutes({
+    getSession: () => ({ user: 'player', discordId: '123456789012345678' }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: {} },
+    res,
+    urlObj: new URL('https://player.example.com/player/api/me'),
+    pathname: '/player/api/me',
+    method: 'GET',
+  });
+
+  assert.equal(handled, false);
+  assert.equal(res.ended, false);
+});
+
 test('portal page routes serve legacy player html behind session', async () => {
   const handler = buildRoutes({
     getSession: () => ({ user: 'player' }),
@@ -148,7 +167,7 @@ test('portal page routes serve landing html directly', async () => {
   assert.equal(res.body, '<landing/>');
 });
 
-test('portal page routes serve dashboard html directly', async () => {
+test('portal page routes redirect legacy dashboard entry to pricing', async () => {
   const handler = buildRoutes();
   const res = createMockRes();
 
@@ -161,8 +180,8 @@ test('portal page routes serve dashboard html directly', async () => {
   });
 
   assert.equal(handled, true);
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<dashboard/>');
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/pricing');
 });
 
 test('portal page routes serve pricing html directly', async () => {
@@ -182,7 +201,7 @@ test('portal page routes serve pricing html directly', async () => {
   assert.equal(res.body, '<pricing/>');
 });
 
-test('portal page routes gate /preview behind preview session', async () => {
+test('portal page routes redirect /preview into tenant onboarding on the admin origin', async () => {
   const handler = buildRoutes();
   const redirectRes = createMockRes();
 
@@ -196,24 +215,7 @@ test('portal page routes gate /preview behind preview session', async () => {
 
   assert.equal(redirectHandled, true);
   assert.equal(redirectRes.statusCode, 302);
-  assert.equal(redirectRes.headers.Location, '/login');
-
-  const authenticatedHandler = buildRoutes({
-    getPreviewSession: () => ({ accountId: 'preview-1' }),
-  });
-  const okRes = createMockRes();
-
-  const okHandled = await authenticatedHandler({
-    req: { headers: {} },
-    res: okRes,
-    urlObj: new URL('https://player.example.com/preview'),
-    pathname: '/preview',
-    method: 'GET',
-  });
-
-  assert.equal(okHandled, true);
-  assert.equal(okRes.statusCode, 200);
-  assert.equal(okRes.body, '<preview/>');
+  assert.equal(redirectRes.headers.Location, 'https://admin.example.com/tenant/onboarding');
 });
 
 test('portal page routes serve auth login and player login separately', async () => {

@@ -8,7 +8,7 @@ const {
   createTenantPlayersV4Model,
 } = require('../src/admin/assets/tenant-players-v4.js');
 
-test('tenant players v4 model builds support and staff workspace', () => {
+test('tenant players v4 model builds support-focused workspace', () => {
   const model = createTenantPlayersV4Model({
     me: { tenantId: 'tenant-prod-001', role: 'admin' },
     tenantConfig: { name: 'SCUM TH Production' },
@@ -29,53 +29,26 @@ test('tenant players v4 model builds support and staff workspace', () => {
       purchase: { userId: '123' },
       deadLetter: { reason: 'waiting for agent' },
     },
-    staffMemberships: [
-      {
-        membershipId: 'mem-1',
-        userId: 'user-1',
-        role: 'support',
-        status: 'active',
-        invitedAt: '2026-03-25T10:00:00+07:00',
-        updatedAt: '2026-03-26T09:00:00+07:00',
-        user: {
-          email: 'ops@example.com',
-          displayName: 'Ops Team',
-          locale: 'th',
-        },
-      },
-    ],
   });
 
   assert.equal(model.header.title, 'Players');
   assert.equal(model.summaryStrip.length, 4);
   assert.equal(model.players.length, 1);
   assert.equal(model.selected.discordId, '123');
-  assert.equal(model.staff.memberships.length, 1);
-  assert.equal(model.staff.summary.active, 1);
-  assert.equal(model.staff.canManage, true);
-  assert.ok(model.railCards.length >= 2);
+  assert.ok(model.railCards.length >= 3);
 });
 
-test('tenant players v4 html includes player table and tenant staff panel', () => {
+test('tenant players v4 html includes player table and team access handoff', () => {
   const html = buildTenantPlayersV4Html(createTenantPlayersV4Model({
     me: { role: 'owner' },
     tenantConfig: { name: 'Tenant Demo' },
     players: [],
-    staffMemberships: [
-      {
-        membershipId: 'mem-1',
-        userId: 'user-1',
-        role: 'manager',
-        status: 'invited',
-        user: { email: 'staff@example.com', displayName: 'Staff Example', locale: 'en' },
-      },
-    ],
   }));
 
   assert.match(html, /Steam \/ In-game/);
-  assert.match(html, /Tenant staff and permissions/);
-  assert.match(html, /Invite teammate/);
-  assert.match(html, /data-tenant-staff-card/);
+  assert.match(html, /Manage team access from the dedicated team pages/);
+  assert.match(html, /Open staff/);
+  assert.doesNotMatch(html, /data-tenant-staff-card/);
   assert.match(html, /tdv4-players-main-grid/);
 });
 

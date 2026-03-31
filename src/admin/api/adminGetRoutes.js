@@ -37,6 +37,7 @@ function createAdminGetRoutes(deps) {
     prisma,
     sendJson,
     sendDownload,
+    consumeTransientDownload,
     ensureRole,
     ensurePortalTokenAuth,
     getAuthContext,
@@ -76,8 +77,12 @@ function createAdminGetRoutes(deps) {
     getPlatformPermissionCatalog,
     getPlanCatalog,
     getPackageCatalog,
+    listPersistedPackageCatalog,
     getFeatureCatalog,
     getTenantFeatureAccess,
+    buildTenantProductEntitlements,
+    buildTenantActorAccessSummary,
+    buildTenantRoleMatrix,
     getPlatformOpsState,
     getPlatformAutomationState,
     getPlatformAutomationConfig,
@@ -86,6 +91,8 @@ function createAdminGetRoutes(deps) {
     listPlatformTenants,
     listPlatformTenantConfigs,
     listTenantStaffMemberships,
+    listServerEvents,
+    getParticipants,
     listPlatformSubscriptions,
     listPlatformLicenses,
     listBillingInvoices,
@@ -158,6 +165,80 @@ function createAdminGetRoutes(deps) {
     ADMIN_WEB_STEP_UP_TTL_MS,
     ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS,
   } = deps;
+
+  async function readOptionalAdminData(label, readFn, fallback, options = {}) {
+    const timeoutMs = Number(options.timeoutMs);
+    let timeoutId = null;
+    try {
+      if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+        return await Promise.race([
+          Promise.resolve().then(() => readFn()),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+              reject(new Error(`Timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+          }),
+        ]);
+      }
+      return await readFn();
+    } catch (error) {
+      console.warn(`[admin-web] optional admin data unavailable (${label})`, error?.message || error);
+      return fallback;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  function buildPlatformOverviewAnalyticsFallback() {
+    return {
+      overview: {
+        activeTenants: 0,
+        activeSubscriptions: 0,
+        activeLicenses: 0,
+        activeApiKeys: 0,
+        activeWebhooks: 0,
+        onlineAgentRuntimes: 0,
+        totalAgentRuntimes: 0,
+        totalEvents: 0,
+        totalActivity: 0,
+        totalTickets: 0,
+        totalRevenueCents: 0,
+        currency: 'THB',
+      },
+      trends: {
+        windowDays: 7,
+        timeline: [],
+      },
+      posture: {
+        expiringSubscriptions: [],
+        expiringLicenses: [],
+        recentlyRevokedApiKeys: [],
+        failedWebhooks: [],
+        unresolvedTickets: [],
+        offlineAgentRuntimes: [],
+      },
+    };
+  }
+
+  function buildTenantQuotaFallback(tenantId) {
+    return {
+      ok: false,
+      reason: 'quota-unavailable',
+      tenantId,
+      tenant: null,
+      plan: null,
+      subscription: null,
+      license: null,
+      package: null,
+      features: [],
+      enabledFeatureKeys: [],
+      featureOverrides: {
+        enabled: [],
+        disabled: [],
+      },
+      quotas: {},
+    };
+  }
 
   return async function handleAdminGetRoute(context) {
     const {
@@ -372,6 +453,12 @@ function createAdminGetRoutes(deps) {
         sendJson(res, 401, { ok: false, error: 'Unauthorized' });
         return true;
       }
+      const tenantAccess = typeof buildTenantActorAccessSummary === 'function'
+        ? buildTenantActorAccessSummary({
+          role: auth.role,
+          status: auth.tenantId ? 'active' : 'active',
+        })
+        : null;
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -383,6 +470,7 @@ function createAdminGetRoutes(deps) {
           stepUpRequired: ADMIN_WEB_STEP_UP_ENABLED && ADMIN_WEB_2FA_ACTIVE,
           stepUpActive: hasFreshStepUp(auth),
           tenantConfig: auth.tenantId ? await getPlatformTenantConfig(auth.tenantId) : null,
+          tenantAccess,
         },
       });
       return true;
@@ -449,22 +537,74 @@ function createAdminGetRoutes(deps) {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
+      const [
+        analytics,
+        publicOverview,
+        tenantFeatureAccess,
+        opsState,
+        automationState,
+        tenantConfig,
+      ] = await Promise.all([
+        readOptionalAdminData(
+          'platform-overview-analytics',
+          () => getPlatformAnalyticsOverview(tenantId ? { tenantId } : { allowGlobal: true }),
+          buildPlatformOverviewAnalyticsFallback(),
+          { timeoutMs: 2000 },
+        ),
+        readOptionalAdminData(
+          'platform-overview-public',
+          () => getPlatformPublicOverview(),
+          null,
+          { timeoutMs: 2000 },
+        ),
+        tenantId
+          ? readOptionalAdminData(
+            'platform-overview-tenant-feature-access',
+            () => getTenantFeatureAccess(tenantId),
+            null,
+            { timeoutMs: 1500 },
+          )
+          : Promise.resolve(null),
+        readOptionalAdminData(
+          'platform-overview-ops-state',
+          () => getPlatformOpsState(),
+          null,
+          { timeoutMs: 1500 },
+        ),
+        readOptionalAdminData(
+          'platform-overview-automation-state',
+          () => getPlatformAutomationState(),
+          null,
+          { timeoutMs: 1500 },
+        ),
+        tenantId
+          ? readOptionalAdminData(
+            'platform-overview-tenant-config',
+            () => getPlatformTenantConfig(tenantId),
+            null,
+            { timeoutMs: 1500 },
+          )
+          : Promise.resolve(null),
+      ]);
+      const packages = typeof listPersistedPackageCatalog === 'function'
+        ? await listPersistedPackageCatalog({ includeInactive: true }).catch(() => (
+          typeof getPackageCatalog === 'function' ? getPackageCatalog() : []
+        ))
+        : await Promise.resolve(typeof getPackageCatalog === 'function' ? getPackageCatalog() : []);
       sendJson(res, 200, {
         ok: true,
         data: {
-          analytics: await getPlatformAnalyticsOverview(tenantId ? { tenantId } : { allowGlobal: true }),
-          publicOverview: await getPlatformPublicOverview(),
+          analytics,
+          publicOverview,
           permissionCatalog: getPlatformPermissionCatalog(),
           plans: getPlanCatalog(),
-          packages: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+          packages,
           features: typeof getFeatureCatalog === 'function' ? getFeatureCatalog() : [],
-          tenantFeatureAccess: tenantId && typeof getTenantFeatureAccess === 'function'
-            ? await getTenantFeatureAccess(tenantId)
-            : null,
-          opsState: await getPlatformOpsState(),
-          automationState: await getPlatformAutomationState(),
+          tenantFeatureAccess,
+          opsState,
+          automationState,
           automationConfig: getPlatformAutomationConfig(),
-          tenantConfig: tenantId ? await getPlatformTenantConfig(tenantId) : null,
+          tenantConfig,
         },
       });
       return true;
@@ -473,9 +613,14 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/packages') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const packages = typeof listPersistedPackageCatalog === 'function'
+        ? await listPersistedPackageCatalog({ includeInactive: true }).catch(() => (
+          typeof getPackageCatalog === 'function' ? getPackageCatalog() : []
+        ))
+        : await Promise.resolve(typeof getPackageCatalog === 'function' ? getPackageCatalog() : []);
       sendJson(res, 200, {
         ok: true,
-        data: typeof getPackageCatalog === 'function' ? getPackageCatalog() : [],
+        data: packages,
       });
       return true;
     }
@@ -503,7 +648,11 @@ function createAdminGetRoutes(deps) {
       if (!tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await getTenantQuotaSnapshot(tenantId, { cache: false }),
+        data: await readOptionalAdminData(
+          'tenant-quota',
+          () => getTenantQuotaSnapshot(tenantId, { cache: false }),
+          buildTenantQuotaFallback(tenantId),
+        ),
       });
       return true;
     }
@@ -524,6 +673,29 @@ function createAdminGetRoutes(deps) {
         data: typeof getTenantFeatureAccess === 'function'
           ? await getTenantFeatureAccess(tenantId, { cache: false })
           : await getTenantQuotaSnapshot(tenantId, { cache: false }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/feature-access') {
+      const auth = ensureRole(req, urlObj, 'viewer', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')) || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const rawAccess = typeof getTenantFeatureAccess === 'function'
+        ? await getTenantFeatureAccess(tenantId, { cache: false })
+        : { tenantId, enabledFeatureKeys: [] };
+      sendJson(res, 200, {
+        ok: true,
+        data: typeof buildTenantProductEntitlements === 'function'
+          ? buildTenantProductEntitlements(rawAccess)
+          : rawAccess,
       });
       return true;
     }
@@ -719,10 +891,10 @@ function createAdminGetRoutes(deps) {
       if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listPlatformAgentRegistry({
+        data: await readOptionalAdminData('agent-registry', () => listPlatformAgentRegistry({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
-        }),
+        }), []),
       });
       return true;
     }
@@ -740,12 +912,36 @@ function createAdminGetRoutes(deps) {
       if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listPlatformAgentProvisioningTokens({
+        data: await readOptionalAdminData('agent-provisioning', () => listPlatformAgentProvisioningTokens({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
           status: requiredString(urlObj.searchParams.get('status')),
-        }),
+        }), []),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/runtime-download') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const token = requiredString(urlObj.searchParams.get('token'));
+      if (!token) {
+        sendJson(res, 400, { ok: false, error: 'token is required' });
+        return true;
+      }
+      const entry = consumeTransientDownload?.(token, {
+        user: auth?.user,
+        tenantId: getAuthTenantId(auth),
+      });
+      if (!entry?.body) {
+        sendJson(res, 404, { ok: false, error: 'runtime-download-not-found' });
+        return true;
+      }
+      sendDownload(res, 200, entry.body, {
+        filename: entry.filename,
+        contentType: entry.contentType,
+        cacheControl: 'no-store, private, max-age=0',
       });
       return true;
     }
@@ -763,12 +959,12 @@ function createAdminGetRoutes(deps) {
       if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listPlatformAgentDevices({
+        data: await readOptionalAdminData('agent-devices', () => listPlatformAgentDevices({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
           status: requiredString(urlObj.searchParams.get('status')),
-        }),
+        }), []),
       });
       return true;
     }
@@ -786,11 +982,11 @@ function createAdminGetRoutes(deps) {
       if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listPlatformAgentCredentials({
+        data: await readOptionalAdminData('agent-credentials', () => listPlatformAgentCredentials({
           tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
-        }),
+        }), []),
       });
       return true;
     }
@@ -1049,7 +1245,7 @@ function createAdminGetRoutes(deps) {
     }
 
     if (pathname === '/admin/api/platform/tenant-staff') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
+      const auth = ensureRole(req, urlObj, 'viewer', res);
       if (!auth) return true;
       const tenantId = resolveScopedTenantId(
         req,
@@ -1063,7 +1259,67 @@ function createAdminGetRoutes(deps) {
         ok: true,
         data: await listTenantStaffMemberships(tenantId, {
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
+          actor: {
+            role: auth.role,
+            email: auth.user,
+            user: auth.user,
+          },
         }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/platform/tenant-role-matrix') {
+      const auth = ensureRole(req, urlObj, 'viewer', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')) || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const currentAccess = typeof buildTenantActorAccessSummary === 'function'
+        ? buildTenantActorAccessSummary({ role: auth.role, status: 'active' })
+        : null;
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          tenantId,
+          currentAccess,
+          roles: typeof buildTenantRoleMatrix === 'function' ? buildTenantRoleMatrix() : [],
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/event/list') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requiredString(urlObj.searchParams.get('tenantId')) || getAuthTenantId(auth),
+        { required: true },
+      );
+      if (!tenantId) return true;
+      const limit = asInt(urlObj.searchParams.get('limit'), 50) || 50;
+      const listedEvents = typeof listServerEvents === 'function'
+        ? listServerEvents({ tenantId })
+        : [];
+      const rows = Array.isArray(listedEvents)
+        ? listedEvents.slice(0, limit)
+        : [];
+      sendJson(res, 200, {
+        ok: true,
+        data: rows.map((event) => ({
+          ...event,
+          participants: typeof getParticipants === 'function'
+            ? getParticipants(event?.id, { tenantId })
+            : [],
+        })),
       });
       return true;
     }
@@ -1117,14 +1373,14 @@ function createAdminGetRoutes(deps) {
       });
       if (requestedTenantId && !tenantId) return true;
       const [invoices, paymentAttempts] = await Promise.all([
-        listBillingInvoices({
+        readOptionalAdminData('billing-overview-invoices', () => listBillingInvoices({
           tenantId,
           limit: asInt(urlObj.searchParams.get('invoiceLimit'), 100) || 100,
-        }),
-        listBillingPaymentAttempts({
+        }), []),
+        readOptionalAdminData('billing-overview-payment-attempts', () => listBillingPaymentAttempts({
           tenantId,
           limit: asInt(urlObj.searchParams.get('attemptLimit'), 100) || 100,
-        }),
+        }), []),
       ]);
       const paidInvoices = invoices.filter((row) => row?.status === 'paid');
       const openInvoices = invoices.filter((row) => ['draft', 'open', 'past_due'].includes(String(row?.status || '').trim().toLowerCase()));
@@ -1155,11 +1411,11 @@ function createAdminGetRoutes(deps) {
       if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listBillingInvoices({
+        data: await readOptionalAdminData('billing-invoices', () => listBillingInvoices({
           tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-        }),
+        }), []),
       });
       return true;
     }
@@ -1174,12 +1430,12 @@ function createAdminGetRoutes(deps) {
       if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
-        data: await listBillingPaymentAttempts({
+        data: await readOptionalAdminData('billing-payment-attempts', () => listBillingPaymentAttempts({
           tenantId,
           provider: requiredString(urlObj.searchParams.get('provider')),
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-        }),
+        }), []),
       });
       return true;
     }
@@ -1450,7 +1706,11 @@ function createAdminGetRoutes(deps) {
         String(urlObj.searchParams.get('tenantId') || '').trim(),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
-      const rows = await listShopItems({ tenantId });
+      const rows = await listShopItems({
+        tenantId,
+        includeDisabled: true,
+        includeTestItems: true,
+      });
       const items = filterShopItems(rows, { q, kind, limit });
       sendJson(res, 200, {
         ok: true,
@@ -1516,7 +1776,11 @@ function createAdminGetRoutes(deps) {
       const kind = String(urlObj.searchParams.get('kind') || 'all').trim();
       const limit = asInt(urlObj.searchParams.get('limit'), 120) || 120;
       const tenantId = getAuthTenantId(portal.auth);
-      const rows = await listShopItems({ tenantId });
+      const rows = await listShopItems({
+        tenantId,
+        includeDisabled: true,
+        includeTestItems: true,
+      });
       const items = filterShopItems(rows, { q, kind, limit });
       sendJson(res, 200, {
         ok: true,

@@ -13,6 +13,7 @@ function createPortalPageRoutes(deps) {
     buildSessionCookie,
     tryServePortalStaticAsset,
     tryServeStaticScumIcon,
+    buildAdminProductUrl,
     buildLegacyAdminUrl,
     getCanonicalRedirectUrl,
     sendJson,
@@ -139,12 +140,12 @@ function createPortalPageRoutes(deps) {
     }
 
     if (pathname === '/dashboard/' && method === 'GET') {
-      sendRedirect(res, '/dashboard');
+      sendRedirect(res, '/pricing');
       return true;
     }
 
     if (pathname === '/dashboard' && method === 'GET') {
-      sendHtml(res, 200, getDashboardHtml());
+      sendRedirect(res, '/pricing');
       return true;
     }
 
@@ -209,34 +210,33 @@ function createPortalPageRoutes(deps) {
     }
 
     if (pathname === '/preview/' && method === 'GET') {
-      sendRedirect(res, '/preview');
+      const target = typeof buildAdminProductUrl === 'function'
+        ? buildAdminProductUrl('/tenant/onboarding')
+        : '/tenant/onboarding';
+      sendRedirect(res, target);
       return true;
     }
 
     if (pathname === '/preview' && method === 'GET') {
-      const previewSession = typeof getPreviewSession === 'function'
-        ? getPreviewSession(req)
-        : null;
-      if (!previewSession) {
-        sendRedirect(res, '/login');
-        return true;
-      }
-      sendHtml(res, 200, getPreviewHtml());
+      const target = typeof buildAdminProductUrl === 'function'
+        ? buildAdminProductUrl('/tenant/onboarding')
+        : '/tenant/onboarding';
+      sendRedirect(res, target);
       return true;
     }
 
     if (pathname === '/showcase' && method === 'GET') {
-      sendHtml(res, 200, getShowcaseHtml());
+      sendRedirect(res, '/pricing');
       return true;
     }
 
     if (pathname === '/trial/' && method === 'GET') {
-      sendRedirect(res, '/trial');
+      sendRedirect(res, '/pricing');
       return true;
     }
 
     if (pathname === '/trial' && method === 'GET') {
-      sendHtml(res, 200, getTrialHtml());
+      sendRedirect(res, '/pricing');
       return true;
     }
 
@@ -292,7 +292,13 @@ function createPortalPageRoutes(deps) {
       return true;
     }
 
-    if (pathname === '/player' && method === 'GET') {
+    if (
+      (pathname === '/player' || pathname.startsWith('/player/'))
+      && pathname !== '/player/login'
+      && pathname !== '/player/legacy'
+      && !pathname.startsWith('/player/api/')
+      && method === 'GET'
+    ) {
       const session = getSession(req);
       if (!session) {
         sendRedirect(res, '/player/login');

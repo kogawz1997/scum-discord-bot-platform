@@ -26,6 +26,9 @@ const {
   normalizeRole,
 } = require('./utils/adminPermissionMatrix');
 const {
+  buildTenantProductEntitlements,
+} = require('./domain/billing/productEntitlementService');
+const {
   listShopItems,
   listUserPurchases,
   listKnownPurchaseStatuses,
@@ -37,7 +40,9 @@ const {
 const { listEvents, getParticipants } = require('./store/eventStore');
 const {
   createServerEvent,
+  listServerEvents,
   joinServerEvent,
+  updateServerEvent,
   startServerEvent,
   finishServerEvent,
 } = require('./services/eventService');
@@ -136,7 +141,9 @@ const {
 } = require('./services/purchaseService');
 const {
   addShopItemForAdmin,
+  updateShopItemForAdmin,
   setShopItemPriceForAdmin,
+  setShopItemStatusForAdmin,
   deleteShopItemForAdmin,
 } = require('./services/shopService');
 const {
@@ -187,10 +194,12 @@ const {
 const {
   acceptPlatformLicenseLegal,
   createMarketplaceOffer,
+  createPackageCatalogEntry,
   createPlatformApiKey,
   createPlatformWebhookEndpoint,
   createSubscription,
   createTenant,
+  deletePackageCatalogEntry,
   dispatchPlatformWebhookEvent,
   emitPlatformEvent,
   getFeatureCatalog: getFeatureCatalogSummary,
@@ -202,6 +211,7 @@ const {
   getPlatformTenantById,
   getTenantFeatureAccess,
   getTenantQuotaSnapshot,
+  listPersistedPackageCatalog,
   issuePlatformLicense,
   listMarketplaceOffers,
   listPlatformAgentRuntimes,
@@ -214,6 +224,7 @@ const {
   reconcileDeliveryState,
   revokePlatformApiKey,
   rotatePlatformApiKey,
+  updatePackageCatalogEntry,
   verifyPlatformApiKey,
 } = require('./services/platformService');
 const {
@@ -246,6 +257,11 @@ const {
   getPlatformAutomationState,
 } = require('./store/platformAutomationStateStore');
 const {
+  authenticateTenantUser,
+  consumeTenantBootstrapToken,
+  resolveTenantSessionAccessContext,
+} = require('./services/platformWorkspaceAuthService');
+const {
   revokeWelcomePackClaimForAdmin,
   clearWelcomePackClaimsForAdmin,
 } = require('./services/welcomePackService');
@@ -268,6 +284,9 @@ const {
   getPersistenceStatus,
   getPublicPersistenceStatus,
 } = require('./store/_persist');
+const {
+  createPersistentRuntimeStore,
+} = require('./store/runtimeStateStore');
 const {
   isAdminRestoreMaintenanceActive,
 } = require('./store/adminRestoreStateStore');
@@ -295,13 +314,18 @@ const {
   createPlatformServerConfigService,
 } = require('./services/platformServerConfigService');
 const {
+  scheduleRestartPlan,
   listRestartExecutions,
   listRestartPlans,
 } = require('./services/platformRestartOrchestrationService');
 const {
+  createCheckoutSession,
   getBillingProviderConfigSummary,
   listBillingInvoices,
   listBillingPaymentAttempts,
+  updateInvoiceStatus,
+  updatePaymentAttempt,
+  updateSubscriptionBillingState,
 } = require('./services/platformBillingLifecycleService');
 const {
   inviteTenantStaff,
@@ -309,6 +333,10 @@ const {
   revokeTenantStaffMembership,
   updateTenantStaffRole,
 } = require('./services/platformTenantStaffService');
+const {
+  buildTenantActorAccessSummary,
+  buildTenantRoleMatrix,
+} = require('./services/platformTenantAccessService');
 const {
   createServerRegistryService,
 } = require('./domain/servers/serverRegistryService');
@@ -378,6 +406,9 @@ const {
 const {
   createAdminRequestRuntime,
 } = require('./admin/runtime/adminRequestRuntime');
+const {
+  createAdminTransientDownloadRuntime,
+} = require('./admin/runtime/adminTransientDownloadRuntime');
 const {
   createAdminAccessRuntime,
 } = require('./admin/runtime/adminAccessRuntime');
@@ -471,8 +502,17 @@ const {
 });
 const ownerConsoleHtmlPath = path.join(__dirname, 'admin', 'owner-console.html');
 const tenantConsoleHtmlPath = path.join(__dirname, 'admin', 'tenant-console.html');
-const sessions = new Map();
-const discordOauthStates = new Map();
+const tenantLoginHtmlPath = path.join(__dirname, 'admin', 'tenant-login.html');
+const sessions = createPersistentRuntimeStore({
+  filename: 'admin-runtime-sessions.json',
+  expiryField: 'expiresAt',
+  persistDelayMs: 50,
+});
+const discordOauthStates = createPersistentRuntimeStore({
+  filename: 'admin-runtime-discord-oauth-states.json',
+  expiryField: 'expiresAt',
+  persistDelayMs: 50,
+});
 const secureEqual = createSecureEqual(crypto);
 const {
   buildSecurityHeaders,
@@ -506,10 +546,16 @@ const {
   getAdminRestoreState,
   sendJson,
 });
+
+const {
+  prepareTransientDownload,
+  consumeTransientDownload,
+} = createAdminTransientDownloadRuntime();
 const {
   ensureAdminUsersReady,
   getAdminToken,
   getUserByCredentials,
+  resolveAdminSessionAccessContext,
   listAdminUsersFromDb,
   upsertAdminUserInDb,
 } = createAdminUserStoreRuntime({
@@ -642,11 +688,13 @@ const {
   getOwnerConsoleHtml,
   getTenantConsoleHtml,
   getLoginHtml,
+  getTenantLoginHtml,
 } = createAdminPageRuntime({
   dashboardHtmlPath,
   ownerConsoleHtmlPath,
   tenantConsoleHtmlPath,
   loginHtmlPath,
+  tenantLoginHtmlPath,
   assetsDirPath: adminAssetsDirPath,
   scumItemsDirPath,
   buildSecurityHeaders,
@@ -753,17 +801,18 @@ const {
 const platformServerConfigService = createPlatformServerConfigService({
   listServerRegistry: listPlatformServerRegistry,
 });
-const {
-  getServerConfigCategory,
-  getServerConfigWorkspace,
-  listServerConfigBackups,
-  createServerConfigSaveJob,
-  createServerConfigApplyJob,
-  createServerConfigRollbackJob,
-  claimNextServerConfigJob,
-  completeServerConfigJob,
-  upsertServerConfigSnapshot,
-} = platformServerConfigService;
+  const {
+    getServerConfigCategory,
+    getServerConfigWorkspace,
+    listServerConfigBackups,
+    createServerConfigSaveJob,
+    createServerConfigApplyJob,
+    createServerConfigRollbackJob,
+    createServerBotActionJob,
+    claimNextServerConfigJob,
+    completeServerConfigJob,
+    upsertServerConfigSnapshot,
+  } = platformServerConfigService;
 
 const handleAdminEntityPostRoute = createAdminEntityPostRoutes({
   sendJson,
@@ -775,6 +824,7 @@ const handleAdminEntityPostRoute = createAdminEntityPostRoutes({
   createBountyForUser,
   cancelBountyForUser,
   createServerEvent,
+  updateServerEvent,
   startServerEvent,
   finishServerEvent,
   joinServerEvent,
@@ -795,6 +845,8 @@ const handleAdminEntityPostRoute = createAdminEntityPostRoutes({
   addDeathsForUser,
   addPlaytimeForUser,
   queueLeaderboardRefreshForAllGuilds,
+  getTenantFeatureAccess,
+  buildTenantProductEntitlements,
 });
 
 const handleAdminConfigPostRoute = createAdminConfigPostRoutes({
@@ -810,11 +862,15 @@ const handleAdminConfigPostRoute = createAdminConfigPostRoutes({
   recordAdminSecuritySignal,
   getClientIp,
   upsertAdminUserInDb,
+  revokeSessionsForUser,
+  buildClearSessionCookie,
   restartManagedRuntimeServices,
   config,
   resolveScopedTenantId,
   getPlatformTenantById,
   upsertPlatformTenantConfig,
+  getTenantFeatureAccess,
+  buildTenantProductEntitlements,
 });
 
 const handleAdminPublicRoute = createAdminPublicRoutes({
@@ -826,6 +882,7 @@ const handleAdminPublicRoute = createAdminPublicRoutes({
   isAuthorized,
   getAuthContext,
   getLoginHtml,
+  getTenantLoginHtml,
   getOwnerConsoleHtml,
   getTenantConsoleHtml,
   getDashboardHtml,
@@ -887,12 +944,19 @@ const handleAdminPublicRoute = createAdminPublicRoutes({
   recordAdminSecuritySignal,
   createSession,
   buildSessionCookie,
+  buildClearSessionCookie,
+  invalidateSession,
+  authenticateTenantUser,
+  consumeTenantBootstrapToken,
+  resolveTenantSessionAccessContext,
+  resolveAdminSessionAccessContext,
 });
 
 const handleAdminGetRoute = createAdminGetRoutes({
   prisma,
   sendJson,
   sendDownload,
+  consumeTransientDownload,
   ensureRole,
   ensurePortalTokenAuth,
   getAuthContext,
@@ -932,8 +996,12 @@ const handleAdminGetRoute = createAdminGetRoutes({
   getPlatformPermissionCatalog,
   getPlanCatalog,
   getPackageCatalog: getPackageCatalogSummary,
+  listPersistedPackageCatalog,
   getFeatureCatalog: getFeatureCatalogSummary,
   getTenantFeatureAccess,
+  buildTenantProductEntitlements,
+  buildTenantActorAccessSummary,
+  buildTenantRoleMatrix,
   getPlatformOpsState,
   getPlatformAutomationState,
   getPlatformAutomationConfig: getAutomationConfig,
@@ -942,6 +1010,8 @@ const handleAdminGetRoute = createAdminGetRoutes({
   listPlatformTenants,
   listPlatformTenantConfigs,
   listTenantStaffMemberships,
+  listServerEvents,
+  getParticipants,
   listPlatformSubscriptions,
   listPlatformLicenses,
   listBillingInvoices,
@@ -1047,7 +1117,9 @@ const handleAdminCommerceDeliveryPostRoute = createAdminCommerceDeliveryPostRout
   creditCoins,
   debitCoins,
   addShopItemForAdmin,
+  updateShopItemForAdmin,
   setShopItemPriceForAdmin,
+  setShopItemStatusForAdmin,
   deleteShopItemForAdmin,
   updatePurchaseStatusForActor,
   queueLeaderboardRefreshForAllGuilds,
@@ -1072,6 +1144,8 @@ const handleAdminCommerceDeliveryPostRoute = createAdminCommerceDeliveryPostRout
   getRentBikeRuntime,
   updateScumStatusForAdmin,
   getStatus,
+  getTenantFeatureAccess,
+  buildTenantProductEntitlements,
 });
 
 const handleAdminPortalPostRoute = createAdminPortalPostRoutes({
@@ -1086,6 +1160,7 @@ const handleAdminPortalPostRoute = createAdminPortalPostRoutes({
 
 const handleAdminPlatformPostRoute = createAdminPlatformPostRoutes({
   sendJson,
+  prepareTransientDownload,
   requiredString,
   parseStringArray,
   getAuthTenantId,
@@ -1096,20 +1171,29 @@ const handleAdminPlatformPostRoute = createAdminPlatformPostRoutes({
   getCurrentObservabilitySnapshot,
   publishAdminLiveUpdate,
   createTenant,
+  createPackageCatalogEntry,
   inviteTenantStaff,
   updateTenantStaffRole,
   revokeTenantStaffMembership,
   createServer,
   createServerDiscordLink,
   createSubscription,
+  deletePackageCatalogEntry,
+  createCheckoutSession,
+  updateInvoiceStatus,
+  updatePaymentAttempt,
+  updateSubscriptionBillingState,
   issuePlatformLicense,
+  listPlatformSubscriptions,
   listPlatformLicenses,
   acceptPlatformLicenseLegal,
   createPlatformApiKey,
   createPlatformWebhookEndpoint,
-  createServerConfigApplyJob,
-  createServerConfigRollbackJob,
-  createServerConfigSaveJob,
+    createServerConfigApplyJob,
+    createServerConfigRollbackJob,
+    createServerConfigSaveJob,
+    createServerBotActionJob,
+    scheduleRestartPlan,
   createPlatformAgentToken,
   createPlatformAgentProvisioningToken,
   revokePlatformAgentDevice,
@@ -1123,6 +1207,9 @@ const handleAdminPlatformPostRoute = createAdminPlatformPostRoutes({
   runPlatformAutomationCycle,
   acknowledgeAdminNotifications,
   clearAdminNotifications,
+  getTenantFeatureAccess,
+  buildTenantProductEntitlements,
+  updatePackageCatalogEntry,
 });
 
 const handleAdminAuditRoute = createAdminAuditRoutes({
@@ -1183,6 +1270,8 @@ const {
   violatesBrowserOriginPolicy,
   sendJson,
   getAuthContext,
+  buildClearSessionCookie,
+  invalidateSession,
   readJsonBody,
   handleAdminAuthPostRoute,
   shouldBypassRestoreMaintenance,
@@ -1197,6 +1286,8 @@ const {
   handleMutationAction,
   publishAdminLiveUpdate,
   sendText,
+  resolveTenantSessionAccessContext,
+  resolveAdminSessionAccessContext,
   closeAllLiveStreams,
   stopMetricsSeriesTimer,
   startRuntimeSupervisorMonitor,

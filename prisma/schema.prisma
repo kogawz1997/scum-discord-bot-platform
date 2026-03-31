@@ -261,6 +261,20 @@ model AdminAuditPreset {
   @@index([createdByUser])
 }
 
+model AdminWebUser {
+  username     String   @id
+  passwordHash String   @map("password_hash")
+  role         String   @default("mod")
+  tenantId     String?  @map("tenant_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([role, isActive])
+  @@index([tenantId, role])
+  @@map("admin_web_users")
+}
+
 model RedeemCode {
   code    String   @id
   type    String
@@ -566,6 +580,7 @@ model PlatformUser {
   id           String   @id
   primaryEmail String?  @unique
   displayName  String?
+  passwordHash String?
   locale       String   @default("en")
   status       String   @default("active")
   metadataJson String?
@@ -639,22 +654,26 @@ model PlatformPlayerProfile {
 }
 
 model PlatformVerificationToken {
-  id         String   @id
-  userId     String?
-  tokenType  String
-  tokenPrefix String
-  tokenHash  String
-  email      String?
-  target     String?
-  expiresAt  DateTime
-  consumedAt DateTime?
-  metadataJson String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+  id               String   @id
+  userId           String?
+  previewAccountId String?
+  purpose          String   @default("email_verification")
+  tokenType        String?
+  tokenPrefix      String
+  tokenHash        String
+  email            String?
+  target           String?
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  metadataJson     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 
   @@unique([tokenType, tokenHash])
-  @@index([userId, tokenType, expiresAt])
-  @@index([email, tokenType, expiresAt])
+  @@unique([email, tokenHash])
+  @@index([previewAccountId, expiresAt])
+  @@index([userId, purpose, expiresAt])
+  @@index([email, purpose, expiresAt])
   @@index([consumedAt, expiresAt])
   @@map("platform_verification_tokens")
 }
@@ -939,6 +958,71 @@ model PlatformAdminSecurityEvent {
   @@index([sessionId, occurredAt])
 }
 
+model PlatformAdminRequestLog {
+  id         String   @id
+  occurredAt DateTime @default(now())
+  method     String   @default("GET")
+  path       String
+  routeGroup String   @default("unknown")
+  statusCode Int      @default(0)
+  statusClass String  @default("other")
+  latencyMs  Int      @default(0)
+  ok         Boolean  @default(false)
+  authMode   String?
+  user       String?
+  role       String?
+  tenantId   String?
+  ip         String?
+  origin     String?
+  userAgent  String?
+  source     String?
+  note       String?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([occurredAt])
+  @@index([routeGroup, occurredAt])
+  @@index([tenantId, occurredAt])
+  @@index([statusCode, occurredAt])
+}
+
+model PlatformAdminRestoreState {
+  id              String   @id
+  status          String   @default("idle")
+  active          Boolean  @default(false)
+  maintenance     Boolean  @default(false)
+  operationId     String?
+  backup          String?
+  confirmBackup   String?
+  rollbackBackup  String?
+  actor           String?
+  role            String?
+  note            String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  lastCompletedAt DateTime?
+  durationMs      Int?
+  lastError       String?
+  rollbackStatus  String   @default("none")
+  rollbackError   String?
+  countsJson      String?
+  currentCountsJson String?
+  diffJson        String?
+  warningsJson    String?
+  verificationJson String?
+  previewToken    String?
+  previewBackup   String?
+  previewIssuedAt DateTime?
+  previewExpiresAt DateTime?
+  historyJson     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+  @@index([status, updatedAt])
+}
+
 model PlatformAutomationState {
   id                               String   @id
   lastAutomationAt                 DateTime?
@@ -1188,4 +1272,20 @@ model ControlPlaneSyncEvent {
 
   @@index([syncRunId, createdAt])
   @@index([tenantId, serverId, agentId, createdAt])
+}
+
+model PlatformPackageCatalogEntry {
+  id          String   @id
+  title       String
+  description String?
+  status      String   @default("active")
+  featuresJson String
+  position    Int      @default(0)
+  isSystem    Boolean  @default(false)
+  metadataJson String?
+  actor       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([status, position, updatedAt])
 }

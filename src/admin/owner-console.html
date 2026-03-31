@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" href="data:,">
-  <title>SCUM TH Platform | Owner Panel</title>
-  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260328-ui-2">
-  <link rel="stylesheet" href="/admin/assets/owner-dashboard-v4.css?v=20260328-ui-2">
+  <title>SCUM TH Platform | เจ้าของระบบ</title>
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260330-select-fix-1">
+  <link rel="stylesheet" href="/admin/assets/owner-dashboard-v4.css?v=20260330-layout-balance-3">
   <link rel="stylesheet" href="/admin/assets/owner-tenants-v4.css?v=20260328-ui-2">
   <link rel="stylesheet" href="/admin/assets/owner-runtime-health-v4.css?v=20260328-ui-2">
+  <link rel="stylesheet" href="/admin/assets/owner-control-v4.css?v=20260330-select-fix-1">
 </head>
 <body class="surface-body surface-owner" data-surface="owner-v4">
   <div class="surface-app">
@@ -18,23 +19,23 @@
         <a class="surface-brand" href="/owner">
           <span class="surface-brand-mark">SCUM</span>
           <span class="surface-brand-copy">
-            <span class="surface-brand-eyebrow" data-i18n="shell.owner.eyebrow">Owner Panel</span>
-            <strong class="surface-brand-title" data-i18n="shell.owner.title">Platform Control Center</strong>
-            <span class="surface-brand-detail" data-i18n="shell.owner.detail">See tenants, packages, revenue, runtime health, and incidents in one place.</span>
+            <span class="surface-brand-eyebrow" data-i18n="shell.owner.eyebrow">เจ้าของระบบ</span>
+            <strong class="surface-brand-title" data-i18n="shell.owner.title">ศูนย์ควบคุมแพลตฟอร์ม</strong>
+            <span class="surface-brand-detail" data-i18n="shell.owner.detail">ดูลูกค้า แพ็กเกจ รายได้ สถานะบริการ และเหตุการณ์สำคัญจากจุดเดียว</span>
           </span>
         </a>
-        <nav class="surface-role-switch" aria-label="Surface switch">
-          <a class="surface-role-link is-active" href="/owner" data-i18n="shell.role.owner">Owner</a>
-          <a class="surface-role-link" href="/tenant" data-i18n="shell.role.tenant">Tenant</a>
-          <a class="surface-role-link" href="http://127.0.0.1:3300/player/login" data-i18n="shell.role.player">Player</a>
+        <nav class="surface-role-switch" aria-label="เมนูเจ้าของระบบ">
+          <a class="surface-role-link" href="/owner" data-i18n="shell.owner.homeNav">ภาพรวม</a>
+          <a class="surface-role-link" href="/owner/tenants" data-i18n="shell.owner.tenantsNav">ลูกค้า</a>
+          <a class="surface-role-link" href="/owner/runtime" data-i18n="shell.owner.runtimeNav">ระบบ</a>
         </nav>
       </div>
       <div class="surface-globalbar-tools">
-        <span id="ownerV4Status" class="surface-status" data-tone="muted" data-i18n="shell.owner.status.loading">Preparing owner workspace</span>
+        <span id="ownerV4Status" class="surface-status" data-tone="muted" data-i18n="shell.owner.status.loading">กำลังเตรียมพื้นที่เจ้าของระบบ</span>
         <div class="surface-tool-cluster">
-          <select id="ownerLanguageSelect" class="surface-select" aria-label="Language"></select>
-          <a class="surface-button" href="/tenant" data-i18n="shell.owner.openTenant">Open tenant area</a>
-          <button id="ownerV4RefreshBtn" class="surface-button surface-button-primary" type="button" data-i18n="shell.common.refresh">Refresh data</button>
+          <select id="ownerLanguageSelect" class="surface-select" aria-label="ภาษา"></select>
+          <a class="surface-button" href="/owner/tenants" data-i18n="shell.owner.openTenantList">เปิดรายชื่อลูกค้า</a>
+          <button id="ownerV4RefreshBtn" class="surface-button surface-button-primary" type="button" data-i18n="shell.common.refresh">รีเฟรชข้อมูล</button>
         </div>
       </div>
     </header>
@@ -42,7 +43,7 @@
       <div id="ownerV4AppRoot" class="surface-mount" aria-live="polite"></div>
     </main>
   </div>
-  <script src="/admin/assets/admin-i18n.js?v=20260328-ui-2"></script>
+  <script src="/admin/assets/admin-i18n.js?v=20260329-owner-copy-fix"></script>
   <script>
     window.AdminUiI18n?.init(['ownerLanguageSelect']);
     const applyOwnerShellLocale = () => {
@@ -53,9 +54,10 @@
     applyOwnerShellLocale();
     window.addEventListener('ui-language-change', applyOwnerShellLocale);
   </script>
-  <script src="/admin/assets/owner-dashboard-v4.js?v=20260328-ui-2"></script>
-  <script src="/admin/assets/owner-tenants-v4.js?v=20260328-ui-2"></script>
+  <script src="/admin/assets/owner-dashboard-v4.js?v=20260331-owner-dashboard-th-5"></script>
+  <script src="/admin/assets/owner-tenants-v4.js?v=20260329-owner-copy-fix"></script>
   <script src="/admin/assets/owner-runtime-health-v4.js?v=20260328-ui-2"></script>
-  <script src="/admin/assets/owner-v4-app.js?v=20260328-ui-2"></script>
+  <script src="/admin/assets/owner-control-v4.js?v=20260331-owner-th-live-5"></script>
+  <script src="/admin/assets/owner-v4-app.js?v=20260331-owner-th-live-14"></script>
 </body>
 </html>

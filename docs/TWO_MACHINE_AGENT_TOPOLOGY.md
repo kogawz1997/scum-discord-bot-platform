@@ -69,6 +69,13 @@ Bootstrap:
 npm run platform:bootstrap:machine-b-game-bot:win
 ```
 
+For runtime-specific env bundles after the profile is written:
+
+```bat
+npm run runtime:install:server-bot -- -Help
+npm run runtime:install:delivery-agent -- -Help
+```
+
 ## Runtime Ownership
 
 ### Machine A: control plane
@@ -159,6 +166,7 @@ npm run machine:validate:server-bot -- --production
 Detailed setup and role-specific env guidance:
 
 - [MACHINE_VALIDATION_GUIDE_TH.md](./MACHINE_VALIDATION_GUIDE_TH.md)
+- [RUNTIME_OPERATOR_CHECKLIST.md](./RUNTIME_OPERATOR_CHECKLIST.md)
 
 ## Important Limits
 
@@ -182,3 +190,4 @@ Detailed setup and role-specific env guidance:
 - [RUNTIME_TOPOLOGY.md](./RUNTIME_TOPOLOGY.md)
 - [CUSTOMER_ONBOARDING.md](./CUSTOMER_ONBOARDING.md)
 - [OPERATOR_QUICKSTART.md](./OPERATOR_QUICKSTART.md)
+- [RUNTIME_OPERATOR_CHECKLIST.md](./RUNTIME_OPERATOR_CHECKLIST.md)

@@ -6,7 +6,7 @@
 ![discord.js](https://img.shields.io/badge/discord.js-v14.25.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5.22.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 
-Last updated: **2026-03-26**
+Last updated: **2026-03-31**
 
 SCUM TH Platform is a control plane for a SCUM community stack built around:
 
@@ -16,6 +16,14 @@ SCUM TH Platform is a control plane for a SCUM community stack built around:
 - a worker runtime
 - a watcher runtime
 - an optional console-agent
+
+Current workstation note on `2026-03-31`:
+
+- local PostgreSQL is up at `127.0.0.1:55432`
+- `scum-admin-web`, `scum-bot`, `scum-worker`, `scum-watcher`, `scum-console-agent`, `scum-server-bot`, and `scum-web-portal` are currently `online` in PM2
+- local admin DB login was revalidated against `http://127.0.0.1:3200/admin/api/login`
+- `scum-bot` and `scum-server-bot` health endpoints both return healthy responses
+- do not treat this as proof that commercial billing, unified identity, donations, raids, modules, analytics, or full Discord admin SSO are finished; see [PROJECT_HQ.md](./PROJECT_HQ.md) and [docs/VERIFICATION_STATUS_TH.md](./docs/VERIFICATION_STATUS_TH.md) for the current strict status
 
 If a statement in this repository is not backed by code, tests, CI artifacts, or runtime logs, treat it as supporting context rather than evidence.
 

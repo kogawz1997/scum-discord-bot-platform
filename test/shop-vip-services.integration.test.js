@@ -135,6 +135,67 @@ test('checkoutCart refunds only failed rows after batch debit', async () => {
   }
 });
 
+test('checkoutCart activates VIP items immediately instead of leaving them pending', async () => {
+  const userId = uniqueId('cart-vip-user');
+  const itemId = 'vip-7d';
+  let item = null;
+
+  try {
+    item = await getShopItemById(itemId);
+    if (!item) {
+      item = await addShopItem(itemId, 'VIP 7 วัน', 5000, 'vip item', {
+        kind: 'vip',
+      });
+    }
+
+    await setCoins(userId, 50000, {
+      reason: 'test-init',
+      actor: 'test-suite',
+    });
+
+    addCartItem(userId, itemId, 1);
+
+    const result = await checkoutCart(userId, {
+      actor: 'test-suite',
+      source: 'cart-vip-test',
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.failures.length, 0);
+    assert.equal(result.purchases.length, 1);
+    assert.equal(String(result.purchases[0]?.itemKind || ''), 'vip');
+    assert.equal(String(result.purchases[0]?.purchase?.status || ''), 'delivered');
+    assert.equal(String(result.purchases[0]?.delivery?.reason || ''), 'vip-activated');
+
+    const membership = getMembership(userId);
+    assert.ok(membership);
+    assert.equal(String(membership?.planId || ''), 'vip-7d');
+
+    const wallet = await getWallet(userId);
+    assert.equal(wallet.balance, 45000);
+  } finally {
+    clearCart(userId);
+    await flushCartStoreWrites();
+    removeMembership(userId);
+    await prisma.purchaseStatusHistory.deleteMany({
+      where: {
+        purchase: {
+          userId,
+        },
+      },
+    }).catch(() => null);
+    await prisma.purchase.deleteMany({
+      where: {
+        userId,
+      },
+    }).catch(() => null);
+    await prisma.walletLedger.deleteMany({ where: { userId } }).catch(() => null);
+    await prisma.userWallet.deleteMany({ where: { userId } }).catch(() => null);
+    await prisma.cartEntry.deleteMany({ where: { userId } }).catch(() => null);
+    await deleteShopItem(itemId).catch(() => null);
+  }
+});
+
 test('buyVipForUser rolls back debit when membership activation fails', async () => {
   const userId = uniqueId('vip-user');
   const plan = getVipPlan('vip-7d');

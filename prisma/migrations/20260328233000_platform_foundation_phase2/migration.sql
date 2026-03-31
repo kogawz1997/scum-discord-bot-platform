@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS "platform_users" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "primaryEmail" TEXT,
   "displayName" TEXT,
+  "passwordHash" TEXT,
   "locale" TEXT NOT NULL DEFAULT 'en',
   "status" TEXT NOT NULL DEFAULT 'active',
   "metadataJson" TEXT,
@@ -74,7 +75,9 @@ CREATE INDEX IF NOT EXISTS "platform_player_profiles_verificationState_updatedAt
 CREATE TABLE IF NOT EXISTS "platform_verification_tokens" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "userId" TEXT,
-  "tokenType" TEXT NOT NULL,
+  "previewAccountId" TEXT,
+  "purpose" TEXT NOT NULL DEFAULT 'email_verification',
+  "tokenType" TEXT,
   "tokenPrefix" TEXT NOT NULL,
   "tokenHash" TEXT NOT NULL,
   "email" TEXT,
@@ -87,6 +90,10 @@ CREATE TABLE IF NOT EXISTS "platform_verification_tokens" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "platform_verification_tokens_type_hash_key" ON "platform_verification_tokens"("tokenType", "tokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "platform_verification_tokens_email_hash_key" ON "platform_verification_tokens"("email", "tokenHash");
+CREATE INDEX IF NOT EXISTS "platform_verification_tokens_preview_exp_idx" ON "platform_verification_tokens"("previewAccountId", "expiresAt");
+CREATE INDEX IF NOT EXISTS "platform_verification_tokens_user_purpose_exp_idx" ON "platform_verification_tokens"("userId", "purpose", "expiresAt");
+CREATE INDEX IF NOT EXISTS "platform_verification_tokens_email_purpose_exp_idx" ON "platform_verification_tokens"("email", "purpose", "expiresAt");
 CREATE INDEX IF NOT EXISTS "platform_verification_tokens_user_type_exp_idx" ON "platform_verification_tokens"("userId", "tokenType", "expiresAt");
 CREATE INDEX IF NOT EXISTS "platform_verification_tokens_email_type_exp_idx" ON "platform_verification_tokens"("email", "tokenType", "expiresAt");
 CREATE INDEX IF NOT EXISTS "platform_verification_tokens_consumed_exp_idx" ON "platform_verification_tokens"("consumedAt", "expiresAt");

@@ -62,6 +62,87 @@ test('portal auth runtime creates and reads sessions from cookies', () => {
   assert.equal(session.discordId, '123456789012345');
 });
 
+test('portal auth runtime can restore a signed session cookie without in-memory state', () => {
+  const runtime = createRuntime({
+    sessionSecret: 'shared-player-session-secret',
+  });
+  const cookieValue = runtime.createSession({
+    user: 'tester',
+    discordId: '123456789012345',
+    role: 'player',
+    primaryEmail: 'tester@example.com',
+  });
+
+  const coldRuntime = createRuntime({
+    sessionSecret: 'shared-player-session-secret',
+  });
+  const session = coldRuntime.getSession({
+    headers: {
+      cookie: `portal_session=${encodeURIComponent(cookieValue)}`,
+    },
+  });
+
+  assert.equal(session?.user, 'tester');
+  assert.equal(session?.discordId, '123456789012345');
+  assert.equal(session?.primaryEmail, 'tester@example.com');
+});
+
+test('portal auth runtime preserves player server scope in signed sessions', () => {
+  const runtime = createRuntime({
+    sessionSecret: 'shared-player-session-secret',
+  });
+  const cookieValue = runtime.createSession({
+    user: 'tester',
+    discordId: '123456789012345',
+    role: 'player',
+    tenantId: 'tenant-prod-001',
+    activeServerId: 'server-alpha',
+    activeServerName: 'Server Alpha',
+  });
+
+  const coldRuntime = createRuntime({
+    sessionSecret: 'shared-player-session-secret',
+  });
+  const session = coldRuntime.getSession({
+    headers: {
+      cookie: `portal_session=${encodeURIComponent(cookieValue)}`,
+    },
+  });
+
+  assert.equal(session?.tenantId, 'tenant-prod-001');
+  assert.equal(session?.activeServerId, 'server-alpha');
+  assert.equal(session?.activeServerName, 'Server Alpha');
+});
+
+test('portal auth runtime can update the active player server on an existing session', () => {
+  const runtime = createRuntime({
+    sessionSecret: 'shared-player-session-secret',
+  });
+  const cookieValue = runtime.createSession({
+    user: 'tester',
+    discordId: '123456789012345',
+    role: 'player',
+    tenantId: 'tenant-prod-001',
+  });
+  const updatedCookie = runtime.updateSession({
+    headers: {
+      cookie: `portal_session=${encodeURIComponent(cookieValue)}`,
+    },
+  }, {
+    activeServerId: 'server-bravo',
+    activeServerName: 'Server Bravo',
+  });
+
+  const session = runtime.getSession({
+    headers: {
+      cookie: `portal_session=${encodeURIComponent(updatedCookie)}`,
+    },
+  });
+
+  assert.equal(session?.activeServerId, 'server-bravo');
+  assert.equal(session?.activeServerName, 'Server Bravo');
+});
+
 test('portal auth runtime enforces origin on unsafe methods', () => {
   const runtime = createRuntime();
   const allowed = runtime.verifyOrigin({

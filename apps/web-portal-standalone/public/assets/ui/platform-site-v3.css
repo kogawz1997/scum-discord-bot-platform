@@ -220,6 +220,36 @@ body.player-shell-v3 {
   padding: 0 14px;
 }
 
+.site-select,
+.language-select {
+  color-scheme: dark;
+}
+
+.site-select option,
+.site-select optgroup,
+.language-select option,
+.language-select optgroup {
+  color: CanvasText !important;
+  background: Canvas !important;
+}
+
+.site-select option:checked,
+.site-select option:hover,
+.site-select option:focus,
+.language-select option:checked,
+.language-select option:hover,
+.language-select option:focus {
+  color: HighlightText !important;
+  background: Highlight !important;
+}
+
+.site-select option:disabled,
+.site-select optgroup,
+.language-select option:disabled,
+.language-select optgroup {
+  color: GrayText !important;
+}
+
 .site-textarea {
   min-height: 120px;
   padding: 14px;

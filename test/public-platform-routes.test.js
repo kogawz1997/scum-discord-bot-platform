@@ -27,7 +27,7 @@ function createSendJson() {
   };
 }
 
-test('public platform routes set preview session cookie on signup and clear it on logout', async () => {
+test('public platform routes sign up real tenant owners and keep logout/reset endpoints working', async () => {
   const route = createPublicPlatformRoutes({
     sendJson: createSendJson(),
     readJsonBody: async () => ({
@@ -41,11 +41,13 @@ test('public platform routes set preview session cookie on signup and clear it o
         plans: [],
       },
     }),
-    registerPreviewAccount: async () => ({
+    buildAdminProductUrl: (pathname, search = '') => `https://admin.example.com${pathname}${search}`,
+    registerTenantOwnerAccount: async () => ({
       ok: true,
-      account: { id: 'preview-1', email: 'demo@example.com', tenantId: 'tenant-1' },
+      user: { id: 'platform-user-1', primaryEmail: 'demo@example.com' },
       tenant: { id: 'tenant-1' },
       subscription: { id: 'sub-1' },
+      bootstrapToken: 'bootstrap-123',
     }),
     authenticatePreviewAccount: async () => ({ ok: false, reason: 'invalid-credentials' }),
     getPreviewState: async () => ({ ok: true, state: { account: { id: 'preview-1' } }, packageCatalog: [] }),
@@ -70,8 +72,8 @@ test('public platform routes set preview session cookie on signup and clear it o
 
   assert.equal(handledSignup, true);
   assert.equal(signupRes.statusCode, 200);
-  assert.equal(signupRes.headers['Set-Cookie'], 'preview_cookie=session; Path=/; HttpOnly');
-  assert.equal(signupRes.payload.data.nextUrl, '/preview');
+  assert.equal(signupRes.headers['Set-Cookie'], undefined);
+  assert.equal(signupRes.payload.data.nextUrl, 'https://admin.example.com/tenant/onboarding?bootstrap=bootstrap-123');
 
   const loginRes = createResponse();
   const handledLogin = await route({
@@ -144,6 +146,7 @@ test('public platform routes set preview session cookie on signup and clear it o
 test('public platform routes create and finalize checkout sessions for preview users', async () => {
   const route = createPublicPlatformRoutes({
     sendJson: createSendJson(),
+    buildAdminProductUrl: (pathname, search = '') => `https://admin.example.com${pathname}${search}`,
     readJsonBody: async () => ({
       planId: 'platform-starter',
       action: 'paid',
@@ -233,6 +236,7 @@ test('public platform routes create and finalize checkout sessions for preview u
   assert.equal(handledComplete, true);
   assert.equal(completeRes.statusCode, 200);
   assert.equal(completeRes.payload.data.invoice.status, 'paid');
+  assert.equal(completeRes.payload.data.nextUrl, 'https://admin.example.com/tenant/onboarding');
 
   const webhookRoute = createPublicPlatformRoutes({
     sendJson: createSendJson(),

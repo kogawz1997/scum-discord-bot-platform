@@ -116,6 +116,24 @@ function readIniValue(parsedDocument, section, key) {
   return null;
 }
 
+function listIniSettings(parsedDocument) {
+  const parsed = parsedDocument && typeof parsedDocument === 'object'
+    ? parsedDocument
+    : parseIniContent(parsedDocument);
+  const rows = [];
+  for (const [sectionName, sectionState] of parsed.sections.entries()) {
+    const section = normalizeSection(sectionName) === createRootSectionKey() ? '' : normalizeSection(sectionName);
+    for (const entry of sectionState?.keys?.values?.() || []) {
+      rows.push({
+        section,
+        key: normalizeKey(entry?.key),
+        value: entry?.value ?? '',
+      });
+    }
+  }
+  return rows.filter((row) => row.key);
+}
+
 function updateRawLine(lineState, nextValue) {
   return `${lineState.key}=${nextValue}`;
 }
@@ -228,6 +246,7 @@ function serializeLineListContent(entries = []) {
 }
 
 module.exports = {
+  listIniSettings,
   parseIniContent,
   parseLineListContent,
   patchIniContent,

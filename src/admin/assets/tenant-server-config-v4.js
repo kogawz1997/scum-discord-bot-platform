@@ -340,6 +340,29 @@
     return key.includes('message') || key.includes('description') || key.includes('motd');
   }
 
+  function normalizeSearchText(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function isDiscoveredLiveSetting(setting) {
+    const description = trimText(setting?.description, 240).toLowerCase();
+    return description.startsWith('discovered from the live ');
+  }
+
+  function buildSettingSearchText(setting) {
+    return normalizeSearchText([
+      setting?.label,
+      setting?.description,
+      setting?.section,
+      setting?.key,
+      setting?.file,
+      setting?.sourceFileLabel,
+    ].filter(Boolean).join(' '));
+  }
+
   function renderBadge(label, tone) {
     return `<span class="tdv4-badge tdv4-badge-${escapeHtml(tone || 'muted')}">${escapeHtml(label)}</span>`;
   }
@@ -432,7 +455,7 @@
                   ? setting.defaultValue
                   : null;
                 const currentValue = normalizeSettingValue(setting, setting.currentValue, defaultValue);
-                return {
+                const normalized = {
                   ...setting,
                   inputType: String(setting.type || 'string').trim().toLowerCase(),
                   currentValue,
@@ -444,12 +467,19 @@
                   sourceFileLabel: firstNonEmpty([setting.sourceFileLabel, setting.file], setting.file || ''),
                   rawKey: [trimText(setting.section, 120), trimText(setting.key, 120)].filter(Boolean).join(' / '),
                 };
+                return {
+                  ...normalized,
+                  isBasic: !isDiscoveredLiveSetting(normalized),
+                  searchText: buildSettingSearchText(normalized),
+                };
               })
               .filter((setting) => setting.file && setting.key);
             return {
               key: firstNonEmpty([group.key], 'general'),
               label: firstNonEmpty([group.label, humanizeIdentifier(group.key)], humanizeIdentifier(group.key)),
               settings,
+              settingCount: settings.length,
+              basicSettingCount: settings.filter((setting) => setting.isBasic !== false).length,
             };
           })
           .filter((group) => group.settings.length > 0);
@@ -459,6 +489,7 @@
           description: firstNonEmpty([category.description], ''),
           groups,
           settingCount: groups.reduce((sum, group) => sum + group.settings.length, 0),
+          basicSettingCount: groups.reduce((sum, group) => sum + group.basicSettingCount, 0),
         };
       })
       .filter((category) => category.groups.length > 0);
@@ -508,6 +539,12 @@
           sourceFileLabel: firstNonEmpty([file.label, file.file], file.file || ''),
           rawKey: 'รายการ',
           requiresRestart: false,
+          isBasic: true,
+          searchText: normalizeSearchText([
+            isAdminList ? 'admin users' : 'banned users',
+            file?.label,
+            file?.file,
+          ].filter(Boolean).join(' ')),
           hasCurrentValue: entries.length > 0,
           entryPlaceholder: isAdminList ? 'เช่น 76561198000000000' : 'เช่น 76561198000000000',
           emptyLabel: isAdminList ? 'ยังไม่มีผู้ดูแลเพิ่มเติม' : 'ยังไม่มีรายชื่อผู้ถูกแบน',
@@ -530,6 +567,8 @@
       key: 'access-lists',
       label: 'ผู้ดูแลและการแบน',
       settings: accessListSettings,
+      settingCount: accessListSettings.length,
+      basicSettingCount: accessListSettings.length,
     };
 
     if (securityIndex >= 0) {
@@ -539,6 +578,10 @@
       ];
       nextCategories[securityIndex].settingCount = nextCategories[securityIndex].groups.reduce(
         (sum, group) => sum + (Array.isArray(group.settings) ? group.settings.length : 0),
+        0,
+      );
+      nextCategories[securityIndex].basicSettingCount = nextCategories[securityIndex].groups.reduce(
+        (sum, group) => sum + Number(group.basicSettingCount || 0),
         0,
       );
       return nextCategories;
@@ -552,8 +595,59 @@
         description: 'จัดการรายชื่อผู้ดูแลและผู้ถูกแบนโดยไม่ต้องเปิดไฟล์เอง',
         groups: [accessListGroup],
         settingCount: accessListSettings.length,
+        basicSettingCount: accessListSettings.length,
       },
     ];
+  }
+
+  function buildAdvancedWorkspaceCategory(workspace, files) {
+    const snapshotFiles = Array.isArray(workspace?.advanced?.rawSnapshot?.files)
+      ? workspace.advanced.rawSnapshot.files
+      : [];
+    const fileRows = (Array.isArray(files) ? files : []).map((file) => ({
+      file: firstNonEmpty([file.file], ''),
+      label: firstNonEmpty([file.label, file.file], file.file || 'Config file'),
+      exists: file?.exists !== false,
+      lastModifiedAt: firstNonEmpty([file.lastModifiedAt], ''),
+      readError: firstNonEmpty([file.readError], ''),
+      parseMode: firstNonEmpty([file.parseMode], 'ini'),
+    })).filter((file) => file.file);
+    if (!fileRows.length && !snapshotFiles.length) {
+      return null;
+    }
+    return {
+      key: 'advanced',
+      label: 'Advanced',
+      description: 'Technical sources, raw snapshot data, and file-level verification details from Server Bot.',
+      groups: [],
+      settingCount: fileRows.length,
+      mode: 'advanced',
+      advancedSummary: {
+        snapshotStatus: firstNonEmpty([workspace?.snapshotStatus], 'missing'),
+        snapshotCollectedAt: firstNonEmpty([workspace?.snapshotCollectedAt], ''),
+        snapshotUpdatedBy: firstNonEmpty([workspace?.snapshotUpdatedBy], ''),
+        snapshotUpdatedAt: firstNonEmpty([workspace?.snapshotUpdatedAt], ''),
+        lastError: firstNonEmpty([workspace?.lastError], ''),
+        files: fileRows,
+        rawSnapshot: workspace?.advanced?.rawSnapshot || { files: [] },
+      },
+    };
+  }
+
+  function appendAdvancedWorkspaceCategory(categories, workspace, files) {
+    const nextCategories = Array.isArray(categories)
+      ? categories.map((category) => ({ ...category }))
+      : [];
+    const advancedCategory = buildAdvancedWorkspaceCategory(workspace, files);
+    if (!advancedCategory) {
+      return nextCategories.filter((category) => category.key !== 'advanced');
+    }
+    const existingIndex = nextCategories.findIndex((category) => category.key === 'advanced');
+    if (existingIndex >= 0) {
+      nextCategories[existingIndex] = advancedCategory;
+      return nextCategories;
+    }
+    return [...nextCategories, advancedCategory];
   }
 
   function createTenantServerConfigV4Model(source) {
@@ -574,10 +668,17 @@
       const rowServerId = firstNonEmpty([row?.serverId, row?.meta?.serverId, row?.tenantServerId], '');
       return !activeServerId || !rowServerId || rowServerId === activeServerId;
     });
-    const categories = appendAccessListsToCategories(buildWorkspaceCategories(state), files);
+    const categories = appendAdvancedWorkspaceCategory(
+      appendAccessListsToCategories(buildWorkspaceCategories(state), files),
+      workspace,
+      files,
+    );
     const backups = Array.isArray(workspace.backups) ? workspace.backups : [];
     const snapshotStatus = firstNonEmpty([workspace.snapshotStatus], 'missing');
-    const workspaceReady = snapshotStatus === 'ready' && categories.length > 0;
+    const editableCategories = categories.filter((category) => category.key !== 'advanced');
+    const workspaceReady = snapshotStatus === 'ready' && editableCategories.length > 0;
+    const totalSettingCount = editableCategories.reduce((sum, category) => sum + Number(category.settingCount || 0), 0);
+    const basicSettingCount = editableCategories.reduce((sum, category) => sum + Number(category.basicSettingCount || 0), 0);
     const featureOptions = buildFeatureOptions(state);
     const configPatch = state?.tenantConfig?.configPatch && typeof state.tenantConfig.configPatch === 'object'
       ? state.tenantConfig.configPatch
@@ -585,7 +686,7 @@
     const portalEnvPatch = state?.tenantConfig?.portalEnvPatch && typeof state.tenantConfig.portalEnvPatch === 'object'
       ? state.tenantConfig.portalEnvPatch
       : {};
-    const firstField = categories[0]?.groups?.[0]?.settings?.[0] || null;
+    const firstField = editableCategories[0]?.groups?.[0]?.settings?.[0] || null;
     const emptyState = !hasServers
       ? buildConfigEmptyState(
           'missing-server',
@@ -673,11 +774,14 @@
       workspace: {
         available: workspaceReady,
         categories,
-        activeCategoryKey: categories[0]?.key || '',
+        editableCategories,
+        activeCategoryKey: editableCategories.find((category) => Number(category.basicSettingCount || 0) > 0)?.key || categories[0]?.key || '',
         lastError: firstNonEmpty([workspace.lastError], ''),
         files,
         backups,
         rawSnapshot: workspace?.advanced?.rawSnapshot || { files: [] },
+        totalSettingCount,
+        basicSettingCount,
       },
       help: firstField
         ? {
@@ -731,14 +835,6 @@
           portalEnvPatch,
           'portal-env',
         ),
-      },
-      emptyState: {
-        title: 'ยังไม่โหลดค่าจริงจาก Server Bot',
-        detail: workspaceReady
-          ? ''
-          : 'ให้ตรวจว่า Server Bot ออนไลน์ เข้าถึงไฟล์ตั้งค่าได้ และส่งค่าล่าสุดกลับเข้าระบบแล้ว',
-        actionLabel: 'ตรวจ Server Bot',
-        actionHref: '#server-bots',
       },
       emptyState,
     };
@@ -825,7 +921,7 @@
     ].filter(Boolean).join('');
 
     return [
-      `<article class="tdv4-config-setting" data-setting-card="${escapeHtml(setting.id)}">`,
+      `<article class="tdv4-config-setting" data-setting-card="${escapeHtml(setting.id)}" data-input-type="${escapeHtml(setting.inputType)}" data-setting-key="${escapeHtml(setting.key)}" data-setting-basic="${setting.isBasic === false ? 'false' : 'true'}" data-setting-requires-restart="${setting.requiresRestart ? 'true' : 'false'}" data-setting-search="${escapeHtml(setting.searchText || '')}">`,
       '<div class="tdv4-config-setting-main">',
       '<div class="tdv4-config-setting-copy">',
       '<div class="tdv4-config-setting-title-row">',
@@ -910,12 +1006,13 @@
   function renderCategory(category, current) {
     return [
       `<section class="tdv4-config-category-panel${current ? ' tdv4-config-category-panel-current' : ''}" data-config-category-panel="${escapeHtml(category.key)}"${current ? '' : ' hidden'}>`,
+      '<div class="tdv4-config-category-empty tdv4-readable-empty" data-config-category-empty hidden><strong>ไม่พบค่าที่ตรงกับตัวกรอง</strong><p>ลองล้างคำค้นหรือสลับเป็นมุมมองค่าจริงทั้งหมด</p></div>',
       `<header class="tdv4-config-layout-panel"><h2 class="tdv4-config-column-title">${escapeHtml(category.label)}</h2><p class="tdv4-config-column-copy">${escapeHtml(category.description || 'จัดการค่ากลุ่มนี้ตามความต้องการของเซิร์ฟเวอร์')}</p></header>`,
       ...category.groups.map((group) => [
-        '<article class="tdv4-config-group-card">',
+        `<article class="tdv4-config-group-card" data-config-group="${escapeHtml(group.key)}" data-group-total-count="${escapeHtml(group.settingCount)}" data-group-basic-count="${escapeHtml(group.basicSettingCount)}">`,
         '<div class="tdv4-config-group-head">',
         `<h3 class="tdv4-config-group-title">${escapeHtml(group.label)}</h3>`,
-        `<span class="tdv4-config-group-count">${escapeHtml(String(group.settings.length))} ค่า</span>`,
+        `<span class="tdv4-config-group-count" data-config-group-count>${escapeHtml(String(group.settings.length))} ค่า</span>`,
         '</div>',
         `<div class="tdv4-config-group-list">${group.settings.map(renderSetting).join('')}</div>`,
         '</article>',
@@ -924,12 +1021,74 @@
     ].join('');
   }
 
+  function renderAdvancedConfigCategory(category, current) {
+    const summary = category?.advancedSummary && typeof category.advancedSummary === 'object'
+      ? category.advancedSummary
+      : {};
+    const fileRows = Array.isArray(summary.files) ? summary.files : [];
+    const fileList = fileRows.length
+      ? fileRows.map((file) => [
+        '<div class="tdv4-readable-row">',
+        '<div class="tdv4-readable-key">',
+        `<div class="tdv4-readable-key-title">${escapeHtml(file.label || file.file || 'Config file')}</div>`,
+        `<div class="tdv4-readable-key-code">${escapeHtml(file.file || '')}</div>`,
+        '</div>',
+        `<div class="tdv4-readable-value">${renderBadge(file.exists ? 'พร้อมอ่าน' : 'ยังไม่พบ', file.exists ? 'success' : 'warning')}</div>`,
+        '</div>',
+      ].join('')).join('')
+      : '<div class="tdv4-readable-empty"><strong>ยังไม่มีไฟล์ที่ตรวจพบ</strong><p>รอ snapshot ล่าสุดจาก Server Bot เพื่อแสดงไฟล์ config และสถานะการอ่าน</p></div>';
+
+    return [
+      `<section class="tdv4-config-category-panel${current ? ' tdv4-config-category-panel-current' : ''}" data-config-category-panel="${escapeHtml(category.key)}" data-config-category-mode="advanced"${current ? '' : ' hidden'}>`,
+      `<header class="tdv4-config-layout-panel"><h2 class="tdv4-config-column-title">${escapeHtml(category.label)}</h2><p class="tdv4-config-column-copy">${escapeHtml(category.description || 'Technical details from Server Bot')}</p></header>`,
+      '<article class="tdv4-config-group-card">',
+      '<div class="tdv4-config-group-head">',
+      '<h3 class="tdv4-config-group-title">Server Bot Snapshot</h3>',
+      `<span class="tdv4-config-group-count">${escapeHtml(statusLabel(summary.snapshotStatus || 'missing'))}</span>`,
+      '</div>',
+      '<div class="tdv4-readable-list">',
+      `<div class="tdv4-readable-row"><div class="tdv4-readable-key"><div class="tdv4-readable-key-title">Snapshot Status</div><div class="tdv4-readable-key-code">server-config snapshot</div></div><div class="tdv4-readable-value">${renderBadge(statusLabel(summary.snapshotStatus || 'missing'), statusTone(summary.snapshotStatus || 'missing'))}</div></div>`,
+      `<div class="tdv4-readable-row"><div class="tdv4-readable-key"><div class="tdv4-readable-key-title">Collected At</div><div class="tdv4-readable-key-code">latest server-bot read</div></div><div class="tdv4-readable-value">${escapeHtml(formatDateTime(summary.snapshotCollectedAt, 'ยังไม่ทราบเวลา'))}</div></div>`,
+      `<div class="tdv4-readable-row"><div class="tdv4-readable-key"><div class="tdv4-readable-key-title">Updated By</div><div class="tdv4-readable-key-code">bot identity</div></div><div class="tdv4-readable-value">${escapeHtml(summary.snapshotUpdatedBy || '-')}</div></div>`,
+      summary.lastError
+        ? `<div class="tdv4-readable-row"><div class="tdv4-readable-key"><div class="tdv4-readable-key-title">Last Error</div><div class="tdv4-readable-key-code">server-bot read/write verification</div></div><div class="tdv4-readable-value">${escapeHtml(summary.lastError)}</div></div>`
+        : '',
+      '</div>',
+      '</article>',
+      '<article class="tdv4-config-group-card">',
+      '<div class="tdv4-config-group-head">',
+      '<h3 class="tdv4-config-group-title">Source Files</h3>',
+      `<span class="tdv4-config-group-count">${escapeHtml(String(fileRows.length))} files</span>`,
+      '</div>',
+      `<div class="tdv4-readable-list">${fileList}</div>`,
+      '<details class="tdv4-details-panel tdv4-panel">',
+      '<summary class="tdv4-details-summary">Raw snapshot</summary>',
+      '<p class="tdv4-config-column-copy">ใช้สำหรับตรวจข้อมูลดิบที่ Server Bot อ่านกลับมา ไม่ใช่มุมหลักสำหรับการแก้ค่าปกติ</p>',
+      `<textarea class="tdv4-editor" readonly>${escapeHtml(stringifyPretty(summary.rawSnapshot || { files: [] }))}</textarea>`,
+      '</details>',
+      '</article>',
+      '</section>',
+    ].join('');
+  }
+
+  function renderServerConfigCategory(category, current) {
+    if (category?.advancedSummary) {
+      return renderAdvancedConfigCategory(category, current);
+    }
+    const html = renderCategory(category, current);
+    const categoryMode = category?.mode === 'advanced' ? 'advanced' : 'basic';
+    return html.replace(
+      `data-config-category-panel="${escapeHtml(category.key)}"`,
+      `data-config-category-panel="${escapeHtml(category.key)}" data-config-category-mode="${escapeHtml(categoryMode)}"`,
+    );
+  }
+
   function buildTenantServerConfigV4Html(model) {
     const safe = model && typeof model === 'object' ? model : createTenantServerConfigV4Model({});
-    const configCategoryList = safe.workspace.categories.map((category, index) => [
-      `<button class="tdv4-config-category-button${index === 0 ? ' is-current' : ''}" type="button" data-config-category-tab="${escapeHtml(category.key)}" aria-pressed="${index === 0 ? 'true' : 'false'}">`,
+    const configCategoryList = safe.workspace.categories.map((category) => [
+      `<button class="tdv4-config-category-button${category.key === safe.workspace.activeCategoryKey ? ' is-current' : ''}" type="button" data-config-category-tab="${escapeHtml(category.key)}" data-config-category-mode="${escapeHtml(category.mode === 'advanced' ? 'advanced' : 'basic')}" data-config-category-total="${escapeHtml(category.settingCount)}" data-config-category-basic="${escapeHtml(category.basicSettingCount ?? category.settingCount)}" aria-pressed="${category.key === safe.workspace.activeCategoryKey ? 'true' : 'false'}"${category.mode === 'advanced' ? ' hidden' : ''}>`,
       `<span class="tdv4-config-category-name">${escapeHtml(category.label)}</span>`,
-      `<span class="tdv4-config-category-meta">${escapeHtml(category.settingCount)} ค่า</span>`,
+      `<span class="tdv4-config-category-meta" data-config-category-meta>${escapeHtml(category.basicSettingCount ?? category.settingCount)} ค่า</span>`,
       '</button>',
     ].join('')).join('');
 
@@ -989,15 +1148,16 @@
     const workspaceBody = safe.workspace.available
       ? [
         '<section class="tdv4-config-layout-panel"><div class="tdv4-config-layout">',
-        '<aside class="tdv4-config-category-sidebar"><article class="tdv4-panel tdv4-config-help-panel"><div class="tdv4-section-kicker">หมวดการตั้งค่า</div><div class="tdv4-config-category-list">',
+        '<aside class="tdv4-config-category-sidebar"><article class="tdv4-panel tdv4-config-category-panel-card"><div class="tdv4-section-kicker">หมวดการตั้งค่า</div><h2 class="tdv4-section-title">เลือกหมวดที่ต้องการแก้</h2><p class="tdv4-section-copy">เริ่มจากค่าพื้นฐานก่อน ค้นหาคีย์ที่ต้องการ แล้วค่อยสลับไปดูค่าจริงทั้งหมดเมื่อจำเป็น</p><div class="tdv4-config-toolbar"><label class="tdv4-config-search"><span class="tdv4-config-search-label">ค้นหาค่า</span><div class="tdv4-config-search-input-row"><input class="tdv4-basic-input tdv4-config-search-input" type="search" data-config-search-input placeholder="เช่น MaxPlayers, Respawn หรือ Welcome"><button class="tdv4-button tdv4-button-secondary tdv4-config-search-clear" type="button" data-config-search-clear>ล้าง</button></div></label><div class="tdv4-config-toolbar-row"><div class="tdv4-config-view-switch" role="tablist" aria-label="Config scope switch"><button class="tdv4-config-view-button is-current" type="button" data-config-scope-tab="basic" aria-pressed="true">ค่าพื้นฐาน</button><button class="tdv4-config-view-button" type="button" data-config-scope-tab="all" aria-pressed="false">ค่าจริงทั้งหมด</button></div><div class="tdv4-config-filter-switch" role="tablist" aria-label="Config quick filter"><button class="tdv4-config-filter-button is-current" type="button" data-config-filter-tab="all" aria-pressed="true">ทั้งหมด</button><button class="tdv4-config-filter-button" type="button" data-config-filter-tab="dirty" aria-pressed="false">แก้ค้าง</button><button class="tdv4-config-filter-button" type="button" data-config-filter-tab="restart" aria-pressed="false">ต้องรีสตาร์ต</button></div></div><div class="tdv4-config-filter-summary" data-config-filter-summary>กำลังดูค่าพื้นฐาน ${escapeHtml(safe.workspace.basicSettingCount)} จาก ${escapeHtml(safe.workspace.totalSettingCount)} ค่า</div></div><div class="tdv4-config-category-list">',
         configCategoryList,
         '</div></article></aside>',
         '<section class="tdv4-config-settings-column">',
-        safe.workspace.categories.map((category, index) => renderCategory(category, index === 0)).join(''),
+        '<article class="tdv4-panel tdv4-config-results-empty" data-config-results-empty hidden><strong>ไม่พบค่าที่ตรงกับตัวกรอง</strong><p>ลองล้างคำค้น เปลี่ยนเป็นค่าจริงทั้งหมด หรือกลับไปดูทุกค่าก่อน</p></article>',
+        safe.workspace.categories.map((category) => renderServerConfigCategory(category, category.key === safe.workspace.activeCategoryKey)).join(''),
         '</section>',
-        '<aside class="tdv4-config-context-column">',
+        '<aside class="tdv4-config-context-column"><div class="tdv4-config-context-stack">',
         '<article class="tdv4-panel tdv4-config-help-panel">',
-        '<div class="tdv4-section-kicker">คำอธิบาย</div>',
+        '<div class="tdv4-section-kicker">ค่าที่กำลังเลือก</div>',
         `<h3 class="tdv4-section-title" data-server-config-help-title>${escapeHtml(safe.help.title)}</h3>`,
         `<p class="tdv4-section-copy" data-server-config-help-description>${escapeHtml(safe.help.description)}</p>`,
         `<div class="tdv4-config-key-row">${safe.help.badges.map((badge) => renderBadge(badge.label, badge.tone)).join('')}</div>`,
@@ -1009,7 +1169,7 @@
         '<article class="tdv4-panel tdv4-config-files-panel"><div class="tdv4-section-kicker">Config files</div><h3 class="tdv4-section-title">แหล่งไฟล์</h3><div class="tdv4-readable-list">',
         fileList,
         '</div></article>',
-        '</aside></div></section>',
+        '</div></aside></div></section>',
       ].join('')
       : [
         `<section class="tdv4-config-layout-panel"><article class="tdv4-panel tdv4-readable-empty" data-server-config-empty-kind="${escapeHtml(safe.emptyState.kind || 'general')}">`,
@@ -1029,11 +1189,17 @@
       '<div class="tdv4-shell tdv4-config-shell">',
       `<aside class="tdv4-sidebar">${safe.shell.navGroups.map(renderNavGroup).join('')}</aside>`,
       '<main class="tdv4-main tdv4-stack">',
-      '<section class="tdv4-pagehead"><div>',
+      '<section class="tdv4-pagehead tdv4-config-hero"><div class="tdv4-config-hero-copy">',
       `<h1 class="tdv4-page-title">${escapeHtml(safe.header.title)}</h1>`,
       `<p class="tdv4-page-subtitle">${escapeHtml(safe.header.subtitle)}</p>`,
       `<div class="tdv4-chip-row">${renderBadge(safe.status.label, safe.status.tone)}${renderBadge(safe.header.serverName, 'muted')}</div>`,
+      '<div class="tdv4-config-mode-switch" role="tablist" aria-label="Config mode switch">',
+      '<button class="tdv4-config-mode-button is-current" type="button" data-config-mode-tab="basic" aria-pressed="true">โหมดใช้งานง่าย</button>',
+      '<button class="tdv4-config-mode-button" type="button" data-config-mode-tab="advanced" aria-pressed="false">โหมดขั้นสูง</button>',
+      '</div>',
       '</div><div class="tdv4-pagehead-actions tdv4-pagehead-actions-stack">',
+      '<div class="tdv4-section-kicker">การบันทึกค่า</div>',
+      '<p class="tdv4-config-action-caption">เลือกได้ว่าจะเก็บ draft, ใช้ค่าทันที หรือบันทึกพร้อมรีสตาร์ตเซิร์ฟเวอร์</p>',
       '<button class="tdv4-button tdv4-button-secondary" type="button" data-server-config-save-mode="save_only">บันทึกอย่างเดียว</button>',
       '<button class="tdv4-button tdv4-button-primary" type="button" data-server-config-save-mode="save_apply">บันทึกและใช้ค่า</button>',
       '<button class="tdv4-button tdv4-button-secondary" type="button" data-server-config-save-mode="save_restart">บันทึกแล้วรีสตาร์ต</button>',
@@ -1042,9 +1208,9 @@
       '<strong>สถานะล่าสุด</strong>',
       `<span>${escapeHtml(safe.status.detail)}</span>`,
       `<span>${escapeHtml(safe.status.updatedAt ? `อัปเดตเมื่อ ${formatDateTime(safe.status.updatedAt)}` : 'ยังไม่ทราบเวลาอัปเดต')}${safe.status.updatedBy ? ` · โดย ${escapeHtml(safe.status.updatedBy)}` : ''}</span>`,
-      '</div><div class="tdv4-config-savebar-actions"><span class="tdv4-badge tdv4-badge-info" data-server-config-change-count>ยังไม่มีค่าที่แก้ค้างอยู่</span></div></div></section>',
+      '</div><div class="tdv4-config-savebar-actions"><span class="tdv4-badge tdv4-badge-info" data-server-config-change-count>ยังไม่มีค่าที่แก้ค้างอยู่</span><span class="tdv4-badge tdv4-badge-warning" data-server-config-restart-count hidden>ต้องรีสตาร์ต</span></div></div></section>',
       workspaceBody,
-      '<section class="tdv4-config-layout-panel"><div class="tdv4-config-section-grid">',
+      '<section class="tdv4-config-layout-panel" data-config-mode-section="advanced" hidden><div class="tdv4-config-section-grid">',
       '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Tenant modules</div><h2 class="tdv4-section-title">Feature Flags</h2><p class="tdv4-section-copy">ใช้เปิดหรือปิดโมดูลของผู้เช่ารายนี้แบบไม่ต้องแก้ JSON เอง</p><div class="tdv4-flag-grid">',
       featureFlagList,
       '</div>',
@@ -1060,14 +1226,14 @@
         { value: 'restart', label: 'บันทึกแล้วไปหน้ารีสตาร์ต', primary: false },
       ]),
       '</article>',
-      '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Player portal</div><h2 class="tdv4-section-title">Portal Env Patch</h2><p class="tdv4-section-copy">ค่าที่มีผลกับประสบการณ์ของผู้เล่นในพอร์ทัลเว็บ</p>',
+      '<article class="tdv4-panel tdv4-config-mode-panel"><div class="tdv4-section-kicker">Player portal</div><h2 class="tdv4-section-title">Portal Settings</h2><p class="tdv4-section-copy">ค่าที่มีผลกับประสบการณ์ของผู้เล่นในพอร์ทัลเว็บ</p>',
       safe.portalEnvPatch.groups.map((group) => `<section class="tdv4-config-field-group"><div class="tdv4-config-field-group-title">${escapeHtml(group.title)}</div><p class="tdv4-config-field-group-copy">${escapeHtml(group.description)}</p><div class="tdv4-basic-field-grid">${group.fields.map(renderBasicField).join('')}</div></section>`).join(''),
       renderOverrideEditor(safe.portalEnvPatch.editor, [
         { value: 'save', label: 'บันทึกอย่างเดียว', primary: false },
         { value: 'apply', label: 'บันทึกและใช้ค่า', primary: true },
       ]),
       '</article></div></section>',
-      '<section class="tdv4-config-layout-panel"><details class="tdv4-details-panel tdv4-panel"><summary class="tdv4-details-summary">ดู snapshot ดิบจาก Server Bot</summary><p class="tdv4-config-column-copy">ใช้มุมนี้เพื่อตรวจค่าดิบและไฟล์ที่ bot อ่านกลับมา ไม่ใช่มุมหลักสำหรับผู้ใช้งานทั่วไป</p>',
+      '<section class="tdv4-config-layout-panel" data-config-mode-section="advanced" hidden><details class="tdv4-details-panel tdv4-panel"><summary class="tdv4-details-summary">ดู snapshot ดิบจาก Server Bot</summary><p class="tdv4-config-column-copy">ใช้มุมนี้เพื่อตรวจค่าดิบและไฟล์ที่ bot อ่านกลับมา ไม่ใช่มุมหลักสำหรับผู้ใช้งานทั่วไป</p>',
       `<textarea class="tdv4-editor" readonly>${escapeHtml(stringifyPretty(safe.workspace.rawSnapshot))}</textarea>`,
       '</details></section>',
       '</main></div></div>',

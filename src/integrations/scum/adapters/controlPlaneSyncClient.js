@@ -14,10 +14,21 @@ function resolveControlPlaneBaseUrl(env = process.env) {
   const explicit = trimText(
     env.SCUM_SYNC_CONTROL_PLANE_URL
       || env.PLATFORM_API_BASE_URL
+      || env.ADMIN_BACKEND_BASE_URL
       || env.ADMIN_WEB_BASE_URL,
     400,
   );
-  return explicit ? explicit.replace(/\/+$/, '') : '';
+  if (explicit) return explicit.replace(/\/+$/, '');
+
+  const adminHost = trimText(env.ADMIN_WEB_HOST, 200) || '127.0.0.1';
+  const adminPort = trimText(env.ADMIN_WEB_PORT, 40);
+  if (!adminPort) return '';
+
+  const hostLooksHttp = /^https?:\/\//i.test(adminHost);
+  const baseUrl = hostLooksHttp
+    ? `${adminHost.replace(/\/+$/, '')}:${adminPort}`
+    : `http://${adminHost}:${adminPort}`;
+  return baseUrl.replace(/\/+$/, '');
 }
 
 function readPlatformAgentState(env = process.env) {

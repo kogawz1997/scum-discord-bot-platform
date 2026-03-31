@@ -5,6 +5,7 @@
     '': 'dashboard',
     overview: 'dashboard',
     dashboard: 'dashboard',
+    onboarding: 'onboarding',
     status: 'server-status',
     'server-status': 'server-status',
     config: 'server-config',
@@ -13,20 +14,37 @@
     commerce: 'orders',
     transactions: 'orders',
     delivery: 'orders',
+    donations: 'donations',
+    events: 'events',
+    modules: 'modules',
     players: 'players',
+    staff: 'staff',
+    roles: 'roles',
     'support-tools': 'players',
     'delivery-agents': 'delivery-agents',
     'server-bots': 'server-bots',
+    'logs-sync': 'logs-sync',
+    settings: 'settings',
+    billing: 'billing',
     actions: 'restart-control',
     'restart-control': 'restart-control',
   };
 
   const PAGE_TITLE_KEYS = {
     dashboard: 'tenant.app.page.dashboard',
+    onboarding: 'tenant.app.page.onboarding',
     'server-status': 'tenant.app.page.server-status',
     'server-config': 'tenant.app.page.server-config',
+    'logs-sync': 'tenant.app.page.logs-sync',
     orders: 'tenant.app.page.orders',
+    donations: 'tenant.app.page.donations',
+    events: 'tenant.app.page.events',
+    modules: 'tenant.app.page.modules',
     players: 'tenant.app.page.players',
+    staff: 'tenant.app.page.staff',
+    roles: 'tenant.app.page.roles',
+    settings: 'tenant.app.page.settings',
+    billing: 'tenant.app.page.billing',
     'delivery-agents': 'tenant.app.page.delivery-agents',
     'server-bots': 'tenant.app.page.server-bots',
     'restart-control': 'tenant.app.page.restart-control',
@@ -34,38 +52,93 @@
 
   const PAGE_FEATURE_RULES = {
     dashboard: [],
+    onboarding: [],
     'server-status': ['server_status'],
     'server-config': ['server_settings'],
+    'logs-sync': ['bot_log', 'sync_agent'],
     orders: ['orders_module'],
+    donations: ['donation_module'],
+    events: ['event_module'],
+    modules: ['support_module', 'analytics_module', 'event_module', 'donation_module'],
     players: ['player_module'],
+    staff: ['staff_roles'],
+    roles: ['staff_roles'],
+    settings: [],
+    billing: [],
     'delivery-agents': ['execute_agent'],
     'server-bots': ['sync_agent'],
     'restart-control': ['server_hosting'],
   };
 
+  const PAGE_SECTION_KEYS = {
+    dashboard: null,
+    onboarding: 'onboarding',
+    'server-status': 'server',
+    'server-config': 'server_config',
+    'logs-sync': 'logs_sync',
+    orders: 'orders',
+    donations: 'donations',
+    events: 'events',
+    modules: 'modules',
+    players: 'players',
+    staff: 'staff',
+    roles: 'roles',
+    settings: 'settings',
+    billing: 'billing',
+    'delivery-agents': 'delivery_agents',
+    'server-bots': 'server_bots',
+    'restart-control': 'restart_control',
+  };
+
+  const PATH_PAGE_ALIASES = {
+    '': 'dashboard',
+    onboarding: 'onboarding',
+    server: 'server-status',
+    config: 'server-config',
+    restarts: 'restart-control',
+    'delivery-agents': 'delivery-agents',
+    'server-bots': 'server-bots',
+    'logs-sync': 'logs-sync',
+    players: 'players',
+    orders: 'orders',
+    donations: 'donations',
+    events: 'events',
+    modules: 'modules',
+    staff: 'staff',
+    roles: 'roles',
+    settings: 'settings',
+    billing: 'billing',
+  };
+
   const NAV_GROUP_LABELS = {
     Overview: 'ภาพรวม',
+    Home: 'หน้าแรก',
     Server: 'เซิร์ฟเวอร์',
     Operations: 'งานประจำวัน',
+    Community: 'ชุมชน',
+    Team: 'ทีมงาน',
     Runtimes: 'เครื่องมือ',
+    Account: 'บัญชี',
   };
 
   const state = {
     payload: null,
     refreshing: false,
-    ownerTenantOptions: [],
     provisioningResult: {
       'delivery-agents': null,
       'server-bots': null,
     },
   };
 
-  function resolveTenantLabel(tenantId) {
-    const normalizedTenantId = String(tenantId || '').trim();
-    if (!normalizedTenantId) return '';
-    const rows = Array.isArray(state.ownerTenantOptions) ? state.ownerTenantOptions : [];
-    const match = rows.find((row) => String(row?.id || '').trim() === normalizedTenantId);
-    return String(match?.name || match?.slug || '').trim();
+  function resolveTenantLabel(tenantId, me, overview, tenantConfig) {
+    return firstNonEmpty([
+      overview?.tenantName,
+      overview?.tenantSlug,
+      tenantConfig?.name,
+      me?.tenantName,
+      me?.tenantSlug,
+      tenantId,
+    ], '');
   }
 
   function escapeHtml(value) {
@@ -75,6 +148,15 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function firstNonEmpty(values, fallback = '') {
+    const rows = Array.isArray(values) ? values : [values];
+    for (const value of rows) {
+      const text = String(value ?? '').trim();
+      if (text) return text;
+    }
+    return fallback;
   }
 
   function root() {
@@ -93,34 +175,204 @@
     window.AdminUiI18n?.apply?.(rootNode);
   }
 
-  function selectorNode() {
-    return document.getElementById('tenantOwnerScopeSelect');
+  const TENANT_ACTIVE_TEXT_MAP = {
+    Ready: 'พร้อมใช้งาน',
+    'Loading tenant workspace...': 'กำลังโหลดพื้นที่ผู้เช่า...',
+    'Preparing tenant data': 'กำลังเตรียมข้อมูลผู้เช่า',
+    'Loading server status, orders, players, and support tools for this tenant.': 'กำลังโหลดสถานะเซิร์ฟเวอร์ คำสั่งซื้อ ผู้เล่น และเครื่องมือดูแลของผู้เช่านี้',
+    'Could not load tenant workspace': 'โหลดพื้นที่ผู้เช่าไม่สำเร็จ',
+    'Load failed': 'โหลดไม่สำเร็จ',
+    'No tenant data yet': 'ยังไม่มีข้อมูลผู้เช่า',
+    'Wait for the latest tenant data to load.': 'รอให้ระบบดึงข้อมูลผู้เช่าล่าสุดก่อน',
+    'Daily overview': 'ภาพรวมประจำวัน',
+    Access: 'การเข้าถึง',
+    'Some actions are locked': 'บางการทำงานยังถูกล็อกอยู่',
+    'Some config actions are locked': 'บางการตั้งค่าถูกล็อกอยู่',
+    'Locked action': 'การทำงานที่ถูกล็อก',
+    'This action is locked in the current package.': 'การทำงานนี้ถูกล็อกอยู่ในแพ็กเกจปัจจุบัน',
+    'Upgrade package': 'อัปเกรดแพ็กเกจ',
+    'Review role access': 'ตรวจสิทธิ์ของบทบาท',
+    Onboarding: 'เริ่มต้นใช้งาน',
+    'Logs & sync': 'บันทึกและซิงก์',
+    Donations: 'โดเนต',
+    'Bot modules': 'โมดูลบอท',
+    'Server Bot': 'บอทเซิร์ฟเวอร์',
+    'Delivery Agent': 'บอทส่งของ',
+    'Download install script (.ps1)': 'ดาวน์โหลดสคริปต์ติดตั้ง (.ps1)',
+    'Download quick install (.cmd)': 'ดาวน์โหลดไฟล์ติดตั้งด่วน (.cmd)',
+    'Download setup notes (.txt)': 'ดาวน์โหลดโน้ตการติดตั้ง (.txt)',
+    'Saving...': 'กำลังบันทึก...',
+    'Creating...': 'กำลังสร้าง...',
+    'Deleting...': 'กำลังลบ...',
+    'Inviting...': 'กำลังเชิญ...',
+    'Revoking...': 'กำลังเพิกถอน...',
+    'Refreshing...': 'กำลังรีเฟรช...',
+    'Retrying...': 'กำลังลองส่งใหม่...',
+    'Cancelling...': 'กำลังยกเลิก...',
+    'Starting...': 'กำลังเริ่มทำงาน...',
+    'Enabling...': 'กำลังเปิดใช้งาน...',
+    'Disabling...': 'กำลังปิดใช้งาน...',
+    'Guild ID is required.': 'ต้องกรอก Guild ID',
+    'Choose a server before saving the guild mapping.': 'เลือกเซิร์ฟเวอร์ก่อนบันทึกการผูก Guild',
+    'Discord guild mapping saved.': 'บันทึกการผูก Discord Guild แล้ว',
+    'Tenant settings saved.': 'บันทึกการตั้งค่าผู้เช่าแล้ว',
+    'Tenant settings could not find the tenant scope.': 'ไม่พบขอบเขตผู้เช่าสำหรับบันทึกการตั้งค่า',
+    'Email is required to invite tenant staff.': 'ต้องกรอกอีเมลก่อนเชิญทีมงานผู้เช่า',
+    'Tenant staff invitation created.': 'สร้างคำเชิญทีมงานผู้เช่าแล้ว',
+    'Tenant staff access updated.': 'อัปเดตสิทธิ์ทีมงานผู้เช่าแล้ว',
+    'Tenant staff access revoked.': 'เพิกถอนสิทธิ์ทีมงานผู้เช่าแล้ว',
+    'Revoke access for this tenant staff member?': 'เพิกถอนสิทธิ์ของทีมงานผู้เช่าคนนี้ใช่หรือไม่?',
+    'Your tenant role cannot manage staff access.': 'บทบาทของคุณไม่มีสิทธิ์จัดการทีมงานผู้เช่า',
+    'This tenant role cannot change the selected membership.': 'บทบาทนี้ไม่สามารถเปลี่ยนสิทธิ์สมาชิกที่เลือกได้',
+    'This tenant role cannot remove the selected membership.': 'บทบาทนี้ไม่สามารถลบสมาชิกที่เลือกได้',
+    'Preview tenants cannot invite staff yet.': 'ผู้เช่าแบบพรีวิวยังเชิญทีมงานไม่ได้',
+    'Preview tenants cannot change staff access yet.': 'ผู้เช่าแบบพรีวิวยังเปลี่ยนสิทธิ์ทีมงานไม่ได้',
+    'Preview tenants cannot revoke staff access yet.': 'ผู้เช่าแบบพรีวิวยังเพิกถอนสิทธิ์ทีมงานไม่ได้',
+    'Preview mode cannot change Discord guild mappings.': 'โหมดพรีวิวไม่สามารถแก้การผูก Discord Guild ได้',
+    'Preview mode cannot save tenant settings.': 'โหมดพรีวิวไม่สามารถบันทึกการตั้งค่าผู้เช่าได้',
+    'Preview mode cannot manage donation packages.': 'โหมดพรีวิวไม่สามารถจัดการแพ็กเกจโดเนตได้',
+    'Preview mode cannot manage live events.': 'โหมดพรีวิวไม่สามารถจัดการกิจกรรมจริงได้',
+    'Preview mode cannot run order actions.': 'โหมดพรีวิวไม่สามารถสั่งงานคำสั่งซื้อได้',
+    'Preview mode cannot inspect live order data.': 'โหมดพรีวิวไม่สามารถดูข้อมูลคำสั่งซื้อจริงได้',
+    'Preview mode cannot change module state.': 'โหมดพรีวิวไม่สามารถเปลี่ยนสถานะโมดูลได้',
+    'Preview mode cannot load live sync signals.': 'โหมดพรีวิวไม่สามารถโหลดสัญญาณซิงก์จริงได้',
+    'Preview mode cannot send restart jobs.': 'โหมดพรีวิวไม่สามารถส่งงานรีสตาร์ตได้',
+    'Preview mode cannot control the server.': 'โหมดพรีวิวไม่สามารถควบคุมเซิร์ฟเวอร์ได้',
+    'Provide id, name, price, and description before creating a donation package.': 'กรอก id ชื่อ ราคา และคำอธิบายก่อนสร้างแพ็กเกจโดเนต',
+    'Name, price, and description are required before saving the package.': 'ต้องกรอกชื่อ ราคา และคำอธิบายก่อนบันทึกแพ็กเกจ',
+    'Item-based donation packages still need a SCUM game item id.': 'แพ็กเกจโดเนตแบบไอเท็มยังต้องมีรหัสไอเท็มเกม SCUM',
+    'Finish the first-time setup, then move into daily operations.': 'ตั้งค่าเริ่มต้นให้ครบก่อน แล้วค่อยไปทำงานประจำวัน',
+    'No server connected': 'ยังไม่มีเซิร์ฟเวอร์เชื่อมต่อ',
+    Checklist: 'เช็กลิสต์',
+    Missing: 'ยังขาด',
+    Status: 'สถานะ',
+    online: 'ออนไลน์',
+    stale: 'ค้าง',
+    'Setup checklist': 'เช็กลิสต์การตั้งค่า',
+    'What happens after setup': 'หลังตั้งค่าแล้วจะเกิดอะไรต่อ',
+    'Then move into daily operations': 'แล้วค่อยไปทำงานประจำวัน',
+    'Details / history': 'รายละเอียด / ประวัติ',
+    'Review Server Settings': 'ตรวจการตั้งค่าเซิร์ฟเวอร์',
+    'Setup steps completed inside this tenant': 'ขั้นที่ตั้งค่าเสร็จแล้วภายในผู้เช่านี้',
+    'Create or connect a server first': 'สร้างหรือเชื่อมต่อเซิร์ฟเวอร์ก่อน',
+    'Latest update': 'อัปเดตล่าสุด',
+    'Server Bot installer ready': 'แพ็กเกจติดตั้งบอทเซิร์ฟเวอร์พร้อมแล้ว',
+    'Download the installer package for the target machine.': 'ดาวน์โหลดแพ็กเกจติดตั้งไปใช้บนเครื่องปลายทางได้เลย',
+    'Ready to sync': 'พร้อมซิงก์',
+    'Queue pressure': 'ภาระคิวงาน',
+    'Failed work': 'งานที่ล้มเหลว',
+    'No queue pressure detected right now.': 'ตอนนี้ยังไม่พบแรงกดดันของคิวงาน',
+    'No failed jobs are currently visible.': 'ตอนนี้ยังไม่พบงานล้มเหลว',
+    'Binding rule': 'กติกาการผูกเครื่อง',
+    'Config access probe ready': 'พร้อมทดสอบการอ่านค่าตั้งค่า',
+    'Restart probe needs restart template': 'ยังต้องตั้งคำสั่งรีสตาร์ต',
+    'Action': 'การทำงาน',
+    Version: 'เวอร์ชัน',
+    Server: 'เซิร์ฟเวอร์',
+    'Rotate bot key': 'หมุนคีย์บอตใหม่',
+    'Revoke bot access': 'เพิกถอนสิทธิ์บอต',
+    'Reset binding': 'รีเซ็ตการผูกเครื่อง',
+    'Sync probe ready': 'พร้อมทดสอบการซิงก์',
+    'Test sync': 'ทดสอบการซิงก์',
+    'Test config access': 'ทดสอบการอ่านค่าตั้งค่า',
+    'Test restart': 'ทดสอบความพร้อมรีสตาร์ต',
+    'Open server': 'เปิดหน้าเซิร์ฟเวอร์',
+    'Guild ID': 'Guild ID',
+    'Choose which server this bot should manage': 'เลือกเซิร์ฟเวอร์ที่บอทนี้ต้องดูแล',
+    'Choose the server that owns this guild binding': 'เลือกเซิร์ฟเวอร์ที่เป็นเจ้าของการผูก Guild นี้',
+    'Paste the Discord guild ID for this tenant community': 'วาง Discord Guild ID ของชุมชนผู้เช่านี้',
+  };
+
+  function translateTenantActiveText(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    if (TENANT_ACTIVE_TEXT_MAP[text]) return TENANT_ACTIVE_TEXT_MAP[text];
+    return text
+      .replace(/^Donation package (.+) created\.$/u, 'สร้างแพ็กเกจโดเนต $1 แล้ว')
+      .replace(/^Donation package (.+) saved\.$/u, 'บันทึกแพ็กเกจโดเนต $1 แล้ว')
+      .replace(/^Donation package (.+) deleted\.$/u, 'ลบแพ็กเกจโดเนต $1 แล้ว')
+      .replace(/^Donation package (.+) disabled\.$/u, 'ปิดใช้งานแพ็กเกจโดเนต $1 แล้ว')
+      .replace(/^Donation package (.+) enabled\.$/u, 'เปิดใช้งานแพ็กเกจโดเนต $1 แล้ว')
+      .replace(/^(\d+) of (\d+) complete$/u, '$1 จาก $2 ขั้นเสร็จแล้ว')
+      .replace(/^(\d+) online$/u, '$1 ออนไลน์')
+      .replace(/^(\d+) stale$/u, '$1 ค้าง')
+      .replace(/^(\d+) setup tokens$/u, '$1 setup token')
+      .replace(/^Create (บอท.+)$/u, 'สร้าง$1')
+      .replace(/^Connect (บอท.+)$/u, 'เชื่อมต่อ$1')
+      .replace(/^Finish (บอท.+) setup$/u, 'ตั้งค่า$1ให้เสร็จ')
+      .replace(/^Needed for config apply, sync, and restart jobs$/u, 'จำเป็นสำหรับงานบันทึกค่า ซิงก์ และรีสตาร์ต')
+      .replace(/^Needed for live in-game item handoff$/u, 'จำเป็นสำหรับการส่งไอเท็มในเกมแบบสด')
+      .replace(/^Finish the missing steps in order\. Each step opens the real workspace you will use every day after setup\.$/u, 'ทำขั้นที่ยังขาดตามลำดับ แต่ละขั้นจะพาไปยังหน้าทำงานจริงที่ใช้ทุกวันหลังตั้งค่าเสร็จ')
+      .replace(/^needs setup$/u, 'ต้องตั้งค่า')
+      .replace(/^Issue the setup token for the machine that can read SCUM\.log and edit server config\.$/u, 'ออก setup token ให้เครื่องที่อ่าน SCUM.log และแก้ค่าตั้งเซิร์ฟเวอร์ได้')
+      .replace(/^The bot should come online before config apply and restart actions become dependable\.$/u, 'บอทควรออนไลน์ก่อน เพื่อให้การบันทึกค่าและรีสตาร์ตเชื่อถือได้')
+      .replace(/^Issue the setup token for the machine that can keep the SCUM client open for deliveries\.$/u, 'ออก setup token ให้เครื่องที่เปิดไคลเอนต์ SCUM ค้างไว้เพื่อส่งของได้')
+      .replace(/^The delivery machine should come online before live order delivery becomes reliable\.$/u, 'เครื่องส่งของควรออนไลน์ก่อน เพื่อให้การส่งของจริงเชื่อถือได้')
+      .replace(/^Open the config workspace, confirm the current values, and save when ready\.$/u, 'เปิดหน้าตั้งค่า ยืนยันค่าปัจจุบัน แล้วบันทึกเมื่อพร้อม')
+      .replace(/ first$/u, ' ก่อน')
+      .replace(/ second$/u, ' ลำดับถัดไป')
+      .replace(/^After setup, the Server, Orders, Players, and Events pages become the daily workspace\.$/u, 'หลังตั้งค่าเสร็จ หน้าเซิร์ฟเวอร์ คำสั่งซื้อ ผู้เล่น และกิจกรรม จะกลายเป็นพื้นที่ทำงานประจำวัน')
+      .replace(/^Config save, apply, backup, and restart actions depend on the บอทเซิร์ฟเวอร์ being online\.$/u, 'การบันทึกค่า ใช้งานค่า สำรอง และรีสตาร์ต ขึ้นกับการที่บอทเซิร์ฟเวอร์ออนไลน์อยู่')
+      .replace(/^Orders can exist before it, but reliable in-game delivery starts only after the บอทส่งของ connects\.$/u, 'คำสั่งซื้ออาจมีได้ก่อน แต่การส่งของในเกมที่เชื่อถือได้จะเริ่มหลังบอทส่งของเชื่อมต่อแล้วเท่านั้น')
+      .replace(/^Ready to inspect logs, config, backup, and restart control\.$/u, 'พร้อมตรวจบันทึกค่า อ่านค่าตั้ง สำรอง และควบคุมการรีสตาร์ต')
+      .replace(/^Set a restart or apply command template in Server Config before running the restart readiness check\.$/u, 'ตั้งคำสั่งรีสตาร์ตหรือคำสั่ง apply ในหน้าตั้งค่าเซิร์ฟเวอร์ก่อนรันทดสอบความพร้อมรีสตาร์ต')
+      .replace(/^Queue a control-plane sync probe and confirm the bot can still report fresh activity\.$/u, 'ส่งงานทดสอบการซิงก์ แล้วตรวจว่าบอทยังรายงานสถานะล่าสุดกลับมาได้')
+      .replace(/^Run a restart-readiness check before sending a live restart job\.$/u, 'รันทดสอบความพร้อมรีสตาร์ตก่อนส่งงานรีสตาร์ตจริง')
+      .replace(/^Finish the first-time setup, then move into daily operations\.$/u, 'ตั้งค่าเริ่มต้นให้ครบก่อน แล้วค่อยไปทำงานประจำวัน')
+      .replace(/^Server control is locked in the current package\.$/u, 'การควบคุมเซิร์ฟเวอร์ถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Restart actions are locked in the current package\.$/u, 'การสั่งรีสตาร์ตถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Config save actions are locked in the current package\.$/u, 'การบันทึกค่าเซิร์ฟเวอร์ถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Restart-required config actions are locked in the current package\.$/u, 'การบันทึกค่าที่ต้องรีสตาร์ตถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Delivery Agent actions are locked in the current package\.$/u, 'การจัดการบอทส่งของถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Server Bot actions are locked in the current package\.$/u, 'การจัดการบอทเซิร์ฟเวอร์ถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Sync tests are locked in the current package\.$/u, 'การทดสอบซิงก์ถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Config access tests are locked in the current package\.$/u, 'การทดสอบสิทธิ์เข้าถึงค่าตั้งถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Restart tests are locked in the current package\.$/u, 'การทดสอบรีสตาร์ตถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Order actions are locked in the current package\.$/u, 'การทำงานของคำสั่งซื้อถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Donation package actions are locked in the current package\.$/u, 'การจัดการแพ็กเกจโดเนตถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Event actions are locked in the current package\.$/u, 'การจัดการกิจกรรมถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Module controls are locked in the current package\.$/u, 'การควบคุมโมดูลถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Staff management is locked in the current package\.$/u, 'การจัดการทีมงานถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Tenant settings changes are locked in the current package\.$/u, 'การเปลี่ยนการตั้งค่าผู้เช่าถูกล็อกอยู่ในแพ็กเกจปัจจุบัน')
+      .replace(/^Download install script \((.+)\)$/u, 'ดาวน์โหลดสคริปต์ติดตั้ง ($1)')
+      .replace(/^Download quick install \((.+)\)$/u, 'ดาวน์โหลดไฟล์ติดตั้งด่วน ($1)')
+      .replace(/^Download setup notes \((.+)\)$/u, 'ดาวน์โหลดโน้ตการติดตั้ง ($1)')
+      .replace(/Delivery Agent/gu, 'บอทส่งของ')
+      .replace(/Server Bot/gu, 'บอทเซิร์ฟเวอร์')
+      .replace(/Bot modules/gu, 'โมดูลบอท')
+      .replace(/Logs & sync/gu, 'บันทึกและซิงก์')
+      .replace(/Onboarding/gu, 'เริ่มต้นใช้งาน');
   }
 
-  function selectorWrapNode() {
-    return document.getElementById('tenantOwnerScopeWrap');
+  function localizeTenantElement(node) {
+    if (!(node instanceof Element)) return;
+    const textTags = new Set(['A', 'BUTTON', 'TH', 'TD', 'LABEL', 'OPTION', 'P', 'SPAN', 'STRONG', 'SMALL', 'H1', 'H2', 'H3', 'H4', 'DIV']);
+    if (textTags.has(node.tagName) && node.children.length === 0) {
+      const rawText = String(node.textContent ?? '').trim();
+      const translated = translateTenantActiveText(rawText);
+      if (translated && translated !== rawText) {
+        node.textContent = translated;
+      }
+    }
+    ['title', 'placeholder', 'aria-label'].forEach((attribute) => {
+      if (!node.hasAttribute(attribute)) return;
+      const rawValue = String(node.getAttribute(attribute) || '').trim();
+      const translated = translateTenantActiveText(rawValue);
+      if (translated && translated !== rawValue) {
+        node.setAttribute(attribute, translated);
+      }
+    });
   }
 
-  function selectorButtonNode() {
-    return document.getElementById('tenantOwnerScopeButton');
-  }
-
-  function selectorValueNode() {
-    return document.getElementById('tenantOwnerScopeValue');
-  }
-
-  function selectorMenuNode() {
-    return document.getElementById('tenantOwnerScopeMenu');
-  }
-
-  function selectorComboboxNode() {
-    return document.querySelector('#tenantOwnerScopeWrap .surface-combobox');
+  function localizeTenantActivePage(scopeNode = document) {
+    if (!(scopeNode instanceof Element || scopeNode instanceof Document)) return;
+    scopeNode.querySelectorAll('*').forEach((node) => localizeTenantElement(node));
   }
 
   function setStatus(message, tone) {
     const node = statusNode();
     if (!node) return;
-    node.textContent = String(message || '').trim();
+    node.textContent = translateTenantActiveText(String(message || '').trim());
     node.dataset.tone = tone || 'muted';
   }
 
@@ -129,8 +381,8 @@
     if (!target) return null;
     target.innerHTML = [
       '<section style="padding:32px;border:1px solid rgba(212,186,113,.18);border-radius:24px;background:rgba(13,17,14,.92);box-shadow:0 24px 56px rgba(0,0,0,.28)">',
-      `<h1 style="margin:0 0 12px;font:700 32px/1.05 'IBM Plex Sans Thai','Segoe UI',sans-serif;color:#f4efe4">${escapeHtml(title)}</h1>`,
-      `<p style="margin:0;color:rgba(244,239,228,.74);font:400 15px/1.7 'IBM Plex Sans Thai','Segoe UI',sans-serif">${escapeHtml(detail)}</p>`,
+      `<h1 style="margin:0 0 12px;font:700 32px/1.05 'IBM Plex Sans Thai','Segoe UI',sans-serif;color:#f4efe4">${escapeHtml(translateTenantActiveText(title))}</h1>`,
+      `<p style="margin:0;color:rgba(244,239,228,.74);font:400 15px/1.7 'IBM Plex Sans Thai','Segoe UI',sans-serif">${escapeHtml(translateTenantActiveText(detail))}</p>`,
       '</section>',
     ].join('');
   }
@@ -151,10 +403,15 @@
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok === false) {
       if (response.status === 401) {
-        window.location.href = '/tenant/login';
+        window.location.href = buildTenantLoginRedirectUrl();
         return fallback;
       }
-      throw new Error(String(payload?.error || `Request failed (${response.status})`));
+      throw new Error(String(
+        payload?.data?.message
+        || payload?.message
+        || payload?.error
+        || `Request failed (${response.status})`,
+      ));
     }
     return payload?.data ?? fallback;
   }
@@ -179,21 +436,174 @@
     }
   }
 
-  function currentPage() {
-    const raw = getRawHashRoute();
+  function resolveTenantPageKey(rawTarget) {
+    const raw = String(rawTarget || '').trim().toLowerCase();
+    if (!raw) return 'dashboard';
     return PAGE_ALIASES[raw] || 'dashboard';
   }
 
-  function getRawHashRoute() {
-    return String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  function currentPage() {
+    return resolveTenantPageKey(getRawPathRoute());
   }
 
-  function navigateTenantHash(nextHash) {
-    const hashValue = String(nextHash || '').trim();
-    if (!hashValue || hashValue === '#') return;
-    const normalizedHash = hashValue.startsWith('#') ? hashValue : `#${hashValue}`;
-    if (window.location.hash !== normalizedHash) {
-      window.location.hash = normalizedHash;
+  function getRawPathRoute() {
+    const path = String(window.location.pathname || '').trim().toLowerCase();
+    if (!path.startsWith('/tenant')) return '';
+    const relative = path.slice('/tenant'.length).replace(/^\/+/, '');
+    if (!relative) return '';
+    const segments = relative.split('/').filter(Boolean);
+    if (!segments.length) return '';
+    if (segments[0] === 'server' && segments[1] === 'config') return 'config';
+    if (segments[0] === 'server' && segments[1] === 'restarts') return 'restarts';
+    if (segments[0] === 'runtimes' && segments[1] === 'delivery-agents') return 'delivery-agents';
+    if (segments[0] === 'runtimes' && segments[1] === 'server-bots') return 'server-bots';
+    return segments[segments.length - 1] || segments[0];
+  }
+
+  function buildCanonicalTenantPath(pageKey) {
+    switch (pageKey) {
+      case 'onboarding':
+        return '/tenant/onboarding';
+      case 'server-status':
+        return '/tenant/server';
+      case 'server-config':
+        return '/tenant/server/config';
+      case 'restart-control':
+        return '/tenant/server/restarts';
+      case 'delivery-agents':
+        return '/tenant/runtimes/delivery-agents';
+      case 'server-bots':
+        return '/tenant/runtimes/server-bots';
+      case 'logs-sync':
+        return '/tenant/logs-sync';
+      case 'orders':
+        return '/tenant/orders';
+      case 'donations':
+        return '/tenant/donations';
+      case 'events':
+        return '/tenant/events';
+      case 'modules':
+        return '/tenant/modules';
+      case 'players':
+        return '/tenant/players';
+      case 'staff':
+        return '/tenant/staff';
+      case 'roles':
+        return '/tenant/roles';
+      case 'settings':
+        return '/tenant/settings';
+      case 'billing':
+        return '/tenant/billing';
+      default:
+        return '/tenant';
+    }
+  }
+
+  function resolveTenantPageKeyFromPath(pathname) {
+    const path = String(pathname || '').trim().toLowerCase();
+    if (!path.startsWith('/tenant')) return '';
+    const relative = path.slice('/tenant'.length).replace(/^\/+/, '');
+    if (!relative) return 'dashboard';
+    const segments = relative.split('/').filter(Boolean);
+    if (!segments.length) return 'dashboard';
+    if (segments[0] === 'server' && segments[1] === 'config') return 'server-config';
+    if (segments[0] === 'server' && segments[1] === 'restarts') return 'restart-control';
+    if (segments[0] === 'runtimes' && segments[1] === 'delivery-agents') return 'delivery-agents';
+    if (segments[0] === 'runtimes' && segments[1] === 'server-bots') return 'server-bots';
+    return PATH_PAGE_ALIASES[segments[segments.length - 1]] || 'dashboard';
+  }
+
+  function bootstrapLegacyTenantRoute() {
+    const rawHash = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+    if (!rawHash || !Object.prototype.hasOwnProperty.call(PAGE_ALIASES, rawHash)) return;
+    const pageKey = resolveTenantPageKey(rawHash);
+    const canonicalPath = buildCanonicalTenantPath(pageKey);
+    const nextUrl = `${canonicalPath}${window.location.search || ''}`;
+    window.history.replaceState({}, '', nextUrl);
+  }
+
+  function canonicalizeTenantLinks(scopeNode) {
+    const rootNode = scopeNode instanceof Element ? scopeNode : document;
+    rootNode.querySelectorAll('a[href^="#"], a[href^="/tenant"]').forEach((link) => {
+      const target = String(link.getAttribute('href') || '').trim();
+      if (!target || target === '#') return;
+      let pageKey = '';
+      if (target.startsWith('/tenant')) {
+        pageKey = resolveTenantPageKeyFromPath(target);
+      } else {
+        const rawHash = target.replace(/^#/, '').trim().toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(PAGE_ALIASES, rawHash)) return;
+        pageKey = resolveTenantPageKey(rawHash);
+      }
+      if (!pageKey) return;
+      const canonicalPath = buildCanonicalTenantPath(pageKey);
+      if (canonicalPath && target !== canonicalPath) {
+        link.setAttribute('href', canonicalPath);
+      }
+    });
+  }
+
+  function writeTenantUrlState(nextParams = {}) {
+    const url = new URL(window.location.href);
+    Object.entries(nextParams).forEach(([key, value]) => {
+      const normalizedValue = String(value || '').trim();
+      if (normalizedValue) {
+        url.searchParams.set(key, normalizedValue);
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function buildTenantLoginRedirectUrl(options = {}) {
+    const params = new URLSearchParams();
+    if (options && options.switch === true) {
+      params.set('switch', '1');
+    }
+    const nextUrl = `${window.location.pathname || '/tenant'}${window.location.search || ''}`;
+    if (
+      nextUrl
+      && nextUrl.startsWith('/tenant')
+      && !nextUrl.startsWith('//')
+      && nextUrl !== '/tenant'
+      && nextUrl !== '/tenant/'
+    ) {
+      params.set('next', nextUrl);
+    }
+    const query = params.toString();
+    return `/tenant/login${query ? `?${query}` : ''}`;
+  }
+
+  function navigateTenantRoute(nextTarget) {
+    const rawTarget = String(nextTarget || '').trim();
+    if (!rawTarget || rawTarget === '#') return;
+    let pageKey = 'dashboard';
+    if (rawTarget.startsWith('/tenant/')) {
+      const relative = rawTarget.slice('/tenant/'.length).split('/').filter(Boolean);
+      if (!relative.length) {
+        pageKey = 'dashboard';
+      } else if (relative[0] === 'server' && relative[1] === 'config') {
+        pageKey = 'server-config';
+      } else if (relative[0] === 'server' && relative[1] === 'restarts') {
+        pageKey = 'restart-control';
+      } else if (relative[0] === 'runtimes' && relative[1] === 'delivery-agents') {
+        pageKey = 'delivery-agents';
+      } else if (relative[0] === 'runtimes' && relative[1] === 'server-bots') {
+        pageKey = 'server-bots';
+      } else {
+        pageKey = PATH_PAGE_ALIASES[relative[relative.length - 1]] || 'dashboard';
+      }
+    } else {
+      pageKey = resolveTenantPageKey(rawTarget.replace(/^#/, ''));
+    }
+    const canonicalPath = buildCanonicalTenantPath(pageKey);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.pushState({}, '', canonicalPath);
+      const surfaceState = renderCurrentPage();
+      if (!surfaceState?.notice && state.payload && !state.refreshing) {
+        setStatus(t('tenant.app.status.ready', 'Ready'), 'success');
+      }
       return;
     }
     const surfaceState = renderCurrentPage();
@@ -244,6 +654,9 @@
       || payload?.overview?.opsState?.previewMode
       || payload?.overview?.opsState?.preview,
     );
+    const canonicalEntitlements = payload?.featureEntitlements && typeof payload.featureEntitlements === 'object'
+      ? payload.featureEntitlements
+      : null;
     const featureAccess = normalizeFeatureAccess(
       payload?.overview?.tenantFeatureAccess || createEmptyFeatureAccess(payload?.tenantId),
       payload?.tenantId,
@@ -251,75 +664,147 @@
     );
     const pageAccess = Object.fromEntries(
       Object.entries(PAGE_FEATURE_RULES).map(([pageKey, requiredFeatures]) => {
+        const sectionKey = PAGE_SECTION_KEYS[pageKey];
+        const sectionEntitlement = sectionKey
+          ? canonicalEntitlements?.sections?.[sectionKey] || null
+          : null;
         const enabledByPackage = hasAnyTenantFeature(featureAccess, requiredFeatures);
-        const enabled = previewMode ? true : enabledByPackage;
+        const enabled = previewMode
+          ? true
+          : sectionEntitlement
+            ? sectionEntitlement.enabled !== false
+            : enabledByPackage;
         return [pageKey, {
           enabled,
           locked: !enabled,
           preview: previewMode && !enabledByPackage,
           requiredFeatures: [...requiredFeatures],
+          reason: sectionEntitlement?.reason || null,
+          upgradeCta: sectionEntitlement?.upgradeCta || null,
+          sectionKey,
         }];
       }),
     );
-    const resolvedPage = pageAccess[requestedPage]?.enabled ? requestedPage : 'dashboard';
+    const knownPage = Object.prototype.hasOwnProperty.call(PAGE_TITLE_KEYS, requestedPage) || requestedPage === 'dashboard';
+    const resolvedPage = knownPage ? requestedPage : 'dashboard';
     const navGroups = [
       {
-        label: 'Overview',
+        label: 'หน้าแรก',
         items: [
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.dashboard, 'Daily overview'), pageAccess.dashboard),
-            href: '#dashboard',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.dashboard, 'ภาพรวมงานประจำวัน'), pageAccess.dashboard),
+            href: buildCanonicalTenantPath('dashboard'),
             current: resolvedPage === 'dashboard',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.onboarding, 'ตั้งค่าเริ่มต้น'), pageAccess.onboarding),
+            href: buildCanonicalTenantPath('onboarding'),
+            current: resolvedPage === 'onboarding',
           },
         ],
       },
       {
-        label: 'Server',
+        label: 'เซิร์ฟเวอร์',
         items: [
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-status'], 'Server status'), pageAccess['server-status']),
-            href: '#server-status',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-status'], 'สถานะเซิร์ฟเวอร์'), pageAccess['server-status']),
+            href: buildCanonicalTenantPath('server-status'),
             current: resolvedPage === 'server-status',
           },
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-config'], 'Server settings'), pageAccess['server-config']),
-            href: '#server-config',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-config'], 'ตั้งค่าเซิร์ฟเวอร์'), pageAccess['server-config']),
+            href: buildCanonicalTenantPath('server-config'),
             current: resolvedPage === 'server-config',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['restart-control'], 'ควบคุมการรีสตาร์ต'), pageAccess['restart-control']),
-            href: '#restart-control',
+            href: buildCanonicalTenantPath('restart-control'),
             current: resolvedPage === 'restart-control',
           },
         ],
       },
       {
-        label: 'Operations',
+        label: 'งานปฏิบัติการ',
         items: [
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.orders, 'Orders and delivery'), pageAccess.orders),
-            href: '#orders',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['logs-sync'], 'บันทึกและการซิงก์'), pageAccess['logs-sync']),
+            href: buildCanonicalTenantPath('logs-sync'),
+            current: resolvedPage === 'logs-sync',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.orders, 'คำสั่งซื้อและการส่งของ'), pageAccess.orders),
+            href: buildCanonicalTenantPath('orders'),
             current: resolvedPage === 'orders',
           },
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.players, 'Players and support'), pageAccess.players),
-            href: '#players',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.players, 'ผู้เล่นและการช่วยเหลือ'), pageAccess.players),
+            href: buildCanonicalTenantPath('players'),
             current: resolvedPage === 'players',
           },
         ],
       },
       {
-        label: 'เครื่องมือ',
+        label: 'ชุมชน',
         items: [
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['delivery-agents'], 'Delivery Agent'), pageAccess['delivery-agents']),
-            href: '#delivery-agents',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.donations, 'แพ็กเกจสนับสนุน'), pageAccess.donations),
+            href: buildCanonicalTenantPath('donations'),
+            current: resolvedPage === 'donations',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.events, 'กิจกรรม'), pageAccess.events),
+            href: buildCanonicalTenantPath('events'),
+            current: resolvedPage === 'events',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.modules, 'โมดูลบอต'), pageAccess.modules),
+            href: buildCanonicalTenantPath('modules'),
+            current: resolvedPage === 'modules',
+          },
+        ],
+      },
+      {
+        label: 'บอต',
+        items: [
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['delivery-agents'], 'บอตส่งของ'), pageAccess['delivery-agents']),
+            href: buildCanonicalTenantPath('delivery-agents'),
             current: resolvedPage === 'delivery-agents',
           },
           {
-            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-bots'], 'Server Bot'), pageAccess['server-bots']),
-            href: '#server-bots',
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-bots'], 'บอตเซิร์ฟเวอร์'), pageAccess['server-bots']),
+            href: buildCanonicalTenantPath('server-bots'),
             current: resolvedPage === 'server-bots',
+          },
+        ],
+      },
+      {
+        label: 'ทีมงาน',
+        items: [
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.staff, 'ทีมงาน'), pageAccess.staff),
+            href: buildCanonicalTenantPath('staff'),
+            current: resolvedPage === 'staff',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.roles, 'บทบาทและสิทธิ์'), pageAccess.roles),
+            href: buildCanonicalTenantPath('roles'),
+            current: resolvedPage === 'roles',
+          },
+        ],
+      },
+      {
+        label: 'บัญชี',
+        items: [
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.settings, 'ตั้งค่า'), pageAccess.settings),
+            href: buildCanonicalTenantPath('settings'),
+            current: resolvedPage === 'settings',
+          },
+          {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.billing, 'แพ็กเกจและการชำระเงิน'), pageAccess.billing),
+            href: buildCanonicalTenantPath('billing'),
+            current: resolvedPage === 'billing',
           },
         ],
       },
@@ -329,16 +814,25 @@
       label: NAV_GROUP_LABELS[group.label] || group.label,
       items: Array.isArray(group.items) ? group.items : [],
     }));
-    const notice = !previewMode && resolvedPage !== requestedPage
+    const notice = !knownPage
       ? {
           tone: 'warning',
-          title: t('tenant.notice.lockedTitle', 'แพ็กเกจปัจจุบันยังไม่เปิดหน้านี้'),
-          detail: t(
-            'tenant.notice.lockedDetail',
-            'สิทธิ์ของผู้เช่ารายนี้ยังไม่ครอบคลุมหน้านี้ ระบบจึงพากลับมาที่หน้าที่ใช้งานได้ก่อน',
-          ),
+          title: t('tenant.notice.unknownTitle', 'We could not match that page'),
+          detail: t('tenant.notice.unknownDetail', 'The requested tenant page does not exist, so the workspace opened the daily overview instead.'),
         }
-      : null;
+      : pageAccess[resolvedPage]?.locked
+        ? {
+            tone: previewMode ? 'info' : 'warning',
+            title: t('tenant.notice.lockedTitle', 'This page is visible but some actions are locked'),
+            detail: previewMode
+              ? t('tenant.notice.previewDetail', 'Preview tenants can open this page, but live actions stay disabled until setup is complete.')
+              : firstNonEmpty([
+                pageAccess[resolvedPage]?.reason,
+                t('tenant.notice.lockedDetail', 'The page stays visible so you can understand the feature, but some actions require a package upgrade.'),
+              ], t('tenant.notice.lockedDetail', 'The page stays visible so you can understand the feature, but some actions require a package upgrade.')),
+            upgradeCta: pageAccess[resolvedPage]?.upgradeCta || null,
+          }
+        : null;
 
     return {
       featureAccess,
@@ -347,11 +841,6 @@
       resolvedPage,
       notice,
     };
-  }
-
-  function readTenantIdFromUrl() {
-    const url = new URL(window.location.href);
-    return String(url.searchParams.get('tenantId') || '').trim();
   }
 
   function readUserIdFromUrl() {
@@ -364,253 +853,31 @@
     return String(url.searchParams.get('code') || '').trim();
   }
 
-  function isPreviewTenantId(value) {
-    const text = String(value || '').trim().toLowerCase();
-    return text.startsWith('tenant-preview-') || text.startsWith('preview-');
-  }
-
-  function pickPreferredTenantId(rows, currentTenantId) {
-    const normalizedCurrentTenantId = String(currentTenantId || '').trim();
-    const tenants = Array.isArray(rows) ? rows : [];
-    if (normalizedCurrentTenantId && tenants.some((row) => String(row?.id || '').trim() === normalizedCurrentTenantId)) {
-      return normalizedCurrentTenantId;
-    }
-    const activeNonPreview = tenants.find((row) => {
-      const tenantId = String(row?.id || '').trim();
-      const status = String(row?.status || '').trim().toLowerCase();
-      return tenantId && !isPreviewTenantId(tenantId) && status !== 'suspended' && status !== 'inactive';
-    });
-    if (activeNonPreview) return String(activeNonPreview.id || '').trim();
-    return String(tenants[0]?.id || '').trim();
-  }
-
-  function normalizeTenantBaseLabel(row) {
-    return String(row?.name || row?.slug || row?.id || '').trim();
-  }
-
-  function shortTenantReference(row, baseLabel) {
-    const slug = String(row?.slug || '').trim();
-    const id = String(row?.id || '').trim();
-    if (slug && slug !== baseLabel) return slug;
-    if (!id || id === baseLabel) return '';
-    if (id.length <= 24) return id;
-    return `${id.slice(0, 12)}...${id.slice(-4)}`;
-  }
-
-  function isPreviewTenantRow(row) {
-    const tenantId = String(row?.id || '').trim();
-    const status = String(row?.status || '').trim().toLowerCase();
-    return isPreviewTenantId(tenantId) || ['preview', 'trial', 'trialing'].includes(status);
-  }
-
-  function formatTenantStateLabel(row) {
-    const status = String(row?.status || '').trim().toLowerCase();
-    if (isPreviewTenantRow(row)) return 'ตัวอย่าง';
-    if (status === 'suspended') return 'ระงับ';
-    if (status === 'inactive') return 'ไม่ใช้งาน';
-    if (status === 'draft') return 'ร่าง';
-    return '';
-  }
-
-  function buildTenantOptionDescriptor(row, duplicateCounts) {
-    const baseLabel = normalizeTenantBaseLabel(row);
-    if (!baseLabel) {
-      return {
-        value: '',
-        baseLabel: '',
-        stateLabel: '',
-        reference: '',
-        label: '',
-      };
-    }
-    const key = baseLabel.toLowerCase();
-    const needsReference = Number(duplicateCounts.get(key) || 0) > 1 || isPreviewTenantRow(row);
-    const stateLabel = formatTenantStateLabel(row);
-    const reference = needsReference ? shortTenantReference(row, baseLabel) : '';
-    const extras = [stateLabel, reference].filter(Boolean);
-    return {
-      value: String(row?.id || '').trim(),
-      baseLabel,
-      stateLabel,
-      reference,
-      label: extras.length ? `${baseLabel} · ${extras.join(' · ')}` : baseLabel,
-    };
-  }
-
-  function buildTenantOptionDescriptors(rows) {
-    const tenants = Array.isArray(rows) ? rows : [];
-    const duplicateCounts = tenants.reduce((map, row) => {
-      const label = normalizeTenantBaseLabel(row);
-      if (!label) return map;
-      const key = label.toLowerCase();
-      map.set(key, Number(map.get(key) || 0) + 1);
-      return map;
-    }, new Map());
-    return tenants
-      .map((row) => buildTenantOptionDescriptor(row, duplicateCounts))
-      .filter((row) => row.value && row.label);
-  }
-
-  function buildTenantOptionsHtml(rows) {
-    return buildTenantOptionDescriptors(rows)
-      .map((row) => `<option value="${escapeHtml(row.value)}">${escapeHtml(row.label)}</option>`)
-      .join('');
-  }
-
-  function setTenantScopeMenuOpen(open) {
-    const combobox = selectorComboboxNode();
-    const button = selectorButtonNode();
-    const menu = selectorMenuNode();
-    if (!combobox || !button || !menu) return;
-    const nextOpen = Boolean(open);
-    combobox.dataset.state = nextOpen ? 'open' : 'closed';
-    button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-    menu.hidden = !nextOpen;
-  }
-
-  function focusCurrentTenantScopeOption() {
-    const menu = selectorMenuNode();
-    if (!menu) return;
-    const currentOption = menu.querySelector('.surface-combobox-option.is-current');
-    const fallbackOption = menu.querySelector('.surface-combobox-option');
-    (currentOption || fallbackOption)?.focus();
-  }
-
-  function renderTenantScopeMenu() {
-    const menu = selectorMenuNode();
-    const select = selectorNode();
-    if (!menu || !select) return;
-    const currentTenantId = String(select.value || '').trim();
-    const options = buildTenantOptionDescriptors(state.ownerTenantOptions);
-    if (!options.length) {
-      menu.innerHTML = '<div class="surface-combobox-empty">ยังไม่มีผู้เช่าที่พร้อมให้เลือก</div>';
-      return;
-    }
-    menu.innerHTML = options.map((option) => {
-      const isCurrent = option.value === currentTenantId;
-      return [
-        `<button class="surface-combobox-option${isCurrent ? ' is-current' : ''}" type="button" role="option" aria-selected="${isCurrent ? 'true' : 'false'}" data-value="${escapeHtml(option.value)}">`,
-        '<span class="surface-combobox-option-title">',
-        `<span class="surface-combobox-option-name">${escapeHtml(option.baseLabel)}</span>`,
-        option.stateLabel ? `<span class="surface-combobox-option-badge">${escapeHtml(option.stateLabel)}</span>` : '',
-        '</span>',
-        option.reference ? `<span class="surface-combobox-option-meta">${escapeHtml(option.reference)}</span>` : '',
-        '</button>',
-      ].join('');
-    }).join('');
-  }
-
-  function syncTenantScopeControls() {
-    const select = selectorNode();
-    const valueNode = selectorValueNode();
-    if (!select || !valueNode) return;
-    const selectedLabel = String(select.selectedOptions?.[0]?.textContent || 'เลือกผู้เช่า').trim();
-    valueNode.textContent = selectedLabel || 'เลือกผู้เช่า';
-    renderTenantScopeMenu();
-  }
-
-  function buildPreviewOverviewFallback(tenantId) {
-    return {
-      analytics: {
-        overview: {
-          activeTenants: 1,
-          activeSubscriptions: 0,
-          activeLicenses: 0,
-          activeApiKeys: 0,
-          activeWebhooks: 0,
-          onlineAgentRuntimes: 0,
-          totalAgentRuntimes: 0,
-          totalEvents: 0,
-          totalActivity: 0,
-          totalTickets: 0,
-          totalRevenueCents: 0,
-          currency: 'THB',
-        },
-        posture: {
-          expiringSubscriptions: [],
-          expiringLicenses: [],
-          recentlyRevokedApiKeys: [],
-          failedWebhooks: [],
-          unresolvedTickets: [],
-          offlineAgentRuntimes: [],
-        },
-        delivery: {
-          queueDepth: 0,
-          deadLetters: 0,
-          failureRatePct: 0,
-          lastSyncAt: null,
-        },
-      },
-      tenantFeatureAccess: {
-        tenantId,
-        package: null,
-        features: [],
-        enabledFeatureKeys: [],
-        featureOverrides: { enabled: [], disabled: [] },
-        plan: null,
-      },
-      tenantConfig: {
-        tenantId,
-        previewMode: true,
-        featureFlags: {},
-      },
-      opsState: {
-        previewMode: true,
-      },
-      automationState: {
-        enabled: false,
-      },
-      automationConfig: {},
-      permissionCatalog: [],
-      plans: [],
-      packages: [],
-      features: [],
-    };
-  }
-
-  function buildPreviewReconcileFallback(tenantId) {
-    return {
-      generatedAt: new Date().toISOString(),
-      scope: {
-        tenantId,
-        mode: 'preview-fallback',
-      },
-      summary: {
-        purchases: 0,
-        queueJobs: 0,
-        deadLetters: 0,
-        anomalies: 0,
-        abuseFindings: 0,
-        windowMs: 3600000,
-      },
-      anomalies: [],
-      abuseFindings: [],
-      notes: [
-        'ผู้เช่าทดลองรายนี้ยังอยู่ระหว่างจัดเตรียมข้อมูลฝั่ง runtime จึงซ่อนการอ่านข้อมูลหนักไว้ก่อนจนกว่าการจัดเตรียมจะเสร็จ',
-      ],
-    };
-  }
-
-  function buildPreviewTenantConfigFallback(tenantId) {
-    return {
-      tenantId,
-      configPatch: {},
-      portalEnvPatch: {},
-      featureFlags: {},
-      updatedBy: null,
-      updatedAt: null,
-      previewMode: true,
-    };
-  }
-
-  function writeTenantIdToUrl(tenantId) {
+  function readPurchaseStatusFromUrl() {
     const url = new URL(window.location.href);
-    if (tenantId) {
-      url.searchParams.set('tenantId', tenantId);
-    } else {
-      url.searchParams.delete('tenantId');
-    }
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    return String(url.searchParams.get('status') || '').trim();
+  }
+
+  function writeUserIdToUrl(userId) {
+    writeTenantUrlState({
+      userId,
+      code: '',
+    });
+  }
+
+  function writePurchaseSelectionToUrl(userId, code) {
+    writeTenantUrlState({
+      userId,
+      code,
+    });
+  }
+
+  function writePurchaseFiltersToUrl(userId, status) {
+    writeTenantUrlState({
+      userId,
+      status,
+      code: '',
+    });
   }
 
   function pickFirstPlayerId(players) {
@@ -625,22 +892,9 @@
     return String(selected?.purchaseCode || selected?.code || '').trim();
   }
 
-  function renderOwnerTenantSelector(me) {
-    const select = selectorNode();
-    const wrap = selectorWrapNode();
-    if (!select || !wrap) return;
-    const isOwner = String(me?.role || '').trim().toLowerCase() === 'owner';
-    wrap.hidden = !isOwner;
-    if (!isOwner) {
-      setTenantScopeMenuOpen(false);
-      return;
-    }
-    select.innerHTML = buildTenantOptionsHtml(state.ownerTenantOptions);
-    const currentTenantId = String(state.payload?.tenantId || '').trim();
-    if (currentTenantId) {
-      select.value = currentTenantId;
-    }
-    syncTenantScopeControls();
+  function redirectForMissingTenantScope(me) {
+    const nextUrl = buildTenantLoginRedirectUrl({ switch: true });
+    window.location.replace(nextUrl);
   }
 
   async function refreshState(options = {}) {
@@ -654,22 +908,13 @@
       );
     }
     try {
-      const me = await api('/admin/api/me', null);
-      let scopedTenantId = String(me?.tenantId || '').trim();
-      state.ownerTenantOptions = [];
-
-      if (String(me?.role || '').trim().toLowerCase() === 'owner') {
-        const tenants = await api('/admin/api/platform/tenants?limit=100', []);
-        state.ownerTenantOptions = Array.isArray(tenants) ? tenants : [];
-        scopedTenantId = pickPreferredTenantId(state.ownerTenantOptions, readTenantIdFromUrl());
-        writeTenantIdToUrl(scopedTenantId);
-      }
+      const me = await api('/tenant/api/me', null);
+      const scopedTenantId = String(me?.tenantId || '').trim();
 
       if (!scopedTenantId) {
-        throw new Error('Tenant scope is required for the tenant admin workspace.');
+        redirectForMissingTenantScope(me);
+        return;
       }
-
-      const previewTenant = isPreviewTenantId(scopedTenantId);
 
       const [
         overview,
@@ -693,42 +938,77 @@
         deliveryLifecycle,
         players,
         staffMemberships,
+        tenantRoleMatrix,
         notifications,
         deliveryRuntime,
         purchaseStatuses,
         audit,
+        featureEntitlements,
+        events,
       ] = await Promise.all([
-        previewTenant
-          ? Promise.resolve(buildPreviewOverviewFallback(scopedTenantId))
-          : api(`/admin/api/platform/overview?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        previewTenant
-          ? Promise.resolve(buildPreviewReconcileFallback(scopedTenantId))
-          : api(`/admin/api/platform/reconcile?tenantId=${encodeURIComponent(scopedTenantId)}&windowMs=3600000&pendingOverdueMs=1200000`, {}),
-        api(`/admin/api/platform/quota?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        previewTenant
-          ? Promise.resolve(buildPreviewTenantConfigFallback(scopedTenantId))
-          : api(`/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(scopedTenantId)}`, {}),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/servers?tenantId=${encodeURIComponent(scopedTenantId)}`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/licenses?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/apikeys?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/webhooks?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agents?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-provisioning?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-devices?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-credentials?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/agent-sessions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []),
-        previewTenant ? Promise.resolve(null) : api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null),
-        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }),
+        api(`/admin/api/platform/overview?tenantId=${encodeURIComponent(scopedTenantId)}`, {}).catch(() => ({})),
+        api(`/admin/api/platform/reconcile?tenantId=${encodeURIComponent(scopedTenantId)}&windowMs=3600000&pendingOverdueMs=1200000`, {}).catch(() => ({})),
+        api(
+          `/admin/api/platform/quota?tenantId=${encodeURIComponent(scopedTenantId)}`,
+          {
+            ok: false,
+            reason: 'quota-unavailable',
+            tenantId: scopedTenantId,
+            tenant: null,
+            plan: null,
+            subscription: null,
+            license: null,
+            package: null,
+            features: [],
+            enabledFeatureKeys: [],
+            featureOverrides: {
+              enabled: [],
+              disabled: [],
+            },
+            quotas: {},
+          },
+        ).catch(() => ({
+          ok: false,
+          reason: 'quota-unavailable',
+          tenantId: scopedTenantId,
+          tenant: null,
+          plan: null,
+          subscription: null,
+          license: null,
+          package: null,
+          features: [],
+          enabledFeatureKeys: [],
+          featureOverrides: {
+            enabled: [],
+            disabled: [],
+          },
+          quotas: {},
+        })),
+        api(`/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(scopedTenantId)}`, {}).catch(() => ({})),
+        api(`/admin/api/platform/servers?tenantId=${encodeURIComponent(scopedTenantId)}`, []).catch(() => []),
+        api(`/admin/api/platform/subscriptions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []).catch(() => []),
+        api(`/admin/api/platform/licenses?tenantId=${encodeURIComponent(scopedTenantId)}&limit=6`, []).catch(() => []),
+        api(`/admin/api/platform/apikeys?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []).catch(() => []),
+        api(`/admin/api/platform/webhooks?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`, []).catch(() => []),
+        api(`/admin/api/platform/agents?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []).catch(() => []),
+        api(`/admin/api/platform/agent-provisioning?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []).catch(() => []),
+        api(`/admin/api/platform/agent-devices?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []).catch(() => []),
+        api(`/admin/api/platform/agent-credentials?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []).catch(() => []),
+        api(`/admin/api/platform/agent-sessions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []).catch(() => []),
+        api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null).catch(() => null),
+        api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }).catch(() => ({ items: [] })),
         api(`/admin/api/delivery/queue?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/dead-letter?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/lifecycle?tenantId=${encodeURIComponent(scopedTenantId)}&limit=80&pendingOverdueMs=1200000`, {}),
-        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/player/accounts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
-        previewTenant ? Promise.resolve([]) : api(`/admin/api/platform/tenant-staff?tenantId=${encodeURIComponent(scopedTenantId)}&limit=50`, []),
+        api(`/admin/api/player/accounts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }).catch(() => ({ items: [] })),
+        api(`/admin/api/platform/tenant-staff?tenantId=${encodeURIComponent(scopedTenantId)}&limit=50`, []).catch(() => []),
+        api(`/admin/api/platform/tenant-role-matrix?tenantId=${encodeURIComponent(scopedTenantId)}`, { roles: [], currentAccess: null }).catch(() => ({ roles: [], currentAccess: null })),
         api('/admin/api/notifications?acknowledged=false&limit=10', { items: [] }),
         api('/admin/api/delivery/runtime', {}),
         api('/admin/api/purchase/statuses', { knownStatuses: [], allowedTransitions: [] }),
-        previewTenant ? Promise.resolve({ items: [] }) : api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
+        api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }).catch(() => ({ items: [] })),
+        api(`/admin/api/feature-access?tenantId=${encodeURIComponent(scopedTenantId)}`, null).catch(() => null),
+        api(`/admin/api/event/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []).catch(() => []),
       ]);
 
       const serverRows = Array.isArray(servers) ? servers : [];
@@ -738,7 +1018,12 @@
         restartPlans,
         restartExecutions,
         serverDiscordLinks,
-      ] = (!previewTenant && activeServer?.id)
+        syncRuns,
+        syncEvents,
+        billingOverview,
+        billingInvoices,
+        billingPaymentAttempts,
+      ] = activeServer?.id
         ? await Promise.all([
           api(
             `/admin/api/platform/servers/${encodeURIComponent(activeServer.id)}/config?tenantId=${encodeURIComponent(scopedTenantId)}`,
@@ -756,29 +1041,65 @@
             `/admin/api/platform/server-discord-links?tenantId=${encodeURIComponent(scopedTenantId)}&serverId=${encodeURIComponent(activeServer.id)}`,
             [],
           ).catch(() => []),
+          api(
+            `/admin/api/platform/sync-runs?tenantId=${encodeURIComponent(scopedTenantId)}&serverId=${encodeURIComponent(activeServer.id)}`,
+            [],
+          ).catch(() => []),
+          api(
+            `/admin/api/platform/sync-events?tenantId=${encodeURIComponent(scopedTenantId)}&serverId=${encodeURIComponent(activeServer.id)}`,
+            [],
+          ).catch(() => []),
+          Promise.resolve({}),
+          Promise.resolve([]),
+          Promise.resolve([]),
         ])
-        : [null, [], [], []];
+        : [null, [], [], [], [], [], {}, [], []];
+
+      const [
+        tenantBillingOverview,
+        tenantBillingInvoices,
+        tenantBillingPaymentAttempts,
+      ] = await Promise.all([
+        api(
+          `/admin/api/platform/billing/overview?tenantId=${encodeURIComponent(scopedTenantId)}`,
+          {},
+        ).catch(() => ({})),
+        api(
+          `/admin/api/platform/billing/invoices?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`,
+          [],
+        ).catch(() => []),
+        api(
+          `/admin/api/platform/billing/payment-attempts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`,
+          [],
+        ).catch(() => []),
+      ]);
 
       const playerRows = Array.isArray(players?.items) ? players.items : [];
       const selectedUserId = readUserIdFromUrl() || pickFirstPlayerId(playerRows);
-      const purchaseLookup = (!previewTenant && selectedUserId)
-        ? await api(`/admin/api/purchase/list?tenantId=${encodeURIComponent(scopedTenantId)}&userId=${encodeURIComponent(selectedUserId)}&limit=20`, { items: [], userId: selectedUserId, status: '' })
+      const selectedStatus = readPurchaseStatusFromUrl();
+      const purchaseLookup = selectedUserId
+        ? await api(
+          `/admin/api/purchase/list?tenantId=${encodeURIComponent(scopedTenantId)}&userId=${encodeURIComponent(selectedUserId)}&status=${encodeURIComponent(selectedStatus)}&limit=20`,
+          { items: [], userId: selectedUserId, status: selectedStatus },
+        ).catch(() => ({ items: [], userId: selectedUserId, status: selectedStatus }))
         : { items: [], userId: '', status: '' };
       const selectedCode = readPurchaseCodeFromUrl() || pickFirstPurchaseCode(purchaseLookup?.items);
-      const deliveryCase = (!previewTenant && selectedCode)
-        ? await api(`/admin/api/delivery/detail?tenantId=${encodeURIComponent(scopedTenantId)}&code=${encodeURIComponent(selectedCode)}&limit=80`, null)
+      const deliveryCase = selectedCode
+        ? await api(`/admin/api/delivery/detail?tenantId=${encodeURIComponent(scopedTenantId)}&code=${encodeURIComponent(selectedCode)}&limit=80`, null).catch(() => null)
         : null;
 
       state.payload = {
         me,
         tenantId: scopedTenantId,
-        tenantLabel: resolveTenantLabel(scopedTenantId),
+        tenantLabel: resolveTenantLabel(scopedTenantId, me, overview, tenantConfig),
         servers: serverRows,
         activeServer,
         serverConfigWorkspace,
         restartPlans: Array.isArray(restartPlans) ? restartPlans : [],
         restartExecutions: Array.isArray(restartExecutions) ? restartExecutions : [],
         serverDiscordLinks: Array.isArray(serverDiscordLinks) ? serverDiscordLinks : [],
+        syncRuns: Array.isArray(syncRuns) ? syncRuns : [],
+        syncEvents: Array.isArray(syncEvents) ? syncEvents : [],
         overview,
         reconcile,
         quota,
@@ -799,15 +1120,25 @@
         deliveryLifecycle,
         players: playerRows,
         staffMemberships: Array.isArray(staffMemberships) ? staffMemberships : [],
+        tenantRoleMatrix: tenantRoleMatrix && typeof tenantRoleMatrix === 'object'
+          ? tenantRoleMatrix
+          : { roles: [], currentAccess: null },
         notifications: Array.isArray(notifications?.items) ? notifications.items : [],
         deliveryRuntime,
         purchaseStatuses,
         audit,
+        featureEntitlements,
+        events: Array.isArray(events) ? events : [],
+        billingOverview: tenantBillingOverview && typeof tenantBillingOverview === 'object' ? tenantBillingOverview : {},
+        billingInvoices: Array.isArray(tenantBillingInvoices) ? tenantBillingInvoices : [],
+        billingPaymentAttempts: Array.isArray(tenantBillingPaymentAttempts) ? tenantBillingPaymentAttempts : [],
         purchaseLookup,
         deliveryCase,
+        selectedUserId,
+        selectedPurchaseCode: selectedCode,
+        selectedPurchaseStatus: selectedStatus,
       };
 
-      renderOwnerTenantSelector(me);
       const surfaceState = renderCurrentPage();
       setStatus(
         surfaceState?.notice ? surfaceState.notice.detail : t('tenant.app.status.ready', 'Ready'),
@@ -849,23 +1180,39 @@
     const page = surfaceState.resolvedPage;
     const renderers = {
       dashboard: () => window.TenantDashboardV4.renderTenantDashboardV4(target, renderState),
+      onboarding: () => window.TenantOnboardingV4.renderTenantOnboardingV4(target, renderState),
       'server-status': () => window.TenantServerStatusV4.renderTenantServerStatusV4(target, renderState),
       'server-config': () => window.TenantServerConfigV4.renderTenantServerConfigV4(target, renderState),
+      'logs-sync': () => window.TenantLogsSyncV4.renderTenantLogsSyncV4(target, renderState),
       orders: () => window.TenantOrdersV4.renderTenantOrdersV4(target, renderState),
+      donations: () => window.TenantDonationsV4.renderTenantDonationsV4(target, renderState),
+      events: () => window.TenantEventsV4.renderTenantEventsV4(target, renderState),
+      modules: () => window.TenantModulesV4.renderTenantModulesV4(target, renderState),
       players: () => window.TenantPlayersV4.renderTenantPlayersV4(target, renderState),
+      staff: () => window.TenantStaffV4.renderTenantStaffV4(target, renderState),
+      roles: () => window.TenantRolesV4.renderTenantRolesV4(target, renderState),
+      settings: () => window.TenantSettingsV4.renderTenantSettingsV4(target, renderState),
+      billing: () => window.TenantBillingV4.renderTenantBillingV4(target, renderState),
       'delivery-agents': () => window.TenantDeliveryAgentsV4.renderTenantDeliveryAgentsV4(target, renderState),
       'server-bots': () => window.TenantServerBotsV4.renderTenantServerBotsV4(target, renderState),
       'restart-control': () => window.TenantRestartControlV4.renderTenantRestartControlV4(target, renderState),
     };
     (renderers[page] || renderers.dashboard)();
+    const canonicalPath = buildCanonicalTenantPath(page);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
+    }
+    canonicalizeTenantLinks(target);
     wirePageInteractions(page, renderState, surfaceState);
+    applyTenantLockPresentation(page, renderState);
     if (surfaceState.notice) {
       window.setTimeout(() => {
         setStatus(surfaceState.notice.detail, surfaceState.notice.tone || 'warning');
       }, 0);
     }
     applyI18n(target);
-    document.title = `SCUM TH Platform | Tenant | ${t(PAGE_TITLE_KEYS[page] || 'tenant.app.page.dashboard', 'Daily overview')}`;
+    localizeTenantActivePage(target);
+    document.title = `SCUM TH Platform | Tenant | ${translateTenantActiveText(t(PAGE_TITLE_KEYS[page] || 'tenant.app.page.dashboard', 'Daily overview'))}`;
     return surfaceState;
   }
 
@@ -875,7 +1222,9 @@
       button.dataset.originalLabel = button.textContent || '';
     }
     button.disabled = busy;
-    button.textContent = busy ? label : button.dataset.originalLabel;
+    button.textContent = busy
+      ? translateTenantActiveText(label)
+      : translateTenantActiveText(button.dataset.originalLabel);
   }
 
   function getServerConfigFieldNodes() {
@@ -1018,6 +1367,7 @@
       updateServerConfigFieldState(node);
       updateServerConfigHelpFromField(node);
       updateServerConfigSavebar();
+      window.__tenantServerConfigApplyFilters?.();
       setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
     });
 
@@ -1041,6 +1391,7 @@
       updateServerConfigFieldState(node);
       updateServerConfigHelpFromField(node);
       updateServerConfigSavebar();
+      window.__tenantServerConfigApplyFilters?.();
       setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
     });
 
@@ -1053,6 +1404,7 @@
       updateServerConfigFieldState(node);
       updateServerConfigHelpFromField(node);
       updateServerConfigSavebar();
+      window.__tenantServerConfigApplyFilters?.();
       setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
     });
 
@@ -1068,11 +1420,25 @@
   }
 
   function updateServerConfigHelpFromField(node) {
-    if (!node) return;
     const helpTitle = document.querySelector('[data-server-config-help-title]');
     const helpDescription = document.querySelector('[data-server-config-help-description]');
     const helpMeta = document.querySelector('[data-server-config-help-meta]');
     const badgeRow = helpTitle?.parentElement?.querySelector('.tdv4-config-key-row');
+    if (!node) {
+      if (helpTitle) {
+        helpTitle.textContent = 'เลือกค่าที่ต้องการ';
+      }
+      if (helpDescription) {
+        helpDescription.textContent = 'ใช้ช่องค้นหา ตัวกรอง และแท็บหมวดด้านบนเพื่อหาค่าที่ต้องการแก้';
+      }
+      if (helpMeta) {
+        helpMeta.textContent = 'ยังไม่มีค่าที่ตรงกับตัวกรองในหมวดที่กำลังเปิดอยู่';
+      }
+      if (badgeRow) {
+        badgeRow.innerHTML = '';
+      }
+      return;
+    }
     if (helpTitle) {
       helpTitle.textContent = String(node.getAttribute('data-setting-label') || '').trim() || 'ค่าที่เลือก';
     }
@@ -1100,29 +1466,80 @@
     }
   }
 
+  function normalizeServerConfigSearchQuery(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function countServerConfigCards(scopeNode) {
+    return Array.from(scopeNode?.querySelectorAll?.('[data-setting-card]') || []);
+  }
+
+  function findFirstVisibleServerConfigField(scopeNode) {
+    const fields = Array.from(scopeNode?.querySelectorAll?.('[data-server-config-field]') || []);
+    return fields.find((field) => {
+      const card = field.closest('[data-setting-card]');
+      const group = field.closest('[data-config-group]');
+      const panel = field.closest('[data-config-category-panel]');
+      return !card?.hidden && !group?.hidden && !panel?.hidden;
+    }) || null;
+  }
+
+  function formatServerConfigCountLabel(visibleCount, totalCount) {
+    const visible = Number(visibleCount) || 0;
+    const total = Number(totalCount) || 0;
+    if (total <= 0) return '0 ค่า';
+    if (visible >= total) return `${total} ค่า`;
+    return `${visible} / ${total} ค่า`;
+  }
+
   function updateServerConfigSavebar() {
     const changeNode = document.querySelector('[data-server-config-change-count]');
-    if (!changeNode) return;
-    const changedCount = buildServerConfigChangesFromUi().filter((entry) => entry.changed).length;
-    changeNode.textContent = changedCount
-      ? `มีค่าที่แก้ค้างอยู่ ${changedCount} จุด`
-      : 'ยังไม่มีค่าที่แก้ค้างอยู่';
+    const restartNode = document.querySelector('[data-server-config-restart-count]');
+    const changedEntries = buildServerConfigChangesFromUi().filter((entry) => entry.changed);
+    const changedCount = changedEntries.length;
+    if (changeNode) {
+      changeNode.textContent = changedCount
+        ? `มีค่าที่แก้ค้างอยู่ ${changedCount} จุด`
+        : 'ยังไม่มีค่าที่แก้ค้างอยู่';
+    }
+    if (restartNode) {
+      const restartCount = changedEntries.filter((entry) => String(entry?.node?.getAttribute('data-setting-requires-restart') || '').trim() === 'true').length;
+      restartNode.hidden = restartCount === 0;
+      restartNode.textContent = restartCount > 0
+        ? `${restartCount} จุดต้องรีสตาร์ต`
+        : 'ต้องรีสตาร์ต';
+    }
   }
 
   function switchServerConfigCategory(categoryKey) {
     const tabs = Array.from(document.querySelectorAll('[data-config-category-tab]'));
     const panels = Array.from(document.querySelectorAll('[data-config-category-panel]'));
+    const nextKey = String(categoryKey || '').trim();
+    const requestedTab = tabs.find((tab) => String(tab.getAttribute('data-config-category-tab') || '').trim() === nextKey);
+    const activeTab = requestedTab && !requestedTab.hidden
+      ? requestedTab
+      : tabs.find((tab) => tab.classList.contains('is-current') && !tab.hidden)
+      || tabs.find((tab) => !tab.hidden)
+      || null;
+    const activeKey = String(activeTab?.getAttribute('data-config-category-tab') || '').trim();
+    const globalEmptyVisible = document.querySelector('[data-config-results-empty]')?.hidden === false;
     tabs.forEach((tab) => {
-      const current = String(tab.getAttribute('data-config-category-tab') || '').trim() === categoryKey;
+      const current = String(tab.getAttribute('data-config-category-tab') || '').trim() === activeKey;
       tab.classList.toggle('is-current', current);
       tab.setAttribute('aria-pressed', current ? 'true' : 'false');
     });
     panels.forEach((panel) => {
-      const current = String(panel.getAttribute('data-config-category-panel') || '').trim() === categoryKey;
+      const current = !globalEmptyVisible && String(panel.getAttribute('data-config-category-panel') || '').trim() === activeKey;
       panel.hidden = !current;
       panel.classList.toggle('tdv4-config-category-panel-current', current);
     });
-    const firstField = document.querySelector(`[data-config-category-panel="${categoryKey}"] [data-server-config-field]`);
+    const activePanel = !globalEmptyVisible && activeKey
+      ? document.querySelector(`[data-config-category-panel="${activeKey}"]`)
+      : null;
+    const firstField = findFirstVisibleServerConfigField(activePanel);
     updateServerConfigHelpFromField(firstField);
   }
 
@@ -1134,40 +1551,330 @@
     return safeBase.length <= 80 ? safeBase : safeBase.slice(0, 80);
   }
 
+  function escapePowerShellValue(value) {
+    return String(value ?? '')
+      .replace(/`/g, '``')
+      .replace(/"/g, '`"');
+  }
+
+  function buildPowerShellEnvLine(name, value) {
+    return `$env:${String(name || '').trim()}="${escapePowerShellValue(value)}"`;
+  }
+
+  function escapePowerShellSingleQuote(value) {
+    return String(value ?? '').replace(/'/g, "''");
+  }
+
+  function buildPowerShellQuotedValue(value) {
+    return `'${escapePowerShellSingleQuote(value)}'`;
+  }
+
+  function downloadClientFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+  }
+
+  function triggerServerDownload(url, filename) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = String(filename || '').trim();
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => {
+      link.remove();
+    }, 0);
+  }
+
+  async function requestServerDownload(filename, content, mimeType) {
+    const prepared = await apiRequest('/admin/api/platform/runtime-download/prepare', {
+      method: 'POST',
+      body: {
+        filename,
+        content,
+        mimeType,
+      },
+    }, null);
+    const downloadUrl = String(prepared?.downloadUrl || '').trim();
+    if (!downloadUrl) {
+      throw new Error('ยังไม่สามารถเตรียมไฟล์ดาวน์โหลดได้');
+    }
+    triggerServerDownload(downloadUrl, prepared?.filename || filename);
+    return prepared;
+  }
+
+  function buildRuntimeInstallFileBaseName(kind, displayName, runtimeKey) {
+    const fallbackPrefix = kind === 'server-bots' ? 'server-bot' : 'delivery-agent';
+    const basis = [displayName, runtimeKey].filter(Boolean).join(' ');
+    return slugifyRuntimeKey(basis, fallbackPrefix);
+  }
+
+  function buildRuntimeInstallLauncher(scriptFilename, runtimeLabel) {
+    return [
+      '@echo off',
+      'setlocal',
+      `powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0${scriptFilename}"`,
+      'set "exit_code=%ERRORLEVEL%"',
+      'echo.',
+      'if not "%exit_code%"=="0" (',
+      `  echo ${runtimeLabel} install failed. Review the PowerShell output above.`,
+      '  pause',
+      '  exit /b %exit_code%',
+      ')',
+      `echo ${runtimeLabel} install finished.`,
+      'pause',
+    ].join('\r\n');
+  }
+
+  function buildRuntimeInstallReadme(kind, payload, platformUrl, displayName, runtimeKey) {
+    const bootstrap = payload?.bootstrap || {};
+    const runtimeLabel = kind === 'server-bots' ? 'Server Bot' : 'Delivery Agent';
+    const setupToken = String(payload?.rawSetupToken || '').trim();
+    const agentId = String(bootstrap.agentId || runtimeKey || '').trim() || '-';
+    const serverId = String(bootstrap.serverId || '').trim() || '-';
+    const tenantId = String(bootstrap.tenantId || '').trim() || '-';
+    const lines = [
+      `${runtimeLabel} installer package`,
+      '================================',
+      '',
+      `Display name: ${displayName || runtimeLabel}`,
+      `Runtime key: ${runtimeKey || '-'}`,
+      `Agent ID: ${agentId}`,
+      `Tenant ID: ${tenantId}`,
+      `Server ID: ${serverId}`,
+      `Control plane URL: ${platformUrl}`,
+      `Setup token: ${setupToken || '-'}`,
+      '',
+      'How to use',
+      '----------',
+      '1. Download both files to the target Windows machine.',
+      '2. Keep the .cmd and .ps1 files in the same folder.',
+      '3. Double-click the .cmd file to run the installer.',
+      '4. Return to Tenant web and refresh this page to confirm online status.',
+      '',
+      'Assumptions',
+      '-----------',
+      '- The runtime repository already exists on the target machine at C:\\new.',
+      '- Node.js is already installed on that machine.',
+      '',
+    ];
+    if (kind === 'server-bots') {
+      lines.push(
+        'Server Bot notes',
+        '----------------',
+        '- The installer will ask for the SCUM config folder if C:\\SCUM\\Config is not found.',
+        '- After install, the script starts Server Bot automatically.',
+        '- Config editing, backup, and restart flows continue from the web after the bot comes online.',
+      );
+    } else {
+      lines.push(
+        'Delivery Agent notes',
+        '--------------------',
+        '- The installer will ask for the shared console-agent token on first run if you have not baked it into the file yet.',
+        '- The default command template uses C:\\new\\scripts\\send-scum-admin-command.ps1 and assumes the SCUM window title/process name is "SCUM".',
+        '- If your machine uses a different window title, adjust the generated delivery-agent env file after install.',
+      );
+    }
+    return `${lines.join('\r\n')}\r\n`;
+  }
+
+  function buildServerBotInstallScript(payload, platformUrl, displayName, runtimeKey) {
+    const bootstrap = payload?.bootstrap || {};
+    const agentId = String(bootstrap.agentId || runtimeKey || '').trim() || runtimeKey;
+    return [
+      "$ErrorActionPreference = 'Stop'",
+      '# Generated by Tenant Panel runtime provisioning',
+      "$repoRoot = 'C:\\new'",
+      "$installerPath = Join-Path $repoRoot 'scripts\\install-server-bot.ps1'",
+      'if (-not (Test-Path $installerPath)) {',
+      "  throw 'C:\\new\\scripts\\install-server-bot.ps1 was not found on this machine.'",
+      '}',
+      "$configRoot = 'C:\\SCUM\\Config'",
+      'if (-not (Test-Path $configRoot)) {',
+      "  Write-Host ''",
+      "  Write-Host 'Default config folder was not found.' -ForegroundColor Yellow",
+      "  $configRoot = Read-Host 'Enter the SCUM config folder'",
+      '}',
+      '& $installerPath `',
+      '  -ControlPlaneUrl ' + buildPowerShellQuotedValue(platformUrl) + ' `',
+      '  -SetupToken ' + buildPowerShellQuotedValue(String(payload?.rawSetupToken || '').trim()) + ' `',
+      '  -TenantId ' + buildPowerShellQuotedValue(String(bootstrap.tenantId || '').trim()) + ' `',
+      '  -ServerId ' + buildPowerShellQuotedValue(String(bootstrap.serverId || '').trim()) + ' `',
+      '  -RuntimeKey ' + buildPowerShellQuotedValue(runtimeKey) + ' `',
+      '  -AgentId ' + buildPowerShellQuotedValue(agentId) + ' `',
+      '  -DisplayName ' + buildPowerShellQuotedValue(displayName) + ' `',
+      '  -ConfigRoot $configRoot `',
+      '  -StartBot',
+      "Write-Host ''",
+      "Write-Host 'Server Bot install finished. Refresh Tenant web to confirm Bot Status.' -ForegroundColor Green",
+      '',
+    ].join('\r\n');
+  }
+
+  function buildDeliveryAgentInstallScript(payload, platformUrl, displayName, runtimeKey) {
+    const bootstrap = payload?.bootstrap || {};
+    const agentId = String(bootstrap.agentId || runtimeKey || '').trim() || runtimeKey;
+    const defaultExecTemplate = 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\new\\scripts\\send-scum-admin-command.ps1" -WindowTitle "SCUM" -WindowProcessName "SCUM" -Command "{command}"';
+    return [
+      "$ErrorActionPreference = 'Stop'",
+      '# Generated by Tenant Panel runtime provisioning',
+      "$repoRoot = 'C:\\new'",
+      "$installerPath = Join-Path $repoRoot 'scripts\\install-delivery-agent.ps1'",
+      'if (-not (Test-Path $installerPath)) {',
+      "  throw 'C:\\new\\scripts\\install-delivery-agent.ps1 was not found on this machine.'",
+      '}',
+      "$consoleAgentToken = ''",
+      'if ([string]::IsNullOrWhiteSpace($consoleAgentToken)) {',
+      "  Write-Host ''",
+      "  Write-Host 'Enter the shared SCUM console-agent token for this machine.' -ForegroundColor Yellow",
+      "  $consoleAgentToken = Read-Host 'SCUM console-agent token'",
+      '}',
+      `$defaultExecTemplate = ${buildPowerShellQuotedValue(defaultExecTemplate)}`,
+      '& $installerPath `',
+      `  -ControlPlaneUrl ${buildPowerShellQuotedValue(platformUrl)} \``,
+      `  -SetupToken ${buildPowerShellQuotedValue(String(payload?.rawSetupToken || '').trim())} \``,
+      `  -TenantId ${buildPowerShellQuotedValue(String(bootstrap.tenantId || '').trim())} \``,
+      `  -ServerId ${buildPowerShellQuotedValue(String(bootstrap.serverId || '').trim())} \``,
+      `  -RuntimeKey ${buildPowerShellQuotedValue(runtimeKey)} \``,
+      `  -AgentId ${buildPowerShellQuotedValue(agentId)} \``,
+      `  -DisplayName ${buildPowerShellQuotedValue(displayName)} \``,
+      '  -ConsoleAgentToken $consoleAgentToken `',
+      '  -ExecTemplate $defaultExecTemplate `',
+      '  -StartBot',
+      "Write-Host ''",
+      "Write-Host 'Delivery Agent install finished. Refresh Tenant web to confirm Bot Status.' -ForegroundColor Green",
+      "Write-Host 'If your SCUM window title differs from \"SCUM\", update .runtime\\delivery-agent.env after install.' -ForegroundColor Yellow",
+      '',
+    ].join('\r\n');
+  }
+
+  function buildProvisioningDownloads(kind, payload, platformUrl, displayName, runtimeKey) {
+    const runtimeLabel = kind === 'server-bots' ? 'Server Bot' : 'Delivery Agent';
+    const fileBaseName = buildRuntimeInstallFileBaseName(kind, displayName, runtimeKey);
+    const installScriptFilename = `${fileBaseName}.ps1`;
+    const quickInstallFilename = `${fileBaseName}.cmd`;
+    const readmeFilename = `${fileBaseName}-README.txt`;
+    const installScript = kind === 'server-bots'
+      ? buildServerBotInstallScript(payload, platformUrl, displayName, runtimeKey)
+      : buildDeliveryAgentInstallScript(payload, platformUrl, displayName, runtimeKey);
+    return [
+      {
+        key: 'install-ps1',
+        label: 'Download install script (.ps1)',
+        filename: installScriptFilename,
+        mimeType: 'text/plain;charset=utf-8',
+        content: installScript,
+      },
+      {
+        key: 'quick-install-cmd',
+        label: 'Download quick install (.cmd)',
+        filename: quickInstallFilename,
+        mimeType: 'text/plain;charset=utf-8',
+        content: buildRuntimeInstallLauncher(installScriptFilename, runtimeLabel),
+      },
+      {
+        key: 'install-readme',
+        label: 'Download setup notes (.txt)',
+        filename: readmeFilename,
+        mimeType: 'text/plain;charset=utf-8',
+        content: buildRuntimeInstallReadme(kind, payload, platformUrl, displayName, runtimeKey),
+      },
+    ];
+  }
+
   function buildProvisioningInstructions(kind, payload) {
     const bootstrap = payload?.bootstrap || {};
     const setupToken = String(payload?.rawSetupToken || '').trim();
     const runtimeKey = String(bootstrap.runtimeKey || '').trim();
     const platformUrl = `${window.location.protocol}//${window.location.host}`;
+    const displayName = String(
+      payload?.agent?.displayName
+      || payload?.agent?.name
+      || payload?.token?.displayName
+      || bootstrap.displayName
+      || (kind === 'server-bots' ? 'Server Bot' : 'Delivery Agent'),
+    ).trim();
     if (!setupToken || !runtimeKey) return null;
+    const downloads = buildProvisioningDownloads(kind, payload, platformUrl, displayName, runtimeKey);
     const commonLines = [
-      `$env:PLATFORM_API_BASE_URL="${platformUrl}"`,
-      `$env:PLATFORM_AGENT_SETUP_TOKEN="${setupToken}"`,
-      `$env:PLATFORM_TENANT_ID="${String(bootstrap.tenantId || '').trim()}"`,
-      `$env:PLATFORM_SERVER_ID="${String(bootstrap.serverId || '').trim()}"`,
+      buildPowerShellEnvLine('PLATFORM_API_BASE_URL', platformUrl),
+      buildPowerShellEnvLine('PLATFORM_AGENT_SETUP_TOKEN', setupToken),
+      buildPowerShellEnvLine('PLATFORM_TENANT_ID', String(bootstrap.tenantId || '').trim()),
+      buildPowerShellEnvLine('PLATFORM_SERVER_ID', String(bootstrap.serverId || '').trim()),
+      buildPowerShellEnvLine('PLATFORM_AGENT_DISPLAY_NAME', displayName),
     ];
     if (kind === 'server-bots') {
       return {
         title: 'คำสั่งติดตั้ง Server Bot',
         command: [
           ...commonLines,
-          `$env:SCUM_SERVER_BOT_AGENT_ID="${String(bootstrap.agentId || runtimeKey).trim()}"`,
-          `$env:SCUM_SERVER_BOT_RUNTIME_KEY="${runtimeKey}"`,
-          '$env:SCUM_SERVER_CONFIG_ROOT="C:\\SCUM\\Config"',
-          'node C:\\new\\apps\\watcher\\server.js',
+          buildPowerShellEnvLine('SCUM_SERVER_BOT_AGENT_ID', String(bootstrap.agentId || runtimeKey).trim()),
+          buildPowerShellEnvLine('SCUM_SERVER_BOT_RUNTIME_KEY', runtimeKey),
+          buildPowerShellEnvLine('SCUM_SERVER_BOT_NAME', displayName),
+          buildPowerShellEnvLine('SCUM_SERVER_CONFIG_ROOT', 'C:\\SCUM\\Config'),
+          'node C:\\new\\apps\\server-bot\\server.js',
         ].join('\n'),
-        detail: 'ปรับ SCUM_SERVER_CONFIG_ROOT ให้ตรงกับเครื่องเซิร์ฟเวอร์ก่อนรัน',
+        detail: 'รันบนเครื่องเซิร์ฟเวอร์ที่เข้าถึง SCUM.log, config files, backup และคำสั่ง restart/start/stop ได้',
+        tone: 'success',
+        steps: [
+          'คัดลอกคำสั่งนี้ไปรันบนเครื่องเซิร์ฟเวอร์จริง',
+          'Server Bot จะใช้ one-time setup token เพื่อ activate กับ control plane',
+          'เครื่องแรกที่ใช้ token นี้สำเร็จจะถูกผูกเป็นเครื่องหลักของบอทนี้',
+          'หลัง activate สำเร็จ bot จะ register, ส่ง heartbeat และอัปเดตสถานะกลับมาที่หน้านี้',
+        ],
+        downloads,
+        facts: [
+          {
+            label: 'Binding rule',
+            value: 'เครื่องแรกที่ activate สำเร็จจะเป็นเครื่องที่ถูกผูกไว้จนกว่าจะกด Reset binding',
+          },
+          {
+            label: 'What this bot handles',
+            value: 'Log sync, config jobs, backups และ restart/start/stop orchestration',
+          },
+        ],
       };
     }
     return {
       title: 'คำสั่งติดตั้ง Delivery Agent',
       command: [
         ...commonLines,
-        `$env:SCUM_AGENT_ID="${String(bootstrap.agentId || runtimeKey).trim()}"`,
-        `$env:SCUM_AGENT_RUNTIME_KEY="${runtimeKey}"`,
+        buildPowerShellEnvLine('SCUM_AGENT_ID', String(bootstrap.agentId || runtimeKey).trim()),
+        buildPowerShellEnvLine('SCUM_AGENT_RUNTIME_KEY', runtimeKey),
+        buildPowerShellEnvLine('SCUM_CONSOLE_AGENT_NAME', displayName),
         'node C:\\new\\apps\\agent\\server.js',
       ].join('\n'),
-      detail: 'รันบนเครื่องที่ใช้ส่งของในเกมและมี SCUM client เปิดอยู่',
+      detail: 'รันบนเครื่องที่ใช้ส่งของในเกมและมี SCUM client เปิดอยู่ตลอดเวลาที่ต้องส่งของ',
+      tone: 'success',
+      steps: [
+        'คัดลอกคำสั่งนี้ไปรันบนเครื่องที่มี SCUM client เปิดอยู่',
+        'Delivery Agent จะ activate ด้วย one-time setup token และขอคีย์ใช้งานจริงจาก control plane',
+        'เครื่องแรกที่ activate สำเร็จจะถูกผูกกับบอทนี้โดยอัตโนมัติ',
+        'หลังจากนั้น agent จะ register, ส่ง heartbeat และพร้อมรับงานส่งของจากระบบ',
+      ],
+      downloads,
+      facts: [
+        {
+          label: 'Binding rule',
+          value: 'หากต้องย้ายไปอีกเครื่อง ให้กด Reset binding ก่อนออก setup token ใหม่',
+        },
+        {
+          label: 'What this bot handles',
+          value: 'Delivery jobs, in-game execution และ announce ที่ต้องรันบนเครื่องเกม',
+        },
+        {
+          label: 'Installer note',
+          value: 'ไฟล์ติดตั้งจะถามหา shared console-agent token ตอนรันครั้งแรก เพื่อให้เครื่องเกมเชื่อมกับระบบส่งของได้',
+        },
+      ],
     };
   }
 
@@ -1180,8 +1887,8 @@
     const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
     return {
       featureFlags: parseConfigJsonInput(featureFlagsNode?.value, 'Feature Flags', { emptyAsObject: true }),
-      configPatch: parseConfigJsonInput(configPatchNode?.value, 'Config Patch', { emptyAsObject: true }),
-      portalEnvPatch: parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal Env Patch', { emptyAsObject: true }),
+      configPatch: parseConfigJsonInput(configPatchNode?.value, 'Server settings changes', { emptyAsObject: true }),
+      portalEnvPatch: parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal settings', { emptyAsObject: true }),
     };
   }
 
@@ -1254,7 +1961,7 @@
 
   function buildConfigPatchFromUi() {
     const configPatchNode = document.getElementById('tdv4-editor-configPatch');
-    const draft = parseConfigJsonInput(configPatchNode?.value, 'Config Patch', { emptyAsObject: true });
+    const draft = parseConfigJsonInput(configPatchNode?.value, 'Server settings changes', { emptyAsObject: true });
     const fields = getConfigPatchFieldNodes();
     if (!fields.length) return draft;
     const nextPatch = {};
@@ -1306,7 +2013,7 @@
     const configPatchNode = document.getElementById('tdv4-editor-configPatch');
     const fields = getConfigPatchFieldNodes();
     if (!configPatchNode || !fields.length) return;
-    const draft = parseConfigJsonInput(configPatchNode.value, 'Config Patch', { emptyAsObject: true });
+    const draft = parseConfigJsonInput(configPatchNode.value, 'Server settings changes', { emptyAsObject: true });
     fields.forEach((node) => {
       const key = String(node.getAttribute('data-config-patch-field') || '').trim();
       const type = String(node.getAttribute('data-field-type') || 'text').trim();
@@ -1331,7 +2038,7 @@
 
   function buildPortalEnvPatchFromUi() {
     const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
-    const draft = parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal Env Patch', { emptyAsObject: true });
+    const draft = parseConfigJsonInput(portalEnvPatchNode?.value, 'Portal settings', { emptyAsObject: true });
     const fields = getPortalEnvFieldNodes();
     if (!fields.length) return draft;
     const nextPatch = {};
@@ -1383,7 +2090,7 @@
     const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
     const fields = getPortalEnvFieldNodes();
     if (!portalEnvPatchNode || !fields.length) return;
-    const draft = parseConfigJsonInput(portalEnvPatchNode.value, 'Portal Env Patch', { emptyAsObject: true });
+    const draft = parseConfigJsonInput(portalEnvPatchNode.value, 'Portal settings', { emptyAsObject: true });
     fields.forEach((node) => {
       const key = String(node.getAttribute('data-portal-env-field') || '').trim();
       const type = String(node.getAttribute('data-field-type') || 'text').trim();
@@ -1422,6 +2129,7 @@
       method: 'POST',
       body: {
         tenantId: scopedTenantId,
+        updateScope: 'server-config',
         featureFlags: draft.featureFlags,
         configPatch: draft.configPatch,
         portalEnvPatch: draft.portalEnvPatch,
@@ -1429,7 +2137,7 @@
     }, null);
     if (mode === 'restart') {
       setStatus('บันทึกค่าแล้ว กำลังพาไปหน้ารีสตาร์ต', 'warning');
-      window.location.hash = '#restart-control';
+      navigateTenantRoute('/tenant/server/restarts');
       await refreshState({ silent: false });
       return;
     }
@@ -1567,6 +2275,114 @@
     }
   }
 
+  function buildRestartAnnouncementPlan(delaySeconds) {
+    const normalizedDelay = Math.max(0, Math.trunc(Number(delaySeconds) || 0));
+    return [300, 60, 30, 10]
+      .filter((seconds) => seconds <= normalizedDelay)
+      .map((seconds) => ({
+        delaySeconds: seconds,
+        message: `เซิร์ฟเวอร์จะรีสตาร์ตในอีก ${seconds} วินาที`,
+      }));
+  }
+
+  async function queueServerRestart(renderState, triggerButton, options = {}) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverId = getRenderServerId(renderState);
+    const serverRow = resolveProvisioningServer(renderState, serverId);
+    if (!tenantId || !serverId) {
+      throw new Error('ยังไม่พบเซิร์ฟเวอร์ที่ใช้จัดการการรีสตาร์ต');
+    }
+
+    const restartMode = String(options.restartMode || triggerButton?.getAttribute('data-restart-mode') || 'safe_restart').trim();
+    const delaySeconds = Math.max(0, Math.trunc(Number(options.delaySeconds ?? triggerButton?.getAttribute('data-restart-delay-seconds') ?? 0) || 0));
+    const actionLabel = restartMode === 'immediate'
+      ? 'กำลังสั่งรีสตาร์ตทันที...'
+      : restartMode === 'safe_restart'
+        ? 'กำลังสั่ง safe restart...'
+        : 'กำลังตั้งเวลารีสตาร์ต...';
+    const requestReason = String(options.reason || triggerButton?.getAttribute('data-restart-reason') || '').trim()
+      || (restartMode === 'safe_restart'
+        ? 'tenant-safe-restart'
+        : restartMode === 'immediate'
+          ? 'tenant-immediate-restart'
+          : `tenant-delayed-restart-${delaySeconds}s`);
+
+    setActionButtonBusy(triggerButton, true, actionLabel);
+    try {
+      const result = await apiRequest(
+        `/admin/api/platform/servers/${encodeURIComponent(serverId)}/restart`,
+        {
+          method: 'POST',
+          body: {
+            tenantId,
+            guildId: getServerGuildId(serverRow) || serverId,
+            restartMode,
+            controlMode: 'service',
+            delaySeconds,
+            reason: requestReason,
+            announcementPlan: buildRestartAnnouncementPlan(delaySeconds),
+            metadata: {
+              source: 'tenant-web',
+              surface: 'tenant-v4',
+            },
+          },
+        },
+        null,
+      );
+      await refreshState({ silent: true });
+      setStatus(
+        restartMode === 'immediate'
+          ? 'ส่งคำสั่งรีสตาร์ตทันทีไปยังระบบแล้ว'
+          : restartMode === 'safe_restart'
+            ? 'ส่งคำขอ safe restart ไปยังระบบแล้ว'
+            : `ตั้งเวลารีสตาร์ตอีก ${delaySeconds} วินาทีเรียบร้อยแล้ว`,
+        restartMode === 'immediate' ? 'warning' : 'success',
+      );
+      return result;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
+  async function queueServerControlAction(renderState, triggerButton) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverId = getRenderServerId(renderState);
+    if (!tenantId || !serverId) {
+      throw new Error('ยังไม่พบเซิร์ฟเวอร์ที่ใช้จัดการคำสั่งนี้');
+    }
+    const action = String(triggerButton?.getAttribute('data-server-control-action') || '').trim().toLowerCase();
+    if (!['start', 'stop'].includes(action)) {
+      throw new Error('ยังไม่รู้จักคำสั่งควบคุมเซิร์ฟเวอร์นี้');
+    }
+    setActionButtonBusy(
+      triggerButton,
+      true,
+      action === 'start' ? 'กำลังสั่งเปิดเซิร์ฟเวอร์...' : 'กำลังสั่งปิดเซิร์ฟเวอร์...',
+    );
+    try {
+      const result = await apiRequest(
+        `/admin/api/platform/servers/${encodeURIComponent(serverId)}/control/${encodeURIComponent(action)}`,
+        {
+          method: 'POST',
+          body: {
+            tenantId,
+          },
+        },
+        null,
+      );
+      await refreshState({ silent: true });
+      setStatus(
+        action === 'start'
+          ? 'ส่งคำสั่งเปิดเซิร์ฟเวอร์ไปยัง Server Bot แล้ว'
+          : 'ส่งคำสั่งปิดเซิร์ฟเวอร์ไปยัง Server Bot แล้ว',
+        action === 'stop' ? 'warning' : 'success',
+      );
+      return result;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
   function resolveProvisioningServer(renderState, serverId) {
     const rows = Array.isArray(renderState?.servers) ? renderState.servers : [];
     return rows.find((row) => String(row?.id || '').trim() === serverId) || null;
@@ -1588,7 +2404,7 @@
       throw new Error('ยังไม่พบ tenant สำหรับออก token');
     }
     if (!serverRow) {
-      throw new Error('เลือกเซิร์ฟเวอร์ก่อนสร้าง runtime');
+      throw new Error('เลือกเซิร์ฟเวอร์ก่อนสร้างบอท');
     }
 
     const runtimeKey = slugifyRuntimeKey(
@@ -1665,16 +2481,21 @@
     if (!rawKey) return null;
     const runtimeLabel = kind === 'server-bots' ? 'Server Bot' : 'Delivery Agent';
     const startCommand = kind === 'server-bots'
-      ? 'node C:\\new\\apps\\watcher\\server.js'
+      ? 'node C:\\new\\apps\\server-bot\\server.js'
       : 'node C:\\new\\apps\\agent\\server.js';
     return {
       title: `คีย์ใหม่ของ ${runtimeLabel} พร้อมแล้ว`,
       detail: `นำคีย์นี้ไปแทนค่า PLATFORM_AGENT_TOKEN บนเครื่องเดิม แล้วเริ่มบริการใหม่อีกครั้ง`,
       command: [
-        `$env:PLATFORM_AGENT_TOKEN="${rawKey}"`,
+        buildPowerShellEnvLine('PLATFORM_AGENT_TOKEN', rawKey),
         startCommand,
       ].join('\n'),
       tone: 'success',
+      steps: [
+        'คัดลอกคีย์ใหม่ไปแทนค่า PLATFORM_AGENT_TOKEN บนเครื่องเดิม',
+        'เริ่มบอทนี้ใหม่อีกครั้ง',
+        'ตรวจสอบว่าหน้า Tenant กลับมาเห็น heartbeat ล่าสุดจากเครื่องเดิม',
+      ],
     };
   }
 
@@ -1719,6 +2540,7 @@
           method: 'POST',
           body: {
             tenantId,
+            runtimeKind: kind,
             tokenId,
             revokeReason: 'tenant-ui-manual-revoke',
           },
@@ -1750,6 +2572,7 @@
           method: 'POST',
           body: {
             tenantId,
+            runtimeKind: kind,
             deviceId,
             revokeReason: 'tenant-ui-reset-binding',
           },
@@ -1781,6 +2604,7 @@
           method: 'POST',
           body: {
             tenantId,
+            runtimeKind: kind,
             apiKeyId,
           },
         }, null);
@@ -1811,6 +2635,7 @@
           method: 'POST',
           body: {
             tenantId,
+            runtimeKind: kind,
             apiKeyId,
             name: runtimeName,
           },
@@ -1841,14 +2666,184 @@
     const categoryTabs = Array.from(document.querySelectorAll('[data-config-category-tab]'));
     const fieldNodes = getServerConfigFieldNodes();
     const previewMode = Boolean(surfaceState?.featureAccess?.previewMode);
+    const editConfigLocked = Boolean(getTenantActionEntitlement(renderState, 'can_edit_config')?.locked);
+    const restartConfigLocked = Boolean(getTenantActionEntitlement(renderState, 'can_restart_server')?.locked);
+    const editConfigLockReason = getTenantActionLockReason(
+      renderState,
+      'can_edit_config',
+      'Config save actions are locked in the current package.',
+    );
+    const restartConfigLockReason = getTenantActionLockReason(
+      renderState,
+      'can_restart_server',
+      'Restart-required config actions are locked in the current package.',
+    );
     const featureFlagsNode = document.getElementById('tdv4-editor-featureFlags');
     const configPatchNode = document.getElementById('tdv4-editor-configPatch');
     const portalEnvPatchNode = document.getElementById('tdv4-editor-portalEnvPatch');
+    const modeButtons = Array.from(document.querySelectorAll('[data-config-mode-tab]'));
+    const modeSections = Array.from(document.querySelectorAll('[data-config-mode-section]'));
+    const scopeButtons = Array.from(document.querySelectorAll('[data-config-scope-tab]'));
+    const filterButtons = Array.from(document.querySelectorAll('[data-config-filter-tab]'));
+    const searchInput = document.querySelector('[data-config-search-input]');
+    const clearSearchButton = document.querySelector('[data-config-search-clear]');
+    const filterSummaryNode = document.querySelector('[data-config-filter-summary]');
+    const resultsEmptyNode = document.querySelector('[data-config-results-empty]');
+    const configUiState = {
+      scope: 'basic',
+      filter: 'all',
+      search: '',
+    };
 
     if (!overrideButtons.length && !saveButtons.length && !fieldNodes.length) return;
 
+    function setServerConfigMode(mode) {
+      const nextMode = String(mode || '').trim().toLowerCase() === 'advanced' ? 'advanced' : 'basic';
+      modeButtons.forEach((button) => {
+        const current = String(button.getAttribute('data-config-mode-tab') || '').trim() === nextMode;
+        button.classList.toggle('is-current', current);
+        button.setAttribute('aria-pressed', current ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('[data-config-category-mode]').forEach((node) => {
+        const nodeMode = String(node.getAttribute('data-config-category-mode') || 'basic').trim().toLowerCase();
+        if (nodeMode === 'advanced') {
+          node.hidden = nextMode !== 'advanced';
+          if (nextMode !== 'advanced' && node.classList.contains('is-current')) {
+            node.classList.remove('is-current');
+            node.setAttribute('aria-pressed', 'false');
+          }
+          if (nextMode !== 'advanced' && node.classList.contains('tdv4-config-category-panel-current')) {
+            node.classList.remove('tdv4-config-category-panel-current');
+          }
+        }
+      });
+
+      modeSections.forEach((node) => {
+        const sectionMode = String(node.getAttribute('data-config-mode-section') || 'basic').trim().toLowerCase();
+        node.hidden = sectionMode === 'advanced' ? nextMode !== 'advanced' : false;
+      });
+
+      const currentVisibleTab = categoryTabs.find((tab) => tab.classList.contains('is-current') && !tab.hidden);
+      if (!currentVisibleTab) {
+        const firstVisibleTab = categoryTabs.find((tab) => !tab.hidden);
+        const fallbackCategory = String(firstVisibleTab?.getAttribute('data-config-category-tab') || '').trim();
+        if (fallbackCategory) {
+          switchServerConfigCategory(fallbackCategory);
+        }
+      }
+      window.__tenantServerConfigApplyFilters?.();
+    }
+
+    function applyServerConfigWorkspaceFilters() {
+      const query = normalizeServerConfigSearchQuery(configUiState.search);
+      const workspaceTabs = categoryTabs.filter((tab) => String(tab.getAttribute('data-config-category-mode') || 'basic').trim().toLowerCase() !== 'advanced');
+      const workspacePanels = Array.from(document.querySelectorAll('[data-config-category-panel]'))
+        .filter((panel) => String(panel.getAttribute('data-config-category-mode') || 'basic').trim().toLowerCase() !== 'advanced');
+      const scopeTotal = workspaceTabs.reduce((sum, tab) => {
+        const count = configUiState.scope === 'all'
+          ? Number(tab.getAttribute('data-config-category-total') || 0)
+          : Number(tab.getAttribute('data-config-category-basic') || 0);
+        return sum + (Number.isFinite(count) ? count : 0);
+      }, 0);
+      let visibleSettingCount = 0;
+
+      scopeButtons.forEach((button) => {
+        const current = String(button.getAttribute('data-config-scope-tab') || '').trim() === configUiState.scope;
+        button.classList.toggle('is-current', current);
+        button.setAttribute('aria-pressed', current ? 'true' : 'false');
+      });
+      filterButtons.forEach((button) => {
+        const current = String(button.getAttribute('data-config-filter-tab') || '').trim() === configUiState.filter;
+        button.classList.toggle('is-current', current);
+        button.setAttribute('aria-pressed', current ? 'true' : 'false');
+      });
+      if (clearSearchButton) {
+        clearSearchButton.disabled = !query;
+      }
+
+      workspacePanels.forEach((panel) => {
+        const groups = Array.from(panel.querySelectorAll('[data-config-group]'));
+        let panelVisibleCount = 0;
+        groups.forEach((group) => {
+          const cards = countServerConfigCards(group);
+          let groupVisibleCount = 0;
+          cards.forEach((card) => {
+            const isBasic = String(card.getAttribute('data-setting-basic') || 'true').trim() !== 'false';
+            const requiresRestart = String(card.getAttribute('data-setting-requires-restart') || '').trim() === 'true';
+            const searchText = String(card.getAttribute('data-setting-search') || '').trim().toLowerCase();
+            const matchesScope = configUiState.scope === 'all' || isBasic;
+            const matchesFilter = configUiState.filter === 'dirty'
+              ? card.classList.contains('is-dirty')
+              : configUiState.filter === 'restart'
+                ? requiresRestart
+                : true;
+            const matchesSearch = !query || searchText.includes(query);
+            const visible = matchesScope && matchesFilter && matchesSearch;
+            card.hidden = !visible;
+            if (visible) {
+              groupVisibleCount += 1;
+            }
+          });
+          group.hidden = groupVisibleCount === 0;
+          panelVisibleCount += groupVisibleCount;
+          const groupCountNode = group.querySelector('[data-config-group-count]');
+          const groupScopeTotal = configUiState.scope === 'all'
+            ? Number(group.getAttribute('data-group-total-count') || cards.length)
+            : Number(group.getAttribute('data-group-basic-count') || cards.length);
+          if (groupCountNode) {
+            groupCountNode.textContent = formatServerConfigCountLabel(groupVisibleCount, groupScopeTotal);
+          }
+        });
+
+        visibleSettingCount += panelVisibleCount;
+        const emptyNode = panel.querySelector('[data-config-category-empty]');
+        if (emptyNode) {
+          emptyNode.hidden = panelVisibleCount > 0;
+        }
+        panel.setAttribute('data-visible-setting-count', String(panelVisibleCount));
+
+        const categoryKey = String(panel.getAttribute('data-config-category-panel') || '').trim();
+        const tab = workspaceTabs.find((node) => String(node.getAttribute('data-config-category-tab') || '').trim() === categoryKey);
+        if (tab) {
+          const metaNode = tab.querySelector('[data-config-category-meta]');
+          const categoryScopeTotal = configUiState.scope === 'all'
+            ? Number(tab.getAttribute('data-config-category-total') || panelVisibleCount)
+            : Number(tab.getAttribute('data-config-category-basic') || panelVisibleCount);
+          tab.hidden = false;
+          tab.classList.toggle('is-empty', panelVisibleCount === 0);
+          tab.setAttribute('data-config-category-visible-count', String(panelVisibleCount));
+          if (metaNode) {
+            metaNode.textContent = formatServerConfigCountLabel(panelVisibleCount, categoryScopeTotal);
+          }
+        }
+      });
+
+      if (filterSummaryNode) {
+        const fragments = [`กำลังดู${configUiState.scope === 'all' ? 'ค่าจริงทั้งหมด' : 'ค่าพื้นฐาน'} ${visibleSettingCount} จาก ${scopeTotal} ค่า`];
+        if (configUiState.filter === 'dirty') {
+          fragments.push('เฉพาะที่แก้ค้าง');
+        } else if (configUiState.filter === 'restart') {
+          fragments.push('เฉพาะค่าที่ต้องรีสตาร์ต');
+        }
+        if (query) {
+          fragments.push(`ค้นหา "${String(searchInput?.value || '').trim()}"`);
+        }
+        filterSummaryNode.textContent = fragments.join(' · ');
+      }
+
+      if (resultsEmptyNode) {
+        resultsEmptyNode.hidden = visibleSettingCount > 0;
+      }
+      const currentVisibleTab = workspaceTabs.find((tab) => tab.classList.contains('is-current')) || workspaceTabs[0];
+      const currentCategory = String(currentVisibleTab?.getAttribute('data-config-category-tab') || '').trim();
+      if (currentCategory) {
+        switchServerConfigCategory(currentCategory);
+      }
+    }
+
     getFeatureFlagToggleNodes().forEach((node) => {
-      if (previewMode) {
+      if (previewMode || editConfigLocked) {
         node.disabled = true;
       }
       node.addEventListener('change', () => {
@@ -1857,7 +2852,7 @@
       });
     });
     getConfigPatchFieldNodes().forEach((node) => {
-      if (previewMode) {
+      if (previewMode || editConfigLocked) {
         node.disabled = true;
       }
       const eventName = String(node.getAttribute('data-field-type') || '') === 'boolean' ? 'change' : 'input';
@@ -1873,7 +2868,7 @@
       });
     });
     getPortalEnvFieldNodes().forEach((node) => {
-      if (previewMode) {
+      if (previewMode || editConfigLocked) {
         node.disabled = true;
       }
       const eventName = String(node.getAttribute('data-field-type') || '') === 'boolean' ? 'change' : 'input';
@@ -1897,8 +2892,40 @@
       });
     });
 
+    modeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        setServerConfigMode(button.getAttribute('data-config-mode-tab'));
+      });
+    });
+    scopeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextScope = String(button.getAttribute('data-config-scope-tab') || '').trim();
+        configUiState.scope = nextScope === 'all' ? 'all' : 'basic';
+        applyServerConfigWorkspaceFilters();
+      });
+    });
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextFilter = String(button.getAttribute('data-config-filter-tab') || '').trim();
+        configUiState.filter = ['dirty', 'restart'].includes(nextFilter) ? nextFilter : 'all';
+        applyServerConfigWorkspaceFilters();
+      });
+    });
+    searchInput?.addEventListener('input', () => {
+      configUiState.search = String(searchInput.value || '');
+      applyServerConfigWorkspaceFilters();
+    });
+    clearSearchButton?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+      }
+      configUiState.search = '';
+      applyServerConfigWorkspaceFilters();
+      searchInput?.focus();
+    });
+
     fieldNodes.forEach((node) => {
-      if (previewMode) {
+      if (previewMode || editConfigLocked) {
         node.disabled = true;
       }
       const settingType = String(node.getAttribute('data-setting-type') || '').trim().toLowerCase();
@@ -1915,6 +2942,7 @@
         updateServerConfigFieldState(node);
         updateServerConfigHelpFromField(node);
         updateServerConfigSavebar();
+        applyServerConfigWorkspaceFilters();
         setStatus('มีการแก้ไขค่าจริงที่ยังไม่บันทึก', 'warning');
       });
       updateServerConfigFieldState(node);
@@ -1944,8 +2972,9 @@
 
     overrideButtons.forEach((button) => {
       const action = String(button.getAttribute('data-config-action') || '').trim();
-      if (previewMode) {
+      if (previewMode || editConfigLocked) {
         button.disabled = true;
+        button.title = previewMode ? 'Preview mode cannot save tenant settings yet.' : editConfigLockReason;
         return;
       }
       button.addEventListener('click', async () => {
@@ -1970,8 +2999,13 @@
 
     saveButtons.forEach((button) => {
       const applyMode = String(button.getAttribute('data-server-config-save-mode') || '').trim();
-      if (previewMode) {
+      if (previewMode || editConfigLocked || (applyMode === 'save_restart' && restartConfigLocked)) {
         button.disabled = true;
+        button.title = previewMode
+          ? 'Preview mode cannot save Server Config changes.'
+          : editConfigLocked
+            ? editConfigLockReason
+            : restartConfigLockReason;
         return;
       }
       button.addEventListener('click', async () => {
@@ -2001,9 +3035,14 @@
 
     rollbackButtons.forEach((button) => {
       const backupId = String(button.getAttribute('data-server-config-rollback') || '').trim();
-      if (previewMode || !backupId) {
-        if (previewMode) {
+      if (previewMode || editConfigLocked || restartConfigLocked || !backupId) {
+        if (previewMode || editConfigLocked || restartConfigLocked) {
           button.disabled = true;
+          button.title = previewMode
+            ? 'Preview mode cannot roll back live config.'
+            : editConfigLocked
+              ? editConfigLockReason
+              : restartConfigLockReason;
         }
         return;
       }
@@ -2027,8 +3066,13 @@
     syncConfigPatchFieldsFromTextarea();
     syncPortalEnvPatchFieldsFromTextarea();
     updateServerConfigSavebar();
+    window.__tenantServerConfigApplyFilters = applyServerConfigWorkspaceFilters;
+    setServerConfigMode('basic');
+    applyServerConfigWorkspaceFilters();
     if (categoryTabs.length) {
-      const currentTab = categoryTabs.find((tab) => tab.classList.contains('is-current')) || categoryTabs[0];
+      const currentTab = categoryTabs.find((tab) => tab.classList.contains('is-current') && !tab.hidden)
+        || categoryTabs.find((tab) => !tab.hidden)
+        || categoryTabs[0];
       const currentCategory = String(currentTab?.getAttribute('data-config-category-tab') || '').trim();
       if (currentCategory) {
         switchServerConfigCategory(currentCategory);
@@ -2041,13 +3085,44 @@
   function wireRuntimeProvisioningPage(kind, renderState, surfaceState) {
     const button = document.querySelector(`[data-runtime-provision-button="${kind}"]`);
     const managementButtons = Array.from(document.querySelectorAll(`[data-runtime-action-kind="${kind}"][data-runtime-action]`));
-    if (!button && !managementButtons.length) return;
-    if (Boolean(surfaceState?.featureAccess?.previewMode)) {
+    const downloadButtons = Array.from(document.querySelectorAll(`[data-runtime-download-kind="${kind}"][data-runtime-download-key]`));
+    if (!button && !managementButtons.length && !downloadButtons.length) return;
+    downloadButtons.forEach((node) => {
+      node.addEventListener('click', async () => {
+        try {
+          const downloadKey = String(node.getAttribute('data-runtime-download-key') || '').trim();
+          const downloads = Array.isArray(state.provisioningResult[kind]?.instructions?.downloads)
+            ? state.provisioningResult[kind].instructions.downloads
+            : [];
+          const match = downloads.find((entry) => String(entry?.key || '').trim() === downloadKey);
+          if (!match?.content || !match?.filename) {
+            setStatus('ยังไม่พบไฟล์ติดตั้งล่าสุดสำหรับรายการนี้', 'warning');
+            return;
+          }
+          await requestServerDownload(match.filename, match.content, match.mimeType);
+          setStatus(`ดาวน์โหลด ${match.filename} แล้ว`, 'success');
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+    const previewMode = Boolean(surfaceState?.featureAccess?.previewMode);
+    const actionKey = kind === 'server-bots' ? 'can_create_server_bot' : 'can_create_delivery_agent';
+    const lockReason = getTenantActionLockReason(
+      renderState,
+      actionKey,
+      kind === 'server-bots'
+        ? 'Server Bot actions are locked in the current package.'
+        : 'Delivery Agent actions are locked in the current package.',
+    );
+    if (previewMode || getTenantActionEntitlement(renderState, actionKey)?.locked) {
       if (button) {
         button.disabled = true;
+        button.title = previewMode ? 'Preview mode cannot create bots yet.' : lockReason;
       }
       managementButtons.forEach((node) => {
         node.disabled = true;
+        node.title = previewMode ? 'Preview mode cannot manage bots yet.' : lockReason;
       });
       return;
     }
@@ -2093,11 +3168,153 @@
     });
   }
 
+  function hasActiveServerBot(renderState) {
+    const activeServerId = getRenderServerId(renderState);
+    const agentRows = Array.isArray(renderState?.agents) ? renderState.agents : [];
+    return agentRows.some((row) => {
+      const meta = row?.meta && typeof row.meta === 'object' ? row.meta : {};
+      const role = String(meta.agentRole || meta.role || row.role || '').trim().toLowerCase();
+      const scope = String(meta.agentScope || meta.scope || row.scope || '').trim().toLowerCase();
+      const serverId = String(meta.serverId || row.serverId || row.tenantServerId || '').trim();
+      if (activeServerId && serverId && serverId !== activeServerId) return false;
+      return role === 'sync' || role === 'hybrid' || ['sync_only', 'sync_execute', 'sync-execute'].includes(scope);
+    });
+  }
+
+  function getServerBotProbeLockReason(renderState, action) {
+    if (action === 'sync') {
+      return getTenantActionLockReason(
+        renderState,
+        'can_view_sync_status',
+        'Sync checks are not available in the current package.',
+      );
+    }
+    if (action === 'config-access') {
+      return getTenantActionLockReason(
+        renderState,
+        'can_edit_config',
+        'Config access checks are not available in the current package.',
+      );
+    }
+    return getTenantActionLockReason(
+      renderState,
+      'can_restart_server',
+      'Restart checks are not available in the current package.',
+    );
+  }
+
+  async function queueServerBotProbe(renderState, triggerButton) {
+    const tenantId = getRenderTenantId(renderState);
+    const serverId = getRenderServerId(renderState);
+    if (!tenantId || !serverId) {
+      throw new Error('ยังไม่พบเซิร์ฟเวอร์ที่ใช้ตรวจสอบ Server Bot');
+    }
+    const action = String(triggerButton?.getAttribute('data-server-bot-probe-action') || '').trim().toLowerCase();
+    if (!['sync', 'config-access', 'restart'].includes(action)) {
+      throw new Error('ยังไม่รู้จักการทดสอบ Server Bot นี้');
+    }
+    setActionButtonBusy(triggerButton, true, 'กำลังส่งงานทดสอบ...');
+    try {
+      const result = await apiRequest(
+        `/admin/api/platform/servers/${encodeURIComponent(serverId)}/probes/${encodeURIComponent(action)}`,
+        {
+          method: 'POST',
+          body: {
+            tenantId,
+          },
+        },
+        null,
+      );
+      state.provisioningResult['server-bots'] = {
+        instructions: buildRuntimeActionNotice(
+          action === 'sync'
+            ? 'Queued sync test'
+            : action === 'config-access'
+              ? 'Queued config access test'
+              : 'Queued restart readiness test',
+          'Server Bot will pick up this job from the control plane. Refresh this page and Logs & Sync to inspect the latest result.',
+          'info',
+        ),
+        raw: result,
+      };
+      renderCurrentPage();
+      await refreshState({ silent: true });
+      setStatus(
+        action === 'sync'
+          ? 'ส่งงานทดสอบ sync ไปยัง Server Bot แล้ว'
+          : action === 'config-access'
+            ? 'ส่งงานทดสอบ config access ไปยัง Server Bot แล้ว'
+            : 'ส่งงานทดสอบ restart readiness ไปยัง Server Bot แล้ว',
+        'success',
+      );
+      return result;
+    } finally {
+      setActionButtonBusy(triggerButton, false);
+    }
+  }
+
+  function wireServerBotProbeActions(renderState, surfaceState) {
+    const buttons = Array.from(document.querySelectorAll('[data-server-bot-probe-action]'));
+    if (!buttons.length) return;
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const hasBot = hasActiveServerBot(renderState);
+    buttons.forEach((button) => {
+      const action = String(button.getAttribute('data-server-bot-probe-action') || '').trim().toLowerCase();
+      const commandReadiness = getServerBotCommandReadiness(renderState);
+      const entitlementLocked = action
+        ? Boolean(
+          (action === 'sync'
+            ? getTenantActionEntitlement(renderState, 'can_view_sync_status')
+            : action === 'config-access'
+              ? getTenantActionEntitlement(renderState, 'can_edit_config')
+              : getTenantActionEntitlement(renderState, 'can_restart_server'))?.locked,
+        )
+        : false;
+      const restartTemplateMissing = action === 'restart' && !commandReadiness.restartConfigured;
+      if (previewMode || entitlementLocked || !hasBot || restartTemplateMissing) {
+        button.disabled = true;
+        button.title = previewMode
+          ? 'Preview mode cannot send Server Bot test jobs.'
+          : entitlementLocked
+            ? getServerBotProbeLockReason(renderState, action)
+            : !hasBot
+              ? 'Create or reconnect a Server Bot before running this test.'
+              : 'Set SCUM_SERVER_RESTART_TEMPLATE or SCUM_SERVER_APPLY_TEMPLATE in Server Config before running this test.';
+        return;
+      }
+      button.addEventListener('click', async () => {
+        try {
+          const confirmMessage = action === 'sync'
+            ? 'ส่งงานทดสอบ sync ไปยัง Server Bot ใช่หรือไม่'
+            : action === 'config-access'
+              ? 'ส่งงานทดสอบ config access ไปยัง Server Bot ใช่หรือไม่'
+              : 'ส่งงานทดสอบ restart readiness ไปยัง Server Bot ใช่หรือไม่';
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await queueServerBotProbe(renderState, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+  }
+
   function wireServerBotDiscordLinksPage(renderState, surfaceState) {
     const button = document.querySelector('[data-server-discord-link-create]');
     if (!button) return;
+    const fieldNodes = [
+      document.querySelector('[data-server-discord-link-server]'),
+      document.querySelector('[data-server-discord-link-guild]'),
+      document.querySelector('[data-server-discord-link-status]'),
+      button,
+    ];
     if (Boolean(surfaceState?.featureAccess?.previewMode)) {
-      button.disabled = true;
+      disableActionNodes(fieldNodes, 'Preview mode cannot change Discord guild mappings.');
+      return;
+    }
+    if (!Array.isArray(renderState?.servers) || renderState.servers.length === 0) {
+      disableActionNodes(fieldNodes, 'Add a server before saving a Discord guild mapping.');
       return;
     }
     button.addEventListener('click', async () => {
@@ -2141,13 +3358,1330 @@
     });
   }
 
+  function isSurfacePreview(surfaceState, renderState) {
+    return Boolean(
+      surfaceState?.featureAccess?.previewMode
+      || renderState?.tenantConfig?.previewMode
+      || renderState?.overview?.tenantConfig?.previewMode
+      || renderState?.overview?.opsState?.previewMode,
+    );
+  }
+
+  function getTenantActionEntitlement(renderState, actionKey) {
+    const key = String(actionKey || '').trim();
+    return key ? renderState?.featureEntitlements?.actions?.[key] || null : null;
+  }
+
+  function getTenantActionLockReason(renderState, actionKey, fallback) {
+    const entitlement = getTenantActionEntitlement(renderState, actionKey);
+    if (entitlement?.locked && entitlement?.reason) {
+      return translateTenantActiveText(entitlement.reason);
+    }
+    return translateTenantActiveText(String(fallback || '').trim());
+  }
+
+  function getTenantRoleAccess(renderState) {
+    return renderState?.tenantRoleMatrix?.currentAccess
+      || renderState?.me?.tenantAccess
+      || null;
+  }
+
+  function getTenantPermissionEntry(renderState, permissionKey) {
+    const key = String(permissionKey || '').trim();
+    if (!key) return null;
+    return getTenantRoleAccess(renderState)?.permissions?.[key] || null;
+  }
+
+  function getTenantPermissionLockReason(renderState, permissionKey, fallback) {
+    const permission = getTenantPermissionEntry(renderState, permissionKey);
+    if (permission && permission.allowed === false) {
+      return translateTenantActiveText(String(permission.description || fallback || '').trim());
+    }
+    return translateTenantActiveText(String(fallback || '').trim());
+  }
+
+  function hasTenantPermission(renderState, permissionKey) {
+    const permission = getTenantPermissionEntry(renderState, permissionKey);
+    return permission ? permission.allowed === true : true;
+  }
+
+  function getTenantSectionEntitlement(renderState, sectionKey) {
+    const key = String(sectionKey || '').trim();
+    return key ? renderState?.featureEntitlements?.sections?.[key] || null : null;
+  }
+
+  function getPageSectionEntitlement(renderState, pageKey) {
+    const sectionKey = PAGE_SECTION_KEYS[String(pageKey || '').trim()] || '';
+    return getTenantSectionEntitlement(renderState, sectionKey);
+  }
+
+  function createLockedButtonLabel(label) {
+    const text = String(label || '').trim();
+    if (!text) return '&#128274;';
+    if (text.includes('&#128274;') || text.includes('ถูกล็อก')) return text;
+    return `&#128274; ${escapeHtml(translateTenantActiveText(text))}`;
+  }
+
+  function markLockedActionNode(node, reason) {
+    if (!node) return;
+    const normalizedReason = String(reason || '').trim();
+    const isButtonLike = node.matches?.('button, a, input, select, textarea');
+    if (isButtonLike && 'disabled' in node) {
+      node.disabled = true;
+    }
+    node.setAttribute('aria-disabled', 'true');
+    node.setAttribute('data-package-locked', 'true');
+    if (normalizedReason) {
+      node.setAttribute('title', normalizedReason);
+    }
+    if ((node.tagName === 'BUTTON' || node.tagName === 'A') && !node.dataset.lockedLabelApplied) {
+      node.dataset.lockedLabelApplied = 'true';
+      node.innerHTML = createLockedButtonLabel(node.textContent || '');
+    }
+  }
+
+  function pushPermissionLockEntry(entries, renderState, permissionKey, label, fallback) {
+    if (hasTenantPermission(renderState, permissionKey)) return;
+    entries.push({
+      label: translateTenantActiveText(label || 'Role access'),
+      reason: getTenantPermissionLockReason(renderState, permissionKey, fallback),
+      upgradeCta: { href: '/tenant/roles', label: translateTenantActiveText('Review role access') },
+    });
+  }
+
+  function collectActionLockEntries(pageKey, renderState) {
+    const page = String(pageKey || '').trim();
+    const entries = [];
+    const sectionEntitlement = getPageSectionEntitlement(renderState, page);
+    if (sectionEntitlement?.locked) {
+      entries.push({
+        label: 'Page access',
+        reason: sectionEntitlement.reason || 'This page is visible, but the current package keeps its actions locked.',
+        upgradeCta: sectionEntitlement.upgradeCta || null,
+      });
+    }
+    if (page === 'server-status' || page === 'restart-control') {
+      pushPermissionLockEntry(entries, renderState, 'restart_server', 'Role access', 'Your tenant role cannot control restart actions.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_restart_server');
+      if (entitlement?.locked) {
+        entries.push({
+          label: page === 'server-status' ? 'Server control' : 'Restart actions',
+          reason: entitlement.reason || 'Restart actions are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'server-config') {
+      pushPermissionLockEntry(entries, renderState, 'edit_config', 'Role access', 'Your tenant role cannot edit server configuration.');
+      pushPermissionLockEntry(entries, renderState, 'restart_server', 'Role access', 'Your tenant role cannot run restart-required config actions.');
+      const editEntitlement = getTenantActionEntitlement(renderState, 'can_edit_config');
+      if (editEntitlement?.locked) {
+        entries.push({
+          label: 'Config save actions',
+          reason: editEntitlement.reason || 'Server Config save actions are locked in the current package.',
+          upgradeCta: editEntitlement.upgradeCta || null,
+        });
+      }
+      const restartEntitlement = getTenantActionEntitlement(renderState, 'can_restart_server');
+      if (restartEntitlement?.locked) {
+        entries.push({
+          label: 'Restart-required actions',
+          reason: 'Save and Restart and rollback stay visible here, but they require restart control in the current package.',
+          upgradeCta: restartEntitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'delivery-agents') {
+      pushPermissionLockEntry(entries, renderState, 'manage_runtimes', 'Role access', 'Your tenant role cannot manage Delivery Agents.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_create_delivery_agent');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Delivery Agent actions',
+          reason: entitlement.reason || 'Delivery Agent setup is locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'server-bots') {
+      pushPermissionLockEntry(entries, renderState, 'manage_runtimes', 'Role access', 'Your tenant role cannot manage Server Bots.');
+      const botEntitlement = getTenantActionEntitlement(renderState, 'can_create_server_bot');
+      if (botEntitlement?.locked) {
+        entries.push({
+          label: 'Server Bot actions',
+          reason: botEntitlement.reason || 'Server Bot setup is locked in the current package.',
+          upgradeCta: botEntitlement.upgradeCta || null,
+        });
+      }
+      const syncEntitlement = getTenantActionEntitlement(renderState, 'can_view_sync_status');
+      if (syncEntitlement?.locked) {
+        entries.push({
+          label: 'Sync test',
+          reason: syncEntitlement.reason || 'Sync tests are locked in the current package.',
+          upgradeCta: syncEntitlement.upgradeCta || null,
+        });
+      }
+      const editEntitlement = getTenantActionEntitlement(renderState, 'can_edit_config');
+      if (editEntitlement?.locked) {
+        entries.push({
+          label: 'Config access test',
+          reason: editEntitlement.reason || 'Config access tests are locked in the current package.',
+          upgradeCta: editEntitlement.upgradeCta || null,
+        });
+      }
+      const restartEntitlement = getTenantActionEntitlement(renderState, 'can_restart_server');
+      if (restartEntitlement?.locked) {
+        entries.push({
+          label: 'Restart test',
+          reason: restartEntitlement.reason || 'Restart tests are locked in the current package.',
+          upgradeCta: restartEntitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'logs-sync') {
+      const entitlement = getTenantSectionEntitlement(renderState, 'logs_sync');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Refresh sync status',
+          reason: entitlement.reason || 'Logs & Sync refresh is locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'orders') {
+      pushPermissionLockEntry(entries, renderState, 'manage_orders', 'Role access', 'Your tenant role cannot manage orders or delivery actions.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_manage_orders');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Order actions',
+          reason: entitlement.reason || 'Retry and cancel actions are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'donations') {
+      pushPermissionLockEntry(entries, renderState, 'manage_donations', 'Role access', 'Your tenant role cannot manage donation packages.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_manage_donations');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Donation package actions',
+          reason: entitlement.reason || 'Donation package actions are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'events') {
+      pushPermissionLockEntry(entries, renderState, 'manage_events', 'Role access', 'Your tenant role cannot manage events.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_manage_events');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Event actions',
+          reason: entitlement.reason || 'Event actions are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'modules') {
+      pushPermissionLockEntry(entries, renderState, 'manage_runtimes', 'Role access', 'Your tenant role cannot change bot modules.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_use_modules');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Module controls',
+          reason: entitlement.reason || 'Module controls are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'staff' || page === 'roles') {
+      pushPermissionLockEntry(entries, renderState, 'manage_staff', 'Role access', 'Your tenant role cannot change staff access.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_manage_staff');
+      if (entitlement?.locked) {
+        entries.push({
+          label: page === 'staff' ? 'Staff access changes' : 'Role assignment actions',
+          reason: entitlement.reason || 'Staff management is locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'settings') {
+      pushPermissionLockEntry(entries, renderState, 'edit_config', 'Role access', 'Your tenant role cannot save tenant settings.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_edit_config');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Settings save action',
+          reason: entitlement.reason || 'Tenant settings changes are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    if (page === 'players') {
+      pushPermissionLockEntry(entries, renderState, 'manage_players', 'Role access', 'Your tenant role cannot run player management actions.');
+      const entitlement = getTenantActionEntitlement(renderState, 'can_manage_players');
+      if (entitlement?.locked) {
+        entries.push({
+          label: 'Player tools',
+          reason: entitlement.reason || 'Player management tools are locked in the current package.',
+          upgradeCta: entitlement.upgradeCta || null,
+        });
+      }
+    }
+    return entries;
+  }
+
+  function renderTenantLockBanner(pageKey, entries) {
+    const rows = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    if (!rows.length) return '';
+    const firstUpgradeCta = rows.find((entry) => entry?.upgradeCta)?.upgradeCta || null;
+    return [
+      '<section class="tdv4-panel tdv4-tone-warning tdv4-entitlement-banner" data-tenant-lock-banner>',
+      '<div class="tdv4-lock-banner-copy">',
+      `<div class="tdv4-section-kicker">${escapeHtml(translateTenantActiveText('Access'))}</div>`,
+      `<h2 class="tdv4-section-title">&#128274; ${escapeHtml(translateTenantActiveText(pageKey === 'server-config' ? 'Some config actions are locked' : 'Some actions are locked'))}</h2>`,
+      '<div class="tdv4-lock-list">',
+      ...rows.map((entry) => [
+        '<div class="tdv4-lock-list-item">',
+        `<strong>${escapeHtml(translateTenantActiveText(entry.label || 'Locked action'))}</strong>`,
+        `<span>${escapeHtml(translateTenantActiveText(entry.reason || 'This action is locked in the current package.'))}</span>`,
+        '</div>',
+      ].join('')),
+      '</div>',
+      '</div>',
+      firstUpgradeCta
+        ? `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(firstUpgradeCta.href || '/tenant/billing')}">${escapeHtml(translateTenantActiveText(firstUpgradeCta.label || 'Upgrade package'))}</a>`
+        : '',
+      '</section>',
+    ].join('');
+  }
+
+  function injectTenantLockBanner(pageKey, renderState) {
+    const target = root();
+    if (!target) return;
+    const entries = collectActionLockEntries(pageKey, renderState);
+    if (!entries.length) return;
+    const pageHead = target.querySelector('.tdv4-pagehead');
+    const html = renderTenantLockBanner(pageKey, entries);
+    if (!html) return;
+    if (pageHead?.insertAdjacentHTML) {
+      pageHead.insertAdjacentHTML('afterend', html);
+      return;
+    }
+    const main = target.querySelector('.tdv4-main');
+    if (main?.insertAdjacentHTML) {
+      main.insertAdjacentHTML('afterbegin', html);
+    }
+  }
+
+  function applyTenantLockPresentation(pageKey, renderState) {
+    injectTenantLockBanner(pageKey, renderState);
+    const page = String(pageKey || '').trim();
+    const lockNodeGroups = [];
+    if (page === 'server-status') {
+      const reason = getTenantActionLockReason(renderState, 'can_restart_server', 'Server control is locked in the current package.');
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-server-control-button]')),
+          ...Array.from(document.querySelectorAll('[data-server-restart-button]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) || !hasTenantPermission(renderState, 'restart_server'),
+        reason,
+      });
+    }
+    if (page === 'restart-control') {
+      const reason = getTenantActionLockReason(renderState, 'can_restart_server', 'Restart actions are locked in the current package.');
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-restart-action-button]')),
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) || !hasTenantPermission(renderState, 'restart_server'),
+        reason,
+      });
+    }
+    if (page === 'server-config') {
+      const editReason = getTenantActionLockReason(renderState, 'can_edit_config', 'Config save actions are locked in the current package.');
+      const restartReason = getTenantActionLockReason(renderState, 'can_restart_server', 'Restart-required config actions are locked in the current package.');
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-server-config-field]')),
+          ...Array.from(document.querySelectorAll('[data-feature-flag-toggle]')),
+          ...Array.from(document.querySelectorAll('[data-config-patch-field]')),
+          ...Array.from(document.querySelectorAll('[data-portal-env-field]')),
+          ...Array.from(document.querySelectorAll('[data-config-action]')),
+          ...Array.from(document.querySelectorAll('[data-server-config-save-mode="save_only"]')),
+          ...Array.from(document.querySelectorAll('[data-server-config-save-mode="save_apply"]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_edit_config')?.locked) || !hasTenantPermission(renderState, 'edit_config'),
+        reason: !hasTenantPermission(renderState, 'edit_config')
+          ? getTenantPermissionLockReason(renderState, 'edit_config', editReason)
+          : editReason,
+      });
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-server-config-save-mode="save_restart"]')),
+          ...Array.from(document.querySelectorAll('[data-server-config-rollback]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) || !hasTenantPermission(renderState, 'restart_server'),
+        reason: !hasTenantPermission(renderState, 'restart_server')
+          ? getTenantPermissionLockReason(renderState, 'restart_server', restartReason)
+          : restartReason,
+      });
+    }
+    if (page === 'delivery-agents') {
+      const reason = getTenantActionLockReason(renderState, 'can_create_delivery_agent', 'Delivery Agent actions are locked in the current package.');
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-runtime-provision-button="delivery-agents"]')),
+          ...Array.from(document.querySelectorAll('[data-runtime-action-kind="delivery-agents"][data-runtime-action]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_create_delivery_agent')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', reason)
+          : reason,
+      });
+    }
+    if (page === 'server-bots') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-runtime-provision-button="server-bots"]')),
+          ...Array.from(document.querySelectorAll('[data-runtime-action-kind="server-bots"][data-runtime-action]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_create_server_bot')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', 'Server Bot actions are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_create_server_bot', 'Server Bot actions are locked in the current package.'),
+      });
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-server-bot-probe-action="sync"]')),
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_view_sync_status')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', 'Sync tests are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_view_sync_status', 'Sync tests are locked in the current package.'),
+      });
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-server-bot-probe-action="config-access"]')),
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_edit_config')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', 'Config access tests are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_edit_config', 'Config access tests are locked in the current package.'),
+      });
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-server-bot-probe-action="restart"]')),
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', 'Restart tests are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_restart_server', 'Restart tests are locked in the current package.'),
+      });
+    }
+    if (page === 'logs-sync') {
+      const entitlement = getTenantSectionEntitlement(renderState, 'logs_sync');
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-tenant-logs-sync-refresh]')),
+        locked: Boolean(entitlement?.locked),
+        reason: entitlement?.reason || 'Logs & Sync refresh is locked in the current package.',
+      });
+    }
+    if (page === 'orders') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-order-action="retry"]')),
+          ...Array.from(document.querySelectorAll('[data-order-action="cancel"]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_manage_orders')?.locked) || !hasTenantPermission(renderState, 'manage_orders'),
+        reason: !hasTenantPermission(renderState, 'manage_orders')
+          ? getTenantPermissionLockReason(renderState, 'manage_orders', 'Order actions are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_manage_orders', 'Order actions are locked in the current package.'),
+      });
+    }
+    if (page === 'donations') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-tenant-donation-create]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-donation-save]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-donation-delete]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-donation-toggle-status]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_manage_donations')?.locked) || !hasTenantPermission(renderState, 'manage_donations'),
+        reason: !hasTenantPermission(renderState, 'manage_donations')
+          ? getTenantPermissionLockReason(renderState, 'manage_donations', 'Donation package actions are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_manage_donations', 'Donation package actions are locked in the current package.'),
+      });
+    }
+    if (page === 'events') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-tenant-event-create]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-event-action]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_manage_events')?.locked) || !hasTenantPermission(renderState, 'manage_events'),
+        reason: !hasTenantPermission(renderState, 'manage_events')
+          ? getTenantPermissionLockReason(renderState, 'manage_events', 'Event actions are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_manage_events', 'Event actions are locked in the current package.'),
+      });
+    }
+    if (page === 'modules') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-tenant-modules-save]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-modules-reset]')),
+          ...Array.from(document.querySelectorAll('[data-module-toggle]')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_use_modules')?.locked) || !hasTenantPermission(renderState, 'manage_runtimes'),
+        reason: !hasTenantPermission(renderState, 'manage_runtimes')
+          ? getTenantPermissionLockReason(renderState, 'manage_runtimes', 'Module controls are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_use_modules', 'Module controls are locked in the current package.'),
+      });
+    }
+    if (page === 'staff' || page === 'roles') {
+      lockNodeGroups.push({
+        nodes: [
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-invite-submit]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-role-update]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-revoke]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-role]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-status]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-revoke-reason]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-invite-form] input')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-invite-form] select')),
+        ],
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_manage_staff')?.locked) || !hasTenantPermission(renderState, 'manage_staff'),
+        reason: !hasTenantPermission(renderState, 'manage_staff')
+          ? getTenantPermissionLockReason(renderState, 'manage_staff', 'Staff management is locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_manage_staff', 'Staff management is locked in the current package.'),
+      });
+    }
+    if (page === 'settings') {
+      lockNodeGroups.push({
+        nodes: Array.from(document.querySelectorAll('[data-tenant-settings-save]')),
+        locked: Boolean(getTenantActionEntitlement(renderState, 'can_edit_config')?.locked) || !hasTenantPermission(renderState, 'edit_config'),
+        reason: !hasTenantPermission(renderState, 'edit_config')
+          ? getTenantPermissionLockReason(renderState, 'edit_config', 'Tenant settings changes are locked in the current package.')
+          : getTenantActionLockReason(renderState, 'can_edit_config', 'Tenant settings changes are locked in the current package.'),
+      });
+    }
+    lockNodeGroups
+      .filter((entry) => entry.locked)
+      .forEach((entry) => {
+        entry.nodes.forEach((node) => markLockedActionNode(node, entry.reason));
+      });
+  }
+
+  function disableActionNodes(nodes, reason) {
+    (Array.isArray(nodes) ? nodes : []).forEach((node) => {
+      if (!node) return;
+      node.disabled = true;
+      if (reason) {
+        node.title = translateTenantActiveText(reason);
+      }
+    });
+  }
+
+  function scrollToNode(selector) {
+    const target = document.querySelector(selector);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function normalizeOrderStatus(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function collectModuleFeatureFlags(renderState) {
+    return renderState?.tenantConfig?.featureFlags && typeof renderState.tenantConfig.featureFlags === 'object'
+      ? { ...renderState.tenantConfig.featureFlags }
+      : {};
+  }
+
+  function findWorkspaceSettingValue(renderState, settingKey) {
+    const targetKey = String(settingKey || '').trim().toLowerCase();
+    if (!targetKey) return '';
+    const workspace = renderState?.serverConfigWorkspace && typeof renderState.serverConfigWorkspace === 'object'
+      ? renderState.serverConfigWorkspace
+      : null;
+    const categories = Array.isArray(workspace?.categories) ? workspace.categories : [];
+    for (const category of categories) {
+      const groups = Array.isArray(category?.groups) ? category.groups : [];
+      for (const group of groups) {
+        const settings = Array.isArray(group?.settings) ? group.settings : [];
+        for (const setting of settings) {
+          if (String(setting?.key || '').trim().toLowerCase() !== targetKey) continue;
+          const value = String(setting?.currentValue ?? setting?.value ?? '').trim();
+          if (value) return value;
+        }
+      }
+    }
+    return '';
+  }
+
+  function getServerBotCommandReadiness(renderState) {
+    const startConfigured = Boolean(findWorkspaceSettingValue(renderState, 'SCUM_SERVER_START_TEMPLATE'));
+    const stopConfigured = Boolean(findWorkspaceSettingValue(renderState, 'SCUM_SERVER_STOP_TEMPLATE'));
+    const restartConfigured = Boolean(
+      findWorkspaceSettingValue(renderState, 'SCUM_SERVER_RESTART_TEMPLATE')
+      || findWorkspaceSettingValue(renderState, 'SCUM_SERVER_APPLY_TEMPLATE'),
+    );
+    return {
+      startConfigured,
+      stopConfigured,
+      restartConfigured,
+    };
+  }
+
+  function computeModuleSaveState(renderState) {
+    const toggles = Array.from(document.querySelectorAll('[data-module-toggle][data-module-feature-key]'));
+    const baseFeatureSet = new Set(
+      Array.isArray(renderState?.overview?.tenantFeatureAccess?.package?.features)
+        ? renderState.overview.tenantFeatureAccess.package.features.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+    );
+    const nextFeatureFlags = collectModuleFeatureFlags(renderState);
+    const moduleKeys = new Set();
+
+    toggles.forEach((toggle) => {
+      const featureKey = String(toggle.getAttribute('data-module-feature-key') || '').trim();
+      const packageEnabled = String(toggle.getAttribute('data-module-package-enabled') || '').trim() === 'true';
+      if (!featureKey) return;
+      moduleKeys.add(featureKey);
+      if (toggle.disabled) return;
+      if (toggle.checked === packageEnabled) {
+        delete nextFeatureFlags[featureKey];
+      } else {
+        nextFeatureFlags[featureKey] = toggle.checked;
+      }
+    });
+
+    const effectiveFeatureSet = new Set(baseFeatureSet);
+    Object.entries(nextFeatureFlags).forEach(([featureKey, rawValue]) => {
+      if (rawValue === true) effectiveFeatureSet.add(featureKey);
+      if (rawValue === false) effectiveFeatureSet.delete(featureKey);
+    });
+
+    const dependencyIssues = toggles.reduce((rows, toggle) => {
+      const featureKey = String(toggle.getAttribute('data-module-feature-key') || '').trim();
+      const dependsOnRaw = String(toggle.getAttribute('data-module-depends-on') || '').trim();
+      const dependsOn = dependsOnRaw ? dependsOnRaw.split(',').map((value) => String(value || '').trim()).filter(Boolean) : [];
+      if (!featureKey || !toggle.checked || !dependsOn.length) return rows;
+      const missing = dependsOn.filter((dependency) => !effectiveFeatureSet.has(dependency));
+      if (!missing.length) return rows;
+      rows.push({
+        featureKey,
+        missing,
+      });
+      return rows;
+    }, []);
+
+    moduleKeys.forEach((featureKey) => {
+      if (!Object.prototype.hasOwnProperty.call(nextFeatureFlags, featureKey)) return;
+      const rawValue = nextFeatureFlags[featureKey];
+      if (rawValue !== true && rawValue !== false) {
+        delete nextFeatureFlags[featureKey];
+      }
+    });
+
+    return {
+      nextFeatureFlags,
+      dependencyIssues,
+    };
+  }
+
+  function wireServerStatusPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const restartButtons = Array.from(document.querySelectorAll('[data-server-restart-button]'));
+    const controlButtons = Array.from(document.querySelectorAll('[data-server-control-button]'));
+    const hasBot = hasActiveServerBot(renderState);
+    const commandReadiness = getServerBotCommandReadiness(renderState);
+    const restartLockReason = getTenantActionLockReason(
+      renderState,
+      'can_restart_server',
+      'Restart actions are not available in the current package.',
+    );
+
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) {
+      disableActionNodes(restartButtons, previewMode ? 'Preview mode cannot send restart jobs.' : restartLockReason);
+      disableActionNodes(controlButtons, previewMode ? 'Preview mode cannot control the server.' : restartLockReason);
+      return;
+    }
+
+    controlButtons.forEach((button) => {
+      const action = String(button.getAttribute('data-server-control-action') || '').trim().toLowerCase();
+      const actionConfigured = action === 'start'
+        ? commandReadiness.startConfigured
+        : commandReadiness.stopConfigured;
+      const missingReason = action === 'start'
+        ? 'Set SCUM_SERVER_START_TEMPLATE in Server Config before starting the server from this page.'
+        : 'Set SCUM_SERVER_STOP_TEMPLATE in Server Config before stopping the server from this page.';
+      if (!hasBot || !actionConfigured) {
+        button.disabled = true;
+        button.title = !hasBot
+          ? 'Create or reconnect a Server Bot before controlling the server.'
+          : missingReason;
+      }
+    });
+
+    restartButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        try {
+          const restartMode = String(button.getAttribute('data-restart-mode') || 'safe_restart').trim();
+          const delaySeconds = Math.max(0, Math.trunc(Number(button.getAttribute('data-restart-delay-seconds') || 0) || 0));
+          const confirmMessage = restartMode === 'immediate'
+            ? 'รีสตาร์ตเซิร์ฟเวอร์ทันทีใช่หรือไม่'
+            : restartMode === 'safe_restart'
+              ? 'เริ่ม safe restart สำหรับเซิร์ฟเวอร์นี้ใช่หรือไม่'
+              : `ตั้งเวลารีสตาร์ตอีก ${delaySeconds} วินาทีใช่หรือไม่`;
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await queueServerRestart(renderState, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+
+    controlButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        try {
+          const action = String(button.getAttribute('data-server-control-action') || '').trim().toLowerCase();
+          const confirmMessage = action === 'start'
+            ? 'เปิดเซิร์ฟเวอร์นี้ตอนนี้ใช่หรือไม่'
+            : 'ปิดเซิร์ฟเวอร์นี้ตอนนี้ใช่หรือไม่';
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await queueServerControlAction(renderState, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+  }
+
+  function wireRestartControlPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const actionButtons = Array.from(document.querySelectorAll('[data-restart-action-button]'));
+    const restartLockReason = getTenantActionLockReason(
+      renderState,
+      'can_restart_server',
+      'Restart actions are not available in the current package.',
+    );
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_restart_server')?.locked) {
+      disableActionNodes(actionButtons, previewMode ? 'Preview mode cannot send restart jobs.' : restartLockReason);
+      return;
+    }
+
+    actionButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        try {
+          const restartMode = String(button.getAttribute('data-restart-mode') || 'safe_restart').trim();
+          const delaySeconds = Math.max(0, Math.trunc(Number(button.getAttribute('data-restart-delay-seconds') || 0) || 0));
+          const confirmMessage = restartMode === 'immediate'
+            ? 'ยืนยันรีสตาร์ตทันทีใช่หรือไม่'
+            : restartMode === 'safe_restart'
+              ? 'ยืนยันเริ่ม safe restart ใช่หรือไม่'
+              : `ยืนยันตั้งเวลารีสตาร์ตอีก ${delaySeconds} วินาทีใช่หรือไม่`;
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          await queueServerRestart(renderState, button);
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        }
+      });
+    });
+  }
+
+  function wireOrdersPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const tenantId = String(renderState?.tenantId || '').trim();
+    const filterForm = document.querySelector('[data-order-filter-form]');
+    const selectButtons = Array.from(document.querySelectorAll('[data-order-select][data-code]'));
+    const actionButtons = Array.from(document.querySelectorAll('[data-order-action][data-code]'));
+    const manageLockReason = getTenantActionLockReason(
+      renderState,
+      'can_manage_orders',
+      'Order actions are locked in the current package.',
+    );
+
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_manage_orders')?.locked) {
+      disableActionNodes(actionButtons, previewMode ? 'Preview mode cannot run order actions.' : manageLockReason);
+      if (previewMode) {
+        disableActionNodes(selectButtons, 'Preview mode cannot inspect live order data.');
+      } else {
+        actionButtons
+          .filter((button) => {
+            const action = String(button.getAttribute('data-order-action') || '').trim();
+            return action === 'inspect-order' || action === 'inspect-delivery';
+          })
+          .forEach((button) => {
+            button.disabled = false;
+            button.removeAttribute('aria-disabled');
+            button.removeAttribute('data-package-locked');
+            button.removeAttribute('title');
+          });
+      }
+      return;
+    }
+
+    filterForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(filterForm);
+      const userId = String(formData.get('userId') || '').trim();
+      const status = String(formData.get('status') || '').trim();
+      if (!userId) {
+        setStatus('เลือกผู้เล่นก่อนค้นหาคำสั่งซื้อ', 'warning');
+        return;
+      }
+      writePurchaseFiltersToUrl(userId, status);
+      await refreshState({ silent: false });
+    });
+
+    selectButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const code = String(button.getAttribute('data-code') || '').trim();
+        const userId = String(button.getAttribute('data-user-id') || '').trim() || String(renderState?.purchaseLookup?.userId || '').trim();
+        if (!code || !userId) return;
+        writePurchaseSelectionToUrl(userId, code);
+        await refreshState({ silent: true });
+        setStatus(`เปิดคำสั่งซื้อ ${code} แล้ว`, 'success');
+      });
+    });
+
+    actionButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const action = String(button.getAttribute('data-order-action') || '').trim();
+        const code = String(button.getAttribute('data-code') || '').trim();
+        if (!tenantId || !code) return;
+        if (action === 'inspect-order') {
+          const userId = String(button.getAttribute('data-user-id') || '').trim() || String(renderState?.purchaseLookup?.userId || '').trim();
+          writePurchaseSelectionToUrl(userId, code);
+          await refreshState({ silent: true });
+          setStatus(`กำลังดูคำสั่งซื้อ ${code}`, 'info');
+          return;
+        }
+        if (action === 'inspect-delivery') {
+          scrollToNode('[data-order-case-panel]');
+          setStatus(`เปิดผลการส่งของของ ${code}`, 'info');
+          return;
+        }
+
+        setActionButtonBusy(button, true, action === 'retry' ? 'Retrying...' : 'Cancelling...');
+        try {
+          if (action === 'retry') {
+            const hasDeadLetter = String(button.getAttribute('data-order-has-dead-letter') || '').trim() === 'true';
+            await apiRequest(
+              hasDeadLetter ? '/admin/api/delivery/dead-letter/retry' : '/admin/api/delivery/retry',
+              {
+                method: 'POST',
+                body: {
+                  tenantId,
+                  code,
+                  guildId: getServerGuildId(renderState?.activeServer) || undefined,
+                },
+              },
+              null,
+            );
+            setStatus(`ส่งคำขอ retry ของ ${code} แล้ว`, 'success');
+          } else if (action === 'cancel') {
+            await apiRequest(
+              '/admin/api/delivery/cancel',
+              {
+                method: 'POST',
+                body: {
+                  tenantId,
+                  code,
+                  reason: 'tenant-orders-ui',
+                },
+              },
+              null,
+            );
+            setStatus(`ยกเลิกงานส่งของของ ${code} แล้ว`, 'success');
+          }
+          await refreshState({ silent: true });
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+      });
+    });
+  }
+
+  function wireEventsPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const tenantId = String(renderState?.tenantId || '').trim();
+    const createButton = document.querySelector('[data-tenant-event-create]');
+    const createForm = document.querySelector('[data-tenant-event-form]');
+    const eventButtons = Array.from(document.querySelectorAll('[data-tenant-event-action][data-event-id]'));
+    const manageLockReason = getTenantActionLockReason(
+      renderState,
+      'can_manage_events',
+      'Event actions are locked in the current package.',
+    );
+
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_manage_events')?.locked) {
+      disableActionNodes([createButton, ...eventButtons], previewMode ? 'Preview mode cannot manage live events.' : manageLockReason);
+      return;
+    }
+
+    createForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(createForm);
+      const name = String(formData.get('name') || '').trim();
+      const time = String(formData.get('time') || '').trim();
+      const reward = String(formData.get('reward') || '').trim();
+      if (!name || !time || !reward) {
+        setStatus('กรอกชื่อกิจกรรม เวลา และรางวัลก่อนสร้างกิจกรรม', 'warning');
+        return;
+      }
+      setActionButtonBusy(createButton, true, 'Creating...');
+      try {
+        await apiRequest('/admin/api/event/create', {
+          method: 'POST',
+          body: {
+            tenantId,
+            name,
+            time,
+            reward,
+          },
+        }, null);
+        createForm.reset();
+        setStatus(`สร้างกิจกรรม ${name} แล้ว`, 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(createButton, false);
+      }
+    });
+
+    eventButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const eventId = String(button.getAttribute('data-event-id') || '').trim();
+        const action = String(button.getAttribute('data-tenant-event-action') || '').trim();
+        const card = button.closest('[data-tenant-event-card]');
+        if (!eventId || !action) return;
+        setActionButtonBusy(button, true, action === 'start' ? 'Starting...' : 'Saving...');
+        try {
+          if (action === 'update') {
+            await apiRequest('/admin/api/event/update', {
+              method: 'POST',
+              body: {
+                tenantId,
+                id: Number(eventId),
+                name: String(card?.querySelector('[data-event-name]')?.value || '').trim(),
+                time: String(card?.querySelector('[data-event-time]')?.value || '').trim(),
+                reward: String(card?.querySelector('[data-event-reward]')?.value || '').trim(),
+              },
+            }, null);
+            setStatus(`บันทึกรายละเอียดกิจกรรม #${eventId} แล้ว`, 'success');
+          } else if (action === 'start') {
+            await apiRequest('/admin/api/event/start', {
+              method: 'POST',
+              body: {
+                tenantId,
+                id: Number(eventId),
+              },
+            }, null);
+            setStatus(`เปิดใช้งานกิจกรรม #${eventId} แล้ว`, 'success');
+          } else if (action === 'end') {
+            await apiRequest('/admin/api/event/end', {
+              method: 'POST',
+              body: {
+                tenantId,
+                id: Number(eventId),
+                winnerUserId: String(card?.querySelector('[data-event-winner-user-id]')?.value || '').trim(),
+                coins: Number(card?.querySelector('[data-event-reward-coins]')?.value || 0) || 0,
+              },
+            }, null);
+            setStatus(`ปิดกิจกรรม #${eventId} แล้ว`, 'success');
+          }
+          await refreshState({ silent: true });
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+      });
+    });
+  }
+
+  function wireModulesPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const saveButton = document.querySelector('[data-tenant-modules-save]');
+    const resetButton = document.querySelector('[data-tenant-modules-reset]');
+    const toggles = Array.from(document.querySelectorAll('[data-module-toggle][data-module-feature-key]'));
+    const manageLockReason = getTenantActionLockReason(
+      renderState,
+      'can_use_modules',
+      'Module controls are locked in the current package.',
+    );
+
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_use_modules')?.locked) {
+      disableActionNodes([saveButton, resetButton, ...toggles], previewMode ? 'Preview mode cannot change module state.' : manageLockReason);
+      return;
+    }
+
+    toggles.forEach((toggle) => {
+      toggle.addEventListener('change', () => {
+        const { dependencyIssues } = computeModuleSaveState(renderState);
+        if (dependencyIssues.length > 0) {
+          const issue = dependencyIssues[0];
+          setStatus(`โมดูล ${issue.featureKey} ยังขาด dependency: ${issue.missing.join(', ')}`, 'warning');
+          return;
+        }
+        setStatus('มีการแก้ไขโมดูลที่ยังไม่บันทึก', 'warning');
+      });
+    });
+
+    resetButton?.addEventListener('click', () => {
+      toggles.forEach((toggle) => {
+        const packageEnabled = String(toggle.getAttribute('data-module-package-enabled') || '').trim() === 'true';
+        if (!toggle.disabled) {
+          toggle.checked = packageEnabled;
+        }
+      });
+      setStatus('คืนค่าโมดูลกลับตามแพ็กเกจแล้ว กด Save หากต้องการบันทึก', 'info');
+    });
+
+    saveButton?.addEventListener('click', async () => {
+      const tenantId = getRenderTenantId(renderState);
+      if (!tenantId) {
+        setStatus('ยังไม่พบ tenant สำหรับบันทึกโมดูล', 'danger');
+        return;
+      }
+      const { nextFeatureFlags, dependencyIssues } = computeModuleSaveState(renderState);
+      if (dependencyIssues.length > 0) {
+        const issue = dependencyIssues[0];
+        setStatus(`บันทึกไม่ได้ เพราะ ${issue.featureKey} ยังขาด dependency: ${issue.missing.join(', ')}`, 'danger');
+        return;
+      }
+      setActionButtonBusy(saveButton, true, 'Saving...');
+      try {
+        await apiRequest('/admin/api/platform/tenant-config', {
+          method: 'POST',
+          body: {
+            tenantId,
+            updateScope: 'modules',
+            featureFlags: nextFeatureFlags,
+          },
+        }, null);
+        setStatus('บันทึกสถานะโมดูลแล้ว', 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(saveButton, false);
+      }
+    });
+  }
+
+  function wireLogsSyncPage(renderState, surfaceState) {
+    const refreshButton = document.querySelector('[data-tenant-logs-sync-refresh]');
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const lockReason = firstNonEmpty([
+      renderState?.featureEntitlements?.sections?.logs_sync?.reason,
+      'Logs & Sync is locked in the current package.',
+    ], 'Logs & Sync is locked in the current package.');
+    if (previewMode || renderState?.featureEntitlements?.sections?.logs_sync?.locked) {
+      disableActionNodes([refreshButton], previewMode ? 'Preview mode cannot load live sync signals.' : lockReason);
+      return;
+    }
+    refreshButton?.addEventListener('click', async () => {
+      setActionButtonBusy(refreshButton, true, 'Refreshing...');
+      try {
+        await refreshState({ silent: false });
+      } finally {
+        setActionButtonBusy(refreshButton, false);
+      }
+    });
+  }
+
+  function wireSettingsPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const form = document.querySelector('[data-tenant-settings-form]');
+    const saveButton = document.querySelector('[data-tenant-settings-save]');
+    const configLockReason = getTenantActionLockReason(
+      renderState,
+      'can_edit_config',
+      'Tenant settings changes are locked in the current package.',
+    );
+    if (previewMode || getTenantActionEntitlement(renderState, 'can_edit_config')?.locked) {
+      disableActionNodes([saveButton], previewMode ? 'Preview mode cannot save tenant settings.' : configLockReason);
+      return;
+    }
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const tenantId = getRenderTenantId(renderState);
+      if (!tenantId) {
+        setStatus('Tenant settings could not find the tenant scope.', 'danger');
+        return;
+      }
+      try {
+        const configPatch = parseConfigJsonInput(
+          document.querySelector('[data-tenant-settings-config-patch]')?.value,
+          'Tenant settings changes',
+          { emptyAsObject: true },
+        );
+        const portalEnvPatch = parseConfigJsonInput(
+          document.querySelector('[data-tenant-settings-portal-env-patch]')?.value,
+          'Portal settings',
+          { emptyAsObject: true },
+        );
+        setActionButtonBusy(saveButton, true, 'Saving...');
+        await apiRequest('/admin/api/platform/tenant-config', {
+          method: 'POST',
+          body: {
+            tenantId,
+            updateScope: 'settings',
+            configPatch,
+            portalEnvPatch,
+            featureFlags: renderState?.tenantConfig?.featureFlags && typeof renderState.tenantConfig.featureFlags === 'object'
+              ? renderState.tenantConfig.featureFlags
+              : {},
+          },
+        }, null);
+        setStatus('Tenant settings saved.', 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(saveButton, false);
+      }
+    });
+  }
+
+  function wireBillingPage() {
+    const refreshButton = document.querySelector('[data-tenant-billing-refresh]');
+    refreshButton?.addEventListener('click', async () => {
+      setActionButtonBusy(refreshButton, true, 'Refreshing...');
+      try {
+        await refreshState({ silent: false });
+      } finally {
+        setActionButtonBusy(refreshButton, false);
+      }
+    });
+  }
+
+  function wireDonationsPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const createForm = document.querySelector('[data-tenant-donation-create-form]');
+    const createButton = document.querySelector('[data-tenant-donation-create]');
+    const saveButtons = Array.from(document.querySelectorAll('[data-tenant-donation-save][data-item-id]'));
+    const deleteButtons = Array.from(document.querySelectorAll('[data-tenant-donation-delete][data-item-id]'));
+    const toggleButtons = Array.from(document.querySelectorAll('[data-tenant-donation-toggle-status][data-item-id]'));
+    const manageLockReason = getTenantActionLockReason(
+      renderState,
+      'can_manage_donations',
+      'Donation tools are locked in the current package.',
+    );
+      if (previewMode || getTenantActionEntitlement(renderState, 'can_manage_donations')?.locked) {
+        disableActionNodes(
+          [createButton, ...saveButtons, ...deleteButtons, ...toggleButtons],
+          previewMode ? 'Preview mode cannot manage donation packages.' : manageLockReason,
+        );
+        return;
+      }
+
+    createForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(createForm);
+      const tenantId = getRenderTenantId(renderState);
+      const id = String(formData.get('id') || '').trim();
+      const name = String(formData.get('name') || '').trim();
+      const kind = String(formData.get('kind') || 'item').trim();
+      const price = Number(formData.get('price') || 0) || 0;
+      const description = String(formData.get('description') || '').trim();
+      const gameItemId = String(formData.get('gameItemId') || '').trim();
+      const quantity = Number(formData.get('quantity') || 1) || 1;
+      if (!tenantId || !id || !name || !description || price <= 0) {
+        setStatus('Provide id, name, price, and description before creating a donation package.', 'warning');
+        return;
+      }
+      if (kind === 'item' && !gameItemId) {
+        setStatus('Item-based donation packages still need a SCUM game item id.', 'warning');
+        return;
+      }
+      setActionButtonBusy(createButton, true, 'Creating...');
+      try {
+        await apiRequest('/admin/api/shop/add', {
+          method: 'POST',
+          body: {
+            tenantId,
+            id,
+            name,
+            kind,
+            price,
+            description,
+            gameItemId: kind === 'item' ? gameItemId : null,
+            quantity: kind === 'item' ? quantity : 1,
+            status: 'active',
+          },
+        }, null);
+        createForm.reset();
+        const kindField = createForm.querySelector('[name="kind"]');
+        const quantityField = createForm.querySelector('[name="quantity"]');
+        if (kindField) kindField.value = 'item';
+        if (quantityField) quantityField.value = '1';
+        setStatus(`Donation package ${name} created.`, 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(createButton, false);
+      }
+    });
+
+    saveButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const tenantId = getRenderTenantId(renderState);
+        const itemId = String(button.getAttribute('data-item-id') || '').trim();
+        const card = button.closest('[data-tenant-donation-card]');
+        if (!tenantId || !itemId || !card) return;
+        const payload = {
+          tenantId,
+          idOrName: itemId,
+          name: String(card.querySelector('[data-tenant-donation-name]')?.value || '').trim(),
+          kind: String(card.querySelector('[data-tenant-donation-kind]')?.value || 'item').trim(),
+          price: Number(card.querySelector('[data-tenant-donation-price]')?.value || 0) || 0,
+          description: String(card.querySelector('[data-tenant-donation-description]')?.value || '').trim(),
+          gameItemId: String(card.querySelector('[data-tenant-donation-game-item-id]')?.value || '').trim(),
+          quantity: Number(card.querySelector('[data-tenant-donation-quantity]')?.value || 1) || 1,
+        };
+        if (!payload.name || !payload.description || payload.price <= 0) {
+          setStatus('Name, price, and description are required before saving the package.', 'warning');
+          return;
+        }
+        if (payload.kind === 'item' && !payload.gameItemId) {
+          setStatus('Item-based donation packages still need a SCUM game item id.', 'warning');
+          return;
+        }
+        setActionButtonBusy(button, true, 'Saving...');
+        try {
+          await apiRequest('/admin/api/shop/update', {
+            method: 'POST',
+            body: payload,
+          }, null);
+          setStatus(`Donation package ${itemId} saved.`, 'success');
+          await refreshState({ silent: true });
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+      });
+    });
+
+      deleteButtons.forEach((button) => {
+        button.addEventListener('click', async () => {
+        const tenantId = getRenderTenantId(renderState);
+        const itemId = String(button.getAttribute('data-item-id') || '').trim();
+        if (!tenantId || !itemId) return;
+        if (!window.confirm(`Delete donation package ${itemId}?`)) {
+          return;
+        }
+        setActionButtonBusy(button, true, 'Deleting...');
+        try {
+          await apiRequest('/admin/api/shop/delete', {
+            method: 'POST',
+            body: {
+              tenantId,
+              idOrName: itemId,
+            },
+          }, null);
+          setStatus(`Donation package ${itemId} deleted.`, 'success');
+          await refreshState({ silent: true });
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+        });
+      });
+
+      toggleButtons.forEach((button) => {
+        button.addEventListener('click', async () => {
+          const tenantId = getRenderTenantId(renderState);
+          const itemId = String(button.getAttribute('data-item-id') || '').trim();
+          const nextStatus = String(button.getAttribute('data-next-status') || '').trim().toLowerCase();
+          if (!tenantId || !itemId || !nextStatus) return;
+          const confirmMessage = nextStatus === 'disabled'
+            ? `Disable donation package ${itemId}?`
+            : `Enable donation package ${itemId}?`;
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          setActionButtonBusy(button, true, nextStatus === 'disabled' ? 'Disabling...' : 'Enabling...');
+          try {
+            await apiRequest('/admin/api/shop/status', {
+              method: 'POST',
+              body: {
+                tenantId,
+                idOrName: itemId,
+                status: nextStatus,
+              },
+            }, null);
+            setStatus(
+              nextStatus === 'disabled'
+                ? `Donation package ${itemId} disabled.`
+                : `Donation package ${itemId} enabled.`,
+              'success',
+            );
+            await refreshState({ silent: true });
+          } catch (error) {
+            setStatus(String(error?.message || error), 'danger');
+          } finally {
+            setActionButtonBusy(button, false);
+          }
+        });
+      });
+    }
+
   function wirePageInteractions(page, renderState, surfaceState) {
+    if (page === 'onboarding') {
+      return;
+    }
+    if (page === 'server-status') {
+      wireServerStatusPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'restart-control') {
+      wireRestartControlPage(renderState, surfaceState);
+      return;
+    }
     if (page === 'server-config') {
       wireServerConfigPage(renderState, surfaceState);
       return;
     }
+    if (page === 'logs-sync') {
+      wireLogsSyncPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'orders') {
+      wireOrdersPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'donations') {
+      wireDonationsPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'events') {
+      wireEventsPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'modules') {
+      wireModulesPage(renderState, surfaceState);
+      return;
+    }
     if (page === 'players') {
       wirePlayersPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'staff' || page === 'roles') {
+      wirePlayersPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'settings') {
+      wireSettingsPage(renderState, surfaceState);
+      wireServerBotDiscordLinksPage(renderState, surfaceState);
+      return;
+    }
+    if (page === 'billing') {
+      wireBillingPage();
       return;
     }
     if (page === 'delivery-agents') {
@@ -2156,24 +4690,49 @@
     }
     if (page === 'server-bots') {
       wireRuntimeProvisioningPage('server-bots', renderState, surfaceState);
+      wireServerBotProbeActions(renderState, surfaceState);
       wireServerBotDiscordLinksPage(renderState, surfaceState);
     }
   }
 
-  function wirePlayersPage(renderState) {
-    const previewMode = Boolean(
-      renderState?.tenantConfig?.previewMode
-      || renderState?.overview?.tenantConfig?.previewMode
-      || renderState?.overview?.opsState?.previewMode,
-    );
+  function wirePlayersPage(renderState, surfaceState) {
+    const previewMode = isSurfacePreview(surfaceState, renderState);
+    const manageStaffLocked = Boolean(getTenantActionEntitlement(renderState, 'can_manage_staff')?.locked)
+      || !hasTenantPermission(renderState, 'manage_staff');
+    const manageStaffLockReason = !hasTenantPermission(renderState, 'manage_staff')
+      ? getTenantPermissionLockReason(
+        renderState,
+        'manage_staff',
+        'Your tenant role cannot manage staff access.',
+      )
+      : getTenantActionLockReason(
+        renderState,
+        'can_manage_staff',
+        'Staff management is locked in the current package.',
+      );
     const tenantId = String(renderState?.tenantId || '').trim();
     const inviteForm = document.querySelector('[data-tenant-staff-invite-form]');
     const inviteButton = inviteForm?.querySelector('[data-tenant-staff-invite-submit]');
 
+    if (previewMode || manageStaffLocked) {
+      disableActionNodes(
+        [
+          inviteButton,
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-role-update]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-revoke]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-role]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-status]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-revoke-reason]')),
+          ...Array.from(document.querySelectorAll('[data-tenant-staff-invite-form] input, [data-tenant-staff-invite-form] select')),
+        ],
+        previewMode ? 'Preview mode cannot change staff access yet.' : manageStaffLockReason,
+      );
+    }
+
     inviteForm?.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (previewMode) {
-        setStatus('Preview tenants cannot invite staff yet.', 'warning');
+      if (previewMode || manageStaffLocked) {
+        setStatus(previewMode ? 'Preview tenants cannot invite staff yet.' : manageStaffLockReason, 'warning');
         return;
       }
       const formData = new FormData(inviteForm);
@@ -2182,6 +4741,8 @@
         setStatus('Email is required to invite tenant staff.', 'warning');
         return;
       }
+      const roleField = inviteForm.querySelector('[name="role"]');
+      const localeField = inviteForm.querySelector('[name="locale"]');
       setActionButtonBusy(inviteButton, true, 'Inviting...');
       try {
         await apiRequest('/admin/api/platform/tenant-staff', {
@@ -2190,14 +4751,15 @@
             tenantId,
             email,
             displayName: String(formData.get('displayName') || '').trim(),
-            role: String(formData.get('role') || 'support').trim(),
-            locale: String(formData.get('locale') || 'en').trim(),
+            role: String(formData.get('role') || roleField?.value || 'staff').trim(),
+            locale: String(formData.get('locale') || localeField?.value || 'en').trim(),
           },
         });
         inviteForm.reset();
-        const roleField = inviteForm.querySelector('[name="role"]');
-        const localeField = inviteForm.querySelector('[name="locale"]');
-        if (roleField) roleField.value = 'support';
+        if (roleField) {
+          const defaultOption = roleField.querySelector('option');
+          roleField.value = defaultOption ? String(defaultOption.value || 'staff').trim() : 'staff';
+        }
         if (localeField) localeField.value = 'en';
         setStatus('Tenant staff invitation created.', 'success');
         await refreshState({ silent: true });
@@ -2210,15 +4772,21 @@
 
     document.querySelectorAll('[data-tenant-staff-role-update]').forEach((button) => {
       button.addEventListener('click', async () => {
-        if (previewMode) {
-          setStatus('Preview tenants cannot change staff access yet.', 'warning');
+        if (previewMode || manageStaffLocked) {
+          setStatus(previewMode ? 'Preview tenants cannot change staff access yet.' : manageStaffLockReason, 'warning');
           return;
         }
         const card = button.closest('[data-tenant-staff-card]');
         if (!card) return;
+        const rowManageable = String(card.getAttribute('data-tenant-staff-manageable') || '').trim() === 'true';
+        const rowManageReason = String(card.getAttribute('data-tenant-staff-manage-reason') || '').trim();
+        if (!rowManageable) {
+          setStatus(rowManageReason || 'This tenant role cannot change the selected membership.', 'warning');
+          return;
+        }
         const membershipId = String(card.getAttribute('data-membership-id') || '').trim();
         const userId = String(card.getAttribute('data-user-id') || '').trim();
-        const role = String(card.querySelector('[data-tenant-staff-role]')?.value || 'member').trim();
+        const role = String(card.querySelector('[data-tenant-staff-role]')?.value || 'viewer').trim();
         const status = String(card.querySelector('[data-tenant-staff-status]')?.value || 'active').trim();
         setActionButtonBusy(button, true, 'Saving...');
         try {
@@ -2244,12 +4812,18 @@
 
     document.querySelectorAll('[data-tenant-staff-revoke]').forEach((button) => {
       button.addEventListener('click', async () => {
-        if (previewMode) {
-          setStatus('Preview tenants cannot revoke staff access yet.', 'warning');
+        if (previewMode || manageStaffLocked) {
+          setStatus(previewMode ? 'Preview tenants cannot revoke staff access yet.' : manageStaffLockReason, 'warning');
           return;
         }
         const card = button.closest('[data-tenant-staff-card]');
         if (!card) return;
+        const rowManageable = String(card.getAttribute('data-tenant-staff-manageable') || '').trim() === 'true';
+        const rowManageReason = String(card.getAttribute('data-tenant-staff-manage-reason') || '').trim();
+        if (!rowManageable) {
+          setStatus(rowManageReason || 'This tenant role cannot remove the selected membership.', 'warning');
+          return;
+        }
         const membershipId = String(card.getAttribute('data-membership-id') || '').trim();
         const userId = String(card.getAttribute('data-user-id') || '').trim();
         const revokeReason = String(card.querySelector('[data-tenant-staff-revoke-reason]')?.value || '').trim();
@@ -2280,65 +4854,23 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     const refreshButton = document.getElementById('tenantV4RefreshBtn');
-    const scopeSelect = selectorNode();
-    const scopeButton = selectorButtonNode();
-    const scopeMenu = selectorMenuNode();
     refreshButton?.addEventListener('click', () => refreshState({ silent: false }));
-    scopeSelect?.addEventListener('change', () => {
-      syncTenantScopeControls();
-      setTenantScopeMenuOpen(false);
-      writeTenantIdToUrl(String(scopeSelect.value || '').trim());
-      refreshState({ silent: false });
-    });
-    scopeButton?.addEventListener('click', () => {
-      const nextOpen = scopeButton.getAttribute('aria-expanded') !== 'true';
-      setTenantScopeMenuOpen(nextOpen);
-      if (nextOpen) {
-        window.requestAnimationFrame(() => focusCurrentTenantScopeOption());
-      }
-    });
-    scopeButton?.addEventListener('keydown', (event) => {
-      if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      setTenantScopeMenuOpen(true);
-      window.requestAnimationFrame(() => focusCurrentTenantScopeOption());
-    });
-    scopeMenu?.addEventListener('click', (event) => {
-      const option = event.target.closest('.surface-combobox-option[data-value]');
-      if (!option || !scopeSelect) return;
-      const nextValue = String(option.getAttribute('data-value') || '').trim();
-      if (!nextValue) return;
-      if (scopeSelect.value !== nextValue) {
-        scopeSelect.value = nextValue;
-        scopeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        return;
-      }
-      syncTenantScopeControls();
-      setTenantScopeMenuOpen(false);
-    });
     document.addEventListener('click', (event) => {
       const link = event.target instanceof Element
-        ? event.target.closest('a[href^="#"]')
+        ? event.target.closest('a[href^="#"], a[href^="/tenant"]')
         : null;
       if (!link) return;
-      const hash = String(link.getAttribute('href') || '').trim();
-      if (!hash || hash === '#') return;
-      navigateTenantHash(hash);
+      const target = String(link.getAttribute('href') || '').trim();
+      if (!target || target === '#') return;
+      if (target.startsWith('#')) {
+        const hashTarget = target.replace(/^#/, '').trim().toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(PAGE_ALIASES, hashTarget)) return;
+      }
+      if (!target.startsWith('#') && !target.startsWith('/tenant')) return;
+      navigateTenantRoute(target);
       event.preventDefault();
     });
-    document.addEventListener('click', (event) => {
-      const wrap = selectorWrapNode();
-      if (!wrap?.contains(event.target)) {
-        setTenantScopeMenuOpen(false);
-      }
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        setTenantScopeMenuOpen(false);
-        scopeButton?.focus();
-      }
-    });
-    window.addEventListener('hashchange', () => {
+    window.addEventListener('popstate', () => {
       const surfaceState = renderCurrentPage();
       if (!surfaceState?.notice) {
         setStatus(t('tenant.app.status.ready', 'Ready'), 'success');
@@ -2356,6 +4888,7 @@
     window.setInterval(() => {
       if (!document.hidden) refreshState({ silent: true });
     }, 60000);
+    bootstrapLegacyTenantRoute();
     refreshState({ silent: false });
   });
 })();

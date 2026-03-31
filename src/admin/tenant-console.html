@@ -6,15 +6,15 @@
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" href="data:,">
   <title>SCUM TH Platform | Tenant Admin</title>
-  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-dashboard-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-status-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-config-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-orders-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-players-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-delivery-agents-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-server-bots-v4.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/admin/assets/tenant-restart-control-v4.css?v=20260328-ui-1">
+  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260330-select-fix-1">
+  <link rel="stylesheet" href="/admin/assets/tenant-dashboard-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-status-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-config-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-orders-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-players-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-delivery-agents-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-server-bots-v4.css?v=20260330-layout-balance-3">
+  <link rel="stylesheet" href="/admin/assets/tenant-restart-control-v4.css?v=20260330-layout-balance-3">
 </head>
 <body class="surface-body surface-tenant" data-surface="tenant-v4">
   <div class="surface-app">
@@ -34,23 +34,6 @@
         </nav>
       </div>
       <div class="surface-globalbar-tools">
-        <div id="tenantOwnerScopeWrap" class="surface-select-wrap surface-tenant-scope" hidden>
-          <span class="surface-select-label" data-i18n="shell.tenant.scopeLabel">Tenant</span>
-          <div class="surface-combobox" data-state="closed">
-            <button
-              id="tenantOwnerScopeButton"
-              class="surface-select surface-combobox-trigger"
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded="false"
-              aria-controls="tenantOwnerScopeMenu"
-            >
-              <span id="tenantOwnerScopeValue" class="surface-combobox-value" data-i18n="shell.tenant.scopePlaceholder">Choose tenant</span>
-            </button>
-            <div id="tenantOwnerScopeMenu" class="surface-combobox-menu" role="listbox" hidden></div>
-          </div>
-          <select id="tenantOwnerScopeSelect" class="surface-select surface-select-native" aria-label="Choose tenant" tabindex="-1" aria-hidden="true"></select>
-        </div>
         <span id="tenantV4Status" class="surface-status" data-tone="muted" data-i18n="shell.tenant.status.loading">Preparing tenant workspace</span>
         <select id="tenantLanguageSelect" class="surface-select" aria-label="Language"></select>
         <button id="tenantV4RefreshBtn" class="surface-button surface-button-primary" type="button" data-i18n="shell.common.refresh">Refresh data</button>
@@ -73,12 +56,21 @@
   </script>
   <script src="/admin/assets/tenant-dashboard-v4.js?v=20260328-ui-1"></script>
   <script src="/admin/assets/tenant-server-status-v4.js?v=20260328-ui-1"></script>
-  <script src="/admin/assets/tenant-server-config-v4.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-server-config-v4.js?v=20260330-config-ui-6"></script>
   <script src="/admin/assets/tenant-orders-v4.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-donations-v4.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-events-v4.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-modules-v4.js?v=20260328-ui-1"></script>
   <script src="/admin/assets/tenant-players-v4.js?v=20260328-ui-1"></script>
-  <script src="/admin/assets/tenant-delivery-agents-v4.js?v=20260328-ui-1"></script>
-  <script src="/admin/assets/tenant-server-bots-v4.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-onboarding-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-logs-sync-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-staff-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-roles-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-settings-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-billing-v4.js?v=20260329-ui-1"></script>
+  <script src="/admin/assets/tenant-delivery-agents-v4.js?v=20260330-runtime-installer-1"></script>
+  <script src="/admin/assets/tenant-server-bots-v4.js?v=20260330-runtime-installer-1"></script>
   <script src="/admin/assets/tenant-restart-control-v4.js?v=20260328-ui-1"></script>
-  <script src="/admin/assets/tenant-v4-app.js?v=20260328-ui-1"></script>
+  <script src="/admin/assets/tenant-v4-app.js?v=20260331-tenant-th-live-3"></script>
 </body>
 </html>

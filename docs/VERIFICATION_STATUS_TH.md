@@ -1,6 +1,6 @@
 # Verification Status
 
-This file summarizes repository verification status without hardcoding test counts in many places.
+This file summarizes verification status without pretending that every repo feature has already been proven live on every environment.
 
 ## Source of Truth
 
@@ -19,7 +19,7 @@ Use this set first:
 
 ## Local Command Set
 
-Commands used on this workstation:
+Primary repo-level commands:
 
 ```bash
 npm run lint
@@ -37,57 +37,70 @@ Closest local equivalent to CI:
 npm run ci:verify
 ```
 
+Additional commands used in the current workstation update on `2026-03-31`:
+
+```bash
+node scripts/prisma-with-provider.js --provider postgresql generate
+npm run postgres:local:start
+npm run platform:schema:upgrade
+npm run pm2:start:prod
+```
+
 ## Reading Rule
 
 - if a claim is backed by code path, test, and artifact, treat it as `verified`
 - if a claim is backed by code only, treat it as `implemented`
-- if a claim depends on SCUM client state, Windows session state, or external infrastructure, treat it as `runtime-dependent`
+- if a claim depends on SCUM client state, Windows session state, Discord/Guild state, or other external infrastructure, treat it as `runtime-dependent`
+- if a process is merely `online` but still emits startup/config/runtime warnings, treat it as `online with caveats`, not clean proof
 
 ## Current Local Runtime Notes
 
-On this workstation as of `2026-03-26`:
+On this workstation as of `2026-03-31`:
 
-- the runtime boots with `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant`
-- default tenant `1259096998045421672` is provisioned at PostgreSQL schema `tenant_1259096998045421672`
-- repo text surfaces pass `lint:text`, and user-facing Thai command/leaderboard strings are covered by `test/mojibake-regression.test.js`
-- watcher is `ready` against the real `SCUM.log`
-- console-agent is `ready` and preflight passes against the live `SCUM` window
-- one live agent command was observed in `SCUM.log`
-- live delivery-audit rows exist under `tenant_1259096998045421672."DeliveryAudit"` after the cutover
-- live native delivery proof matrices were observed from `SCUM.db` for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
-- web runtimes are enabled again locally for `owner`, `tenant`, `public`, and `player`
-- owner login works locally with loopback-safe cookie handling without changing the production auth/session contract
-- owner pages no longer fail on preview-tenant quota reads
-- tenant preview tenants load with safe fallback state instead of failing scoped reads
-- public preview flow was revalidated locally through `signup -> preview -> logout -> login -> preview`
-- `player/login` loads and Discord OAuth start redirects correctly to Discord authorization
+- local PostgreSQL is reachable at `127.0.0.1:55432`
+- PostgreSQL Prisma client generation was rerun successfully through `scripts/prisma-with-provider.js`
+- `npm run platform:schema:upgrade` completed successfully
+- `pm2` reports these runtimes `online`:
+  - `scum-admin-web`
+  - `scum-bot`
+  - `scum-worker`
+  - `scum-watcher`
+  - `scum-console-agent`
+  - `scum-server-bot`
+  - `scum-web-portal`
+- local admin web is reachable and `POST /admin/api/login` returned `200 OK`
+- `scum-bot` health returned `ok=true` with `discordReady=true`
+- `scum-server-bot` health returned `ready=true`, `status=ready`, and recent successful job completion data
 
-Latest repo-local verification command pass on this workstation completed on `2026-03-26`:
+## Current Local Caveats
 
-- `npm run lint`
-- `npm run test:policy`
-- `npm test`
-- `npm run doctor`
-- `npm run security:check`
+- `scum-bot` error log still contains production-guard and schema-alignment warnings from this workstation:
+  - `Production requires ADMIN_WEB_STEP_UP_ENABLED=true`
+  - `Production requires ADMIN_WEB_2FA_ENABLED=true`
+  - `The table public.ControlPlaneServer does not exist in the current database`
+- `scum-web-portal` is online, but its error log still reports optional player-data failures for `lucky-wheel-config` due to `normalizeHttpUrl is not a function`
+- `scum-server-bot` is healthy now, but earlier local starts failed because control-plane URL / token setup was incomplete; treat current health as machine-specific proof, not universal deploy proof
+- admin DB login is verified locally, but Discord admin SSO was not counted as verified in this round because the current guild role export does not prove the configured owner/admin/moderator mapping
 
-Additional browser validation on `2026-03-26` covered:
+## Prior Repository-Local Evidence Still Relevant
 
-- owner login and owner console
-- tenant login and tenant console
-- public signup/login/preview flow
-- player login and Discord OAuth start redirect
+Earlier repository-local validation from the March 2026 hardening rounds is still relevant where it is backed by artifacts and tests:
 
-Summary evidence:
+- repo text and encoding checks
+- tenant topology routing tests
+- watcher / console-agent proof on this workstation
+- native delivery proof matrices already captured in `docs/assets/`
+- browser validation artifacts under `output/playwright/`
 
-- [assets/live-runtime-evidence.md](./assets/live-runtime-evidence.md)
-- [assets/live-native-proof-coverage-summary.md](./assets/live-native-proof-coverage-summary.md)
+Treat those as historical repo/workstation evidence, not as a substitute for today's live runtime status.
 
 ## What This File Still Does Not Prove
 
-- completion of the Discord OAuth callback without a real Discord login session
-- native proof coverage for every SCUM server configuration or every workstation/runtime
-- a second verified native-proof environment; pending targets are tracked in `assets/live-native-proof-environments.json`
-- the partial `EnableSpawnOnGround=True` sample and the blocked same-workstation `rcon` attempt are tracked as evidence, but neither is counted as a second verified environment
-- a second live tenant-topology deployment on another workstation/environment
-- any `database-per-tenant` deployment evidence
+- full Discord OAuth callback completion with a real external login session
+- admin Discord SSO role assignment on the current live guild
+- a clean production log set for every runtime after the latest PM2 boot
+- a full player-portal end-to-end journey on the current workstation after the latest restart
+- billing/provider lifecycle as a production commerce flow
+- finished donation, raid, module/plugin, and killfeed product systems
+- a second verified tenant-topology environment or a `database-per-tenant` deployment
 - behavior on another workstation without the same Windows session, SCUM client, `SCUM.db`, and `SCUM.log` paths

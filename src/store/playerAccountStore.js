@@ -7,7 +7,7 @@ const {
 
 function normalizeDiscordId(value) {
   const id = String(value || '').trim();
-  if (!/^\d{15,25}$/.test(id)) return null;
+  if (!/^\d{14,25}$/.test(id)) return null;
   return id;
 }
 

@@ -1,8 +1,11 @@
 'use strict';
 
+require('dotenv').config();
+
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
+const { runPostgresPlatformSchemaUpgrade } = require('./postgres-platform-schema-upgrade');
 
 const migrationFiles = [
   path.resolve(
@@ -26,6 +29,27 @@ const migrationFiles = [
     '20260328233000_platform_foundation_phase2',
     'migration.sql',
   ),
+  path.resolve(
+    process.cwd(),
+    'prisma',
+    'migrations',
+    '20260329153000_platform_request_log_restore_state',
+    'migration.sql',
+  ),
+  path.resolve(
+    process.cwd(),
+    'prisma',
+    'migrations',
+    '20260329193000_platform_package_catalog',
+    'migration.sql',
+  ),
+  path.resolve(
+    process.cwd(),
+    'prisma',
+    'migrations',
+    '20260331121000_platform_identity_auth_alignment',
+    'migration.sql',
+  ),
 ];
 
 function run(command, args, env = {}) {
@@ -46,7 +70,7 @@ function run(command, args, env = {}) {
   }
 }
 
-function main() {
+function runSqlitePlatformSchemaUpgrade() {
   const prismaWithProviderScript = path.resolve(process.cwd(), 'scripts', 'prisma-with-provider.js');
   const runtime = resolveDatabaseRuntime({
     provider: 'sqlite',
@@ -74,4 +98,22 @@ function main() {
   console.log('[platform-schema-upgrade] platform schema SQL applied');
 }
 
-main();
+function main() {
+  const runtime = resolveDatabaseRuntime({
+    projectRoot: process.cwd(),
+  });
+  if (runtime.provider === 'postgresql' || runtime.engine === 'postgresql') {
+    runPostgresPlatformSchemaUpgrade();
+    return;
+  }
+  runSqlitePlatformSchemaUpgrade();
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  main,
+  runSqlitePlatformSchemaUpgrade,
+};

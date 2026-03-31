@@ -88,7 +88,9 @@ function normalizeHttpUrl(value) {
 }
 
 function isDiscordId(value) {
-  return /^\d{15,25}$/.test(String(value || '').trim());
+  // Accept legacy 14-digit IDs that already exist in local/prototype datasets,
+  // while still requiring a numeric snowflake-like shape.
+  return /^\d{14,25}$/.test(String(value || '').trim());
 }
 
 function buildDiscordAvatarUrl(profile = {}) {

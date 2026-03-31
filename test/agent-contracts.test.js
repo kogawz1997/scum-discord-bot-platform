@@ -5,6 +5,7 @@ const {
   deriveScopesForAgent,
   normalizeAgentRegistrationInput,
   normalizeAgentSyncPayload,
+  resolveStrictAgentRoleScope,
 } = require('../src/contracts/agent/agentContracts');
 
 test('normalizeAgentRegistrationInput derives role and scope defaults safely', () => {
@@ -59,6 +60,46 @@ test('deriveScopesForAgent separates read/sync and execute scopes', () => {
   const hybridScopes = deriveScopesForAgent('hybrid', 'sync_execute');
   assert.ok(hybridScopes.includes('agent:sync'));
   assert.ok(hybridScopes.includes('agent:execute'));
+});
+
+test('resolveStrictAgentRoleScope enforces dedicated runtime boundaries for new provisioning flows', () => {
+  assert.deepEqual(
+    resolveStrictAgentRoleScope({
+      runtimeKind: 'server-bots',
+      role: 'execute',
+      scope: 'execute_only',
+    }),
+    {
+      ok: true,
+      runtimeKind: 'server-bots',
+      role: 'sync',
+      scope: 'sync_only',
+      legacy: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolveStrictAgentRoleScope({
+      runtimeKind: 'delivery-agents',
+      role: 'sync',
+      scope: 'sync_only',
+    }),
+    {
+      ok: true,
+      runtimeKind: 'delivery-agents',
+      role: 'execute',
+      scope: 'execute_only',
+      legacy: false,
+    },
+  );
+
+  assert.equal(
+    resolveStrictAgentRoleScope({
+      role: 'hybrid',
+      scope: 'sync_execute',
+    }).ok,
+    false,
+  );
 });
 
 test('normalizeAgentSyncPayload keeps server-scoped event envelope', () => {

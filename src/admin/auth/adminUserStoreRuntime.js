@@ -22,6 +22,8 @@ function createAdminUserStoreRuntime(options = {}) {
   let resolvedToken = null;
   let resolvedLoginPassword = null;
   let adminUsersReadyPromise = null;
+  let envFallbackMode = false;
+  let envUserRows = null;
 
   function getAdminToken() {
     if (resolvedToken) return resolvedToken;
@@ -87,9 +89,33 @@ function createAdminUserStoreRuntime(options = {}) {
     return users;
   }
 
+  function getEnvAdminUserRows() {
+    if (Array.isArray(envUserRows)) {
+      return envUserRows;
+    }
+    envUserRows = parseAdminUsersFromEnv().map((user) => ({
+      username: String(user.username || '').trim(),
+      passwordHash: String(user.password || '').trim(),
+      role: normalizeRole(user.role || 'mod'),
+      tenantId: String(user.tenantId || '').trim() || null,
+      isActive: true,
+      createdAt: null,
+      updatedAt: null,
+    }));
+    return envUserRows;
+  }
+
   function getAdminUsersDatabaseEngine() {
     const runtime = resolveDatabaseRuntime();
     return runtime.engine === 'unsupported' ? 'sqlite' : runtime.engine;
+  }
+
+  function getAdminUserDelegate() {
+    const delegate = prisma && typeof prisma === 'object' ? prisma.adminWebUser : null;
+    if (!delegate || typeof delegate.findUnique !== 'function') {
+      return null;
+    }
+    return delegate;
   }
 
   function isIgnorableAdminUsersSchemaError(error) {
@@ -97,6 +123,45 @@ function createAdminUserStoreRuntime(options = {}) {
     return message.includes('duplicate column')
       || message.includes('already exists')
       || message.includes('(typname, typnamespace)=(admin_web_users');
+  }
+
+  function shouldFallbackToLegacyAdminUserPersistence(error) {
+    const code = String(error?.code || '').trim().toUpperCase();
+    if (code === 'P2021' || code === 'P2022') {
+      return true;
+    }
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('adminwebuser')
+      || message.includes('admin_web_users')
+      || message.includes('no such table')
+      || message.includes('does not exist')
+      || message.includes('could not convert value');
+  }
+
+  function shouldUseEnvAdminUsersFallback(error) {
+    if (shouldFallbackToLegacyAdminUserPersistence(error)) {
+      return true;
+    }
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('error validating datasource')
+      || message.includes('must start with the protocol')
+      || message.includes('prismaclientinitializationerror')
+      || message.includes('can\'t reach database server')
+      || message.includes('connection refused')
+      || message.includes('authentication failed');
+  }
+
+  function normalizeAdminUserRow(row) {
+    if (!row) return null;
+    return {
+      username: String(row.username || '').trim(),
+      passwordHash: String(row.passwordHash || '').trim(),
+      role: normalizeRole(row.role || 'mod'),
+      tenantId: String(row.tenantId || '').trim() || null,
+      isActive: row.isActive === true || Number(row.isActive || 0) === 1,
+      createdAt: row?.createdAt ? new Date(row.createdAt).toISOString() : null,
+      updatedAt: row?.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    };
   }
 
   function createAdminPasswordHash(password) {
@@ -182,6 +247,29 @@ function createAdminUserStoreRuntime(options = {}) {
 
   async function seedAdminUsersFromEnv() {
     const users = parseAdminUsersFromEnv();
+    const delegate = getAdminUserDelegate();
+    if (delegate) {
+      try {
+        for (const user of users) {
+          await delegate.upsert({
+            where: { username: String(user.username || '').trim() },
+            update: {},
+            create: {
+              username: String(user.username || '').trim(),
+              passwordHash: createAdminPasswordHash(user.password),
+              role: normalizeRole(user.role),
+              tenantId: String(user.tenantId || '').trim() || null,
+              isActive: true,
+            },
+          });
+        }
+        return;
+      } catch (error) {
+        if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
+          throw error;
+        }
+      }
+    }
     for (const user of users) {
       await prisma.$executeRaw`
         INSERT INTO admin_web_users (
@@ -208,8 +296,47 @@ function createAdminUserStoreRuntime(options = {}) {
   }
 
   async function listAdminUsersFromDb(limit = 100, options = {}) {
+    if (envFallbackMode) {
+      const normalizedLimit = Math.max(1, Math.trunc(Number(limit || 100)));
+      const activeOnly = options?.activeOnly !== false;
+      return getEnvAdminUserRows()
+        .filter((row) => (activeOnly ? row.isActive === true : true))
+        .slice(0, normalizedLimit)
+        .map((row) => ({
+          username: row.username,
+          role: row.role,
+          tenantId: row.tenantId,
+          isActive: row.isActive,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        }));
+    }
     const { activeOnly = true } = options;
     const normalizedLimit = Math.max(1, Math.trunc(Number(limit || 100)));
+    const delegate = getAdminUserDelegate();
+    if (delegate) {
+      try {
+        const rows = await delegate.findMany({
+          where: activeOnly ? { isActive: true } : undefined,
+          orderBy: { username: 'asc' },
+          take: normalizedLimit,
+        });
+        return Array.isArray(rows)
+          ? rows.map(normalizeAdminUserRow).filter(Boolean).map((row) => ({
+            username: row.username,
+            role: row.role,
+            tenantId: row.tenantId,
+            isActive: row.isActive,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          }))
+          : [];
+      } catch (error) {
+        if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
+          throw error;
+        }
+      }
+    }
     const rows = activeOnly
       ? await prisma.$queryRaw`
         SELECT
@@ -238,19 +365,40 @@ function createAdminUserStoreRuntime(options = {}) {
       `;
 
     if (!Array.isArray(rows)) return [];
-    return rows.map((row) => ({
-      username: String(row?.username || '').trim(),
-      role: normalizeRole(row?.role || 'mod'),
-      tenantId: String(row?.tenantId || '').trim() || null,
-      isActive: row?.isActive === true || Number(row?.isActive || 0) === 1,
-      createdAt: row?.createdAt ? new Date(row.createdAt).toISOString() : null,
-      updatedAt: row?.updatedAt ? new Date(row.updatedAt).toISOString() : null,
-    }));
+    return rows.map((row) => {
+      const normalized = normalizeAdminUserRow(row);
+      return {
+        username: normalized.username,
+        role: normalized.role,
+        tenantId: normalized.tenantId,
+        isActive: normalized.isActive,
+        createdAt: normalized.createdAt,
+        updatedAt: normalized.updatedAt,
+      };
+    });
   }
 
   async function getAdminUserByUsername(username) {
     const name = String(username || '').trim();
     if (!name) return null;
+    if (envFallbackMode) {
+      return normalizeAdminUserRow(
+        getEnvAdminUserRows().find((row) => row.username === name) || null,
+      );
+    }
+    const delegate = getAdminUserDelegate();
+    if (delegate) {
+      try {
+        const row = await delegate.findUnique({
+          where: { username: name },
+        });
+        return normalizeAdminUserRow(row);
+      } catch (error) {
+        if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
+          throw error;
+        }
+      }
+    }
     const rows = await prisma.$queryRaw`
       SELECT
         username,
@@ -265,19 +413,25 @@ function createAdminUserStoreRuntime(options = {}) {
       LIMIT 1
     `;
     const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-    if (!row) return null;
-    return {
-      username: String(row.username || '').trim(),
-      passwordHash: String(row.passwordHash || '').trim(),
-      role: normalizeRole(row.role || 'mod'),
-      tenantId: String(row.tenantId || '').trim() || null,
-      isActive: row.isActive === true || Number(row.isActive || 0) === 1,
-      createdAt: row?.createdAt ? new Date(row.createdAt).toISOString() : null,
-      updatedAt: row?.updatedAt ? new Date(row.updatedAt).toISOString() : null,
-    };
+    return normalizeAdminUserRow(row);
   }
 
   async function countActiveOwnerUsers() {
+    const delegate = getAdminUserDelegate();
+    if (delegate) {
+      try {
+        return await delegate.count({
+          where: {
+            isActive: true,
+            role: 'owner',
+          },
+        });
+      } catch (error) {
+        if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
+          throw error;
+        }
+      }
+    }
     const rows = await prisma.$queryRaw`
       SELECT COUNT(*) AS total
       FROM admin_web_users
@@ -308,6 +462,9 @@ function createAdminUserStoreRuntime(options = {}) {
     }
 
     await ensureAdminUsersReady();
+    if (envFallbackMode) {
+      throw new Error('Admin user persistence is unavailable while the database is offline.');
+    }
     const existing = await getAdminUserByUsername(username);
     if (!existing && !password) {
       throw new Error('Password is required for a new admin user');
@@ -323,6 +480,39 @@ function createAdminUserStoreRuntime(options = {}) {
       const ownerCount = await countActiveOwnerUsers();
       if (ownerCount <= 1) {
         throw new Error('Cannot remove the last active owner');
+      }
+    }
+
+    const delegate = getAdminUserDelegate();
+    if (delegate) {
+      try {
+        const passwordHash = password ? createAdminPasswordHash(password) : null;
+        if (!existing) {
+          await delegate.create({
+            data: {
+              username,
+              passwordHash,
+              role,
+              tenantId,
+              isActive,
+            },
+          });
+        } else {
+          await delegate.update({
+            where: { username },
+            data: {
+              role,
+              tenantId,
+              isActive,
+              ...(passwordHash ? { passwordHash } : {}),
+            },
+          });
+        }
+        return getAdminUserByUsername(username);
+      } catch (error) {
+        if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
+          throw error;
+        }
       }
     }
 
@@ -375,11 +565,25 @@ function createAdminUserStoreRuntime(options = {}) {
     if (adminUsersReadyPromise) return adminUsersReadyPromise;
 
     adminUsersReadyPromise = (async () => {
-      await ensureAdminUsersTable();
-      await seedAdminUsersFromEnv();
-      const users = await listAdminUsersFromDb(1);
-      if (!users.length) {
-        throw new Error('No active admin users in database');
+      try {
+        await ensureAdminUsersTable();
+        await seedAdminUsersFromEnv();
+        envFallbackMode = false;
+        const users = await listAdminUsersFromDb(1);
+        if (!users.length) {
+          throw new Error('No active admin users in database');
+        }
+        return;
+      } catch (error) {
+        if (!shouldUseEnvAdminUsersFallback(error)) {
+          throw error;
+        }
+        const envUsers = getEnvAdminUserRows().filter((row) => row.isActive === true);
+        if (!envUsers.length) {
+          throw error;
+        }
+        envFallbackMode = true;
+        logger.warn('[admin-web] falling back to env-backed admin users:', error.message);
       }
     })().catch((error) => {
       adminUsersReadyPromise = null;
@@ -395,26 +599,46 @@ function createAdminUserStoreRuntime(options = {}) {
     if (!name || !pass) return null;
 
     await ensureAdminUsersReady();
-    const rows = await prisma.$queryRaw`
-      SELECT
-        username,
-        password_hash AS "passwordHash",
-        role,
-        tenant_id AS "tenantId",
-        is_active AS "isActive"
-      FROM admin_web_users
-      WHERE username = ${name}
-      LIMIT 1
-    `;
-    const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-    if (!row || !(row.isActive === true || Number(row.isActive || 0) === 1)) return null;
+    const row = await getAdminUserByUsername(name);
+    if (!row || row.isActive !== true) return null;
     if (!verifyAdminPassword(pass, row.passwordHash)) return null;
 
     return {
-      username: String(row.username || '').trim(),
-      role: normalizeRole(row.role || 'mod'),
-      tenantId: String(row.tenantId || '').trim() || null,
+      username: row.username,
+      role: row.role,
+      tenantId: row.tenantId,
       authMethod: 'password-db',
+    };
+  }
+
+  async function resolveAdminSessionAccessContext(input = {}) {
+    const username = String(input.username || input.user || '').trim();
+    if (!username) {
+      return { ok: false, reason: 'admin-user-required' };
+    }
+
+    await ensureAdminUsersReady();
+    const row = await getAdminUserByUsername(username);
+    if (!row?.username) {
+      return { ok: false, reason: 'admin-user-not-found' };
+    }
+    if (row.isActive !== true) {
+      return {
+        ok: false,
+        reason: 'admin-user-inactive',
+        user: row,
+      };
+    }
+
+    return {
+      ok: true,
+      user: row,
+      authContext: {
+        user: row.username,
+        role: row.role,
+        tenantId: row.tenantId || null,
+        authMethod: String(input.authMethod || 'password-db').trim() || 'password-db',
+      },
     };
   }
 
@@ -423,6 +647,7 @@ function createAdminUserStoreRuntime(options = {}) {
     getAdminLoginPassword,
     getAdminToken,
     getUserByCredentials,
+    resolveAdminSessionAccessContext,
     listAdminUsersFromDb,
     upsertAdminUserInDb,
   };

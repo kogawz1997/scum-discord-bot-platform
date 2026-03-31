@@ -1,11 +1,11 @@
-@import url("./tenant-dashboard-v4.css");
+@import url("./tenant-dashboard-v4.css?v=20260330-layout-balance-3");
 
 .tdv4-status-strip {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--tdv4-summary-min, 220px), 1fr));
 }
 
 .tdv4-status-ready-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
 .tdv4-mini-stat-grid {
@@ -38,7 +38,7 @@
 @media (max-width: 1440px) {
   .tdv4-status-strip,
   .tdv4-status-ready-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 }
 

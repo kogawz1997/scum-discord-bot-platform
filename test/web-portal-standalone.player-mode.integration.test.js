@@ -97,11 +97,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     assert.equal(root.headers.get('location'), '/landing');
 
     const showcase = await request('/showcase', baseUrl);
-    assert.equal(showcase.status, 200);
-    const showcaseHtml = await showcase.text();
-    assert.match(showcaseHtml, /SCUM TH Platform/i);
-    assert.match(showcaseHtml, /Showcase|ตัวอย่างเส้นทางการใช้งาน/i);
-    assert.match(showcaseHtml, /Owner|Tenant|Player|Owner Panel|Tenant Admin|Player Portal/i);
+    assert.equal(showcase.status, 302);
+    assert.equal(showcase.headers.get('location'), '/pricing');
 
     const showcaseSlash = await request('/showcase/', baseUrl);
     assert.equal(showcaseSlash.status, 302);
@@ -118,10 +115,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     );
 
     const trial = await request('/trial', baseUrl);
-    assert.equal(trial.status, 200);
-    const trialHtml = await trial.text();
-    assert.match(trialHtml, /SCUM TH Platform/i);
-    assert.match(trialHtml, /Trial|ลองใช้งาน|Preview/i);
+    assert.equal(trial.status, 302);
+    assert.equal(trial.headers.get('location'), '/pricing');
 
     const publicOverview = await request('/api/platform/public/overview', baseUrl);
     assert.equal(publicOverview.status, 200);

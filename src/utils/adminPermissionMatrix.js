@@ -1,7 +1,9 @@
 'use strict';
 
 const ROLE_ORDER = Object.freeze({
+  viewer: 0,
   mod: 1,
+  staff: 1,
   admin: 2,
   owner: 3,
 });
@@ -14,6 +16,22 @@ const POST_PERMISSION_MATRIX = Object.freeze([
     minRole: 'owner',
     stepUp: true,
     description: 'Revoke admin sessions',
+  },
+  {
+    path: '/admin/api/notifications/ack',
+    permission: 'notifications:ack',
+    category: 'audit',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Acknowledge owner notifications',
+  },
+  {
+    path: '/admin/api/notifications/clear',
+    permission: 'notifications:clear',
+    category: 'audit',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Clear owner notifications',
   },
   {
     path: '/admin/api/config/patch',
@@ -126,6 +144,38 @@ const POST_PERMISSION_MATRIX = Object.freeze([
     minRole: 'owner',
     stepUp: true,
     description: 'Create or update subscriptions',
+  },
+  {
+    path: '/admin/api/platform/subscription/update',
+    permission: 'platform:subscription-write',
+    category: 'platform',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Change tenant subscription plan or billing state',
+  },
+  {
+    path: '/admin/api/platform/billing/invoice/update',
+    permission: 'platform:billing-invoice-write',
+    category: 'platform',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Change invoice status from Owner panel',
+  },
+  {
+    path: '/admin/api/platform/billing/payment-attempt/update',
+    permission: 'platform:billing-attempt-write',
+    category: 'platform',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Change payment attempt status from Owner panel',
+  },
+  {
+    path: '/admin/api/platform/billing/checkout-session',
+    permission: 'platform:billing-checkout-write',
+    category: 'platform',
+    minRole: 'owner',
+    stepUp: true,
+    description: 'Create owner-initiated checkout sessions',
   },
   {
     path: '/admin/api/platform/license',
@@ -255,7 +305,10 @@ const POST_PERMISSION_INDEX = new Map(
 
 function normalizeRole(role) {
   const value = String(role || '').trim().toLowerCase();
-  if (value === 'owner' || value === 'admin' || value === 'mod') return value;
+  if (value === 'owner' || value === 'admin' || value === 'mod' || value === 'viewer' || value === 'staff') {
+    return value;
+  }
+  if (value === 'member') return 'viewer';
   return 'mod';
 }
 
@@ -286,7 +339,7 @@ function listAdminPermissionMatrix() {
 }
 
 function buildRoleMatrix() {
-  const roles = ['mod', 'admin', 'owner'];
+  const roles = ['viewer', 'staff', 'admin', 'owner'];
   return roles.map((role) => ({
     role,
     permissions: POST_PERMISSION_MATRIX

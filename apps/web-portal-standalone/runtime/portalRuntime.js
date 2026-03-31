@@ -51,6 +51,19 @@ function buildLegacyAdminUrl(legacyAdminUrl, pathname, search) {
   }
 }
 
+function buildAdminProductUrl(legacyAdminUrl, pathname, search) {
+  try {
+    const base = new URL(legacyAdminUrl);
+    base.pathname = String(pathname || '/tenant').startsWith('/')
+      ? String(pathname || '/tenant')
+      : `/${String(pathname || 'tenant')}`;
+    base.search = search || '';
+    return base.toString();
+  } catch {
+    return null;
+  }
+}
+
 function buildPortalRuntimeSettings(settings) {
   return {
     nodeEnv: settings.nodeEnv,
@@ -226,6 +239,7 @@ function printPortalStartupHints(settings, logger = console) {
 }
 
 module.exports = {
+  buildAdminProductUrl,
   buildLegacyAdminUrl,
   buildPortalHealthPayload,
   buildPortalRuntimeSettings,

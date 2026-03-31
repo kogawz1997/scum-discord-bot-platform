@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | เข้าสู่ระบบ</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
+  <title>SCUM TH Platform | Choose Access</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260328-route-1">
 </head>
 <body class="public-v3">
   <div class="site-shell">
@@ -14,50 +14,43 @@
           <span class="site-brand-mark">SCUM</span>
           <span class="site-brand-copy">
             <strong class="site-brand-title">SCUM TH Platform</strong>
-            <span class="site-brand-detail">เข้าสู่ระบบเพื่อกลับไปยังพื้นที่ของคุณและทำงานต่อจากจุดเดิม</span>
+            <span class="site-brand-detail">Choose the real product you need instead of entering a preview workspace.</span>
           </span>
         </a>
         <nav class="site-nav" aria-label="Primary">
-          <a class="site-nav-link" href="/landing">ภาพรวม</a>
-          <a class="site-nav-link" href="/pricing">แพ็กเกจ</a>
-          <a class="site-nav-link" href="/signup">สร้างบัญชี</a>
-          <a class="site-nav-link is-active" href="/login">เข้าสู่ระบบ</a>
+          <a class="site-nav-link" href="/landing">Overview</a>
+          <a class="site-nav-link" href="/pricing">Packages</a>
+          <a class="site-nav-link" href="/signup">Create account</a>
+          <a class="site-nav-link is-active" href="/login">Access</a>
         </nav>
       </div>
     </header>
     <main class="site-main">
       <section class="site-grid-2">
         <article class="site-auth-card site-stack">
-          <span class="site-kicker">Workspace Login</span>
-          <h1 class="site-page-title">เข้าสู่ระบบ</h1>
-          <p class="site-page-copy">ใช้บัญชีที่สมัครไว้เพื่อกลับเข้าสู่พื้นที่ทำงานเดิม และไปต่อจากขั้นตอนที่ค้างอยู่ได้ทันที</p>
-          <form id="previewLoginForm" class="site-form-grid">
-            <label class="site-field site-field-span">
-              <span>อีเมล</span>
-              <input id="previewLoginEmail" class="auth-input" type="email" placeholder="name@example.com">
-            </label>
-            <label class="site-field site-field-span">
-              <span>รหัสผ่าน</span>
-              <input id="previewLoginPassword" class="auth-input" type="password" placeholder="กรอกรหัสผ่าน">
-            </label>
+          <span class="site-kicker">Access Chooser</span>
+          <h1 class="site-page-title">Open the right product</h1>
+          <p class="site-page-copy">Tenant admins go to the real Tenant Admin Panel. Players go to the Player Portal. The fake preview workspace is no longer the main destination.</p>
+          <div class="site-form-grid">
             <div class="site-field site-field-span">
-              <button id="previewLoginSubmit" class="button button-primary" type="submit">เข้าสู่ระบบ</button>
-              <div id="previewLoginStatus" class="form-status" aria-live="polite"></div>
+              <a id="tenantLoginLink" class="button button-primary" href="#">Open Tenant Admin</a>
             </div>
-          </form>
-          <a class="marketing-inline-link" href="/forgot-password">ลืมรหัสผ่าน</a>
+            <div class="site-field site-field-span">
+              <a id="playerLoginLink" class="button button-secondary" href="/player/login">Open Player Portal</a>
+            </div>
+            <div id="publicAccessStatus" class="form-status" aria-live="polite"></div>
+          </div>
         </article>
         <article class="site-panel site-media-card">
           <div class="site-media-shot is-player-hero"></div>
-          <span class="site-kicker">กลับมาทำงานต่อ</span>
-          <h2 class="site-card-title">ถ้ามีเซสชันล่าสุดอยู่ ระบบจะพาคุณกลับไปพื้นที่เดิมได้ทันที</h2>
-          <p>ถ้าคุณเคยสร้างพื้นที่ทำงานไว้แล้ว ระบบจะช่วยพากลับไปยังหน้าเดิมและคงสถานะล่าสุดไว้ให้ เพื่อให้ทีมไม่ต้องเริ่มดูเมนูใหม่อีกรอบ</p>
-          <div id="previewLoginSession"></div>
+          <span class="site-kicker">Product split</span>
+          <h2 class="site-card-title">Each role now enters the right surface first</h2>
+          <p>Owner tools stay in the Owner Panel, tenant operations stay in Tenant Admin, and player actions stay in the Player Portal.</p>
         </article>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/portal-i18n.js?v=20260327-live-1"></script>
-  <script src="/player/assets/ui/public-auth-v2.js?v=20260327-live-1"></script>
+  <script src="/player/assets/ui/portal-i18n.js?v=20260328-route-1"></script>
+  <script src="/player/assets/ui/public-auth-v2.js?v=20260328-route-1"></script>
 </body>
 </html>

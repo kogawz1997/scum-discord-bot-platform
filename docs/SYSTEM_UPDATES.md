@@ -1,48 +1,66 @@
 # SYSTEM_UPDATES
 
-อัปเดตล่าสุด: **2026-03-15**
+Last updated: **2026-03-31**
 
-ไฟล์นี้ใช้สรุปสิ่งที่เปลี่ยนในระบบช่วงล่าสุดแบบสั้น ๆ โดยภาพรวมสถานะให้ดูที่ [PROJECT_HQ.md](../PROJECT_HQ.md)
+This file records the latest repository and workstation update in a short, operational format. For the full status register, see [../PROJECT_HQ.md](../PROJECT_HQ.md).
 
-## รอบอัปเดตล่าสุด
+## Latest Update Round
 
-### Persistence / database
+### Newly Revalidated On This Workstation
 
-- runtime บนเครื่องนี้ cut over จาก SQLite ไป PostgreSQL แล้ว
-- เพิ่ม helper สำหรับ local PostgreSQL cluster:
-  - `npm run postgres:local:setup`
-  - `npm run postgres:local:start`
-  - `npm run postgres:local:status`
-- เพิ่ม cutover script:
-  - `npm run db:cutover:postgresql -- --source-sqlite prisma/prisma/production.db`
-- เพิ่ม provider-aware Prisma flow สำหรับ `sqlite`, `postgresql`, `mysql`
+- Regenerated the Prisma client for `postgresql` through `scripts/prisma-with-provider.js`
+- Started local PostgreSQL and confirmed `127.0.0.1:55432` is reachable
+- Ran `npm run platform:schema:upgrade` successfully
+- Started the PM2 runtime profile and rechecked the main processes
+- Revalidated `POST /admin/api/login` on `http://127.0.0.1:3200/admin`
+- Revalidated the health endpoints for `scum-bot` and `scum-server-bot`
 
-### Test / validation
+### Current Runtime Status
 
-- `npm test` ใช้ `scripts/run-tests-with-provider.js`
-- ถ้า generated Prisma client เป็น PostgreSQL ชุดทดสอบจะสร้าง isolated schema ใหม่ให้เอง
-- ลดความเสี่ยงที่ test จะไปชน runtime database จริง
-- แก้ interaction test ที่เคยเปิด admin web ค้างจน test process ไม่ยอมปิด
+Currently online on this workstation:
 
-### Delivery / runtime
+- `scum-admin-web`
+- `scum-bot`
+- `scum-worker`
+- `scum-watcher`
+- `scum-console-agent`
+- `scum-server-bot`
+- `scum-web-portal`
 
-- delivery runtime บันทึก `executionMode`, `backend`, `commandPath`, `retryCount`
-- agent mode มี circuit breaker และ failover policy
-- watcher runtime รายงาน `degraded` แทนการ exit ทันทีเมื่อ `SCUM.log` ไม่พร้อม
+Important caveats:
 
-### Admin / tenant scope
+- `scum-bot` is online and Discord login succeeds, but the log still contains production-guard and schema-alignment warnings
+- `scum-web-portal` is online, but still logs optional player-data failures around `lucky-wheel-config`
+- `scum-server-bot` health is currently `ready=true`, but earlier local starts failed until control-plane URL and token settings were corrected
 
-- admin users และ sessions รองรับ `tenantId`
-- tenant-scoped admin ถูกจำกัดไม่ให้แตะ global config/env/restart routes ที่ไม่ควรเข้าถึง
-- เพิ่ม tenant config API และ tenant config persistence
-- control panel แสดง tenant config ให้กับ tenant-scoped admin ได้
+## Completed In This Documentation Round
 
-### Docs / evidence
+- Updated the main status documents to match the actual runtime state of `2026-03-31`
+- Split "repo capability" from "current machine proof" more clearly
+- Replaced the previously garbled `docs/SYSTEM_UPDATES.md` content with a clean current summary
 
-- ปรับเอกสารหลักให้สะท้อน PostgreSQL cutover, tenant boundary, และ validation ปัจจุบัน
-- คงแนวทางใช้ CI artifact เป็น source of truth สำหรับสถานะ test
+## Ready To Use Now
 
-## คำสั่งที่ใช้บ่อยหลังอัปเดตนี้
+- local PostgreSQL runtime
+- admin web plus admin DB login
+- bot health endpoint plus Discord-ready state
+- server-bot health endpoint plus sync/config polling state
+- worker, watcher, and console-agent PM2 processes
+
+## Still Needs Fixes Or Follow-up
+
+- make `scum-bot` boot cleanly on the current production profile
+- resolve `ControlPlaneServer` schema/state alignment
+- fix the player-portal `normalizeHttpUrl` warning path
+- revalidate Discord admin SSO against a guild with the intended role mapping
+- continue the larger product-readiness tracks:
+  - billing / commercial lifecycle
+  - unified identity
+  - persistence normalization
+  - donation / modules / raid / analytics
+  - i18n / UX polish
+
+## Commands Used Frequently After This Update
 
 ```bash
 npm run lint
@@ -51,10 +69,8 @@ npm run doctor
 npm run security:check
 npm run readiness:prod
 npm run smoke:postdeploy
+npm run platform:schema:upgrade
+pm2 describe scum-admin-web
+pm2 describe scum-bot
+pm2 describe scum-server-bot
 ```
-
-## ข้อจำกัดที่ยังอยู่
-
-- current `.env` บนเครื่องนี้ใช้ `DELIVERY_EXECUTION_MODE=agent`
-- agent mode ยังต้องพึ่ง Windows session และ SCUM admin client จริง
-- tenant isolation มี PostgreSQL RLS foundation แล้วสำหรับตาราง tenant-scoped บางส่วน แต่ยังไม่ใช่ per-tenant database isolation

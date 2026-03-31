@@ -10,8 +10,10 @@ const {
   getConfigFileDefinitions,
   getConfigSettingDefinitions,
   findConfigSettingDefinition,
+  serializeSettingValue,
 } = require('./serverBotConfigSchemaService');
 const {
+  listIniSettings,
   parseIniContent,
   readIniValue,
   patchIniContent,
@@ -60,6 +62,73 @@ function buildFilePathMap(configRoot) {
   );
 }
 
+function compareLineLists(left, right) {
+  const normalizedLeft = Array.isArray(left) ? left.map((entry) => String(entry || '').trim()).filter(Boolean) : [];
+  const normalizedRight = Array.isArray(right) ? right.map((entry) => String(entry || '').trim()).filter(Boolean) : [];
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((entry, index) => entry === normalizedRight[index]);
+}
+
+function buildKnownSettingKey(file, section, key) {
+  return [
+    trimText(file, 200).toLowerCase(),
+    trimText(section, 160).toLowerCase(),
+    trimText(key, 160).toLowerCase(),
+  ].join('::');
+}
+
+function inferBooleanKey(key) {
+  return /^(allow|enable|enabled|disable|disabled|is|has|use|can)/i.test(trimText(key, 160));
+}
+
+function inferSnapshotSettingType(rawValue, key) {
+  const text = trimText(rawValue ?? '', 4000);
+  const normalized = text.toLowerCase();
+  if (['true', 'false', 'yes', 'no', 'on', 'off', 'enabled', 'disabled'].includes(normalized)) {
+    return 'boolean';
+  }
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) {
+    if ((text === '0' || text === '1') && inferBooleanKey(key)) {
+      return 'boolean';
+    }
+    return 'number';
+  }
+  return 'string';
+}
+
+function verifyConfigFileUpdate(filePath, fileDefinition, fileChanges = []) {
+  const definition = fileDefinition && typeof fileDefinition === 'object'
+    ? fileDefinition
+    : { parseMode: 'ini' };
+  const content = readTextFile(filePath);
+  if (String(definition.parseMode || 'ini') === 'line-list') {
+    const expectedEntries = Array.isArray(fileChanges?.[0]?.value) ? fileChanges[0].value : [];
+    const actualEntries = parseLineListContent(content);
+    if (!compareLineLists(expectedEntries, actualEntries)) {
+      throw new Error(`config-verification-failed:${path.basename(filePath)}`);
+    }
+    return;
+  }
+
+  const parsed = parseIniContent(content);
+  for (const change of Array.isArray(fileChanges) ? fileChanges : []) {
+    const settingDefinition = findConfigSettingDefinition(change);
+    const expectedValue = settingDefinition
+      ? serializeSettingValue(settingDefinition, change.value)
+      : trimText(change.value ?? '', 4000);
+    const actualValue = readIniValue(parsed, trimText(change.section, 160), trimText(change.key, 160));
+    if (String(actualValue ?? '') !== String(expectedValue ?? '')) {
+      throw new Error(`config-verification-failed:${path.basename(filePath)}:${trimText(change.key, 160)}`);
+    }
+  }
+}
+
+function verifyCopiedFileContent(sourcePath, targetPath) {
+  if (readTextFile(sourcePath) !== readTextFile(targetPath)) {
+    throw new Error(`rollback-verification-failed:${path.basename(targetPath)}`);
+  }
+}
+
 function buildFileSnapshot(fileDefinition, filePath) {
   const exists = fs.existsSync(filePath);
   if (!exists) {
@@ -87,8 +156,14 @@ function buildFileSnapshot(fileDefinition, filePath) {
     };
   }
   const parsed = parseIniContent(content);
-  const settings = getConfigSettingDefinitions()
-    .filter((definition) => definition.file === fileDefinition.file)
+  const knownDefinitions = getConfigSettingDefinitions()
+    .filter((definition) => definition.file === fileDefinition.file);
+  const knownSettingKeys = new Set(knownDefinitions.map((definition) => buildKnownSettingKey(
+    definition.file,
+    definition.section,
+    definition.key,
+  )));
+  const settings = knownDefinitions
     .map((definition) => ({
       file: definition.file,
       category: definition.category,
@@ -102,13 +177,34 @@ function buildFileSnapshot(fileDefinition, filePath) {
       requiresRestart: definition.requiresRestart === true,
       visibility: definition.visibility || 'basic',
     }));
+  const discoveredSettings = listIniSettings(parsed)
+    .filter((setting) => !knownSettingKeys.has(buildKnownSettingKey(
+      fileDefinition.file,
+      setting.section,
+      setting.key,
+    )))
+    .map((setting) => ({
+      file: fileDefinition.file,
+      category: '',
+      group: setting.section || 'additional',
+      section: setting.section,
+      key: setting.key,
+      value: setting.value,
+      rawValue: setting.value,
+      defaultValue: null,
+      requiresRestart: false,
+      visibility: 'advanced',
+      type: inferSnapshotSettingType(setting.value, setting.key),
+      label: '',
+      description: '',
+    }));
   return {
     file: fileDefinition.file,
     path: filePath,
     parseMode: 'ini',
     exists: true,
     lastModifiedAt: stat.mtime.toISOString(),
-    settings,
+    settings: [...settings, ...discoveredSettings],
     rawEntries: [],
   };
 }
@@ -149,6 +245,8 @@ function startScumServerBotRuntime(options = {}) {
   const pollIntervalMs = asInt(env.SCUM_SERVER_CONFIG_JOB_POLL_MS, 15000, 3000);
   const applyTemplate = trimText(env.SCUM_SERVER_APPLY_TEMPLATE, 1200);
   const restartTemplate = trimText(env.SCUM_SERVER_RESTART_TEMPLATE, 1200);
+  const startTemplate = trimText(env.SCUM_SERVER_START_TEMPLATE, 1200);
+  const stopTemplate = trimText(env.SCUM_SERVER_STOP_TEMPLATE, 1200);
   const healthHost = trimText(env.SCUM_SERVER_BOT_HEALTH_HOST, 120) || '127.0.0.1';
   const healthPort = asInt(env.SCUM_SERVER_BOT_HEALTH_PORT, 0, 0);
   const presence = createPlatformAgentPresenceService({
@@ -215,13 +313,55 @@ function startScumServerBotRuntime(options = {}) {
     };
     const backups = [];
     try {
-      if (job.jobType === 'rollback') {
+      if (job.jobType === 'probe_sync') {
+        const syncResult = await presence.postSync({
+          syncRunId: `${job.id}-probe`,
+          sourceType: 'server-bot-probe',
+          sourcePath: configRoot,
+          freshnessAt: new Date().toISOString(),
+          eventCount: 1,
+          events: [
+            {
+              type: 'server-bot-probe',
+              summary: 'Tenant sync probe completed',
+              detail: 'Server Bot posted a sync probe through the control plane.',
+              runtimeKey: presence.runtimeKey,
+              serverId: presence.serverId || null,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          payload: {
+            kind: 'probe_sync',
+            configRoot,
+          },
+        });
+        if (!syncResult?.ok) {
+          throw new Error(trimText(syncResult?.error, 1000) || 'server-bot-sync-probe-failed');
+        }
+      } else if (job.jobType === 'probe_config_access') {
+        createServerConfigSnapshot(configRoot);
+      } else if (job.jobType === 'probe_restart') {
+        if (!restartTemplate && !applyTemplate) {
+          throw new Error('restart-template-missing');
+        }
+      } else if (job.jobType === 'server_start') {
+        if (!startTemplate) {
+          throw new Error('server-start-template-missing');
+        }
+        await applyCommandTemplate(startTemplate, vars, configRoot);
+      } else if (job.jobType === 'server_stop') {
+        if (!stopTemplate) {
+          throw new Error('server-stop-template-missing');
+        }
+        await applyCommandTemplate(stopTemplate, vars, configRoot);
+      } else if (job.jobType === 'rollback') {
         const backup = job.meta && typeof job.meta.backup === 'object' ? job.meta.backup : null;
         if (!backup?.backupPath || !backup?.file) {
           throw new Error('rollback-backup-missing');
         }
         const targetPath = filePathMap[backup.file];
         copyFileAtomic(backup.backupPath, targetPath);
+        verifyCopiedFileContent(backup.backupPath, targetPath);
       } else {
         const groupedChanges = new Map();
         for (const change of Array.isArray(job.changes) ? job.changes : []) {
@@ -247,6 +387,7 @@ function startScumServerBotRuntime(options = {}) {
           if (String(fileDefinition.parseMode || 'ini') === 'line-list') {
             const nextEntries = Array.isArray(fileChanges[0]?.value) ? fileChanges[0].value : [];
             writeTextFileAtomic(filePath, serializeLineListContent(nextEntries));
+            verifyConfigFileUpdate(filePath, fileDefinition, fileChanges);
             continue;
           }
           const patched = patchIniContent(
@@ -257,6 +398,7 @@ function startScumServerBotRuntime(options = {}) {
             })),
           );
           writeTextFileAtomic(filePath, patched.content);
+          verifyConfigFileUpdate(filePath, fileDefinition, fileChanges);
         }
       }
       if (job.applyMode === 'save_apply') {
@@ -266,11 +408,29 @@ function startScumServerBotRuntime(options = {}) {
         await applyCommandTemplate(restartTemplate || applyTemplate, vars, configRoot);
       }
       const snapshot = createServerConfigSnapshot(configRoot);
+      const detail = job.jobType === 'probe_sync'
+        ? 'Sync probe reached the control plane successfully.'
+        : job.jobType === 'probe_config_access'
+          ? 'Config files were readable and a fresh snapshot was captured.'
+          : job.jobType === 'probe_restart'
+            ? 'Restart command template is configured and ready for restart jobs.'
+            : job.jobType === 'server_start'
+              ? 'Start command finished on the server machine.'
+              : job.jobType === 'server_stop'
+                ? 'Stop command finished on the server machine.'
+                : null;
       await presence.reportServerConfigJobResult({
         jobId: job.id,
         status: 'succeeded',
         backups,
-        result: { applyMode: job.applyMode, jobType: job.jobType },
+        result: {
+          applyMode: job.applyMode,
+          jobType: job.jobType,
+          detail,
+          startConfigured: Boolean(startTemplate),
+          stopConfigured: Boolean(stopTemplate),
+          restartConfigured: Boolean(restartTemplate || applyTemplate),
+        },
         snapshot,
       });
       lastJobCompletedAt = new Date().toISOString();
@@ -282,7 +442,13 @@ function startScumServerBotRuntime(options = {}) {
         status: 'failed',
         backups,
         error: trimText(error?.message || error, 1000),
-        result: { applyMode: job.applyMode, jobType: job.jobType },
+        result: {
+          applyMode: job.applyMode,
+          jobType: job.jobType,
+          startConfigured: Boolean(startTemplate),
+          stopConfigured: Boolean(stopTemplate),
+          restartConfigured: Boolean(restartTemplate || applyTemplate),
+        },
         snapshot: configRoot ? createServerConfigSnapshot(configRoot) : null,
       }).catch(() => null);
       lastJobCompletedAt = new Date().toISOString();
@@ -355,6 +521,9 @@ function startScumServerBotRuntime(options = {}) {
 }
 
 module.exports = {
+  compareLineLists,
   createServerConfigSnapshot,
   startScumServerBotRuntime,
+  verifyConfigFileUpdate,
+  verifyCopiedFileContent,
 };

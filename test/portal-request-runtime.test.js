@@ -100,6 +100,64 @@ test('portal request runtime converts player api exceptions into 500 responses',
   });
 });
 
+test('portal request runtime allows unauthenticated player email auth request routes', async () => {
+  const res = createResponse();
+  const calls = [];
+  const runtime = createPortalRequestRuntime({
+    sendJson: createSendJson(res),
+    verifyOrigin: () => true,
+    getSession: () => null,
+    isDiscordId: () => false,
+    handlePortalPageRoute: async () => false,
+    handlePlayerGeneralRoute: async (context) => {
+      calls.push({
+        pathname: context.pathname,
+        method: context.method,
+        session: context.session,
+      });
+      context.res.statusCode = 200;
+      context.res.payload = {
+        ok: true,
+        data: { requested: true },
+      };
+      context.res.headersSent = true;
+      context.res.writableEnded = true;
+      return true;
+    },
+    handlePlayerCommerceRoute: async () => false,
+    cleanupRuntimeState: () => {},
+    cleanupIntervalMs: 1000,
+  });
+
+  await runtime.requestHandler(
+    {
+      method: 'POST',
+      url: '/player/api/auth/email/request',
+      headers: {
+        host: '127.0.0.1:3300',
+        origin: 'http://127.0.0.1:3300',
+      },
+      socket: {
+        encrypted: false,
+      },
+    },
+    res,
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.payload, {
+    ok: true,
+    data: { requested: true },
+  });
+  assert.deepEqual(calls, [
+    {
+      pathname: '/player/api/auth/email/request',
+      method: 'POST',
+      session: null,
+    },
+  ]);
+});
+
 test('portal request runtime rejects cross-site public api writes', async () => {
   const res = createResponse();
   const runtime = createPortalRequestRuntime({

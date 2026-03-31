@@ -1,4 +1,9 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  resolveTenantServerStoreScope,
+  buildServerScopedUserKey,
+  parseServerScopedUserKey,
+  matchesServerScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -13,7 +18,7 @@ function createScopeState() {
 }
 
 function ensureCartScope(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantServerStoreScope(options);
   if (!scopeStateByDatasource.has(scope.datasourceKey)) {
     scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
@@ -44,8 +49,10 @@ function normalizeIsoDate(value, fallback = new Date()) {
 }
 
 function toSerializableCart(userId, cart) {
+  const parsed = parseServerScopedUserKey(userId);
   return {
-    userId,
+    userId: parsed.userId,
+    serverId: parsed.serverId,
     updatedAt: cart.updatedAt || new Date().toISOString(),
     items: Array.from(cart.items.entries()).map(([itemId, quantity]) => ({
       itemId,
@@ -54,9 +61,12 @@ function toSerializableCart(userId, cart) {
   };
 }
 
-function fromSerializableCart(row) {
+function fromSerializableCart(row, options = {}) {
   if (!row || typeof row !== 'object') return null;
-  const userId = normalizeUserId(row.userId);
+  const userId = buildServerScopedUserKey(row.userId, {
+    ...options,
+    serverId: row.serverId || options.serverId,
+  });
   if (!userId) return null;
 
   const items = new Map();
@@ -205,7 +215,7 @@ async function flushCartStoreWrites(options = {}) {
 function getOrCreateCart(userId, options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  const key = normalizeUserId(userId);
+  const key = buildServerScopedUserKey(userId, options);
   if (!key) return null;
 
   let cart = scope.state.carts.get(key);
@@ -227,7 +237,7 @@ function touchCart(cart) {
 function listCartItems(userId, options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  const key = normalizeUserId(userId);
+  const key = buildServerScopedUserKey(userId, options);
   if (!key) return [];
   const cart = scope.state.carts.get(key);
   if (!cart) return [];
@@ -244,7 +254,7 @@ function getCartUnits(userId, options = {}) {
 function addCartItem(userId, itemId, quantity = 1, options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  const key = normalizeUserId(userId);
+  const key = buildServerScopedUserKey(userId, options);
   const itemKey = normalizeItemId(itemId);
   if (!key || !itemKey) return null;
 
@@ -292,7 +302,7 @@ function addCartItem(userId, itemId, quantity = 1, options = {}) {
 function removeCartItem(userId, itemId, quantity = 1, options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  const key = normalizeUserId(userId);
+  const key = buildServerScopedUserKey(userId, options);
   const itemKey = normalizeItemId(itemId);
   if (!key || !itemKey) return null;
 
@@ -366,7 +376,7 @@ function removeCartItem(userId, itemId, quantity = 1, options = {}) {
 function clearCart(userId, options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  const key = normalizeUserId(userId);
+  const key = buildServerScopedUserKey(userId, options);
   if (!key) return false;
 
   const existed = scope.state.carts.delete(key);
@@ -390,17 +400,26 @@ function clearCart(userId, options = {}) {
 function listAllCarts(options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
-  return Array.from(scope.state.carts.entries()).map(([userId, cart]) =>
-    toSerializableCart(userId, cart));
+  return Array.from(scope.state.carts.entries())
+    .filter(([userId]) => matchesServerScope(userId, options))
+    .map(([userId, cart]) => toSerializableCart(userId, cart));
 }
 
 function replaceCarts(nextCarts = [], options = {}) {
   const scope = ensureCartScope(options);
   void initCartStore(options);
   scope.state.mutationVersion += 1;
-  scope.state.carts.clear();
+  if (options.serverId) {
+    for (const userId of Array.from(scope.state.carts.keys())) {
+      if (matchesServerScope(userId, options)) {
+        scope.state.carts.delete(userId);
+      }
+    }
+  } else {
+    scope.state.carts.clear();
+  }
   for (const row of Array.isArray(nextCarts) ? nextCarts : []) {
-    const parsed = fromSerializableCart(row);
+    const parsed = fromSerializableCart(row, options);
     if (!parsed) continue;
     scope.state.carts.set(parsed.userId, parsed.cart);
   }
@@ -408,8 +427,21 @@ function replaceCarts(nextCarts = [], options = {}) {
   queueDbWrite(
     scope,
     async () => {
-      await scope.db.cartEntry.deleteMany({});
+      if (options.serverId) {
+        const existingRows = await scope.db.cartEntry.findMany();
+        for (const row of existingRows) {
+          if (!matchesServerScope(row.userId, options)) continue;
+          await scope.db.cartEntry.deleteMany({
+            where: {
+              userId: row.userId,
+            },
+          });
+        }
+      } else {
+        await scope.db.cartEntry.deleteMany({});
+      }
       for (const [userId, cart] of scope.state.carts.entries()) {
+        if (!matchesServerScope(userId, options)) continue;
         const updatedAt = normalizeIsoDate(cart.updatedAt);
         for (const [itemId, quantity] of cart.items.entries()) {
           await scope.db.cartEntry.create({

@@ -19,6 +19,11 @@ function createPortalRequestRuntime(deps) {
     cleanupIntervalMs,
   } = deps;
 
+  function isPublicPlayerAuthPath(pathname) {
+    return pathname === '/player/api/auth/email/request'
+      || pathname === '/player/api/auth/email/complete';
+  }
+
   async function handlePlayerApi(req, res, urlObj) {
     const pathname = urlObj.pathname;
     const method = String(req.method || 'GET').toUpperCase();
@@ -28,6 +33,24 @@ function createPortalRequestRuntime(deps) {
         ok: false,
         error: 'Cross-site request denied',
       });
+      return;
+    }
+
+    if (isPublicPlayerAuthPath(pathname)) {
+      if (
+        await handlePlayerGeneralRoute({
+          req,
+          res,
+          urlObj,
+          pathname,
+          method,
+          session: null,
+        })
+      ) {
+        return;
+      }
+
+      sendJson(res, 405, { ok: false, error: 'Method not allowed' });
       return;
     }
 

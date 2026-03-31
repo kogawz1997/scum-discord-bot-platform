@@ -52,7 +52,7 @@ function createSyncIngestionService(deps = {}) {
     })[0] || null;
     if (!server) return { ok: false, reason: 'server-not-found' };
     if (!agent) return { ok: false, reason: 'agent-not-registered' };
-    if (!['sync', 'hybrid'].includes(String(agent.role || ''))) {
+    if (String(agent.role || '') !== 'sync' || String(agent.scope || '') !== 'sync_only') {
       return { ok: false, reason: 'agent-sync-role-required' };
     }
     const result = recordSyncPayload({

@@ -3,6 +3,13 @@
  * runtime control, and config state that should stay grouped for review.
  */
 
+const {
+  requireTenantActionEntitlement,
+} = require('./tenantRouteEntitlements');
+const {
+  requireTenantPermission,
+} = require('./tenantRoutePermissions');
+
 function createAdminConfigPostRoutes(deps) {
   const {
     sendJson,
@@ -17,11 +24,15 @@ function createAdminConfigPostRoutes(deps) {
     recordAdminSecuritySignal,
     getClientIp,
     upsertAdminUserInDb,
+    revokeSessionsForUser,
+    buildClearSessionCookie,
     restartManagedRuntimeServices,
     config,
     resolveScopedTenantId,
     getPlatformTenantById,
     upsertPlatformTenantConfig,
+    getTenantFeatureAccess,
+    buildTenantProductEntitlements,
   } = deps;
 
   return async function handleAdminConfigPostRoute(context) {
@@ -108,6 +119,13 @@ function createAdminConfigPostRoutes(deps) {
         isActive,
         tenantId,
       });
+      const revokedSessions = typeof revokeSessionsForUser === 'function'
+        ? revokeSessionsForUser(saved?.username || username, {
+          actor: auth?.user || 'unknown',
+          reason: 'admin-user-updated',
+        })
+        : [];
+      const currentSessionRevoked = revokedSessions.some((entry) => entry?.id === auth?.sessionId);
 
       recordAdminSecuritySignal('admin-user-updated', {
         actor: auth?.user || null,
@@ -124,6 +142,7 @@ function createAdminConfigPostRoutes(deps) {
           tenantId: saved?.tenantId || tenantId,
           isActive: saved?.isActive ?? isActive,
           passwordUpdated: Boolean(password),
+          revokedSessionCount: revokedSessions.length,
         },
         notify: true,
         title: 'Admin User Updated',
@@ -131,8 +150,15 @@ function createAdminConfigPostRoutes(deps) {
 
       sendJson(res, 200, {
         ok: true,
-        data: saved,
-      });
+        data: {
+          ...saved,
+          revokedSessionCount: revokedSessions.length,
+        },
+      }, currentSessionRevoked ? {
+        'Set-Cookie': typeof buildClearSessionCookie === 'function'
+          ? buildClearSessionCookie(req)
+          : 'scum_admin_session=; Max-Age=0',
+      } : undefined);
       return true;
     }
 
@@ -259,6 +285,34 @@ function createAdminConfigPostRoutes(deps) {
         { required: true },
       );
       if (!tenantId) return true;
+      const updateScope = requiredString(body, 'updateScope') || 'settings';
+      const permissionCheck = requireTenantPermission({
+        sendJson,
+        res,
+        auth,
+        permissionKey: updateScope === 'modules' ? 'manage_runtimes' : 'edit_config',
+        message: updateScope === 'modules'
+          ? 'Your tenant role cannot change bot modules.'
+          : 'Your tenant role cannot change tenant settings.',
+      });
+      if (!permissionCheck.allowed) return true;
+      const actionKey = updateScope === 'modules'
+        ? 'can_use_modules'
+        : 'can_edit_config';
+      const entitlementCheck = await requireTenantActionEntitlement({
+        sendJson,
+        res,
+        getTenantFeatureAccess,
+        buildTenantProductEntitlements,
+        tenantId,
+        actionKey,
+        message: actionKey === 'can_use_modules'
+          ? 'Module changes are locked until the current package includes module controls.'
+          : 'Tenant settings changes are locked until the current package includes config editing.',
+      });
+      if (!entitlementCheck.allowed) {
+        return true;
+      }
       const tenant = await getPlatformTenantById(tenantId);
       if (!tenant) {
         sendJson(res, 404, { ok: false, error: 'tenant-not-found' });

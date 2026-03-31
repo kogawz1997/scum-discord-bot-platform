@@ -5,6 +5,14 @@ const {
   ensurePlatformIdentityTables,
   ensurePlatformUserIdentity,
 } = require('./platformIdentityService');
+const {
+  buildTenantActorAccessSummary,
+  buildTenantStatusOptions,
+  canActorManageTenantMembership,
+  getAssignableRoleOptions,
+  normalizeTenantMembershipStatus,
+  normalizeTenantRole,
+} = require('./platformTenantAccessService');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -33,40 +41,113 @@ function toIso(value) {
 }
 
 function normalizeRole(value) {
-  const normalized = trimText(value, 80).toLowerCase();
-  return ['owner', 'admin', 'manager', 'support', 'moderator', 'editor', 'viewer', 'member'].includes(normalized)
-    ? normalized
-    : 'member';
+  return normalizeTenantRole(value);
 }
 
 function normalizeStatus(value) {
-  const normalized = trimText(value, 40).toLowerCase();
-  return ['active', 'invited', 'revoked', 'disabled'].includes(normalized) ? normalized : 'active';
+  return normalizeTenantMembershipStatus(value);
 }
 
-function normalizeStaffRow(row) {
-  if (!row) return null;
+function normalizeActorContext(actor) {
+  if (actor && typeof actor === 'object' && !Array.isArray(actor)) {
+    return {
+      id: trimText(actor.id || actor.actor || actor.user, 200) || 'system',
+      role: normalizeRole(actor.role || 'viewer'),
+      userId: trimText(actor.userId, 160) || null,
+      identity: normalizeEmail(actor.email) || trimText(actor.user || actor.actor, 200).toLowerCase() || null,
+    };
+  }
+  const actorId = trimText(actor, 200) || 'system';
   return {
+    id: actorId,
+    role: 'viewer',
+    userId: null,
+    identity: actorId.toLowerCase(),
+  };
+}
+
+function buildMembershipAccess(role, status) {
+  return buildTenantActorAccessSummary({
+    role,
+    status,
+  });
+}
+
+function buildManagementSummary(row, actorContext, activeOwnerCount) {
+  const actor = normalizeActorContext(actorContext);
+  const roleOptions = getAssignableRoleOptions(actor.role)
+    .filter((candidateRole) => canActorManageTenantMembership({
+      actorRole: actor.role,
+      actorIdentity: actor.identity,
+      targetRole: row.role,
+      targetIdentity: row.user.email || row.email || '',
+      desiredRole: candidateRole,
+      action: 'update',
+    }).allowed);
+  let statusOptions = buildTenantStatusOptions(row.status);
+  const basePolicy = canActorManageTenantMembership({
+    actorRole: actor.role,
+    actorIdentity: actor.identity,
+    targetRole: row.role,
+    targetIdentity: row.user.email || row.email || '',
+    action: 'update',
+  });
+  let canManage = basePolicy.allowed;
+  let reason = basePolicy.reason || '';
+
+  if (row.role === 'owner' && row.status === 'active' && activeOwnerCount <= 1) {
+    canManage = false;
+    reason = 'At least one active owner must remain on this tenant.';
+    statusOptions = ['active'];
+  }
+
+  return {
+    canManage,
+    reason,
+    roleOptions: canManage && roleOptions.length ? roleOptions : [row.role],
+    statusOptions: canManage ? statusOptions : [row.status],
+  };
+}
+
+function normalizeStaffRow(row, options = {}) {
+  if (!row) return null;
+  const role = normalizeRole(row.role);
+  const status = normalizeStatus(row.status);
+  const access = buildMembershipAccess(role, status);
+  const normalized = {
     membershipId: trimText(row.membershipId || row.id, 160) || null,
     userId: trimText(row.userId, 160) || null,
     tenantId: trimText(row.tenantId, 160) || null,
     membershipType: trimText(row.membershipType, 80) || 'tenant',
-    role: trimText(row.role, 80) || 'member',
-    status: trimText(row.status, 40) || 'active',
+    role,
+    status,
     isPrimary: row.isPrimary === true || Number(row.isPrimary) === 1,
     invitedAt: toIso(row.invitedAt),
     acceptedAt: toIso(row.acceptedAt),
     revokedAt: toIso(row.revokedAt),
-    metadata: parseJsonObject(row.metadataJson),
+    metadata: row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+      ? row.metadata
+      : parseJsonObject(row.metadataJson),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
     user: {
-      id: trimText(row.userId, 160) || null,
-      email: normalizeEmail(row.primaryEmail) || null,
-      displayName: trimText(row.displayName, 200) || null,
-      locale: trimText(row.locale, 16) || 'en',
-      status: trimText(row.userStatus, 40) || 'active',
+      id: trimText(row.userId || row.user?.id, 160) || null,
+      email: normalizeEmail(row.primaryEmail || row.email || row.user?.email) || null,
+      displayName: trimText(row.displayName || row.user?.displayName, 200) || null,
+      locale: trimText(row.locale || row.user?.locale, 16) || 'en',
+      status: trimText(row.userStatus || row.user?.status, 40) || 'active',
     },
+    access,
+    enabledPermissionKeys: access.enabledPermissionKeys.slice(),
+  };
+  const management = buildManagementSummary(
+    normalized,
+    options.actor,
+    Number(options.activeOwnerCount || 0),
+  );
+  return {
+    ...normalized,
+    management,
   };
 }
 
@@ -131,11 +212,30 @@ async function findMembershipRecord(db, membershipId, tenantId, userId = null) {
   return normalizeStaffRow(Array.isArray(rows) ? rows[0] : null);
 }
 
+async function countActiveOwners(db, tenantId) {
+  const normalizedTenantId = trimText(tenantId, 160);
+  if (!normalizedTenantId) return 0;
+  const rows = await db.$queryRaw`
+    SELECT COUNT(*) AS "count"
+    FROM platform_memberships
+    WHERE tenantId = ${normalizedTenantId}
+      AND membershipType = 'tenant'
+      AND role = ${'owner'}
+      AND status = ${'active'}
+  `;
+  return Math.max(0, Number(Array.isArray(rows) ? rows[0]?.count || 0 : 0) || 0);
+}
+
 async function listTenantStaffMemberships(tenantId, options = {}, db = prisma) {
   const normalizedTenantId = trimText(tenantId, 160);
   if (!normalizedTenantId) return [];
   await ensurePlatformIdentityTables(db);
   const limit = Math.max(1, Math.min(500, Number(options.limit || 100) || 100));
+  const actor = normalizeActorContext(options.actor || {
+    role: options.actorRole,
+    email: options.actorEmail,
+    user: options.actorUser,
+  });
   const rows = await db.$queryRaw`
     SELECT
       m.id AS "membershipId",
@@ -162,7 +262,9 @@ async function listTenantStaffMemberships(tenantId, options = {}, db = prisma) {
     ORDER BY m.updatedAt DESC
     LIMIT ${limit}
   `;
-  return Array.isArray(rows) ? rows.map(normalizeStaffRow).filter(Boolean) : [];
+  const normalizedRows = Array.isArray(rows) ? rows.map((row) => normalizeStaffRow(row)).filter(Boolean) : [];
+  const activeOwnerCount = normalizedRows.filter((row) => row.role === 'owner' && row.status === 'active').length;
+  return normalizedRows.map((row) => normalizeStaffRow(row, { actor, activeOwnerCount }));
 }
 
 async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
@@ -170,7 +272,18 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
   const email = normalizeEmail(input.email);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   if (!email) return { ok: false, reason: 'email-required' };
+  const actorContext = normalizeActorContext(actor);
   const role = normalizeRole(input.role);
+  const invitePolicy = canActorManageTenantMembership({
+    actorRole: actorContext.role,
+    actorIdentity: actorContext.identity,
+    desiredRole: role,
+    targetIdentity: email,
+    action: 'invite',
+  });
+  if (!invitePolicy.allowed) {
+    return { ok: false, reason: 'tenant-staff-role-forbidden', statusCode: 403, message: invitePolicy.reason };
+  }
   const result = await ensurePlatformUserIdentity({
     provider: 'email_staff',
     providerUserId: email,
@@ -182,17 +295,31 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
     membershipType: 'tenant',
     identityMetadata: {
       source: 'tenant-staff-invite',
-      actor,
+      actor: actorContext.id,
     },
     membershipMetadata: {
       source: 'tenant-staff-invite',
-      actor,
-      invitedBy: actor,
+      actor: actorContext.id,
+      invitedBy: actorContext.id,
       inviteState: 'pending',
     },
   }, db);
   if (!result?.ok || !result.membership) {
     return { ok: false, reason: result?.reason || 'tenant-staff-invite-failed' };
+  }
+  const existingMembership = await findMembershipRecord(db, result.membership.id, tenantId);
+  if (existingMembership) {
+    const existingPolicy = canActorManageTenantMembership({
+      actorRole: actorContext.role,
+      actorIdentity: actorContext.identity,
+      targetRole: existingMembership.role,
+      targetIdentity: existingMembership.user?.email || email,
+      desiredRole: role,
+      action: 'update',
+    });
+    if (!existingPolicy.allowed) {
+      return { ok: false, reason: 'tenant-staff-role-forbidden', statusCode: 403, message: existingPolicy.reason };
+    }
   }
   await db.$executeRaw`
     UPDATE platform_memberships
@@ -204,8 +331,8 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
       metadataJson = ${JSON.stringify({
         ...(result.membership?.metadata || {}),
         source: 'tenant-staff-invite',
-        actor,
-        invitedBy: actor,
+        actor: actorContext.id,
+        invitedBy: actorContext.id,
         inviteState: 'pending',
       })},
       updatedAt = ${new Date().toISOString()}
@@ -213,40 +340,94 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
   `;
   return {
     ok: true,
-    staff: await findMembershipRecord(db, result.membership.id, tenantId),
+    staff: normalizeStaffRow(await findMembershipRecord(db, result.membership.id, tenantId), {
+      actor: actorContext,
+      activeOwnerCount: await countActiveOwners(db, tenantId),
+    }),
   };
 }
 
 async function updateTenantStaffRole(input = {}, actor = 'system', db = prisma) {
   const tenantId = trimText(input.tenantId, 160);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
+  const actorContext = normalizeActorContext(actor);
   const existing = await findMembershipRecord(db, input.membershipId, tenantId, input.userId);
   if (!existing) return { ok: false, reason: 'tenant-staff-not-found' };
+  const nextRole = normalizeRole(input.role || existing.role);
+  const nextStatus = normalizeStatus(input.status || existing.status);
+  const policy = canActorManageTenantMembership({
+    actorRole: actorContext.role,
+    actorIdentity: actorContext.identity,
+    targetRole: existing.role,
+    targetIdentity: existing.user?.email || '',
+    desiredRole: nextRole,
+    action: 'update',
+  });
+  if (!policy.allowed) {
+    return { ok: false, reason: 'tenant-staff-role-forbidden', statusCode: 403, message: policy.reason };
+  }
+  const activeOwnerCount = await countActiveOwners(db, tenantId);
+  if (
+    existing.role === 'owner'
+    && existing.status === 'active'
+    && activeOwnerCount <= 1
+    && (nextRole !== 'owner' || nextStatus !== 'active')
+  ) {
+    return {
+      ok: false,
+      reason: 'tenant-last-owner-required',
+      statusCode: 409,
+      message: 'At least one active owner must remain on this tenant.',
+    };
+  }
   await db.$executeRaw`
     UPDATE platform_memberships
     SET
-      role = ${normalizeRole(input.role)},
-      status = ${normalizeStatus(input.status || existing.status)},
+      role = ${nextRole},
+      status = ${nextStatus},
       acceptedAt = ${existing.acceptedAt || new Date().toISOString()},
       metadataJson = ${JSON.stringify({
         ...existing.metadata,
         source: 'tenant-staff-role-update',
-        actor,
+        actor: actorContext.id,
       })},
       updatedAt = ${new Date().toISOString()}
     WHERE id = ${existing.membershipId}
   `;
   return {
     ok: true,
-    staff: await findMembershipRecord(db, existing.membershipId, tenantId),
+    staff: normalizeStaffRow(await findMembershipRecord(db, existing.membershipId, tenantId), {
+      actor: actorContext,
+      activeOwnerCount: await countActiveOwners(db, tenantId),
+    }),
   };
 }
 
 async function revokeTenantStaffMembership(input = {}, actor = 'system', db = prisma) {
   const tenantId = trimText(input.tenantId, 160);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
+  const actorContext = normalizeActorContext(actor);
   const existing = await findMembershipRecord(db, input.membershipId, tenantId, input.userId);
   if (!existing) return { ok: false, reason: 'tenant-staff-not-found' };
+  const policy = canActorManageTenantMembership({
+    actorRole: actorContext.role,
+    actorIdentity: actorContext.identity,
+    targetRole: existing.role,
+    targetIdentity: existing.user?.email || '',
+    action: 'revoke',
+  });
+  if (!policy.allowed) {
+    return { ok: false, reason: 'tenant-staff-role-forbidden', statusCode: 403, message: policy.reason };
+  }
+  const activeOwnerCount = await countActiveOwners(db, tenantId);
+  if (existing.role === 'owner' && existing.status === 'active' && activeOwnerCount <= 1) {
+    return {
+      ok: false,
+      reason: 'tenant-last-owner-required',
+      statusCode: 409,
+      message: 'At least one active owner must remain on this tenant.',
+    };
+  }
   await db.$executeRaw`
     UPDATE platform_memberships
     SET
@@ -255,7 +436,7 @@ async function revokeTenantStaffMembership(input = {}, actor = 'system', db = pr
       metadataJson = ${JSON.stringify({
         ...existing.metadata,
         source: 'tenant-staff-revoke',
-        actor,
+        actor: actorContext.id,
         revokeReason: trimText(input.revokeReason, 240) || null,
       })},
       updatedAt = ${new Date().toISOString()}
@@ -263,7 +444,10 @@ async function revokeTenantStaffMembership(input = {}, actor = 'system', db = pr
   `;
   return {
     ok: true,
-    staff: await findMembershipRecord(db, existing.membershipId, tenantId),
+    staff: normalizeStaffRow(await findMembershipRecord(db, existing.membershipId, tenantId), {
+      actor: actorContext,
+      activeOwnerCount: await countActiveOwners(db, tenantId),
+    }),
   };
 }
 

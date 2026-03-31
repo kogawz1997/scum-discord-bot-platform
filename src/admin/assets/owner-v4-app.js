@@ -26,6 +26,18 @@
     'runtime-health': 'runtime',
     settings: 'dashboard',
     diagnostics: 'runtime',
+    analytics: 'runtime',
+  };
+
+  const PATH_PAGE_ALIASES = {
+    '': 'overview',
+    tenants: 'tenants',
+    packages: 'packages',
+    subscriptions: 'subscriptions',
+    runtime: 'runtime-health',
+    analytics: 'observability',
+    audit: 'audit',
+    settings: 'settings',
   };
 
   const PAGE_TITLE_KEYS = {
@@ -37,7 +49,7 @@
   const ROUTE_TITLE_FALLBACKS = {
     dashboard: 'ภาพรวมระบบ',
     overview: 'ภาพรวมระบบ',
-    tenants: 'ผู้เช่าและแพ็กเกจ',
+    tenants: 'ลูกค้าและแพ็กเกจ',
     packages: 'แพ็กเกจและสิทธิ์ใช้งาน',
     subscriptions: 'การสมัครใช้และการต่ออายุ',
     billing: 'การเงินและการต่ออายุ',
@@ -46,7 +58,7 @@
     incidents: 'เหตุการณ์และสัญญาณ',
     observability: 'คำขอและความช้า',
     jobs: 'งานรอและบอท',
-    support: 'ซัพพอร์ต',
+      support: 'งานดูแลลูกค้า',
     security: 'ความปลอดภัย',
     audit: 'หลักฐานและบันทึก',
     settings: 'ตั้งค่า',
@@ -57,10 +69,10 @@
       workspaceLabel: 'ศูนย์ควบคุมแพลตฟอร์ม',
       kicker: 'ศูนย์ควบคุมเจ้าของระบบ',
       title: 'ภาพรวมเจ้าของระบบ',
-      subtitle: 'ดูผู้เช่า รายได้ สุขภาพระบบ และเรื่องที่ควรจัดการก่อนจากหน้าเดียว',
-      primaryAction: { label: 'เปิดรายชื่อผู้เช่า', href: '#tenants' },
+      subtitle: 'ดูลูกค้า รายได้ สุขภาพระบบ และเรื่องที่ควรจัดการก่อนจากหน้าเดียว',
+      primaryAction: { label: 'เปิดรายชื่อลูกค้า', href: '#tenants' },
       railHeader: 'บริบทเจ้าของระบบ',
-      railCopy: 'ดูรายได้ ซัพพอร์ต และจุดเสี่ยงได้จากด้านขวา',
+      railCopy: 'ดูรายได้ งานดูแลลูกค้า และจุดเสี่ยงได้จากด้านขวา',
     },
     settings: {
       workspaceLabel: 'ตั้งค่าและนโยบาย',
@@ -69,35 +81,35 @@
       subtitle: 'ทบทวนกติกา สิทธิ์ และมาตรฐานที่ต้องใช้ตรงกันทั้งแพลตฟอร์ม',
       primaryAction: { label: 'เปิดบันทึกออดิท', href: '#audit' },
       railHeader: 'บริบทนโยบาย',
-      railCopy: 'เก็บเรื่องสิทธิ์ หลักฐาน และแนวทางดูแลผู้เช่าไว้ในมุมเดียวกัน',
+      railCopy: 'เก็บเรื่องสิทธิ์ หลักฐาน และแนวทางดูแลลูกค้าไว้ในมุมเดียวกัน',
       sectionTitles: {
         settings: {
           title: 'นโยบายและเครื่องมือที่ควรเปิดต่อ',
-          copy: 'เริ่มจากกติกาที่กระทบผู้เช่าหลายรายก่อน แล้วค่อยไล่งานเชิงปฏิบัติการ',
+          copy: 'เริ่มจากกติกาที่กระทบลูกค้าหลายรายก่อน แล้วค่อยไล่งานเชิงปฏิบัติการ',
         },
       },
     },
     tenants: {
-      workspaceLabel: 'ทะเบียนผู้เช่า',
-      kicker: 'ทะเบียนงานลูกค้าและผู้เช่า',
-      title: 'ผู้เช่าและสถานะเชิงพาณิชย์',
+      workspaceLabel: 'ทะเบียนลูกค้า',
+      kicker: 'ทะเบียนลูกค้าและสถานะเชิงพาณิชย์',
+      title: 'ลูกค้าและสถานะเชิงพาณิชย์',
       subtitle: 'ดูแพ็กเกจ การต่ออายุ โควตา และบริบทลูกค้าจากหน้าเดียว',
-      primaryAction: { label: 'สร้างผู้เช่ารายใหม่', href: '#create-tenant' },
+      primaryAction: { label: 'สร้างลูกค้ารายใหม่', href: '#create-tenant' },
       railHeader: 'บริบทเจ้าของระบบ',
-      railCopy: 'เก็บงานซัพพอร์ตและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนผู้เช่า',
+      railCopy: 'เก็บงานดูแลลูกค้าและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนลูกค้า',
     },
     packages: {
       workspaceLabel: 'แพ็กเกจและสิทธิ์ใช้งาน',
       kicker: 'แพ็กเกจและสิทธิ์ใช้งาน',
       title: 'แพ็กเกจและสิทธิ์ใช้งาน',
-      subtitle: 'ทบทวนว่าผู้เช่าแต่ละรายอยู่แผนใด และได้สิทธิ์อะไรบ้างก่อนเปลี่ยนแพ็กเกจ',
+      subtitle: 'ทบทวนว่าลูกค้าแต่ละรายอยู่แผนใด และได้สิทธิ์อะไรบ้างก่อนเปลี่ยนแพ็กเกจ',
       primaryAction: { label: 'ดูการสมัครใช้', href: '#subscriptions' },
       railHeader: 'บริบทแพ็กเกจ',
       railCopy: 'เริ่มจากแผนที่ใช้อยู่จริง แล้วค่อยตามเรื่องการต่ออายุและโควตา',
       sectionTitles: {
         packages: {
-          title: 'รายชื่อผู้เช่าตามแพ็กเกจ',
-          copy: 'เปิดดูจากทะเบียนเดียวกันได้เลยว่าผู้เช่ารายไหนอยู่แผนใด และควรย้ายหรือคงแผนเดิม',
+      title: 'รายชื่อลูกค้าตามแพ็กเกจ',
+      copy: 'เปิดดูจากทะเบียนเดียวกันได้เลยว่าลูกค้ารายไหนอยู่แผนใด และควรย้ายหรือคงแผนเดิม',
         },
       },
     },
@@ -108,10 +120,10 @@
       subtitle: 'โฟกัสรายการที่ใกล้ต่ออายุ หมดอายุ หรือเสี่ยงสะดุดบริการก่อนเรื่องอื่น',
       primaryAction: { label: 'ดูรายการใกล้ต่ออายุ', href: '#subscriptions' },
       railHeader: 'บริบทการต่ออายุ',
-      railCopy: 'เริ่มจากผู้เช่าที่ใกล้หมดอายุก่อน เพื่อไม่ให้ทีมซัพพอร์ตรับแรงกระแทก',
+      railCopy: 'เริ่มจากลูกค้าที่ใกล้หมดอายุก่อน เพื่อไม่ให้ทีมดูแลลูกค้ารับแรงกระแทก',
       sectionTitles: {
         packages: {
-          title: 'รายชื่อผู้เช่าที่ต้องตามเรื่องการสมัครใช้',
+      title: 'รายชื่อลูกค้าที่ต้องตามเรื่องการสมัครใช้',
           copy: 'ใช้ตารางนี้คัดรายที่ต้องทบทวนเรื่องการต่ออายุ แพ็กเกจ และสิทธิ์ใช้งานในรอบเดียว',
         },
       },
@@ -123,7 +135,7 @@
       subtitle: 'รวมรายการที่กระทบรายได้ การต่ออายุ และโควตาไว้ในมุมเดียว',
       primaryAction: { label: 'เปิดรายการเสี่ยงรายได้', href: '#billing' },
       railHeader: 'บริบทการเงิน',
-      railCopy: 'มุมนี้ใช้ตัดสินใจเรื่องต่ออายุ รายได้ และผู้เช่าที่เริ่มชนขอบความเสี่ยง',
+      railCopy: 'มุมนี้ใช้ตัดสินใจเรื่องต่ออายุ รายได้ และลูกค้าที่เริ่มชนขอบความเสี่ยง',
       sectionTitles: {
         billing: {
           title: 'เริ่มจากเรื่องที่กระทบรายได้ก่อน',
@@ -132,26 +144,26 @@
       },
     },
     'create-tenant': {
-      workspaceLabel: 'สร้างผู้เช่ารายใหม่',
-      kicker: 'สร้างผู้เช่ารายใหม่',
-      title: 'สร้างผู้เช่ารายใหม่',
-      subtitle: 'เริ่มจากข้อมูลหลักของผู้เช่า แล้วค่อยผูกแพ็กเกจ การสมัครใช้ และงานซัพพอร์ตต่อ',
-      primaryAction: { label: 'กลับไปดูทะเบียนผู้เช่า', href: '#tenants' },
+      workspaceLabel: 'สร้างลูกค้ารายใหม่',
+      kicker: 'สร้างลูกค้ารายใหม่',
+      title: 'สร้างลูกค้ารายใหม่',
+      subtitle: 'เริ่มจากข้อมูลหลักของลูกค้า แล้วค่อยผูกแพ็กเกจ การสมัครใช้ และงานดูแลลูกค้าต่อ',
+      primaryAction: { label: 'กลับไปดูทะเบียนลูกค้า', href: '#tenants' },
       railHeader: 'บริบทการเริ่มต้นใช้งาน',
-      railCopy: 'เมื่อสร้างผู้เช่าเสร็จ ให้ตามด้วยแพ็กเกจ การสมัครใช้ และการตั้งค่าที่จำเป็น',
+      railCopy: 'เมื่อสร้างลูกค้าเสร็จ ให้ตามด้วยแพ็กเกจ การสมัครใช้ และการตั้งค่าที่จำเป็น',
     },
     support: {
-      workspaceLabel: 'ซัพพอร์ตแพลตฟอร์ม',
-      kicker: 'ซัพพอร์ตแพลตฟอร์ม',
-      title: 'ซัพพอร์ตแพลตฟอร์ม',
-      subtitle: 'เริ่มจากผู้เช่าและเรื่องที่กำลังคุยอยู่ แล้วค่อยไล่หลักฐานและบริบทระบบต่อ',
+      workspaceLabel: 'งานดูแลลูกค้าแพลตฟอร์ม',
+      kicker: 'งานดูแลลูกค้าแพลตฟอร์ม',
+      title: 'งานดูแลลูกค้าแพลตฟอร์ม',
+      subtitle: 'เริ่มจากลูกค้าและเรื่องที่กำลังคุยอยู่ แล้วค่อยไล่หลักฐานและบริบทระบบต่อ',
       primaryAction: { label: 'เปิดเหตุการณ์ล่าสุด', href: '#incidents' },
-      railHeader: 'บริบทงานซัพพอร์ต',
-      railCopy: 'เก็บบริบทของผู้เช่า หลักฐาน และเรื่องเชิงพาณิชย์ไว้ใกล้กันเพื่อให้คุยกับลูกค้าได้ต่อเนื่อง',
+      railHeader: 'บริบทงานดูแลลูกค้า',
+      railCopy: 'เก็บบริบทของลูกค้า หลักฐาน และเรื่องเชิงพาณิชย์ไว้ใกล้กันเพื่อให้คุยกับลูกค้าได้ต่อเนื่อง',
       sectionTitles: {
         incidents: {
-          title: 'เคสซัพพอร์ตและสัญญาณล่าสุด',
-          copy: 'เริ่มจาก feed นี้ก่อนเปิดเครื่องมือ replay หรือ diagnostics เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า',
+          title: 'เคสงานดูแลลูกค้าและสัญญาณล่าสุด',
+          copy: 'เริ่มจาก feed นี้ก่อนเปิดเครื่องมือย้อนเหตุการณ์หรือวินิจฉัยระบบ เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า',
         },
       },
     },
@@ -165,8 +177,8 @@
       railCopy: 'งานด้านสิทธิ์ การเข้าถึง และหลักฐานควรถูกวางคู่กับบริบทของเหตุการณ์เสมอ',
       sectionTitles: {
         incidents: {
-          title: 'สัญญาณด้านความปลอดภัยและซัพพอร์ต',
-          copy: 'ใช้ feed นี้แยกเรื่องสิทธิ์และเหตุผิดปกติออกจากงานซัพพอร์ตทั่วไป เพื่อไม่ให้ประเด็นสำคัญหลุด',
+          title: 'สัญญาณด้านความปลอดภัยและงานดูแลลูกค้า',
+          copy: 'ใช้ feed นี้แยกเรื่องสิทธิ์และเหตุผิดปกติออกจากงานดูแลลูกค้าทั่วไป เพื่อไม่ให้ประเด็นสำคัญหลุด',
         },
       },
     },
@@ -177,7 +189,7 @@
       subtitle: 'ดูความพร้อมของบริการ สัญญาณผิดปกติ และแรงกดดันของคำขอในมุมเดียว',
       primaryAction: { label: 'เปิดคำขอและความช้า', href: '#observability' },
       railHeader: 'บริบทการปฏิบัติการ',
-      railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจรันไทม์หรือเหตุการณ์',
+      railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจบริการหรือเหตุการณ์',
     },
     'runtime-health': {
       workspaceLabel: 'สถานะระบบ',
@@ -186,7 +198,7 @@
       subtitle: 'ดูว่าบริการใดพร้อม บริการใดยังต้องจับตา และบอทตัวใดเริ่มไม่เสถียร',
       primaryAction: { label: 'เปิดคำขอและความช้า', href: '#observability' },
       railHeader: 'บริบทการปฏิบัติการ',
-      railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจรันไทม์หรือเหตุการณ์',
+      railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจบริการหรือเหตุการณ์',
     },
     incidents: {
       workspaceLabel: 'เหตุการณ์และสัญญาณ',
@@ -199,7 +211,7 @@
       sectionTitles: {
         incidents: {
           title: 'สัญญาณที่เจ้าของระบบควรรู้ตอนนี้',
-          copy: 'เริ่มจาก feed นี้ก่อนเปิดซัพพอร์ตหรือเครื่องมือ replay เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า',
+          copy: 'เริ่มจาก feed นี้ก่อนเปิดงานดูแลลูกค้าหรือเครื่องมือย้อนเหตุการณ์ เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า',
         },
       },
     },
@@ -225,11 +237,11 @@
       subtitle: 'แยกงานส่งของ งานที่ล้มเหลว และรายชื่อบอทให้ดูง่ายจากมุมเดียว',
       primaryAction: { label: 'เปิดรายชื่อบอท', href: '#jobs' },
       railHeader: 'บริบทงานคิว',
-      railCopy: 'ให้สถานะของ Delivery Agent และ Server Bot มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของผู้เช่า',
+      railCopy: 'ให้สถานะของบอทส่งของและบอทเซิร์ฟเวอร์มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของลูกค้า',
       sectionTitles: {
         jobs: {
           title: 'ทะเบียนเอเจนต์และคิวที่ต้องตามต่อ',
-          copy: 'ให้สถานะของ Delivery Agent และ Server Bot มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของผู้เช่า',
+          copy: 'ให้สถานะของบอทส่งของและบอทเซิร์ฟเวอร์มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของลูกค้า',
         },
       },
     },
@@ -240,7 +252,7 @@
       subtitle: 'ย้อนดูหลักฐาน คำขอ และสัญญาณที่ต้องเก็บไว้ก่อนลงมือทำเรื่องเสี่ยง',
       primaryAction: { label: 'เปิดคำขอและความช้า', href: '#observability' },
       railHeader: 'บริบทหลักฐาน',
-      railCopy: 'งานซัพพอร์ตและงานรีวิวความปลอดภัยควรใช้หลักฐานชุดเดียวกัน',
+      railCopy: 'งานดูแลลูกค้าและงานรีวิวความปลอดภัยควรใช้หลักฐานชุดเดียวกัน',
       sectionTitles: {
         observability: {
           title: 'หลักฐานของคำขอและจุดร้อน',
@@ -250,11 +262,114 @@
     },
   };
 
+  Object.assign(ROUTE_TITLE_FALLBACKS, {
+    tenants: 'ลูกค้าและแพ็กเกจ',
+    packages: 'แพ็กเกจและสิทธิ์ใช้งาน',
+    subscriptions: 'การสมัครใช้และต่ออายุ',
+    billing: 'การเงินและต่ออายุ',
+    runtime: 'สถานะบริการและเหตุการณ์',
+    'runtime-health': 'สถานะบริการและเหตุการณ์',
+    incidents: 'เหตุการณ์และสัญญาณ',
+    observability: 'คำขอและความหน่วง',
+    jobs: 'งานคิวและบอต',
+    support: 'งานดูแลลูกค้า',
+    security: 'ความปลอดภัย',
+    audit: 'หลักฐานและบันทึก',
+    settings: 'ตั้งค่า',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.overview, {
+    primaryAction: { label: 'เปิดรายชื่อลูกค้า', href: '#tenants' },
+    railCopy: 'ดูรายได้ บริการหลัก และจุดเสี่ยงของแพลตฟอร์มจากด้านขวา',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.settings, {
+    railCopy: 'เก็บเรื่องสิทธิ์ หลักฐาน และแนวทางดูแลลูกค้าไว้ในมุมเดียวกัน',
+    sectionTitles: {
+      settings: {
+        title: 'นโยบายและเครื่องมือที่ควรเปิดต่อ',
+        copy: 'เริ่มจากกติกาที่กระทบลูกค้าหลายรายก่อน แล้วค่อยไล่งานเชิงปฏิบัติการ',
+      },
+    },
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.tenants, {
+    railCopy: 'เก็บงานดูแลลูกค้าและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนลูกค้า',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.packages, {
+    subtitle: 'ทบทวนว่าลูกค้าแต่ละรายอยู่แผนใด และได้สิทธิ์อะไรบ้างก่อนเปลี่ยนแพ็กเกจ',
+    sectionTitles: {
+      packages: {
+        title: 'รายชื่อลูกค้าตามแพ็กเกจ',
+        copy: 'เปิดดูจากทะเบียนเดียวกันได้เลยว่าลูกค้ารายไหนอยู่แผนใด และควรย้ายหรือคงแผนเดิม',
+      },
+    },
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.subscriptions, {
+    railCopy: 'เริ่มจากลูกค้าที่ใกล้หมดอายุก่อน เพื่อไม่ให้ทีมดูแลลูกค้ารับแรงกระแทก',
+    sectionTitles: {
+      packages: {
+        title: 'รายชื่อลูกค้าที่ต้องตามเรื่องการสมัครใช้',
+        copy: 'ใช้ตารางนี้คัดรายที่ต้องทบทวนเรื่องการต่ออายุ แพ็กเกจ และสิทธิ์ใช้งานในรอบเดียว',
+      },
+    },
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.billing, {
+    railCopy: 'มุมนี้ใช้ตัดสินใจเรื่องต่ออายุ รายได้ และลูกค้าที่เริ่มชนขอบความเสี่ยง',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION['create-tenant'], {
+    subtitle: 'เริ่มจากข้อมูลหลักของลูกค้า แล้วค่อยผูกแพ็กเกจ การสมัครใช้ และงานดูแลลูกค้าต่อ',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.support, {
+    workspaceLabel: 'งานดูแลลูกค้า',
+    kicker: 'งานดูแลลูกค้า',
+    title: 'งานดูแลลูกค้า',
+    subtitle: 'เริ่มจากลูกค้าและเรื่องที่กำลังคุยอยู่ แล้วค่อยไล่หลักฐานและบริบทระบบต่อ',
+    railHeader: 'บริบทงานดูแลลูกค้า',
+    railCopy: 'เก็บบริบทของลูกค้า หลักฐาน และเรื่องเชิงพาณิชย์ไว้ใกล้กันเพื่อให้คุยกับลูกค้าได้ต่อเนื่อง',
+    sectionTitles: {
+      incidents: {
+        title: 'เคสดูแลลูกค้าและสัญญาณล่าสุด',
+        copy: 'เริ่มจาก feed นี้ก่อนเปิดเครื่องมือ replay หรือ diagnostics เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า',
+      },
+    },
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.runtime, {
+    title: 'สถานะบริการและเหตุการณ์',
+    railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจสถานะบริการหรือเหตุการณ์',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION['runtime-health'], {
+    railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจสถานะบริการหรือเหตุการณ์',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION.audit, {
+    railCopy: 'งานดูแลลูกค้าและงานรีวิวความปลอดภัยควรใช้หลักฐานชุดเดียวกัน',
+  });
+
   const state = {
     payload: null,
     refreshing: false,
     timerId: null,
     requestId: 0,
+    ownerUi: {
+      selectedRuntimeKey: '',
+      runtimeBootstrap: null,
+      supportCaseTenantId: '',
+      supportCase: null,
+      supportCaseLoading: false,
+      supportCaseRequestId: 0,
+      supportDeadLettersTenantId: '',
+      supportDeadLetters: [],
+      supportDeadLettersLoading: false,
+      supportDeadLettersRequestId: 0,
+    },
   };
 
   const OWNER_OVERVIEW_FALLBACK = {
@@ -275,12 +390,390 @@
     tenantConfig: null,
   };
 
+  const OWNER_CONTROL_PANEL_SETTINGS_FALLBACK = {
+    env: { root: {}, portal: {} },
+    envGroups: { root: [], portal: [] },
+    envPolicy: { root: {}, portal: {} },
+    adminUsers: [],
+    managedServices: [],
+    files: { root: null, portal: null },
+    applyPolicy: { reloadSafe: [], restartRequired: [] },
+    reloadRequired: true,
+  };
+
   function t(key, fallback, params) {
     return window.AdminUiI18n?.t?.(key, fallback, params) || fallback || key;
   }
 
   function applyI18n(rootNode = document) {
     window.AdminUiI18n?.apply?.(rootNode);
+  }
+
+  const OWNER_ACTIVE_TEXT_MAP = {
+    English: 'อังกฤษ',
+    'Español': 'สเปน',
+    Owner: 'เจ้าของระบบ',
+    Admin: 'ผู้ดูแลระบบ',
+    Moderator: 'ผู้ช่วยดูแล',
+    Starter: 'เริ่มต้น',
+    Growth: 'เติบโต',
+    'server-bot': 'บอตเซิร์ฟเวอร์',
+    'delivery-agent': 'บอตส่งของ',
+    unlimited: 'ไม่จำกัด',
+    ผู้เช่า: 'ลูกค้า',
+    ซัพพอร์ต: 'งานดูแลลูกค้า',
+    'สุขภาพรันไทม์': 'สถานะบริการ',
+    'เปิดเคสซัพพอร์ต': 'เปิดเคสงานดูแลลูกค้า',
+    'งานซัพพอร์ต': 'งานดูแลลูกค้า',
+    'บริบทซัพพอร์ต': 'บริบทงานดูแลลูกค้า',
+    'เครื่องมือซัพพอร์ต': 'เครื่องมืองานดูแลลูกค้า',
+    'Customer detail': 'รายละเอียดลูกค้า',
+    'Customer operations and commercial controls': 'การจัดการลูกค้าและการควบคุมเชิงพาณิชย์',
+    'Open support case': 'เปิดเคสดูแลลูกค้า',
+    'Open customer list': 'เปิดรายชื่อลูกค้า',
+    'Support case': 'เคสดูแลลูกค้า',
+    'Support case not found': 'ไม่พบเคสดูแลลูกค้า',
+    'No immediate support actions': 'ยังไม่มีงานที่ต้องทำทันที',
+    'Retry': 'ลองส่งใหม่',
+    'Clear': 'ล้างรายการ',
+    'Customer': 'ลูกค้า',
+    'Current package': 'แพ็กเกจปัจจุบัน',
+    'Subscription': 'การสมัครใช้',
+    'Runtime status': 'สถานะบอท',
+    'Quota': 'โควตา',
+    'Support signals': 'สัญญาณงานดูแลลูกค้า',
+    'Runtime': 'บอท',
+    'Type': 'ประเภท',
+    'Status': 'สถานะ',
+    'Version': 'เวอร์ชัน',
+    'Last seen': 'พบล่าสุด',
+    'Actions': 'การทำงาน',
+    'Customer record': 'ข้อมูลลูกค้า',
+    'Edit customer metadata': 'แก้ไขข้อมูลลูกค้า',
+    'Customer name': 'ชื่อลูกค้า',
+    'Owner name': 'ชื่อผู้ดูแลหลัก',
+    'Owner email': 'อีเมลผู้ดูแลหลัก',
+    'Type': 'ประเภท',
+    'Locale': 'ภาษา',
+    'Parent tenant': 'ลูกค้าต้นทาง',
+    'Save customer record': 'บันทึกข้อมูลลูกค้า',
+    'Reactivate customer': 'เปิดใช้งานลูกค้าอีกครั้ง',
+    'Suspend customer': 'ระงับลูกค้า',
+    'Commercial control': 'การควบคุมเชิงพาณิชย์',
+    'Assign or change package': 'กำหนดหรือเปลี่ยนแพ็กเกจ',
+    'Package': 'แพ็กเกจ',
+    'Plan ID': 'รหัสแผน',
+    'Billing cycle': 'รอบการชำระ',
+    'Subscription status': 'สถานะการสมัครใช้',
+    'Amount (cents)': 'ยอดเงิน (สตางค์)',
+    'Currency': 'สกุลเงิน',
+    'Renews at': 'ต่ออายุเมื่อ',
+    'External ref': 'อ้างอิงภายนอก',
+    'Save package assignment': 'บันทึกการกำหนดแพ็กเกจ',
+    'Alert': 'การแจ้งเตือน',
+    'Severity': 'ระดับ',
+    'When': 'เวลา',
+    'Method': 'วิธีเรียก',
+    'Path': 'เส้นทาง',
+    'Detail': 'รายละเอียด',
+    'Signal': 'สัญญาณ',
+    'Count': 'จำนวน',
+    'Onboarding step': 'ขั้นตอนเริ่มต้น',
+    'Scope': 'ขอบเขต',
+    'Required': 'จำเป็น',
+    'Optional': 'เพิ่มเติม',
+    'Analytics': 'การวิเคราะห์',
+    'Platform and business analytics': 'ภาพรวมแพลตฟอร์มและธุรกิจ',
+    'Total customers': 'ลูกค้าทั้งหมด',
+    'Active customers': 'ลูกค้าที่ใช้งานอยู่',
+    'Services online': 'บริการที่ออนไลน์',
+    'Failed jobs': 'งานที่ล้มเหลว',
+    'Customer count': 'จำนวนลูกค้า',
+    'Features': 'ฟีเจอร์',
+    'No package description yet.': 'ยังไม่มีคำอธิบายแพ็กเกจ',
+    'Yes': 'มี',
+    'No': 'ไม่มี',
+    'Open': 'เปิด',
+    'MRR': 'รายได้ประจำ',
+    'Cycle': 'รอบบิล',
+    'Amount': 'ยอดเงิน',
+    'Expiring accounts': 'บัญชีที่ใกล้ต่ออายุ',
+    'Primary action': 'งานหลัก',
+    'Update renewals without leaving this page': 'อัปเดตการต่ออายุได้จากหน้านี้ทันที',
+    'Handle the accounts that are expiring, past due, or high-risk first, then open the customer record only when you need more detail.': 'เริ่มจากบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือมีความเสี่ยงสูงก่อน แล้วค่อยเปิดหน้าลูกค้าเมื่อจำเป็นต้องดูรายละเอียดเพิ่ม',
+    'No customer records yet': 'ยังไม่มีข้อมูลลูกค้า',
+    'Create the first customer before you manage subscriptions from this page.': 'สร้างลูกค้ารายแรกก่อน แล้วจึงกลับมาจัดการการสมัครใช้งานจากหน้านี้',
+    'No subscription rows yet': 'ยังไม่มีรายการสมัครใช้งาน',
+    'No subscriptions are due to expire in the next 14 days.': 'ยังไม่มีรายการสมัครใช้งานที่ใกล้หมดอายุใน 14 วันข้างหน้า',
+    'Review and save subscription terms from this card.': 'ตรวจและบันทึกเงื่อนไขการต่ออายุได้จากการ์ดนี้ทันที',
+    'Create the first subscription for this customer from this card.': 'สร้างการสมัครใช้งานครั้งแรกของลูกค้ารายนี้จากการ์ดนี้ได้เลย',
+    'ลอง checkout ใหม่': 'เปิดลิงก์ชำระเงินใหม่',
+    'เปลี่ยนสถานะใบแจ้งหนี้หรือเริ่ม checkout ใหม่ได้จากหน้านี้ โดยไม่ต้องออกจาก workspace ของ Owner': 'เปลี่ยนสถานะใบแจ้งหนี้หรือเปิดลิงก์ชำระเงินใหม่ได้จากหน้านี้ โดยไม่ต้องออกจากพื้นที่งานของเจ้าของระบบ',
+    'บันทึกผลการชำระหรือเริ่ม checkout ใหม่เมื่อลูกค้าต้องการลิงก์ชำระเงินชุดใหม่': 'บันทึกผลการชำระหรือเปิดลิงก์ชำระเงินใหม่เมื่อลูกค้าต้องการลิงก์ชำระเงินชุดใหม่',
+    'อัปเดตนโยบายการชำระเงินและ checkout': 'อัปเดตนโยบายการชำระเงินและลิงก์ชำระเงิน',
+    'ดูแลผู้ให้บริการชำระเงิน checkout base URL และคีย์ Stripe ให้ตรงกับ flow เชิงพาณิชย์ที่ใช้งานจริง': 'ดูแลผู้ให้บริการชำระเงิน URL หลักของหน้าชำระเงิน และคีย์ Stripe ให้ตรงกับ flow เชิงพาณิชย์ที่ใช้งานจริง',
+    'ถ้าเว้นไว้ระบบจะ derive จากชื่อให้อัตโนมัติ': 'ถ้าเว้นไว้ ระบบจะสร้างจากชื่อให้อัตโนมัติ',
+    'ส่งออก diagnostics': 'ส่งออกข้อมูลวินิจฉัย',
+    'ทบทวน billing และการต่ออายุ': 'ทบทวนการเงินและการต่ออายุ',
+    'วางปุ่มส่งออก diagnostics และเปิดเคสไว้ใกล้ทะเบียนผู้เช่า เพื่อให้เจ้าของระบบไล่งานได้ในหนึ่งหรือสองคลิก': 'วางปุ่มส่งออกข้อมูลวินิจฉัยและเปิดเคสไว้ใกล้ทะเบียนลูกค้า เพื่อให้เจ้าของระบบไล่งานได้ในหนึ่งหรือสองคลิก',
+    'งานซัพพอร์ตไม่ควรถูกซ่อนไว้ลึกใน hash section เก่า': 'งานดูแลลูกค้าไม่ควรถูกซ่อนไว้ลึกในส่วนเก่าของหน้า',
+    'ดูมุม billing ก่อนเปลี่ยนแพ็กเกจหรือสิทธิ์ใช้งาน': 'ดูกลุ่มการเงินก่อนเปลี่ยนแพ็กเกจหรือสิทธิ์ใช้งาน',
+    'สร้าง อัปเดต และเก็บถาวรแพ็กเกจเชิงพาณิชย์จากหน้า Owner โดยยังคุมรหัสแพ็กเกจและสิทธิ์ฟีเจอร์ไว้ที่แพลตฟอร์ม': 'สร้าง อัปเดต และเก็บถาวรแพ็กเกจเชิงพาณิชย์จากหน้าเจ้าของระบบ โดยยังคุมรหัสแพ็กเกจและสิทธิ์ฟีเจอร์ไว้ที่แพลตฟอร์ม',
+    'Admin Web SSO Discord Enabled': 'เปิดใช้ Discord SSO สำหรับเว็บเจ้าของระบบ',
+    'Enable Discord SSO for admin web · บันทึกแล้วต้องรีสตาร์ต': 'เปิดใช้ Discord SSO สำหรับเว็บเจ้าของระบบ · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin Web SSO Default Role': 'บทบาทเริ่มต้นของ SSO ฝั่งเว็บเจ้าของระบบ',
+    'Default admin role when SSO mapping does not match · บันทึกแล้วต้องรีสตาร์ต': 'บทบาทเริ่มต้นเมื่อการจับคู่ SSO ไม่ตรง · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin Web 2FA Enabled': 'เปิดใช้ 2FA ของเว็บเจ้าของระบบ',
+    'Require TOTP for admin login · บันทึกแล้วต้องรีสตาร์ต': 'บังคับใช้ TOTP สำหรับการเข้าสู่ระบบของ Owner · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin Web Step Up Enabled': 'เปิดใช้การยืนยันเพิ่มสำหรับเว็บเจ้าของระบบ',
+    'Require step-up auth for sensitive admin actions · บันทึกแล้วต้องรีสตาร์ต': 'บังคับใช้การยืนยันเพิ่มกับงานเจ้าของระบบที่มีความเสี่ยง · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin Web Step Up TTL Minutes': 'อายุเซสชันยืนยันเพิ่มของเว็บเจ้าของระบบ (นาที)',
+    'Step-up session TTL in minutes · บันทึกแล้วต้องรีสตาร์ต': 'อายุเซสชันยืนยันเพิ่มเป็นนาที · บันทึกแล้วต้องรีสตาร์ต',
+    'Delivery Reconcile Anomaly': 'ความผิดปกติของการกระทบยอดการส่งของ',
+    'Platform Event: agent heartbeat': 'เหตุการณ์แพลตฟอร์ม: สัญญาณการทำงานของบอท',
+    'Admin Security Event': 'เหตุการณ์ความปลอดภัยของผู้ดูแล',
+    'Admin Web Session TTL Hours': 'อายุเซสชันของเว็บเจ้าของระบบ (ชั่วโมง)',
+    'Admin session TTL in hours · บันทึกแล้วต้องรีสตาร์ต': 'อายุเซสชันผู้ดูแลเป็นชั่วโมง · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin idle timeout in minutes · บันทึกแล้วต้องรีสตาร์ต': 'หมดเวลาไม่ใช้งานของผู้ดูแลเป็นนาที · บันทึกแล้วต้องรีสตาร์ต',
+    'Max concurrent admin sessions per user · บันทึกแล้วต้องรีสตาร์ต': 'จำนวนเซสชันผู้ดูแลพร้อมกันสูงสุดต่อคน · บันทึกแล้วต้องรีสตาร์ต',
+    'Use secure cookies for Owner Web · บันทึกแล้วต้องรีสตาร์ต': 'ใช้คุกกี้แบบปลอดภัยสำหรับเว็บเจ้าของระบบ · บันทึกแล้วต้องรีสตาร์ต',
+    'Enable HSTS headers on Owner Web · บันทึกแล้วต้องรีสตาร์ต': 'เปิดส่วนหัว HSTS สำหรับเว็บเจ้าของระบบ · บันทึกแล้วต้องรีสตาร์ต',
+    'Reject cross-site admin writes · บันทึกแล้วต้องรีสตาร์ต': 'ปฏิเสธการเขียนข้ามไซต์ของผู้ดูแล · บันทึกแล้วต้องรีสตาร์ต',
+    'Comma-separated trusted admin origins · บันทึกแล้วต้องรีสตาร์ต': 'รายชื่อแหล่งที่มาที่ผู้ดูแลเชื่อถือ คั่นด้วยจุลภาค · บันทึกแล้วต้องรีสตาร์ต',
+    'Admin Log Language': 'ภาษาของบันทึกผู้ดูแล',
+    'Language used for Discord admin-log operational alerts · บันทึกแล้วรีโหลดได้ทันที': 'ภาษาที่ใช้กับการแจ้งเตือนบันทึกผู้ดูแลผ่าน Discord · บันทึกแล้วรีโหลดได้ทันที',
+    'Web Portal Base URL': 'URL หลักของพอร์ทัลผู้เล่น',
+    'Canonical player portal URL · บันทึกแล้วต้องรีสตาร์ต': 'URL หลักของพอร์ทัลผู้เล่น · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Allowed Discord Ids': 'รายการ Discord ID ที่อนุญาตของพอร์ทัลผู้เล่น',
+    'Allowlist of Discord ids for portal access · บันทึกแล้วต้องรีสตาร์ต': 'รายการ Discord ID ที่อนุญาตให้เข้าพอร์ทัล · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Player Open Access': 'เปิดให้ผู้เล่นเข้าพอร์ทัลได้อิสระ',
+    'Allow player portal without guild membership · บันทึกแล้วต้องรีสตาร์ต': 'อนุญาตให้เข้าพอร์ทัลได้โดยไม่ต้องเป็นสมาชิกกิลด์ · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Require Guild Member': 'บังคับเป็นสมาชิกกิลด์ก่อนเข้าพอร์ทัล',
+    'Require guild membership for portal access · บันทึกแล้วต้องรีสตาร์ต': 'บังคับเป็นสมาชิกกิลด์ก่อนเข้าพอร์ทัล · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Secure Cookie': 'คุกกี้แบบปลอดภัยของพอร์ทัลผู้เล่น',
+    'Use secure cookies in player portal · บันทึกแล้วต้องรีสตาร์ต': 'ใช้คุกกี้แบบปลอดภัยในพอร์ทัลผู้เล่น · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Enforce Origin Check': 'บังคับตรวจสอบแหล่งที่มาของพอร์ทัลผู้เล่น',
+    'Reject cross-site player portal writes · บันทึกแล้วต้องรีสตาร์ต': 'ปฏิเสธการเขียนข้ามไซต์ของพอร์ทัลผู้เล่น · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Session TTL Hours': 'อายุเซสชันของพอร์ทัลผู้เล่น (ชั่วโมง)',
+    'Player session TTL in hours · บันทึกแล้วต้องรีสตาร์ต': 'อายุเซสชันผู้เล่นเป็นชั่วโมง · บันทึกแล้วต้องรีสตาร์ต',
+    'Web Portal Cookie Samesite': 'นโยบาย SameSite ของคุกกี้พอร์ทัลผู้เล่น',
+    'SameSite policy for player portal cookies · บันทึกแล้วต้องรีสตาร์ต': 'นโยบาย SameSite สำหรับคุกกี้พอร์ทัลผู้เล่น · บันทึกแล้วต้องรีสตาร์ต',
+    'Platform Billing Provider': 'ผู้ให้บริการชำระเงินของแพลตฟอร์ม',
+    'Owner web': 'เว็บเจ้าของระบบ',
+    'Standalone owner and tenant owner web bot': 'เว็บแยกของเจ้าของระบบและผู้ดูแลลูกค้า',
+    'Discord Bot': 'บอต Discord',
+    'Discord command and automation bot': 'บอตคำสั่ง Discord และงานอัตโนมัติ',
+    Worker: 'ตัวประมวลผลงาน',
+    'Delivery and background job worker': 'ตัวประมวลผลงานส่งของและงานเบื้องหลัง',
+    'SCUM Watcher': 'ตัวติดตาม SCUM.log',
+    'SCUM log watcher and sync bot': 'บอตติดตาม SCUM.log และซิงก์ข้อมูล',
+    'Server-side sync, config, backup, and server control bot': 'บอตฝั่งเซิร์ฟเวอร์สำหรับซิงก์ คอนฟิก สำรองข้อมูล และควบคุมเซิร์ฟเวอร์',
+    'Console Agent': 'บอตคอนโซล',
+    'Execution bot for managed SCUM commands': 'บอตประมวลคำสั่ง SCUM ที่ระบบดูแลให้',
+    'Player Portal': 'พอร์ทัลผู้เล่น',
+    'Standalone public and player portal': 'เว็บสาธารณะและพอร์ทัลผู้เล่นแบบแยก',
+    'ยอดรับเงินเดือนนี้ / MRR ล่าสุด': 'ยอดรับเงินเดือนนี้ / รายได้ประจำล่าสุด',
+    'Owner เห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุม registry, binding และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน': 'เจ้าของระบบมองเห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุมทะเบียนบริการ การผูกเครื่อง และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน',
+    'ใช้ workspace นี้เพื่อตัดเซสชันที่ยังใช้งาน รับทราบการแจ้งเตือน และตรวจหลักฐานก่อนที่ปัญหาระดับแพลตฟอร์มจะลุกลาม': 'ใช้พื้นที่งานนี้เพื่อตัดเซสชันที่ยังใช้งาน รับทราบการแจ้งเตือน และตรวจหลักฐานก่อนที่ปัญหาระดับแพลตฟอร์มจะลุกลาม',
+    'หน้า Owner Settings ใช้สำหรับนโยบายแพลตฟอร์ม สิทธิ์ และบริการส่วนกลางเท่านั้น งานของลูกค้าแต่ละรายยังอยู่ในพื้นที่ Tenant': 'หน้าตั้งค่าเจ้าของระบบใช้สำหรับนโยบายแพลตฟอร์ม สิทธิ์ และบริการส่วนกลางเท่านั้น งานของลูกค้าแต่ละรายยังอยู่ในพื้นที่ผู้ดูแลลูกค้า',
+    'ใช้หน้านี้เพื่ออัปเดตกติกาสิทธิ์ของ Owner นโยบายพอร์ทัลผู้เล่น บัญชีผู้ดูแล และบริการส่วนกลาง โดยไม่ต้องแก้ไฟล์ฝั่งเซิร์ฟเวอร์โดยตรง': 'ใช้หน้านี้เพื่ออัปเดตกติกาสิทธิ์ของเจ้าของระบบ นโยบายพอร์ทัลผู้เล่น บัญชีผู้ดูแล และบริการส่วนกลาง โดยไม่ต้องแก้ไฟล์ฝั่งเซิร์ฟเวอร์โดยตรง',
+    'บัญชีของ Owner และทีมปฏิบัติการแพลตฟอร์ม': 'บัญชีของเจ้าของระบบและทีมปฏิบัติการแพลตฟอร์ม',
+    'อัปเดตนโยบายสิทธิ์ของ Owner': 'อัปเดตนโยบายสิทธิ์ของเจ้าของระบบ',
+    'ปรับสิทธิ์การเข้าถึงของ Owner นโยบาย session และกติกาความปลอดภัยได้จากหน้าเว็บนี้โดยตรง': 'ปรับสิทธิ์การเข้าถึงของเจ้าของระบบ นโยบายเซสชัน และกติกาความปลอดภัยได้จากหน้าเว็บนี้โดยตรง',
+    'วางทะเบียนผู้เช่า บริบทซัพพอร์ต และสถานะเชิงพาณิชย์ไว้ใกล้กัน เพื่อให้งานของเจ้าของระบบอ่านง่ายและตัดสินใจได้เร็ว': 'วางทะเบียนลูกค้า บริบทงานดูแลลูกค้า และสถานะเชิงพาณิชย์ไว้ใกล้กัน เพื่อให้งานของเจ้าของระบบอ่านง่ายและตัดสินใจได้เร็ว',
+    'เริ่มจากเรื่องรายได้ ซัพพอร์ต และผู้เช่าที่เสี่ยงก่อน แล้วค่อยลงรายละเอียด': 'เริ่มจากเรื่องรายได้ งานดูแลลูกค้า และลูกค้าที่เสี่ยงก่อน แล้วค่อยลงรายละเอียด',
+    'ตอนนี้ยังไม่พบผู้เช่าที่เข้าโซนใกล้ต่ออายุในชุดข้อมูลนี้': 'ตอนนี้ยังไม่พบลูกค้าที่เข้าโซนใกล้ต่ออายุในชุดข้อมูลนี้',
+    'ยังไม่พบผู้เช่าที่เป็นเคสด่วน': 'ยังไม่พบลูกค้าที่เป็นเคสด่วน',
+    'ใช้พื้นที่นี้เช็กผู้เช่าที่มีความเสี่ยงสูงก่อนจะขยับไปแก้เรื่องอื่น': 'ใช้พื้นที่นี้เช็กลูกค้าที่มีความเสี่ยงสูงก่อนจะขยับไปแก้เรื่องอื่น',
+    'เปิดรายละเอียดผู้เช่ารายนี้ต่อเพื่อดูสุขภาพระบบ บริบทซัพพอร์ต และสถานะเชิงพาณิชย์ในหน้าถัดไป': 'เปิดรายละเอียดลูกค้ารายนี้ต่อเพื่อดูสถานะบริการ บริบทงานดูแลลูกค้า และสถานะเชิงพาณิชย์ในหน้าถัดไป',
+    'ยังไม่ bind เครื่อง': 'ยังไม่ผูกเครื่อง',
+    'ใช้เฉพาะคีย์ฟีเจอร์ที่ถูกต้อง แต่ละบรรทัดจะกลายเป็น entitlement หนึ่งรายการ': 'ใช้เฉพาะคีย์ฟีเจอร์ที่ถูกต้อง แต่ละบรรทัดจะกลายเป็นสิทธิ์ใช้งานหนึ่งรายการ',
+    'เปลี่ยนสถานะใบแจ้งหนี้หรือเปิดลิงก์ชำระเงินใหม่ได้จากหน้านี้ โดยไม่ต้องออกจากพื้นที่งานของ Owner': 'เปลี่ยนสถานะใบแจ้งหนี้หรือเปิดลิงก์ชำระเงินใหม่ได้จากหน้านี้ โดยไม่ต้องออกจากพื้นที่งานของเจ้าของระบบ',
+  };
+
+  Object.assign(OWNER_ACTIVE_TEXT_MAP, {
+    'Bot Log': 'บันทึกบอท',
+    'Bot Log + Delivery': 'บันทึกบอท + ส่งของ',
+    'Full Option': 'ฟังก์ชันเต็ม',
+    'Server Only': 'เซิร์ฟเวอร์เท่านั้น',
+    'Discord log sync and basic operational visibility.': 'ซิงก์ Discord log และมองเห็นสถานะการทำงานพื้นฐาน',
+    'Managed delivery plus player-facing commerce and sync.': 'จัดการส่งของแบบควบคุมได้ พร้อมหน้าร้านและการซิงก์ฝั่งผู้เล่น',
+    'Full managed server operations with hosting, settings, and delivery.': 'จัดการเซิร์ฟเวอร์แบบเต็มรูปแบบ รวมทั้งโฮสต์ ค่าตั้ง และการส่งของ',
+    'Managed server controls without log and delivery add-ons.': 'ควบคุมเซิร์ฟเวอร์ได้ โดยไม่รวมส่วนเสริมด้าน log และการส่งของ',
+    'Server Hosting': 'โฮสต์เซิร์ฟเวอร์',
+    'Server Settings': 'การตั้งค่าเซิร์ฟเวอร์',
+    'Server Status': 'สถานะเซิร์ฟเวอร์',
+    'Bot Delivery': 'การส่งของของบอท',
+    'Discord Integration': 'การเชื่อมต่อ Discord',
+    'Log Dashboard': 'แผงบันทึกระบบ',
+    'Delivery Dashboard': 'แผงการส่งของ',
+    'Shop Module': 'โมดูลร้านค้า',
+    'Orders Module': 'โมดูลคำสั่งซื้อ',
+    'Player Module': 'โมดูลผู้เล่น',
+    'Donation Module': 'โมดูลโดเนต',
+    'Event Module': 'โมดูลกิจกรรม',
+    'Event Auto Reward': 'รางวัลอัตโนมัติของกิจกรรม',
+    'Wallet Module': 'โมดูลวอลเล็ต',
+    'Promo Module': 'โมดูลโปรโมชั่น',
+    'Ranking Module': 'โมดูลจัดอันดับ',
+    'Restart Announce Module': 'โมดูลประกาศก่อนรีสตาร์ต',
+    'Support Module': 'โมดูลช่วยเหลือ',
+    'Staff Roles': 'บทบาททีมงาน',
+    'Analytics Module': 'โมดูลวิเคราะห์',
+    'Sync Agent': 'บอทซิงก์',
+    'Execute Agent': 'บอทส่งของ',
+    Provider: 'ผู้ให้บริการ',
+    Collected: 'รับเงินแล้ว',
+    'Open invoices': 'ใบแจ้งหนี้ที่ยังเปิด',
+  });
+
+  Object.assign(OWNER_ACTIVE_TEXT_MAP, {
+    BOT_LOG: 'บันทึกบอท',
+    BOT_LOG_DELIVERY: 'บันทึกบอท + ส่งของ',
+    FULL_OPTION: 'จัดการเต็มรูปแบบ',
+    SERVER_ONLY: 'เฉพาะเซิร์ฟเวอร์',
+    'BOT_LOG · Bot Log': 'บันทึกบอท',
+    'BOT_LOG_DELIVERY · Bot Log + Delivery': 'บันทึกบอท + ส่งของ',
+    'FULL_OPTION · Full Option': 'จัดการเต็มรูปแบบ',
+    'SERVER_ONLY · Server Only': 'เฉพาะเซิร์ฟเวอร์',
+    platform_local: 'ระบบภายในแพลตฟอร์ม',
+    Trial: 'ทดลองใช้',
+    Pro: 'โปร',
+    'Trial 14 days': 'ทดลองใช้ 14 วัน',
+    'Pro Monthly': 'โปร รายเดือน',
+    monthly: 'รายเดือน',
+    quarterly: 'รายไตรมาส',
+    yearly: 'รายปี',
+    draft: 'แบบร่าง',
+    archived: 'เก็บถาวร',
+  });
+
+  function translateOwnerActiveText(value) {
+    const text = trimText(value, 400);
+    if (!text) return '';
+    if (OWNER_ACTIVE_TEXT_MAP[text]) return OWNER_ACTIVE_TEXT_MAP[text];
+    return text
+      .replace(/^Renews (.+)$/u, 'ต่ออายุ $1')
+      .replace(/^Current status:\s*/u, 'สถานะปัจจุบัน: ')
+      .replace(/^Queue depth\s+/u, 'คิวค้าง ')
+      .replace(/Delivery Agent/gu, 'บอทส่งของ')
+      .replace(/Server Bot/gu, 'บอทเซิร์ฟเวอร์')
+      .replace(/\bOwner\b/giu, 'เจ้าของระบบ')
+      .replace(/\bAdmin Web\b/giu, 'เว็บเจ้าของระบบ')
+      .replace(/\bOwner Web\b/giu, 'เว็บเจ้าของระบบ')
+      .replace(/\bOwner Panel\b/giu, 'เจ้าของระบบ')
+      .replace(/\bTenant Admin\b/giu, 'ผู้ดูแลลูกค้า')
+      .replace(/ผู้เช่า/gu, 'ลูกค้า')
+      .replace(/ซัพพอร์ต/gu, 'ดูแลลูกค้า')
+      .replace(/\bworkspace\b/giu, 'พื้นที่งาน')
+      .replace(/\bsession\b/giu, 'เซสชัน')
+      .replace(/\bregistry\b/giu, 'ทะเบียนบริการ')
+      .replace(/\bbinding\b/giu, 'การผูกเครื่อง')
+      .replace(/\bbind\b/giu, 'ผูก')
+      .replace(/\boffline\b/giu, 'ออฟไลน์')
+      .replace(/\bentitlement\b/giu, 'สิทธิ์ใช้งาน')
+      .replace(/diagnostics/giu, 'วินิจฉัยระบบ')
+      .replace(/billing/giu, 'การเงิน')
+      .replace(/service rows/gu, 'แถวบริการ')
+      .replace(/dead letters/gu, 'งานค้างผิดพลาด')
+      .replace(/delivery anomalies/gu, 'ความผิดปกติของการส่งของ')
+      .replace(/request errors/gu, 'คำขอผิดพลาด');
+  }
+
+  function finalizeOwnerActiveText(value) {
+    const text = translateOwnerActiveText(value);
+    return String(text || '').trim()
+      .replace(/\bdirect\b/gu, 'ขายตรง')
+      .replace(/\btrialing\b/gu, 'กำลังทดลองใช้')
+      .replace(/\btrial\b/gu, 'ทดลองใช้')
+      .replace(/\bactive\b/gu, 'ใช้งานอยู่')
+      .replace(/\bsuccess\b/gu, 'ปกติ')
+      .replace(/Invoice:\s*no-invoice/gu, 'ใบแจ้งหนี้: ไม่มี')
+      .replace(/(\d+)\s+paid invoices/gu, '$1 ใบแจ้งหนี้ที่จ่ายแล้ว')
+      .replace(/(\d+)\s+failed payment attempts/gu, '$1 รายการชำระที่ล้มเหลว');
+  }
+
+  function normalizeOwnerActiveText(value) {
+    return String(finalizeOwnerActiveText(value) || '').trim()
+      .replace(/\bBOT_LOG_DELIVERY\b/gu, 'บันทึกบอท + ส่งของ')
+      .replace(/\bBOT_LOG\b/gu, 'บันทึกบอท')
+      .replace(/\bFULL_OPTION\b/gu, 'จัดการเต็มรูปแบบ')
+      .replace(/\bSERVER_ONLY\b/gu, 'เฉพาะเซิร์ฟเวอร์')
+      .replace(/\bplatform_local\b/gu, 'ระบบภายในแพลตฟอร์ม')
+      .replace(/\bmonthly\b/gu, 'รายเดือน')
+      .replace(/\bquarterly\b/gu, 'รายไตรมาส')
+      .replace(/\byearly\b/gu, 'รายปี')
+      .replace(/\bdraft\b/gu, 'แบบร่าง')
+      .replace(/\barchived\b/gu, 'เก็บถาวร');
+  }
+
+  function normalizeOwnerActiveTextV2(value) {
+    return String(normalizeOwnerActiveText(value) || '').trim()
+      .replace(/เว็บเจ้าของระบบ เซสชัน Idle Minutes/giu, 'เวลาหมดอายุเมื่อไม่ใช้งานของเว็บเจ้าของระบบ (นาที)')
+      .replace(/เว็บเจ้าของระบบ เซสชัน Max Per User/giu, 'จำนวนเซสชันพร้อมกันสูงสุดต่อผู้ใช้ของเว็บเจ้าของระบบ')
+      .replace(/เว็บเจ้าของระบบ Secure Cookie/giu, 'คุกกี้แบบปลอดภัยของเว็บเจ้าของระบบ')
+      .replace(/Use secure cookies for เว็บเจ้าของระบบ/giu, 'ใช้คุกกี้แบบปลอดภัยกับเว็บเจ้าของระบบ')
+      .replace(/เว็บเจ้าของระบบ HSTS Enabled/giu, 'การเปิดใช้ HSTS ของเว็บเจ้าของระบบ')
+      .replace(/Enable HSTS headers on เว็บเจ้าของระบบ/giu, 'เปิดใช้ส่วนหัว HSTS บนเว็บเจ้าของระบบ')
+      .replace(/Enforce Origin Check/giu, 'บังคับตรวจแหล่งที่มา')
+      .replace(/เว็บเจ้าของระบบ Allowed Origins/giu, 'แหล่งที่มาที่อนุญาตของเว็บเจ้าของระบบ')
+      .replace(/Language used for Discord admin-log operational การแจ้งเตือน/giu, 'ภาษาที่ใช้กับการแจ้งเตือนบันทึกผู้ดูแลผ่าน Discord')
+      .replace(/TOTP สำหรับการเข้าสู่ระบบของ Owner/giu, 'TOTP สำหรับการเข้าสู่ระบบของเจ้าของระบบ')
+      .replace(/Standalone เจ้าของระบบ and tenant เว็บเจ้าของระบบ บอท/giu, 'เว็บแยกของเจ้าของระบบและผู้ดูแลลูกค้า')
+      .replace(/Discord command and automation บอท/giu, 'บอตคำสั่ง Discord และงานอัตโนมัติ')
+      .replace(/SCUM log watcher and sync บอท/giu, 'บอตติดตาม SCUM.log และซิงก์ข้อมูล')
+      .replace(/Server-side sync, config, backup, and server control บอท/giu, 'บอตฝั่งเซิร์ฟเวอร์สำหรับซิงก์ คอนฟิก สำรองข้อมูล และควบคุมเซิร์ฟเวอร์')
+      .replace(/Execution บอท for managed SCUM commands/giu, 'บอตประมวลคำสั่ง SCUM ที่ระบบดูแลให้')
+      .replace(/\bcookie\b/giu, 'คุกกี้')
+      .replace(/\bThai\b/giu, 'ไทย')
+      .replace(/\bunlimited\b/giu, 'ไม่จำกัด')
+      .replace(/\bBOT_LOG_DELIVERY\b/giu, 'บันทึกบอท + ส่งของ')
+      .replace(/\bBOT_LOG\b/giu, 'บันทึกบอท')
+      .replace(/\bFULL_OPTION\b/giu, 'จัดการเต็มรูปแบบ')
+      .replace(/\bSERVER_ONLY\b/giu, 'เฉพาะเซิร์ฟเวอร์')
+      .replace(/\bplatform_local\b/giu, 'ระบบภายในแพลตฟอร์ม')
+      .replace(/\btrialing\b/giu, 'กำลังทดลองใช้')
+      .replace(/\btrial\b/giu, 'ทดลองใช้')
+      .replace(/\bactive\b/giu, 'ใช้งานอยู่')
+      .replace(/\bmonthly\b/giu, 'รายเดือน')
+      .replace(/\bquarterly\b/giu, 'รายไตรมาส')
+      .replace(/\byearly\b/giu, 'รายปี')
+      .replace(/\bdraft\b/giu, 'แบบร่าง')
+      .replace(/\barchived\b/giu, 'เก็บถาวร')
+      .replace(/\binvoice\b/giu, 'ใบแจ้งหนี้')
+      .replace(/\bruntime\b/giu, 'บอท');
+  }
+
+  function localizeOwnerElementText(node) {
+    if (!(node instanceof Element)) return;
+    const tags = new Set(['A', 'BUTTON', 'TH', 'TD', 'LABEL', 'OPTION', 'P', 'SPAN', 'STRONG', 'SMALL', 'H1', 'H2', 'H3', 'H4', 'DIV', 'LI']);
+    if (tags.has(node.tagName) && node.children.length === 0) {
+      const rawText = trimText(node.textContent, 400);
+      const translated = normalizeOwnerActiveTextV2(rawText);
+      if (translated && translated !== rawText) {
+        node.textContent = translated;
+      }
+    }
+    if (node.hasAttribute('title')) {
+      const rawTitle = trimText(node.getAttribute('title'), 400);
+      const translatedTitle = normalizeOwnerActiveTextV2(rawTitle);
+      if (translatedTitle && translatedTitle !== rawTitle) {
+        node.setAttribute('title', translatedTitle);
+      }
+    }
+    ['placeholder', 'aria-label'].forEach((attribute) => {
+      if (!node.hasAttribute(attribute)) return;
+      const rawValue = trimText(node.getAttribute(attribute), 400);
+      const translated = normalizeOwnerActiveTextV2(rawValue);
+      if (translated && translated !== rawValue) {
+        node.setAttribute(attribute, translated);
+      }
+    });
+  }
+
+  function localizeOwnerActivePage(scopeNode = document) {
+    if (!(scopeNode instanceof Element || scopeNode instanceof Document)) return;
+    scopeNode.querySelectorAll('*').forEach((node) => localizeOwnerElementText(node));
   }
 
   function escapeHtml(value) {
@@ -290,6 +783,19 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function trimText(value, maxLen = 240) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return text.length <= maxLen ? text : text.slice(0, maxLen);
+  }
+
+  function toIsoDateTime(value) {
+    const text = trimText(value, 80);
+    if (!text) return null;
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? text : date.toISOString();
   }
 
   function root() {
@@ -303,7 +809,7 @@
   function setStatus(message, tone) {
     const node = statusNode();
     if (!node) return;
-    node.textContent = String(message || '').trim();
+    node.textContent = normalizeOwnerActiveTextV2(String(message || '').trim());
     node.dataset.tone = tone || 'muted';
   }
 
@@ -312,8 +818,8 @@
     if (!target) return;
     target.innerHTML = [
       '<section style="padding:32px;border:1px solid rgba(212,186,113,.18);border-radius:24px;background:rgba(13,17,14,.92);box-shadow:0 24px 56px rgba(0,0,0,.28)">',
-      `<h1 style="margin:0 0 12px;font:700 32px/1.05 'IBM Plex Sans Thai','Segoe UI',sans-serif;color:#f4efe4">${escapeHtml(title)}</h1>`,
-      `<p style="margin:0;color:rgba(244,239,228,.74);font:400 15px/1.7 'IBM Plex Sans Thai','Segoe UI',sans-serif">${escapeHtml(detail)}</p>`,
+      `<h1 style="margin:0 0 12px;font:700 32px/1.05 'IBM Plex Sans Thai','Segoe UI',sans-serif;color:#f4efe4">${escapeHtml(normalizeOwnerActiveTextV2(title))}</h1>`,
+      `<p style="margin:0;color:rgba(244,239,228,.74);font:400 15px/1.7 'IBM Plex Sans Thai','Segoe UI',sans-serif">${escapeHtml(normalizeOwnerActiveTextV2(detail))}</p>`,
       '</section>',
     ].join('');
   }
@@ -323,12 +829,22 @@
     const timeoutId = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 && controller
       ? window.setTimeout(() => controller.abort(), options.timeoutMs)
       : null;
+    const method = trimText(options.method || 'GET', 12) || 'GET';
+    const headers = {
+      Accept: 'application/json',
+      ...(options.headers && typeof options.headers === 'object' ? options.headers : {}),
+    };
+    let body;
+    if (options.body !== undefined) {
+      headers['content-type'] = 'application/json';
+      body = JSON.stringify(options.body);
+    }
     try {
       const response = await fetch(path, {
+        method,
         credentials: 'same-origin',
-        headers: {
-          Accept: 'application/json',
-        },
+        headers,
+        body,
         signal: controller ? controller.signal : undefined,
       });
       const payload = await response.json().catch(() => ({}));
@@ -337,7 +853,7 @@
           window.location.href = '/owner/login';
           return fallback;
         }
-        throw new Error(String(payload?.error || `Request failed (${response.status})`));
+        throw new Error(String(payload?.error || `คำขอล้มเหลว (${response.status})`));
       }
       return payload?.data ?? fallback;
     } catch (error) {
@@ -353,8 +869,72 @@
     }
   }
 
-  function getRawHashRoute() {
-    return String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  function optionalOwnerRead(path, fallback, timeoutMs = 2500) {
+    return api(path, fallback, {
+      timeoutMs,
+      allowTimeoutFallback: true,
+    }).catch(() => fallback);
+  }
+
+  function safeOwnerRead(path, fallback, warnings, label, options = {}) {
+    return api(path, fallback, {
+      timeoutMs: 3000,
+      allowTimeoutFallback: true,
+      ...(options && typeof options === 'object' ? options : {}),
+    }).catch(() => {
+      if (Array.isArray(warnings) && label) {
+        warnings.push(label);
+      }
+      return fallback;
+    });
+  }
+
+  function applyOwnerSurfaceStatus() {
+    if (!state.payload || state.refreshing) return;
+    const warningCount = Array.isArray(state.payload.__loadWarnings)
+      ? state.payload.__loadWarnings.length
+      : 0;
+    if (warningCount > 0) {
+      setStatus(`โหลดข้อมูล Owner ได้บางส่วน (${warningCount} แหล่งข้อมูลยังไม่พร้อม)`, 'warning');
+      return;
+    }
+    setStatus(t('owner.app.status.ready', 'พร้อมใช้งาน'), 'success');
+  }
+
+  function getRawPathRoute() {
+    const path = String(window.location.pathname || '').trim().toLowerCase();
+    if (!path.startsWith('/owner')) return '';
+    const relative = path.slice('/owner'.length).replace(/^\/+/, '');
+    if (!relative) return '';
+    const segments = relative.split('/').filter(Boolean);
+    if (!segments.length) return '';
+    if (segments[0] === 'tenants' && segments[1]) {
+      return `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'support' && segments[1]) {
+      return `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    return PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+  }
+
+  function isKnownOwnerRouteAlias(rawRoute) {
+    const normalizedRoute = String(rawRoute || '').trim().toLowerCase();
+    return Boolean(
+      normalizedRoute
+      && (
+        Object.prototype.hasOwnProperty.call(PAGE_ALIASES, normalizedRoute)
+        || normalizedRoute === 'create-tenant'
+        || normalizedRoute.startsWith('tenant-')
+        || normalizedRoute.startsWith('support-')
+      )
+    );
+  }
+
+  function bootstrapLegacyOwnerRoute() {
+    const rawHashRoute = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+    if (!isKnownOwnerRouteAlias(rawHashRoute)) return;
+    const canonicalPath = buildCanonicalOwnerPath(rawHashRoute, resolveOwnerPage(rawHashRoute));
+    window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
   }
 
   function resolveOwnerPage(rawRoute) {
@@ -365,6 +945,75 @@
       return 'tenants';
     }
     return 'dashboard';
+  }
+
+  function buildCanonicalOwnerPath(rawRoute, page) {
+    const normalizedRoute = String(rawRoute || '').trim().toLowerCase();
+    if (normalizedRoute.startsWith('tenant-')) {
+      return `/owner/tenants/${encodeURIComponent(normalizedRoute.slice('tenant-'.length))}`;
+    }
+    if (normalizedRoute.startsWith('support-')) {
+      return `/owner/support/${encodeURIComponent(normalizedRoute.slice('support-'.length))}`;
+    }
+    if (normalizedRoute === 'packages') return '/owner/packages';
+    if (normalizedRoute === 'subscriptions' || normalizedRoute === 'billing') return '/owner/subscriptions';
+    if (normalizedRoute === 'audit' || normalizedRoute === 'security') return '/owner/audit';
+    if (normalizedRoute === 'settings') return '/owner/settings';
+    if (normalizedRoute === 'observability' || normalizedRoute === 'analytics') return '/owner/analytics';
+    if (
+      normalizedRoute === 'runtime'
+      || normalizedRoute === 'runtime-health'
+      || normalizedRoute === 'incidents'
+      || normalizedRoute === 'jobs'
+      || normalizedRoute === 'support'
+      || normalizedRoute === 'control'
+      || normalizedRoute === 'access'
+      || normalizedRoute === 'recovery'
+      || normalizedRoute === 'diagnostics'
+    ) {
+      return '/owner/runtime';
+    }
+    if (
+      normalizedRoute === 'tenants'
+      || normalizedRoute === 'create-tenant'
+      || normalizedRoute === 'commercial'
+      || normalizedRoute === 'quota'
+      || page === 'tenants'
+    ) {
+      return '/owner/tenants';
+    }
+    return '/owner';
+  }
+
+  function canonicalizeOwnerLinks(scopeNode) {
+    const rootNode = scopeNode instanceof Element ? scopeNode : document;
+    rootNode.querySelectorAll('a[href^="#"], a[href^="/owner"]').forEach((link) => {
+      if (link.dataset.ownerLocalFocus === '1') return;
+      const target = trimText(link.getAttribute('href'), 160);
+      if (!target || target === '#') return;
+      let rawRoute = '';
+      if (target.startsWith('/owner')) {
+        const relative = target.slice('/owner'.length).replace(/^\/+/, '');
+        const segments = relative.split('/').filter(Boolean);
+        if (!segments.length) {
+          rawRoute = 'overview';
+        } else if (segments[0] === 'tenants' && segments[1]) {
+          rawRoute = `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+        } else if (segments[0] === 'support' && segments[1]) {
+          rawRoute = `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+        } else {
+          rawRoute = PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+        }
+      } else {
+        rawRoute = target.replace(/^#/, '').trim().toLowerCase();
+      }
+      if (!rawRoute) return;
+      const page = resolveOwnerPage(rawRoute);
+      const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
+      if (canonicalPath && target !== canonicalPath) {
+        link.setAttribute('href', canonicalPath);
+      }
+    });
   }
 
   function routeTargetSelector(route) {
@@ -378,9 +1027,14 @@
 
   function focusCurrentRoute(rawRoute, page) {
     const route = String(rawRoute || '').trim().toLowerCase() || (page === 'runtime' ? 'runtime-health' : page === 'tenants' ? 'tenants' : 'overview');
-    const selector = routeTargetSelector(route);
+    const fallbackRoute = window.OwnerControlV4?.normalizeOwnerControlRoute?.(route);
+    const selectors = [routeTargetSelector(route)];
+    if (fallbackRoute && fallbackRoute !== route) {
+      selectors.push(routeTargetSelector(fallbackRoute));
+    }
+    const selector = selectors.find(Boolean);
     if (!selector) return;
-    const node = document.querySelector(selector);
+    const node = selectors.reduce((match, current) => match || (current ? document.querySelector(current) : null), null);
     if (!node) return;
     window.requestAnimationFrame(() => {
       node.classList.remove('odv4-focus-target-active');
@@ -392,26 +1046,670 @@
     });
   }
 
+  function focusLocalTarget(targetValue) {
+    const target = trimText(targetValue, 160);
+    if (!target || target === '#') return;
+    const node = target.startsWith('#')
+      ? document.getElementById(target.slice(1))
+      : document.querySelector(target);
+    if (!node) return;
+    node.classList.remove('odv4-focus-target-active');
+    node.classList.add('odv4-focus-target-active');
+    node.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    window.setTimeout(() => {
+      node.classList.remove('odv4-focus-target-active');
+    }, 1600);
+  }
+
+  function parseNumericValue(value) {
+    const raw = trimText(value, 80);
+    if (!raw) return 0;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function formatOwnerActionStatus(status) {
+    const normalizedStatus = trimText(status, 80).toLowerCase().replace(/_/g, ' ');
+    if (!normalizedStatus) return 'ไม่ทราบสถานะ';
+    return normalizeOwnerActiveTextV2(normalizedStatus);
+  }
+
+  function buildFormPayload(form) {
+    const payload = {};
+    const formData = new FormData(form);
+    formData.forEach((value, key) => {
+      payload[key] = typeof value === 'string' ? value.trim() : value;
+    });
+    return payload;
+  }
+
+  function assignNestedValue(target, path, value) {
+    const segments = String(path || '').split('.').map((segment) => segment.trim()).filter(Boolean);
+    if (!segments.length) return target;
+    let pointer = target;
+    for (let index = 0; index < segments.length - 1; index += 1) {
+      const segment = segments[index];
+      if (!pointer[segment] || typeof pointer[segment] !== 'object' || Array.isArray(pointer[segment])) {
+        pointer[segment] = {};
+      }
+      pointer = pointer[segment];
+    }
+    pointer[segments[segments.length - 1]] = value;
+    return target;
+  }
+
+  function buildStructuredFormPayload(form) {
+    const payload = {};
+    const formData = new FormData(form);
+    formData.forEach((value, key) => {
+      const normalizedValue = typeof value === 'string' ? value.trim() : value;
+      if (String(key || '').includes('.')) {
+        assignNestedValue(payload, key, normalizedValue);
+        return;
+      }
+      payload[key] = normalizedValue;
+    });
+    return payload;
+  }
+
+  function findTenantRowById(tenantId) {
+    const normalizedTenantId = trimText(tenantId, 160);
+    return Array.isArray(state.payload?.tenants)
+      ? state.payload.tenants.find((row) => trimText(row?.id, 160) === normalizedTenantId) || null
+      : null;
+  }
+
+  function buildOwnerControlModel(rawRoute) {
+    if (!state.payload || !window.OwnerControlV4?.createOwnerControlV4Model) return null;
+    return window.OwnerControlV4.createOwnerControlV4Model(state.payload, {
+      currentRoute: rawRoute,
+      selectedRuntimeKey: state.ownerUi.selectedRuntimeKey,
+      runtimeBootstrap: state.ownerUi.runtimeBootstrap,
+      supportCase: state.ownerUi.supportCase,
+      supportCaseLoading: state.ownerUi.supportCaseLoading,
+      supportDeadLetters: state.ownerUi.supportDeadLetters,
+      supportDeadLettersLoading: state.ownerUi.supportDeadLettersLoading,
+    });
+  }
+
+  function getSupportContextTenantId(rawRoute) {
+    const normalizedRoute = trimText(rawRoute, 200).toLowerCase();
+    if (normalizedRoute.startsWith('support-')) {
+      return trimText(normalizedRoute.slice('support-'.length), 160);
+    }
+    if (normalizedRoute.startsWith('tenant-')) {
+      return trimText(normalizedRoute.slice('tenant-'.length), 160);
+    }
+    return '';
+  }
+
+  function isSupportContextRoute(rawRoute) {
+    return trimText(rawRoute, 200).toLowerCase().startsWith('support-');
+  }
+
+  function requestSupportCaseForRoute(rawRoute, options = {}) {
+    const tenantId = getSupportContextTenantId(rawRoute);
+    if (!tenantId) return;
+    const force = options && options.force === true;
+    if (
+      !force
+      && state.ownerUi.supportCaseTenantId === tenantId
+      && (state.ownerUi.supportCaseLoading || state.ownerUi.supportCase)
+    ) {
+      return;
+    }
+    state.ownerUi.supportCaseTenantId = tenantId;
+    state.ownerUi.supportCase = null;
+    state.ownerUi.supportCaseLoading = true;
+    state.ownerUi.supportCaseRequestId += 1;
+    const requestId = state.ownerUi.supportCaseRequestId;
+    optionalOwnerRead(
+      `/admin/api/platform/tenant-support-case?tenantId=${encodeURIComponent(tenantId)}&limit=25`,
+      null,
+      3500,
+    ).then((bundle) => {
+      if (state.ownerUi.supportCaseRequestId !== requestId) return;
+      state.ownerUi.supportCaseTenantId = tenantId;
+      state.ownerUi.supportCase = bundle;
+      state.ownerUi.supportCaseLoading = false;
+      renderCurrentPage();
+    }).catch(() => {
+      if (state.ownerUi.supportCaseRequestId !== requestId) return;
+      state.ownerUi.supportCaseTenantId = tenantId;
+      state.ownerUi.supportCase = null;
+      state.ownerUi.supportCaseLoading = false;
+      renderCurrentPage();
+    });
+  }
+
+  function requestSupportDeadLettersForRoute(rawRoute, options = {}) {
+    const tenantId = getSupportContextTenantId(rawRoute);
+    if (!tenantId || !isSupportContextRoute(rawRoute)) return;
+    const force = options && options.force === true;
+    if (
+      !force
+      && state.ownerUi.supportDeadLettersTenantId === tenantId
+      && (state.ownerUi.supportDeadLettersLoading || state.ownerUi.supportDeadLetters.length > 0)
+    ) {
+      return;
+    }
+    state.ownerUi.supportDeadLettersTenantId = tenantId;
+    state.ownerUi.supportDeadLetters = [];
+    state.ownerUi.supportDeadLettersLoading = true;
+    state.ownerUi.supportDeadLettersRequestId += 1;
+    const requestId = state.ownerUi.supportDeadLettersRequestId;
+    optionalOwnerRead(
+      `/admin/api/delivery/dead-letter?tenantId=${encodeURIComponent(tenantId)}&limit=25`,
+      [],
+      3500,
+    ).then((rows) => {
+      if (state.ownerUi.supportDeadLettersRequestId !== requestId) return;
+      state.ownerUi.supportDeadLettersTenantId = tenantId;
+      state.ownerUi.supportDeadLetters = Array.isArray(rows) ? rows : [];
+      state.ownerUi.supportDeadLettersLoading = false;
+      renderCurrentPage();
+    }).catch(() => {
+      if (state.ownerUi.supportDeadLettersRequestId !== requestId) return;
+      state.ownerUi.supportDeadLettersTenantId = tenantId;
+      state.ownerUi.supportDeadLetters = [];
+      state.ownerUi.supportDeadLettersLoading = false;
+      renderCurrentPage();
+    });
+  }
+
+  function applyOwnerWorkspacePrimaryAction(controlRoot) {
+    const primaryActionNode = document.querySelector('.odv4-pagehead-actions .odv4-button-primary');
+    if (!primaryActionNode || !controlRoot) return;
+    const label = trimText(controlRoot.dataset.ownerPrimaryLabel, 160);
+    const href = trimText(controlRoot.dataset.ownerPrimaryHref, 160);
+    if (label) primaryActionNode.textContent = label;
+    if (href) primaryActionNode.setAttribute('href', href);
+    if (controlRoot.dataset.ownerPrimaryLocalFocus === '1') {
+      primaryActionNode.dataset.ownerLocalFocus = '1';
+    } else {
+      delete primaryActionNode.dataset.ownerLocalFocus;
+    }
+  }
+
+  function mountOwnerControlWorkspace(rawRoute) {
+    const target = root();
+    if (!target || !state.payload || !window.OwnerControlV4?.buildOwnerControlV4Html) return;
+    const model = buildOwnerControlModel(rawRoute);
+    const html = window.OwnerControlV4.buildOwnerControlV4Html(model);
+    const mainNode = target.querySelector('.odv4-main');
+    if (!mainNode) return;
+    const existing = mainNode.querySelector('#owner-control-workspace');
+    existing?.remove();
+    if (!html) return;
+    const mount = document.createElement('div');
+    mount.innerHTML = html;
+    const controlRoot = mount.firstElementChild;
+    if (!controlRoot) return;
+    const insertAfter = mainNode.querySelector('.odv4-kpi-strip');
+    if (insertAfter?.parentNode === mainNode && insertAfter.nextSibling) {
+      mainNode.insertBefore(controlRoot, insertAfter.nextSibling);
+    } else if (insertAfter?.parentNode === mainNode) {
+      mainNode.appendChild(controlRoot);
+    } else {
+      mainNode.prepend(controlRoot);
+    }
+    applyI18n(controlRoot);
+    applyOwnerWorkspacePrimaryAction(controlRoot);
+  }
+
+  async function ownerMutation(path, body, options = {}) {
+    const result = await api(path, null, {
+      method: options.method || 'POST',
+      body,
+    });
+    return result;
+  }
+
+  async function handleOwnerFormSubmit(form) {
+    const action = trimText(form?.dataset.ownerForm, 80);
+    if (!action) return;
+    const payload = buildStructuredFormPayload(form);
+    if (action === 'create-tenant') {
+      const created = await ownerMutation('/owner/api/platform/tenant', {
+        name: payload.name,
+        slug: payload.slug,
+        ownerName: payload.ownerName,
+        ownerEmail: payload.ownerEmail,
+        type: payload.type,
+        status: payload.status,
+        locale: payload.locale,
+      });
+      const tenantId = trimText(created?.id || payload.slug || payload.name, 160);
+      state.ownerUi.runtimeBootstrap = null;
+      await refreshState({ silent: true });
+      setStatus('สร้างลูกค้าแล้ว', 'success');
+      if (tenantId) {
+        navigateOwnerRoute(`/owner/tenants/${encodeURIComponent(tenantId)}`);
+      } else {
+        navigateOwnerRoute('/owner/tenants');
+      }
+      return;
+    }
+    if (action === 'update-tenant') {
+      const tenantId = trimText(payload.id, 160);
+      await ownerMutation('/owner/api/platform/tenant', {
+        id: tenantId,
+        name: payload.name,
+        slug: payload.slug,
+        ownerName: payload.ownerName,
+        ownerEmail: payload.ownerEmail,
+        type: payload.type,
+        status: payload.status,
+        locale: payload.locale,
+        parentTenantId: payload.parentTenantId,
+      });
+      state.ownerUi.runtimeBootstrap = null;
+      await refreshState({ silent: true });
+      setStatus('อัปเดตข้อมูลลูกค้าแล้ว', 'success');
+      navigateOwnerRoute(`/owner/tenants/${encodeURIComponent(tenantId)}`);
+      return;
+    }
+    if (action === 'update-subscription') {
+      const subscriptionId = trimText(payload.subscriptionId, 160);
+      const body = {
+        tenantId: payload.tenantId,
+        subscriptionId,
+        packageId: payload.packageId,
+        planId: payload.planId,
+        billingCycle: payload.billingCycle,
+        status: payload.status,
+        amountCents: parseNumericValue(payload.amountCents),
+        currency: payload.currency,
+        renewsAt: payload.renewsAt ? toIsoDateTime(payload.renewsAt) : null,
+        externalRef: payload.externalRef,
+        metadata: {
+          packageId: payload.packageId,
+        },
+      };
+      const endpoint = subscriptionId
+        ? '/owner/api/platform/subscription/update'
+        : '/owner/api/platform/subscription';
+      await ownerMutation(endpoint, body);
+      await refreshState({ silent: true });
+      setStatus(subscriptionId ? 'อัปเดตแพ็กเกจของลูกค้าแล้ว' : 'สร้างการสมัครใช้งานแล้ว', 'success');
+      navigateOwnerRoute(`/owner/tenants/${encodeURIComponent(trimText(payload.tenantId, 160))}`);
+      return;
+    }
+    if (action === 'quick-update-subscription') {
+      const subscriptionId = trimText(payload.subscriptionId, 160);
+      const body = {
+        tenantId: payload.tenantId,
+        subscriptionId,
+        packageId: payload.packageId,
+        planId: payload.planId,
+        billingCycle: payload.billingCycle,
+        status: payload.status,
+        amountCents: parseNumericValue(payload.amountCents),
+        currency: payload.currency,
+        renewsAt: payload.renewsAt ? toIsoDateTime(payload.renewsAt) : null,
+        externalRef: payload.externalRef,
+        metadata: {
+          packageId: payload.packageId,
+        },
+      };
+      const endpoint = subscriptionId
+        ? '/owner/api/platform/subscription/update'
+        : '/owner/api/platform/subscription';
+      await ownerMutation(endpoint, body);
+      await refreshState({ silent: true });
+      setStatus('อัปเดตการสมัครใช้งานแล้ว', 'success');
+      navigateOwnerRoute('/owner/subscriptions');
+      return;
+    }
+    if (action === 'create-package') {
+      await ownerMutation('/owner/api/platform/package', {
+        id: payload.id,
+        title: payload.title,
+        description: payload.description,
+        status: payload.status,
+        position: parseNumericValue(payload.position),
+        featureText: payload.featureText,
+      });
+      await refreshState({ silent: true });
+      setStatus('สร้างแพ็กเกจแล้ว', 'success');
+      navigateOwnerRoute('/owner/packages');
+      return;
+    }
+    if (action === 'update-package') {
+      await ownerMutation('/owner/api/platform/package/update', {
+        id: payload.id,
+        title: payload.title,
+        description: payload.description,
+        status: payload.status,
+        position: parseNumericValue(payload.position),
+        featureText: payload.featureText,
+      });
+      await refreshState({ silent: true });
+      setStatus('อัปเดตแพ็กเกจแล้ว', 'success');
+      navigateOwnerRoute('/owner/packages');
+      return;
+    }
+    if (action === 'update-control-panel-env') {
+      const result = await ownerMutation('/owner/api/control-panel/env', payload);
+      await refreshState({ silent: true });
+      const changedCount = Number(result?.applySummary?.totalChanged || 0);
+      const restartRequired = Boolean(result?.reloadRequired);
+      const message = changedCount > 0
+        ? `บันทึกการตั้งค่าระบบ ${changedCount} รายการแล้ว${restartRequired ? ' (ต้องรีสตาร์ตบริการ)' : ''}`
+        : 'ยังไม่มีการตั้งค่าระบบที่เปลี่ยนแปลง';
+      setStatus(message, restartRequired ? 'warning' : 'success');
+      navigateOwnerRoute('/owner/settings');
+      return;
+    }
+    if (action === 'upsert-admin-user') {
+      await ownerMutation('/owner/api/auth/user', {
+        username: payload.username,
+        role: payload.role,
+        password: payload.password,
+        isActive: payload.isActive === 'true',
+        tenantId: trimText(payload.tenantId, 160) || null,
+      });
+      await refreshState({ silent: true });
+      setStatus('บันทึกบัญชี Owner แล้ว', 'success');
+      navigateOwnerRoute('/owner/settings');
+    }
+  }
+
+  async function handleOwnerAction(button) {
+    const action = trimText(button?.dataset.ownerAction, 80);
+    if (!action) return;
+    if (action === 'inspect-runtime') {
+      state.ownerUi.selectedRuntimeKey = trimText(button.dataset.runtimeKey, 160);
+      state.ownerUi.runtimeBootstrap = null;
+      navigateOwnerRoute('/owner/runtime');
+      return;
+    }
+    if (action === 'set-tenant-status') {
+      const tenantId = trimText(button.dataset.tenantId, 160);
+      const tenant = findTenantRowById(tenantId);
+      if (!tenant) {
+        throw new Error('ไม่พบลูกค้าที่เลือก');
+      }
+      await ownerMutation('/owner/api/platform/tenant', {
+        id: tenantId,
+        name: tenant.name,
+        slug: tenant.slug,
+        ownerName: tenant.ownerName,
+        ownerEmail: tenant.ownerEmail,
+        type: tenant.type,
+        status: trimText(button.dataset.targetStatus, 80) || tenant.status,
+        locale: tenant.locale,
+        parentTenantId: tenant.parentTenantId,
+      });
+      await refreshState({ silent: true });
+      setStatus('อัปเดตสถานะลูกค้าแล้ว', 'success');
+      navigateOwnerRoute(`/owner/tenants/${encodeURIComponent(tenantId)}`);
+      return;
+    }
+    if (action === 'reissue-runtime-token') {
+      const result = await ownerMutation('/owner/api/platform/agent-provision', {
+        tenantId: button.dataset.tenantId,
+        serverId: button.dataset.serverId,
+        guildId: button.dataset.guildId,
+        agentId: button.dataset.agentId,
+        runtimeKey: button.dataset.runtimeKey,
+        role: button.dataset.role,
+        scope: button.dataset.scope,
+        runtimeKind: button.dataset.runtimeKind,
+        displayName: button.dataset.displayName,
+        name: button.dataset.displayName || button.dataset.runtimeKey,
+        minimumVersion: button.dataset.minimumVersion,
+      });
+      state.ownerUi.selectedRuntimeKey = trimText(button.dataset.runtimeKey, 160);
+      state.ownerUi.runtimeBootstrap = result;
+      await refreshState({ silent: true });
+      setStatus('ออก setup token ใหม่แล้ว', 'success');
+      navigateOwnerRoute('/owner/runtime');
+      return;
+    }
+    if (action === 'reset-runtime-binding') {
+      await ownerMutation('/owner/api/platform/agent-device/revoke', {
+        tenantId: button.dataset.tenantId,
+        deviceId: button.dataset.deviceId,
+        runtimeKind: button.dataset.runtimeKind,
+      });
+      state.ownerUi.runtimeBootstrap = null;
+      await refreshState({ silent: true });
+      setStatus('รีเซ็ตการผูกบริการแล้ว', 'success');
+      navigateOwnerRoute('/owner/runtime');
+      return;
+    }
+    if (action === 'revoke-runtime') {
+      const apiKeyId = trimText(button.dataset.apiKeyId, 160);
+      const tokenId = trimText(button.dataset.tokenId, 160);
+      const path = apiKeyId
+        ? '/owner/api/platform/agent-token/revoke'
+        : '/owner/api/platform/agent-provision/revoke';
+      await ownerMutation(path, {
+        tenantId: button.dataset.tenantId,
+        apiKeyId,
+        tokenId,
+        runtimeKind: button.dataset.runtimeKind,
+      });
+      state.ownerUi.runtimeBootstrap = null;
+      await refreshState({ silent: true });
+      setStatus('ยกเลิกสิทธิ์บริการแล้ว', 'success');
+      navigateOwnerRoute('/owner/runtime');
+      return;
+    }
+    if (action === 'restart-managed-service') {
+      await ownerMutation('/owner/api/runtime/restart-service', {
+        service: trimText(button.dataset.serviceKey, 160),
+      });
+      await refreshState({ silent: true });
+      setStatus(`เริ่มรีสตาร์ตบริการแล้ว: ${trimText(button.dataset.serviceLabel, 160) || 'บริการ'}`, 'success');
+      navigateOwnerRoute('/owner/settings');
+      return;
+    }
+    if (action === 'revoke-admin-session') {
+      await ownerMutation('/owner/api/auth/session/revoke', {
+        sessionId: trimText(button.dataset.sessionId, 160),
+        reason: 'owner-audit-revoke',
+      });
+      await refreshState({ silent: true });
+      setStatus(`ยกเลิกเซสชันแล้ว: ${trimText(button.dataset.sessionUser, 160) || 'บัญชีผู้ดูแล'}`, 'success');
+      navigateOwnerRoute('/owner/audit');
+      return;
+    }
+    if (action === 'acknowledge-notification') {
+      const notificationId = trimText(button.dataset.notificationId, 160);
+      const returnRoute = trimText(button.dataset.returnRoute, 240);
+      if (!notificationId) {
+        throw new Error('ไม่พบการแจ้งเตือนที่เลือก');
+      }
+      await ownerMutation('/owner/api/notifications/ack', {
+        ids: [notificationId],
+      });
+      await refreshState({ silent: true });
+      setStatus('รับทราบการแจ้งเตือนแล้ว', 'success');
+      navigateOwnerRoute(returnRoute || '/owner/audit');
+      return;
+    }
+    if (action === 'clear-acknowledged-notifications') {
+      await ownerMutation('/owner/api/notifications/clear', {
+        acknowledgedOnly: true,
+      });
+      await refreshState({ silent: true });
+      setStatus('ล้างการแจ้งเตือนที่รับทราบแล้ว', 'success');
+      navigateOwnerRoute('/owner/audit');
+      return;
+    }
+    if (action === 'update-billing-invoice-status') {
+      const invoiceId = trimText(button.dataset.invoiceId, 160);
+      const status = trimText(button.dataset.targetStatus, 80);
+      if (!invoiceId || !status) {
+        throw new Error('ข้อมูลการทำงานกับใบแจ้งหนี้ยังไม่ครบ');
+      }
+      await ownerMutation('/owner/api/platform/billing/invoice/update', {
+        tenantId: trimText(button.dataset.tenantId, 160),
+        invoiceId,
+        status,
+        paidAt: status === 'paid' ? new Date().toISOString() : null,
+        metadata: {
+          source: 'owner-panel',
+          action: 'invoice-status-update',
+        },
+      });
+      await refreshState({ silent: true });
+      setStatus(`อัปเดตสถานะใบแจ้งหนี้แล้ว: ${formatOwnerActionStatus(status)}`, status === 'paid' ? 'success' : 'warning');
+      navigateOwnerRoute('/owner/subscriptions');
+      return;
+    }
+    if (action === 'update-payment-attempt-status') {
+      const attemptId = trimText(button.dataset.attemptId, 160);
+      const status = trimText(button.dataset.targetStatus, 80);
+      if (!attemptId || !status) {
+        throw new Error('ข้อมูลการทำงานกับรายการชำระเงินยังไม่ครบ');
+      }
+      const payload = {
+        tenantId: trimText(button.dataset.tenantId, 160),
+        attemptId,
+        status,
+        completedAt: ['succeeded', 'failed', 'canceled'].includes(status) ? new Date().toISOString() : null,
+        errorCode: status === 'failed' ? 'owner-marked-failed' : '',
+        errorDetail: status === 'failed' ? 'Marked as failed from Owner billing console' : '',
+        metadata: {
+          source: 'owner-panel',
+          action: 'payment-attempt-update',
+        },
+      };
+      await ownerMutation('/owner/api/platform/billing/payment-attempt/update', payload);
+      await refreshState({ silent: true });
+      setStatus(`อัปเดตสถานะรายการชำระเงินแล้ว: ${formatOwnerActionStatus(status)}`, status === 'succeeded' ? 'success' : 'warning');
+      navigateOwnerRoute('/owner/subscriptions');
+      return;
+    }
+    if (action === 'retry-billing-checkout') {
+      const result = await ownerMutation('/owner/api/platform/billing/checkout-session', {
+        tenantId: trimText(button.dataset.tenantId, 160),
+        invoiceId: trimText(button.dataset.invoiceId, 160),
+        subscriptionId: trimText(button.dataset.subscriptionId, 160),
+        planId: trimText(button.dataset.planId, 120),
+        packageId: trimText(button.dataset.packageId, 120),
+        billingCycle: trimText(button.dataset.billingCycle, 40),
+        amountCents: parseNumericValue(button.dataset.amountCents),
+        currency: trimText(button.dataset.currency, 12) || 'THB',
+        successUrl: '/payment-result',
+        cancelUrl: '/checkout',
+        metadata: {
+          source: 'owner-panel',
+          action: 'retry-checkout',
+        },
+      });
+      const checkoutUrl = trimText(result?.session?.checkoutUrl, 800);
+      if (checkoutUrl && typeof window.open === 'function') {
+        window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+      }
+      await refreshState({ silent: true });
+      setStatus(checkoutUrl ? 'เปิดลิงก์ชำระเงินใหม่ในแท็บใหม่แล้ว' : 'สร้างเซสชันชำระเงินใหม่แล้ว', 'success');
+      navigateOwnerRoute('/owner/subscriptions');
+      return;
+    }
+    if (action === 'delete-package') {
+      const packageId = trimText(button.dataset.packageId, 120).toUpperCase();
+      const packageTitle = trimText(button.dataset.packageTitle, 180) || packageId;
+      if (!packageId) {
+        throw new Error('ไม่พบแพ็กเกจที่เลือก');
+      }
+      if (typeof window.confirm === 'function' && !window.confirm(`ลบแพ็กเกจ "${packageTitle}" ใช่หรือไม่?`)) {
+        return;
+      }
+      await ownerMutation('/owner/api/platform/package/delete', {
+        packageId,
+      });
+      await refreshState({ silent: true });
+      setStatus('ลบแพ็กเกจแล้ว', 'success');
+      navigateOwnerRoute('/owner/packages');
+      return;
+    }
+    if (action === 'retry-dead-letter' || action === 'clear-dead-letter') {
+      const tenantId = trimText(button.dataset.tenantId, 160);
+      const code = trimText(button.dataset.purchaseCode || button.dataset.code, 160);
+      if (!tenantId || !code) {
+        throw new Error('ข้อมูลการจัดการงานค้างผิดปกติยังไม่ครบ');
+      }
+      await ownerMutation(
+        action === 'retry-dead-letter'
+          ? '/admin/api/delivery/dead-letter/retry'
+          : '/admin/api/delivery/dead-letter/delete',
+        {
+          tenantId,
+          code,
+          guildId: trimText(button.dataset.guildId, 160) || undefined,
+        },
+      );
+      state.ownerUi.supportCaseTenantId = '';
+      state.ownerUi.supportCase = null;
+      state.ownerUi.supportCaseLoading = false;
+      state.ownerUi.supportDeadLettersTenantId = '';
+      state.ownerUi.supportDeadLetters = [];
+      state.ownerUi.supportDeadLettersLoading = false;
+      await refreshState({ silent: true });
+      setStatus(action === 'retry-dead-letter' ? `ส่งงานค้างผิดปกติกลับเข้าคิวแล้ว: ${code}` : `ล้างงานค้างผิดปกติแล้ว: ${code}`, 'success');
+      navigateOwnerRoute(`/owner/support/${encodeURIComponent(tenantId)}`);
+    }
+  }
+
   function routePresentationFor(rawRoute, page) {
     const normalizedRoute = String(rawRoute || '').trim().toLowerCase();
+    if (normalizedRoute.startsWith('support-')) {
+      const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
+      return {
+        ...(OWNER_ROUTE_PRESENTATION.support || {}),
+        workspaceLabel: 'งานดูแลลูกค้า',
+        kicker: 'งานดูแลลูกค้า',
+        title: 'งานดูแลลูกค้า',
+        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อตรวจสัญญาณช่วยเหลือ จุดติด onboarding และงานถัดไป โดยไม่ต้องสลับกลับไปหน้าแก้ข้อมูลทั่วไป',
+        primaryAction: { label: 'กลับไปหน้ารายละเอียดลูกค้า', href: `/owner/tenants/${tenantId}` },
+      };
+    }
     if (normalizedRoute.startsWith('tenant-')) {
+      const tenantId = encodeURIComponent(normalizedRoute.slice('tenant-'.length));
       return {
         ...(OWNER_ROUTE_PRESENTATION.tenants || {}),
-        workspaceLabel: 'รายละเอียดผู้เช่า',
-        kicker: 'รายละเอียดผู้เช่า',
-        title: 'รายละเอียดผู้เช่า',
-        subtitle: 'ใช้บริบทของผู้เช่ารายนี้ต่อเพื่อดูสถานะเชิงพาณิชย์ ซัพพอร์ต และโควตาในหน้าเดียว',
-        primaryAction: { label: 'เปิดซัพพอร์ตของผู้เช่ารายนี้', href: `#support-${normalizedRoute.slice('tenant-'.length)}` },
+        workspaceLabel: 'รายละเอียดลูกค้า',
+        kicker: 'รายละเอียดลูกค้า',
+        title: 'รายละเอียดลูกค้า',
+        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อตรวจแพ็กเกจ การสมัครใช้ โควตา และสถานะบริการจากหน้าเดียว',
+        primaryAction: { label: 'เปิดหน้าลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
       };
     }
     if (normalizedRoute.startsWith('support-')) {
+      const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
       return {
         ...(OWNER_ROUTE_PRESENTATION.support || {}),
-        workspaceLabel: 'เคสซัพพอร์ต',
-        kicker: 'เคสซัพพอร์ต',
-        title: 'เคสซัพพอร์ต',
-        subtitle: 'ใช้บริบทของผู้เช่ารายนี้เพื่อคุยกับลูกค้า ดูหลักฐาน และตามงานต่อโดยไม่หลุดบริบท',
-        primaryAction: { label: 'กลับไปดูผู้เช่ารายนี้', href: `#tenant-${normalizedRoute.slice('support-'.length)}` },
+        workspaceLabel: 'งานดูแลลูกค้า',
+        kicker: 'งานดูแลลูกค้า',
+        title: 'งานดูแลลูกค้า',
+        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อคุยกับลูกค้า ดูหลักฐาน และตามงานต่อโดยไม่หลุดบริบท',
+        primaryAction: { label: 'กลับไปหน้าลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
+      };
+    }
+    if (normalizedRoute.startsWith('tenant-')) {
+      const tenantId = encodeURIComponent(normalizedRoute.slice('tenant-'.length));
+      return {
+        ...(OWNER_ROUTE_PRESENTATION.tenants || {}),
+        workspaceLabel: 'รายละเอียดลูกค้า',
+        kicker: 'รายละเอียดลูกค้า',
+        title: 'รายละเอียดลูกค้า',
+        subtitle: 'ใช้บริบทของลูกค้ารายนี้ต่อเพื่อดูสถานะเชิงพาณิชย์ งานดูแลลูกค้า และโควตาในหน้าเดียว',
+        primaryAction: { label: 'เปิดงานดูแลของลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
+      };
+    }
+    if (normalizedRoute.startsWith('support-')) {
+      const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
+      return {
+        ...(OWNER_ROUTE_PRESENTATION.support || {}),
+        workspaceLabel: 'เคสงานดูแลลูกค้า',
+        kicker: 'เคสงานดูแลลูกค้า',
+        title: 'เคสงานดูแลลูกค้า',
+        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อคุยกับลูกค้า ดูหลักฐาน และตามงานต่อโดยไม่หลุดบริบท',
+        primaryAction: { label: 'กลับไปดูลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
       };
     }
     if (normalizedRoute && OWNER_ROUTE_PRESENTATION[normalizedRoute]) {
@@ -463,6 +1761,7 @@
     if (primaryActionNode && presentation.primaryAction) {
       primaryActionNode.textContent = String(presentation.primaryAction.label || '').trim();
       primaryActionNode.setAttribute('href', String(presentation.primaryAction.href || '#').trim() || '#');
+      delete primaryActionNode.dataset.ownerLocalFocus;
     }
     if (railHeaderNode && presentation.railHeader) {
       railHeaderNode.textContent = String(presentation.railHeader || '').trim();
@@ -473,14 +1772,32 @@
     applyRouteSectionPresentation(rawRoute, presentation);
   }
 
-  function navigateOwnerHash(nextHash) {
-    const hashValue = String(nextHash || '').trim();
-    if (!hashValue) return;
-    const normalizedHash = hashValue.startsWith('#') ? hashValue : `#${hashValue}`;
-    const rawRoute = normalizedHash.replace(/^#/, '').trim().toLowerCase();
+  function navigateOwnerRoute(nextTarget) {
+    const targetValue = String(nextTarget || '').trim();
+    if (!targetValue || targetValue === '#') return;
+    let rawRoute = '';
+    if (targetValue.startsWith('/owner')) {
+      const relative = targetValue.slice('/owner'.length).replace(/^\/+/, '');
+      const segments = relative.split('/').filter(Boolean);
+      if (!segments.length) {
+        rawRoute = 'overview';
+      } else if (segments[0] === 'tenants' && segments[1]) {
+        rawRoute = `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+      } else if (segments[0] === 'support' && segments[1]) {
+        rawRoute = `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+      } else {
+        rawRoute = PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+      }
+    } else {
+      const normalizedHash = targetValue.startsWith('#') ? targetValue : `#${targetValue}`;
+      rawRoute = normalizedHash.replace(/^#/, '').trim().toLowerCase();
+    }
     const page = resolveOwnerPage(rawRoute);
-    if (window.location.hash !== normalizedHash) {
-      window.location.hash = normalizedHash;
+    const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.pushState({}, '', canonicalPath);
+      renderCurrentPage();
+      focusCurrentRoute(rawRoute, page);
       return;
     }
     renderCurrentPage();
@@ -494,7 +1811,7 @@
       const tenantId = String(row?.id || '').trim();
       if (!tenantId) return null;
       try {
-        return await api(`/admin/api/platform/quota?tenantId=${encodeURIComponent(tenantId)}`, null);
+        return await api(`/owner/api/platform/quota?tenantId=${encodeURIComponent(tenantId)}`, null);
       } catch {
         return null;
       }
@@ -502,20 +1819,62 @@
     return snapshots.filter(Boolean);
   }
 
+  async function loadOwnerOptionalPayload() {
+    const [
+      agents,
+      agentRegistry,
+      agentProvisioning,
+      agentDevices,
+      agentCredentials,
+      sessions,
+      notifications,
+      securityEvents,
+      runtimeSupervisor,
+      requestLogs,
+      deliveryLifecycle,
+    ] = await Promise.all([
+      optionalOwnerRead('/owner/api/platform/agents?limit=50', [], 2500),
+      optionalOwnerRead('/owner/api/platform/agent-registry?limit=200', [], 2500),
+      optionalOwnerRead('/owner/api/platform/agent-provisioning?limit=200', [], 2500),
+      optionalOwnerRead('/owner/api/platform/agent-devices?limit=200', [], 2500),
+      optionalOwnerRead('/owner/api/platform/agent-credentials?limit=200', [], 2500),
+      optionalOwnerRead('/owner/api/auth/sessions', [], 2500),
+      optionalOwnerRead('/owner/api/notifications?limit=20', { items: [] }, 2500),
+      optionalOwnerRead('/owner/api/auth/security-events?limit=20', [], 2500),
+      optionalOwnerRead('/owner/api/runtime/supervisor', null, 2500),
+      optionalOwnerRead('/owner/api/observability/requests?limit=20&onlyErrors=true', { metrics: {}, items: [] }, 2500),
+      optionalOwnerRead('/owner/api/delivery/lifecycle?limit=80&pendingOverdueMs=1200000', {}, 2500),
+    ]);
+    return {
+      agents,
+      agentRegistry,
+      agentProvisioning,
+      agentDevices,
+      agentCredentials,
+      sessions,
+      notifications: Array.isArray(notifications?.items) ? notifications.items : [],
+      securityEvents,
+      runtimeSupervisor,
+      requestLogs,
+      deliveryLifecycle,
+    };
+  }
+
   async function refreshState(options = {}) {
     if (state.refreshing) return;
     state.refreshing = true;
+    const loadWarnings = [];
     const requestId = Date.now();
     state.requestId = requestId;
     if (!options.silent) {
-      setStatus(t('owner.app.status.loading', 'Loading owner data...'), 'info');
+      setStatus(t('owner.app.status.loading', 'กำลังโหลดข้อมูล Owner...'), 'info');
       renderMessageCard(
-        t('owner.app.card.loadingTitle', 'Preparing owner data'),
-        t('owner.app.card.loadingDetail', 'Loading tenants, runtime health, and current incidents for the owner workspace.'),
+        t('owner.app.card.loadingTitle', 'กำลังเตรียมข้อมูลของ Owner'),
+        t('owner.app.card.loadingDetail', 'กำลังโหลดรายชื่อลูกค้า สุขภาพบริการ และเหตุการณ์ล่าสุดของแพลตฟอร์ม'),
       );
     }
     try {
-      const me = await api('/admin/api/me', null);
+      const me = await api('/owner/api/me', null);
       if (me?.tenantId) {
         window.location.href = '/tenant';
         return;
@@ -528,29 +1887,22 @@
         billingOverview,
         billingInvoices,
         billingPaymentAttempts,
-        agents,
-        notifications,
-        securityEvents,
-        runtimeSupervisor,
-        requestLogs,
-        deliveryLifecycle,
+        controlPanelSettings,
       ] = await Promise.all([
-        api('/admin/api/platform/overview', OWNER_OVERVIEW_FALLBACK, {
+        safeOwnerRead('/owner/api/platform/overview', OWNER_OVERVIEW_FALLBACK, loadWarnings, 'overview', {
           timeoutMs: 2500,
           allowTimeoutFallback: true,
         }),
-        api('/admin/api/platform/tenants?limit=50', []),
-        api('/admin/api/platform/subscriptions?limit=50', []),
-        api('/admin/api/platform/licenses?limit=50', []),
-        api('/admin/api/platform/billing/overview', null),
-        api('/admin/api/platform/billing/invoices?limit=50', []),
-        api('/admin/api/platform/billing/payment-attempts?limit=50', []),
-        api('/admin/api/platform/agents?limit=50', []),
-        api('/admin/api/notifications?acknowledged=false&limit=20', { items: [] }),
-        api('/admin/api/auth/security-events?limit=20', []),
-        api('/admin/api/runtime/supervisor', null),
-        api('/admin/api/observability/requests?limit=20&onlyErrors=true', { metrics: {}, items: [] }),
-        api('/admin/api/delivery/lifecycle?limit=80&pendingOverdueMs=1200000', {}),
+        safeOwnerRead('/owner/api/platform/tenants?limit=50', [], loadWarnings, 'tenants'),
+        safeOwnerRead('/owner/api/platform/subscriptions?limit=50', [], loadWarnings, 'subscriptions'),
+        safeOwnerRead('/owner/api/platform/licenses?limit=50', [], loadWarnings, 'licenses'),
+        safeOwnerRead('/owner/api/platform/billing/overview', { provider: null, summary: {} }, loadWarnings, 'billing-overview'),
+        safeOwnerRead('/owner/api/platform/billing/invoices?limit=50', [], loadWarnings, 'billing-invoices'),
+        safeOwnerRead('/owner/api/platform/billing/payment-attempts?limit=50', [], loadWarnings, 'billing-payment-attempts'),
+        safeOwnerRead('/owner/api/control-panel/settings', OWNER_CONTROL_PANEL_SETTINGS_FALLBACK, loadWarnings, 'control-panel-settings', {
+          timeoutMs: 2500,
+          allowTimeoutFallback: true,
+        }),
       ]);
 
       state.payload = {
@@ -562,16 +1914,43 @@
         billingOverview,
         billingInvoices,
         billingPaymentAttempts,
-        agents,
-        notifications: Array.isArray(notifications?.items) ? notifications.items : [],
-        securityEvents,
-        runtimeSupervisor,
-        requestLogs,
-        deliveryLifecycle,
+        controlPanelSettings,
+        agents: [],
+        agentRegistry: [],
+        agentProvisioning: [],
+        agentDevices: [],
+        agentCredentials: [],
+        sessions: [],
+        notifications: [],
+        securityEvents: [],
+        runtimeSupervisor: null,
+        requestLogs: { metrics: {}, items: [] },
+        deliveryLifecycle: {},
         tenantQuotaSnapshots: [],
+        __loadWarnings: loadWarnings,
       };
+      const supportTenantId = getSupportContextTenantId(getRawPathRoute());
+      if (supportTenantId) {
+        state.ownerUi.supportCaseTenantId = supportTenantId;
+        state.ownerUi.supportCase = null;
+        state.ownerUi.supportCaseLoading = false;
+        state.ownerUi.supportDeadLettersTenantId = supportTenantId;
+        state.ownerUi.supportDeadLetters = [];
+        state.ownerUi.supportDeadLettersLoading = false;
+      }
       renderCurrentPage();
-      setStatus(t('owner.app.status.deepLoading', 'Loading tenant details...'), 'info');
+      setStatus(t('owner.app.status.deepLoading', 'กำลังโหลดรายละเอียดลูกค้า...'), 'info');
+
+      loadOwnerOptionalPayload()
+        .then((optionalPayload) => {
+          if (state.requestId !== requestId || !state.payload) return;
+          state.payload = {
+            ...state.payload,
+            ...optionalPayload,
+          };
+          renderCurrentPage();
+        })
+        .catch(() => {});
 
       loadQuotaSnapshots(tenants)
         .then((tenantQuotaSnapshots) => {
@@ -581,18 +1960,18 @@
             tenantQuotaSnapshots,
           };
           renderCurrentPage();
-          setStatus(t('owner.app.status.ready', 'Ready'), 'success');
+          applyOwnerSurfaceStatus();
         })
         .catch(() => {
           if (state.requestId !== requestId) return;
-          setStatus(t('owner.app.status.ready', 'Ready'), 'success');
+          applyOwnerSurfaceStatus();
         });
     } catch (error) {
       renderMessageCard(
-        t('owner.app.card.loadFailedTitle', 'Could not load owner workspace'),
+        t('owner.app.card.loadFailedTitle', 'โหลดพื้นที่ Owner ไม่สำเร็จ'),
         String(error?.message || error),
       );
-      setStatus(t('owner.app.status.loadFailed', 'Load failed'), 'danger');
+      setStatus(t('owner.app.status.loadFailed', 'โหลดไม่สำเร็จ'), 'danger');
     } finally {
       state.refreshing = false;
     }
@@ -602,15 +1981,26 @@
     const target = root();
     if (!target) return;
     if (!state.payload) {
-      renderMessageCard(
-        t('owner.app.card.emptyTitle', 'No data yet'),
-        t('owner.app.card.emptyDetail', 'Wait for the latest owner data to load.'),
-      );
+      if (state.refreshing) {
+        renderMessageCard(
+          t('owner.app.card.loadingTitle', 'กำลังเตรียมข้อมูลของ Owner'),
+          t('owner.app.card.loadingDetail', 'กำลังโหลดรายชื่อลูกค้า สุขภาพบริการ และเหตุการณ์ล่าสุดของแพลตฟอร์ม'),
+        );
+      } else {
+        renderMessageCard(
+          t('owner.app.card.emptyTitle', 'ยังไม่มีข้อมูล'),
+          t('owner.app.card.emptyDetail', 'รอให้ระบบดึงข้อมูลล่าสุดของ Owner ให้ครบก่อน'),
+        );
+      }
       return;
     }
 
-    const rawRoute = getRawHashRoute();
+    const rawRoute = getRawPathRoute();
     const page = resolveOwnerPage(rawRoute);
+    const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
+    }
     const renderOptions = { currentRoute: rawRoute, currentPage: page };
     if (page === 'tenants') {
       window.OwnerTenantsV4.renderOwnerTenantsV4(target, state.payload, renderOptions);
@@ -619,26 +2009,64 @@
     } else {
       window.OwnerDashboardV4.renderOwnerDashboardV4(target, state.payload, renderOptions);
     }
+    requestSupportCaseForRoute(rawRoute);
+    requestSupportDeadLettersForRoute(rawRoute);
     applyI18n(target);
+    canonicalizeOwnerLinks(target);
     applyOwnerRoutePresentation(rawRoute, page);
+    mountOwnerControlWorkspace(rawRoute);
+    localizeOwnerActivePage(document.body);
     focusCurrentRoute(rawRoute, page);
     const presentation = routePresentationFor(rawRoute, page);
-    const titleFallback = presentation.title || ROUTE_TITLE_FALLBACKS[rawRoute] || ROUTE_TITLE_FALLBACKS[page] || 'Platform overview';
-    document.title = `SCUM TH Platform | Owner | ${titleFallback}`;
+    const titleFallback = normalizeOwnerActiveTextV2(presentation.title || ROUTE_TITLE_FALLBACKS[rawRoute] || ROUTE_TITLE_FALLBACKS[page] || 'Platform overview');
+    document.title = `SCUM TH Platform | เจ้าของระบบ | ${titleFallback}`;
   }
 
   window.addEventListener('DOMContentLoaded', () => {
     const refreshButton = document.getElementById('ownerV4RefreshBtn');
     refreshButton?.addEventListener('click', () => refreshState({ silent: false }));
-    window.addEventListener('hashchange', renderCurrentPage);
+    window.addEventListener('popstate', renderCurrentPage);
+    document.addEventListener('submit', async (event) => {
+      const form = event.target instanceof HTMLFormElement
+        ? event.target
+        : null;
+      if (!form || !form.dataset.ownerForm) return;
+      event.preventDefault();
+      try {
+        setStatus('กำลังบันทึกการเปลี่ยนแปลงของ Owner...', 'info');
+        await handleOwnerFormSubmit(form);
+      } catch (error) {
+        setStatus(trimText(error?.message || error || 'Owner action failed', 200), 'danger');
+      }
+    });
+    document.addEventListener('click', async (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest('[data-owner-action]')
+        : null;
+      if (!button) return;
+      event.preventDefault();
+      try {
+        setStatus('กำลังดำเนินการคำสั่งของ Owner...', 'info');
+        await handleOwnerAction(button);
+      } catch (error) {
+        setStatus(trimText(error?.message || error || 'Owner action failed', 200), 'danger');
+      }
+    });
     document.addEventListener('click', (event) => {
       const link = event.target instanceof Element
-        ? event.target.closest('a[href^="#"]')
+        ? event.target.closest('a[href^="#"], a[href^="/owner"]')
         : null;
       if (!link) return;
-      const hash = String(link.getAttribute('href') || '').trim();
-      if (!hash || hash === '#') return;
-      navigateOwnerHash(hash);
+      if (link.dataset.ownerLocalFocus === '1') {
+        event.preventDefault();
+        focusLocalTarget(link.getAttribute('href'));
+        return;
+      }
+      const target = String(link.getAttribute('href') || '').trim();
+      if (!target || target === '#') return;
+      if (!target.startsWith('#') && !target.startsWith('/owner')) return;
+      if (target.startsWith('#') && !isKnownOwnerRouteAlias(target.replace(/^#/, ''))) return;
+      navigateOwnerRoute(target);
       event.preventDefault();
     });
     document.addEventListener('visibilitychange', () => {
@@ -649,10 +2077,9 @@
     }, 60000);
     window.addEventListener('ui-language-change', () => {
       renderCurrentPage();
-      if (state.payload && !state.refreshing) {
-        setStatus(t('owner.app.status.ready', 'Ready'), 'success');
-      }
+      applyOwnerSurfaceStatus();
     });
+    bootstrapLegacyOwnerRoute();
     refreshState({ silent: false });
   });
 })();

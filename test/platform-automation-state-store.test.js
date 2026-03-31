@@ -73,6 +73,30 @@ function loadStoreWithMocks(delegate) {
     getFilePath(name) {
       return path.join(process.cwd(), 'tmp', name);
     },
+    isDbPersistenceEnabled() {
+      return false;
+    },
+  });
+  return require(storePath);
+}
+
+function loadStoreWithStrictDbMocks(delegate) {
+  clearModule(storePath);
+  installMock(prismaPath, {
+    prisma: {
+      platformAutomationState: delegate,
+    },
+  });
+  installMock(persistPath, {
+    atomicWriteJson() {
+      throw new Error('file-fallback-should-not-run');
+    },
+    getFilePath(name) {
+      return path.join(process.cwd(), 'tmp', name);
+    },
+    isDbPersistenceEnabled() {
+      return true;
+    },
   });
   return require(storePath);
 }
@@ -135,4 +159,19 @@ test('platform automation state store persists lifecycle state through the prism
   assert.equal(resetSnapshot.id, 'platform-automation-state');
   assert.equal(resetSnapshot.lastAutomationAt, null);
   assert.deepEqual(JSON.parse(resetSnapshot.recoveryAttemptsByKeyJson), {});
+});
+
+test('platform automation state store does not fall back to file mode when db persistence is required', async () => {
+  const store = loadStoreWithStrictDbMocks({
+    async findUnique() {
+      const error = new Error('missing-table');
+      error.code = 'P2021';
+      throw error;
+    },
+  });
+
+  await assert.rejects(
+    () => store.initPlatformAutomationStateStore(),
+    /missing-table/,
+  );
 });

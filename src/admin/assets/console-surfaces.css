@@ -142,15 +142,20 @@ select optgroup {
 
 select option,
 select optgroup {
-  background: #121411 !important;
-  color: #f3efe4 !important;
+  background: Canvas !important;
+  color: CanvasText !important;
 }
 
 select option:checked,
 select option:hover,
 select option:focus {
-  background: #5f542f !important;
-  color: #ffffff !important;
+  background: Highlight !important;
+  color: HighlightText !important;
+}
+
+select option:disabled,
+select optgroup {
+  color: GrayText !important;
 }
 
 .surface-root {
@@ -396,7 +401,7 @@ select option:focus {
 .console-heading-shell {
   padding: 16px 18px 18px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.5fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -734,7 +739,7 @@ select option:focus {
 .panel-grid.two-col,
 .task-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1358,7 +1363,7 @@ body.sidebar-collapsed .surface-sidebar {
 }
 
 .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   align-items: stretch;
   padding: 22px 18px 18px;
@@ -1785,7 +1790,7 @@ body.surface-tenant .console-app-shell .action-link:hover {
 }
 
 .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   padding: 18px 20px 22px;
   border-top: 1px solid var(--line);
@@ -1975,7 +1980,7 @@ body.surface-tenant .console-app-shell .action-link:hover {
 /* 20260324 deep page rebuild */
 .ops-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.22fr) minmax(360px, 0.78fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   align-items: start;
 }
@@ -2208,7 +2213,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
-  grid-template-columns: minmax(0, 1.42fr) minmax(360px, 0.76fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2256,7 +2261,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
    - reduce menu complexity
    - avoid decorative imagery inside working forms */
 .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   min-height: 264px;
   gap: 22px;
 }
@@ -2372,7 +2377,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
   min-height: 0;
-  grid-template-columns: minmax(220px, 0.76fr) minmax(0, 1.24fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 8px 12px 10px;
   background-position: right center;
@@ -2827,7 +2832,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(220px, 0.52fr) minmax(0, 1.48fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 10px 14px 12px;
   gap: 14px;
   align-items: center;
@@ -2952,7 +2957,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
-  grid-template-columns: minmax(0, 1.48fr) minmax(340px, 0.74fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -3058,7 +3063,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 body[data-current-section="security"] .console-app-shell .surface-two-col,
 body[data-current-section="audit"] .console-app-shell .surface-two-col,
 body[data-current-section="control"] .console-app-shell .surface-two-col {
-  grid-template-columns: minmax(0, 1.16fr) minmax(360px, 0.84fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -3182,7 +3187,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(0, 1.12fr) minmax(460px, 0.88fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   align-items: stretch;
 }
@@ -3301,7 +3306,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(0, 0.92fr) minmax(400px, 1.08fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .command-page-card {
@@ -3365,7 +3370,7 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .console-heading-shell {
-  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 8px 12px 10px;
   gap: 12px;
   align-items: start;
@@ -3455,13 +3460,13 @@ body[data-current-section]:not([data-current-section="overview"]) .console-app-s
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .ops-workbench {
-  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 body[data-current-section="incidents"] .console-app-shell .ops-workbench,
 body[data-current-section="observability"] .console-app-shell .ops-workbench {
-  grid-template-columns: minmax(0, 1.72fr) minmax(300px, 0.78fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 body[data-current-section]:not([data-current-section="overview"]) .console-app-shell .surface-two-col {

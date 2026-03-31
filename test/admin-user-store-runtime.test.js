@@ -1,0 +1,288 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+
+const {
+  createAdminUserStoreRuntime,
+} = require('../src/admin/auth/adminUserStoreRuntime');
+
+function createMockPrisma() {
+  const rows = new Map();
+  let rawInsertCalls = 0;
+  let rawQueryCalls = 0;
+  let rawUnsafeCalls = 0;
+
+  const prisma = {
+    adminWebUser: {
+      async upsert({ where, create }) {
+        const username = String(where?.username || '').trim();
+        if (!rows.has(username)) {
+          rows.set(username, {
+            ...create,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+        return rows.get(username);
+      },
+      async findMany({ where, orderBy, take } = {}) {
+        const activeOnly = where?.isActive === true;
+        const sorted = [...rows.values()]
+          .filter((row) => (activeOnly ? row.isActive === true : true))
+          .sort((left, right) => String(left.username || '').localeCompare(String(right.username || '')));
+        return sorted.slice(0, take || sorted.length);
+      },
+      async findUnique({ where } = {}) {
+        return rows.get(String(where?.username || '').trim()) || null;
+      },
+      async count({ where } = {}) {
+        return [...rows.values()].filter((row) => {
+          if (where?.isActive === true && row.isActive !== true) return false;
+          if (where?.role && String(row.role || '') !== String(where.role || '')) return false;
+          return true;
+        }).length;
+      },
+      async create({ data }) {
+        rows.set(data.username, {
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        return rows.get(data.username);
+      },
+      async update({ where, data }) {
+        const username = String(where?.username || '').trim();
+        const current = rows.get(username);
+        if (!current) {
+          throw new Error(`missing admin user: ${username}`);
+        }
+        rows.set(username, {
+          ...current,
+          ...data,
+          updatedAt: new Date(),
+        });
+        return rows.get(username);
+      },
+    },
+    async $executeRawUnsafe() {
+      rawUnsafeCalls += 1;
+    },
+    async $executeRaw() {
+      rawInsertCalls += 1;
+      return [];
+    },
+    async $queryRaw() {
+      rawQueryCalls += 1;
+      return [];
+    },
+  };
+
+  return {
+    prisma,
+    getSnapshot() {
+      return {
+        rows: [...rows.values()].map((row) => ({
+          username: row.username,
+          role: row.role,
+          tenantId: row.tenantId || null,
+          isActive: row.isActive === true,
+          passwordHash: row.passwordHash,
+        })),
+        rawInsertCalls,
+        rawQueryCalls,
+        rawUnsafeCalls,
+      };
+    },
+  };
+}
+
+function normalizeRole(value) {
+  const role = String(value || '').trim().toLowerCase();
+  return ['owner', 'admin', 'mod'].includes(role) ? role : 'mod';
+}
+
+test('admin user store seeds and authenticates through Prisma delegate when available', async () => {
+  const mock = createMockPrisma();
+  const runtime = createAdminUserStoreRuntime({
+    prisma: mock.prisma,
+    crypto,
+    secureEqual: (left, right) => String(left) === String(right),
+    normalizeRole,
+    resolveDatabaseRuntime: () => ({ engine: 'sqlite' }),
+    adminWebUser: 'fallback_owner',
+    adminWebUserRole: 'owner',
+    adminWebUsersJson: JSON.stringify([
+      {
+        username: 'owner_one',
+        password: 'secret-pass',
+        role: 'owner',
+      },
+    ]),
+    logger: { warn() {} },
+  });
+
+  await runtime.ensureAdminUsersReady();
+  const users = await runtime.listAdminUsersFromDb();
+  const auth = await runtime.getUserByCredentials('owner_one', 'secret-pass');
+  const snapshot = mock.getSnapshot();
+
+  assert.equal(users.length, 1);
+  assert.equal(users[0].username, 'owner_one');
+  assert.equal(auth?.username, 'owner_one');
+  assert.equal(auth?.role, 'owner');
+  assert.equal(snapshot.rawInsertCalls, 0);
+  assert.equal(snapshot.rawQueryCalls, 0);
+  assert.ok(snapshot.rawUnsafeCalls >= 1);
+});
+
+test('admin user store updates existing admin users through Prisma delegate', async () => {
+  const mock = createMockPrisma();
+  const runtime = createAdminUserStoreRuntime({
+    prisma: mock.prisma,
+    crypto,
+    secureEqual: (left, right) => String(left) === String(right),
+    normalizeRole,
+    resolveDatabaseRuntime: () => ({ engine: 'sqlite' }),
+    adminWebUser: 'fallback_owner',
+    adminWebUserRole: 'owner',
+    adminWebUsersJson: JSON.stringify([
+      {
+        username: 'tenant_admin',
+        password: 'first-pass',
+        role: 'admin',
+      },
+    ]),
+    logger: { warn() {} },
+  });
+
+  await runtime.ensureAdminUsersReady();
+  await runtime.upsertAdminUserInDb({
+    username: 'tenant_admin',
+    role: 'owner',
+    tenantId: 'tenant-alpha',
+    isActive: true,
+  });
+
+  const users = await runtime.listAdminUsersFromDb();
+  const auth = await runtime.getUserByCredentials('tenant_admin', 'first-pass');
+
+  assert.equal(users.length, 1);
+  assert.equal(users[0].role, 'owner');
+  assert.equal(users[0].tenantId, 'tenant-alpha');
+  assert.equal(auth?.role, 'owner');
+  assert.equal(auth?.tenantId, 'tenant-alpha');
+});
+
+test('admin user store falls back to env-backed users when prisma is unavailable', async () => {
+  const runtime = createAdminUserStoreRuntime({
+    prisma: {
+      async $executeRawUnsafe() {
+        throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+      },
+      async $executeRaw() {
+        throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+      },
+      async $queryRaw() {
+        throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+      },
+    },
+    crypto,
+    secureEqual: (left, right) => String(left) === String(right),
+    normalizeRole,
+    resolveDatabaseRuntime: () => ({ engine: 'postgresql' }),
+    adminWebUser: 'fallback_owner',
+    adminWebUserRole: 'owner',
+    adminWebUsersJson: JSON.stringify([
+      {
+        username: 'env_owner',
+        password: 'env-secret',
+        role: 'owner',
+      },
+    ]),
+    logger: { warn() {} },
+  });
+
+  await runtime.ensureAdminUsersReady();
+  const users = await runtime.listAdminUsersFromDb();
+  const auth = await runtime.getUserByCredentials('env_owner', 'env-secret');
+
+  assert.equal(users.length, 1);
+  assert.equal(users[0].username, 'env_owner');
+  assert.equal(users[0].role, 'owner');
+  assert.equal(auth?.username, 'env_owner');
+  assert.equal(auth?.role, 'owner');
+});
+
+test('admin user store resolves active admin session access context from persisted users', async () => {
+  const mock = createMockPrisma();
+  const runtime = createAdminUserStoreRuntime({
+    prisma: mock.prisma,
+    crypto,
+    secureEqual: (left, right) => String(left) === String(right),
+    normalizeRole,
+    resolveDatabaseRuntime: () => ({ engine: 'sqlite' }),
+    adminWebUser: 'fallback_owner',
+    adminWebUserRole: 'owner',
+    adminWebUsersJson: JSON.stringify([
+      {
+        username: 'owner_runtime',
+        password: 'secret-pass',
+        role: 'owner',
+      },
+    ]),
+    logger: { warn() {} },
+  });
+
+  await runtime.ensureAdminUsersReady();
+  const resolved = await runtime.resolveAdminSessionAccessContext({
+    username: 'owner_runtime',
+    authMethod: 'password-db',
+  });
+
+  assert.equal(resolved?.ok, true);
+  assert.equal(resolved?.authContext?.user, 'owner_runtime');
+  assert.equal(resolved?.authContext?.role, 'owner');
+  assert.equal(resolved?.authContext?.tenantId, null);
+  assert.equal(resolved?.authContext?.authMethod, 'password-db');
+});
+
+test('admin user store rejects inactive admin session access context', async () => {
+  const mock = createMockPrisma();
+  const runtime = createAdminUserStoreRuntime({
+    prisma: mock.prisma,
+    crypto,
+    secureEqual: (left, right) => String(left) === String(right),
+    normalizeRole,
+    resolveDatabaseRuntime: () => ({ engine: 'sqlite' }),
+    adminWebUser: 'fallback_owner',
+    adminWebUserRole: 'owner',
+    adminWebUsersJson: JSON.stringify([
+      {
+        username: 'owner_disabled',
+        password: 'secret-pass',
+        role: 'owner',
+      },
+      {
+        username: 'owner_backup',
+        password: 'backup-pass',
+        role: 'owner',
+      },
+    ]),
+    logger: { warn() {} },
+  });
+
+  await runtime.ensureAdminUsersReady();
+  await runtime.upsertAdminUserInDb({
+    username: 'owner_disabled',
+    role: 'owner',
+    isActive: false,
+  });
+
+  const resolved = await runtime.resolveAdminSessionAccessContext({
+    username: 'owner_disabled',
+    authMethod: 'password-db',
+  });
+
+  assert.equal(resolved?.ok, false);
+  assert.equal(resolved?.reason, 'admin-user-inactive');
+});

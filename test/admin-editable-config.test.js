@@ -68,6 +68,24 @@ test('control panel env patch accepts discord admin-log language writes', () => 
   });
 });
 
+test('control panel env patch accepts billing provider and public URL writes', () => {
+  const patch = buildControlPanelEnvPatch({
+    root: {
+      PLATFORM_BILLING_PROVIDER: 'stripe',
+      PLATFORM_PUBLIC_BASE_URL: 'https://platform.example.com',
+      PLATFORM_BILLING_STRIPE_SECRET_KEY: '',
+    },
+  });
+
+  assert.deepEqual(patch, {
+    root: {
+      PLATFORM_BILLING_PROVIDER: 'stripe',
+      PLATFORM_PUBLIC_BASE_URL: 'https://platform.example.com',
+    },
+    portal: {},
+  });
+});
+
 test('control panel env catalog exposes policy metadata for every field', () => {
   const catalog = buildControlPanelEnvCatalog();
 
@@ -91,6 +109,13 @@ test('control panel env catalog exposes grouping and select metadata for high-va
   );
   assert.equal(String(topologyMode?.sectionKey || ''), 'platform');
   assert.equal(Array.isArray(topologyMode?.options), true);
+  const billingProvider = catalog.find((entry) => entry.key === 'PLATFORM_BILLING_PROVIDER');
+  assert.equal(String(billingProvider?.sectionKey || ''), 'billing');
+  assert.equal(Array.isArray(billingProvider?.options), true);
+  assert.deepEqual(
+    billingProvider.options.map((entry) => entry.value),
+    ['platform_local', 'stripe'],
+  );
 });
 
 test('control panel env section groups return structured sections for UI rendering', () => {
@@ -146,6 +171,11 @@ test('control panel env policy summary matches catalog totals and exposes import
   assert.equal(keys.has('SCUM_AGENT_CHANNEL'), true);
   assert.equal(keys.has('PLATFORM_API_BASE_URL'), true);
   assert.equal(keys.has('PLATFORM_AGENT_TOKEN'), true);
+  assert.equal(keys.has('PLATFORM_BILLING_PROVIDER'), true);
+  assert.equal(keys.has('PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY'), true);
+  assert.equal(keys.has('PLATFORM_BILLING_STRIPE_SECRET_KEY'), true);
+  assert.equal(keys.has('PLATFORM_BILLING_WEBHOOK_SECRET'), true);
+  assert.equal(keys.has('PLATFORM_PUBLIC_BASE_URL'), true);
   assert.equal(keys.has('DELIVERY_AGENT_PRE_COMMANDS_JSON'), true);
   assert.equal(keys.has('DELIVERY_NATIVE_PROOF_MODE'), true);
   assert.equal(keys.has('DELIVERY_NATIVE_PROOF_SCRIPT'), true);

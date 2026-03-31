@@ -9,28 +9,28 @@
 
   const NAV_GROUPS = [
     {
-      label: 'ภาพรวมงานหลัก',
+      label: 'Overview',
       items: [
-        { label: 'แดชบอร์ด', href: '#dashboard' },
-        { label: 'สถานะเซิร์ฟเวอร์', href: '#server-status' },
-        { label: 'ควบคุมการรีสตาร์ต', href: '#restart-control' },
+        { label: 'Dashboard', href: '#dashboard' },
+        { label: 'Server status', href: '#server-status' },
+        { label: 'Restart control', href: '#restart-control' },
       ],
     },
     {
-      label: 'คำสั่งซื้อและผู้เล่น',
+      label: 'Operations',
       items: [
-        { label: 'คำสั่งซื้อ', href: '#orders', current: true },
-        { label: 'การส่งของ', href: '#delivery' },
-        { label: 'ผู้เล่น', href: '#players' },
+        { label: 'Orders', href: '#orders', current: true },
+        { label: 'Delivery', href: '#delivery' },
+        { label: 'Players', href: '#players' },
       ],
     },
     {
-      label: 'ระบบและหลักฐาน',
+      label: 'Runtime',
       items: [
-        { label: 'ตั้งค่าเซิร์ฟเวอร์', href: '#server-config' },
+        { label: 'Server config', href: '#server-config' },
         { label: 'Server Bot', href: '#server-bots' },
         { label: 'Delivery Agent', href: '#delivery-agents' },
-        { label: 'บันทึกและหลักฐาน', href: '#audit' },
+        { label: 'Audit', href: '#audit' },
       ],
     },
   ];
@@ -53,7 +53,10 @@
   function formatMoney(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return '-';
-    return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(numeric);
+    return new Intl.NumberFormat('th-TH', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(numeric);
   }
 
   function parseDate(value) {
@@ -64,7 +67,7 @@
 
   function formatDateTime(value) {
     const date = parseDate(value);
-    if (!date) return 'ไม่ทราบเวลา';
+    if (!date) return 'No time available';
     return new Intl.DateTimeFormat('th-TH', {
       dateStyle: 'medium',
       timeStyle: 'short',
@@ -86,7 +89,7 @@
   function toneForStatus(value) {
     const normalized = String(value || '').trim().toLowerCase();
     if (['delivered', 'completed', 'success', 'verified'].includes(normalized)) return 'success';
-    if (['failed', 'dead-letter', 'error'].includes(normalized)) return 'danger';
+    if (['failed', 'dead-letter', 'error', 'cancelled', 'canceled'].includes(normalized)) return 'danger';
     if (['pending', 'queued', 'processing', 'executing'].includes(normalized)) return 'warning';
     return 'muted';
   }
@@ -95,20 +98,53 @@
     return firstNonEmpty([row?.code, row?.purchaseCode]);
   }
 
+  function normalizeOrderStatus(row) {
+    return String(firstNonEmpty([row?.statusText, row?.status, 'unknown'])).trim().toLowerCase();
+  }
+
+  function hasDeadLetterForCode(state, code) {
+    const rows = Array.isArray(state?.deadLetters) ? state.deadLetters : [];
+    return rows.some((entry) => {
+      const values = [
+        entry?.purchaseCode,
+        entry?.code,
+        entry?.jobCode,
+        entry?.purchase?.code,
+        entry?.payload?.code,
+      ].map((value) => String(value || '').trim());
+      return values.includes(code);
+    });
+  }
+
+  function canRetryOrder(row) {
+    const status = normalizeOrderStatus(row);
+    return ['failed', 'dead-letter', 'error'].includes(status) || Boolean(row?.hasDeadLetter);
+  }
+
+  function canCancelOrder(row) {
+    const status = normalizeOrderStatus(row);
+    return ['queued', 'pending', 'processing', 'executing'].includes(status);
+  }
+
   function buildSelectedOrder(state) {
     const items = Array.isArray(state?.purchaseLookup?.items) ? state.purchaseLookup.items : [];
-    const selected = items[0] || null;
+    const selectedCode = String(state?.selectedPurchaseCode || '').trim();
+    const selected = items.find((item) => purchaseCodeOf(item) === selectedCode) || items[0] || null;
     if (!selected) return null;
     const code = purchaseCodeOf(selected);
     const detail = state?.deliveryCase && purchaseCodeOf(state.deliveryCase) === code ? state.deliveryCase : null;
+    const hasDeadLetter = Boolean((detail && detail?.deadLetter) || hasDeadLetterForCode(state, code));
     return {
       code,
-      itemName: firstNonEmpty([selected?.itemName, selected?.itemId, selected?.productName, 'ไม่ทราบรายการ']),
+      itemName: firstNonEmpty([selected?.itemName, selected?.itemId, selected?.productName, 'Unknown item']),
       status: firstNonEmpty([selected?.statusText, selected?.status, 'unknown']),
       player: firstNonEmpty([selected?.userId, selected?.discordId, state?.purchaseLookup?.userId, '-']),
       amount: formatMoney(selected?.totalPrice || selected?.price || selected?.amount),
       createdAt: formatDateTime(selected?.createdAt || selected?.updatedAt),
       detail,
+      hasDeadLetter,
+      canRetry: hasDeadLetter || canRetryOrder(selected),
+      canCancel: canCancelOrder(selected),
     };
   }
 
@@ -116,35 +152,48 @@
     const detail = selectedOrder?.detail || state?.deliveryCase || null;
     if (!detail) {
       return {
-        title: 'ยังไม่ได้เปิดเคสการส่งของ',
-        detail: 'เลือกคำสั่งซื้อจากรายการด้านซ้ายก่อน เพื่อดู timeline, หลักฐาน, และคำแนะนำการแก้ปัญหา',
+        title: 'No delivery case selected yet',
+        detail: 'Search for a player, choose an order, then inspect delivery evidence and run retry or cancel from this workspace.',
         facts: [],
         actions: [
-          'ค้นหาคำสั่งซื้อที่มีปัญหา',
-          'เปิดดู dead-letter หากผู้เล่นแจ้งว่ายังไม่ได้รับของ',
-          'ตรวจสถานะคิวส่งของก่อน replay',
+          'Search for the affected player first',
+          'Open the selected order to inspect delivery evidence',
+          'Only retry failed delivery after reading the latest failure reason',
         ],
       };
     }
 
     const timelineCount = listCount(detail?.timeline);
     const auditCount = listCount(detail?.auditRows);
-    const lastError = firstNonEmpty([detail?.deadLetter?.reason, detail?.queueJob?.lastError, detail?.latestCommandSummary, '-']);
+    const lastError = firstNonEmpty([
+      detail?.deadLetter?.reason,
+      detail?.queueJob?.lastError,
+      detail?.latestCommandSummary,
+      '-',
+    ]);
 
     return {
-      title: `เคส ${escapeHtml(detail.purchaseCode || selectedOrder?.code || '-')}`,
-      detail: 'รวมบริบทของคำสั่งซื้อ การส่งของ และหลักฐานที่เกี่ยวข้องไว้ในจุดเดียวเพื่อใช้ตอบผู้เล่นหรือแก้ปัญหาต่อ',
+      title: `Delivery case ${escapeHtml(detail.purchaseCode || selectedOrder?.code || '-')}`,
+      detail: 'Use this section to verify what happened, confirm failure details, and decide whether retry or cancel is the safer action.',
       facts: [
-        { label: 'สถานะคำสั่งซื้อ', value: firstNonEmpty([detail?.purchase?.status, selectedOrder?.status, '-']) },
-        { label: 'queue job', value: detail?.queueJob ? firstNonEmpty([detail?.queueJob?.status, 'queued']) : '-' },
-        { label: 'dead-letter', value: detail?.deadLetter ? firstNonEmpty([detail?.deadLetter?.reason, detail?.deadLetter?.errorCode, 'present']) : '-' },
-        { label: 'timeline', value: formatNumber(timelineCount, '0') },
-        { label: 'audit', value: formatNumber(auditCount, '0') },
-        { label: 'error ล่าสุด', value: lastError },
+        { label: 'Order status', value: firstNonEmpty([detail?.purchase?.status, selectedOrder?.status, '-']) },
+        { label: 'Queue job', value: detail?.queueJob ? firstNonEmpty([detail?.queueJob?.status, 'queued']) : '-' },
+        { label: 'Dead-letter', value: detail?.deadLetter ? firstNonEmpty([detail?.deadLetter?.reason, 'present']) : '-' },
+        { label: 'Timeline', value: formatNumber(timelineCount, '0') },
+        { label: 'Audit rows', value: formatNumber(auditCount, '0') },
+        { label: 'Latest error', value: lastError },
       ],
       actions: detail?.deadLetter
-        ? ['อ่านสาเหตุ dead-letter ก่อน replay', 'ยืนยันตัวผู้เล่นและ Steam link', 'ตรวจ runtime ก่อนสั่ง retry']
-        : ['ตรวจ timeline ล่าสุด', 'ยืนยันสถานะใน queue/dead-letter', 'ดู audit ก่อนแก้สถานะด้วยมือ'],
+        ? [
+            'Read the dead-letter reason before retrying',
+            'Confirm the linked player identity and Steam match',
+            'Check runtime health before resubmitting delivery',
+          ]
+        : [
+            'Review the latest timeline entry',
+            'Confirm queue state before changing anything',
+            'Use audit evidence if you need to answer the player',
+          ],
     };
   }
 
@@ -167,64 +216,65 @@
     return {
       shell: {
         brand: 'SCUM TH',
-      surfaceLabel: 'แผงผู้เช่า',
+        surfaceLabel: 'Tenant admin',
         workspaceLabel: tenantName,
-      environmentLabel: 'พื้นที่ผู้เช่า',
+        environmentLabel: 'Tenant workspace',
         navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
           ? state.__surfaceShell.navGroups
           : NAV_GROUPS,
       },
       header: {
-        title: 'คำสั่งซื้อและการส่งของ',
-        subtitle: 'ค้นหาคำสั่งซื้อ ดูสถานะการส่งของ และเปิดเคสแก้ปัญหาให้ผู้เล่นจากหน้าเดียว',
+        title: 'Orders and delivery',
+        subtitle: 'Search orders, inspect delivery evidence, retry failed delivery, and cancel valid pending work from one page.',
         statusChips: [
-          { label: `${formatNumber(orders.length, '0')} คำสั่งซื้อในมุมมองนี้`, tone: 'info' },
-          { label: `${formatNumber(listCount(state?.queueItems), '0')} รายการอยู่ในคิว`, tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
-          { label: `${formatNumber(listCount(state?.deadLetters), '0')} รายการใน dead-letter`, tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
-          { label: `สำเร็จ ${formatNumber(delivery?.successRate, '0')}%`, tone: 'success' },
+          { label: `${formatNumber(orders.length, '0')} orders in view`, tone: 'info' },
+          { label: `${formatNumber(listCount(state?.queueItems), '0')} in queue`, tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
+          { label: `${formatNumber(listCount(state?.deadLetters), '0')} failed`, tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
+          { label: `success ${formatNumber(delivery?.successRate, '0')}%`, tone: 'success' },
         ],
-        primaryAction: { label: 'ค้นหาคำสั่งซื้อ', href: '#order-search' },
+        primaryAction: { label: 'Search orders', href: '#order-search' },
       },
       summaryStrip: [
-        { label: 'คำสั่งซื้อที่มองเห็น', value: formatNumber(orders.length, '0'), detail: 'ผลลัพธ์จากตัวกรองปัจจุบัน', tone: 'info' },
-        { label: 'คิวส่งของ', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'รายการที่รอหรือกำลังประมวลผล', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
-        { label: 'dead-letter', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'รายการที่ล้มเหลวและต้องตรวจต่อ', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
-        { label: 'อัตราสำเร็จล่าสุด', value: `${formatNumber(delivery?.successRate, '0')}%`, detail: `${formatNumber(delivery?.purchaseCount30d, '0')} คำสั่งซื้อช่วงล่าสุด`, tone: 'success' },
+        { label: 'Orders in view', value: formatNumber(orders.length, '0'), detail: 'Current search result set', tone: 'info' },
+        { label: 'Queue pressure', value: formatNumber(listCount(state?.queueItems), '0'), detail: 'Pending or processing delivery work', tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
+        { label: 'Failed work', value: formatNumber(listCount(state?.deadLetters), '0'), detail: 'Dead-letter items needing operator attention', tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'muted' },
+        { label: 'Latest success rate', value: `${formatNumber(delivery?.successRate, '0')}%`, detail: `${formatNumber(delivery?.purchaseCount30d, '0')} recent purchases`, tone: 'success' },
       ],
       filters: {
-        userId: firstNonEmpty([state?.purchaseLookup?.userId], ''),
-        status: firstNonEmpty([state?.purchaseLookup?.status], ''),
+        userId: firstNonEmpty([state?.selectedUserId, state?.purchaseLookup?.userId], ''),
+        status: firstNonEmpty([state?.selectedPurchaseStatus, state?.purchaseLookup?.status], ''),
         statuses: knownStatuses,
       },
-      orders: orders.map((row) => ({
-        code: purchaseCodeOf(row) || '-',
-        itemName: firstNonEmpty([row?.itemName, row?.itemId, row?.productName, '-']),
-        status: firstNonEmpty([row?.statusText, row?.status, 'unknown']),
-        player: firstNonEmpty([row?.userId, row?.discordId, state?.purchaseLookup?.userId, '-']),
-        amount: formatMoney(row?.totalPrice || row?.price || row?.amount),
-        createdAt: formatDateTime(row?.createdAt || row?.updatedAt),
-      })),
+      orders: orders.map((row) => {
+        const code = purchaseCodeOf(row) || '-';
+        const hasDeadLetter = hasDeadLetterForCode(state, code);
+        return {
+          code,
+          itemName: firstNonEmpty([row?.itemName, row?.itemId, row?.productName, '-']),
+          status: firstNonEmpty([row?.statusText, row?.status, 'unknown']),
+          player: firstNonEmpty([row?.userId, row?.discordId, state?.purchaseLookup?.userId, '-']),
+          amount: formatMoney(row?.totalPrice || row?.price || row?.amount),
+          createdAt: formatDateTime(row?.createdAt || row?.updatedAt),
+          hasDeadLetter,
+          canRetry: hasDeadLetter || canRetryOrder(row),
+          canCancel: canCancelOrder(row),
+        };
+      }),
       selectedOrder,
       deliveryCase,
       railCards: [
         {
-          title: 'ทางลัดซัพพอร์ต',
-          body: 'Wallet · Steam · Delivery Lab',
-          meta: 'ใช้เมื่อต้องเช็กปัญหาเรื่องกระเป๋าเงิน, การเชื่อม Steam หรือการส่งของที่ยังไม่สมบูรณ์',
+          title: 'Use this like a case workspace',
+          body: 'Search, select, inspect, then retry or cancel.',
+          meta: 'The page is no longer just a table. The selected order becomes the working case.',
           tone: 'info',
         },
         {
-          title: 'คำอธิบายสถานะ',
-          body: knownStatuses.length > 0 ? knownStatuses.join(' · ') : 'queued · processing · delivered · failed',
-          meta: 'ใช้เป็น legend เร็ว ๆ ก่อนตัดสินใจเปิดเคสหรือเปลี่ยนมุมมอง',
-          tone: 'muted',
-        },
-        {
-          title: 'สิ่งที่ควรทำต่อ',
-          body: listCount(state?.deadLetters) > 0 ? 'เริ่มจาก dead-letter ก่อน' : 'ดูคำสั่งซื้อที่ยังค้างในคิว',
+          title: 'Escalate carefully',
+          body: listCount(state?.deadLetters) > 0 ? 'Read failure evidence before retrying.' : 'Use queue status before canceling.',
           meta: listCount(state?.deadLetters) > 0
-            ? 'ถ้ามีผู้เล่นแจ้งว่ายังไม่ได้รับของ ให้เปิดเคสจากรายการที่ล้มเหลวก่อน'
-            : 'ถ้ายังไม่มีรายการล้มเหลว ให้ไล่จากคำสั่งซื้อที่ค้างใน queue หรือ processing',
+            ? 'Retry failed delivery only after checking dead-letter context.'
+            : 'Cancel only when the order is still queued or processing.',
           tone: listCount(state?.deadLetters) > 0 ? 'danger' : 'warning',
         },
       ],
@@ -240,10 +290,12 @@
       '<section class="tdv4-nav-group">',
       `<div class="tdv4-nav-group-label">${escapeHtml(group.label)}</div>`,
       '<div class="tdv4-nav-items">',
-      ...(Array.isArray(group.items) ? group.items.map((item) => {
-        const currentClass = item.current ? ' tdv4-nav-link-current' : '';
-        return `<a class="tdv4-nav-link${currentClass}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`;
-      }) : []),
+      ...(Array.isArray(group.items)
+        ? group.items.map((item) => {
+            const currentClass = item.current ? ' tdv4-nav-link-current' : '';
+            return `<a class="tdv4-nav-link${currentClass}" href="${escapeHtml(item.href || '#')}">${escapeHtml(item.label)}</a>`;
+          })
+        : []),
       '</div>',
       '</section>',
     ].join('');
@@ -278,7 +330,9 @@
       `<div>${escapeHtml(row.player)}</div>`,
       `<div>${escapeHtml(row.amount)}</div>`,
       `<div class="code">${escapeHtml(row.createdAt)}</div>`,
-      `<div><a class="tdv4-inline-link" href="#case-${escapeHtml(row.code)}">เปิดเคส</a></div>`,
+      '<div class="tdv4-action-list">',
+      `<button class="tdv4-button tdv4-button-secondary" type="button" data-order-select data-code="${escapeHtml(row.code)}" data-user-id="${escapeHtml(row.player)}">Open case</button>`,
+      '</div>',
       '</article>',
     ].join('');
   }
@@ -289,6 +343,20 @@
       `<div class="tdv4-mini-stat-label">${escapeHtml(item.label)}</div>`,
       `<div class="tdv4-mini-stat-value">${escapeHtml(item.value)}</div>`,
       '</article>',
+    ].join('');
+  }
+
+  function buildSelectedOrderActions(selectedOrder) {
+    if (!selectedOrder) {
+      return '<div class="tdv4-empty-state">Choose an order first to unlock management actions.</div>';
+    }
+    return [
+      '<div class="tdv4-action-list">',
+      `<button class="tdv4-button tdv4-button-primary" type="button" data-order-action="inspect-order" data-code="${escapeHtml(selectedOrder.code)}" data-user-id="${escapeHtml(selectedOrder.player)}">Inspect order</button>`,
+      `<button class="tdv4-button tdv4-button-secondary" type="button" data-order-action="inspect-delivery" data-code="${escapeHtml(selectedOrder.code)}" data-user-id="${escapeHtml(selectedOrder.player)}">Inspect delivery result</button>`,
+      `<button class="tdv4-button tdv4-button-secondary" type="button" data-order-action="retry" data-code="${escapeHtml(selectedOrder.code)}" data-user-id="${escapeHtml(selectedOrder.player)}" data-order-has-dead-letter="${selectedOrder.hasDeadLetter ? 'true' : 'false'}"${selectedOrder.canRetry ? '' : ' disabled'}>Retry failed delivery</button>`,
+      `<button class="tdv4-button tdv4-button-secondary" type="button" data-order-action="cancel" data-code="${escapeHtml(selectedOrder.code)}" data-user-id="${escapeHtml(selectedOrder.player)}"${selectedOrder.canCancel ? '' : ' disabled'}>Cancel delivery</button>`,
+      '</div>',
     ].join('');
   }
 
@@ -312,7 +380,7 @@
       '<div class="tdv4-shell tdv4-orders-shell">',
       '<aside class="tdv4-sidebar">',
       `<div class="tdv4-sidebar-title">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-sidebar-copy">พื้นที่ทำงานของทีมซัพพอร์ตสำหรับตามคำสั่งซื้อ แก้ปัญหาการส่งของ และพาไปเครื่องมือที่เกี่ยวข้องเร็วที่สุด</div>',
+      '<div class="tdv4-sidebar-copy">This page is the daily order and delivery workspace for operators. Search first, then work from the selected case.</div>',
       ...(Array.isArray(safeModel.shell.navGroups) ? safeModel.shell.navGroups.map(renderNavGroup) : []),
       '</aside>',
       '<main class="tdv4-main">',
@@ -324,81 +392,70 @@
       ...(Array.isArray(safeModel.header.statusChips) ? safeModel.header.statusChips.map((chip) => renderBadge(chip.label, chip.tone)) : []),
       '</div>',
       '</div>',
-      '<div class="tdv4-pagehead-actions">',
-      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a>`,
-      '</div>',
+      `<div class="tdv4-pagehead-actions"><a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a></div>`,
       '</section>',
       '<section class="tdv4-kpi-strip tdv4-orders-summary-strip">',
       ...(Array.isArray(safeModel.summaryStrip) ? safeModel.summaryStrip.map(renderSummaryCard) : []),
       '</section>',
       '<section class="tdv4-dual-grid tdv4-orders-filter-grid">',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">ค้นหาและกรอง</div>',
-      '<h2 class="tdv4-section-title">เริ่มจากคำสั่งซื้อที่กำลังตามอยู่</h2>',
-      '<p class="tdv4-section-copy">ใช้ user id และสถานะ เพื่อค่อยลดรายการให้เหลือเฉพาะเคสที่ต้องเปิดดูต่อ</p>',
-      '<div class="tdv4-filter-grid">',
-      `<label class="tdv4-form-field"><span>Discord หรือ player id</span><input class="tdv4-input" value="${escapeHtml(safeModel.filters.userId)}" readonly></label>`,
-      `<label class="tdv4-form-field"><span>สถานะ</span><input class="tdv4-input" value="${escapeHtml(safeModel.filters.status || 'ทั้งหมด')}" readonly></label>`,
+      '<section class="tdv4-panel" id="order-search">',
+      '<div class="tdv4-section-kicker">Primary action</div>',
+      '<h2 class="tdv4-section-title">Search orders</h2>',
+      '<p class="tdv4-section-copy">Search by player ID first, then narrow by status if needed.</p>',
+      '<form class="tdv4-runtime-form" data-order-filter-form>',
+      '<div class="tdv4-runtime-form-fields">',
+      `<label class="tdv4-basic-field"><div class="tdv4-basic-field-copy"><div class="tdv4-basic-field-label">Discord or player ID</div><div class="tdv4-basic-field-detail">Required for the current search API</div></div><input class="tdv4-basic-input" type="text" name="userId" value="${escapeHtml(safeModel.filters.userId)}" placeholder="1234567890"></label>`,
+      `<label class="tdv4-basic-field"><div class="tdv4-basic-field-copy"><div class="tdv4-basic-field-label">Status</div><div class="tdv4-basic-field-detail">Optional filter for the order list</div></div><select class="tdv4-basic-input" name="status"><option value="">All statuses</option>${(Array.isArray(safeModel.filters.statuses) ? safeModel.filters.statuses : []).map((status) => `<option value="${escapeHtml(status)}"${status === safeModel.filters.status ? ' selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label>`,
       '</div>',
-      '<div class="tdv4-chip-row">',
-      ...(Array.isArray(safeModel.filters.statuses) ? safeModel.filters.statuses.map((status) => renderBadge(status, toneForStatus(status))) : []),
+      '<div class="tdv4-action-list">',
+      '<button class="tdv4-button tdv4-button-primary" type="submit">Search orders</button>',
       '</div>',
+      '</form>',
       '</section>',
       '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">คำอธิบายการใช้งาน</div>',
-      '<h2 class="tdv4-section-title">วิธีไล่งานแบบไม่งง</h2>',
-      '<p class="tdv4-section-copy">ดูจากตารางก่อน แล้วอ่าน selected order summary ด้านขวา ถ้ายังไม่จบให้ลงมาที่ delivery case ด้านล่าง</p>',
-      '<div class="tdv4-list tdv4-compact-list">',
-      '<article class="tdv4-list-item tdv4-tone-muted"><div class="tdv4-list-main"><strong>queued / processing</strong><p>มักต้องเริ่มจาก queue และ runtime ก่อน</p></div></article>',
-      '<article class="tdv4-list-item tdv4-tone-danger"><div class="tdv4-list-main"><strong>failed / dead-letter</strong><p>ควรเปิดเคสและอ่านหลักฐานก่อน replay เสมอ</p></div></article>',
-      '<article class="tdv4-list-item tdv4-tone-success"><div class="tdv4-list-main"><strong>delivered / verified</strong><p>ใช้ยืนยันกับผู้เล่นและข้ามไป audit หากต้องการหลักฐานต่อ</p></div></article>',
-      '</div>',
-      '</section>',
-      '</section>',
-      '<section class="tdv4-dual-grid tdv4-orders-main-grid">',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">รายการคำสั่งซื้อ</div>',
-      '<h2 class="tdv4-section-title">ตารางคำสั่งซื้อ</h2>',
-      '<div class="tdv4-data-header"><span>Purchase</span><span>Status</span><span>Player</span><span>Amount</span><span>Created</span><span>Action</span></div>',
-      '<div class="tdv4-data-table">',
-      ...(Array.isArray(safeModel.orders) && safeModel.orders.length
-        ? safeModel.orders.map((row) => renderOrderRow(row, safeModel.selectedOrder?.code))
-        : ['<div class="tdv4-empty-state">ยังไม่มีคำสั่งซื้อในมุมมองนี้</div>']),
-      '</div>',
-      '</section>',
-      '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">คำสั่งซื้อที่เลือก</div>',
-      '<h2 class="tdv4-section-title">สรุปคำสั่งซื้อ</h2>',
+      '<div class="tdv4-section-kicker">Secondary actions</div>',
+      '<h2 class="tdv4-section-title">Selected order actions</h2>',
+      '<p class="tdv4-section-copy">Inspect the selected case, retry failed delivery when supported, or cancel valid pending work.</p>',
       (safeModel.selectedOrder
         ? [
             '<div class="tdv4-selected-order">',
             `<strong class="code">${escapeHtml(safeModel.selectedOrder.code)}</strong>`,
             `<div>${escapeHtml(safeModel.selectedOrder.itemName)}</div>`,
             `<div>${renderBadge(safeModel.selectedOrder.status, toneForStatus(safeModel.selectedOrder.status))}</div>`,
-            `<div class="tdv4-kpi-detail">ผู้เล่น ${escapeHtml(safeModel.selectedOrder.player)} · ${escapeHtml(safeModel.selectedOrder.amount)} · ${escapeHtml(safeModel.selectedOrder.createdAt)}</div>`,
+            `<div class="tdv4-kpi-detail">Player ${escapeHtml(safeModel.selectedOrder.player)} · ${escapeHtml(safeModel.selectedOrder.amount)} · ${escapeHtml(safeModel.selectedOrder.createdAt)}</div>`,
             '</div>',
           ].join('')
-        : '<div class="tdv4-empty-state">เลือกคำสั่งซื้อจากตารางก่อน</div>'),
+        : '<div class="tdv4-empty-state">No order selected yet.</div>'),
+      buildSelectedOrderActions(safeModel.selectedOrder),
       '</section>',
+      '</section>',
+      '<section class="tdv4-dual-grid tdv4-orders-main-grid">',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Status</div>',
+      '<h2 class="tdv4-section-title">Order list</h2>',
+      '<p class="tdv4-section-copy">Choose one order to turn it into the active case for inspection and operator actions.</p>',
+      '<div class="tdv4-data-header"><span>Purchase</span><span>Status</span><span>Player</span><span>Amount</span><span>Created</span><span>Action</span></div>',
+      '<div class="tdv4-data-table">',
+      ...(Array.isArray(safeModel.orders) && safeModel.orders.length
+        ? safeModel.orders.map((row) => renderOrderRow(row, safeModel.selectedOrder?.code))
+        : ['<div class="tdv4-empty-state">No orders found for the current search.</div>']),
+      '</div>',
       '</section>',
       '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">Delivery case workspace</div>',
-      `<h2 class="tdv4-section-title">${safeModel.deliveryCase.title}</h2>`,
+      '<div class="tdv4-section-kicker">Details / history</div>',
+      '<h2 class="tdv4-section-title">Delivery case</h2>',
       `<p class="tdv4-section-copy">${safeModel.deliveryCase.detail}</p>`,
       '<div class="tdv4-mini-stat-grid">',
       ...(Array.isArray(safeModel.deliveryCase.facts) ? safeModel.deliveryCase.facts.map(renderFact) : []),
       '</div>',
-      '<div class="tdv4-list tdv4-case-actions">',
-      ...(Array.isArray(safeModel.deliveryCase.actions)
-        ? safeModel.deliveryCase.actions.map((action) => `<article class="tdv4-list-item tdv4-tone-muted"><div class="tdv4-list-main"><strong>${escapeHtml(action)}</strong></div></article>`)
-        : []),
-      '</div>',
+      `<div class="tdv4-list tdv4-case-actions" data-order-case-panel>${(Array.isArray(safeModel.deliveryCase.actions) ? safeModel.deliveryCase.actions.map((action) => `<article class="tdv4-list-item tdv4-tone-muted"><div class="tdv4-list-main"><strong>${escapeHtml(action)}</strong></div></article>`).join('') : '')}</div>`,
+      '</section>',
       '</section>',
       '</main>',
       '<aside class="tdv4-rail">',
       '<div class="tdv4-rail-sticky">',
       `<div class="tdv4-rail-header">${escapeHtml(safeModel.shell.workspaceLabel)}</div>`,
-      '<div class="tdv4-rail-copy">ตัวช่วยตัดสินใจและทางลัดที่ใช้บ่อย เมื่อต้องตอบผู้เล่นหรือแก้ปัญหาการส่งของต่อ</div>',
+      '<div class="tdv4-rail-copy">Keep order search, selected-case actions, and delivery evidence close together so support decisions stay fast.</div>',
       ...(Array.isArray(safeModel.railCards) ? safeModel.railCards.map(renderRailCard) : []),
       '</div>',
       '</aside>',

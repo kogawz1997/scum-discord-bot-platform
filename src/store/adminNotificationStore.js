@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 const { prisma } = require('../prisma');
-const { atomicWriteJson, getFilePath } = require('./_persist');
+const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
 
 const MAX_NOTIFICATIONS = 500;
 const FILE_PATH = getFilePath('admin-notifications.json');
@@ -95,6 +95,9 @@ function getPersistenceMode() {
   const explicit = String(process.env.ADMIN_NOTIFICATION_STORE_MODE || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
+  if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
+    return 'db';
+  }
   return 'auto';
 }
 

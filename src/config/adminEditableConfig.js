@@ -212,6 +212,12 @@ const CONTROL_PANEL_ENV_FIELDS = Object.freeze([
   defineEnvField({ file: 'root', key: 'SCUM_CONSOLE_AGENT_SERVER_EXE', type: 'text', policy: 'runtime-only', description: 'SCUM dedicated server executable path' }),
   defineEnvField({ file: 'root', key: 'SCUM_CONSOLE_AGENT_SERVER_WORKDIR', type: 'text', policy: 'runtime-only', description: 'SCUM dedicated server working directory' }),
   defineEnvField({ file: 'root', key: 'SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON', type: 'text', description: 'SCUM dedicated server startup args as JSON' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_CONFIG_ROOT', type: 'text', description: 'Server Bot config root used for snapshots and config jobs' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_CONFIG_BACKUP_DIR', type: 'text', description: 'Server Bot backup folder for config rollback files' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_APPLY_TEMPLATE', type: 'text', description: 'Command template used by Server Bot for apply jobs' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_RESTART_TEMPLATE', type: 'text', description: 'Command template used by Server Bot for restart jobs' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_START_TEMPLATE', type: 'text', description: 'Command template used by Server Bot to start the SCUM server' }),
+  defineEnvField({ file: 'root', key: 'SCUM_SERVER_STOP_TEMPLATE', type: 'text', description: 'Command template used by Server Bot to stop the SCUM server' }),
   defineEnvField({ file: 'root', key: 'DELIVERY_AGENT_FAILOVER_MODE', type: 'text', description: 'Agent failure fallback policy' }),
   defineEnvField({ file: 'root', key: 'DELIVERY_AGENT_CIRCUIT_BREAKER_THRESHOLD', type: 'number', description: 'Agent circuit-breaker failure threshold' }),
   defineEnvField({ file: 'root', key: 'DELIVERY_AGENT_CIRCUIT_BREAKER_COOLDOWN_MS', type: 'number', description: 'Agent circuit-breaker cooldown window' }),
@@ -267,6 +273,41 @@ const CONTROL_PANEL_ENV_FIELDS = Object.freeze([
   defineEnvField({ file: 'root', key: 'SCUM_ITEMS_INDEX_PATH', type: 'text', policy: 'runtime-only', description: 'Local SCUM item index path' }),
   defineEnvField({ file: 'root', key: 'SCUM_ITEM_MANIFEST_PATH', type: 'text', policy: 'runtime-only', description: 'SCUM item manifest path' }),
   defineEnvField({ file: 'root', key: 'PLATFORM_DEFAULT_TENANT_ID', type: 'text', description: 'Default tenant binding for runtime boot' }),
+  defineEnvField({
+    file: 'root',
+    key: 'PLATFORM_BILLING_PROVIDER',
+    type: 'text',
+    applyMode: 'reload-safe',
+    description: 'Billing provider used for package purchase and renewal flows',
+  }),
+  defineEnvField({
+    file: 'root',
+    key: 'PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY',
+    type: 'text',
+    applyMode: 'reload-safe',
+    description: 'Stripe publishable key exposed to checkout flows',
+  }),
+  defineEnvField({
+    file: 'root',
+    key: 'PLATFORM_BILLING_STRIPE_SECRET_KEY',
+    type: 'secret',
+    applyMode: 'reload-safe',
+    description: 'Stripe secret key used for checkout and webhook operations',
+  }),
+  defineEnvField({
+    file: 'root',
+    key: 'PLATFORM_BILLING_WEBHOOK_SECRET',
+    type: 'secret',
+    applyMode: 'reload-safe',
+    description: 'Stripe webhook verification secret for billing events',
+  }),
+  defineEnvField({
+    file: 'root',
+    key: 'PLATFORM_PUBLIC_BASE_URL',
+    type: 'text',
+    applyMode: 'reload-safe',
+    description: 'Canonical public URL used in billing and shared platform redirects',
+  }),
   defineEnvField({ file: 'portal', key: 'WEB_PORTAL_HOST', type: 'text', policy: 'runtime-only', description: 'Player portal bind host' }),
   defineEnvField({ file: 'portal', key: 'WEB_PORTAL_PORT', type: 'number', policy: 'runtime-only', description: 'Player portal bind port' }),
   defineEnvField({ file: 'portal', key: 'WEB_PORTAL_BASE_URL', type: 'text', description: 'Canonical player portal URL' }),
@@ -344,6 +385,10 @@ const CONTROL_PANEL_SELECT_OPTIONS = Object.freeze({
     Object.freeze({ value: 'schema-per-tenant', label: 'Schema per tenant' }),
     Object.freeze({ value: 'database-per-tenant', label: 'Database per tenant' }),
   ]),
+  PLATFORM_BILLING_PROVIDER: Object.freeze([
+    Object.freeze({ value: 'platform_local', label: 'Platform local' }),
+    Object.freeze({ value: 'stripe', label: 'Stripe' }),
+  ]),
   WEB_PORTAL_COOKIE_SAMESITE: Object.freeze([
     Object.freeze({ value: 'lax', label: 'Lax' }),
     Object.freeze({ value: 'strict', label: 'Strict' }),
@@ -370,6 +415,7 @@ const CONTROL_PANEL_SECTION_LABELS = Object.freeze({
   watcher: 'Watcher + sync',
   webhook: 'Webhook transport',
   content: 'Item catalogs',
+  billing: 'Billing + checkout',
   portal: 'Player portal runtime',
   portalAccess: 'Portal access + Discord',
   portalSession: 'Portal session + cookies',
@@ -426,6 +472,9 @@ function inferControlPanelSectionKey(field) {
     || key === 'PLATFORM_DEFAULT_TENANT_ID'
   ) {
     return 'platform';
+  }
+  if (key.startsWith('PLATFORM_BILLING_') || key === 'PLATFORM_PUBLIC_BASE_URL') {
+    return 'billing';
   }
   if (key.startsWith('DISCORD_') || key.startsWith('BOT_')) return 'bot';
   if (key.startsWith('ADMIN_')) return 'admin';

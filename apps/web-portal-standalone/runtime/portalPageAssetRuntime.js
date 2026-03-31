@@ -15,6 +15,7 @@ function getPortalAssetContentType(ext) {
   const normalized = String(ext || '').toLowerCase();
   if (normalized === '.css') return 'text/css; charset=utf-8';
   if (normalized === '.js') return 'application/javascript; charset=utf-8';
+  if (normalized === '.json') return 'application/json; charset=utf-8';
   if (normalized === '.svg') return 'image/svg+xml; charset=utf-8';
   if (normalized === '.png') return 'image/png';
   if (normalized === '.jpg' || normalized === '.jpeg') return 'image/jpeg';
@@ -174,8 +175,8 @@ function createPortalPageAssetRuntime(options = {}) {
 
   async function tryServePortalStaticAsset(req, res, pathname) {
     if (String(req.method || '').toUpperCase() !== 'GET') return false;
-    const prefix = '/player/assets/ui/';
-    if (!String(pathname || '').startsWith(prefix)) return false;
+    const assetPrefix = '/player/assets/';
+    if (!String(pathname || '').startsWith(assetPrefix)) return false;
 
     if (String(pathname || '').startsWith('/player/assets/ui/visuals/')) {
       let relativeName = '';
@@ -221,7 +222,7 @@ function createPortalPageAssetRuntime(options = {}) {
 
     let relativeName = '';
     try {
-      relativeName = decodeURIComponent(String(pathname || '').slice(prefix.length));
+      relativeName = decodeURIComponent(String(pathname || '').slice(assetPrefix.length));
     } catch {
       return false;
     }
@@ -231,17 +232,26 @@ function createPortalPageAssetRuntime(options = {}) {
     }
 
     const ext = path.extname(relativeName).toLowerCase();
-    if (!new Set(['.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp']).has(ext)) {
+    if (!new Set(['.css', '.js', '.json', '.svg', '.png', '.jpg', '.jpeg', '.webp']).has(ext)) {
       sendJson(res, 404, { ok: false, error: 'Not found' });
       return true;
     }
 
     const candidatePaths = [
       path.resolve(resolvedPublicAssetsDirPath, relativeName),
-      path.resolve(resolvedPublicAssetsDirPath, 'ui', relativeName),
-    ].filter((candidate, index, rows) => rows.indexOf(candidate) === index);
+    ];
+    if (relativeName.startsWith('ui/')) {
+      candidatePaths.push(
+        path.resolve(resolvedPublicAssetsDirPath, relativeName.slice('ui/'.length)),
+      );
+    } else {
+      candidatePaths.push(
+        path.resolve(resolvedPublicAssetsDirPath, 'ui', relativeName),
+      );
+    }
+    const uniqueCandidatePaths = candidatePaths.filter((candidate, index, rows) => rows.indexOf(candidate) === index);
 
-    const absPath = candidatePaths.find((candidate) => candidate.startsWith(resolvedPublicAssetsDirPath));
+    const absPath = uniqueCandidatePaths.find((candidate) => candidate.startsWith(resolvedPublicAssetsDirPath));
     if (!absPath) {
       sendJson(res, 404, { ok: false, error: 'Not found' });
       return true;
@@ -249,7 +259,7 @@ function createPortalPageAssetRuntime(options = {}) {
 
     try {
       let existingPath = null;
-      for (const candidate of candidatePaths) {
+      for (const candidate of uniqueCandidatePaths) {
         if (!candidate.startsWith(resolvedPublicAssetsDirPath)) continue;
         const stat = await fs.promises.stat(candidate).catch(() => null);
         if (stat?.isFile()) {

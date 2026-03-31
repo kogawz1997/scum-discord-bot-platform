@@ -1,4 +1,9 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  resolveTenantStoreScope,
+  buildServerScopedUserKey,
+  parseServerScopedUserKey,
+  matchesServerScope,
+} = require('./tenantStoreScope');
 
 const MAX_HISTORY_PER_USER = 80;
 
@@ -67,8 +72,10 @@ function toHistoryJson(history) {
 function toStateView(userId, row, limit = 20) {
   const take = Math.max(1, Math.min(100, Math.trunc(Number(limit || 20))));
   const history = parseHistoryJson(row?.historyJson);
+  const parsed = parseServerScopedUserKey(userId);
   return {
-    userId: String(userId || ''),
+    userId: parsed.userId,
+    serverId: parsed.serverId,
     lastSpinAt: row?.lastSpinAt ? new Date(row.lastSpinAt).toISOString() : null,
     totalSpins: Number(row?.totalSpins || 0),
     history: history.slice(0, take),
@@ -76,7 +83,7 @@ function toStateView(userId, row, limit = 20) {
 }
 
 async function getUserWheelState(userId, limit = 20, options = {}) {
-  const id = normalizeUserId(userId);
+  const id = buildServerScopedUserKey(userId, options);
   if (!id) return null;
   const row = await getLuckyWheelDb(options).luckyWheelState.findUnique({
     where: { userId: id },
@@ -85,7 +92,7 @@ async function getUserWheelState(userId, limit = 20, options = {}) {
 }
 
 async function canSpinWheel(userId, cooldownMs, nowMs = Date.now(), options = {}) {
-  const id = normalizeUserId(userId);
+  const id = buildServerScopedUserKey(userId, options);
   if (!id) return { ok: false, reason: 'invalid-user-id', remainingMs: 0 };
 
   const cooldown = Math.max(0, Math.trunc(Number(cooldownMs || 0)));
@@ -128,7 +135,7 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now(), options = {}
 }
 
 async function recordWheelSpin(userId, rewardEntry, options = {}) {
-  const id = normalizeUserId(userId);
+  const id = buildServerScopedUserKey(userId, options);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
@@ -164,7 +171,7 @@ async function recordWheelSpin(userId, rewardEntry, options = {}) {
   return {
     ok: true,
     data: {
-      userId: id,
+      ...toStateView(id, next, 1),
       lastSpinAt: next.lastSpinAt ? new Date(next.lastSpinAt).toISOString() : null,
       totalSpins: Number(next.totalSpins || 0),
       reward,
@@ -173,7 +180,7 @@ async function recordWheelSpin(userId, rewardEntry, options = {}) {
 }
 
 async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
-  const id = normalizeUserId(userId);
+  const id = buildServerScopedUserKey(userId, options);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
@@ -218,7 +225,7 @@ async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
   return {
     ok: true,
     data: {
-      userId: id,
+      ...toStateView(id, next, 1),
       lastSpinAt: next.lastSpinAt ? new Date(next.lastSpinAt).toISOString() : null,
       totalSpins: Number(next.totalSpins || 0),
     },
@@ -230,22 +237,32 @@ async function listLuckyWheelStates(limit = 1000, options = {}) {
     orderBy: { updatedAt: 'desc' },
     take: Math.max(1, Number(limit || 1000)),
   });
-  return rows.map((row) => ({
-    userId: row.userId,
-    lastSpinAt: row.lastSpinAt ? new Date(row.lastSpinAt).toISOString() : null,
-    totalSpins: Number(row.totalSpins || 0),
-    history: parseHistoryJson(row.historyJson),
-    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
-  }));
+  return rows
+    .filter((row) => matchesServerScope(row.userId, options))
+    .map((row) => ({
+      ...toStateView(row.userId, row, MAX_HISTORY_PER_USER),
+      createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+      updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    }));
 }
 
 async function replaceLuckyWheelStates(nextRows = [], options = {}) {
   await getLuckyWheelDb(options).$transaction(async (tx) => {
-    await tx.luckyWheelState.deleteMany();
+    if (options.serverId) {
+      const existingRows = await tx.luckyWheelState.findMany();
+      for (const row of existingRows) {
+        if (!matchesServerScope(row.userId, options)) continue;
+        await tx.luckyWheelState.delete({ where: { userId: row.userId } });
+      }
+    } else {
+      await tx.luckyWheelState.deleteMany();
+    }
     for (const row of Array.isArray(nextRows) ? nextRows : []) {
       if (!row || typeof row !== 'object') continue;
-      const userId = normalizeUserId(row.userId);
+      const userId = buildServerScopedUserKey(row.userId, {
+        ...options,
+        serverId: row.serverId || options.serverId,
+      });
       if (!userId) continue;
       const history = Array.isArray(row.history)
         ? row.history.map((entry) => normalizeRewardEntry(entry)).filter(Boolean)

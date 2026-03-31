@@ -155,11 +155,7 @@ function getPersistenceMode() {
   const explicit = String(process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
-  if (
-    typeof isDbPersistenceEnabled === 'function'
-    && isDbPersistenceEnabled()
-    && String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production'
-  ) {
+  if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
     return 'db';
   }
   return 'auto';

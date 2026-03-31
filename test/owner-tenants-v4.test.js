@@ -34,7 +34,7 @@ test('owner tenants v4 model builds registry rows from owner tenant state', () =
     supportCase: { tenantId: 'tenant-1' },
   });
 
-  assert.equal(model.header.title, 'ผู้เช่าและสถานะเชิงพาณิชย์');
+  assert.equal(model.header.title, 'ลูกค้าและสถานะเชิงพาณิชย์');
   assert.equal(model.summaryStrip.length, 4);
   assert.equal(model.rows.length, 2);
   assert.equal(model.spotlight.name, 'Prime');
@@ -52,7 +52,7 @@ test('owner tenants v4 html includes route-specific registry and billing summary
     },
   }, { currentRoute: 'packages' }));
   assert.match(html, /รายชื่อผู้เช่าตามแพ็กเกจ/);
-  assert.match(html, /ผู้เช่าที่ควรเปิดดูก่อน/);
+  assert.match(html, /ลูกค้าที่ควรเปิดดูก่อน/);
   assert.match(html, /เริ่มจากแพ็กเกจที่กระทบผู้เช่ามากที่สุด/);
   assert.match(html, /odv4-workspace-label">แพ็กเกจและสิทธิ์ใช้งาน/);
   assert.match(html, /odv4-table/);

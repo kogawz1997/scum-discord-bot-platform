@@ -1,8 +1,9 @@
 'use strict';
 
 /**
- * Public product-site routes for preview signup/login. These live outside the
- * player/admin auth flows so users can inspect the SaaS before purchase.
+ * Public product-site routes for signup, pricing, and pre-auth commercial
+ * flows. The public site should hand users into the real Tenant or Player
+ * products instead of a fake preview workspace.
  */
 
 function createPublicPlatformRoutes(deps = {}) {
@@ -11,6 +12,7 @@ function createPublicPlatformRoutes(deps = {}) {
     readJsonBody,
     readRawBody,
     getPlatformPublicOverview,
+    registerTenantOwnerAccount,
     registerPreviewAccount,
     authenticatePreviewAccount,
     getPreviewState,
@@ -23,6 +25,7 @@ function createPublicPlatformRoutes(deps = {}) {
     finalizeCheckoutSession,
     processBillingWebhookEvent,
     billingWebhookSecret,
+    buildAdminProductUrl,
     createPreviewSession,
     getPreviewSession,
     buildPreviewSessionCookie,
@@ -39,6 +42,13 @@ function createPublicPlatformRoutes(deps = {}) {
     } = context;
     const url = new URL(String(req?.url || pathname || ''), 'http://local.public');
 
+    const resolveAdminUrl = (pathname, search = '') => {
+      const built = typeof buildAdminProductUrl === 'function'
+        ? buildAdminProductUrl(pathname, search)
+        : null;
+      return built || `${pathname}${search || ''}`;
+    };
+
     if (pathname === '/api/public/packages' && method === 'GET') {
       const overview = await getPlatformPublicOverview();
       sendJson(res, 200, {
@@ -53,31 +63,22 @@ function createPublicPlatformRoutes(deps = {}) {
     }
 
     if (pathname === '/api/public/session' && method === 'GET') {
-      const session = getPreviewSession(req);
-      if (!session?.accountId) {
-        sendJson(res, 200, {
-          ok: true,
-          data: { session: null },
-        });
-        return true;
-      }
-      const state = await getPreviewState(session.accountId);
-      if (!state?.ok) {
-        sendJson(res, 200, {
-          ok: true,
-          data: { session: null },
-        });
-        return true;
-      }
       sendJson(res, 200, {
         ok: true,
         data: {
-          session: {
-            accountId: session.accountId,
-            tenantId: session.tenantId || null,
-          },
-          preview: state.state,
-          packageCatalog: state.packageCatalog || [],
+          session: null,
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/api/public/product-links' && method === 'GET') {
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          tenantLoginUrl: resolveAdminUrl('/tenant/login'),
+          tenantSignupTarget: resolveAdminUrl('/tenant/onboarding'),
+          playerLoginUrl: '/player/login',
         },
       });
       return true;
@@ -85,7 +86,9 @@ function createPublicPlatformRoutes(deps = {}) {
 
     if (pathname === '/api/public/signup' && method === 'POST') {
       const body = await readJsonBody(req);
-      const result = await registerPreviewAccount(body);
+      const result = typeof registerTenantOwnerAccount === 'function'
+        ? await registerTenantOwnerAccount(body)
+        : await registerPreviewAccount(body);
       if (!result?.ok) {
         const status = result?.reason === 'email-exists'
           ? 409
@@ -98,24 +101,21 @@ function createPublicPlatformRoutes(deps = {}) {
         });
         return true;
       }
-      const sessionId = createPreviewSession({
-        accountId: result.account.id,
-        tenantId: result.account.tenantId || result.tenant?.id || null,
-        email: result.account.email,
-      });
+      const bootstrapSearch = result.bootstrapToken
+        ? `?bootstrap=${encodeURIComponent(String(result.bootstrapToken || ''))}`
+        : '';
       sendJson(
         res,
         200,
         {
           ok: true,
           data: {
-            account: result.account,
+            user: result.user || null,
             tenant: result.tenant,
             subscription: result.subscription,
-            nextUrl: '/preview',
+            nextUrl: resolveAdminUrl('/tenant/onboarding', bootstrapSearch),
           },
         },
-        { 'Set-Cookie': buildPreviewSessionCookie(sessionId, req) },
       );
       return true;
     }
@@ -130,11 +130,6 @@ function createPublicPlatformRoutes(deps = {}) {
         });
         return true;
       }
-      const sessionId = createPreviewSession({
-        accountId: result.account.id,
-        tenantId: result.account.tenantId || null,
-        email: result.account.email,
-      });
       sendJson(
         res,
         200,
@@ -142,10 +137,9 @@ function createPublicPlatformRoutes(deps = {}) {
           ok: true,
           data: {
             account: result.account,
-            nextUrl: '/preview',
+            nextUrl: resolveAdminUrl('/tenant/login'),
           },
         },
-        { 'Set-Cookie': buildPreviewSessionCookie(sessionId, req) },
       );
       return true;
     }
@@ -315,7 +309,7 @@ function createPublicPlatformRoutes(deps = {}) {
         ok: true,
         data: {
           ...result,
-          nextUrl: body?.action === 'canceled' ? '/checkout' : '/preview',
+          nextUrl: body?.action === 'canceled' ? '/checkout' : resolveAdminUrl('/tenant/onboarding'),
         },
       });
       return true;

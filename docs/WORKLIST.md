@@ -1,146 +1,193 @@
 # Worklist
 
-This file is the source of truth for work that is still open after the current validation pass.
+This file is the source of truth for work that is still open after the latest workstation audit.
 
-Last updated: `2026-03-27`
+Last updated: `2026-03-31`
 
-Repo-side review and hardening backlog is closed for the current bar. The remaining items below are runtime evidence and operator-maturity tracks, not failing repo validation.
+The repo is no longer in the "nothing left except external evidence" state. The current workstation can boot most runtimes again, but there is still an active local-runtime cleanup track and a larger product-readiness backlog.
 
 ## Status Labels
 
-- `closed`: repo-side implementation and validation are complete for the current bar; any remaining work is live operator evidence outside the repo
-- `runtime-blocked`: depends on live infrastructure outside the repo
-- `deferred`: valid future work, but not required for the current validation bar
+- `open`: required work remains in-repo or on the current runtime profile
+- `partial`: implementation exists but is not clean or complete enough
+- `runtime-blocked`: depends on live infrastructure or machine-specific setup outside the repo alone
+- `deferred`: valid future work, but not first priority
 
-## Recently Closed
+## P0 Local Runtime / Validation Cleanup
 
-### 1. Complete tenant DB topology routing across application service paths
+### 1. Clean production-profile bot startup on this workstation
 
-- Status: `closed`
+- Status: `open`
 - Current state:
-  - PostgreSQL RLS strict mode is active for the current tenant-scoped surface
-  - tenant DB topology resolver and provisioning exist for `shared`, `schema-per-tenant`, and `database-per-tenant`
-  - tenant-aware platform, tenant-config, purchase/admin-commerce, shop, delivery persistence, player/account-wallet, player portal, community/admin store, SCUM webhook, and guild-automation surfaces now route through tenant-scoped Prisma targets when tenant context is present or a default tenant is configured
-  - provider-backed integration coverage now includes tenant-scoped player and community/admin store paths, admin boundary/dashboard aggregation, platform tenant config, and SCUM webhook/community automation routes in [../test/player-tenant-topology.integration.test.js](../test/player-tenant-topology.integration.test.js), [../test/community-tenant-topology.integration.test.js](../test/community-tenant-topology.integration.test.js), [../test/admin-tenant-boundary.integration.test.js](../test/admin-tenant-boundary.integration.test.js), [../test/admin-dashboard-audit-tenant-topology.integration.test.js](../test/admin-dashboard-audit-tenant-topology.integration.test.js), [../test/platform-tenant-config-service.integration.test.js](../test/platform-tenant-config-service.integration.test.js), and [../test/scum-webhook.integration.test.js](../test/scum-webhook.integration.test.js)
-  - this workstation cut over to `TENANT_DB_TOPOLOGY_MODE=schema-per-tenant` on `2026-03-17`; the live runtime now boots with default tenant `1259096998045421672`, provisions schema `tenant_1259096998045421672`, and passes `npm test` plus `node scripts/readiness-gate.js --production`
-- Operational note:
-  - repository target for multi-tenant deployments is `schema-per-tenant`; `database-per-tenant` remains supported for higher-isolation tiers, but is not the active runtime on this workstation
-- Main files:
-  - [docs/DATABASE_STRATEGY.md](./DATABASE_STRATEGY.md)
-  - [src/utils/tenantDbIsolation.js](../src/utils/tenantDbIsolation.js)
-  - [src/utils/tenantDatabaseTopology.js](../src/utils/tenantDatabaseTopology.js)
-  - [src/prisma.js](../src/prisma.js)
-  - [src/services/platformService.js](../src/services/platformService.js)
-  - [src/services/platformTenantConfigService.js](../src/services/platformTenantConfigService.js)
-  - [src/services/purchaseService.js](../src/services/purchaseService.js)
-  - [src/services/shopService.js](../src/services/shopService.js)
-  - [src/services/deliveryPersistenceDb.js](../src/services/deliveryPersistenceDb.js)
-  - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
-
-## Closed In Repo / External Operator Follow-through
-
-### 1. Expand native delivery proof coverage beyond the current workstation matrix
-
-- Status: `closed`
-- Current state:
-  - native proof reads live `SCUM.db` state on this workstation
-  - current live matrices are captured under [assets/live-native-proof-matrix.md](./assets/live-native-proof-matrix.md), [assets/live-native-proof-matrix.json](./assets/live-native-proof-matrix.json), [assets/live-native-proof-wrapper-matrix.md](./assets/live-native-proof-wrapper-matrix.md), and [assets/live-native-proof-wrapper-matrix.json](./assets/live-native-proof-wrapper-matrix.json)
-  - an alternate server-configuration sample with `EnableSpawnOnGround=True` is captured under [assets/live-native-proof-enable-spawn-on-ground-matrix.md](./assets/live-native-proof-enable-spawn-on-ground-matrix.md) and [assets/live-native-proof-enable-spawn-on-ground-retry.md](./assets/live-native-proof-enable-spawn-on-ground-retry.md), but it is still partial rather than a full second verified matrix
-  - a same-workstation `rcon` runtime attempt is captured under [assets/live-native-proof-rcon-attempt.md](./assets/live-native-proof-rcon-attempt.md) and [assets/live-native-proof-rcon-attempt.json](./assets/live-native-proof-rcon-attempt.json); it is blocked by `ECONNREFUSED` on `127.0.0.1:27015`
-  - environment tracking now exists under [assets/live-native-proof-environments.json](./assets/live-native-proof-environments.json), [assets/live-native-proof-coverage-summary.md](./assets/live-native-proof-coverage-summary.md), and [assets/live-native-proof-coverage-summary.json](./assets/live-native-proof-coverage-summary.json)
-  - representative live proof is verified for `Water_05l`, `BakedBeans`, `Emergency_bandage`, `Weapon_M1911`, `Weapon_AK47`, `Magazine_M1911`, `Backpack_02_01`, `Cal_7_62x39mm_Ammobox`, and representative `teleport_spawn` / `announce_teleport_spawn` wrapper profiles
-  - delivery-class coverage and operator guidance are documented in [DELIVERY_NATIVE_PROOF_COVERAGE.md](./DELIVERY_NATIVE_PROOF_COVERAGE.md)
-  - the machine-readable case list now records delivery class, delivery profile, and expected proof strategy in [assets/live-native-proof-cases.json](./assets/live-native-proof-cases.json)
-  - experimental cases that currently do not prove out on this workstation are tracked separately in [assets/live-native-proof-experimental-cases.json](./assets/live-native-proof-experimental-cases.json); repeated `2026-03-17` live attempts for loose-round IDs `Ammo_762` and `Cal_7_62x39mm` still did not yield a confirmed game-state delta, while `Cal_7_62x39mm_Ammobox` now passes as the representative ammo case
-  - proof remains game-state based through inventory/world-spawn delta, not just command-log evidence
-- the matrix runner can now update environment registry entries and rebuild the shared coverage summary/validation contract automatically
-- External follow-through:
-  - run the existing capture flow on the missing second server configuration and second workstation/runtime
-  - commit the resulting evidence without weakening the game-state proof bar
-- Main files:
-  - [src/services/deliveryNativeProof.js](../src/services/deliveryNativeProof.js)
-  - [src/services/deliveryNativeInventoryProof.js](../src/services/deliveryNativeInventoryProof.js)
-  - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
-  - [scripts/delivery-native-proof-scum-savefile.js](../scripts/delivery-native-proof-scum-savefile.js)
-  - [scripts/run-live-native-proof-matrix.js](../scripts/run-live-native-proof-matrix.js)
-  - [docs/assets/live-runtime-evidence.md](./assets/live-runtime-evidence.md)
-- Acceptance:
-  - coverage is documented per delivery class
-  - proof remains based on game state
-  - operator docs explain where inventory delta vs world-spawn delta is expected
-
-### 2. Reduce console-agent dependency to an operationally manageable baseline
-
-- Status: `closed`
-- Current state:
-  - the control plane, scoped agent registration, setup-token activation, device binding, and long-lived credential flow now exist in-repo
-  - two-machine guidance is documented in [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
-  - classified health/preflight diagnostics, heartbeat/session tracking, and failover/circuit-breaker logic exist for the current console-agent boundary
-  - delivery runtime status now exposes an explicit operator contract with dependency notes, blocking checks, and before-retry guidance
-- External follow-through:
-  - capture and retain operator evidence from more than one real execution workstation
-  - if the product ever claims to remove the Windows-session dependency entirely, that must come from a new execution path rather than from wording changes
-- Main files:
-  - [src/integrations/scum/adapters/consoleAgentClient.js](../src/integrations/scum/adapters/consoleAgentClient.js)
-  - [src/domain/agents/agentRegistryService.js](../src/domain/agents/agentRegistryService.js)
-  - [src/domain/delivery/agentExecutionRoutingService.js](../src/domain/delivery/agentExecutionRoutingService.js)
-  - [src/services/rconDelivery.js](../src/services/rconDelivery.js)
-  - [docs/TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
-- Acceptance:
-  - limitation remains documented honestly
-  - machine-binding, scoped credentials, and heartbeat visibility stay intact
-  - operator runbooks describe what "ready" evidence looks like
-
-### 3. Mature restore / rollback from controlled tooling to repeatable operator recovery
-
-- Status: `closed`
-- Current state:
-  - restore preview, rollback backup, guarded maintenance gates, and operator-facing recovery phases exist
-  - restore state now persists a recent history timeline alongside the live status payload
-  - maturity ladder and rollback guidance are documented in [MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
-- External follow-through:
-  - rehearse the flow on more than one environment and keep the timing/SLO evidence outside the repo
-  - extend incident rehearsal evidence if production stress recovery becomes a launch claim
-- Main files:
-  - [docs/MIGRATION_ROLLBACK_POLICY_TH.md](./MIGRATION_ROLLBACK_POLICY_TH.md)
-  - [docs/OPERATIONS_MANUAL_TH.md](./OPERATIONS_MANUAL_TH.md)
-  - [src/services/platformService.js](../src/services/platformService.js)
-- Acceptance:
-  - restore phases remain auditable
-  - rollback prerequisites are documented
-  - operator rehearsal evidence exists outside the repo
-
-### 4. Expand centralized config control until the highest-value runtime keys are covered from admin
-
-- Status: `closed`
-- Current state:
-  - admin control now covers a broader env catalog, including sync/control-plane routing, delivery, webhook, and runtime ownership keys
-  - the catalog now exposes grouped sections, select metadata for mode switches, and numeric validation bounds for ports and timing/threshold keys
-  - current coverage is documented in [CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
-- External follow-through:
-  - keep validating that the covered set is enough for real environment changes without ad-hoc `.env` editing
-  - expand the long tail only when an operator change request proves a gap worth productizing
-- Main files:
-  - [src/config/adminEditableConfig.js](../src/config/adminEditableConfig.js)
-  - [docs/CONFIG_MATRIX.md](./CONFIG_MATRIX.md)
-  - [docs/OPERATIONS_MANUAL_TH.md](./OPERATIONS_MANUAL_TH.md)
-- Acceptance:
-  - highest-value keys for runtime routing and control-plane ownership are covered
-  - unsafe keys remain explicitly runtime-only
-  - any remaining manual-only keys are documented, not hidden
-
-## Deferred Process Items
-
-### 3. Keep release notes current for future releases
-
-- Status: `deferred`
-- Current state:
-  - release policy exists
-  - release notes index and template exist
-  - current release notes are already linked from the main docs
+  - `scum-bot` is online
+  - health endpoint returns `ok=true` and `discordReady=true`
+  - recent error log still contains:
+    - `Production requires ADMIN_WEB_STEP_UP_ENABLED=true`
+    - `Production requires ADMIN_WEB_2FA_ENABLED=true`
+    - `The table public.ControlPlaneServer does not exist in the current database`
 - What is still open:
-  - future releases must keep following the policy
+  - make the bot boot cleanly on the intended production profile
+  - resolve whether the 2FA/step-up guard is expected locally or whether the runtime profile is mismatched
+  - fix schema/state alignment for `ControlPlaneServer`
 - Main files:
-  - [docs/releases/README.md](./releases/README.md)
-  - [docs/releases/TEMPLATE.md](./releases/TEMPLATE.md)
-  - [docs/RELEASE_POLICY.md](./RELEASE_POLICY.md)
+  - [../src/bot.js](../src/bot.js)
+  - [../src/services/platformService.js](../src/services/platformService.js)
+  - [../src/data/repositories/controlPlaneRegistryRepository.js](../src/data/repositories/controlPlaneRegistryRepository.js)
+  - [../src/admin/runtime/adminEnvRuntime.js](../src/admin/runtime/adminEnvRuntime.js)
+
+### 2. Revalidate player portal after the latest PM2 recovery
+
+- Status: `partial`
+- Current state:
+  - `scum-web-portal` is online
+  - process logs show the portal is listening again
+  - error log still reports optional player-data failure for `lucky-wheel-config`
+- What is still open:
+  - verify landing/login/player paths after the latest runtime restart
+  - fix `normalizeHttpUrl is not a function` so optional data loads cleanly
+- Main files:
+  - [../apps/web-portal-standalone/runtime/portalBootstrapRuntime.js](../apps/web-portal-standalone/runtime/portalBootstrapRuntime.js)
+  - [../apps/web-portal-standalone/api/playerGeneralRoutes.js](../apps/web-portal-standalone/api/playerGeneralRoutes.js)
+  - [../apps/web-portal-standalone/public/assets/player-v4-app.js](../apps/web-portal-standalone/public/assets/player-v4-app.js)
+
+### 3. Revalidate Discord admin SSO on a real role mapping
+
+- Status: `runtime-blocked`
+- Current state:
+  - admin DB login is verified locally
+  - Discord SSO code path exists
+  - current guild role export on this workstation does not prove the configured admin role mapping
+- What is still open:
+  - test admin SSO against a guild that actually contains the intended owner/admin/moderator roles
+  - confirm role-to-permission mapping end-to-end
+- Main files:
+  - [../src/admin/auth/adminDiscordOauthClient.js](../src/admin/auth/adminDiscordOauthClient.js)
+  - [../src/admin/auth/adminAuthRuntime.js](../src/admin/auth/adminAuthRuntime.js)
+  - [../scripts/export-admin-discord-roles.js](../scripts/export-admin-discord-roles.js)
+
+## P1 Product-Readiness Foundation
+
+### 4. Finish billing / subscription lifecycle to commercial depth
+
+- Status: `partial`
+- Current state:
+  - billing and subscription foundation exists in schema/services
+  - owner billing views and public checkout foundations exist in code
+- What is still open:
+  - harden provider-backed renew/fail/cancel/retry flows
+  - prove webhook idempotency and invoice lifecycle
+  - add owner-facing billing operations deep enough for support/recovery
+- Main files:
+  - [../src/services/platformBillingLifecycleService.js](../src/services/platformBillingLifecycleService.js)
+  - [../src/services/platformService.js](../src/services/platformService.js)
+  - [../src/admin/api/adminPlatformPostRoutes.js](../src/admin/api/adminPlatformPostRoutes.js)
+  - [../apps/web-portal-standalone/api/publicPlatformRoutes.js](../apps/web-portal-standalone/api/publicPlatformRoutes.js)
+
+### 5. Finish unified identity across email, Discord, Steam, and in-game
+
+- Status: `partial`
+- Current state:
+  - schema and service foundations exist
+  - email preview/login/reset, Discord login, and Steam linking all exist in some form
+- What is still open:
+  - make identity a single finished user journey instead of separate capability slices
+  - complete verification, recovery, linked-account center, and in-game matching flows
+- Main files:
+  - [../src/services/platformIdentityService.js](../src/services/platformIdentityService.js)
+  - [../src/services/publicPreviewService.js](../src/services/publicPreviewService.js)
+  - [../apps/web-portal-standalone/auth/portalAuthRuntime.js](../apps/web-portal-standalone/auth/portalAuthRuntime.js)
+  - [../src/services/linkService.js](../src/services/linkService.js)
+
+### 6. Normalize persistence for core paths
+
+- Status: `partial`
+- Current state:
+  - PostgreSQL + Prisma are active on this workstation
+  - some core control-plane and config paths still mix Prisma, raw SQL, and fallback persistence
+- What is still open:
+  - reduce hybrid persistence in core runtime-sensitive paths
+  - make schema/migration ownership clearer for control-plane, config, and identity data
+- Main files:
+  - [../src/prisma.js](../src/prisma.js)
+  - [../src/data/repositories/controlPlaneRegistryRepository.js](../src/data/repositories/controlPlaneRegistryRepository.js)
+  - [../src/store/_persist.js](../src/store/_persist.js)
+  - [../src/services/platformTenantConfigService.js](../src/services/platformTenantConfigService.js)
+  - [../src/services/platformServerConfigService.js](../src/services/platformServerConfigService.js)
+
+## P2 Product Systems Still Not Finished
+
+### 7. Productize tenant staff / permissions and Discord management
+
+- Status: `partial`
+- Current state:
+  - tenant staff foundation and some tenant Discord UI work exist
+- What is still open:
+  - complete the staff permission matrix
+  - expand tenant-owned Discord setup and diagnostics into a full product workflow
+- Main files:
+  - [../src/services/platformTenantStaffService.js](../src/services/platformTenantStaffService.js)
+  - [../src/admin/assets/tenant-v4-app.js](../src/admin/assets/tenant-v4-app.js)
+  - [../src/admin/assets/tenant-server-bots-v4.js](../src/admin/assets/tenant-server-bots-v4.js)
+
+### 8. Build first-class donation, modules, raid, and killfeed systems
+
+- Status: `open`
+- Current state:
+  - there are supporting building blocks and entitlements
+  - there is not yet a finished first-class product system for these areas
+- What is still open:
+  - donation / supporter lifecycle
+  - module/plugin management lifecycle
+  - raid request / raid window / raid summary
+  - player-facing killfeed product surface
+- Main files:
+  - [../src/domain/billing/packageCatalogService.js](../src/domain/billing/packageCatalogService.js)
+  - [../src/services/eventService.js](../src/services/eventService.js)
+  - [../src/services/scumEvents.js](../src/services/scumEvents.js)
+  - [../apps/web-portal-standalone/api/playerGeneralRoutes.js](../apps/web-portal-standalone/api/playerGeneralRoutes.js)
+
+### 9. Deepen analytics / reporting
+
+- Status: `partial`
+- Current state:
+  - dashboards and some summaries exist
+- What is still open:
+  - add product-grade reporting for revenue, player behavior, delivery quality, restart reliability, and tenant health
+- Main files:
+  - [../src/services/platformService.js](../src/services/platformService.js)
+  - [../src/services/platformMonitoringService.js](../src/services/platformMonitoringService.js)
+  - [../src/admin/assets/owner-v4-app.js](../src/admin/assets/owner-v4-app.js)
+  - [../src/admin/assets/tenant-v4-app.js](../src/admin/assets/tenant-v4-app.js)
+
+## P3 Polish / Architecture Cleanup
+
+### 10. Finish i18n and UX cleanup
+
+- Status: `partial`
+- Current state:
+  - locale dictionaries and switchers exist
+  - some older text and encoding-quality issues still remain
+- What is still open:
+  - remove hardcoded text where it still matters
+  - clean remaining mojibake/encoding debt
+  - improve consistency of loading, error, locked, and empty states
+- Main files:
+  - [../src/admin/assets/admin-i18n.js](../src/admin/assets/admin-i18n.js)
+  - [../apps/web-portal-standalone/public/assets/portal-i18n.js](../apps/web-portal-standalone/public/assets/portal-i18n.js)
+  - [../src/admin/assets/owner-v4-app.js](../src/admin/assets/owner-v4-app.js)
+  - [../src/admin/assets/tenant-v4-app.js](../src/admin/assets/tenant-v4-app.js)
+  - [../apps/web-portal-standalone/public/assets/player-v4-app.js](../apps/web-portal-standalone/public/assets/player-v4-app.js)
+
+### 11. Keep service boundaries moving away from the remaining monolith seams
+
+- Status: `partial`
+- Current state:
+  - runtime separation is much better than before
+  - some boundary seams are still broad, especially around admin/control-plane orchestration
+- What is still open:
+  - reduce dependence on `apps/api/server.js -> src/adminWebServer.js`
+  - keep splitting large multi-concern services into clearer bounded contexts
+- Main files:
+  - [../apps/api/server.js](../apps/api/server.js)
+  - [../src/adminWebServer.js](../src/adminWebServer.js)
+  - [../src/services/platformService.js](../src/services/platformService.js)

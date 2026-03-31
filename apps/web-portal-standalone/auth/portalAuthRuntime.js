@@ -11,6 +11,88 @@ const { URL, URLSearchParams } = require('node:url');
 function createPortalAuthRuntime(options = {}) {
   const sessions = options.sessions;
   const oauthStates = options.oauthStates;
+  const sessionSecret = String(options.sessionSecret || '').trim()
+    || String(options.discordClientSecret || '').trim()
+    || String(options.baseUrl || '').trim()
+    || 'player-portal-dev-session-secret';
+
+  function encodeBase64Url(value) {
+    return Buffer.from(String(value || ''), 'utf8').toString('base64url');
+  }
+
+  function decodeBase64Url(value) {
+    return Buffer.from(String(value || ''), 'base64url').toString('utf8');
+  }
+
+  function signSessionPayload(payloadText) {
+    return crypto.createHmac('sha256', sessionSecret).update(payloadText, 'utf8').digest('base64url');
+  }
+
+  function serializeSessionPayload(sessionId, row) {
+    const payload = {
+      sid: String(sessionId || '').trim(),
+      user: row?.user || null,
+      role: row?.role || 'player',
+      discordId: row?.discordId || null,
+      authMethod: row?.authMethod || null,
+      primaryEmail: row?.primaryEmail || null,
+      avatarUrl: row?.avatarUrl || null,
+      platformUserId: row?.platformUserId || null,
+      platformProfileId: row?.platformProfileId || null,
+      tenantId: row?.tenantId || null,
+      activeServerId: row?.activeServerId || null,
+      activeServerName: row?.activeServerName || null,
+      createdAt: Number(row?.createdAt || 0) || Date.now(),
+      expiresAt: Number(row?.expiresAt || 0) || (Date.now() + options.sessionTtlMs),
+    };
+    const payloadText = JSON.stringify(payload);
+    const payloadBase64 = encodeBase64Url(payloadText);
+    const signature = signSessionPayload(payloadBase64);
+    return `${payloadBase64}.${signature}`;
+  }
+
+  function deserializeSessionPayload(rawValue) {
+    const text = String(rawValue || '').trim();
+    if (!text) return null;
+    const dotIndex = text.lastIndexOf('.');
+    if (dotIndex <= 0) return null;
+    const payloadBase64 = text.slice(0, dotIndex);
+    const signature = text.slice(dotIndex + 1);
+    if (!payloadBase64 || !signature) return null;
+    const expected = signSessionPayload(payloadBase64);
+    const signatureBuffer = Buffer.from(signature, 'utf8');
+    const expectedBuffer = Buffer.from(expected, 'utf8');
+    if (signatureBuffer.length !== expectedBuffer.length) return null;
+    if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+    try {
+      const payload = JSON.parse(decodeBase64Url(payloadBase64));
+      if (!payload || typeof payload !== 'object') return null;
+      const sessionId = String(payload.sid || '').trim();
+      if (!sessionId) return null;
+      const expiresAt = Number(payload.expiresAt || 0);
+      if (!Number.isFinite(expiresAt) || expiresAt <= 0) return null;
+      return {
+        sessionId,
+        row: {
+          user: payload.user || null,
+          role: payload.role || 'player',
+          discordId: payload.discordId || null,
+          authMethod: payload.authMethod || null,
+          primaryEmail: payload.primaryEmail || null,
+          avatarUrl: payload.avatarUrl || null,
+          platformUserId: payload.platformUserId || null,
+          platformProfileId: payload.platformProfileId || null,
+          tenantId: payload.tenantId || null,
+          activeServerId: payload.activeServerId || null,
+          activeServerName: payload.activeServerName || null,
+          createdAt: Number(payload.createdAt || 0) || Date.now(),
+          expiresAt,
+        },
+      };
+    } catch {
+      return null;
+    }
+  }
 
   function extractHostname(rawHost) {
     const input = String(rawHost || '').trim().toLowerCase();
@@ -84,40 +166,78 @@ function createPortalAuthRuntime(options = {}) {
     return parts.join('; ');
   }
 
+  function resolveSessionRecord(rawCookieValue) {
+    const rawValue = String(rawCookieValue || '').trim();
+    if (!rawValue) return null;
+    const sessionPayload = deserializeSessionPayload(rawValue);
+    const sessionId = sessionPayload?.sessionId || rawValue;
+    if (!sessionId) return null;
+    const row = sessions.get(sessionId) || sessionPayload?.row || null;
+    if (!row) return null;
+    return {
+      sessionId,
+      row,
+    };
+  }
+
   function getSession(req) {
     const cookies = parseCookies(req);
-    const sessionId = String(cookies[options.sessionCookieName] || '').trim();
-    if (!sessionId) return null;
-
-    const row = sessions.get(sessionId);
-    if (!row) return null;
+    const rawCookieValue = String(cookies[options.sessionCookieName] || '').trim();
+    if (!rawCookieValue) return null;
+    const record = resolveSessionRecord(rawCookieValue);
+    if (!record) return null;
 
     const now = Date.now();
-    if (row.expiresAt <= now) {
-      sessions.delete(sessionId);
+    if (record.row.expiresAt <= now) {
+      sessions.delete(record.sessionId);
       return null;
     }
 
-    row.expiresAt = now + options.sessionTtlMs;
-    return row;
+    const nextRow = {
+      ...record.row,
+      expiresAt: now + options.sessionTtlMs,
+    };
+    sessions.set(record.sessionId, nextRow);
+    return nextRow;
   }
 
   function createSession(payload) {
     const sessionId = crypto.randomBytes(24).toString('hex');
     const now = Date.now();
-    sessions.set(sessionId, {
+    const row = {
       ...payload,
       createdAt: now,
       expiresAt: now + options.sessionTtlMs,
-    });
-    return sessionId;
+    };
+    sessions.set(sessionId, row);
+    return serializeSessionPayload(sessionId, row);
   }
 
   function removeSession(req) {
     const cookies = parseCookies(req);
-    const sessionId = String(cookies[options.sessionCookieName] || '').trim();
-    if (!sessionId) return;
-    sessions.delete(sessionId);
+    const rawCookieValue = String(cookies[options.sessionCookieName] || '').trim();
+    const record = resolveSessionRecord(rawCookieValue);
+    if (!record?.sessionId) return;
+    sessions.delete(record.sessionId);
+  }
+
+  function updateSession(req, payloadUpdates = {}) {
+    const cookies = parseCookies(req);
+    const rawCookieValue = String(cookies[options.sessionCookieName] || '').trim();
+    const record = resolveSessionRecord(rawCookieValue);
+    if (!record?.sessionId || !record?.row) return null;
+    const now = Date.now();
+    if (record.row.expiresAt <= now) {
+      sessions.delete(record.sessionId);
+      return null;
+    }
+    const nextRow = {
+      ...record.row,
+      ...(payloadUpdates && typeof payloadUpdates === 'object' ? payloadUpdates : {}),
+      expiresAt: now + options.sessionTtlMs,
+    };
+    sessions.set(record.sessionId, nextRow);
+    return serializeSessionPayload(record.sessionId, nextRow);
   }
 
   function cleanupRuntimeState() {
@@ -451,9 +571,16 @@ function createPortalAuthRuntime(options = {}) {
         role: 'player',
         discordId,
         authMethod: 'discord-oauth',
+        primaryEmail: options.normalizeText(platformIdentity?.user?.primaryEmail)
+          || options.normalizeText(platformIdentity?.identity?.providerEmail)
+          || null,
         avatarUrl,
         platformUserId: platformIdentity?.user?.id || null,
         platformProfileId: platformIdentity?.profile?.id || null,
+        tenantId: platformIdentity?.profile?.tenantId
+          || platformIdentity?.membership?.tenantId
+          || options.identityTenantId
+          || null,
       });
 
       res.writeHead(302, {
@@ -480,6 +607,7 @@ function createPortalAuthRuntime(options = {}) {
     handleDiscordCallback,
     handleDiscordStart,
     removeSession,
+    updateSession,
     verifyOrigin,
   };
 }

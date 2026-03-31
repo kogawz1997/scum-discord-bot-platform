@@ -63,6 +63,30 @@ function loadStoreWithMocks(delegate) {
     getFilePath(name) {
       return path.join(process.cwd(), 'tmp', name);
     },
+    isDbPersistenceEnabled() {
+      return false;
+    },
+  });
+  return require(storePath);
+}
+
+function loadStoreWithStrictDbMocks(delegate) {
+  clearModule(storePath);
+  installMock(prismaPath, {
+    prisma: {
+      platformAdminNotification: delegate,
+    },
+  });
+  installMock(persistPath, {
+    atomicWriteJson() {
+      throw new Error('file-fallback-should-not-run');
+    },
+    getFilePath(name) {
+      return path.join(process.cwd(), 'tmp', name);
+    },
+    isDbPersistenceEnabled() {
+      return true;
+    },
   });
   return require(storePath);
 }
@@ -113,4 +137,19 @@ test('admin notification store persists notification lifecycle through the prism
   rows = store.listAdminNotifications({ limit: 10 });
   assert.equal(rows.length, 0);
   assert.equal(harness.snapshot().length, 0);
+});
+
+test('admin notification store does not fall back to file mode when db persistence is required', async () => {
+  const store = loadStoreWithStrictDbMocks({
+    async findMany() {
+      const error = new Error('missing-table');
+      error.code = 'P2021';
+      throw error;
+    },
+  });
+
+  await assert.rejects(
+    () => store.initAdminNotificationStore(),
+    /missing-table/,
+  );
 });

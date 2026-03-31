@@ -10,7 +10,7 @@ const {
   normalizeShopKind,
   buildBundleSummary,
   getDeliveryStatusText,
-  createQueuedPurchase,
+  purchaseShopItemForUser,
 } = require('./shopService');
 
 function normalizeQty(value) {
@@ -24,6 +24,7 @@ async function getResolvedCart(userId, options = {}) {
   const getShopItemByIdFn = options.getShopItemByIdFn || getShopItemById;
   const scopeOptions = {
     tenantId: options.tenantId || null,
+    serverId: options.serverId || null,
     defaultTenantId: options.defaultTenantId || null,
     env: options.env,
   };
@@ -79,7 +80,8 @@ async function checkoutCart(userId, options = {}) {
 
   const debitCoinsFn = options.debitCoinsFn || debitCoins;
   const creditCoinsFn = options.creditCoinsFn || creditCoins;
-  const createQueuedPurchaseFn = options.createQueuedPurchaseFn || createQueuedPurchase;
+  const purchaseShopItemForUserFn =
+    options.purchaseShopItemForUserFn || purchaseShopItemForUser;
 
   let walletBalance = Number((await getWallet(userId, scopeOptions))?.balance || 0);
   if (resolved.totalPrice > 0) {
@@ -109,15 +111,40 @@ async function checkoutCart(userId, options = {}) {
   const purchases = [];
   const failures = [];
   let refundedAmount = 0;
+  const createPassThroughDebit = () => async () => ({
+    ok: true,
+    balance: walletBalance,
+  });
+  const createPassThroughCredit = () => async () => ({
+    ok: true,
+    balance: walletBalance,
+  });
   for (const row of resolved.rows) {
     for (let i = 0; i < row.quantity; i += 1) {
-      try {
-        const result = await createQueuedPurchaseFn({
-          userId,
-          item: row.item,
-          guildId,
-          tenantId: scopeOptions.tenantId || row.item?.tenantId || null,
-        });
+      const result = await purchaseShopItemForUserFn({
+        userId,
+        item: row.item,
+        guildId,
+        actor,
+        source,
+        tenantId: scopeOptions.tenantId || row.item?.tenantId || null,
+        serverId: scopeOptions.serverId || null,
+        debitCoinsFn: createPassThroughDebit(),
+        creditCoinsFn: createPassThroughCredit(),
+        createQueuedPurchaseFn: options.createQueuedPurchaseFn,
+        createPurchaseFn: options.createPurchaseFn,
+        enqueuePurchaseDeliveryFn: options.enqueuePurchaseDeliveryFn,
+        setPurchaseStatusByCodeFn: options.setPurchaseStatusByCodeFn,
+        createVipPurchaseFn: options.createVipPurchaseFn,
+        getMembershipFn: options.getMembershipFn,
+        setMembershipFn: options.setMembershipFn,
+        removeMembershipFn: options.removeMembershipFn,
+        vipPlan: options.vipPlan,
+        now: options.now,
+        requireSteamLink: options.requireSteamLink,
+        env: scopeOptions.env,
+      });
+      if (result.ok) {
         purchases.push({
           itemId: row.item.id,
           itemName: row.item.name,
@@ -126,12 +153,13 @@ async function checkoutCart(userId, options = {}) {
           purchase: result.purchase,
           delivery: result.delivery,
         });
-      } catch (error) {
+      } else {
         refundedAmount += Number(row.item.price || 0);
         failures.push({
           itemId: row.item.id,
           itemName: row.item.name,
-          message: error?.message || String(error),
+          message: result.error || result.reason || 'checkout-line-failed',
+          reason: result.reason || null,
         });
       }
     }

@@ -1,30 +1,22 @@
 'use strict';
 
+const {
+  buildPlayerProductEntitlements,
+  normalizeFeatureAccess,
+} = require('../../../src/domain/billing/productEntitlementService');
+
 const PLAYER_SECTION_RULES = {
-  commerce: ['shop_module', 'orders_module', 'wallet_module', 'bot_delivery'],
+  home: [],
+  stats: ['player_module', 'ranking_module', 'analytics_module'],
+  leaderboard: ['ranking_module', 'analytics_module'],
   shop: ['shop_module'],
-  wallet: ['wallet_module'],
   orders: ['orders_module'],
-  stats: ['player_module', 'ranking_module', 'event_module', 'support_module', 'analytics_module'],
-  ranking: ['ranking_module', 'analytics_module'],
-  events: ['event_module', 'event_auto_reward', 'promo_module'],
+  delivery: ['bot_delivery', 'orders_module'],
+  events: ['event_module'],
+  donations: ['donation_module'],
+  profile: [],
   support: ['support_module'],
 };
-
-function normalizeFeatureAccess(raw) {
-  const enabledFeatureKeys = Array.isArray(raw?.enabledFeatureKeys)
-    ? raw.enabledFeatureKeys
-      .map((value) => String(value || '').trim())
-      .filter(Boolean)
-    : [];
-  return {
-    tenantId: raw?.tenantId || null,
-    package: raw?.package || null,
-    plan: raw?.plan || null,
-    enabledFeatureKeys,
-    featureSet: new Set(enabledFeatureKeys),
-  };
-}
 
 async function loadPlayerFeatureAccess(getTenantFeatureAccess, session) {
   if (typeof getTenantFeatureAccess !== 'function' || !session?.tenantId) {
@@ -57,35 +49,41 @@ function hasFeatureAccess(featureAccess, requiredFeatures) {
 }
 
 function buildPlayerPortalFeatureAccess(featureAccess) {
-  const normalized = normalizeFeatureAccess(featureAccess);
-  const sections = Object.fromEntries(
-    Object.entries(PLAYER_SECTION_RULES).map(([key, requiredFeatures]) => [
-      key,
-      {
-        enabled: hasFeatureAccess(normalized, requiredFeatures),
-        requiredFeatures: [...requiredFeatures],
-      },
-    ]),
-  );
-
+  const canonical = buildPlayerProductEntitlements(featureAccess);
+  const pageSections = {
+    home: canonical.sections.home,
+    stats: canonical.sections.stats,
+    leaderboard: canonical.sections.leaderboard,
+    shop: canonical.sections.shop,
+    orders: canonical.sections.orders,
+    delivery: canonical.sections.delivery,
+    events: canonical.sections.events,
+    donations: canonical.sections.donations,
+    profile: canonical.sections.profile,
+    support: canonical.sections.support,
+  };
   return {
-    tenantId: normalized.tenantId,
-    package: normalized.package,
-    plan: normalized.plan,
-    enabledFeatureKeys: [...normalized.enabledFeatureKeys],
-    sections,
+    ...canonical,
     pages: {
-      home: {
-        enabled: true,
-        requiredFeatures: [],
-      },
+      ...pageSections,
+      home: canonical.sections.home,
       commerce: {
-        enabled: sections.commerce.enabled,
-        requiredFeatures: [...PLAYER_SECTION_RULES.commerce],
+        enabled: [
+          canonical.sections.shop,
+          canonical.sections.orders,
+          canonical.sections.delivery,
+          canonical.sections.donations,
+        ].some((entry) => entry?.enabled),
+        requiredFeatures: ['shop_module', 'orders_module', 'bot_delivery', 'donation_module'],
       },
       stats: {
-        enabled: sections.stats.enabled,
-        requiredFeatures: [...PLAYER_SECTION_RULES.stats],
+        enabled: [
+          canonical.sections.stats,
+          canonical.sections.leaderboard,
+          canonical.sections.events,
+          canonical.sections.support,
+        ].some((entry) => entry?.enabled),
+        requiredFeatures: ['player_module', 'ranking_module', 'event_module', 'support_module'],
       },
     },
   };
@@ -105,6 +103,7 @@ function sendPlayerFeatureDenied(sendJson, res, featureAccess, requiredFeatures,
       enabledFeatureKeys: [...normalized.enabledFeatureKeys],
       tenantId: normalized.tenantId,
       package: normalized.package,
+      entitlements: buildPlayerProductEntitlements(normalized),
     },
   });
   return true;

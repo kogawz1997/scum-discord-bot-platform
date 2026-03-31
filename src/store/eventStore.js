@@ -277,6 +277,40 @@ function startEvent(id, options = {}) {
   return ev;
 }
 
+function updateEvent(id, payload = {}, options = {}) {
+  const scope = ensureEventScope(options);
+  void initEventStore(options);
+  const eventId = Number(id);
+  const ev = scope.state.events.get(eventId);
+  if (!ev) return null;
+
+  const nextName = String(payload.name == null ? ev.name : payload.name).trim();
+  const nextTime = String(payload.time == null ? ev.time : payload.time).trim();
+  const nextReward = String(payload.reward == null ? ev.reward : payload.reward).trim();
+  if (!nextName || !nextTime || !nextReward) return null;
+
+  ev.name = nextName;
+  ev.time = nextTime;
+  ev.reward = nextReward;
+  scope.state.mutationVersion += 1;
+
+  queueDbWrite(
+    scope,
+    async () => {
+      await scope.db.guildEvent.updateMany({
+        where: { id: eventId },
+        data: {
+          name: ev.name,
+          time: ev.time,
+          reward: ev.reward,
+        },
+      });
+    },
+    'update-event',
+  );
+  return ev;
+}
+
 function endEvent(id, options = {}) {
   const scope = ensureEventScope(options);
   void initEventStore(options);
@@ -393,6 +427,7 @@ module.exports = {
   getEvent,
   listEvents,
   joinEvent,
+  updateEvent,
   startEvent,
   endEvent,
   getParticipants,

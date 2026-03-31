@@ -343,7 +343,7 @@ select option:focus {
   min-height: 320px;
   padding: 18px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.88fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   background:
     linear-gradient(90deg, rgba(8, 10, 9, 0.84), rgba(8, 10, 9, 0.68) 52%, rgba(8, 10, 9, 0.82)),
@@ -455,7 +455,7 @@ select option:focus {
 .shop-layout,
 .focus-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -909,7 +909,7 @@ tr:last-child td {
   min-height: 320px;
   padding: 18px;
   border-radius: 26px;
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   align-items: stretch;
 }
@@ -981,7 +981,7 @@ tr:last-child td {
 /* 20260324 player deep rebuild */
 .portal-shell-workbench .portal-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.72fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1195,7 +1195,7 @@ tr:last-child td {
 }
 
 .portal-shell-workbench .portal-command-stage {
-  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
   align-items: stretch;
 }
@@ -1502,7 +1502,7 @@ tr:last-child td {
 
 .portal-shell-workbench .portal-command-stage {
   min-height: 300px;
-  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .portal-shell-workbench .portal-command-copy h1 {

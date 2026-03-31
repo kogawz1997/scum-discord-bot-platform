@@ -169,10 +169,19 @@ function createAdminAuthRuntime(options = {}) {
         reason: 'session-max-per-user',
       });
     }
+    const pendingSessionContext =
+      req && req.__pendingAdminSessionContext && typeof req.__pendingAdminSessionContext === 'object'
+        ? req.__pendingAdminSessionContext
+        : null;
     sessions.set(sessionId, {
       user: username,
       role: options.normalizeRole(role),
       tenantId: String(req?.__pendingAdminTenantId || '').trim() || null,
+      userId: String(pendingSessionContext?.userId || '').trim() || null,
+      tenantMembershipId: String(pendingSessionContext?.tenantMembershipId || '').trim() || null,
+      tenantMembershipType: String(pendingSessionContext?.tenantMembershipType || '').trim() || null,
+      tenantMembershipStatus: String(pendingSessionContext?.tenantMembershipStatus || '').trim() || null,
+      primaryEmail: String(pendingSessionContext?.primaryEmail || '').trim() || null,
       authMethod: String(authMethod || 'password'),
       authSource: String(authMethod || 'password'),
       createdAt: now,
@@ -305,6 +314,12 @@ function createAdminAuthRuntime(options = {}) {
   }
 
   function getAuthContext(req, urlObj) {
+    if (req && Object.prototype.hasOwnProperty.call(req, '__resolvedAdminAuthContext')) {
+      const resolvedAuth = req.__resolvedAdminAuthContext;
+      if (!resolvedAuth) return null;
+      return resolvedAuth;
+    }
+
     const session = getSessionFromRequest(req);
     if (session) {
       const sessionId = getSessionId(req);
@@ -312,8 +327,13 @@ function createAdminAuthRuntime(options = {}) {
         mode: 'session',
         sessionId,
         user: session.user || options.defaultUser,
+        userId: String(session.userId || '').trim() || null,
+        primaryEmail: String(session.primaryEmail || '').trim() || null,
         role: options.normalizeRole(session.role || 'mod'),
         tenantId: String(session.tenantId || '').trim() || null,
+        tenantMembershipId: String(session.tenantMembershipId || '').trim() || null,
+        tenantMembershipType: String(session.tenantMembershipType || '').trim() || null,
+        tenantMembershipStatus: String(session.tenantMembershipStatus || '').trim() || null,
         authMethod: session.authMethod || 'password',
         stepUpVerifiedAt: session.stepUpVerifiedAt || null,
       };

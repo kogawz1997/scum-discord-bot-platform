@@ -11,6 +11,12 @@ const GENERATED_CLIENT_METADATA_PATH = path.join(
   'generated',
   'current.json',
 );
+const GENERATED_CLIENT_ROOT = path.join(
+  PROJECT_ROOT,
+  'artifacts',
+  'prisma',
+  'generated',
+);
 
 function trimText(value, maxLen = 4000) {
   const text = String(value || '').trim();
@@ -25,20 +31,61 @@ function resolveClientModulePath() {
       ? directPath
       : path.resolve(PROJECT_ROOT, directPath);
   }
-  if (!fs.existsSync(GENERATED_CLIENT_METADATA_PATH)) {
-    return null;
+  const requestedProvider = resolveRequestedProvider();
+  const generatedMetadata = getGeneratedClientMetadata();
+  if (requestedProvider) {
+    const metadataProvider = trimText(generatedMetadata?.provider, 80).toLowerCase();
+    if (metadataProvider === requestedProvider) {
+      const metadataOutputPath = trimText(generatedMetadata?.outputPath, 4000);
+      if (metadataOutputPath) {
+        return path.isAbsolute(metadataOutputPath)
+          ? metadataOutputPath
+          : path.resolve(PROJECT_ROOT, metadataOutputPath);
+      }
+    }
+    const providerClientPath = findLatestGeneratedClientForProvider(requestedProvider);
+    if (providerClientPath) {
+      return providerClientPath;
+    }
   }
-  try {
-    const raw = fs.readFileSync(GENERATED_CLIENT_METADATA_PATH, 'utf8');
-    const parsed = JSON.parse(raw);
-    const outputPath = trimText(parsed?.outputPath, 4000);
-    if (!outputPath) return null;
-    return path.isAbsolute(outputPath)
-      ? outputPath
-      : path.resolve(PROJECT_ROOT, outputPath);
-  } catch {
-    return null;
+  if (!generatedMetadata) return null;
+  const outputPath = trimText(generatedMetadata?.outputPath, 4000);
+  if (!outputPath) return null;
+  return path.isAbsolute(outputPath)
+    ? outputPath
+    : path.resolve(PROJECT_ROOT, outputPath);
+}
+
+function normalizeProvider(value) {
+  const provider = trimText(value, 120).toLowerCase();
+  if (provider === 'postgres') return 'postgresql';
+  if (provider === 'postgresql' || provider === 'sqlite' || provider === 'mysql') {
+    return provider;
   }
+  return '';
+}
+
+function resolveRequestedProvider() {
+  return normalizeProvider(process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER);
+}
+
+function findLatestGeneratedClientForProvider(provider) {
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider) return null;
+  const providerRoot = path.join(GENERATED_CLIENT_ROOT, normalizedProvider);
+  if (!fs.existsSync(providerRoot)) return null;
+  const directories = fs.readdirSync(providerRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const fullPath = path.join(providerRoot, entry.name, 'client');
+      return {
+        fullPath,
+        mtimeMs: fs.existsSync(fullPath) ? fs.statSync(fullPath).mtimeMs : 0,
+      };
+    })
+    .filter((entry) => entry.mtimeMs > 0)
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+  return directories[0]?.fullPath || null;
 }
 
 function tryRequire(modulePath) {
@@ -72,9 +119,13 @@ const prismaClientModule = getPrismaClientModule();
 
 module.exports = {
   GENERATED_CLIENT_METADATA_PATH,
+  GENERATED_CLIENT_ROOT,
   Prisma: prismaClientModule.Prisma,
   PrismaClient: prismaClientModule.PrismaClient,
+  findLatestGeneratedClientForProvider,
   getGeneratedClientMetadata,
   getPrismaClientModule,
+  normalizeProvider,
+  resolveRequestedProvider,
   resolveClientModulePath,
 };

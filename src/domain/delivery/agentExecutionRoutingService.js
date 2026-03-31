@@ -52,7 +52,7 @@ function createAgentExecutionRoutingService() {
     const agents = listAgents({
       tenantId,
       serverId: serverContext.serverId,
-    }).filter((row) => ['execute', 'hybrid'].includes(String(row?.role || '')));
+    }).filter((row) => String(row?.role || '') === 'execute' && String(row?.scope || '') === 'execute_only');
     if (agents.length === 0) {
       return {
         ok: false,

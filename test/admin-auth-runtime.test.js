@@ -63,3 +63,55 @@ test('admin auth runtime keeps configured cookie security for non-loopback hosts
   assert.match(cookie, /Domain=admin\.example\.com/);
   assert.match(cookie, /Secure/);
 });
+
+test('admin auth runtime carries tenant membership context into session auth state', () => {
+  const runtime = createRuntime();
+  const req = {
+    headers: {
+      host: 'tenant.example.com',
+    },
+    __pendingAdminTenantId: 'tenant-1',
+    __pendingAdminSessionContext: {
+      userId: 'platform-user-1',
+      primaryEmail: 'tenant-owner@example.com',
+      tenantMembershipId: 'mship-1',
+      tenantMembershipType: 'tenant',
+      tenantMembershipStatus: 'active',
+    },
+  };
+
+  const sessionId = runtime.createSession('tenant-owner@example.com', 'owner', 'platform-user-password', req);
+  const auth = runtime.getAuthContext({
+    headers: {
+      cookie: `scum_admin_session=${encodeURIComponent(sessionId)}`,
+      host: 'tenant.example.com',
+    },
+  });
+
+  assert.equal(auth.userId, 'platform-user-1');
+  assert.equal(auth.primaryEmail, 'tenant-owner@example.com');
+  assert.equal(auth.tenantId, 'tenant-1');
+  assert.equal(auth.tenantMembershipId, 'mship-1');
+  assert.equal(auth.tenantMembershipType, 'tenant');
+  assert.equal(auth.tenantMembershipStatus, 'active');
+});
+
+test('admin auth runtime prefers resolved auth context override when present', () => {
+  const runtime = createRuntime();
+
+  const auth = runtime.getAuthContext({
+    __resolvedAdminAuthContext: {
+      mode: 'session',
+      sessionId: 'session-override',
+      user: 'tenant-admin@example.com',
+      role: 'admin',
+      tenantId: 'tenant-1',
+      tenantMembershipStatus: 'disabled',
+    },
+    headers: {},
+  });
+
+  assert.equal(auth.sessionId, 'session-override');
+  assert.equal(auth.tenantMembershipStatus, 'disabled');
+  assert.equal(auth.tenantId, 'tenant-1');
+});

@@ -61,17 +61,35 @@ test('tenant delivery agents v4 model keeps runtime management context', () => {
         expiresAt: '2026-03-30T10:00:00.000Z',
       },
     ],
+    agentSessions: [
+      {
+        id: 'session-1',
+        sessionId: 'session-1',
+        agentId: 'agent-delivery-1',
+        serverId: 'server-alpha',
+        runtimeKey: 'delivery-1',
+        displayName: 'Delivery Agent Alpha',
+        role: 'execute',
+        scope: 'execute_only',
+        status: 'online',
+        hostname: 'machine-a',
+        version: '1.4.2',
+        heartbeatAt: '2026-03-27T10:05:00.000Z',
+      },
+    ],
     queueItems: [{}, {}],
     deadLetters: [{}],
   });
 
-  assert.equal(model.header.title, 'Delivery Agent');
+  assert.equal(model.header.title, 'บอตส่งของ');
   assert.equal(model.rows.length, 1);
   assert.equal(model.rows[0].name, 'delivery-1');
   assert.equal(model.rows[0].deviceId, 'device-1');
   assert.equal(model.rows[0].apiKeyId, 'apikey-1');
   assert.equal(model.tokens.length, 1);
   assert.equal(model.tokens[0].tokenId, 'token-1');
+  assert.equal(model.history.length, 1);
+  assert.equal(model.history[0].sessionId, 'session-1');
 });
 
 test('tenant delivery agents v4 html exposes provisioning and management hooks', () => {
@@ -121,9 +139,37 @@ test('tenant delivery agents v4 html exposes provisioning and management hooks',
         expiresAt: '2026-03-30T10:00:00.000Z',
       },
     ],
+    agentSessions: [
+      {
+        id: 'session-1',
+        sessionId: 'session-1',
+        agentId: 'agent-delivery-1',
+        serverId: 'server-alpha',
+        runtimeKey: 'delivery-1',
+        displayName: 'Delivery Agent Alpha',
+        role: 'execute',
+        scope: 'execute_only',
+        status: 'online',
+        hostname: 'machine-a',
+        version: '1.4.2',
+        heartbeatAt: '2026-03-27T10:05:00.000Z',
+      },
+    ],
+    __provisioningResult: {
+      'delivery-agents': {
+        instructions: {
+          title: 'ตัวติดตั้งบอตส่งของพร้อมแล้ว',
+          detail: 'Download the installer package for the target machine.',
+          downloads: [
+            { key: 'install-ps1', label: 'ดาวน์โหลดสคริปต์ติดตั้ง (.ps1)' },
+            { key: 'quick-install-cmd', label: 'ดาวน์โหลดตัวติดตั้งแบบเร็ว (.cmd)' },
+          ],
+        },
+      },
+    },
   }));
 
-  assert.match(html, /Delivery Agent/);
+  assert.match(html, /บอตส่งของ/);
   assert.match(html, /data-runtime-server-id="delivery-agents"/);
   assert.match(html, /data-runtime-display-name="delivery-agents"/);
   assert.match(html, /data-runtime-runtime-key="delivery-agents"/);
@@ -133,6 +179,13 @@ test('tenant delivery agents v4 html exposes provisioning and management hooks',
   assert.match(html, /data-runtime-action="revoke-device"/);
   assert.match(html, /data-runtime-action="reissue-provision"/);
   assert.match(html, /data-runtime-action="revoke-provision"/);
+  assert.match(html, /data-runtime-download-kind="delivery-agents"/);
+  assert.match(html, /data-runtime-download-key="install-ps1"/);
+  assert.match(html, /ดาวน์โหลดสคริปต์ติดตั้ง \(\.ps1\)|ดาวน์โหลดไฟล์/);
+  assert.match(html, /ความเคลื่อนไหวล่าสุดของบอต/);
+  assert.match(html, /กติกาการผูกเครื่อง/);
+  assert.match(html, /หมุนคีย์บอต/);
+  assert.match(html, /ยกเลิกสิทธิ์บอต/);
 });
 
 test('tenant delivery agents v4 guides the user when no server exists yet', () => {
@@ -148,6 +201,7 @@ test('tenant delivery agents v4 guides the user when no server exists yet', () =
   assert.match(html, /data-runtime-empty-kind="missing-server"/);
   assert.match(html, /data-runtime-empty-action="delivery-agents"/);
   assert.match(html, /#server-status/);
+  assert.match(html, />เปิดหน้าเซิร์ฟเวอร์</);
 });
 
 test('tenant delivery agents v4 guides the user to install pending setup tokens', () => {

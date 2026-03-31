@@ -26,8 +26,11 @@ function buildRoutes(overrides = {}) {
   return createAdminPublicRoutes({
     tryServeAdminStaticAsset: async () => false,
     tryServeStaticScumIcon: async () => false,
-    sendJson(res, statusCode, payload) {
-      res.writeHead(statusCode, { 'content-type': 'application/json' });
+    sendJson(res, statusCode, payload, headers = {}) {
+      res.writeHead(statusCode, {
+        'content-type': 'application/json',
+        ...headers,
+      });
       res.end(JSON.stringify(payload));
     },
     sendText(res, statusCode, text) {
@@ -41,6 +44,7 @@ function buildRoutes(overrides = {}) {
     isAuthorized: () => true,
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
     getLoginHtml: () => '<login/>',
+    getTenantLoginHtml: () => '<tenant-login/>',
     getOwnerConsoleHtml: () => '<owner/>',
     getTenantConsoleHtml: () => '<tenant/>',
     getDashboardHtml: () => '<legacy/>',
@@ -75,6 +79,8 @@ function buildRoutes(overrides = {}) {
     recordAdminSecuritySignal: () => {},
     createSession: () => ({ id: 'session-id' }),
     buildSessionCookie: () => 'session-id',
+    buildClearSessionCookie: () => 'scum_admin_session=; Max-Age=0',
+    invalidateSession: () => {},
     ...overrides,
   });
 }
@@ -87,7 +93,7 @@ test('admin public routes redirect global admins from /admin to /owner', async (
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/admin'),
     pathname: '/admin',
@@ -100,6 +106,70 @@ test('admin public routes redirect global admins from /admin to /owner', async (
   assert.equal(res.headers.Location, '/owner');
 });
 
+test('admin public routes redirect backend owner path to split owner web when configured or loopback-defaulted', async () => {
+  const previousOwnerBaseUrl = process.env.OWNER_WEB_BASE_URL;
+  delete process.env.OWNER_WEB_BASE_URL;
+  process.env.OWNER_WEB_PORT = '3201';
+  try {
+    const handler = buildRoutes();
+    const res = createMockRes();
+
+    const handled = await handler({
+      client: null,
+      req: { method: 'GET', headers: { host: '127.0.0.1:3200' } },
+      res,
+      urlObj: new URL('http://127.0.0.1:3200/owner/tenants'),
+      pathname: '/owner/tenants',
+      host: '127.0.0.1',
+      port: 3200,
+    });
+
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 302);
+    assert.equal(res.headers.Location, 'http://127.0.0.1:3201/owner/tenants');
+  } finally {
+    if (previousOwnerBaseUrl === undefined) {
+      delete process.env.OWNER_WEB_BASE_URL;
+    } else {
+      process.env.OWNER_WEB_BASE_URL = previousOwnerBaseUrl;
+    }
+    delete process.env.OWNER_WEB_PORT;
+  }
+});
+
+test('admin public routes redirect backend tenant path to split tenant web when configured or loopback-defaulted', async () => {
+  const previousTenantBaseUrl = process.env.TENANT_WEB_BASE_URL;
+  delete process.env.TENANT_WEB_BASE_URL;
+  process.env.TENANT_WEB_PORT = '3202';
+  try {
+    const handler = buildRoutes({
+      getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
+    });
+    const res = createMockRes();
+
+    const handled = await handler({
+      client: null,
+      req: { method: 'GET', headers: { host: '127.0.0.1:3200' } },
+      res,
+      urlObj: new URL('http://127.0.0.1:3200/tenant'),
+      pathname: '/tenant',
+      host: '127.0.0.1',
+      port: 3200,
+    });
+
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 302);
+    assert.equal(res.headers.Location, 'http://127.0.0.1:3202/tenant');
+  } finally {
+    if (previousTenantBaseUrl === undefined) {
+      delete process.env.TENANT_WEB_BASE_URL;
+    } else {
+      process.env.TENANT_WEB_BASE_URL = previousTenantBaseUrl;
+    }
+    delete process.env.TENANT_WEB_PORT;
+  }
+});
+
 test('admin public routes redirect tenant-scoped admins from /admin to /tenant', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
@@ -108,7 +178,7 @@ test('admin public routes redirect tenant-scoped admins from /admin to /tenant',
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/admin'),
     pathname: '/admin',
@@ -121,7 +191,7 @@ test('admin public routes redirect tenant-scoped admins from /admin to /tenant',
   assert.equal(res.headers.Location, '/tenant');
 });
 
-test('admin public routes block tenant-scoped admins from owner console page', async () => {
+test('admin public routes redirect tenant-scoped admins away from owner console page', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
   });
@@ -129,7 +199,7 @@ test('admin public routes block tenant-scoped admins from owner console page', a
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/owner'),
     pathname: '/owner',
@@ -142,7 +212,7 @@ test('admin public routes block tenant-scoped admins from owner console page', a
   assert.equal(res.headers.Location, '/owner/login?switch=1');
 });
 
-test('owner-scoped session can open tenant console page', async () => {
+test('platform owner session is redirected away from tenant console page', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
   });
@@ -150,7 +220,28 @@ test('owner-scoped session can open tenant console page', async () => {
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant'),
+    pathname: '/tenant',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant/login?switch=1');
+});
+
+test('tenant owner session can still open tenant console page', async () => {
+  const handler = buildRoutes({
+    getAuthContext: () => ({ user: 'tenant-owner', role: 'owner', tenantId: 'tenant-1' }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/tenant'),
     pathname: '/tenant',
@@ -163,6 +254,152 @@ test('owner-scoped session can open tenant console page', async () => {
   assert.equal(res.body, '<tenant/>');
 });
 
+test('tenant console redirects to tenant login and clears session when membership is no longer active', async () => {
+  let revokedSessionId = null;
+  const handler = buildRoutes({
+    getAuthContext: () => ({
+      mode: 'session',
+      sessionId: 'session-1',
+      user: 'tenant-owner@example.com',
+      userId: 'platform-user-1',
+      primaryEmail: 'tenant-owner@example.com',
+      role: 'owner',
+      tenantId: 'tenant-1',
+      authMethod: 'platform-user-password',
+    }),
+    resolveTenantSessionAccessContext: async () => ({
+      ok: false,
+      reason: 'tenant-membership-inactive',
+    }),
+    invalidateSession: (sessionId) => {
+      revokedSessionId = sessionId;
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant'),
+    pathname: '/tenant',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(revokedSessionId, 'session-1');
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant/login');
+  assert.equal(res.headers['Set-Cookie'], 'scum_admin_session=; Max-Age=0');
+});
+
+test('tenant login stays on login page when stale tenant session is invalidated', async () => {
+  const handler = buildRoutes({
+    getAuthContext: () => ({
+      mode: 'session',
+      sessionId: 'session-2',
+      user: 'tenant-admin@example.com',
+      userId: 'platform-user-2',
+      primaryEmail: 'tenant-admin@example.com',
+      role: 'admin',
+      tenantId: 'tenant-1',
+      authMethod: 'platform-user-password',
+    }),
+    resolveTenantSessionAccessContext: async () => ({
+      ok: false,
+      reason: 'tenant-user-inactive',
+    }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/login'),
+    pathname: '/tenant/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<tenant-login/>');
+  assert.equal(res.headers['Set-Cookie'], 'scum_admin_session=; Max-Age=0');
+});
+
+test('owner console redirects to owner login and clears session when platform admin becomes inactive', async () => {
+  let revokedSessionId = null;
+  const handler = buildRoutes({
+    getAuthContext: () => ({
+      mode: 'session',
+      sessionId: 'session-owner-1',
+      user: 'owner-runtime',
+      role: 'owner',
+      tenantId: null,
+      authMethod: 'password-db',
+    }),
+    resolveAdminSessionAccessContext: async () => ({
+      ok: false,
+      reason: 'admin-user-inactive',
+    }),
+    invalidateSession: (sessionId) => {
+      revokedSessionId = sessionId;
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/owner'),
+    pathname: '/owner',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(revokedSessionId, 'session-owner-1');
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/owner/login');
+  assert.equal(res.headers['Set-Cookie'], 'scum_admin_session=; Max-Age=0');
+});
+
+test('owner login stays on login page when stale platform admin session is invalidated', async () => {
+  const handler = buildRoutes({
+    getAuthContext: () => ({
+      mode: 'session',
+      sessionId: 'session-owner-2',
+      user: 'owner-runtime',
+      role: 'owner',
+      tenantId: null,
+      authMethod: 'password-db',
+    }),
+    resolveAdminSessionAccessContext: async () => ({
+      ok: false,
+      reason: 'admin-user-inactive',
+    }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/owner/login'),
+    pathname: '/owner/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<login/>');
+  assert.equal(res.headers['Set-Cookie'], 'scum_admin_session=; Max-Age=0');
+});
+
 test('admin public routes serve tenant console html for tenant-scoped admins', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
@@ -171,7 +408,7 @@ test('admin public routes serve tenant console html for tenant-scoped admins', a
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/tenant'),
     pathname: '/tenant',
@@ -187,12 +424,13 @@ test('admin public routes serve tenant console html for tenant-scoped admins', a
 test('owner page redirects unauthenticated users to owner login', async () => {
   const handler = buildRoutes({
     isAuthorized: () => false,
+    getAuthContext: () => null,
   });
   const res = createMockRes();
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/owner'),
     pathname: '/owner',
@@ -208,12 +446,13 @@ test('owner page redirects unauthenticated users to owner login', async () => {
 test('tenant page redirects unauthenticated users to tenant login', async () => {
   const handler = buildRoutes({
     isAuthorized: () => false,
+    getAuthContext: () => null,
   });
   const res = createMockRes();
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/tenant'),
     pathname: '/tenant',
@@ -226,15 +465,38 @@ test('tenant page redirects unauthenticated users to tenant login', async () => 
   assert.equal(res.headers.Location, '/tenant/login');
 });
 
-test('owner login route serves login html when unauthenticated', async () => {
+test('tenant deep-link redirects unauthenticated users to tenant login with next target', async () => {
   const handler = buildRoutes({
     isAuthorized: () => false,
+    getAuthContext: () => null,
   });
   const res = createMockRes();
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/server/config?section=general'),
+    pathname: '/tenant/server/config',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.headers.Location, '/tenant/login?next=%2Ftenant%2Fserver%2Fconfig%3Fsection%3Dgeneral');
+});
+
+test('owner login route serves login html when unauthenticated', async () => {
+  const handler = buildRoutes({
+    isAuthorized: () => false,
+    getAuthContext: () => null,
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/owner/login'),
     pathname: '/owner/login',
@@ -255,7 +517,7 @@ test('tenant login route serves login html when unauthenticated', async () => {
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/tenant/login'),
     pathname: '/tenant/login',
@@ -265,10 +527,10 @@ test('tenant login route serves login html when unauthenticated', async () => {
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<login/>');
+  assert.equal(res.body, '<tenant-login/>');
 });
 
-test('tenant login route redirects owner session into tenant console', async () => {
+test('tenant login route stays on tenant login for platform owner sessions', async () => {
   const handler = buildRoutes({
     isAuthorized: () => true,
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
@@ -277,7 +539,29 @@ test('tenant login route redirects owner session into tenant console', async () 
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/login'),
+    pathname: '/tenant/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<tenant-login/>');
+});
+
+test('tenant login route redirects tenant owner session into tenant console', async () => {
+  const handler = buildRoutes({
+    isAuthorized: () => true,
+    getAuthContext: () => ({ user: 'tenant-owner', role: 'owner', tenantId: 'tenant-1' }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/tenant/login'),
     pathname: '/tenant/login',
@@ -290,7 +574,86 @@ test('tenant login route redirects owner session into tenant console', async () 
   assert.equal(res.headers.Location, '/tenant');
 });
 
-test('owner login route redirects tenant-scoped admins back to tenant console', async () => {
+test('tenant login response keeps a safe nextUrl for direct tenant routes', async () => {
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'tenant-owner@example.com',
+      password: 'secret',
+      nextUrl: '/tenant/server/config',
+    }),
+    authenticateTenantUser: async () => ({
+      ok: true,
+      user: { id: 'user-1', primaryEmail: 'tenant-owner@example.com' },
+      membership: {
+        id: 'membership-1',
+        tenantId: 'tenant-1',
+        role: 'owner',
+        membershipType: 'tenant',
+        status: 'active',
+      },
+    }),
+    createSession: () => 'session-tenant-1',
+    buildSessionCookie: () => 'tenant-session-cookie',
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/login'),
+    pathname: '/tenant/api/auth/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.nextUrl, '/tenant/server/config');
+  assert.equal(res.headers['Set-Cookie'], 'tenant-session-cookie');
+});
+
+test('tenant login response falls back to onboarding for unsafe nextUrl values', async () => {
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'tenant-owner@example.com',
+      password: 'secret',
+      nextUrl: 'https://evil.example/steal',
+    }),
+    authenticateTenantUser: async () => ({
+      ok: true,
+      user: { id: 'user-1', primaryEmail: 'tenant-owner@example.com' },
+      membership: {
+        id: 'membership-1',
+        tenantId: 'tenant-1',
+        role: 'owner',
+        membershipType: 'tenant',
+        status: 'active',
+      },
+    }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/login'),
+    pathname: '/tenant/api/auth/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.nextUrl, '/tenant/onboarding');
+});
+
+test('owner login route stays on owner login for tenant-scoped admins', async () => {
   const handler = buildRoutes({
     isAuthorized: () => true,
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
@@ -299,7 +662,7 @@ test('owner login route redirects tenant-scoped admins back to tenant console', 
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/owner/login'),
     pathname: '/owner/login',
@@ -308,8 +671,8 @@ test('owner login route redirects tenant-scoped admins back to tenant console', 
   });
 
   assert.equal(handled, true);
-  assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, '/tenant');
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<login/>');
 });
 
 test('admin public healthz uses the redacted persistence payload', async () => {
@@ -330,7 +693,7 @@ test('admin public healthz uses the redacted persistence payload', async () => {
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/healthz'),
     pathname: '/healthz',
@@ -358,7 +721,7 @@ test('admin legacy tab routes owner auth traffic into the owner security page', 
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/admin/legacy?tab=auth'),
     pathname: '/admin/legacy',
@@ -368,10 +731,10 @@ test('admin legacy tab routes owner auth traffic into the owner security page', 
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, '/owner#security');
+  assert.equal(res.headers.Location, '/owner/audit');
 });
 
-test('admin legacy tab routes tenant delivery traffic into the tenant commerce page', async () => {
+test('admin legacy tab routes tenant delivery traffic into the tenant orders page', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
   });
@@ -379,7 +742,7 @@ test('admin legacy tab routes tenant delivery traffic into the tenant commerce p
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/admin/legacy?tab=delivery'),
     pathname: '/admin/legacy',
@@ -389,7 +752,7 @@ test('admin legacy tab routes tenant delivery traffic into the tenant commerce p
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, '/tenant#commerce');
+  assert.equal(res.headers.Location, '/tenant/orders');
 });
 
 test('admin legacy fallback still serves dashboard html when explicitly requested', async () => {
@@ -398,7 +761,7 @@ test('admin legacy fallback still serves dashboard html when explicitly requeste
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
     res,
     urlObj: new URL('https://admin.example.com/admin/legacy?fallback=1'),
     pathname: '/admin/legacy',

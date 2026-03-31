@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" href="data:,">
   <title>SCUM TH Platform | Player Portal</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260328-ui-1">
-  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css?v=20260328-ui-1">
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260330-select-fix-1">
+  <link rel="stylesheet" href="/player/assets/ui/player-v4-base.css?v=20260331-player-server-scope-1">
   <link rel="stylesheet" href="/player/assets/ui/player-home-v4.css?v=20260328-ui-1">
   <link rel="stylesheet" href="/player/assets/ui/player-commerce-v4.css?v=20260328-ui-1">
   <link rel="stylesheet" href="/player/assets/ui/player-stats-events-support-v4.css?v=20260328-ui-1">
@@ -16,7 +16,7 @@
   <div class="site-shell">
     <header class="site-topbar">
       <div class="site-topbar-main">
-        <a class="site-brand" href="/player">
+        <a class="site-brand" href="/player/home">
           <span class="site-brand-mark">SCUM</span>
           <span class="site-brand-copy">
             <strong class="site-brand-title" data-i18n="shell.player.title">Player Portal</strong>
@@ -24,12 +24,15 @@
           </span>
         </a>
         <nav class="site-nav" aria-label="Player sections">
-          <a class="site-nav-link is-active" href="/player" data-i18n="shell.role.player">Player</a>
+          <a class="site-nav-link is-active" href="/player/home" data-i18n="shell.role.player">Player</a>
           <a class="site-nav-link" href="/landing" data-i18n="shell.player.service">Service</a>
         </nav>
       </div>
       <div class="site-topbar-tools">
         <span id="playerV4Status" class="surface-status" data-tone="muted" data-i18n="shell.player.status.loading">Preparing player portal</span>
+        <select id="playerServerSelect" class="site-select" aria-label="Player server">
+          <option value="">Server</option>
+        </select>
         <select id="playerLanguageSelect" class="site-select" aria-label="Language"></select>
         <button id="playerV4RefreshBtn" class="site-button site-button-primary" type="button" data-i18n="shell.common.refresh">Refresh data</button>
       </div>
@@ -53,6 +56,7 @@
   <script src="/player/assets/ui/player-home-v4.js?v=20260328-ui-1"></script>
   <script src="/player/assets/ui/player-commerce-v4.js?v=20260328-ui-1"></script>
   <script src="/player/assets/ui/player-stats-events-support-v4.js?v=20260328-ui-1"></script>
-  <script src="/player/assets/ui/player-v4-app.js?v=20260328-ui-1"></script>
+  <script src="/player/assets/ui/player-control-v4.js?v=20260331-player-server-scope-1"></script>
+  <script src="/player/assets/ui/player-v4-app.js?v=20260331-player-server-scope-1"></script>
 </body>
 </html>

@@ -23,8 +23,12 @@ const {
 const {
   getFeatureCatalog,
   getPackageCatalog,
+  listPersistedPackageCatalog,
   resolveFeatureAccess,
   resolvePackageForPlan,
+  createPackageCatalogEntry,
+  updatePackageCatalogEntry,
+  deletePackageCatalogEntry,
 } = require('../domain/billing/packageCatalogService');
 const {
   getPlatformTenantConfig,
@@ -494,8 +498,8 @@ function getFeatureCatalogSummary() {
   return getFeatureCatalog();
 }
 
-function getPackageCatalogSummary() {
-  return getPackageCatalog();
+function getPackageCatalogSummary(options = {}) {
+  return getPackageCatalog(options);
 }
 
 function findPlanById(planId) {
@@ -1243,7 +1247,7 @@ async function createTenant(input = {}, actor = 'system') {
 }
 
 async function listPlatformTenants(options = {}) {
-  const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
+  const take = Math.max(1, Math.min(5000, asInt(options.limit, 100, 1)));
   const where = {};
   if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'suspended', 'inactive']);
   if (options.type) where.type = normalizeTenantType(options.type);
@@ -1301,18 +1305,44 @@ async function createSubscription(input = {}, actor = 'system') {
         metadataJson: stringifyMeta(metadata),
       },
     });
-    const tenantProfile = await db.platformTenant.findUnique({
-      where: { id: tenantId },
-      select: {
-        id: true,
-        ownerEmail: true,
-        ownerName: true,
+    return {
+      row,
+      tenantProfile: {
+        ownerEmail: trimText(tenant?.ownerEmail, 200) || null,
+        ownerName: trimText(tenant?.ownerName, 200) || null,
       },
-    }).catch(() => null);
-    const billingCustomer = await ensureBillingCustomer({
+    };
+  });
+  if (!outcome?.row) return { ok: false, reason: 'tenant-not-found' };
+  const row = outcome.row;
+  let billingCustomer = null;
+  let invoice = null;
+  const invoiceStatus = String(row.status || '').trim().toLowerCase() === 'active' ? 'open' : 'draft';
+  const fallbackInvoice = Number(row.amountCents || 0) > 0
+    && String(row.billingCycle || '').trim().toLowerCase() !== 'trial'
+    ? {
+      id: null,
       tenantId,
-      email: tenantProfile?.ownerEmail || null,
-      displayName: tenantProfile?.ownerName || null,
+      subscriptionId: row.id,
+      customerId: null,
+      status: invoiceStatus,
+      currency: row.currency,
+      amountCents: row.amountCents,
+      dueAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
+      paidAt: null,
+      externalRef: null,
+      metadata: {
+        source: 'create-subscription-fallback',
+        actor,
+        planId: row.planId,
+      },
+    }
+    : null;
+  await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+    billingCustomer = await ensureBillingCustomer({
+      tenantId,
+      email: outcome.tenantProfile?.ownerEmail || null,
+      displayName: outcome.tenantProfile?.ownerName || null,
       metadata: {
         source: 'create-subscription',
         actor,
@@ -1335,9 +1365,7 @@ async function createSubscription(input = {}, actor = 'system') {
         renewsAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
       },
     }, db).catch(() => null);
-    let invoice = null;
-    if (Number(row.amountCents || 0) > 0 && String(row.billingCycle || '').trim().toLowerCase() !== 'trial') {
-      const invoiceStatus = String(row.status || '').trim().toLowerCase() === 'active' ? 'open' : 'draft';
+    if (fallbackInvoice) {
       invoice = await createInvoiceDraft({
         tenantId,
         subscriptionId: row.id,
@@ -1352,38 +1380,8 @@ async function createSubscription(input = {}, actor = 'system') {
           planId: row.planId,
         },
       }, db).catch(() => null);
-      if (!invoice?.invoice) {
-        invoice = {
-          invoice: {
-            id: null,
-            tenantId,
-            subscriptionId: row.id,
-            customerId: billingCustomer?.customer?.id || null,
-            status: invoiceStatus,
-            currency: row.currency,
-            amountCents: row.amountCents,
-            dueAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
-            paidAt: null,
-            externalRef: null,
-            metadata: {
-              source: 'create-subscription-fallback',
-              actor,
-              planId: row.planId,
-            },
-          },
-        };
-      }
     }
-    return {
-      row,
-      billing: {
-        customer: billingCustomer?.customer || null,
-        invoice: invoice?.invoice || null,
-      },
-    };
-  });
-  if (!outcome?.row) return { ok: false, reason: 'tenant-not-found' };
-  const row = outcome.row;
+  }).catch(() => null);
   await emitPlatformEvent('platform.subscription.created', {
     tenantId,
     subscriptionId: row.id,
@@ -1393,7 +1391,15 @@ async function createSubscription(input = {}, actor = 'system') {
   return {
     ok: true,
     subscription: sanitizeSubscriptionRow(row),
-    billing: outcome.billing || { customer: null, invoice: null },
+    billing: {
+      customer: billingCustomer?.customer || null,
+      invoice: invoice?.invoice || (fallbackInvoice
+        ? {
+          ...fallbackInvoice,
+          customerId: billingCustomer?.customer?.id || null,
+        }
+        : null),
+    },
   };
 }
 
@@ -2697,7 +2703,7 @@ async function getPlatformPublicOverview() {
     billing: {
       currency: config.platform?.billing?.currency || 'THB',
       plans: getPlanCatalog(),
-      packages: getPackageCatalogSummary(),
+      packages: await listPersistedPackageCatalog({ status: 'active' }).catch(() => getPackageCatalogSummary({ status: 'active' })),
       features: getFeatureCatalogSummary(),
     },
     trial: config.platform?.demo?.trialEnabled === true ? { enabled: true, cta: '/trial' } : { enabled: false },
@@ -2726,10 +2732,12 @@ module.exports = {
   assertTenantQuotaAvailable,
   compareVersions,
   createMarketplaceOffer,
+  createPackageCatalogEntry,
   createPlatformApiKey,
   createPlatformWebhookEndpoint,
   createSubscription,
   createTenant,
+  deletePackageCatalogEntry,
   dispatchPlatformWebhookEvent,
   emitPlatformEvent,
   getFeatureCatalog: getFeatureCatalogSummary,
@@ -2754,6 +2762,7 @@ module.exports = {
   getTenantOperationalState,
   issuePlatformLicense,
   listMarketplaceOffers,
+  listPersistedPackageCatalog,
   listPlatformAgentRuntimes,
   listPlatformApiKeys,
   listPlatformLicenses,
@@ -2764,5 +2773,6 @@ module.exports = {
   reconcileDeliveryState,
   revokePlatformApiKey,
   rotatePlatformApiKey,
+  updatePackageCatalogEntry,
   verifyPlatformApiKey,
 };

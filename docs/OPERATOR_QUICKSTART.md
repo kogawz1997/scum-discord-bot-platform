@@ -47,6 +47,33 @@ What they answer:
   - what must reload after rotation
   - what validation must happen before reopen
 
+## 2.5 Runtime Helpers On This Machine
+
+Use these when you need to prepare or inspect non-web runtimes without hand-building the env every time:
+
+```bat
+npm run runtime:install:server-bot -- -Help
+npm run runtime:install:delivery-agent -- -Help
+npm run runtime:inventory
+```
+
+What they do:
+
+- `runtime:install:server-bot`
+  - builds a machine-local env bundle for `Server Bot`
+  - writes a PowerShell loader you can reuse on the target machine
+- `runtime:install:delivery-agent`
+  - builds a machine-local env bundle for `Delivery Agent`
+  - writes a PowerShell loader for `console-agent`
+- `runtime:inventory`
+  - prints current runtime state from the control-plane registry
+  - writes JSON to `artifacts/runtime-inventory/latest.json`
+
+Read next:
+
+- [RUNTIME_OPERATOR_CHECKLIST.md](./RUNTIME_OPERATOR_CHECKLIST.md)
+- [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
+
 ## 3. If Something Looks Wrong
 
 ### Delivery is stuck or players report missing items
@@ -210,6 +237,7 @@ npm run env:prepare:multi-tenant-prod
   - [RUNTIME_TOPOLOGY.md](./RUNTIME_TOPOLOGY.md)
   - [RUNTIME_BOUNDARY_EXPLAINER.md](./RUNTIME_BOUNDARY_EXPLAINER.md)
   - [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md)
+  - [RUNTIME_OPERATOR_CHECKLIST.md](./RUNTIME_OPERATOR_CHECKLIST.md)
   - `npm run doctor`
 - Database topology / tenant routing
   - [DATABASE_STRATEGY.md](./DATABASE_STRATEGY.md)

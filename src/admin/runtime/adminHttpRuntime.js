@@ -141,6 +141,8 @@ function createAdminHttpRuntime(options = {}) {
 
   function sendDownload(res, statusCode, body, downloadOptions = {}) {
     const filename = String(downloadOptions.filename || 'download.txt').trim() || 'download.txt';
+    const safeFilename = filename.replace(/["\r\n]/g, '');
+    const encodedFilename = encodeURIComponent(safeFilename);
     const contentType = String(downloadOptions.contentType || 'application/octet-stream').trim()
       || 'application/octet-stream';
     const cacheControl = String(downloadOptions.cacheControl || 'no-store').trim() || 'no-store';
@@ -149,7 +151,7 @@ function createAdminHttpRuntime(options = {}) {
       buildSecurityHeaders({
         'Content-Type': contentType,
         'Cache-Control': cacheControl,
-        'Content-Disposition': `attachment; filename=\"${filename.replace(/"/g, '')}\"`,
+        'Content-Disposition': `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
       }),
     );
     res.end(body);

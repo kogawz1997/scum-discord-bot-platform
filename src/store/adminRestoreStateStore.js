@@ -1,9 +1,13 @@
+'use strict';
+
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { atomicWriteJson, getFilePath } = require('./_persist');
+const { prisma } = require('../prisma');
+const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
 
 const FILE_PATH = getFilePath('admin-restore-state.json');
+const STATE_ROW_ID = 'admin-restore-state';
 const MAX_HISTORY_ENTRIES = 25;
 
 const VALID_STATUS = new Set(['idle', 'running', 'succeeded', 'failed']);
@@ -16,6 +20,9 @@ const VALID_ROLLBACK_STATUS = new Set([
 ]);
 
 let state = null;
+let initPromise = null;
+let writeQueue = Promise.resolve();
+let mutationVersion = 0;
 
 function nowIso() {
   return new Date().toISOString();
@@ -23,7 +30,7 @@ function nowIso() {
 
 function normalizeIso(value) {
   if (!value) return null;
-  const date = new Date(value);
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
 }
@@ -211,52 +218,281 @@ function normalizeState(nextState = {}) {
   };
 }
 
+function parseJsonObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  const text = String(value || '').trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeStateRecord(row) {
+  if (!row || typeof row !== 'object') {
+    return buildDefaultState();
+  }
+  return normalizeState({
+    status: row.status,
+    active: row.active,
+    maintenance: row.maintenance,
+    operationId: row.operationId,
+    backup: row.backup,
+    confirmBackup: row.confirmBackup,
+    rollbackBackup: row.rollbackBackup,
+    actor: row.actor,
+    role: row.role,
+    note: row.note,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+    updatedAt: row.updatedAt,
+    lastCompletedAt: row.lastCompletedAt,
+    durationMs: row.durationMs,
+    lastError: row.lastError,
+    rollbackStatus: row.rollbackStatus,
+    rollbackError: row.rollbackError,
+    counts: parseJsonObject(row.countsJson),
+    currentCounts: parseJsonObject(row.currentCountsJson),
+    diff: parseJsonObject(row.diffJson),
+    warnings: parseJsonArray(row.warningsJson),
+    verification: parseJsonObject(row.verificationJson),
+    previewToken: row.previewToken,
+    previewBackup: row.previewBackup,
+    previewIssuedAt: row.previewIssuedAt,
+    previewExpiresAt: row.previewExpiresAt,
+    history: parseJsonArray(row.historyJson),
+  });
+}
+
+function serializeStateRow(snapshot = {}) {
+  const normalized = normalizeState(snapshot);
+  return {
+    id: STATE_ROW_ID,
+    status: normalized.status,
+    active: normalized.active,
+    maintenance: normalized.maintenance,
+    operationId: normalized.operationId,
+    backup: normalized.backup,
+    confirmBackup: normalized.confirmBackup,
+    rollbackBackup: normalized.rollbackBackup,
+    actor: normalized.actor,
+    role: normalized.role,
+    note: normalized.note,
+    startedAt: normalized.startedAt ? new Date(normalized.startedAt) : null,
+    endedAt: normalized.endedAt ? new Date(normalized.endedAt) : null,
+    lastCompletedAt: normalized.lastCompletedAt ? new Date(normalized.lastCompletedAt) : null,
+    durationMs: normalized.durationMs,
+    lastError: normalized.lastError,
+    rollbackStatus: normalized.rollbackStatus,
+    rollbackError: normalized.rollbackError,
+    countsJson: normalized.counts ? JSON.stringify(normalized.counts) : null,
+    currentCountsJson: normalized.currentCounts ? JSON.stringify(normalized.currentCounts) : null,
+    diffJson: normalized.diff ? JSON.stringify(normalized.diff) : null,
+    warningsJson: JSON.stringify(normalized.warnings || []),
+    verificationJson: normalized.verification ? JSON.stringify(normalized.verification) : null,
+    previewToken: normalized.previewToken,
+    previewBackup: normalized.previewBackup,
+    previewIssuedAt: normalized.previewIssuedAt ? new Date(normalized.previewIssuedAt) : null,
+    previewExpiresAt: normalized.previewExpiresAt ? new Date(normalized.previewExpiresAt) : null,
+    historyJson: JSON.stringify(normalized.history || []),
+  };
+}
+
+function getRestoreStateDelegate(client = prisma) {
+  if (!client || typeof client !== 'object') return null;
+  const delegate = client.platformAdminRestoreState;
+  if (!delegate || typeof delegate.findUnique !== 'function') return null;
+  return delegate;
+}
+
+function getPersistenceMode() {
+  const explicit = String(process.env.ADMIN_RESTORE_STATE_STORE_MODE || '').trim().toLowerCase();
+  if (explicit === 'file') return 'file';
+  if (explicit === 'db') return 'db';
+  if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
+    return 'db';
+  }
+  return 'auto';
+}
+
+function shouldFallbackToFile(error) {
+  const code = String(error?.code || '').trim().toUpperCase();
+  if (['P2021', 'P2022', 'P1017'].includes(code)) return true;
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('no such table')
+    || message.includes('does not exist')
+    || message.includes('unknown table')
+    || message.includes('error validating datasource')
+    || message.includes('url must start with the protocol')
+    || message.includes('platformadminrestorestate');
+}
+
+async function runWithPreferredPersistence(dbWork, fileWork) {
+  const mode = getPersistenceMode();
+  const delegate = getRestoreStateDelegate();
+  if (mode === 'file' || !delegate) {
+    return fileWork();
+  }
+  try {
+    return await dbWork(delegate);
+  } catch (error) {
+    if (mode === 'db' || !shouldFallbackToFile(error)) {
+      throw error;
+    }
+    return fileWork();
+  }
+}
+
+function queueWrite(work, label) {
+  writeQueue = writeQueue
+    .then(async () => {
+      await work();
+    })
+    .catch((error) => {
+      console.error(`[adminRestoreStateStore] ${label} failed:`, error.message);
+    });
+  return writeQueue;
+}
+
 function writeStateToDisk() {
   const snapshot = normalizeState(state || {});
   fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
   atomicWriteJson(FILE_PATH, snapshot);
 }
 
-function initAdminRestoreStateStore() {
-  if (state) return state;
+async function hydrateFromDisk() {
   const fallback = buildDefaultState();
   try {
     if (fs.existsSync(FILE_PATH)) {
       const raw = fs.readFileSync(FILE_PATH, 'utf8');
       if (raw.trim()) {
-        state = normalizeState(JSON.parse(raw));
-        return state;
+        return normalizeState(JSON.parse(raw));
       }
     }
   } catch (error) {
     console.error('[adminRestoreStateStore] failed to hydrate:', error.message);
   }
-  state = fallback;
-  return state;
+  return fallback;
+}
+
+async function hydrateFromDatabase(delegate = getRestoreStateDelegate()) {
+  if (!delegate) {
+    return buildDefaultState();
+  }
+  const row = await delegate.findUnique({
+    where: { id: STATE_ROW_ID },
+  });
+  return normalizeStateRecord(row);
+}
+
+async function persistStateToDatabase(delegate = getRestoreStateDelegate()) {
+  if (!delegate) return;
+  const payload = serializeStateRow(state || buildDefaultState());
+  await delegate.upsert({
+    where: { id: STATE_ROW_ID },
+    create: payload,
+    update: {
+      status: payload.status,
+      active: payload.active,
+      maintenance: payload.maintenance,
+      operationId: payload.operationId,
+      backup: payload.backup,
+      confirmBackup: payload.confirmBackup,
+      rollbackBackup: payload.rollbackBackup,
+      actor: payload.actor,
+      role: payload.role,
+      note: payload.note,
+      startedAt: payload.startedAt,
+      endedAt: payload.endedAt,
+      lastCompletedAt: payload.lastCompletedAt,
+      durationMs: payload.durationMs,
+      lastError: payload.lastError,
+      rollbackStatus: payload.rollbackStatus,
+      rollbackError: payload.rollbackError,
+      countsJson: payload.countsJson,
+      currentCountsJson: payload.currentCountsJson,
+      diffJson: payload.diffJson,
+      warningsJson: payload.warningsJson,
+      verificationJson: payload.verificationJson,
+      previewToken: payload.previewToken,
+      previewBackup: payload.previewBackup,
+      previewIssuedAt: payload.previewIssuedAt,
+      previewExpiresAt: payload.previewExpiresAt,
+      historyJson: payload.historyJson,
+    },
+  });
+}
+
+function initAdminRestoreStateStore() {
+  if (!initPromise) {
+    const startVersion = mutationVersion;
+    initPromise = runWithPreferredPersistence(
+      (delegate) => hydrateFromDatabase(delegate),
+      () => hydrateFromDisk(),
+    ).then((hydrated) => {
+      if (startVersion === mutationVersion) {
+        state = normalizeState(hydrated || {});
+      } else if (!state) {
+        state = normalizeState(hydrated || {});
+      }
+      return state;
+    }).catch(async (error) => {
+      if (getPersistenceMode() === 'db' || !shouldFallbackToFile(error)) {
+        throw error;
+      }
+      console.error('[adminRestoreStateStore] failed to hydrate from prisma:', error.message);
+      state = await hydrateFromDisk();
+      return state;
+    });
+  }
+  return initPromise;
 }
 
 function getAdminRestoreState() {
-  initAdminRestoreStateStore();
+  void initAdminRestoreStateStore();
+  if (!state) {
+    state = buildDefaultState();
+  }
   return normalizeState(state || {});
 }
 
 function setAdminRestoreState(nextState = {}) {
-  initAdminRestoreStateStore();
+  void initAdminRestoreStateStore();
+  mutationVersion += 1;
   state = normalizeState(nextState);
-  try {
-    writeStateToDisk();
-  } catch (error) {
-    console.error('[adminRestoreStateStore] failed to persist:', error.message);
-  }
+  queueWrite(
+    () => runWithPreferredPersistence(
+      (delegate) => persistStateToDatabase(delegate),
+      async () => writeStateToDisk(),
+    ),
+    'persist',
+  );
   return getAdminRestoreState();
 }
 
 function appendAdminRestoreHistory(entry = {}) {
-  initAdminRestoreStateStore();
+  void initAdminRestoreStateStore();
   const normalizedEntry = normalizeHistoryEntry(entry);
   if (!normalizedEntry) {
     return listAdminRestoreHistory();
   }
+  mutationVersion += 1;
   const current = getAdminRestoreState();
   const currentHistory = Array.isArray(current.history) ? current.history : [];
   const dedupeKey = [
@@ -279,11 +515,13 @@ function appendAdminRestoreHistory(entry = {}) {
     history: nextHistory,
     updatedAt: nowIso(),
   });
-  try {
-    writeStateToDisk();
-  } catch (error) {
-    console.error('[adminRestoreStateStore] failed to persist history:', error.message);
-  }
+  queueWrite(
+    () => runWithPreferredPersistence(
+      (delegate) => persistStateToDatabase(delegate),
+      async () => writeStateToDisk(),
+    ),
+    'persist-history',
+  );
   return listAdminRestoreHistory();
 }
 
@@ -298,7 +536,13 @@ function isAdminRestoreMaintenanceActive() {
   return snapshot.active === true || snapshot.maintenance === true;
 }
 
-initAdminRestoreStateStore();
+function waitForAdminRestoreStatePersistence() {
+  return writeQueue;
+}
+
+void initAdminRestoreStateStore().catch((error) => {
+  console.error('[adminRestoreStateStore] init failed:', error.message);
+});
 
 module.exports = {
   appendAdminRestoreHistory,
@@ -307,4 +551,5 @@ module.exports = {
   isAdminRestoreMaintenanceActive,
   listAdminRestoreHistory,
   setAdminRestoreState,
+  waitForAdminRestoreStatePersistence,
 };

@@ -5,6 +5,13 @@
     return document.getElementById(id);
   }
 
+  function resolveLoginApiBase() {
+    const path = String(window.location.pathname || '').trim().toLowerCase();
+    if (path === '/owner' || path.startsWith('/owner/')) return '/owner/api';
+    if (path === '/tenant' || path.startsWith('/tenant/')) return '/tenant/api';
+    return '/admin/api';
+  }
+
   function setError(message, tone) {
     const node = $('errorBox');
     if (!node) return;
@@ -54,7 +61,7 @@
     submit.disabled = true;
     setError('กำลังตรวจสอบสิทธิ์...', 'info');
     try {
-      const data = await requestJson('/admin/api/login', {
+      const data = await requestJson(`${resolveLoginApiBase()}/login`, {
         username,
         password,
         otp,

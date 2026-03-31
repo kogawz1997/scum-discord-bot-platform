@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { Prisma } = require('@prisma/client');
 
 const { prisma, getTenantScopedPrismaClient } = require('../prisma');
 
@@ -457,14 +458,19 @@ async function listBillingInvoices(options = {}, db = prisma) {
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
-  const rows = await scopedDb.$queryRaw`
+  const filters = [];
+  if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
+  if (status) filters.push(Prisma.sql`status = ${status}`);
+  const whereSql = filters.length > 0
+    ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+    : Prisma.empty;
+  const rows = await scopedDb.$queryRaw(Prisma.sql`
     SELECT id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
     FROM platform_billing_invoices
-    WHERE (${tenantId} IS NULL OR tenantId = ${tenantId})
-      AND (${status} IS NULL OR status = ${status})
+    ${whereSql}
     ORDER BY updatedAt DESC, createdAt DESC
     LIMIT ${limit}
-  `;
+  `);
   return Array.isArray(rows) ? rows.map(normalizeInvoiceRow).filter(Boolean) : [];
 }
 
@@ -475,15 +481,20 @@ async function listBillingPaymentAttempts(options = {}, db = prisma) {
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
-  const rows = await scopedDb.$queryRaw`
+  const filters = [];
+  if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
+  if (status) filters.push(Prisma.sql`status = ${status}`);
+  if (provider) filters.push(Prisma.sql`provider = ${provider}`);
+  const whereSql = filters.length > 0
+    ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+    : Prisma.empty;
+  const rows = await scopedDb.$queryRaw(Prisma.sql`
     SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
     FROM platform_billing_payment_attempts
-    WHERE (${tenantId} IS NULL OR tenantId = ${tenantId})
-      AND (${status} IS NULL OR status = ${status})
-      AND (${provider} IS NULL OR provider = ${provider})
+    ${whereSql}
     ORDER BY updatedAt DESC, createdAt DESC
     LIMIT ${limit}
-  `;
+  `);
   return Array.isArray(rows) ? rows.map(normalizePaymentAttemptRow).filter(Boolean) : [];
 }
 
@@ -849,10 +860,21 @@ async function createCheckoutSession(input = {}, db = prisma) {
     checkoutSession: true,
     sessionToken,
     checkoutUrl: trimText(providerSession?.checkoutUrl, 800)
-      || trimText(input.checkoutUrl, 800)
-      || `/payment-result?session=${encodeURIComponent(sessionToken)}`,
-    successUrl: trimText(input.successUrl, 800) || '/preview',
-    cancelUrl: trimText(input.cancelUrl, 800) || '/checkout',
+      || buildAbsolutePortalUrl(trimText(input.checkoutUrl, 800) || '/payment-result', {
+        session: sessionToken,
+        provider,
+        status: 'pending',
+      }),
+    successUrl: buildAbsolutePortalUrl(trimText(input.successUrl, 800) || '/preview', {
+      session: sessionToken,
+      provider,
+      status: 'paid',
+    }),
+    cancelUrl: buildAbsolutePortalUrl(trimText(input.cancelUrl, 800) || '/checkout', {
+      session: sessionToken,
+      provider,
+      status: 'canceled',
+    }),
     expiresAt: toIso(providerSession?.expiresAt) || toIso(input.expiresAt) || toIso(addDays(new Date(), 1)),
     subscriptionId: invoice.subscriptionId || trimText(input.subscriptionId, 160) || null,
     customerId: invoice.customerId || trimText(input.customerId, 160) || null,

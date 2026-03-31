@@ -127,44 +127,10 @@
     };
   }
 
-  function buildStaffMemberships(state) {
-    const memberships = Array.isArray(state?.staffMemberships) ? state.staffMemberships : [];
-    return memberships.map((membership) => ({
-      membershipId: firstNonEmpty([membership?.membershipId, membership?.id]),
-      userId: firstNonEmpty([membership?.userId, membership?.user?.id]),
-      displayName: firstNonEmpty([
-        membership?.user?.displayName,
-        membership?.displayName,
-        membership?.user?.email,
-        membership?.email,
-        'Unknown teammate',
-      ]),
-      email: firstNonEmpty([membership?.user?.email, membership?.email, '-']),
-      role: firstNonEmpty([membership?.role, 'member']),
-      status: firstNonEmpty([membership?.status, 'active']),
-      locale: firstNonEmpty([membership?.user?.locale, membership?.locale, 'en']),
-      invitedAt: formatDateTime(membership?.invitedAt || membership?.createdAt),
-      updatedAt: formatDateTime(membership?.updatedAt || membership?.acceptedAt || membership?.createdAt),
-      isPrimary: Boolean(membership?.isPrimary),
-    }));
-  }
-
-  function createStaffSummary(memberships) {
-    const rows = Array.isArray(memberships) ? memberships : [];
-    return {
-      total: rows.length,
-      active: rows.filter((item) => String(item?.status || '').trim().toLowerCase() === 'active').length,
-      invited: rows.filter((item) => String(item?.status || '').trim().toLowerCase() === 'invited').length,
-      revoked: rows.filter((item) => String(item?.status || '').trim().toLowerCase() === 'revoked').length,
-    };
-  }
-
   function createTenantPlayersV4Model(source) {
     const state = source && typeof source === 'object' ? source : {};
     const tenantName = extractTenantName(state);
     const players = Array.isArray(state?.players) ? state.players : [];
-    const staffMemberships = buildStaffMemberships(state);
-    const staffSummary = createStaffSummary(staffMemberships);
     const linkedCount = players.filter((item) => item?.steamId || item?.steam?.id).length;
     const activeCount = players.filter((item) => item?.isActive !== false).length;
     const needsSupportCount = players.filter((item) => (
@@ -172,14 +138,6 @@
       || (state?.deliveryCase && String(state.deliveryCase?.purchase?.userId || '').trim() === String(item?.discordId || item?.userId || '').trim())
     )).length;
     const selected = buildSelectedPlayer(state);
-    const previewMode = Boolean(
-      state?.tenantConfig?.previewMode
-      || state?.overview?.tenantConfig?.previewMode
-      || state?.overview?.opsState?.previewMode
-    );
-    const actorRole = String(state?.me?.role || '').trim().toLowerCase();
-    const canManageStaff = !previewMode && !['viewer', 'member'].includes(actorRole);
-
     return {
       shell: {
         brand: 'SCUM TH',
@@ -213,14 +171,6 @@
         status: playerStatusLabel(row),
         updatedAt: formatDateTime(row?.updatedAt || row?.createdAt),
       })),
-      staff: {
-        memberships: staffMemberships,
-        summary: staffSummary,
-        canManage: canManageStaff,
-        previewMode,
-        roleOptions: ['admin', 'manager', 'support', 'moderator', 'editor', 'viewer', 'member'],
-        statusOptions: ['active', 'invited', 'disabled', 'revoked'],
-      },
       selected,
       railCards: [
         {
@@ -238,6 +188,12 @@
             ? `Delivery signal: ${selected.recentDeliveryIssue}`
             : 'Open order history or wallet support for the selected player next.',
           tone: selected?.recentDeliveryIssue ? 'warning' : 'muted',
+        },
+        {
+          title: 'Team access moved',
+          body: 'Manage invites, roles, and access from the dedicated team pages.',
+          meta: 'Use Staff for invitations and user access. Use Roles for the permission matrix.',
+          tone: 'info',
         },
       ],
     };
@@ -412,25 +368,11 @@
       '</section>',
       '<section class="tdv4-panel tdv4-staff-panel">',
       '<div class="tdv4-section-kicker">Team access</div>',
-      '<h2 class="tdv4-section-title">Tenant staff and permissions</h2>',
-      `<p class="tdv4-page-subtitle">${escapeHtml(safeModel.staff.previewMode ? 'Preview tenants can review access layout, but invites and edits stay disabled until activation.' : 'Invite operators, update roles, and revoke access without leaving the players workspace.')}</p>`,
-      '<div class="tdv4-support-grid">',
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Total staff</div><div class="tdv4-mini-stat-value">${escapeHtml(formatNumber(safeModel.staff.summary.total, '0'))}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Active</div><div class="tdv4-mini-stat-value">${escapeHtml(formatNumber(safeModel.staff.summary.active, '0'))}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Invited</div><div class="tdv4-mini-stat-value">${escapeHtml(formatNumber(safeModel.staff.summary.invited, '0'))}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Revoked</div><div class="tdv4-mini-stat-value">${escapeHtml(formatNumber(safeModel.staff.summary.revoked, '0'))}</div></article>`,
-      '</div>',
-      '<form class="tdv4-staff-form" data-tenant-staff-invite-form>',
-      `<label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Email</span><input class="tdv4-basic-input" type="email" name="email" placeholder="operator@example.com"${safeModel.staff.canManage ? '' : ' disabled'}></label>`,
-      `<label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Display name</span><input class="tdv4-basic-input" type="text" name="displayName" placeholder="Ops teammate"${safeModel.staff.canManage ? '' : ' disabled'}></label>`,
-      `<label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Role</span><select class="tdv4-basic-input" name="role"${safeModel.staff.canManage ? '' : ' disabled'}>${renderOptionList(safeModel.staff.roleOptions, 'support')}</select></label>`,
-      `<label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Locale</span><select class="tdv4-basic-input" name="locale"${safeModel.staff.canManage ? '' : ' disabled'}><option value="en">en</option><option value="th">th</option></select></label>`,
-      `<div class="tdv4-form-actions"><button class="tdv4-button tdv4-button-primary" type="submit" data-tenant-staff-invite-submit${safeModel.staff.canManage ? '' : ' disabled'}>Invite teammate</button></div>`,
-      '</form>',
-      '<div class="tdv4-staff-list">',
-      ...(Array.isArray(safeModel.staff.memberships) && safeModel.staff.memberships.length
-        ? safeModel.staff.memberships.map((entry) => renderStaffCard(entry, safeModel.staff))
-        : ['<div class="tdv4-empty-state">No tenant staff yet. Invite your first operator to start sharing support and moderation work.</div>']),
+      '<h2 class="tdv4-section-title">Manage team access from the dedicated team pages</h2>',
+      '<p class="tdv4-page-subtitle">Keep this page focused on player support. Open the Staff page to invite users, and open Roles to review permissions.</p>',
+      '<div class="tdv4-action-list">',
+      '<a class="tdv4-button tdv4-button-primary" href="/tenant/staff">Open staff</a>',
+      '<a class="tdv4-button tdv4-button-secondary" href="/tenant/roles">Open roles &amp; permissions</a>',
       '</div>',
       '</section>',
       '</main>',

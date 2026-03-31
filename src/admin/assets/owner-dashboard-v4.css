@@ -308,8 +308,8 @@ body { padding: 24px; }
 }
 
 .odv4-priority-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(272px, 0.85fr);
-  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .odv4-priority-checkpoints {
@@ -382,9 +382,16 @@ body { padding: 24px; }
   gap: 16px;
 }
 
+.odv4-kpi-strip > *,
+.odv4-task-grid > *,
+.odv4-split-grid > *,
+.odv4-runbook-grid > * {
+  min-width: 0;
+}
+
 .odv4-task-grid,
 .odv4-runbook-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.odv4-split-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+.odv4-split-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .odv4-list-item,
 .odv4-feed-item,
@@ -759,5 +766,64 @@ body.surface-owner .odv4-page-title {
   body.surface-owner .odv4-shell {
     grid-template-columns: 1fr;
     padding: 0;
+  }
+}
+
+/* Layout balance pass */
+:root {
+  --odv4-layout-sidebar: 248px;
+  --odv4-layout-rail: 300px;
+  --odv4-layout-gap: 20px;
+  --odv4-summary-min: 220px;
+  --odv4-summary-card-height: 144px;
+  --odv4-pagehead-height: 176px;
+}
+
+.odv4-shell {
+  grid-template-columns: var(--odv4-layout-sidebar) minmax(0, 1fr) var(--odv4-layout-rail);
+  gap: var(--odv4-layout-gap);
+}
+
+.odv4-kpi-strip {
+  grid-template-columns: repeat(auto-fit, minmax(var(--odv4-summary-min), 1fr));
+}
+
+.odv4-kpi {
+  min-height: var(--odv4-summary-card-height);
+}
+
+.odv4-pagehead {
+  min-height: clamp(var(--odv4-pagehead-height), 24vh, 216px);
+}
+
+.odv4-pagehead-actions {
+  min-width: 0;
+  width: min(100%, 340px);
+}
+
+body.surface-owner .odv4-shell {
+  grid-template-columns: var(--odv4-layout-sidebar) minmax(0, 1fr) var(--odv4-layout-rail);
+  gap: var(--odv4-layout-gap);
+}
+
+body.surface-owner .odv4-pagehead {
+  min-height: var(--odv4-pagehead-height);
+}
+
+@media (max-width: 1440px) {
+  .odv4-shell,
+  body.surface-owner .odv4-shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 920px) {
+  .odv4-shell,
+  body.surface-owner .odv4-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .odv4-pagehead-actions {
+    width: 100%;
   }
 }

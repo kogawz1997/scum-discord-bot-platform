@@ -115,6 +115,60 @@
     return Array.isArray(list) ? list.length : 0;
   }
 
+  function findWorkspaceSettingValue(state, settingKey) {
+    const targetKey = String(settingKey || '').trim().toLowerCase();
+    if (!targetKey) return '';
+    const workspace = state?.serverConfigWorkspace && typeof state.serverConfigWorkspace === 'object'
+      ? state.serverConfigWorkspace
+      : null;
+    const categories = Array.isArray(workspace?.categories) ? workspace.categories : [];
+    for (const category of categories) {
+      const groups = Array.isArray(category?.groups) ? category.groups : [];
+      for (const group of groups) {
+        const settings = Array.isArray(group?.settings) ? group.settings : [];
+        for (const setting of settings) {
+          if (String(setting?.key || '').trim().toLowerCase() !== targetKey) continue;
+          const value = String(setting?.currentValue ?? setting?.value ?? '').trim();
+          if (value) return value;
+        }
+      }
+    }
+    return '';
+  }
+
+  function buildControlReadiness(state) {
+    const startConfigured = Boolean(findWorkspaceSettingValue(state, 'SCUM_SERVER_START_TEMPLATE'));
+    const stopConfigured = Boolean(findWorkspaceSettingValue(state, 'SCUM_SERVER_STOP_TEMPLATE'));
+    const restartConfigured = Boolean(
+      findWorkspaceSettingValue(state, 'SCUM_SERVER_RESTART_TEMPLATE')
+      || findWorkspaceSettingValue(state, 'SCUM_SERVER_APPLY_TEMPLATE'),
+    );
+    const items = [
+      {
+        label: startConfigured ? 'Start command ready' : 'Start command needs setup',
+        tone: startConfigured ? 'success' : 'warning',
+      },
+      {
+        label: stopConfigured ? 'Stop command ready' : 'Stop command needs setup',
+        tone: stopConfigured ? 'success' : 'warning',
+      },
+      {
+        label: restartConfigured ? 'Restart command ready' : 'Restart command needs setup',
+        tone: restartConfigured ? 'success' : 'warning',
+      },
+    ];
+    const missingCount = items.filter((item) => item.tone !== 'success').length;
+    return {
+      startConfigured,
+      stopConfigured,
+      restartConfigured,
+      items,
+      detail: missingCount
+        ? 'Set the missing Server Bot command templates from Server Config before using the disabled controls.'
+        : 'Server control templates are configured and ready for daily operations.',
+    };
+  }
+
   function findAgentStatus(agents, matcher) {
     const rows = Array.isArray(agents) ? agents : [];
     const found = rows.find((item) => matcher(String(item?.role || item?.kind || item?.type || '').trim().toLowerCase()));
@@ -227,9 +281,32 @@
     return rows.slice(0, 6);
   }
 
+  function deriveRestartHistory(state) {
+    if (Array.isArray(state?.restartHistory) && state.restartHistory.length > 0) {
+      return state.restartHistory;
+    }
+    const executions = Array.isArray(state?.restartExecutions) ? state.restartExecutions : [];
+    const plans = Array.isArray(state?.restartPlans) ? state.restartPlans : [];
+    const planMap = new Map(
+      plans
+        .filter((entry) => entry && entry.id)
+        .map((entry) => [String(entry.id), entry]),
+    );
+    return executions.map((execution) => {
+      const plan = planMap.get(String(execution?.planId || '').trim()) || null;
+      return {
+        at: execution?.completedAt || execution?.startedAt || plan?.scheduledFor || null,
+        mode: execution?.action || plan?.restartMode || 'restart',
+        result: execution?.resultStatus || plan?.status || 'unknown',
+        actor: plan?.requestedBy || execution?.runtimeKey || '-',
+      };
+    }).slice(0, 6);
+  }
+
   function createTenantServerStatusV4Model(legacyState) {
     const state = legacyState && typeof legacyState === 'object' ? legacyState : {};
     const tenantName = extractTenantName(state);
+    const controlReadiness = buildControlReadiness(state);
     const serverStatus = normalizeStatus(
       state?.overview?.serverStatus
       || state?.dashboardCards?.serverStatus
@@ -242,6 +319,7 @@
     const queueDepth = listCount(state?.queueItems);
     const deadLetters = listCount(state?.deadLetters);
     const incidents = buildIncidentRows(state);
+    const restartHistory = deriveRestartHistory(state);
     const analytics = state?.overview?.analytics || {};
     const delivery = analytics?.delivery || {};
     const runtimeMode = firstNonEmpty([
@@ -270,7 +348,13 @@
           { label: `Server Bot ${statusLabel(syncStatus)}`, tone: toneForStatus(syncStatus) },
           { label: `sync ล่าสุด ${formatRelative(lastSyncAt)}`, tone: 'muted' },
         ],
-        primaryAction: { label: 'เปิดการวินิจฉัยระบบ', href: '#diagnostics' },
+        primaryAction: { label: 'Safe restart', restartMode: 'safe_restart', delaySeconds: 0 },
+        secondaryActions: [
+          { label: 'Restart now', restartMode: 'immediate', delaySeconds: 0 },
+          { label: 'Restart in 5 minutes', restartMode: 'delayed', delaySeconds: 300 },
+          { label: 'Start server', serverAction: 'start' },
+          { label: 'Stop server', serverAction: 'stop' },
+        ],
       },
       statusStrip: [
         { label: 'ความพร้อมของเซิร์ฟเวอร์', value: statusLabel(serverStatus), detail: 'พร้อมเปิดงานประจำวันหรือไม่', tone: toneForStatus(serverStatus) },
@@ -312,6 +396,13 @@
         ],
         detail: 'ใช้ดูว่าข้อมูลจากเกมยังสดพอสำหรับหน้าเว็บ การส่งของ และงานซัพพอร์ตหรือไม่',
       },
+      controlReadiness,
+      restartHistory: restartHistory.map((item) => ({
+        at: formatDateTime(item?.at),
+        mode: firstNonEmpty([item?.mode, 'restart']),
+        result: firstNonEmpty([item?.result, 'unknown']),
+        actor: firstNonEmpty([item?.actor, '-']),
+      })),
       timeline: buildTimeline(state),
       railCards: [
         incidents[0]
@@ -396,6 +487,16 @@
     ].join('');
   }
 
+  function renderRestartHistoryItem(item) {
+    return [
+      '<article class="tdv4-mini-stat">',
+      `<div class="tdv4-mini-stat-label">${escapeHtml(item.mode)}</div>`,
+      `<div class="tdv4-mini-stat-value">${escapeHtml(item.result)}</div>`,
+      `<div class="tdv4-kpi-detail">${escapeHtml(item.at)} · ${escapeHtml(item.actor)}</div>`,
+      '</article>',
+    ].join('');
+  }
+
   function buildTenantServerStatusV4Html(model) {
     const safeModel = model || createTenantServerStatusV4Model({});
     return [
@@ -429,11 +530,39 @@
       '</div>',
       '</div>',
       '<div class="tdv4-pagehead-actions">',
-      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label)}</a>`,
+      `<button class="tdv4-button tdv4-button-primary" type="button" data-server-restart-button data-restart-mode="${escapeHtml(safeModel.header.primaryAction.restartMode || 'safe_restart')}" data-restart-delay-seconds="${escapeHtml(safeModel.header.primaryAction.delaySeconds || 0)}">${escapeHtml(safeModel.header.primaryAction.label)}</button>`,
       '</div>',
       '</section>',
       '<section class="tdv4-kpi-strip tdv4-status-strip">',
       ...(Array.isArray(safeModel.statusStrip) ? safeModel.statusStrip.map(renderMetricCard) : []),
+      '</section>',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Primary action</div>',
+      '<h2 class="tdv4-section-title">Server actions</h2>',
+      '<p class="tdv4-section-copy">Use this page for daily server control. Restart, start, and stop are all available from the same workspace.</p>',
+      '<div class="tdv4-action-list">',
+      ...(Array.isArray(safeModel.header.secondaryActions)
+        ? safeModel.header.secondaryActions.map((action) => action.serverAction
+          ? `<button class="tdv4-button tdv4-button-secondary" type="button" data-server-control-button data-server-control-action="${escapeHtml(action.serverAction)}">${escapeHtml(action.label)}</button>`
+          : `<button class="tdv4-button tdv4-button-secondary" type="button" data-server-restart-button data-restart-mode="${escapeHtml(action.restartMode || 'safe_restart')}" data-restart-delay-seconds="${escapeHtml(action.delaySeconds || 0)}">${escapeHtml(action.label)}</button>`)
+        : []),
+      '</div>',
+      '</section>',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Secondary actions</div>',
+      '<h2 class="tdv4-section-title">Control readiness</h2>',
+      `<p class="tdv4-section-copy">${escapeHtml(safeModel.controlReadiness?.detail || '')}</p>`,
+      '<div class="tdv4-chip-row">',
+      ...((Array.isArray(safeModel.controlReadiness?.items) ? safeModel.controlReadiness.items : []).map((chip) => renderBadge(chip.label, chip.tone))),
+      '</div>',
+      '</section>',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Details / history</div>',
+      '<h2 class="tdv4-section-title">Restart history</h2>',
+      '<p class="tdv4-section-copy">Review the latest restart attempts here before sending another restart job.</p>',
+      (Array.isArray(safeModel.restartHistory) && safeModel.restartHistory.length
+        ? `<div class="tdv4-history-grid">${safeModel.restartHistory.map(renderRestartHistoryItem).join('')}</div>`
+        : '<div class="tdv4-empty-state">No restart history is visible yet for this tenant.</div>'),
       '</section>',
       '<section class="tdv4-dual-grid">',
       '<section class="tdv4-panel">',

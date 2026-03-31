@@ -2,6 +2,7 @@
   createEvent,
   listEvents,
   joinEvent,
+  updateEvent,
   startEvent,
   endEvent,
   getParticipants,
@@ -90,6 +91,25 @@ async function startServerEvent(params = {}) {
   return { ok: true, event };
 }
 
+async function updateServerEvent(params = {}) {
+  const id = normalizeEventId(params.id);
+  const name = normalizeText(params.name);
+  const time = normalizeText(params.time);
+  const reward = normalizeText(params.reward);
+  if (!id || !name || !time || !reward) {
+    return { ok: false, reason: 'invalid-input' };
+  }
+
+  const scopeOptions = buildScopeOptions(params);
+  const event = updateEvent(id, { name, time, reward }, scopeOptions);
+  if (!event) {
+    return { ok: false, reason: 'not-found' };
+  }
+
+  await flushEventStoreWrites(scopeOptions);
+  return { ok: true, event };
+}
+
 async function finishServerEvent(params = {}) {
   const id = normalizeEventId(params.id);
   const winnerUserId = normalizeText(params.winnerUserId);
@@ -156,6 +176,7 @@ module.exports = {
   createServerEvent,
   listServerEvents,
   joinServerEvent,
+  updateServerEvent,
   startServerEvent,
   finishServerEvent,
 };

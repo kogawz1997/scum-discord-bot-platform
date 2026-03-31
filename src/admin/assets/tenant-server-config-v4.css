@@ -1,17 +1,33 @@
-@import url("./tenant-dashboard-v4.css");
+@import url("./tenant-dashboard-v4.css?v=20260330-layout-balance-3");
 
 .tdv4-config-shell {
-  grid-template-columns: 300px minmax(0, 1fr) 320px;
+  grid-template-columns: var(--tdv4-layout-sidebar, 248px) minmax(0, 1fr);
+  gap: var(--tdv4-layout-gap, 20px);
+  align-items: start;
+}
+
+[data-config-category-tab][hidden],
+[data-config-category-panel][hidden],
+[data-config-group][hidden],
+[data-setting-card][hidden],
+[data-config-results-empty][hidden],
+[data-config-category-empty][hidden],
+[data-config-category-mode][hidden],
+[data-config-mode-section][hidden] {
+  display: none !important;
 }
 
 .tdv4-config-layout-panel {
-  padding: 20px;
+  padding: 18px;
 }
 
 .tdv4-config-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 300px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-areas:
+    "categories categories"
+    "settings context";
+  gap: 12px;
   align-items: start;
 }
 
@@ -31,30 +47,179 @@
 .tdv4-config-context-column,
 .tdv4-config-settings-column {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tdv4-config-layout > *,
+.tdv4-config-group-list > *,
+.tdv4-config-section-grid > *,
+.tdv4-config-summary-grid > *,
+.tdv4-flag-grid > *,
+.tdv4-basic-field-grid > * {
+  min-width: 0;
+}
+
+.tdv4-config-category-sidebar {
+  grid-area: categories;
+}
+
+.tdv4-config-settings-column {
+  grid-area: settings;
+}
+
+.tdv4-config-context-column {
+  grid-area: context;
+}
+
+.tdv4-config-context-stack {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 12px;
 }
 
 .tdv4-config-category-list {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.tdv4-config-toolbar,
+.tdv4-config-search {
+  display: grid;
+  gap: 8px;
+}
+
+.tdv4-config-search-label {
+  color: var(--tdv4-text);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.tdv4-config-search-input-row,
+.tdv4-config-toolbar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.tdv4-config-view-switch,
+.tdv4-config-filter-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tdv4-config-view-button,
+.tdv4-config-filter-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(207, 177, 100, 0.14);
+  border-radius: 999px;
+  background: rgba(7, 10, 8, 0.52);
+  color: var(--tdv4-text-soft);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.tdv4-config-view-button.is-current,
+.tdv4-config-filter-button.is-current {
+  border-color: rgba(207, 177, 100, 0.34);
+  background: rgba(207, 177, 100, 0.12);
+  color: var(--tdv4-text);
+}
+
+.tdv4-config-filter-summary {
+  color: var(--tdv4-text-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.tdv4-config-mode-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.tdv4-config-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  gap: 20px;
+  min-height: unset;
+  padding: 24px;
+}
+
+.tdv4-config-hero::after {
+  display: none;
+}
+
+.tdv4-config-hero::before {
+  background:
+    radial-gradient(circle at top right, rgba(207, 177, 100, 0.12), transparent 24%),
+    linear-gradient(135deg, rgba(11, 15, 13, 0.96), rgba(8, 11, 9, 0.9));
+}
+
+.tdv4-config-hero-copy {
+  min-width: 0;
+}
+
+.tdv4-config-action-caption {
+  margin: 0;
+  color: var(--tdv4-text-soft);
+  line-height: 1.6;
+}
+
+.tdv4-config-mode-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(207, 177, 100, 0.16);
+  border-radius: 999px;
+  background: rgba(7, 10, 8, 0.52);
+  color: var(--tdv4-text-soft);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.tdv4-config-mode-button.is-current {
+  border-color: rgba(207, 177, 100, 0.34);
+  background: rgba(207, 177, 100, 0.12);
+  color: var(--tdv4-text);
+}
+
+.tdv4-config-mode-button:focus-visible {
+  outline: 2px solid rgba(207, 177, 100, 0.42);
+  outline-offset: 3px;
 }
 
 .tdv4-config-category-button {
   display: grid;
-  gap: 4px;
+  gap: 1px;
   width: 100%;
-  padding: 12px 14px;
+  min-height: 48px;
+  padding: 8px 10px;
   text-align: left;
   border: 1px solid rgba(207, 177, 100, 0.14);
-  border-radius: 14px;
+  border-radius: 10px;
   background: rgba(7, 10, 8, 0.5);
   color: var(--tdv4-text);
   cursor: pointer;
 }
 
+.tdv4-config-category-button.is-empty {
+  border-style: dashed;
+  opacity: 0.66;
+}
+
 .tdv4-config-category-button.is-current {
   border-color: rgba(207, 177, 100, 0.36);
   background: rgba(207, 177, 100, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(207, 177, 100, 0.08);
+  opacity: 1;
 }
 
 .tdv4-config-category-button:focus-visible {
@@ -64,11 +229,13 @@
 
 .tdv4-config-category-name {
   font-weight: 700;
+  line-height: 1.2;
+  font-size: 0.86rem;
 }
 
 .tdv4-config-category-meta {
   color: var(--tdv4-text-soft);
-  font-size: 0.84rem;
+  font-size: 0.76rem;
 }
 
 .tdv4-config-savebar {
@@ -79,7 +246,7 @@
   gap: 12px;
   padding: 14px 16px;
   border: 1px solid rgba(207, 177, 100, 0.14);
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(7, 10, 8, 0.56);
 }
 
@@ -102,16 +269,18 @@
 
 .tdv4-config-category-panel {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .tdv4-config-group-card {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid rgba(207, 177, 100, 0.14);
-  border-radius: 18px;
-  background: rgba(6, 9, 7, 0.44);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 100%),
+    rgba(8, 11, 9, 0.7);
 }
 
 .tdv4-config-group-head {
@@ -124,25 +293,34 @@
 
 .tdv4-config-group-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--tdv4-text);
 }
 
 .tdv4-config-group-count {
   color: var(--tdv4-text-soft);
-  font-size: 0.84rem;
+  font-size: 0.76rem;
 }
 
 .tdv4-config-group-list {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
 .tdv4-config-setting {
-  padding: 14px 16px;
+  padding: 12px;
   border: 1px solid rgba(207, 177, 100, 0.14);
-  border-radius: 14px;
-  background: rgba(7, 10, 8, 0.6);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 100%),
+    rgba(7, 10, 8, 0.72);
+}
+
+.tdv4-config-setting[data-input-type="line-list"],
+.tdv4-config-setting[data-setting-key*="Description"],
+.tdv4-config-setting[data-setting-key*="Message"] {
+  grid-column: 1 / -1;
 }
 
 .tdv4-config-setting.is-dirty {
@@ -152,22 +330,27 @@
 
 .tdv4-config-setting-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 6px;
   align-items: start;
 }
 
 .tdv4-config-setting-copy,
 .tdv4-config-setting-control {
   display: grid;
-  gap: 8px;
+  gap: 5px;
+}
+
+.tdv4-config-setting-control {
+  padding-top: 6px;
+  border-top: 1px solid rgba(207, 177, 100, 0.12);
 }
 
 .tdv4-line-list-editor,
 .tdv4-line-list-list,
 .tdv4-line-list-actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tdv4-line-list-summary {
@@ -175,7 +358,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tdv4-line-list-count {
@@ -186,13 +369,13 @@
 .tdv4-line-list-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .tdv4-line-list-remove,
 .tdv4-line-list-add {
-  min-height: 40px;
+  min-height: 32px;
 }
 
 .tdv4-line-list-source {
@@ -203,30 +386,39 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tdv4-config-setting-title {
   color: var(--tdv4-text);
+  font-size: 0.86rem;
 }
 
 .tdv4-config-setting-description {
   margin: 0;
   color: var(--tdv4-text-soft);
-  line-height: 1.6;
+  line-height: 1.28;
+  max-width: 42ch;
+  font-size: 0.78rem;
 }
 
 .tdv4-config-setting-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+}
+
+.tdv4-config-setting-meta .tdv4-badge {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.74rem;
 }
 
 .tdv4-config-setting-value,
 .tdv4-config-setting-rawkey {
   color: var(--tdv4-text-soft);
-  font-size: 0.84rem;
+  font-size: 0.74rem;
 }
 
 .tdv4-config-help-panel,
@@ -234,6 +426,10 @@
 .tdv4-config-files-panel {
   display: grid;
   gap: 12px;
+}
+
+.tdv4-config-category-panel-card {
+  gap: 16px;
 }
 
 .tdv4-config-backup-list {
@@ -258,19 +454,37 @@
   gap: 4px;
 }
 
-.tdv4-pagehead-actions-stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+.tdv4-pagehead-actions.tdv4-pagehead-actions-stack {
+  min-width: 0;
+  width: min(100%, 388px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: stretch;
+  justify-content: stretch;
+  align-content: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(207, 177, 100, 0.16);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(20, 27, 23, 0.82), rgba(10, 14, 12, 0.88));
+}
+
+.tdv4-pagehead-actions.tdv4-pagehead-actions-stack > * {
+  min-width: 0;
+}
+
+.tdv4-pagehead-actions.tdv4-pagehead-actions-stack .tdv4-button {
+  width: 100%;
 }
 
 .tdv4-config-summary-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .tdv4-config-section-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
   gap: 16px;
 }
 
@@ -419,13 +633,13 @@
 
 .tdv4-flag-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
   gap: 12px;
 }
 
 .tdv4-basic-field-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
   gap: 12px;
 }
 
@@ -457,8 +671,8 @@
 
 .tdv4-basic-field-detail {
   color: var(--tdv4-text-soft);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .tdv4-basic-field-meta-row {
@@ -474,14 +688,50 @@
 }
 
 .tdv4-basic-input {
-  min-height: 44px;
+  min-height: 34px;
   width: 100%;
-  padding: 0 14px;
+  padding: 0 10px;
   border: 1px solid rgba(207, 177, 100, 0.18);
-  border-radius: 12px;
-  background: rgba(10, 14, 11, 0.92);
+  border-radius: 10px;
+  background: rgba(10, 14, 11, 0.96);
   color: var(--tdv4-text);
   font: inherit;
+  font-size: 0.9rem;
+}
+
+textarea.tdv4-basic-input {
+  min-height: 72px;
+  padding: 7px 10px;
+}
+
+select.tdv4-basic-input,
+select.tdv4-input {
+  color-scheme: dark;
+}
+
+select.tdv4-basic-input option,
+select.tdv4-basic-input optgroup,
+select.tdv4-input option,
+select.tdv4-input optgroup {
+  color: CanvasText !important;
+  background: Canvas !important;
+}
+
+select.tdv4-basic-input option:checked,
+select.tdv4-basic-input option:hover,
+select.tdv4-basic-input option:focus,
+select.tdv4-input option:checked,
+select.tdv4-input option:hover,
+select.tdv4-input option:focus {
+  color: HighlightText !important;
+  background: Highlight !important;
+}
+
+select.tdv4-basic-input option:disabled,
+select.tdv4-basic-input optgroup,
+select.tdv4-input option:disabled,
+select.tdv4-input optgroup {
+  color: GrayText !important;
 }
 
 .tdv4-basic-input:focus {
@@ -498,8 +748,8 @@
 .tdv4-switch {
   position: relative;
   display: inline-grid;
-  width: 58px;
-  height: 34px;
+  width: 50px;
+  height: 30px;
 }
 
 .tdv4-basic-toggle-hint {
@@ -581,8 +831,8 @@
   position: absolute;
   top: 4px;
   left: 4px;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background:
     radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.84), rgba(229, 214, 176, 0.96) 46%, rgba(183, 153, 84, 0.94) 100%);
@@ -605,7 +855,7 @@
 }
 
 .tdv4-flag-toggle:checked + .tdv4-switch-track .tdv4-switch-thumb {
-  transform: translateX(24px);
+  transform: translateX(22px);
   background:
     radial-gradient(circle at 35% 35%, rgba(255, 251, 237, 0.96), rgba(247, 224, 164, 0.98) 46%, rgba(214, 177, 93, 0.98) 100%);
   box-shadow:
@@ -684,18 +934,51 @@
   outline-offset: 2px;
 }
 
+.tdv4-config-results-empty,
+.tdv4-config-category-empty {
+  display: grid;
+  gap: 6px;
+}
+
 @media (max-width: 1440px) {
   .tdv4-config-shell {
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: 232px minmax(0, 1fr);
   }
 
   .tdv4-config-layout {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
   }
 
   .tdv4-config-summary-grid,
   .tdv4-config-section-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 1240px) {
+  .tdv4-config-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .tdv4-config-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "categories"
+      "settings"
+      "context";
+  }
+
+  .tdv4-config-context-stack {
+    position: static;
+  }
+
+  .tdv4-config-category-list {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .tdv4-config-search-input-row,
+  .tdv4-config-toolbar-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -704,6 +987,10 @@
   .tdv4-config-layout,
   .tdv4-config-summary-grid,
   .tdv4-config-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tdv4-config-group-list {
     grid-template-columns: 1fr;
   }
 
@@ -717,6 +1004,10 @@
 
   .tdv4-pagehead-actions-stack {
     width: 100%;
+  }
+
+  .tdv4-config-category-list {
+    grid-template-columns: 1fr;
   }
 
   .tdv4-readable-row {

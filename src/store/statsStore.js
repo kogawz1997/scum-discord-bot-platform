@@ -1,4 +1,9 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  resolveTenantServerStoreScope,
+  buildServerScopedUserKey,
+  parseServerScopedUserKey,
+  matchesServerScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -13,7 +18,7 @@ function createScopeState() {
 }
 
 function ensureStatsScope(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantServerStoreScope(options);
   if (!scopeStateByDatasource.has(scope.datasourceKey)) {
     scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }
@@ -174,7 +179,7 @@ function queueUpsertStat(scope, userId, value, label) {
 function getOrCreateStats(userIdRaw, options = {}) {
   const scope = ensureStatsScope(options);
   void initStatsStore(options);
-  const userId = String(userIdRaw || '').trim();
+  const userId = buildServerScopedUserKey(userIdRaw, options);
   if (!userId) {
     return buildEmptyStat();
   }
@@ -192,7 +197,7 @@ function getOrCreateStats(userIdRaw, options = {}) {
 function getStats(userId, options = {}) {
   const scope = ensureStatsScope(options);
   void initStatsStore(options);
-  const normalizedUserId = String(userId || '').trim();
+  const normalizedUserId = buildServerScopedUserKey(userId, options);
   if (!normalizedUserId) {
     return buildEmptyStat();
   }
@@ -203,15 +208,21 @@ function getStats(userId, options = {}) {
 function listAllStats(options = {}) {
   const scope = ensureStatsScope(options);
   void initStatsStore(options);
-  return Array.from(scope.state.stats.entries()).map(([userId, value]) => ({
-    userId,
-    ...value,
-  }));
+  return Array.from(scope.state.stats.entries())
+    .filter(([userId]) => matchesServerScope(userId, options))
+    .map(([userId, value]) => {
+      const parsed = parseServerScopedUserKey(userId);
+      return {
+        userId: parsed.userId,
+        serverId: parsed.serverId,
+        ...value,
+      };
+    });
 }
 
 function addKill(userId, amount = 1, options = {}) {
   const scope = ensureStatsScope(options);
-  const normalizedUserId = String(userId || '').trim();
+  const normalizedUserId = buildServerScopedUserKey(userId, options);
   if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
   const value = getOrCreateStats(normalizedUserId, options);
   const add = Number(amount || 0);
@@ -224,7 +235,7 @@ function addKill(userId, amount = 1, options = {}) {
 
 function addDeath(userId, amount = 1, options = {}) {
   const scope = ensureStatsScope(options);
-  const normalizedUserId = String(userId || '').trim();
+  const normalizedUserId = buildServerScopedUserKey(userId, options);
   if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
   const value = getOrCreateStats(normalizedUserId, options);
   const add = Number(amount || 0);
@@ -237,7 +248,7 @@ function addDeath(userId, amount = 1, options = {}) {
 
 function addPlaytimeMinutes(userId, minutes, options = {}) {
   const scope = ensureStatsScope(options);
-  const normalizedUserId = String(userId || '').trim();
+  const normalizedUserId = buildServerScopedUserKey(userId, options);
   if (!normalizedUserId) return getOrCreateStats(normalizedUserId, options);
   const value = getOrCreateStats(normalizedUserId, options);
   const add = Math.max(0, Number(minutes || 0));
@@ -252,12 +263,25 @@ function replaceStats(nextStats = [], options = {}) {
   const scope = ensureStatsScope(options);
   void initStatsStore(options);
   scope.state.mutationVersion += 1;
-  scope.state.stats.clear();
+  if (options.serverId) {
+    for (const userId of Array.from(scope.state.stats.keys())) {
+      if (matchesServerScope(userId, options)) {
+        scope.state.stats.delete(userId);
+      }
+    }
+  } else {
+    scope.state.stats.clear();
+  }
 
   for (const rowRaw of Array.isArray(nextStats) ? nextStats : []) {
     const row = normalizeStatRow(rowRaw);
     if (!row) continue;
-    scope.state.stats.set(row.userId, {
+    const userId = buildServerScopedUserKey(row.userId, {
+      ...options,
+      serverId: row.serverId || options.serverId,
+    });
+    if (!userId) continue;
+    scope.state.stats.set(userId, {
       kills: row.kills,
       deaths: row.deaths,
       playtimeMinutes: row.playtimeMinutes,
@@ -268,8 +292,17 @@ function replaceStats(nextStats = [], options = {}) {
   queueDbWrite(
     scope,
     async () => {
-      await scope.db.stats.deleteMany();
+      if (options.serverId) {
+        const existingRows = await scope.db.stats.findMany();
+        for (const row of existingRows) {
+          if (!matchesServerScope(row.userId, options)) continue;
+          await scope.db.stats.deleteMany({ where: { userId: row.userId } });
+        }
+      } else {
+        await scope.db.stats.deleteMany();
+      }
       for (const [userId, value] of scope.state.stats.entries()) {
+        if (!matchesServerScope(userId, options)) continue;
         await scope.db.stats.create({
           data: {
             userId,

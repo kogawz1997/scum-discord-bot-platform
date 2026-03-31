@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | เข้าสู่พอร์ทัลผู้เล่น</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-ui-1">
+  <title>SCUM TH Platform | เข้าสู่ระบบผู้เล่น</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260328-route-1">
 </head>
 <body class="public-v3">
   <div class="site-shell">
@@ -13,8 +13,8 @@
         <a class="site-brand" href="/landing">
           <span class="site-brand-mark">SCUM</span>
           <span class="site-brand-copy">
-            <strong class="site-brand-title">Player Portal</strong>
-            <span class="site-brand-detail">ใช้ Discord เพื่อเข้าสู่ร้านค้า คำสั่งซื้อ สถิติ และกิจกรรมของชุมชน</span>
+            <strong class="site-brand-title">พอร์ทัลผู้เล่น</strong>
+            <span class="site-brand-detail">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ และกิจกรรมของคุณ</span>
           </span>
         </a>
       </div>
@@ -22,25 +22,37 @@
     <main class="site-main">
       <section class="site-grid-2">
         <article class="site-auth-card site-stack">
-          <span class="site-kicker">Discord Sign In</span>
-          <h1 class="site-page-title">เข้าสู่ระบบผู้เล่น</h1>
-          <p class="site-page-copy">ใช้บัญชี Discord ของคุณเพื่อเปิดพอร์ทัลผู้เล่น ดูกระเป๋าเงิน คำสั่งซื้อ การส่งของ และกิจกรรมของเซิร์ฟเวอร์</p>
+          <span class="site-kicker">ทางเข้าผู้เล่น</span>
+          <h1 class="site-page-title">เข้าสู่ระบบพอร์ทัลผู้เล่น</h1>
+          <p class="site-page-copy">Discord ยังเป็นช่องทางหลักสำหรับผู้เล่น ส่วนเมจิกลิงก์ทางอีเมลใช้กับบัญชีผู้เล่นที่ผูกไว้แล้ว โดยไม่ต้องสร้างรหัสผ่านแยกอีกชุด</p>
           <div class="site-tool-cluster">
             <a class="site-button site-button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
           </div>
+          <form id="playerMagicLinkForm" class="site-form-grid">
+            <label class="site-field site-field-span">
+              <span>อีเมล</span>
+              <input id="playerMagicLinkEmail" class="auth-input" type="email" placeholder="player@example.com" autocomplete="email">
+            </label>
+            <div class="site-field site-field-span">
+              <button id="playerMagicLinkSubmit" class="button button-secondary" type="submit">ส่งเมจิกลิงก์</button>
+              <div id="playerMagicLinkStatus" class="form-status" aria-live="polite"></div>
+            </div>
+          </form>
+          <div id="playerMagicLinkDebug" class="site-field site-field-span"></div>
           <div class="form-status is-error">__ERROR_MESSAGE__</div>
         </article>
         <article class="site-panel site-help-panel">
-          <span class="site-kicker">ก่อนเข้าใช้งาน</span>
-          <h2 class="site-card-title">สิ่งที่ควรเตรียมไว้</h2>
+          <span class="site-kicker">ก่อนเริ่มใช้งาน</span>
+          <h2 class="site-card-title">สิ่งที่การเข้าสู่ระบบนี้ต้องใช้</h2>
           <ul class="marketing-list">
-            <li>บัญชี Discord เดียวกับที่ใช้ในชุมชนของเซิร์ฟเวอร์</li>
-            <li>ข้อมูล Steam หรือชื่อในเกม ถ้าต้องการผูกบัญชีรับของ</li>
-            <li>ตรวจว่าแพ็กเกจของเซิร์ฟเวอร์เปิดฟีเจอร์ผู้เล่นไว้แล้ว</li>
+            <li>บัญชี Discord ของคุณควรอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว</li>
+            <li>เมจิกลิงก์ทางอีเมลใช้ได้เฉพาะบัญชีผู้เล่นที่ผูกไว้แล้วในช่วงนี้</li>
+            <li>งานแอดมินและการจัดการเซิร์ฟเวอร์จะไม่อยู่ในพอร์ทัลผู้เล่น</li>
           </ul>
         </article>
       </section>
     </main>
   </div>
+  <script src="/player/assets/ui/player-auth-v1.js?v=20260331-player-auth-th-1"></script>
 </body>
 </html>

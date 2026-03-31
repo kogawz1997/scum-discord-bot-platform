@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 
 const AGENT_ROLES = Object.freeze(['sync', 'execute', 'hybrid']);
 const AGENT_SCOPES = Object.freeze(['sync_only', 'execute_only', 'sync_execute']);
+const STRICT_AGENT_ROLES = Object.freeze(['sync', 'execute']);
+const STRICT_AGENT_SCOPES = Object.freeze(['sync_only', 'execute_only']);
 const AGENT_STATUSES = Object.freeze(['pending', 'active', 'offline', 'revoked']);
 const SERVER_STATUSES = Object.freeze(['active', 'disabled', 'maintenance']);
 
@@ -35,6 +37,82 @@ function normalizeScope(value, fallback = 'sync_execute') {
   if (normalized === 'sync_only') return 'sync_only';
   if (normalized === 'execute_only') return 'execute_only';
   return 'sync_execute';
+}
+
+function normalizeRuntimeKind(value) {
+  const text = trimText(value, 80).toLowerCase();
+  if (!text) return '';
+  if (['server-bot', 'server-bots', 'sync', 'sync_only', 'sync-only'].includes(text)) {
+    return 'server-bots';
+  }
+  if (['delivery-agent', 'delivery-agents', 'execute', 'execute_only', 'execute-only'].includes(text)) {
+    return 'delivery-agents';
+  }
+  return '';
+}
+
+function resolveStrictAgentRoleScope(input = {}, options = {}) {
+  const meta = parseObject(input.meta) || parseObject(input.metadata) || {};
+  const runtimeKind = normalizeRuntimeKind(
+    input.runtimeKind
+      || input.kind
+      || meta.kind
+      || meta.runtimeKind,
+  );
+  if (runtimeKind === 'server-bots') {
+    return {
+      ok: true,
+      runtimeKind,
+      role: 'sync',
+      scope: 'sync_only',
+      legacy: false,
+    };
+  }
+  if (runtimeKind === 'delivery-agents') {
+    return {
+      ok: true,
+      runtimeKind,
+      role: 'execute',
+      scope: 'execute_only',
+      legacy: false,
+    };
+  }
+
+  const role = normalizeRole(input.role, '');
+  const scope = normalizeScope(input.scope, '');
+  if (role === 'sync' || scope === 'sync_only') {
+    return {
+      ok: true,
+      runtimeKind: 'server-bots',
+      role: 'sync',
+      scope: 'sync_only',
+      legacy: false,
+    };
+  }
+  if (role === 'execute' || scope === 'execute_only') {
+    return {
+      ok: true,
+      runtimeKind: 'delivery-agents',
+      role: 'execute',
+      scope: 'execute_only',
+      legacy: false,
+    };
+  }
+
+  if (options.allowLegacyHybrid === true && (role === 'hybrid' || scope === 'sync_execute')) {
+    return {
+      ok: true,
+      runtimeKind: '',
+      role: 'hybrid',
+      scope: 'sync_execute',
+      legacy: true,
+    };
+  }
+
+  return {
+    ok: false,
+    reason: 'strict-agent-role-scope-required',
+  };
 }
 
 function normalizeStatus(value, allowed = AGENT_STATUSES, fallback = 'active') {
@@ -195,6 +273,8 @@ function deriveScopesForAgent(role, scope) {
 module.exports = {
   AGENT_ROLES,
   AGENT_SCOPES,
+  STRICT_AGENT_ROLES,
+  STRICT_AGENT_SCOPES,
   AGENT_STATUSES,
   SERVER_STATUSES,
   createId,
@@ -209,6 +289,8 @@ module.exports = {
   normalizeServerStatus,
   normalizeStatus,
   normalizeStringArray,
+  normalizeRuntimeKind,
   parseObject,
+  resolveStrictAgentRoleScope,
   trimText,
 };

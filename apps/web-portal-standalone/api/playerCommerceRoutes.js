@@ -57,6 +57,7 @@ function createPlayerCommerceRoutes(deps) {
     } = context;
     const tenantOptions = {
       tenantId: session?.tenantId || undefined,
+      serverId: session?.activeServerId || undefined,
     };
 
     if (pathname === '/player/api/shop/list' && method === 'GET') {

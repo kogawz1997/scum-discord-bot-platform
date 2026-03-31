@@ -43,7 +43,14 @@ function pruneGeneratedClients(provider, keep = 4) {
     }))
     .sort((left, right) => right.mtimeMs - left.mtimeMs);
   for (const entry of entries.slice(Math.max(keep, 1))) {
-    fs.rmSync(entry.fullPath, { recursive: true, force: true });
+    try {
+      fs.rmSync(entry.fullPath, { recursive: true, force: true });
+    } catch (error) {
+      const code = String(error?.code || '').trim().toUpperCase();
+      if (code !== 'EPERM' && code !== 'EBUSY') {
+        throw error;
+      }
+    }
   }
 }
 

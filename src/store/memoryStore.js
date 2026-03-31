@@ -12,6 +12,11 @@ const {
   listKnownPurchaseStatuses,
 } = require('../services/purchaseStateMachine');
 const {
+  buildServerScopedUserKey,
+  parseServerScopedUserKey,
+  matchesServerScope,
+} = require('./tenantStoreScope');
+const {
   resolveCanonicalItemId,
   resolveItemIconUrl,
 } = require('../services/itemIconService');
@@ -24,6 +29,43 @@ function normalizeShopKind(value, fallback = 'item') {
   if (raw === 'vip') return 'vip';
   if (raw === 'item') return 'item';
   return raw || 'item';
+}
+
+function normalizeShopStatus(value, fallback = 'active') {
+  const raw = String(value || fallback).trim().toLowerCase();
+  if (raw === 'disabled') return 'disabled';
+  return 'active';
+}
+
+function normalizeFixtureText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function looksLikeFixtureIdentifier(value) {
+  const normalized = normalizeFixtureText(value).replace(/[_\s]+/g, '-');
+  if (!normalized) return false;
+  return /(?:^|[-.])(test|fixture)(?:[-.]|$)/.test(normalized);
+}
+
+function looksLikeFixtureLabel(value) {
+  const text = normalizeFixtureText(value);
+  if (!text) return false;
+  return /(?:\((test|fixture)\)|\[(test|fixture)\]|(?:^|[\s-])(test|fixture)(?:$|[\s-]))/.test(text);
+}
+
+function looksLikeFixtureDescription(value) {
+  const text = normalizeFixtureText(value);
+  if (!text) return false;
+  return /\b(test item|fixture item|integration test|for delivery test)\b/.test(text);
+}
+
+function isShopItemFixture(item) {
+  if (!item || typeof item !== 'object') return false;
+  return (
+    looksLikeFixtureIdentifier(item.id)
+    || looksLikeFixtureLabel(item.name)
+    || looksLikeFixtureDescription(item.description)
+  );
 }
 
 function normalizeShopQuantity(value, fallback = 1) {
@@ -41,6 +83,10 @@ function normalizeInteger(value, fallback = 0) {
 function normalizeOptionalText(value) {
   const text = String(value || '').trim();
   return text || null;
+}
+
+function escapeSqlText(value) {
+  return String(value || '').replace(/'/g, "''");
 }
 
 function resolveTenantId(input) {
@@ -145,6 +191,9 @@ async function ensureShopItemDeliveryProfileColumns(options = {}) {
       }
       if (!columnNames.has('deliveryReturnTarget')) {
         statements.push('ALTER TABLE "ShopItem" ADD COLUMN "deliveryReturnTarget" TEXT');
+      }
+      if (!columnNames.has('status')) {
+        statements.push('ALTER TABLE "ShopItem" ADD COLUMN "status" TEXT DEFAULT \'active\'');
       }
       for (const sql of statements) {
         await db.$executeRawUnsafe(sql);
@@ -334,6 +383,7 @@ function toShopItemView(rawItem) {
   if (!rawItem) return null;
 
   const kind = normalizeShopKind(rawItem.kind, inferShopKindById(rawItem.id));
+  const status = normalizeShopStatus(rawItem.status);
   const deliveryItems = kind === 'item'
     ? normalizeDeliveryItems(rawItem.deliveryItemsJson, {
         gameItemId: rawItem.gameItemId,
@@ -346,6 +396,8 @@ function toShopItemView(rawItem) {
   return {
     ...rawItem,
     kind,
+    status,
+    enabled: status !== 'disabled',
     gameItemId: kind === 'item'
       ? normalizeOptionalText(primary?.gameItemId || rawItem.gameItemId)
       : null,
@@ -365,10 +417,70 @@ function toShopItemView(rawItem) {
   };
 }
 
+async function loadShopItemStatusMap(db, itemIds = []) {
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(itemIds) ? itemIds : [itemIds])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  );
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db.$queryRawUnsafe(
+    `SELECT "id" AS "id", COALESCE("status", 'active') AS "status"
+     FROM "ShopItem"
+     WHERE "id" IN (${ids.map((id) => `'${escapeSqlText(id)}'`).join(', ')})`,
+  );
+  const statusMap = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const id = String(row?.id || '').trim();
+    if (!id) continue;
+    statusMap.set(id, normalizeShopStatus(row?.status));
+  }
+  return statusMap;
+}
+
+function applyShopItemStatus(rawItem, statusMap) {
+  if (!rawItem || typeof rawItem !== 'object') return rawItem;
+  const id = String(rawItem.id || '').trim();
+  if (!id || !statusMap?.has(id)) return rawItem;
+  return {
+    ...rawItem,
+    status: statusMap.get(id),
+  };
+}
+
+async function writeShopItemStatus(db, itemId, status) {
+  const id = String(itemId || '').trim();
+  if (!id) return;
+  await db.$executeRawUnsafe(
+    `UPDATE "ShopItem"
+     SET "status" = '${escapeSqlText(normalizeShopStatus(status))}'
+     WHERE "id" = '${escapeSqlText(id)}'`,
+  );
+}
+
+function isShopItemVisible(item, options = {}) {
+  if (!item) return false;
+  if (normalizeShopStatus(item.status) === 'disabled' && options.includeDisabled !== true) {
+    return false;
+  }
+  if (isShopItemFixture(item) && options.includeTestItems !== true) {
+    return false;
+  }
+  return true;
+}
+
 function toWalletLedgerView(row) {
   if (!row) return null;
+  const parsed = parseServerScopedUserKey(row.userId);
   return {
     ...row,
+    userId: parsed.userId,
+    serverId: parsed.serverId,
     meta: parseMetaJson(row.metaJson),
   };
 }
@@ -381,8 +493,68 @@ function toPurchaseStatusHistoryView(row) {
   };
 }
 
+function toWalletView(row) {
+  if (!row) return null;
+  const parsed = parseServerScopedUserKey(row.userId);
+  return {
+    ...row,
+    userId: parsed.userId,
+    serverId: parsed.serverId,
+  };
+}
+
+function buildPurchaseHistoryMeta(options = {}) {
+  const meta =
+    options.meta && typeof options.meta === 'object' && !Array.isArray(options.meta)
+      ? { ...options.meta }
+      : {};
+  const serverId = normalizeOptionalText(options.serverId);
+  if (serverId) {
+    meta.serverId = serverId;
+  }
+  return Object.keys(meta).length > 0 ? meta : null;
+}
+
+function extractPurchaseHistoryServerId(row) {
+  const meta = parseMetaJson(row?.metaJson);
+  return normalizeOptionalText(meta?.serverId);
+}
+
+async function filterPurchaseRowsByServer(db, rows, options = {}) {
+  const serverId = normalizeOptionalText(options.serverId);
+  if (!serverId) {
+    return Array.isArray(rows) ? rows : [];
+  }
+  const purchaseRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (purchaseRows.length === 0) {
+    return [];
+  }
+  const tenantId = normalizeOptionalText(options.tenantId);
+  const purchaseCodes = purchaseRows
+    .map((row) => String(row?.code || '').trim())
+    .filter(Boolean);
+  if (purchaseCodes.length === 0) {
+    return [];
+  }
+  const historyRows = await db.purchaseStatusHistory.findMany({
+    where: {
+      purchaseCode: {
+        in: purchaseCodes,
+      },
+      ...(tenantId ? { purchase: { tenantId } } : {}),
+    },
+  });
+  const allowedCodes = new Set(
+    historyRows
+      .filter((row) => extractPurchaseHistoryServerId(row) === serverId)
+      .map((row) => String(row.purchaseCode || '').trim())
+      .filter(Boolean),
+  );
+  return purchaseRows.filter((row) => allowedCodes.has(String(row.code || '').trim()));
+}
+
 async function mutateWalletWithLedger(userId, updater, options = {}) {
-  const id = String(userId || '').trim();
+  const id = buildServerScopedUserKey(userId, options);
   if (!id) {
     throw new Error('userId is required');
   }
@@ -426,12 +598,12 @@ async function mutateWalletWithLedger(userId, updater, options = {}) {
       });
     }
 
-    return updated;
+    return toWalletView(updated);
   });
 }
 
 async function getWallet(userId, options = {}) {
-  const id = String(userId || '').trim();
+  const id = buildServerScopedUserKey(userId, options);
   const { db } = resolveStoreScope(options);
   let wallet = await db.userWallet.findUnique({ where: { userId: id } });
   if (!wallet) {
@@ -439,7 +611,7 @@ async function getWallet(userId, options = {}) {
       data: { userId: id, balance: 0, lastDaily: null, lastWeekly: null },
     });
   }
-  return wallet;
+  return toWalletView(wallet);
 }
 
 async function addCoins(userId, amount, options = {}) {
@@ -455,6 +627,7 @@ async function addCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      serverId: options.serverId,
       tenantId: options.tenantId,
       defaultTenantId: options.defaultTenantId,
       env: options.env,
@@ -476,6 +649,7 @@ async function removeCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      serverId: options.serverId,
       tenantId: options.tenantId,
       defaultTenantId: options.defaultTenantId,
       env: options.env,
@@ -497,6 +671,7 @@ async function setCoins(userId, amount, options = {}) {
       actor: options.actor,
       meta: options.meta,
       recordZeroDelta: options.recordZeroDelta,
+      serverId: options.serverId,
       tenantId: options.tenantId,
       defaultTenantId: options.defaultTenantId,
       env: options.env,
@@ -531,6 +706,7 @@ async function claimDaily(userId, options = {}) {
       actor: 'system',
       meta: { reward },
       recordZeroDelta: true,
+      serverId: options.serverId,
       tenantId: options.tenantId,
       defaultTenantId: options.defaultTenantId,
       env: options.env,
@@ -565,6 +741,7 @@ async function claimWeekly(userId, options = {}) {
       actor: 'system',
       meta: { reward },
       recordZeroDelta: true,
+      serverId: options.serverId,
       tenantId: options.tenantId,
       defaultTenantId: options.defaultTenantId,
       env: options.env,
@@ -605,14 +782,20 @@ async function listShopItems(options = {}) {
     items = await db.shopItem.findMany();
   }
 
-  return items.map((item) => toShopItemView(item));
+  const statusMap = await loadShopItemStatusMap(db, items.map((item) => item.id));
+
+  return items
+    .map((item) => toShopItemView(applyShopItemStatus(item, statusMap)))
+    .filter((item) => isShopItemVisible(item, options));
 }
 
 async function getShopItemById(id, options = {}) {
   const { db } = resolveStoreScope(options);
   await ensureShopItemDeliveryProfileColumns(options);
   const item = await db.shopItem.findUnique({ where: { id: String(id) } });
-  return toShopItemView(item);
+  const statusMap = await loadShopItemStatusMap(db, item ? [item.id] : []);
+  const view = toShopItemView(applyShopItemStatus(item, statusMap));
+  return isShopItemVisible(view, options) ? view : null;
 }
 
 async function getShopItemByName(name, options = {}) {
@@ -637,7 +820,9 @@ async function getShopItemByName(name, options = {}) {
       (entry) => String(entry.gameItemId || '').toLowerCase() === lower,
     );
   });
-  return toShopItemView(found || null);
+  const statusMap = await loadShopItemStatusMap(db, found ? [found.id] : []);
+  const view = toShopItemView(applyShopItemStatus(found || null, statusMap));
+  return isShopItemVisible(view, options) ? view : null;
 }
 
 async function addShopItem(id, name, price, description, meta = {}, options = {}) {
@@ -687,13 +872,98 @@ async function addShopItem(id, name, price, description, meta = {}, options = {}
       deliveryReturnTarget: normalizeOptionalText(meta.deliveryReturnTarget),
     },
   });
-  return toShopItemView(created);
+  const status = normalizeShopStatus(meta.status);
+  if (status !== 'active') {
+    await writeShopItemStatus(db, created.id, status);
+  }
+  return toShopItemView({
+    ...created,
+    status,
+  });
+}
+
+async function updateShopItem(idOrName, patch = {}, options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
+  const existing =
+    (await getShopItemById(idOrName, { ...options, includeDisabled: true }))
+    || (await getShopItemByName(idOrName, { ...options, includeDisabled: true }));
+  if (!existing) return null;
+
+  const nextName = String(patch.name || existing.name || '').trim();
+  const nextDescription = String(patch.description || existing.description || '').trim();
+  const nextPriceRaw = patch.price == null ? existing.price : Number(patch.price);
+  const nextPrice = Number.isFinite(nextPriceRaw) ? Math.trunc(nextPriceRaw) : NaN;
+  if (!nextName || !nextDescription || !Number.isFinite(nextPrice) || nextPrice <= 0) {
+    throw new Error('invalid-shop-update');
+  }
+
+  const mergedMeta = {
+    kind: patch.kind == null ? existing.kind : patch.kind,
+    gameItemId: patch.gameItemId == null ? existing.gameItemId : patch.gameItemId,
+    quantity: patch.quantity == null ? existing.quantity : patch.quantity,
+    iconUrl: patch.iconUrl == null ? existing.iconUrl : patch.iconUrl,
+    deliveryItems: patch.deliveryItems == null ? existing.deliveryItems : patch.deliveryItems,
+    deliveryProfile: patch.deliveryProfile == null ? existing.deliveryProfile : patch.deliveryProfile,
+    deliveryTeleportMode: patch.deliveryTeleportMode == null ? existing.deliveryTeleportMode : patch.deliveryTeleportMode,
+    deliveryTeleportTarget: patch.deliveryTeleportTarget == null ? existing.deliveryTeleportTarget : patch.deliveryTeleportTarget,
+    deliveryPreCommands: patch.deliveryPreCommands == null ? existing.deliveryPreCommands : patch.deliveryPreCommands,
+    deliveryPostCommands: patch.deliveryPostCommands == null ? existing.deliveryPostCommands : patch.deliveryPostCommands,
+    deliveryReturnTarget: patch.deliveryReturnTarget == null ? existing.deliveryReturnTarget : patch.deliveryReturnTarget,
+  };
+  const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(mergedMeta, existing.id);
+  if (resolvedKind === 'item' && deliveryItems.length === 0) {
+    throw new Error('shop-item-delivery-required');
+  }
+
+  const updated = await db.shopItem.update({
+    where: { id: existing.id },
+    data: {
+      name: nextName,
+      price: nextPrice,
+      description: nextDescription,
+      kind: resolvedKind,
+      gameItemId: resolvedKind === 'item' ? primary?.gameItemId || null : null,
+      quantity: resolvedKind === 'item' ? primary?.quantity || 1 : 1,
+      iconUrl: resolvedKind === 'item' ? primary?.iconUrl || null : null,
+      deliveryItemsJson: resolvedKind === 'item' && deliveryItems.length > 0
+        ? JSON.stringify(deliveryItems)
+        : null,
+      deliveryProfile: normalizeDeliveryProfile(mergedMeta.deliveryProfile),
+      deliveryTeleportMode: normalizeDeliveryTeleportMode(mergedMeta.deliveryTeleportMode),
+      deliveryTeleportTarget: normalizeOptionalText(mergedMeta.deliveryTeleportTarget),
+      deliveryPreCommandsJson: normalizeShopCommandList(mergedMeta.deliveryPreCommands).length > 0
+        ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPreCommands))
+        : null,
+      deliveryPostCommandsJson: normalizeShopCommandList(mergedMeta.deliveryPostCommands).length > 0
+        ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPostCommands))
+        : null,
+      deliveryReturnTarget: normalizeOptionalText(mergedMeta.deliveryReturnTarget),
+    },
+  });
+  const status = normalizeShopStatus(patch.status, existing.status);
+  if (status !== normalizeShopStatus(existing.status)) {
+    await writeShopItemStatus(db, existing.id, status);
+  }
+  return toShopItemView({
+    ...updated,
+    status,
+  });
 }
 
 async function deleteShopItem(idOrName, options = {}) {
   const { db } = resolveStoreScope(options);
   const item =
-    (await getShopItemById(idOrName, options)) || (await getShopItemByName(idOrName, options));
+    (await getShopItemById(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }))
+    || (await getShopItemByName(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }));
   if (!item) return null;
   await db.shopItem.delete({ where: { id: item.id } });
   return item;
@@ -702,7 +972,16 @@ async function deleteShopItem(idOrName, options = {}) {
 async function setShopItemPrice(idOrName, newPrice, options = {}) {
   const { db } = resolveStoreScope(options);
   const item =
-    (await getShopItemById(idOrName, options)) || (await getShopItemByName(idOrName, options));
+    (await getShopItemById(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }))
+    || (await getShopItemByName(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }));
   if (!item) return null;
   const updated = await db.shopItem.update({
     where: { id: item.id },
@@ -711,9 +990,33 @@ async function setShopItemPrice(idOrName, newPrice, options = {}) {
   return toShopItemView(updated);
 }
 
+async function setShopItemStatus(idOrName, nextStatus, options = {}) {
+  const { db } = resolveStoreScope(options);
+  await ensureShopItemDeliveryProfileColumns(options);
+  const item =
+    (await getShopItemById(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }))
+    || (await getShopItemByName(idOrName, {
+      ...options,
+      includeDisabled: true,
+      includeTestItems: true,
+    }));
+  if (!item) return null;
+  const status = normalizeShopStatus(nextStatus, item.status);
+  await writeShopItemStatus(db, item.id, status);
+  return toShopItemView({
+    ...item,
+    status,
+  });
+}
+
 async function createPurchase(userId, item, options = {}) {
   const tenantId = resolveTenantId(options.tenantId || item?.tenantId);
   const { db } = resolveStoreScope({ tenantId });
+  const serverId = normalizeOptionalText(options.serverId);
   const payload = {
     tenantId,
     userId: String(userId),
@@ -744,7 +1047,12 @@ async function createPurchase(userId, item, options = {}) {
             toStatus: 'pending',
             reason: 'purchase-created',
             actor: 'system',
-            metaJson: null,
+            metaJson: toMetaJson(
+              buildPurchaseHistoryMeta({
+                serverId,
+                meta: options.meta,
+              }),
+            ),
           },
         });
 
@@ -760,12 +1068,20 @@ async function createPurchase(userId, item, options = {}) {
 
 async function findPurchaseByCode(code, options = {}) {
   const { db, tenantId } = resolveStoreScope(options);
-  return db.purchase.findFirst({
+  const purchase = await db.purchase.findFirst({
     where: {
       code: String(code),
       ...(tenantId ? { tenantId } : {}),
     },
   });
+  if (!purchase) {
+    return null;
+  }
+  const filtered = await filterPurchaseRowsByServer(db, [purchase], {
+    tenantId,
+    serverId: options.serverId,
+  });
+  return filtered[0] || null;
 }
 
 async function setPurchaseStatusByCode(code, status, options = {}) {
@@ -812,7 +1128,12 @@ async function setPurchaseStatusByCode(code, status, options = {}) {
         toStatus: nextStatus,
         reason: normalizeOptionalText(options.reason),
         actor: normalizeOptionalText(options.actor),
-        metaJson: toMetaJson(options.meta),
+        metaJson: toMetaJson(
+          buildPurchaseHistoryMeta({
+            serverId: options.serverId,
+            meta: options.meta,
+          }),
+        ),
       },
     });
 
@@ -822,12 +1143,16 @@ async function setPurchaseStatusByCode(code, status, options = {}) {
 
 async function listUserPurchases(userId, options = {}) {
   const { db, tenantId } = resolveStoreScope(options);
-  return db.purchase.findMany({
+  const rows = await db.purchase.findMany({
     where: {
       userId: String(userId),
       ...(tenantId ? { tenantId } : {}),
     },
     orderBy: { createdAt: 'desc' },
+  });
+  return filterPurchaseRowsByServer(db, rows, {
+    tenantId,
+    serverId: options.serverId,
   });
 }
 
@@ -839,10 +1164,12 @@ async function listTopWallets(limitOrOptions = 10, maybeOptions = {}) {
     ? 10
     : limitOrOptions;
   const { db } = resolveStoreScope(options);
-  return db.userWallet.findMany({
-    orderBy: { balance: 'desc' },
-    take: Math.max(1, Number(limit || 10)),
-  });
+  const rows = await db.userWallet.findMany();
+  return rows
+    .filter((row) => matchesServerScope(row.userId, options))
+    .sort((left, right) => Number(right.balance || 0) - Number(left.balance || 0))
+    .slice(0, Math.max(1, Number(limit || 10)))
+    .map((row) => toWalletView(row));
 }
 
 async function listWalletLedger(userId, limitOrOptions = 100, maybeOptions = {}) {
@@ -854,8 +1181,9 @@ async function listWalletLedger(userId, limitOrOptions = 100, maybeOptions = {})
     : limitOrOptions;
   const { db } = resolveStoreScope(options);
   const max = Math.max(1, Math.min(1000, normalizeInteger(limit, 100)));
+  const scopedUserId = buildServerScopedUserKey(userId, options);
   const rows = await db.walletLedger.findMany({
-    where: { userId: String(userId) },
+    where: { userId: scopedUserId },
     orderBy: { createdAt: 'desc' },
     take: max,
   });
@@ -873,6 +1201,13 @@ async function listPurchaseStatusHistory(code, limit = 100, options = {}) {
     orderBy: { createdAt: 'desc' },
     take: max,
   });
+  const serverId = normalizeOptionalText(options.serverId);
+  if (serverId) {
+    const matchingServer = rows.some((row) => extractPurchaseHistoryServerId(row) === serverId);
+    if (!matchingServer) {
+      return [];
+    }
+  }
   return rows.map((row) => toPurchaseStatusHistoryView(row));
 }
 
@@ -889,8 +1224,11 @@ module.exports = {
   getShopItemById,
   getShopItemByName,
   addShopItem,
+  updateShopItem,
   deleteShopItem,
   setShopItemPrice,
+  setShopItemStatus,
+  isShopItemFixture,
   createPurchase,
   findPurchaseByCode,
   setPurchaseStatusByCode,

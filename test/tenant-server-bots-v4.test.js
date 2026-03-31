@@ -66,6 +66,22 @@ test('tenant server bots v4 model keeps runtime and discord management context',
         expiresAt: '2026-03-30T10:00:00.000Z',
       },
     ],
+    agentSessions: [
+      {
+        id: 'session-1',
+        sessionId: 'session-1',
+        agentId: 'agent-sync-1',
+        serverId: 'server-alpha',
+        runtimeKey: 'watcher-1',
+        displayName: 'Server Bot Alpha',
+        role: 'sync',
+        scope: 'sync_only',
+        status: 'online',
+        hostname: 'server-bot-host',
+        version: '2.0.0',
+        heartbeatAt: '2026-03-27T10:05:00.000Z',
+      },
+    ],
     serverDiscordLinks: [
       {
         id: 'link-1',
@@ -79,13 +95,16 @@ test('tenant server bots v4 model keeps runtime and discord management context',
     deadLetters: [{}],
   });
 
-  assert.equal(model.header.title, 'Server Bot');
+  assert.match(model.header.title, /บอตเซิร์ฟเวอร์|Server Bot/);
   assert.equal(model.rows.length, 1);
   assert.equal(model.rows[0].name, 'watcher-1');
   assert.equal(model.rows[0].deviceId, 'device-1');
   assert.equal(model.rows[0].apiKeyId, 'apikey-1');
+  assert.equal(model.rows[0].version, '-');
   assert.equal(model.tokens[0].tokenId, 'token-1');
+  assert.equal(model.probeReadiness.restartConfigured, false);
   assert.equal(model.discordLinks.length, 1);
+  assert.equal(model.history.length, 1);
 });
 
 test('tenant server bots v4 html exposes provisioning, management, and discord mapping hooks', () => {
@@ -140,6 +159,22 @@ test('tenant server bots v4 html exposes provisioning, management, and discord m
         expiresAt: '2026-03-30T10:00:00.000Z',
       },
     ],
+    agentSessions: [
+      {
+        id: 'session-1',
+        sessionId: 'session-1',
+        agentId: 'agent-sync-1',
+        serverId: 'server-alpha',
+        runtimeKey: 'watcher-1',
+        displayName: 'Server Bot Alpha',
+        role: 'sync',
+        scope: 'sync_only',
+        status: 'online',
+        hostname: 'server-bot-host',
+        version: '2.0.0',
+        heartbeatAt: '2026-03-27T10:05:00.000Z',
+      },
+    ],
     serverDiscordLinks: [
       {
         id: 'link-1',
@@ -148,9 +183,21 @@ test('tenant server bots v4 html exposes provisioning, management, and discord m
         status: 'active',
       },
     ],
+    __provisioningResult: {
+      'server-bots': {
+        instructions: {
+          title: 'Server Bot installer ready',
+          detail: 'Download the installer package for the target machine.',
+          downloads: [
+            { key: 'install-ps1', label: 'Download install script (.ps1)' },
+            { key: 'quick-install-cmd', label: 'Download quick install (.cmd)' },
+          ],
+        },
+      },
+    },
   }));
 
-  assert.match(html, /Server Bot/);
+  assert.match(html, /บอตเซิร์ฟเวอร์|Server Bot/);
   assert.match(html, /data-runtime-server-id="server-bots"/);
   assert.match(html, /data-runtime-display-name="server-bots"/);
   assert.match(html, /data-runtime-runtime-key="server-bots"/);
@@ -160,11 +207,24 @@ test('tenant server bots v4 html exposes provisioning, management, and discord m
   assert.match(html, /data-runtime-action="revoke-device"/);
   assert.match(html, /data-runtime-action="reissue-provision"/);
   assert.match(html, /data-runtime-action="revoke-provision"/);
+  assert.match(html, /data-runtime-download-kind="server-bots"/);
+  assert.match(html, /data-runtime-download-key="install-ps1"/);
+  assert.match(html, /ดาวน์โหลดสคริปต์ติดตั้ง \(\.ps1\)|Download install script \(\.ps1\)/);
+  assert.match(html, /กิจกรรมล่าสุดของบอต|Recent bot activity/);
+  assert.match(html, /กติกาการผูกเครื่อง|Binding rule/);
+  assert.match(html, /หมุนคีย์บอตใหม่|Rotate bot key/);
+  assert.match(html, /เพิกถอนสิทธิ์บอต|Revoke bot access/);
   assert.match(html, /data-server-discord-link-server/);
   assert.match(html, /data-server-discord-link-guild/);
   assert.match(html, /data-server-discord-link-status/);
   assert.match(html, /data-server-discord-link-create/);
   assert.match(html, /data-server-discord-link-item/);
+  assert.match(html, /เครื่องมือทดสอบบอต|Bot test actions/);
+  assert.match(html, /ยังต้องตั้งคำสั่งรีสตาร์ต|Restart probe needs restart template/);
+  assert.match(html, />ทดสอบการซิงก์<|>Test sync</);
+  assert.match(html, />ทดสอบการอ่านค่าตั้งค่า<|>Test config access</);
+  assert.match(html, />ทดสอบความพร้อมรีสตาร์ต<|>Test restart</);
+  assert.match(html, />เวอร์ชัน<|>Version</);
 });
 
 test('tenant server bots v4 guides the user when no server exists yet', () => {
@@ -180,6 +240,7 @@ test('tenant server bots v4 guides the user when no server exists yet', () => {
   assert.match(html, /data-runtime-empty-kind="missing-server"/);
   assert.match(html, /data-runtime-empty-action="server-bots"/);
   assert.match(html, /#server-status/);
+  assert.match(html, />Open server</);
 });
 
 test('tenant server bots v4 guides the user to install pending setup tokens', () => {
