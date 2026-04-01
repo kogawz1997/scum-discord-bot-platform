@@ -17,6 +17,7 @@ param(
   [int]$HealthPort = 3214,
   [string]$WatcherHealthHost = '127.0.0.1',
   [int]$WatcherHealthPort = 3212,
+  [switch]$Production,
   [switch]$DisableWatcher,
   [switch]$StartBot,
   [switch]$Help
@@ -161,12 +162,28 @@ Write-Host $resolvedEnvFilePath -ForegroundColor Green
 Write-Step "Wrote PowerShell loader"
 Write-Host $resolvedLoaderPath -ForegroundColor Green
 
+Write-Step 'Validating generated env bundle'
+$validationCommand = @(
+  'node',
+  'scripts/runtime-env-check.js',
+  '--role', 'server-bot',
+  '--env-file', ('"' + [string]$resolvedEnvFilePath + '"')
+)
+if ($Production) {
+  $validationCommand += '--production'
+}
+cmd /c ($validationCommand -join ' ')
+if ($LASTEXITCODE -ne 0) {
+  throw 'Generated server-bot env bundle failed validation'
+}
+
 Write-Step 'Next commands'
 Write-Host ". $resolvedLoaderPath" -ForegroundColor Yellow
 Write-Host 'node apps/server-bot/server.js' -ForegroundColor Yellow
 if (-not $DisableWatcher) {
-  Write-Host 'node src/services/scumLogWatcherRuntime.js' -ForegroundColor Yellow
+  Write-Host 'node apps/watcher/server.js' -ForegroundColor Yellow
 }
+Write-Host "node scripts/runtime-env-check.js --role server-bot --env-file `"$resolvedEnvFilePath`"$(if ($Production) { ' --production' } else { '' })" -ForegroundColor Yellow
 Write-Host "node scripts/machine-validation.js --role server-bot --production --control-plane-url=$($ControlPlaneUrl.TrimEnd('/'))" -ForegroundColor Yellow
 Write-Host "node scripts/runtime-inventory-report.js --role server-bot --tenant-id=$TenantId --server-id=$ServerId" -ForegroundColor Yellow
 
@@ -176,7 +193,7 @@ if ($StartBot) {
   $loaderQuoted = Escape-SingleQuotes ([string]$resolvedLoaderPath)
   Start-DetachedPowerShell "Set-Location '$repoRootQuoted'; . '$loaderQuoted'; node apps/server-bot/server.js"
   if (-not $DisableWatcher) {
-    Start-DetachedPowerShell "Set-Location '$repoRootQuoted'; . '$loaderQuoted'; node src/services/scumLogWatcherRuntime.js"
+    Start-DetachedPowerShell "Set-Location '$repoRootQuoted'; . '$loaderQuoted'; node apps/watcher/server.js"
   }
   Write-Host 'Server Bot start commands were opened in new PowerShell windows.' -ForegroundColor Green
 }

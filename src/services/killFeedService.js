@@ -47,6 +47,29 @@ function toIsoString(value) {
   return date ? date.toISOString() : null;
 }
 
+function normalizeScopedSchemaTenantId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function isMissingKillFeedTableError(error, tenantId = null) {
+  if (!error || typeof error !== 'object') return false;
+  const code = String(error.code || '').trim().toUpperCase();
+  if (code !== 'P2021' && code !== 'P2022') return false;
+  const message = String(error.message || '').toLowerCase();
+  const table = String(error?.meta?.table || '').toLowerCase();
+  const normalizedTenantId = normalizeScopedSchemaTenantId(tenantId);
+  const schemaName = normalizedTenantId ? `tenant_${normalizedTenantId}` : '';
+  return message.includes('does not exist in the current database')
+    || message.includes('no such table')
+    || table.endsWith('.kill_feed_events')
+    || table === 'kill_feed_events'
+    || (schemaName && table.includes(`${schemaName}.kill_feed_events`));
+}
+
 function normalizeKillFeedRow(row = {}) {
   const id = Number(row?.id || 0);
   if (!Number.isFinite(id) || id <= 0) return null;
@@ -115,14 +138,22 @@ async function listKillFeedEntries(options = {}) {
     ];
   }
 
-  const rows = await scope.db.killFeedEvent.findMany({
-    where,
-    orderBy: [
-      { occurredAt: 'desc' },
-      { id: 'desc' },
-    ],
-    take: limit,
-  });
+  let rows = [];
+  try {
+    rows = await scope.db.killFeedEvent.findMany({
+      where,
+      orderBy: [
+        { occurredAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: limit,
+    });
+  } catch (error) {
+    if (!isMissingKillFeedTableError(error, scope.tenantId)) {
+      throw error;
+    }
+    rows = [];
+  }
 
   const normalizedRows = rows.map(normalizeKillFeedRow).filter(Boolean);
   if (!search) {

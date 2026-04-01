@@ -19,6 +19,7 @@ param(
   [switch]$AutoStartServer,
   [string]$EnvFilePath = '.runtime\delivery-agent.env',
   [string]$LoaderPath = '.runtime\load-delivery-agent-env.ps1',
+  [switch]$Production,
   [switch]$StartBot,
   [switch]$Help
 )
@@ -72,6 +73,11 @@ if ([string]::IsNullOrWhiteSpace($ConsoleAgentToken)) {
   $ConsoleAgentToken = Read-Host 'Enter SCUM console-agent token'
 }
 Require-Value 'ConsoleAgentToken' $ConsoleAgentToken
+if ((-not [string]::IsNullOrWhiteSpace($SetupToken)) -or (-not [string]::IsNullOrWhiteSpace($AgentToken)) -or (-not [string]::IsNullOrWhiteSpace($ControlPlaneUrl))) {
+  Require-Value 'ControlPlaneUrl' $ControlPlaneUrl
+  Require-Value 'TenantId' $TenantId
+  Require-Value 'ServerId' $ServerId
+}
 if ($Backend -eq 'exec' -and [string]::IsNullOrWhiteSpace($ExecTemplate)) {
   $defaultTemplate = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$((Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')) 'scripts\send-scum-admin-command.ps1'))`" -WindowTitle `"SCUM`" -WindowProcessName `"SCUM`" -Command `"{command}`""
   Write-Step 'No exec template provided, using the default SCUM command bridge'
@@ -180,10 +186,29 @@ Write-Host $resolvedEnvFilePath -ForegroundColor Green
 Write-Step 'Wrote PowerShell loader'
 Write-Host $resolvedLoaderPath -ForegroundColor Green
 
+Write-Step 'Validating generated env bundle'
+$validationCommand = @(
+  'node',
+  'scripts/runtime-env-check.js',
+  '--role', 'delivery-agent',
+  '--env-file', ('"' + [string]$resolvedEnvFilePath + '"')
+)
+if ($Production) {
+  $validationCommand += '--production'
+}
+cmd /c ($validationCommand -join ' ')
+if ($LASTEXITCODE -ne 0) {
+  throw 'Generated delivery-agent env bundle failed validation'
+}
+
 Write-Step 'Next commands'
 Write-Host ". $resolvedLoaderPath" -ForegroundColor Yellow
 Write-Host 'node apps/agent/server.js' -ForegroundColor Yellow
+Write-Host "node scripts/runtime-env-check.js --role delivery-agent --env-file `"$resolvedEnvFilePath`"$(if ($Production) { ' --production' } else { '' })" -ForegroundColor Yellow
 Write-Host 'node scripts/machine-validation.js --role delivery-agent --production' -ForegroundColor Yellow
+if (-not [string]::IsNullOrWhiteSpace($TenantId) -and -not [string]::IsNullOrWhiteSpace($ServerId)) {
+  Write-Host "node scripts/runtime-inventory-report.js --role delivery-agent --tenant-id=$TenantId --server-id=$ServerId" -ForegroundColor Yellow
+}
 
 if ($StartBot) {
   Write-Step 'Starting Delivery Agent'

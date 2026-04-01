@@ -449,7 +449,7 @@
   }
 
   function currentPage() {
-    return resolveTenantPageKey(getRawPathRoute());
+    return resolveTenantPageKeyFromPath(window.location.pathname || '') || 'dashboard';
   }
 
   function getRawPathRoute() {

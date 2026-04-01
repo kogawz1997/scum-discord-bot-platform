@@ -37,13 +37,17 @@ Closest local equivalent to CI:
 npm run ci:verify
 ```
 
-Additional commands used in the current workstation update on `2026-03-31`:
+Additional commands used in the current workstation update on `2026-04-02`:
 
 ```bash
 node scripts/prisma-with-provider.js --provider postgresql generate
 npm run postgres:local:start
 npm run platform:schema:upgrade
 npm run pm2:start:prod
+node output/playwright/deep-role-audit.js
+node output/playwright/player-capture-verify.js
+node scripts/runtime-env-check.js --role server-bot --env-file .runtime/server-bot.env
+node scripts/runtime-env-check.js --role delivery-agent --env-file .runtime/delivery-agent.env
 ```
 
 ## Reading Rule
@@ -55,12 +59,14 @@ npm run pm2:start:prod
 
 ## Current Local Runtime Notes
 
-On this workstation as of `2026-03-31`:
+On this workstation as of `2026-04-02`:
 
 - local PostgreSQL is reachable at `127.0.0.1:55432`
 - PostgreSQL Prisma client generation was rerun successfully through `scripts/prisma-with-provider.js`
 - `npm run platform:schema:upgrade` completed successfully
 - `pm2` reports these runtimes `online`:
+  - `scum-owner-web`
+  - `scum-tenant-web`
   - `scum-admin-web`
   - `scum-bot`
   - `scum-worker`
@@ -69,17 +75,20 @@ On this workstation as of `2026-03-31`:
   - `scum-server-bot`
   - `scum-web-portal`
 - local admin web is reachable and `POST /admin/api/login` returned `200 OK`
+- local owner web is reachable at `127.0.0.1:3201/healthz`
+- local tenant web is reachable at `127.0.0.1:3202/healthz`
 - `scum-bot` health returned `ok=true` with `discordReady=true`
+- `scum-watcher` health returned `ready=true` and current log-path metadata
 - `scum-server-bot` health returned `ready=true`, `status=ready`, and recent successful job completion data
+- `scum-web-portal` health returned `200 OK`
+- `deep-role-audit.js` passed for `Owner` and `Tenant` without `consoleErrors` / `pageErrors`
+- `player-capture-verify.js` passed and confirmed the player home/shop/orders workbench shell
+- runtime installer smoke for `install-server-bot.ps1` and `install-delivery-agent.ps1` completed successfully on this workstation
+- `pm2 save` was rerun after the latest runtime recovery and browser-audit pass
 
 ## Current Local Caveats
 
-- `scum-bot` error log still contains production-guard and schema-alignment warnings from this workstation:
-  - `Production requires ADMIN_WEB_STEP_UP_ENABLED=true`
-  - `Production requires ADMIN_WEB_2FA_ENABLED=true`
-  - `The table public.ControlPlaneServer does not exist in the current database`
-- `scum-web-portal` is online, but its error log still reports optional player-data failures for `lucky-wheel-config` due to `normalizeHttpUrl is not a function`
-- `scum-server-bot` is healthy now, but earlier local starts failed because control-plane URL / token setup was incomplete; treat current health as machine-specific proof, not universal deploy proof
+- `scum-server-bot` is healthy now, but treat this as machine-specific proof, not universal deploy proof
 - admin DB login is verified locally, but Discord admin SSO was not counted as verified in this round because the current guild role export does not prove the configured owner/admin/moderator mapping
 
 ## Prior Repository-Local Evidence Still Relevant

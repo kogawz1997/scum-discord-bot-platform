@@ -1,7 +1,10 @@
 'use strict';
 
 const fs = require('node:fs');
+const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
+const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 
 const DEFAULT_OUTPUT_PATH = path.join(
   process.cwd(),
@@ -9,6 +12,16 @@ const DEFAULT_OUTPUT_PATH = path.join(
   'runtime-inventory',
   'latest.json',
 );
+const ROOT_ENV_PATH = path.join(process.cwd(), '.env');
+const PORTAL_ENV_PATH = path.join(process.cwd(), 'apps', 'web-portal-standalone', '.env');
+const DEFAULT_HEALTH_TIMEOUT_MS = 1500;
+
+loadMergedEnvFiles({
+  basePath: ROOT_ENV_PATH,
+  overlayPath: fs.existsSync(PORTAL_ENV_PATH) ? PORTAL_ENV_PATH : null,
+  ignoreEmptyOverlay: true,
+  overrideExisting: false,
+});
 
 function trimText(value) {
   return String(value || '').trim();
@@ -24,6 +37,11 @@ function normalizeRole(value) {
     return 'delivery-agent';
   }
   return text;
+}
+
+function normalizeOptionalRole(value) {
+  const normalized = normalizeRole(value);
+  return normalized || trimText(value);
 }
 
 function toIso(value) {
@@ -85,6 +103,113 @@ function classifyInventoryStatus(agent, devices, sessions, provisioningTokens) {
     return 'pending';
   }
   return 'inactive';
+}
+
+function asPort(value, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
+  return Math.trunc(numeric);
+}
+
+function readHealthJson(url) {
+  return new Promise((resolve) => {
+    const req = http.get(url, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        body += chunk;
+      });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          resolve(null);
+          return;
+        }
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.setTimeout(DEFAULT_HEALTH_TIMEOUT_MS, () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
+  });
+}
+
+function buildLocalFallbackAgents(healthPayloads = {}, env = process.env, hostname = os.hostname()) {
+  const tenantId = trimText(env.PLATFORM_TENANT_ID || env.SCUM_TENANT_ID || env.TENANT_ID) || null;
+  const serverId = trimText(env.PLATFORM_SERVER_ID || env.SCUM_SERVER_ID) || null;
+  const rows = [];
+
+  if (healthPayloads.serverBot?.ok) {
+    const payload = healthPayloads.serverBot;
+    rows.push({
+      tenantId,
+      serverId,
+      agentId: trimText(env.SCUM_SERVER_BOT_AGENT_ID || env.SCUM_AGENT_ID || 'server-bot-local'),
+      runtimeKey: trimText(env.SCUM_SERVER_BOT_RUNTIME_KEY || 'server-bot-local'),
+      displayName: trimText(env.SCUM_SERVER_BOT_NAME || env.PLATFORM_AGENT_DISPLAY_NAME || 'Local Server Bot'),
+      role: 'server-bot',
+      scope: trimText(payload.scope || 'sync'),
+      status: payload.ready === true ? 'online' : trimText(payload.status || 'inactive') || 'inactive',
+      baseUrl: trimText(env.PLATFORM_API_BASE_URL || env.SCUM_SYNC_CONTROL_PLANE_URL) || null,
+      hostname,
+      version: trimText(payload.version) || null,
+      lastSeenAt: toIso(payload.lastJobCompletedAt || payload.lastSnapshotAt || payload.now),
+      metadata: { source: 'local-health-fallback' },
+    });
+  }
+
+  if (healthPayloads.deliveryAgent?.ok) {
+    const payload = healthPayloads.deliveryAgent;
+    rows.push({
+      tenantId,
+      serverId,
+      agentId: trimText(env.SCUM_AGENT_ID || 'delivery-agent-local'),
+      runtimeKey: trimText(env.SCUM_AGENT_RUNTIME_KEY || 'delivery-agent-local'),
+      displayName: trimText(env.SCUM_CONSOLE_AGENT_NAME || env.PLATFORM_AGENT_DISPLAY_NAME || 'Local Delivery Agent'),
+      role: 'delivery-agent',
+      scope: 'execute',
+      status: payload.ready === true ? 'online' : trimText(payload.status || 'inactive') || 'inactive',
+      baseUrl: trimText(env.SCUM_CONSOLE_AGENT_BASE_URL) || null,
+      hostname,
+      version: trimText(payload.version) || null,
+      lastSeenAt: toIso(payload.lastSuccessAt || payload.lastCommandAt || payload.now),
+      metadata: { source: 'local-health-fallback' },
+    });
+  }
+
+  return rows;
+}
+
+function attachFallbackAgents(snapshot, fallbackAgents) {
+  const nextSnapshot = snapshot && typeof snapshot === 'object'
+    ? { ...snapshot }
+    : {};
+  if (Array.isArray(nextSnapshot.agents) && nextSnapshot.agents.length > 0) {
+    return nextSnapshot;
+  }
+  if (Array.isArray(fallbackAgents) && fallbackAgents.length > 0) {
+    nextSnapshot.agents = fallbackAgents.slice();
+  }
+  return nextSnapshot;
+}
+
+async function detectLocalFallbackAgents(env = process.env) {
+  const serverBotPort = asPort(env.SCUM_SERVER_BOT_HEALTH_PORT, 3214);
+  const serverBotHost = trimText(env.SCUM_SERVER_BOT_HEALTH_HOST || '127.0.0.1') || '127.0.0.1';
+  const deliveryPort = asPort(env.SCUM_CONSOLE_AGENT_PORT, 3213);
+  const deliveryHost = trimText(env.SCUM_CONSOLE_AGENT_HOST || '127.0.0.1') || '127.0.0.1';
+
+  const [serverBot, deliveryAgent] = await Promise.all([
+    readHealthJson(`http://${serverBotHost}:${serverBotPort}/healthz`),
+    readHealthJson(`http://${deliveryHost}:${deliveryPort}/healthz`),
+  ]);
+
+  return buildLocalFallbackAgents({ serverBot, deliveryAgent }, env);
 }
 
 function buildRuntimeInventory(snapshot, filters = {}) {
@@ -317,7 +442,7 @@ async function createRuntimeInventorySnapshot() {
       const raw = fs.readFileSync(registryPath, 'utf8');
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        return {
+        const snapshot = {
           version: 1,
           updatedAt: new Date().toISOString(),
           servers: [],
@@ -332,6 +457,8 @@ async function createRuntimeInventorySnapshot() {
           syncEvents: [],
           ...parsed,
         };
+        const fallbackAgents = await detectLocalFallbackAgents(process.env);
+        return attachFallbackAgents(snapshot, fallbackAgents);
       }
     } catch {
       // Fall through to live registry readers below.
@@ -348,7 +475,7 @@ async function createRuntimeInventorySnapshot() {
     listServers,
   } = require('../src/data/repositories/controlPlaneRegistryRepository');
 
-  return {
+  const snapshot = {
     servers: listServers({}),
     agents: listAgents({}),
     agentDevices: listAgentDevices({}),
@@ -357,6 +484,12 @@ async function createRuntimeInventorySnapshot() {
     agentTokenBindings: listAgentTokenBindings({}),
     agentSessions: listAgentSessions({}),
   };
+  if (Array.isArray(snapshot.agents) && snapshot.agents.length > 0) {
+    return snapshot;
+  }
+
+  const fallbackAgents = await detectLocalFallbackAgents(process.env);
+  return attachFallbackAgents(snapshot, fallbackAgents);
 }
 
 async function main() {
@@ -383,8 +516,12 @@ if (require.main === module) {
 }
 
 module.exports = {
+  attachFallbackAgents,
   buildRuntimeInventory,
+  buildLocalFallbackAgents,
+  detectLocalFallbackAgents,
   formatRuntimeInventoryReport,
   normalizeRole,
+  normalizeOptionalRole,
   parseArgs,
 };

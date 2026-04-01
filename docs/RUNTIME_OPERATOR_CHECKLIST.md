@@ -21,12 +21,19 @@ npm run runtime:install:server-bot -- ^
   -TenantId tenant-example ^
   -ServerId server-example ^
   -ConfigRoot "D:\SCUMServer\Config" ^
-  -LogPath "D:\SCUMServer\SCUM.log"
+  -LogPath "D:\SCUMServer\SCUM.log" ^
+  -Production
 ```
 
 - Load the generated PowerShell env loader
 - Start `apps/server-bot/server.js`
-- Start `src/services/scumLogWatcherRuntime.js` when watcher lives on this machine
+- Start `apps/watcher/server.js` when watcher lives on this machine
+- Run the generated env check first:
+
+```bat
+npm run runtime:check:server-bot -- --env-file .runtime\server-bot.env --production
+```
+
 - Run validation:
 
 ```bat
@@ -46,13 +53,24 @@ npm run runtime:inventory -- --role server-bot --tenant-id tenant-example --serv
 
 ```bat
 npm run runtime:install:delivery-agent -- ^
+  -ControlPlaneUrl https://control-plane.example.com ^
+  -SetupToken stp_xxx.yyy ^
+  -TenantId tenant-example ^
+  -ServerId server-example ^
   -ConsoleAgentToken put_a_strong_agent_token_here ^
   -Backend exec ^
-  -ExecTemplate "powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\send-scum-admin-command.ps1 -Command ""{command}"""
+  -ExecTemplate "powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\send-scum-admin-command.ps1 -Command ""{command}""" ^
+  -Production
 ```
 
 - Load the generated PowerShell env loader
 - Start `apps/agent/server.js`
+- Run the generated env check first:
+
+```bat
+npm run runtime:check:delivery-agent -- --env-file .runtime\delivery-agent.env --production
+```
+
 - Run validation:
 
 ```bat
@@ -69,6 +87,7 @@ npm run machine:validate:delivery-agent -- --production
 
 ## 5. When Something Fails
 
+- If env check fails, fix the generated `.runtime\*.env` bundle before starting the runtime
 - If validation says `awaiting-install`, reissue the setup token and activate again
 - If validation says the control plane is unreachable, verify `PLATFORM_API_BASE_URL`
 - If config snapshot fails, verify `SCUM_SERVER_CONFIG_ROOT`

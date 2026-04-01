@@ -2,9 +2,9 @@
 
 This file is the source of truth for work that is still open after the latest workstation audit.
 
-Last updated: `2026-03-31`
+Last updated: `2026-04-02`
 
-The repo is no longer in the "nothing left except external evidence" state. The current workstation can boot most runtimes again, but there is still an active local-runtime cleanup track and a larger product-readiness backlog.
+The current workstation is no longer in the broad local-runtime cleanup state. The remaining backlog is now mostly runtime-blocked or product-readiness work rather than basic local bring-up.
 
 ## Status Labels
 
@@ -17,18 +17,13 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 
 ### 1. Clean production-profile bot startup on this workstation
 
-- Status: `open`
+- Status: `closed`
 - Current state:
   - `scum-bot` is online
   - health endpoint returns `ok=true` and `discordReady=true`
-  - recent error log still contains:
-    - `Production requires ADMIN_WEB_STEP_UP_ENABLED=true`
-    - `Production requires ADMIN_WEB_2FA_ENABLED=true`
-    - `The table public.ControlPlaneServer does not exist in the current database`
+  - latest PM2 logs no longer show the earlier local production-guard / schema-alignment warnings as an active current issue
 - What is still open:
-  - make the bot boot cleanly on the intended production profile
-  - resolve whether the 2FA/step-up guard is expected locally or whether the runtime profile is mismatched
-  - fix schema/state alignment for `ControlPlaneServer`
+  - none on this workstation
 - Main files:
   - [../src/bot.js](../src/bot.js)
   - [../src/services/platformService.js](../src/services/platformService.js)
@@ -37,14 +32,13 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 
 ### 2. Revalidate player portal after the latest PM2 recovery
 
-- Status: `partial`
+- Status: `closed`
 - Current state:
   - `scum-web-portal` is online
-  - process logs show the portal is listening again
-  - error log still reports optional player-data failure for `lucky-wheel-config`
+  - health endpoint returns `200 OK`
+  - `player-capture-verify.js` passed for the current shell/workbench flow
 - What is still open:
-  - verify landing/login/player paths after the latest runtime restart
-  - fix `normalizeHttpUrl is not a function` so optional data loads cleanly
+  - none on this workstation
 - Main files:
   - [../apps/web-portal-standalone/runtime/portalBootstrapRuntime.js](../apps/web-portal-standalone/runtime/portalBootstrapRuntime.js)
   - [../apps/web-portal-standalone/api/playerGeneralRoutes.js](../apps/web-portal-standalone/api/playerGeneralRoutes.js)
@@ -67,7 +61,21 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 
 ## P1 Product-Readiness Foundation
 
-### 4. Finish billing / subscription lifecycle to commercial depth
+### 4. Keep runtime install / validation tooling aligned with the current local topology
+
+- Status: `closed`
+- Current state:
+  - install scripts for `Server Bot` and `Delivery Agent` now generate machine-local env bundles
+  - generated bundles are checked immediately through `scripts/runtime-env-check.js`
+  - runtime operator checklist has been updated to the new env-check first flow
+- What is still open:
+  - none on this workstation
+- Main files:
+  - [../scripts/install-server-bot.ps1](../scripts/install-server-bot.ps1)
+  - [../scripts/install-delivery-agent.ps1](../scripts/install-delivery-agent.ps1)
+  - [../scripts/runtime-env-check.js](../scripts/runtime-env-check.js)
+  - [RUNTIME_OPERATOR_CHECKLIST.md](./RUNTIME_OPERATOR_CHECKLIST.md)
+### 5. Finish billing / subscription lifecycle to commercial depth
 
 - Status: `partial`
 - Current state:
@@ -83,7 +91,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
   - [../src/admin/api/adminPlatformPostRoutes.js](../src/admin/api/adminPlatformPostRoutes.js)
   - [../apps/web-portal-standalone/api/publicPlatformRoutes.js](../apps/web-portal-standalone/api/publicPlatformRoutes.js)
 
-### 5. Finish unified identity across email, Discord, Steam, and in-game
+### 6. Finish unified identity across email, Discord, Steam, and in-game
 
 - Status: `partial`
 - Current state:
@@ -98,7 +106,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
   - [../apps/web-portal-standalone/auth/portalAuthRuntime.js](../apps/web-portal-standalone/auth/portalAuthRuntime.js)
   - [../src/services/linkService.js](../src/services/linkService.js)
 
-### 6. Normalize persistence for core paths
+### 7. Normalize persistence for core paths
 
 - Status: `partial`
 - Current state:
@@ -116,7 +124,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 
 ## P2 Product Systems Still Not Finished
 
-### 7. Productize tenant staff / permissions and Discord management
+### 8. Productize tenant staff / permissions and Discord management
 
 - Status: `partial`
 - Current state:
@@ -129,7 +137,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
   - [../src/admin/assets/tenant-v4-app.js](../src/admin/assets/tenant-v4-app.js)
   - [../src/admin/assets/tenant-server-bots-v4.js](../src/admin/assets/tenant-server-bots-v4.js)
 
-### 8. Build first-class donation, modules, raid, and killfeed systems
+### 9. Build first-class donation, modules, raid, and killfeed systems
 
 - Status: `open`
 - Current state:
@@ -146,7 +154,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
   - [../src/services/scumEvents.js](../src/services/scumEvents.js)
   - [../apps/web-portal-standalone/api/playerGeneralRoutes.js](../apps/web-portal-standalone/api/playerGeneralRoutes.js)
 
-### 9. Deepen analytics / reporting
+### 10. Deepen analytics / reporting
 
 - Status: `partial`
 - Current state:
@@ -161,7 +169,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 
 ## P3 Polish / Architecture Cleanup
 
-### 10. Finish i18n and UX cleanup
+### 11. Finish i18n and UX cleanup
 
 - Status: `partial`
 - Current state:
@@ -178,7 +186,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
   - [../src/admin/assets/tenant-v4-app.js](../src/admin/assets/tenant-v4-app.js)
   - [../apps/web-portal-standalone/public/assets/player-v4-app.js](../apps/web-portal-standalone/public/assets/player-v4-app.js)
 
-### 11. Keep service boundaries moving away from the remaining monolith seams
+### 12. Keep service boundaries moving away from the remaining monolith seams
 
 - Status: `partial`
 - Current state:

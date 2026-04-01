@@ -4,7 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  attachFallbackAgents,
   buildRuntimeInventory,
+  buildLocalFallbackAgents,
   formatRuntimeInventoryReport,
   normalizeRole,
   parseArgs,
@@ -113,4 +115,68 @@ test('parseArgs accepts filters and json mode', () => {
   assert.equal(parsed.serverId, 'server-main');
   assert.equal(parsed.role, 'watcher');
   assert.equal(parsed.asJson, true);
+});
+
+test('buildLocalFallbackAgents creates runtime rows from local health payloads', () => {
+  const agents = buildLocalFallbackAgents({
+    serverBot: {
+      ok: true,
+      ready: true,
+      scope: 'sync_only',
+      now: '2026-04-01T23:00:00.000Z',
+      lastSnapshotAt: '2026-04-01T22:58:00.000Z',
+    },
+    deliveryAgent: {
+      ok: true,
+      ready: true,
+      now: '2026-04-01T23:00:00.000Z',
+      lastSuccessAt: '2026-04-01T22:57:00.000Z',
+    },
+  }, {
+    PLATFORM_TENANT_ID: 'tenant-demo',
+    PLATFORM_SERVER_ID: 'server-demo',
+    SCUM_SERVER_BOT_AGENT_ID: 'server-bot-main',
+    SCUM_SERVER_BOT_RUNTIME_KEY: 'server-bot-main',
+    SCUM_SERVER_BOT_NAME: 'Main Server Bot',
+    SCUM_AGENT_ID: 'delivery-agent-main',
+    SCUM_AGENT_RUNTIME_KEY: 'delivery-agent-main',
+    SCUM_CONSOLE_AGENT_NAME: 'Delivery Agent',
+  }, 'LOCALHOST');
+
+  assert.equal(agents.length, 2);
+  assert.equal(agents[0].role, 'server-bot');
+  assert.equal(agents[0].status, 'online');
+  assert.equal(agents[1].role, 'delivery-agent');
+  assert.equal(agents[1].hostname, 'LOCALHOST');
+});
+
+test('attachFallbackAgents preserves registry agents and fills empty snapshots from local fallback', () => {
+  const fallbackAgents = [
+    {
+      agentId: 'server-bot-local',
+      role: 'server-bot',
+      status: 'online',
+    },
+  ];
+
+  const filled = attachFallbackAgents({
+    agents: [],
+    servers: [],
+  }, fallbackAgents);
+
+  assert.equal(filled.agents.length, 1);
+  assert.equal(filled.agents[0].agentId, 'server-bot-local');
+
+  const preserved = attachFallbackAgents({
+    agents: [
+      {
+        agentId: 'registry-agent',
+        role: 'delivery-agent',
+      },
+    ],
+    servers: [],
+  }, fallbackAgents);
+
+  assert.equal(preserved.agents.length, 1);
+  assert.equal(preserved.agents[0].agentId, 'registry-agent');
 });
