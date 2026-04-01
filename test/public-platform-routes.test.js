@@ -73,7 +73,10 @@ test('public platform routes sign up real tenant owners and keep logout/reset en
   assert.equal(handledSignup, true);
   assert.equal(signupRes.statusCode, 200);
   assert.equal(signupRes.headers['Set-Cookie'], undefined);
-  assert.equal(signupRes.payload.data.nextUrl, 'https://admin.example.com/tenant/onboarding?bootstrap=bootstrap-123');
+  assert.equal(signupRes.headers['Cache-Control'], 'no-store');
+  assert.equal(signupRes.payload.data.nextUrl, 'https://admin.example.com/tenant/onboarding');
+  assert.equal(signupRes.payload.data.bootstrapToken, 'bootstrap-123');
+  assert.equal(signupRes.payload.data.nextMethod, 'POST');
 
   const loginRes = createResponse();
   const handledLogin = await route({
@@ -120,7 +123,9 @@ test('public platform routes sign up real tenant owners and keep logout/reset en
   });
   assert.equal(handledVerificationRequest, true);
   assert.equal(verificationRequestRes.statusCode, 200);
-  assert.equal(verificationRequestRes.payload.data.verificationTokenQueued, true);
+  assert.deepEqual(verificationRequestRes.payload.data, {
+    queued: true,
+  });
 
   const verificationCompleteRes = createResponse();
   const handledVerificationComplete = await route({
@@ -215,16 +220,16 @@ test('public platform routes create and finalize checkout sessions for preview u
   assert.equal(createRes.statusCode, 200);
   assert.equal(createRes.payload.data.session.sessionToken, 'chk_test.token');
 
-  const getRes = createResponse();
-  const handledGet = await route({
-    req: { url: '/api/public/checkout/session?token=chk_test.token' },
-    res: getRes,
-    pathname: '/api/public/checkout/session',
-    method: 'GET',
+  const resolveRes = createResponse();
+  const handledResolve = await route({
+    req: { url: '/api/public/checkout/session/resolve' },
+    res: resolveRes,
+    pathname: '/api/public/checkout/session/resolve',
+    method: 'POST',
   });
-  assert.equal(handledGet, true);
-  assert.equal(getRes.statusCode, 200);
-  assert.equal(getRes.payload.data.session.invoiceId, 'inv-1');
+  assert.equal(handledResolve, true);
+  assert.equal(resolveRes.statusCode, 200);
+  assert.equal(resolveRes.payload.data.session.invoiceId, 'inv-1');
 
   const completeRes = createResponse();
   const handledComplete = await route({
@@ -237,6 +242,16 @@ test('public platform routes create and finalize checkout sessions for preview u
   assert.equal(completeRes.statusCode, 200);
   assert.equal(completeRes.payload.data.invoice.status, 'paid');
   assert.equal(completeRes.payload.data.nextUrl, 'https://admin.example.com/tenant/onboarding');
+
+  const legacyGetRes = createResponse();
+  const handledLegacyGet = await route({
+    req: { url: '/api/public/checkout/session?token=chk_test.token' },
+    res: legacyGetRes,
+    pathname: '/api/public/checkout/session',
+    method: 'GET',
+  });
+  assert.equal(handledLegacyGet, false);
+  assert.equal(legacyGetRes.payload, null);
 
   const webhookRoute = createPublicPlatformRoutes({
     sendJson: createSendJson(),

@@ -52,6 +52,9 @@ function buildRoutes(overrides = {}) {
     startServerEvent: async () => ({ ok: true, event: { id: 1 } }),
     finishServerEvent: async () => ({ ok: true, event: { id: 1 }, participants: [], rewardGranted: false }),
     joinServerEvent: async () => ({ ok: true, event: { id: 1 }, participantsCount: 1 }),
+    reviewRaidRequest: async () => ({ ok: true, request: { id: 11 } }),
+    createRaidWindow: async () => ({ ok: true, window: { id: 21 } }),
+    createRaidSummary: async () => ({ ok: true, summary: { id: 31 } }),
     bindSteamLinkForUser: async () => ({ ok: true }),
     removeSteamLink: () => ({ ok: true, removed: {} }),
     upsertPlayerAccount: async () => ({ ok: true, data: {} }),
@@ -143,4 +146,39 @@ test('admin entity link route denies player action when player entitlement is lo
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.error, 'feature-not-enabled');
   assert.equal(payload.data.actionKey, 'can_manage_players');
+});
+
+test('admin entity raid review route denies raid action when event entitlement is locked', async () => {
+  let called = false;
+  const handler = buildRoutes({
+    getTenantFeatureAccess: async () => ({
+      tenantId: 'tenant-1',
+      enabledFeatureKeys: [],
+    }),
+    reviewRaidRequest: async () => {
+      called = true;
+      return { ok: true, request: { id: 11 } };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/raid/request/review',
+    body: {
+      tenantId: 'tenant-1',
+      id: 11,
+      status: 'approved',
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 403);
+  assert.equal(called, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.error, 'feature-not-enabled');
+  assert.equal(payload.data.actionKey, 'can_manage_events');
 });

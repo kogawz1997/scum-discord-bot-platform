@@ -40,6 +40,7 @@ test('admin live templates expose login and V4 shells', () => {
     /id="tenantV4AppRoot"/,
     /id="tenantV4RefreshBtn"/,
     /tenant-v4-app\.js/,
+    /tenant-analytics-v4\.js/,
     /tenant-dashboard-v4\.css/,
   ]);
 

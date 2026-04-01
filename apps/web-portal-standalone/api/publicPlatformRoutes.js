@@ -1,5 +1,25 @@
 'use strict';
 
+function trimText(value, maxLen = 320) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.length <= maxLen ? text : text.slice(0, maxLen);
+}
+
+function normalizeEmail(value) {
+  return trimText(value, 240).toLowerCase();
+}
+
+function getClientIp(req) {
+  const forwarded = String(req?.headers?.['x-forwarded-for'] || '').trim();
+  if (forwarded) {
+    return trimText(forwarded.split(',')[0], 120) || 'unknown';
+  }
+  const realIp = String(req?.headers?.['x-real-ip'] || '').trim();
+  if (realIp) return trimText(realIp, 120) || 'unknown';
+  return trimText(req?.socket?.remoteAddress, 120) || 'unknown';
+}
+
 /**
  * Public product-site routes for signup, pricing, and pre-auth commercial
  * flows. The public site should hand users into the real Tenant or Player
@@ -32,6 +52,49 @@ function createPublicPlatformRoutes(deps = {}) {
     buildClearPreviewSessionCookie,
     removePreviewSession,
   } = deps;
+  const rateLimitState = new Map();
+
+  function consumeRateLimit(action, req, input = {}) {
+    const policies = {
+      signup: { windowMs: 15 * 60 * 1000, maxByIp: 6, maxByEmail: 3 },
+      login: { windowMs: 10 * 60 * 1000, maxByIp: 12, maxByEmail: 8 },
+      passwordReset: { windowMs: 15 * 60 * 1000, maxByIp: 6, maxByEmail: 4 },
+      emailVerification: { windowMs: 15 * 60 * 1000, maxByIp: 6, maxByEmail: 4 },
+    };
+    const policy = policies[action];
+    if (!policy) return { limited: false, retryAfterSec: 0 };
+    const now = Date.now();
+    if (rateLimitState.size > 5000) {
+      for (const [key, entry] of rateLimitState.entries()) {
+        if (!entry || now - Number(entry.firstAt || 0) > policy.windowMs) {
+          rateLimitState.delete(key);
+        }
+      }
+    }
+    const checks = [
+      { key: `${action}:ip:${getClientIp(req)}`, limit: policy.maxByIp },
+    ];
+    const email = normalizeEmail(input.email);
+    if (email) {
+      checks.push({ key: `${action}:email:${email}`, limit: policy.maxByEmail });
+    }
+    let retryAfterMs = 0;
+    for (const check of checks) {
+      const existing = rateLimitState.get(check.key);
+      const expired = !existing || now - Number(existing.firstAt || 0) > policy.windowMs;
+      const entry = expired
+        ? { count: 1, firstAt: now }
+        : { count: Number(existing.count || 0) + 1, firstAt: Number(existing.firstAt || now) };
+      rateLimitState.set(check.key, entry);
+      if (entry.count > check.limit) {
+        retryAfterMs = Math.max(retryAfterMs, Math.max(0, policy.windowMs - (now - entry.firstAt)));
+      }
+    }
+    return {
+      limited: retryAfterMs > 0,
+      retryAfterSec: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+    };
+  }
 
   return async function handlePublicApiRoute(context) {
     const {
@@ -40,8 +103,6 @@ function createPublicPlatformRoutes(deps = {}) {
       pathname,
       method,
     } = context;
-    const url = new URL(String(req?.url || pathname || ''), 'http://local.public');
-
     const resolveAdminUrl = (pathname, search = '') => {
       const built = typeof buildAdminProductUrl === 'function'
         ? buildAdminProductUrl(pathname, search)
@@ -86,6 +147,16 @@ function createPublicPlatformRoutes(deps = {}) {
 
     if (pathname === '/api/public/signup' && method === 'POST') {
       const body = await readJsonBody(req);
+      const rateLimit = consumeRateLimit('signup', req, body);
+      if (rateLimit.limited) {
+        sendJson(
+          res,
+          429,
+          { ok: false, error: 'too-many-attempts' },
+          { 'Retry-After': String(rateLimit.retryAfterSec) },
+        );
+        return true;
+      }
       const result = typeof registerTenantOwnerAccount === 'function'
         ? await registerTenantOwnerAccount(body)
         : await registerPreviewAccount(body);
@@ -101,9 +172,6 @@ function createPublicPlatformRoutes(deps = {}) {
         });
         return true;
       }
-      const bootstrapSearch = result.bootstrapToken
-        ? `?bootstrap=${encodeURIComponent(String(result.bootstrapToken || ''))}`
-        : '';
       sendJson(
         res,
         200,
@@ -113,8 +181,14 @@ function createPublicPlatformRoutes(deps = {}) {
             user: result.user || null,
             tenant: result.tenant,
             subscription: result.subscription,
-            nextUrl: resolveAdminUrl('/tenant/onboarding', bootstrapSearch),
+            bootstrapToken: result.bootstrapToken || null,
+            nextMethod: result.bootstrapToken ? 'POST' : 'GET',
+            nextUrl: resolveAdminUrl('/tenant/onboarding'),
           },
+        },
+        {
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
         },
       );
       return true;
@@ -122,6 +196,16 @@ function createPublicPlatformRoutes(deps = {}) {
 
     if (pathname === '/api/public/login' && method === 'POST') {
       const body = await readJsonBody(req);
+      const rateLimit = consumeRateLimit('login', req, body);
+      if (rateLimit.limited) {
+        sendJson(
+          res,
+          429,
+          { ok: false, error: 'too-many-attempts' },
+          { 'Retry-After': String(rateLimit.retryAfterSec) },
+        );
+        return true;
+      }
       const result = await authenticatePreviewAccount(body);
       if (!result?.ok) {
         sendJson(res, 401, {
@@ -157,6 +241,16 @@ function createPublicPlatformRoutes(deps = {}) {
 
     if (pathname === '/api/public/password-reset-request' && method === 'POST') {
       const body = await readJsonBody(req);
+      const rateLimit = consumeRateLimit('passwordReset', req, body);
+      if (rateLimit.limited) {
+        sendJson(
+          res,
+          429,
+          { ok: false, error: 'too-many-attempts' },
+          { 'Retry-After': String(rateLimit.retryAfterSec) },
+        );
+        return true;
+      }
       const result = await requestPasswordReset(body);
       if (!result?.ok) {
         sendJson(res, 400, {
@@ -193,6 +287,16 @@ function createPublicPlatformRoutes(deps = {}) {
 
     if (pathname === '/api/public/email-verification-request' && method === 'POST') {
       const body = await readJsonBody(req);
+      const rateLimit = consumeRateLimit('emailVerification', req, body);
+      if (rateLimit.limited) {
+        sendJson(
+          res,
+          429,
+          { ok: false, error: 'too-many-attempts' },
+          { 'Retry-After': String(rateLimit.retryAfterSec) },
+        );
+        return true;
+      }
       const result = await requestEmailVerification(body);
       if (!result?.ok) {
         sendJson(res, 400, {
@@ -203,7 +307,9 @@ function createPublicPlatformRoutes(deps = {}) {
       }
       sendJson(res, 200, {
         ok: true,
-        data: result,
+        data: {
+          queued: true,
+        },
       });
       return true;
     }
@@ -274,18 +380,24 @@ function createPublicPlatformRoutes(deps = {}) {
       return true;
     }
 
-    if (pathname === '/api/public/checkout/session' && method === 'GET') {
-      const token = String(url.searchParams.get('token') || '').trim();
+    if (pathname === '/api/public/checkout/session/resolve' && method === 'POST') {
+      const previewSession = getPreviewSession(req);
+      if (!previewSession?.accountId) {
+        sendJson(res, 401, { ok: false, error: 'preview-session-required' });
+        return true;
+      }
+      const body = await readJsonBody(req);
+      const token = String(body?.sessionToken || body?.token || '').trim();
       if (!token) {
         sendJson(res, 400, { ok: false, error: 'checkout-session-token-required' });
         return true;
       }
-      const session = await getCheckoutSessionByToken({ sessionToken: token });
-      if (!session) {
+      const checkoutSession = await getCheckoutSessionByToken({ sessionToken: token });
+      if (!checkoutSession) {
         sendJson(res, 404, { ok: false, error: 'checkout-session-not-found' });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: { session } });
+      sendJson(res, 200, { ok: true, data: { session: checkoutSession } });
       return true;
     }
 
@@ -316,6 +428,14 @@ function createPublicPlatformRoutes(deps = {}) {
     }
 
     if (pathname === '/api/public/billing/webhook' && method === 'POST') {
+      const configuredWebhookSecret = trimText(billingWebhookSecret, 240);
+      if (!configuredWebhookSecret) {
+        sendJson(res, 503, {
+          ok: false,
+          error: 'billing-webhook-secret-missing',
+        });
+        return true;
+      }
       let body = {};
       let rawPayload = '';
       if (typeof readRawBody === 'function') {
@@ -331,7 +451,7 @@ function createPublicPlatformRoutes(deps = {}) {
         rawPayload,
         signature: req?.headers?.['x-platform-billing-signature'] || req?.headers?.['X-Platform-Billing-Signature'],
         stripeSignature: req?.headers?.['stripe-signature'] || req?.headers?.['Stripe-Signature'],
-        webhookSecret: billingWebhookSecret || '',
+        webhookSecret: configuredWebhookSecret,
       });
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'billing-webhook-failed' });

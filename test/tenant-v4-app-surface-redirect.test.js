@@ -15,3 +15,14 @@ test('tenant v4 app redirects missing tenant scope to the correct surface', () =
   assert.match(source, /if \(!scopedTenantId\) \{\s*redirectForMissingTenantScope\(me\);\s*return;\s*\}/s);
   assert.doesNotMatch(source, /Tenant scope is required for the tenant admin workspace\./);
 });
+
+test('tenant v4 app wires analytics as a first-class tenant page', () => {
+  const filePath = path.join(__dirname, '..', 'src', 'admin', 'assets', 'tenant-v4-app.js');
+  const source = fs.readFileSync(filePath, 'utf8');
+
+  assert.match(source, /analytics:\s*'analytics'/);
+  assert.match(source, /analytics:\s*'tenant\.app\.page\.analytics'/);
+  assert.match(source, /analytics:\s*\['analytics_module'\]/);
+  assert.match(source, /case 'analytics':\s*return '\/tenant\/analytics';/s);
+  assert.match(source, /analytics:\s*\(\)\s*=>\s*window\.TenantAnalyticsV4\.renderTenantAnalyticsV4\(target, renderState\)/);
+});

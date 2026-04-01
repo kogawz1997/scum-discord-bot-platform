@@ -4,7 +4,6 @@ const path = require('node:path');
 
 const storePath = path.resolve(__dirname, '../src/store/publicPreviewAccountStore.js');
 const prismaPath = path.resolve(__dirname, '../src/prisma.js');
-const persistPath = path.resolve(__dirname, '../src/store/_persist.js');
 
 function installMock(modulePath, exportsValue) {
   delete require.cache[modulePath];
@@ -98,22 +97,12 @@ function loadStoreWithMocks(delegate) {
       platformPreviewAccount: delegate,
     },
   });
-  installMock(persistPath, {
-    atomicWriteJson() {},
-    getFilePath(name) {
-      return path.join(process.cwd(), 'tmp', name);
-    },
-    loadJson() {
-      return null;
-    },
-  });
   return require(storePath);
 }
 
 test.afterEach(() => {
   clearModule(storePath);
   clearModule(prismaPath);
-  clearModule(persistPath);
 });
 
 test('public preview account store persists preview accounts through the prisma delegate when available', async () => {
@@ -164,4 +153,13 @@ test('public preview account store persists preview accounts through the prisma 
   assert.equal(listed.length, 1);
   assert.equal(listed[0].email, 'demo@example.com');
   assert.equal(harness.snapshot().length, 1);
+});
+
+test('public preview account store fails fast when prisma delegate is unavailable', async () => {
+  const store = loadStoreWithMocks(null);
+
+  await assert.rejects(
+    () => store.listPreviewAccounts(),
+    /platform-preview-account-delegate-unavailable/,
+  );
 });

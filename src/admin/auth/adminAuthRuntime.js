@@ -308,8 +308,6 @@ function createAdminAuthRuntime(options = {}) {
       return auth.replace(/^bearer\s+/i, '').trim();
     }
 
-    const tokenQuery = String(urlObj?.searchParams?.get('token') || '').trim();
-    if (tokenQuery && options.adminWebAllowTokenQuery) return tokenQuery;
     return '';
   }
 

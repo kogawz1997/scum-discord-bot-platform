@@ -398,9 +398,64 @@ test('owner control subscriptions workspace exposes quick update forms', () => {
   assert.match(html, /data-owner-form="quick-update-subscription"/);
   assert.match(html, /บันทึกการสมัครใช้งาน|สร้างการสมัครใช้งาน/);
   assert.match(html, /ภาพรวมการสมัครใช้งานและรายได้/);
+  assert.match(html, /data-owner-billing-risk-spotlight/);
+  assert.match(html, /Risk spotlight/);
+  assert.match(html, /data-owner-billing-export-actions/);
+  assert.match(html, /data-owner-billing-recovery-queue/);
+  assert.match(html, /Resolve billing issues before they grow/);
+  assert.match(html, /data-owner-billing-recovery-item="attempt-pay-1"/);
+  assert.match(html, /\/owner\/api\/platform\/billing\/export\?format=csv/);
+  assert.match(html, /\/owner\/api\/platform\/billing\/export\?format=json/);
   assert.match(html, /data-owner-action="update-billing-invoice-status"/);
+  assert.match(html, /data-target-status="disputed"/);
+  assert.match(html, /data-target-status="refunded"/);
   assert.match(html, /data-owner-action="update-payment-attempt-status"/);
   assert.match(html, /data-owner-action="retry-billing-checkout"/);
+  assert.match(html, /data-owner-action="cancel-billing-subscription"/);
+});
+
+test('owner control subscriptions workspace exposes reactivate action for canceled subscriptions', () => {
+  const state = buildState();
+  state.subscriptions[0].status = 'canceled';
+  state.subscriptions[0].canceledAt = '2026-03-30T09:00:00.000Z';
+
+  const html = buildOwnerControlV4Html(createOwnerControlV4Model(state, { currentRoute: 'subscriptions' }));
+
+  assert.match(html, /data-owner-action="reactivate-billing-subscription"/);
+});
+
+test('owner control subscriptions workspace prioritizes past-due invoices and subscription recovery', () => {
+  const state = buildState();
+  state.billingInvoices.unshift({
+    id: 'inv-2',
+    tenantId: 'tenant-1',
+    subscriptionId: 'sub-1',
+    status: 'past_due',
+    amountCents: 99000,
+    currency: 'THB',
+    dueAt: '2026-03-30T08:30:00.000Z',
+    metadata: { targetPlanId: 'pro-monthly', targetPackageId: 'PRO', targetBillingCycle: 'monthly' },
+  });
+  state.subscriptions[0].status = 'canceled';
+  state.subscriptions[0].canceledAt = '2026-03-30T09:00:00.000Z';
+
+  const html = buildOwnerControlV4Html(createOwnerControlV4Model(state, { currentRoute: 'subscriptions' }));
+
+  assert.match(html, /data-owner-billing-recovery-item="invoice-inv-2"/);
+  assert.match(html, /Past-due invoice/);
+  assert.match(html, /data-owner-billing-recovery-item="subscription-sub-1"/);
+  assert.match(html, /Recover subscription|Subscription at risk/);
+  assert.match(html, /data-owner-action="reactivate-billing-subscription"/);
+});
+
+test('owner control subscriptions workspace shows a calm recovery queue when billing is healthy', () => {
+  const state = buildState();
+  state.billingPaymentAttempts[0].status = 'succeeded';
+
+  const html = buildOwnerControlV4Html(createOwnerControlV4Model(state, { currentRoute: 'subscriptions' }));
+
+  assert.match(html, /data-owner-billing-recovery-queue/);
+  assert.match(html, /No urgent billing recovery work is waiting right now\./);
 });
 
 test('owner control settings workspace exposes billing and runtime policy forms', () => {

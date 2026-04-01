@@ -39,7 +39,15 @@ function createDelegateHarness() {
         return { count: 0 };
       },
       async createMany({ data }) {
+        const seen = new Set();
         for (const row of Array.isArray(data) ? data : []) {
+          const id = String(row.id || '');
+          if (id && seen.has(id)) {
+            const error = new Error('unique');
+            error.code = 'P2002';
+            throw error;
+          }
+          seen.add(id);
           rows.set(String(row.id), clone(row));
         }
         return { count: rows.size };
@@ -149,6 +157,37 @@ test('admin security event store persists lifecycle rows through the prisma dele
   rows = await store.listAdminSecurityEvents({ limit: 10 });
   assert.equal(rows.length, 0);
   assert.equal(harness.snapshot().length, 0);
+});
+
+test('admin security event store dedupes repeated event ids before db persistence', async () => {
+  const harness = createDelegateHarness();
+  const store = loadStoreWithMocks(harness.delegate);
+
+  await store.initAdminSecurityEventStore();
+
+  store.recordAdminSecurityEvent({
+    id: 'sec-dup',
+    at: '2026-03-28T01:00:00.000Z',
+    type: 'login-failed',
+    severity: 'warn',
+    actor: 'owner@example.com',
+  });
+  store.recordAdminSecurityEvent({
+    id: 'sec-dup',
+    at: '2026-03-28T01:00:02.000Z',
+    type: 'login-failed',
+    severity: 'error',
+    actor: 'owner@example.com',
+    reason: 'lockout',
+  });
+  await store.waitForAdminSecurityEventPersistence();
+
+  const rows = await store.listAdminSecurityEvents({ limit: 10 });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'sec-dup');
+  assert.equal(rows[0].severity, 'error');
+  assert.equal(rows[0].reason, 'lockout');
+  assert.equal(harness.snapshot().length, 1);
 });
 
 test('admin security event store does not fall back to file mode when db persistence is required', async () => {

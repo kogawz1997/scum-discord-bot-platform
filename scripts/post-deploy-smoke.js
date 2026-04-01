@@ -84,18 +84,23 @@ function buildUrl(base, pathname) {
   return `${normalizedBase}${normalizedPath}`;
 }
 
-async function fetchWithTimeout(url, timeoutMs) {
+async function fetchWithTimeout(url, timeoutMs, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const extraHeaders = options.headers && typeof options.headers === 'object'
+      ? options.headers
+      : {};
     return await fetch(url, {
-      method: 'GET',
+      method: options.method || 'GET',
       redirect: 'manual',
       signal: controller.signal,
       headers: {
         Accept: 'application/json, text/html;q=0.9,*/*;q=0.8',
         'User-Agent': 'scum-post-deploy-smoke/1.0',
+        ...extraHeaders,
       },
+      body: options.body,
     });
   } finally {
     clearTimeout(timeout);
@@ -118,7 +123,7 @@ async function assertJsonOk(url, timeoutMs, label) {
 }
 
 async function assertRuntimeHealth(url, timeoutMs, label, options = {}) {
-  const res = await fetchWithTimeout(url, timeoutMs);
+  const res = await fetchWithTimeout(url, timeoutMs, options.fetchOptions || {});
   assertStatus(res, [200], label);
   const json = await res.json().catch(() => null);
   if (!json || json.ok !== true) {
@@ -514,11 +519,21 @@ async function main() {
     }
   }
   if (agentHealthBase) {
+    const agentToken = String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
     const agentHealth = await assertRuntimeHealth(
       buildUrl(agentHealthBase, '/healthz'),
       timeoutMs,
       'console-agent healthz',
-      { required: agentRequired, allowDisabled: !agentRequired },
+      {
+        required: agentRequired,
+        allowDisabled: !agentRequired,
+        fetchOptions: {
+          headers: {
+            Accept: 'application/json',
+            ...(agentToken ? { Authorization: `Bearer ${agentToken}` } : {}),
+          },
+        },
+      },
     );
     if (agentHealth.state === 'ready') {
       ok('console-agent healthz', agentHealth.reason);

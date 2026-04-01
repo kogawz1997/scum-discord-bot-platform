@@ -50,9 +50,25 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     getRentBikeRuntime,
     updateScumStatusForAdmin,
     getStatus,
+    getDeliveryDetailsByPurchaseCode,
     getTenantFeatureAccess,
     buildTenantProductEntitlements,
   } = deps;
+
+  async function getScopedDeliveryCase(code, tenantId) {
+    if (!tenantId || typeof getDeliveryDetailsByPurchaseCode !== 'function') {
+      return null;
+    }
+    try {
+      return await getDeliveryDetailsByPurchaseCode(code, 10, { tenantId });
+    } catch {
+      return null;
+    }
+  }
+
+  function hasScopedDeliveryCase(detail) {
+    return Boolean(detail?.purchase || detail?.queueJob || detail?.deadLetter);
+  }
 
   return async function handleAdminCommerceDeliveryPostRoute(context) {
     const {
@@ -501,6 +517,19 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      const status = requiredString(body, 'status');
+      if (!code || !status) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -520,12 +549,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
           message: 'Order status changes are locked until the current package includes order tools.',
         });
         if (!orderCheck.allowed) return true;
-      }
-      const code = requiredString(body, 'code');
-      const status = requiredString(body, 'status');
-      if (!code || !status) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
       }
       const result = await updatePurchaseStatusForActor({
         code,
@@ -579,6 +602,18 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      if (!code) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -598,11 +633,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
           message: 'Delivery retries are locked until the current package includes order tools.',
         });
         if (!orderCheck.allowed) return true;
-      }
-      const code = requiredString(body, 'code');
-      if (!code) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
       }
       const result = await enqueuePurchaseDeliveryByCode(code, {
         guildId: requiredString(body, 'guildId') || undefined,
@@ -624,6 +654,18 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      if (!code) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -643,11 +685,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
           message: 'Delivery retries are locked until the current package includes order tools.',
         });
         if (!orderCheck.allowed) return true;
-      }
-      const code = requiredString(body, 'code');
-      if (!code) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
       }
       const result = retryDeliveryNow(code, { tenantId: tenantId || undefined });
       if (!result) {
@@ -706,6 +743,18 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      if (!code) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -725,11 +774,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
           message: 'Delivery retries are locked until the current package includes order tools.',
         });
         if (!orderCheck.allowed) return true;
-      }
-      const code = requiredString(body, 'code');
-      if (!code) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
       }
       const result = await retryDeliveryDeadLetter(code, {
         guildId: requiredString(body, 'guildId') || undefined,
@@ -797,6 +841,18 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      if (!code) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -817,11 +873,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         });
         if (!orderCheck.allowed) return true;
       }
-      const code = requiredString(body, 'code');
-      if (!code) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
-      }
       const removed = removeDeliveryDeadLetter(code, { tenantId: tenantId || undefined });
       if (!removed) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
@@ -839,6 +890,18 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      const code = requiredString(body, 'code');
+      if (!code) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      if (authTenantId) {
+        const scopedDetail = await getScopedDeliveryCase(code, tenantId || authTenantId);
+        if (!hasScopedDeliveryCase(scopedDetail)) {
+          sendJson(res, 404, { ok: false, error: 'Resource not found' });
+          return true;
+        }
+      }
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -858,11 +921,6 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
           message: 'Delivery cancellation is locked until the current package includes order tools.',
         });
         if (!orderCheck.allowed) return true;
-      }
-      const code = requiredString(body, 'code');
-      if (!code) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
       }
       const result = cancelDeliveryJob(
         code,

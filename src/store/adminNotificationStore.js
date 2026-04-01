@@ -146,10 +146,20 @@ function writeSnapshotToDisk() {
 
 async function writeSnapshotToDatabase(delegate = getNotificationDelegate()) {
   if (!delegate) return;
-  const rows = notifications
+  const rows = dedupeNotifications(notifications)
     .map(serializeNotificationRow)
     .filter(Boolean);
   await delegate.deleteMany({});
+  if (rows.length > 0 && typeof delegate.upsert === 'function') {
+    for (const row of rows) {
+      await delegate.upsert({
+        where: { id: row.id },
+        create: row,
+        update: row,
+      });
+    }
+    return;
+  }
   if (rows.length > 0) {
     await delegate.createMany({ data: rows });
   }
@@ -198,6 +208,21 @@ async function hydrateFromDatabase(delegate = getNotificationDelegate()) {
     if (!normalized) continue;
     notifications.push(normalized);
   }
+  const deduped = dedupeNotifications(notifications);
+  notifications.length = 0;
+  notifications.push(...deduped);
+}
+
+function dedupeNotifications(sourceRows = []) {
+  const deduped = new Map();
+  for (const row of Array.isArray(sourceRows) ? sourceRows : []) {
+    const normalized = normalizeNotification(row);
+    if (!normalized) continue;
+    deduped.set(normalized.id, normalized);
+  }
+  return Array.from(deduped.values())
+    .sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt))
+    .slice(-MAX_NOTIFICATIONS);
 }
 
 function initAdminNotificationStore() {
@@ -219,11 +244,9 @@ function initAdminNotificationStore() {
 function addAdminNotification(entry = {}) {
   const normalized = normalizeNotification(entry);
   if (!normalized) return null;
-  notifications.push(normalized);
-  notifications.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  if (notifications.length > MAX_NOTIFICATIONS) {
-    notifications.splice(0, notifications.length - MAX_NOTIFICATIONS);
-  }
+  const deduped = dedupeNotifications([...notifications, normalized]);
+  notifications.length = 0;
+  notifications.push(...deduped);
   queueWrite(writeSnapshot, 'add');
   return { ...normalized };
 }
@@ -313,16 +336,9 @@ function clearAdminNotifications(options = {}) {
 }
 
 function replaceAdminNotifications(nextRows = []) {
+  const deduped = dedupeNotifications(nextRows);
   notifications.length = 0;
-  for (const row of Array.isArray(nextRows) ? nextRows : []) {
-    const normalized = normalizeNotification(row);
-    if (!normalized) continue;
-    notifications.push(normalized);
-  }
-  notifications.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  if (notifications.length > MAX_NOTIFICATIONS) {
-    notifications.splice(0, notifications.length - MAX_NOTIFICATIONS);
-  }
+  notifications.push(...deduped);
   queueWrite(writeSnapshot, 'replace');
   return notifications.length;
 }

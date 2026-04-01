@@ -4,6 +4,7 @@ const { spawnSync } = require('node:child_process');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { validateCommandTemplate } = require('../src/utils/commandTemplate');
 const { getAdminSsoRoleMappingSummary } = require('../src/utils/adminSsoRoleMapping');
+const { resolveAgentStateSecret } = require('../src/utils/agentStateSecret');
 const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
 const { listTrackedMutableArtifacts } = require('../src/utils/trackedMutableArtifacts');
 const {
@@ -53,9 +54,44 @@ function isLikelyPlaceholder(value) {
   return patterns.some((pattern) => text.includes(pattern));
 }
 
+function isSnowflake(value) {
+  return /^\d{15,25}$/.test(String(value || ''));
+}
+
+function resolveWatcherEnabled(env = process.env) {
+  const explicit = String(env.SCUM_WATCHER_ENABLED || '').trim();
+  if (explicit) return isTruthy(explicit);
+  return String(env.SCUM_LOG_PATH || '').trim().length > 0;
+}
+
+function normalizeWatcherTransport(value) {
+  const normalized = String(value || 'webhook').trim().toLowerCase() || 'webhook';
+  return ['webhook', 'control-plane', 'dual'].includes(normalized)
+    ? normalized
+    : '';
+}
+
 function isLocalHost(host) {
   const value = String(host || '').trim().toLowerCase();
   return value === '127.0.0.1' || value === 'localhost' || value === '::1';
+}
+
+function parseUrlOrNull(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try {
+    return new URL(text);
+  } catch {
+    return null;
+  }
+}
+
+function isLocalOrExampleUrl(value) {
+  const parsed = parseUrlOrNull(value);
+  if (!parsed) return false;
+  const hostname = String(parsed.hostname || '').trim().toLowerCase();
+  if (!hostname) return false;
+  return isLocalHost(hostname) || hostname === '0.0.0.0' || hostname === 'example.com' || hostname.endsWith('.example.com');
 }
 
 function parseOriginOrEmpty(value) {
@@ -135,6 +171,11 @@ function checkPortalOAuth(env, errors) {
       'WEB_PORTAL_DISCORD_CLIENT_SECRET (or ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET fallback) is missing or placeholder',
     );
   }
+}
+
+function normalizeBillingProvider(value) {
+  const normalized = String(value || 'platform_local').trim().toLowerCase() || 'platform_local';
+  return normalized === 'stripe_checkout' ? 'stripe' : normalized;
 }
 
 function addSessionAndOriginHardeningWarnings(env, warnings) {
@@ -293,6 +334,13 @@ function run() {
     warnings,
   );
   checkMinLength('ADMIN_WEB_TOKEN', env.ADMIN_WEB_TOKEN, 24, errors, warnings);
+  checkMinLength(
+    'WEB_PORTAL_SESSION_SECRET',
+    env.WEB_PORTAL_SESSION_SECRET,
+    24,
+    errors,
+    warnings,
+  );
 
   parseAdminUsersJson(env.ADMIN_WEB_USERS_JSON, warnings, errors);
 
@@ -335,6 +383,10 @@ function run() {
     warnings.push('ADMIN_WEB_ALLOW_TOKEN_QUERY should be false in production');
   }
 
+  if (isTruthy(env.ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS)) {
+    warnings.push('ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS should remain false');
+  }
+
   if (!isTruthy(env.ADMIN_WEB_ENFORCE_ORIGIN_CHECK)) {
     warnings.push('ADMIN_WEB_ENFORCE_ORIGIN_CHECK should be true');
   }
@@ -353,6 +405,14 @@ function run() {
     warnings.push('ADMIN_WEB_SECURE_COOKIE should be true when ADMIN_WEB_HOST is non-local');
   }
 
+  if (!isTruthy(env.WEB_PORTAL_SECURE_COOKIE)) {
+    warnings.push('WEB_PORTAL_SECURE_COOKIE should be true');
+  }
+
+  if (!isTruthy(env.WEB_PORTAL_ENFORCE_ORIGIN_CHECK)) {
+    warnings.push('WEB_PORTAL_ENFORCE_ORIGIN_CHECK should be true');
+  }
+
   if (
     isTruthy(env.ADMIN_WEB_SECURE_COOKIE) &&
     !isTruthy(env.ADMIN_WEB_HSTS_ENABLED)
@@ -366,6 +426,23 @@ function run() {
   const deliveryExecutionMode = String(
     env.DELIVERY_EXECUTION_MODE || 'rcon',
   ).trim().toLowerCase() || 'rcon';
+  const platformAgentSetupToken = String(
+    env.PLATFORM_AGENT_SETUP_TOKEN || env.SCUM_PLATFORM_SETUP_TOKEN || '',
+  ).trim();
+  const dedicatedAgentStateSecret = String(
+    env.PLATFORM_AGENT_STATE_SECRET || env.SCUM_PLATFORM_AGENT_STATE_SECRET || '',
+  ).trim();
+  const controlPlaneUrl = String(
+    env.SCUM_SYNC_CONTROL_PLANE_URL
+      || env.PLATFORM_API_BASE_URL
+      || env.ADMIN_BACKEND_BASE_URL
+      || '',
+  ).trim();
+  const watcherEnabled = resolveWatcherEnabled(env);
+  const watcherTransport = normalizeWatcherTransport(env.SCUM_SYNC_TRANSPORT);
+  const ownerBaseUrl = String(env.OWNER_WEB_BASE_URL || '').trim();
+  const tenantBaseUrl = String(env.TENANT_WEB_BASE_URL || '').trim();
+  const billingProvider = normalizeBillingProvider(env.PLATFORM_BILLING_PROVIDER);
   if (rconExecTemplate) {
     try {
       validateCommandTemplate(rconExecTemplate);
@@ -470,6 +547,133 @@ function run() {
         }
       }
     }
+
+    if (isTruthy(env.SCUM_CONSOLE_AGENT_ALLOW_NON_HASH)) {
+      if (isProduction) {
+        errors.push('NODE_ENV=production requires SCUM_CONSOLE_AGENT_ALLOW_NON_HASH=false');
+      } else {
+        warnings.push('SCUM_CONSOLE_AGENT_ALLOW_NON_HASH is enabled; prefer hash-only admin commands');
+      }
+    }
+  }
+
+  if (isTruthy(env.PUBLIC_PREVIEW_DEBUG_TOKENS)) {
+    if (isProduction) {
+      errors.push('NODE_ENV=production requires PUBLIC_PREVIEW_DEBUG_TOKENS=false');
+    } else {
+      warnings.push('PUBLIC_PREVIEW_DEBUG_TOKENS is enabled; do not expose public debug token previews outside local development');
+    }
+  }
+
+  if (isTruthy(env.PLAYER_MAGIC_LINK_DEBUG_TOKENS)) {
+    if (isProduction) {
+      errors.push('NODE_ENV=production requires PLAYER_MAGIC_LINK_DEBUG_TOKENS=false');
+    } else {
+      warnings.push('PLAYER_MAGIC_LINK_DEBUG_TOKENS is enabled; do not expose player magic-link debug tokens outside local development');
+    }
+  }
+
+  if (platformAgentSetupToken && !dedicatedAgentStateSecret) {
+    if (isProduction) {
+      errors.push(
+        'NODE_ENV=production requires PLATFORM_AGENT_STATE_SECRET (or SCUM_PLATFORM_AGENT_STATE_SECRET) when PLATFORM_AGENT_SETUP_TOKEN is used',
+      );
+    } else if (!resolveAgentStateSecret(env)) {
+      warnings.push(
+        'PLATFORM_AGENT_SETUP_TOKEN is set but no dedicated PLATFORM_AGENT_STATE_SECRET is configured; persisted agent tokens may not survive restart securely',
+      );
+    } else {
+      warnings.push(
+        'PLATFORM_AGENT_SETUP_TOKEN is being reused as the agent state encryption secret; set PLATFORM_AGENT_STATE_SECRET so activation and state-encryption secrets rotate independently',
+      );
+    }
+  }
+
+  if (watcherEnabled) {
+    const watcherGuildId = String(env.DISCORD_GUILD_ID || '').trim();
+    if (!watcherGuildId) {
+      errors.push('Watcher requires DISCORD_GUILD_ID');
+    } else if (!isSnowflake(watcherGuildId)) {
+      errors.push('Watcher requires DISCORD_GUILD_ID to be a numeric snowflake');
+    }
+
+    if (!watcherTransport) {
+      errors.push('SCUM_SYNC_TRANSPORT must be one of webhook, control-plane, or dual');
+    }
+
+    if (watcherTransport === 'webhook' || watcherTransport === 'dual') {
+      const webhookUrl = String(env.SCUM_WEBHOOK_URL || 'http://127.0.0.1:3100/scum-event').trim();
+      const parsedWebhookUrl = parseUrlOrNull(webhookUrl);
+      if (!parsedWebhookUrl) {
+        errors.push('SCUM_WEBHOOK_URL must be a valid URL when watcher transport includes webhook delivery');
+      } else if (isProduction && !isLocalOrExampleUrl(webhookUrl) && parsedWebhookUrl.protocol !== 'https:') {
+        errors.push('Production watcher webhook delivery requires SCUM_WEBHOOK_URL to use https:// when non-local');
+      } else if (!isLocalOrExampleUrl(webhookUrl) && parsedWebhookUrl.protocol !== 'https:') {
+        warnings.push('SCUM_WEBHOOK_URL should use https:// when watcher webhook delivery targets a non-local origin');
+      }
+    }
+
+    if (watcherTransport === 'control-plane' || watcherTransport === 'dual') {
+      const watcherTenantId = String(
+        env.SCUM_TENANT_ID || env.TENANT_ID || env.PLATFORM_TENANT_ID || '',
+      ).trim();
+      const watcherServerId = String(env.SCUM_SERVER_ID || env.PLATFORM_SERVER_ID || '').trim();
+      if (!controlPlaneUrl) {
+        errors.push('Watcher control-plane sync requires SCUM_SYNC_CONTROL_PLANE_URL or PLATFORM_API_BASE_URL');
+      }
+      if (!watcherTenantId) {
+        errors.push('Watcher control-plane sync requires SCUM_TENANT_ID / TENANT_ID / PLATFORM_TENANT_ID');
+      }
+      if (!watcherServerId) {
+        errors.push('Watcher control-plane sync requires SCUM_SERVER_ID / PLATFORM_SERVER_ID');
+      }
+    }
+  }
+
+  if (controlPlaneUrl) {
+    const parsed = parseUrlOrNull(controlPlaneUrl);
+    if (!parsed) {
+      errors.push('SCUM_SYNC_CONTROL_PLANE_URL / PLATFORM_API_BASE_URL / ADMIN_BACKEND_BASE_URL must be a valid URL');
+    } else if (isProduction && !isLocalOrExampleUrl(controlPlaneUrl) && parsed.protocol !== 'https:') {
+      errors.push('Production control-plane URLs must use https:// when non-local');
+    } else if (!isLocalOrExampleUrl(controlPlaneUrl) && parsed.protocol !== 'https:') {
+      warnings.push('Control-plane URLs should use https:// when non-local');
+    }
+  }
+
+  for (const [name, value] of [
+    ['OWNER_WEB_BASE_URL', ownerBaseUrl],
+    ['TENANT_WEB_BASE_URL', tenantBaseUrl],
+  ]) {
+    if (!value) continue;
+    const parsed = parseUrlOrNull(value);
+    if (!parsed) {
+      errors.push(`${name} must be a valid URL`);
+      continue;
+    }
+    if (isProduction && !isLocalOrExampleUrl(value) && parsed.protocol !== 'https:') {
+      errors.push(`${name} must use https:// when non-local in production`);
+    } else if (!isLocalOrExampleUrl(value) && parsed.protocol !== 'https:') {
+      warnings.push(`${name} should use https:// when non-local`);
+    }
+  }
+
+  if (billingProvider !== 'platform_local') {
+    const webhookSecret = String(env.PLATFORM_BILLING_WEBHOOK_SECRET || '').trim();
+    if (!webhookSecret || webhookSecret.length < 24 || isLikelyPlaceholder(webhookSecret)) {
+      errors.push('Hosted billing requires PLATFORM_BILLING_WEBHOOK_SECRET with at least 24 characters');
+    }
+  }
+
+  if (billingProvider === 'stripe') {
+    const stripeSecretKey = String(env.PLATFORM_BILLING_STRIPE_SECRET_KEY || '').trim();
+    const stripePublishableKey = String(env.PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY || '').trim();
+    if (!stripeSecretKey || isLikelyPlaceholder(stripeSecretKey)) {
+      errors.push('PLATFORM_BILLING_STRIPE_SECRET_KEY is missing or placeholder');
+    }
+    if (!stripePublishableKey || isLikelyPlaceholder(stripePublishableKey)) {
+      errors.push('PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY is missing or placeholder');
+    }
   }
 
   if (isGitTracked('.env')) {
@@ -495,6 +699,15 @@ function run() {
       errors.push(
         'NODE_ENV=production requires PERSIST_LEGACY_SNAPSHOTS=false',
       );
+    }
+    if (isTruthy(env.ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS)) {
+      errors.push('NODE_ENV=production requires ADMIN_WEB_ALLOW_TOKEN_SENSITIVE_MUTATIONS=false');
+    }
+    if (!isTruthy(env.WEB_PORTAL_SECURE_COOKIE)) {
+      errors.push('NODE_ENV=production requires WEB_PORTAL_SECURE_COOKIE=true');
+    }
+    if (!isTruthy(env.WEB_PORTAL_ENFORCE_ORIGIN_CHECK)) {
+      errors.push('NODE_ENV=production requires WEB_PORTAL_ENFORCE_ORIGIN_CHECK=true');
     }
   }
 
@@ -554,6 +767,17 @@ function run() {
           || errors.some((entry) => entry.includes('SCUM_CONSOLE_AGENT_TOKEN'))
             ? 'failed'
             : 'pass',
+      }),
+      createValidationCheck('watcher transport posture', {
+        status:
+          errors.some((entry) => entry.includes('SCUM_SYNC_TRANSPORT'))
+          || errors.some((entry) => entry.includes('SCUM_WEBHOOK_URL'))
+          || errors.some((entry) => entry.includes('Watcher control-plane sync'))
+          || errors.some((entry) => entry.includes('Watcher requires DISCORD_GUILD_ID'))
+            ? 'failed'
+            : warnings.some((entry) => entry.includes('SCUM_WEBHOOK_URL'))
+              ? 'warning'
+              : 'pass',
       }),
     ],
     warnings,

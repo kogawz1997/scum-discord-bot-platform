@@ -17,6 +17,38 @@ function buildSampleState() {
       displayName: 'MiraTH',
       accountStatus: 'active',
       primaryEmail: 'mira@example.com',
+      platformUserId: 'platform-user-1',
+      identitySummary: {
+        verificationState: 'fully_verified',
+        activeMembership: {
+          tenantId: 'tenant-prod-001',
+          membershipType: 'tenant',
+          role: 'player',
+          status: 'active',
+        },
+        linkedAccounts: {
+          email: {
+            linked: true,
+            verified: true,
+            value: 'mira@example.com',
+          },
+          discord: {
+            linked: true,
+            verified: true,
+            value: '123456789012345678',
+          },
+          steam: {
+            linked: true,
+            verified: true,
+            value: '7656119',
+          },
+          inGame: {
+            linked: true,
+            verified: true,
+            value: 'MiraTH',
+          },
+        },
+      },
     },
     featureAccess: {
       sections: {
@@ -113,6 +145,19 @@ function buildSampleState() {
     bounties: {
       items: [{ title: 'Hunter bounty', rewardLabel: '500 coins' }],
     },
+    killfeed: [
+      {
+        id: 91,
+        killerName: 'MiraTH',
+        victimName: 'BanditX',
+        weapon: 'AK-47',
+        distance: 122,
+        sector: 'B2',
+        occurredAt: '2026-03-27T13:20:00+07:00',
+        involvesPlayer: true,
+        playerRole: 'killer',
+      },
+    ],
     linkHistory: {
       items: [{ provider: 'steam', status: 'linked', steamId: '7656119', createdAt: '2026-03-20T12:00:00+07:00' }],
     },
@@ -174,6 +219,11 @@ test('player control v4 orders and events pages expose real player actions', () 
 
   assert.match(ordersModel.mainHtml, /data-player-redeem-form/);
   assert.match(eventsModel.mainHtml, /data-player-reward-claim="daily"/);
+  assert.match(eventsModel.mainHtml, /data-player-raid-request-form/);
+  assert.match(eventsModel.mainHtml, /ส่งคำขอเรด/);
+  assert.match(eventsModel.mainHtml, /data-player-killfeed/);
+  assert.match(eventsModel.mainHtml, /การต่อสู้ล่าสุด/);
+  assert.match(eventsModel.mainHtml, /MiraTH จัดการ BanditX/);
 });
 
 test('player control v4 profile page shows Steam link form before linking', () => {
@@ -187,6 +237,56 @@ test('player control v4 profile page shows Steam link form before linking', () =
   const profileModel = createPlayerControlV4Model(state, 'profile');
 
   assert.match(profileModel.mainHtml, /data-player-steam-link-form/);
+});
+
+test('player control v4 profile page shows linked account readiness and membership summary', () => {
+  const profileModel = createPlayerControlV4Model(buildSampleState(), 'profile');
+
+  assert.match(profileModel.mainHtml, /data-player-identity-summary/);
+  assert.match(profileModel.mainHtml, /บัญชีที่เชื่อมและความพร้อม/);
+  assert.match(profileModel.mainHtml, /สถานะการยืนยันตัวตน/);
+  assert.match(profileModel.mainHtml, /สิทธิ์ที่ใช้งานอยู่/);
+  assert.match(profileModel.mainHtml, /mira@example\.com/);
+  assert.match(profileModel.mainHtml, /123456789012345678/);
+  assert.match(profileModel.mainHtml, /ผู้เล่น \(ใช้งานอยู่\)/);
+});
+
+test('player control v4 donations page exposes supporter summary, readiness, and history', () => {
+  const state = buildSampleState();
+  state.featureAccess.sections.donations.enabled = true;
+  state.orders.unshift({
+    purchaseCode: 'SUP-001',
+    itemId: 'vip-1',
+    itemName: 'Supporter VIP',
+    status: 'delivered',
+    totalPrice: 3000,
+    createdAt: '2026-03-27T15:00:00+07:00',
+  });
+
+  const donationsModel = createPlayerControlV4Model(state, 'donations');
+
+  assert.match(donationsModel.mainHtml, /data-player-supporter-summary/);
+  assert.match(donationsModel.mainHtml, /data-player-supporter-readiness/);
+  assert.match(donationsModel.mainHtml, /data-player-supporter-history/);
+  assert.match(donationsModel.mainHtml, /ความพร้อมและสถานะล่าสุด/);
+  assert.match(donationsModel.mainHtml, /การซื้อผู้สนับสนุนล่าสุด/);
+  assert.match(donationsModel.mainHtml, /SUP-001/);
+  assert.match(donationsModel.mainHtml, /Supporter VIP/);
+});
+
+test('player control v4 donations page highlights Steam readiness before supporter delivery', () => {
+  const state = buildSampleState();
+  state.featureAccess.sections.donations.enabled = true;
+  state.steamLink = {
+    linked: false,
+    steamId: '',
+    inGameName: '',
+  };
+
+  const donationsModel = createPlayerControlV4Model(state, 'donations');
+
+  assert.match(donationsModel.mainHtml, /เชื่อม Steam ก่อนรับของผู้สนับสนุน/);
+  assert.match(donationsModel.mainHtml, /เปิดโปรไฟล์/);
 });
 
 test('player control v4 html keeps locked pages visible with a clear notice', () => {

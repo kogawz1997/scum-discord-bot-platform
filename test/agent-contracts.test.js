@@ -52,6 +52,9 @@ test('deriveScopesForAgent separates read/sync and execute scopes', () => {
   const syncScopes = deriveScopesForAgent('sync', 'sync_only');
   assert.ok(syncScopes.includes('agent:sync'));
   assert.ok(!syncScopes.includes('agent:execute'));
+  assert.ok(!syncScopes.includes('config:write'));
+  assert.ok(!syncScopes.includes('server:control'));
+  assert.ok(!syncScopes.includes('backup:write'));
 
   const executeScopes = deriveScopesForAgent('execute', 'execute_only');
   assert.ok(executeScopes.includes('agent:execute'));

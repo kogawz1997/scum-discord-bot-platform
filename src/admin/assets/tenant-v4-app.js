@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   'use strict';
 
   const PAGE_ALIASES = {
@@ -15,6 +15,8 @@
     transactions: 'orders',
     delivery: 'orders',
     donations: 'donations',
+    analytics: 'analytics',
+    reports: 'analytics',
     events: 'events',
     modules: 'modules',
     players: 'players',
@@ -38,6 +40,7 @@
     'logs-sync': 'tenant.app.page.logs-sync',
     orders: 'tenant.app.page.orders',
     donations: 'tenant.app.page.donations',
+    analytics: 'tenant.app.page.analytics',
     events: 'tenant.app.page.events',
     modules: 'tenant.app.page.modules',
     players: 'tenant.app.page.players',
@@ -58,6 +61,7 @@
     'logs-sync': ['bot_log', 'sync_agent'],
     orders: ['orders_module'],
     donations: ['donation_module'],
+    analytics: ['analytics_module'],
     events: ['event_module'],
     modules: ['support_module', 'analytics_module', 'event_module', 'donation_module'],
     players: ['player_module'],
@@ -78,6 +82,7 @@
     'logs-sync': 'logs_sync',
     orders: 'orders',
     donations: 'donations',
+    analytics: 'analytics',
     events: 'events',
     modules: 'modules',
     players: 'players',
@@ -102,6 +107,7 @@
     players: 'players',
     orders: 'orders',
     donations: 'donations',
+    analytics: 'analytics',
     events: 'events',
     modules: 'modules',
     staff: 'staff',
@@ -480,6 +486,8 @@
         return '/tenant/orders';
       case 'donations':
         return '/tenant/donations';
+      case 'analytics':
+        return '/tenant/analytics';
       case 'events':
         return '/tenant/events';
       case 'modules':
@@ -737,6 +745,11 @@
             current: resolvedPage === 'orders',
           },
           {
+            label: buildNavItemLabel(t(PAGE_TITLE_KEYS.analytics, 'การวิเคราะห์และรายงาน'), pageAccess.analytics),
+            href: buildCanonicalTenantPath('analytics'),
+            current: resolvedPage === 'analytics',
+          },
+          {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.players, 'ผู้เล่นและการช่วยเหลือ'), pageAccess.players),
             href: buildCanonicalTenantPath('players'),
             current: resolvedPage === 'players',
@@ -933,6 +946,7 @@
         agentSessions,
         dashboardCards,
         shopItems,
+        donationsOverview,
         queueItems,
         deadLetters,
         deliveryLifecycle,
@@ -945,6 +959,7 @@
         audit,
         featureEntitlements,
         events,
+        raids,
       ] = await Promise.all([
         api(`/admin/api/platform/overview?tenantId=${encodeURIComponent(scopedTenantId)}`, {}).catch(() => ({})),
         api(`/admin/api/platform/reconcile?tenantId=${encodeURIComponent(scopedTenantId)}&windowMs=3600000&pendingOverdueMs=1200000`, {}).catch(() => ({})),
@@ -997,6 +1012,7 @@
         api(`/admin/api/platform/agent-sessions?tenantId=${encodeURIComponent(scopedTenantId)}&limit=40`, []).catch(() => []),
         api(`/admin/api/dashboard/cards?tenantId=${encodeURIComponent(scopedTenantId)}`, null).catch(() => null),
         api(`/admin/api/shop/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=24`, { items: [] }).catch(() => ({ items: [] })),
+        api(`/admin/api/donations/overview?tenantId=${encodeURIComponent(scopedTenantId)}&days=30&limit=8`, {}).catch(() => ({})),
         api(`/admin/api/delivery/queue?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/dead-letter?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }),
         api(`/admin/api/delivery/lifecycle?tenantId=${encodeURIComponent(scopedTenantId)}&limit=80&pendingOverdueMs=1200000`, {}),
@@ -1009,6 +1025,7 @@
         api(`/admin/api/audit/query?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { items: [] }).catch(() => ({ items: [] })),
         api(`/admin/api/feature-access?tenantId=${encodeURIComponent(scopedTenantId)}`, null).catch(() => null),
         api(`/admin/api/event/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, []).catch(() => []),
+        api(`/admin/api/raid/list?tenantId=${encodeURIComponent(scopedTenantId)}&limit=20`, { requests: [], windows: [], summaries: [] }).catch(() => ({ requests: [], windows: [], summaries: [] })),
       ]);
 
       const serverRows = Array.isArray(servers) ? servers : [];
@@ -1023,6 +1040,7 @@
         billingOverview,
         billingInvoices,
         billingPaymentAttempts,
+        killfeed,
       ] = activeServer?.id
         ? await Promise.all([
           api(
@@ -1052,8 +1070,12 @@
           Promise.resolve({}),
           Promise.resolve([]),
           Promise.resolve([]),
+          api(
+            `/admin/api/killfeed/list?tenantId=${encodeURIComponent(scopedTenantId)}&serverId=${encodeURIComponent(activeServer.id)}&limit=20`,
+            { items: [] },
+          ).catch(() => ({ items: [] })),
         ])
-        : [null, [], [], [], [], [], {}, [], []];
+        : [null, [], [], [], [], [], {}, [], [], { items: [] }];
 
       const [
         tenantBillingOverview,
@@ -1115,6 +1137,7 @@
         agentSessions: Array.isArray(agentSessions) ? agentSessions : [],
         dashboardCards,
         shopItems: Array.isArray(shopItems?.items) ? shopItems.items : [],
+        donationsOverview: donationsOverview && typeof donationsOverview === 'object' ? donationsOverview : {},
         queueItems: Array.isArray(queueItems?.items) ? queueItems.items : [],
         deadLetters: Array.isArray(deadLetters?.items) ? deadLetters.items : [],
         deliveryLifecycle,
@@ -1129,9 +1152,17 @@
         audit,
         featureEntitlements,
         events: Array.isArray(events) ? events : [],
+        raids: raids && typeof raids === 'object'
+          ? {
+            requests: Array.isArray(raids.requests) ? raids.requests : [],
+            windows: Array.isArray(raids.windows) ? raids.windows : [],
+            summaries: Array.isArray(raids.summaries) ? raids.summaries : [],
+          }
+          : { requests: [], windows: [], summaries: [] },
         billingOverview: tenantBillingOverview && typeof tenantBillingOverview === 'object' ? tenantBillingOverview : {},
         billingInvoices: Array.isArray(tenantBillingInvoices) ? tenantBillingInvoices : [],
         billingPaymentAttempts: Array.isArray(tenantBillingPaymentAttempts) ? tenantBillingPaymentAttempts : [],
+        killfeed: Array.isArray(killfeed?.items) ? killfeed.items : (Array.isArray(killfeed) ? killfeed : []),
         purchaseLookup,
         deliveryCase,
         selectedUserId,
@@ -1178,6 +1209,8 @@
       __provisioningResult: state.provisioningResult,
     };
     const page = surfaceState.resolvedPage;
+    document.body.dataset.tenantPage = page;
+    document.body.dataset.tenantRoute = requestedPage || page;
     const renderers = {
       dashboard: () => window.TenantDashboardV4.renderTenantDashboardV4(target, renderState),
       onboarding: () => window.TenantOnboardingV4.renderTenantOnboardingV4(target, renderState),
@@ -1186,6 +1219,7 @@
       'logs-sync': () => window.TenantLogsSyncV4.renderTenantLogsSyncV4(target, renderState),
       orders: () => window.TenantOrdersV4.renderTenantOrdersV4(target, renderState),
       donations: () => window.TenantDonationsV4.renderTenantDonationsV4(target, renderState),
+      analytics: () => window.TenantAnalyticsV4.renderTenantAnalyticsV4(target, renderState),
       events: () => window.TenantEventsV4.renderTenantEventsV4(target, renderState),
       modules: () => window.TenantModulesV4.renderTenantModulesV4(target, renderState),
       players: () => window.TenantPlayersV4.renderTenantPlayersV4(target, renderState),
@@ -1603,11 +1637,29 @@
         mimeType,
       },
     }, null);
-    const downloadUrl = String(prepared?.downloadUrl || '').trim();
-    if (!downloadUrl) {
+    const downloadEndpoint = String(prepared?.downloadEndpoint || '').trim();
+    const downloadToken = String(prepared?.downloadToken || '').trim();
+    if (!downloadEndpoint || !downloadToken) {
       throw new Error('ยังไม่สามารถเตรียมไฟล์ดาวน์โหลดได้');
     }
-    triggerServerDownload(downloadUrl, prepared?.filename || filename);
+    const response = await fetch(downloadEndpoint, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: downloadToken,
+      }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(String(payload?.error || 'ดาวน์โหลดไฟล์ไม่สำเร็จ'));
+    }
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    triggerServerDownload(objectUrl, prepared?.filename || filename);
+    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
     return prepared;
   }
 
@@ -4203,17 +4255,26 @@
   function wireEventsPage(renderState, surfaceState) {
     const previewMode = isSurfacePreview(surfaceState, renderState);
     const tenantId = String(renderState?.tenantId || '').trim();
+    const serverId = String(renderState?.activeServer?.id || '').trim() || null;
     const createButton = document.querySelector('[data-tenant-event-create]');
     const createForm = document.querySelector('[data-tenant-event-form]');
     const eventButtons = Array.from(document.querySelectorAll('[data-tenant-event-action][data-event-id]'));
+    const raidReviewButtons = Array.from(document.querySelectorAll('[data-tenant-raid-review][data-raid-request-id]'));
+    const raidWindowForm = document.querySelector('[data-tenant-raid-window-form]');
+    const raidWindowButton = document.querySelector('[data-tenant-raid-window-save]');
+    const raidSummaryForm = document.querySelector('[data-tenant-raid-summary-form]');
+    const raidSummaryButton = document.querySelector('[data-tenant-raid-summary-save]');
     const manageLockReason = getTenantActionLockReason(
       renderState,
       'can_manage_events',
-      'Event actions are locked in the current package.',
+      'การจัดการกิจกรรมถูกล็อกไว้ตามแพ็กเกจปัจจุบัน',
     );
 
     if (previewMode || getTenantActionEntitlement(renderState, 'can_manage_events')?.locked) {
-      disableActionNodes([createButton, ...eventButtons], previewMode ? 'Preview mode cannot manage live events.' : manageLockReason);
+      disableActionNodes(
+        [createButton, ...eventButtons, ...raidReviewButtons, raidWindowButton, raidSummaryButton],
+        previewMode ? 'โหมดดูตัวอย่างยังจัดการกิจกรรมจริงไม่ได้' : manageLockReason,
+      );
       return;
     }
 
@@ -4227,7 +4288,7 @@
         setStatus('กรอกชื่อกิจกรรม เวลา และรางวัลก่อนสร้างกิจกรรม', 'warning');
         return;
       }
-      setActionButtonBusy(createButton, true, 'Creating...');
+      setActionButtonBusy(createButton, true, 'กำลังสร้าง...');
       try {
         await apiRequest('/admin/api/event/create', {
           method: 'POST',
@@ -4254,7 +4315,7 @@
         const action = String(button.getAttribute('data-tenant-event-action') || '').trim();
         const card = button.closest('[data-tenant-event-card]');
         if (!eventId || !action) return;
-        setActionButtonBusy(button, true, action === 'start' ? 'Starting...' : 'Saving...');
+        setActionButtonBusy(button, true, action === 'start' ? 'กำลังเริ่มกิจกรรม...' : 'กำลังบันทึก...');
         try {
           if (action === 'update') {
             await apiRequest('/admin/api/event/update', {
@@ -4296,6 +4357,103 @@
           setActionButtonBusy(button, false);
         }
       });
+    });
+
+    raidReviewButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const requestId = String(button.getAttribute('data-raid-request-id') || '').trim();
+        const status = String(button.getAttribute('data-tenant-raid-review') || '').trim().toLowerCase();
+        const card = button.closest('[data-tenant-raid-request-card]');
+        if (!requestId || !['approved', 'rejected', 'pending'].includes(status)) return;
+        setActionButtonBusy(button, true, status === 'approved' ? 'Approving...' : 'Saving...');
+        try {
+          await apiRequest('/admin/api/raid/request/review', {
+            method: 'POST',
+            body: {
+              tenantId,
+              serverId,
+              id: Number(requestId),
+              status,
+              decisionNote: String(card?.querySelector('[data-raid-request-note]')?.value || '').trim(),
+            },
+          }, null);
+          setStatus(
+            status === 'approved'
+              ? `อนุมัติคำขอเรด #${requestId} แล้ว`
+              : `ไม่อนุมัติคำขอเรด #${requestId} แล้ว`,
+            status === 'approved' ? 'success' : 'warning',
+          );
+          await refreshState({ silent: true });
+        } catch (error) {
+          setStatus(String(error?.message || error), 'danger');
+        } finally {
+          setActionButtonBusy(button, false);
+        }
+      });
+    });
+
+    raidWindowForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(raidWindowForm);
+      const title = String(formData.get('title') || '').trim();
+      const startsAt = String(formData.get('startsAt') || '').trim();
+      if (!title || !startsAt) {
+        setStatus('กรอกชื่อช่วงเวลาเรดและเวลาเริ่มก่อนบันทึก', 'warning');
+        return;
+      }
+      setActionButtonBusy(raidWindowButton, true, 'กำลังบันทึก...');
+      try {
+        await apiRequest('/admin/api/raid/window/create', {
+          method: 'POST',
+          body: {
+            tenantId,
+            serverId,
+            requestId: Number(formData.get('requestId') || 0) || null,
+            title,
+            startsAt,
+            endsAt: String(formData.get('endsAt') || '').trim(),
+            notes: String(formData.get('notes') || '').trim(),
+          },
+        }, null);
+        raidWindowForm.reset();
+        setStatus(`สร้างช่วงเวลาเรด ${title} แล้ว`, 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(raidWindowButton, false);
+      }
+    });
+
+    raidSummaryForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(raidSummaryForm);
+      const outcome = String(formData.get('outcome') || '').trim();
+      if (!outcome) {
+        setStatus('กรอกผลลัพธ์ของเรดก่อนเผยแพร่สรุป', 'warning');
+        return;
+      }
+      setActionButtonBusy(raidSummaryButton, true, 'กำลังบันทึก...');
+      try {
+        await apiRequest('/admin/api/raid/summary/create', {
+          method: 'POST',
+          body: {
+            tenantId,
+            serverId,
+            requestId: Number(formData.get('requestId') || 0) || null,
+            windowId: Number(formData.get('windowId') || 0) || null,
+            outcome,
+            notes: String(formData.get('notes') || '').trim(),
+          },
+        }, null);
+        raidSummaryForm.reset();
+        setStatus('เผยแพร่สรุปผลเรดแล้ว', 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(raidSummaryButton, false);
+      }
     });
   }
 

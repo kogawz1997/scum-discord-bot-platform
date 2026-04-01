@@ -576,7 +576,7 @@ async function registerTenantOwnerAccount(input = {}, db = prisma) {
   }, db);
   if (!passwordResult?.ok) return passwordResult;
 
-  const verification = await issueEmailVerificationToken({
+  await issueEmailVerificationToken({
     email,
     userId: identity.user.id,
     metadata: {
@@ -603,7 +603,6 @@ async function registerTenantOwnerAccount(input = {}, db = prisma) {
     tenant: tenantResult.tenant,
     subscription: subscriptionResult?.subscription || null,
     bootstrapToken: bootstrap?.rawToken || null,
-    verificationTokenPreview: verification?.rawToken || null,
   };
 }
 
@@ -706,6 +705,9 @@ async function consumeTenantBootstrapToken(input = {}, db = prisma) {
 }
 
 async function requestPlayerMagicLink(input = {}, db = prisma) {
+  const exposeDebugToken = String(process.env.PLAYER_MAGIC_LINK_DEBUG_TOKENS || '')
+    .trim()
+    .toLowerCase() === 'true';
   const email = normalizeEmail(input.email);
   if (!validateEmail(email)) return { ok: false, reason: 'invalid-email' };
 
@@ -748,7 +750,7 @@ async function requestPlayerMagicLink(input = {}, db = prisma) {
     ok: true,
     requested: true,
     queued: Boolean(issued?.ok),
-    debugToken: issued?.rawToken || null,
+    debugToken: exposeDebugToken ? issued?.rawToken || null : null,
   };
 }
 

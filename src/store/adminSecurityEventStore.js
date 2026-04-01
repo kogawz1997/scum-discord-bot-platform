@@ -152,17 +152,18 @@ function queueWrite(work, label) {
 }
 
 function trimEvents(nextRows = []) {
-  const normalized = [];
+  const normalized = new Map();
   for (const row of Array.isArray(nextRows) ? nextRows : []) {
-    normalized.push(normalizeEvent(row));
+    const event = normalizeEvent(row);
+    normalized.set(event.id, event);
   }
-  normalized.sort((left, right) => {
+  const ordered = Array.from(normalized.values()).sort((left, right) => {
     return String(left.at || '').localeCompare(String(right.at || ''));
   });
-  if (normalized.length > MAX_ENTRIES) {
-    normalized.splice(0, normalized.length - MAX_ENTRIES);
+  if (ordered.length > MAX_ENTRIES) {
+    ordered.splice(0, ordered.length - MAX_ENTRIES);
   }
-  return normalized;
+  return ordered;
 }
 
 function writeEventsToDisk() {
@@ -200,6 +201,16 @@ async function writeEventsToDatabase(delegate = getSecurityEventDelegate()) {
   if (!delegate) return;
   const rows = trimEvents(events).map(serializeEventRow);
   await delegate.deleteMany({});
+  if (rows.length > 0 && typeof delegate.upsert === 'function') {
+    for (const row of rows) {
+      await delegate.upsert({
+        where: { id: row.id },
+        create: row,
+        update: row,
+      });
+    }
+    return;
+  }
   if (rows.length > 0) {
     await delegate.createMany({ data: rows });
   }

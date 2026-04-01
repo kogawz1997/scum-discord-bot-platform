@@ -470,6 +470,46 @@ function splitIntoGroups(settings = []) {
   return Array.from(grouped.values());
 }
 
+function getServerConfigSnapshotDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformServerConfigSnapshot : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.upsert !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getServerConfigJobDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformServerConfigJob : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getServerConfigBackupDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformServerConfigBackup : null;
+  if (!delegate || typeof delegate.findMany !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getServerConfigDelegates(client = null) {
+  const snapshot = getServerConfigSnapshotDelegate(client);
+  const job = getServerConfigJobDelegate(client);
+  const backup = getServerConfigBackupDelegate(client);
+  if (!snapshot || !job || !backup) {
+    return null;
+  }
+  return { snapshot, job, backup };
+}
+
+function getServerConfigDelegatesOrThrow(client = null) {
+  const delegates = getServerConfigDelegates(client);
+  if (delegates) return delegates;
+  throw new Error('platform-server-config-delegates-unavailable');
+}
+
 function buildWorkspaceFromSnapshot(server, snapshotRow, backups = []) {
   const categoryDefinitions = getConfigCategoryDefinitions().map(getCategoryDisplay);
   const snapshotIndex = buildSnapshotIndex(snapshotRow?.snapshot || {});
@@ -594,122 +634,36 @@ function createPlatformServerConfigService(deps = {}) {
   }
 
   async function ensurePlatformServerConfigTables(db) {
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_server_config_snapshots (
-        server_id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        runtime_key TEXT,
-        status TEXT,
-        snapshot_json TEXT,
-        collected_at TIMESTAMPTZ,
-        updated_by TEXT,
-        last_job_id TEXT,
-        last_error TEXT,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_server_config_jobs (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        server_id TEXT NOT NULL,
-        job_type TEXT NOT NULL,
-        apply_mode TEXT NOT NULL,
-        status TEXT NOT NULL,
-        requested_by TEXT,
-        requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        claimed_by_runtime_key TEXT,
-        claimed_at TIMESTAMPTZ,
-        completed_at TIMESTAMPTZ,
-        changes_json TEXT,
-        result_json TEXT,
-        error_text TEXT,
-        meta_json TEXT
-      );
-    `);
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_server_config_backups (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        server_id TEXT NOT NULL,
-        job_id TEXT,
-        file_name TEXT NOT NULL,
-        backup_path TEXT,
-        changed_by TEXT,
-        change_summary_json TEXT,
-        meta_json TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    getServerConfigDelegatesOrThrow(db);
   }
 
   async function readSnapshotRow(db, serverId) {
     await ensurePlatformServerConfigTables(db);
-    const rows = await db.$queryRaw`
-      SELECT
-        server_id AS "serverId",
-        tenant_id AS "tenantId",
-        runtime_key AS "runtimeKey",
-        status,
-        snapshot_json AS "snapshotJson",
-        collected_at AS "collectedAt",
-        updated_by AS "updatedBy",
-        last_job_id AS "lastJobId",
-        last_error AS "lastError",
-        updated_at AS "updatedAt"
-      FROM platform_server_config_snapshots
-      WHERE server_id = ${serverId}
-      LIMIT 1
-    `;
-    return normalizeSnapshotRow(Array.isArray(rows) ? rows[0] : null);
+    const { snapshot } = getServerConfigDelegatesOrThrow(db);
+    const row = await snapshot.findUnique({
+      where: { serverId },
+    });
+    return normalizeSnapshotRow(row);
   }
 
   async function readBackupRows(db, serverId, limit = 20) {
     await ensurePlatformServerConfigTables(db);
-    const rows = await db.$queryRaw`
-      SELECT
-        id,
-        tenant_id AS "tenantId",
-        server_id AS "serverId",
-        job_id AS "jobId",
-        file_name AS "fileName",
-        backup_path AS "backupPath",
-        changed_by AS "changedBy",
-        change_summary_json AS "changeSummaryJson",
-        meta_json AS "metaJson",
-        created_at AS "createdAt"
-      FROM platform_server_config_backups
-      WHERE server_id = ${serverId}
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-    `;
+    const { backup } = getServerConfigDelegatesOrThrow(db);
+    const rows = await backup.findMany({
+      where: { serverId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
     return Array.isArray(rows) ? rows.map(normalizeBackupRow).filter(Boolean) : [];
   }
 
   async function readJobRow(db, jobId) {
     await ensurePlatformServerConfigTables(db);
-    const rows = await db.$queryRaw`
-      SELECT
-        id,
-        tenant_id AS "tenantId",
-        server_id AS "serverId",
-        job_type AS "jobType",
-        apply_mode AS "applyMode",
-        status,
-        requested_by AS "requestedBy",
-        requested_at AS "requestedAt",
-        claimed_by_runtime_key AS "claimedByRuntimeKey",
-        claimed_at AS "claimedAt",
-        completed_at AS "completedAt",
-        changes_json AS "changesJson",
-        result_json AS "resultJson",
-        error_text AS "errorText",
-        meta_json AS "metaJson"
-      FROM platform_server_config_jobs
-      WHERE id = ${jobId}
-      LIMIT 1
-    `;
-    return normalizeJobRow(Array.isArray(rows) ? rows[0] : null);
+    const { job } = getServerConfigDelegatesOrThrow(db);
+    const row = await job.findUnique({
+      where: { id: jobId },
+    });
+    return normalizeJobRow(row);
   }
 
   async function getServerConfigWorkspace(options = {}) {
@@ -775,42 +729,31 @@ function createPlatformServerConfigService(deps = {}) {
     const runtimeKey = normalizeRuntimeKey(input.runtimeKey);
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      await db.$executeRaw`
-        INSERT INTO platform_server_config_snapshots (
-          server_id,
-          tenant_id,
-          runtime_key,
-          status,
-          snapshot_json,
-          collected_at,
-          updated_by,
-          last_job_id,
-          last_error,
-          updated_at
-        )
-        VALUES (
-          ${serverId},
-          ${tenantId},
-          ${runtimeKey},
-          ${snapshot.status || 'ready'},
-          ${JSON.stringify(snapshot)},
-          ${snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date()},
-          ${trimText(actor, 200) || 'server-bot'},
-          ${trimText(input.lastJobId, 160) || null},
-          ${trimText(input.lastError, 1000) || null},
-          CURRENT_TIMESTAMP
-        )
-        ON CONFLICT (server_id)
-        DO UPDATE SET
-          runtime_key = EXCLUDED.runtime_key,
-          status = EXCLUDED.status,
-          snapshot_json = EXCLUDED.snapshot_json,
-          collected_at = EXCLUDED.collected_at,
-          updated_by = EXCLUDED.updated_by,
-          last_job_id = EXCLUDED.last_job_id,
-          last_error = EXCLUDED.last_error,
-          updated_at = CURRENT_TIMESTAMP
-      `;
+      const { snapshot: snapshotDelegate } = getServerConfigDelegatesOrThrow(db);
+      await snapshotDelegate.upsert({
+        where: { serverId },
+        create: {
+          serverId,
+          tenantId,
+          runtimeKey,
+          status: snapshot.status || 'ready',
+          snapshotJson: JSON.stringify(snapshot),
+          collectedAt: snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date(),
+          updatedBy: trimText(actor, 200) || 'server-bot',
+          lastJobId: trimText(input.lastJobId, 160) || null,
+          lastError: trimText(input.lastError, 1000) || null,
+        },
+        update: {
+          tenantId,
+          runtimeKey,
+          status: snapshot.status || 'ready',
+          snapshotJson: JSON.stringify(snapshot),
+          collectedAt: snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date(),
+          updatedBy: trimText(actor, 200) || 'server-bot',
+          lastJobId: trimText(input.lastJobId, 160) || null,
+          lastError: trimText(input.lastError, 1000) || null,
+        },
+      });
       return {
         ok: true,
         snapshot: await readSnapshotRow(db, serverId),
@@ -855,36 +798,22 @@ function createPlatformServerConfigService(deps = {}) {
     }
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      await db.$executeRaw`
-        INSERT INTO platform_server_config_jobs (
-          id,
-          tenant_id,
-          server_id,
-          job_type,
-          apply_mode,
-          status,
-          requested_by,
-          requested_at,
-          changes_json,
-          result_json,
-          error_text,
-          meta_json
-        )
-        VALUES (
-          ${jobId},
-          ${tenantId},
-          ${serverId},
-          ${'config_update'},
-          ${applyMode},
-          ${'queued'},
-          ${requestedBy},
-          CURRENT_TIMESTAMP,
-          ${JSON.stringify(changes)},
-          ${JSON.stringify({})},
-          ${null},
-          ${JSON.stringify(meta)}
-        )
-      `;
+      const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
+      await jobDelegate.create({
+        data: {
+          id: jobId,
+          tenantId,
+          serverId,
+          jobType: 'config_update',
+          applyMode,
+          status: 'queued',
+          requestedBy,
+          changesJson: JSON.stringify(changes),
+          resultJson: JSON.stringify({}),
+          errorText: null,
+          metaJson: JSON.stringify(meta),
+        },
+      });
       return {
         ok: true,
         job: await readJobRow(db, jobId),
@@ -920,36 +849,22 @@ function createPlatformServerConfigService(deps = {}) {
     }
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      await db.$executeRaw`
-        INSERT INTO platform_server_config_jobs (
-          id,
-          tenant_id,
-          server_id,
-          job_type,
-          apply_mode,
-          status,
-          requested_by,
-          requested_at,
-          changes_json,
-          result_json,
-          error_text,
-          meta_json
-        )
-        VALUES (
-          ${jobId},
-          ${tenantId},
-          ${serverId},
-          ${'apply'},
-          ${applyMode},
-          ${'queued'},
-          ${trimText(actor, 200) || 'admin-web'},
-          CURRENT_TIMESTAMP,
-          ${JSON.stringify([])},
-          ${JSON.stringify({})},
-          ${null},
-          ${JSON.stringify(meta)}
-        )
-      `;
+      const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
+      await jobDelegate.create({
+        data: {
+          id: jobId,
+          tenantId,
+          serverId,
+          jobType: 'apply',
+          applyMode,
+          status: 'queued',
+          requestedBy: trimText(actor, 200) || 'admin-web',
+          changesJson: JSON.stringify([]),
+          resultJson: JSON.stringify({}),
+          errorText: null,
+          metaJson: JSON.stringify(meta),
+        },
+      });
       return {
         ok: true,
         job: await readJobRow(db, jobId),
@@ -992,36 +907,22 @@ function createPlatformServerConfigService(deps = {}) {
         }
       }
       const jobId = trimText(input.jobId, 160) || createId('cfgjob');
-      await db.$executeRaw`
-        INSERT INTO platform_server_config_jobs (
-          id,
-          tenant_id,
-          server_id,
-          job_type,
-          apply_mode,
-          status,
-          requested_by,
-          requested_at,
-          changes_json,
-          result_json,
-          error_text,
-          meta_json
-        )
-        VALUES (
-          ${jobId},
-          ${tenantId},
-          ${serverId},
-          ${'rollback'},
-          ${applyMode},
-          ${'queued'},
-          ${trimText(actor, 200) || 'admin-web'},
-          CURRENT_TIMESTAMP,
-          ${JSON.stringify([])},
-          ${JSON.stringify({})},
-          ${null},
-          ${JSON.stringify({ ...rollbackMeta, backup })}
-        )
-      `;
+      const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
+      await jobDelegate.create({
+        data: {
+          id: jobId,
+          tenantId,
+          serverId,
+          jobType: 'rollback',
+          applyMode,
+          status: 'queued',
+          requestedBy: trimText(actor, 200) || 'admin-web',
+          changesJson: JSON.stringify([]),
+          resultJson: JSON.stringify({}),
+          errorText: null,
+          metaJson: JSON.stringify({ ...rollbackMeta, backup }),
+        },
+      });
       return {
         ok: true,
         job: await readJobRow(db, jobId),
@@ -1056,40 +957,26 @@ function createPlatformServerConfigService(deps = {}) {
     };
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      await db.$executeRaw`
-        INSERT INTO platform_server_config_jobs (
-          id,
-          tenant_id,
-          server_id,
-          job_type,
-          apply_mode,
-          status,
-          requested_by,
-          requested_at,
-          changes_json,
-          result_json,
-          error_text,
-          meta_json
-        )
-        VALUES (
-          ${jobId},
-          ${tenantId},
-          ${serverId},
-          ${jobType},
-          ${'save_only'},
-          ${'queued'},
-          ${trimText(actor, 200) || 'admin-web'},
-          CURRENT_TIMESTAMP,
-          ${JSON.stringify([])},
-          ${JSON.stringify({})},
-          ${null},
-          ${JSON.stringify({
+      const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
+      await jobDelegate.create({
+        data: {
+          id: jobId,
+          tenantId,
+          serverId,
+          jobType,
+          applyMode: 'save_only',
+          status: 'queued',
+          requestedBy: trimText(actor, 200) || 'admin-web',
+          changesJson: JSON.stringify([]),
+          resultJson: JSON.stringify({}),
+          errorText: null,
+          metaJson: JSON.stringify({
             ...meta,
             serverName: trimText(server.name, 200) || null,
             runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
-          })}
-        )
-      `;
+          }),
+        },
+      });
       return {
         ok: true,
         job: await readJobRow(db, jobId),
@@ -1104,42 +991,31 @@ function createPlatformServerConfigService(deps = {}) {
     if (!tenantId || !serverId) return { ok: false, reason: 'server-config-claim-invalid' };
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      const rows = await db.$queryRaw`
-        SELECT
-          id,
-          tenant_id AS "tenantId",
-          server_id AS "serverId",
-          job_type AS "jobType",
-          apply_mode AS "applyMode",
-          status,
-          requested_by AS "requestedBy",
-          requested_at AS "requestedAt",
-          claimed_by_runtime_key AS "claimedByRuntimeKey",
-          claimed_at AS "claimedAt",
-          completed_at AS "completedAt",
-          changes_json AS "changesJson",
-          result_json AS "resultJson",
-          error_text AS "errorText",
-          meta_json AS "metaJson"
-        FROM platform_server_config_jobs
-        WHERE server_id = ${serverId}
-          AND status = ${'queued'}
-        ORDER BY requested_at ASC
-        LIMIT 1
-      `;
-      const job = normalizeJobRow(Array.isArray(rows) ? rows[0] : null);
-      if (!job) return { ok: true, job: null };
-      await db.$executeRaw`
-        UPDATE platform_server_config_jobs
-        SET
-          status = ${'processing'},
-          claimed_by_runtime_key = ${runtimeKey},
-          claimed_at = CURRENT_TIMESTAMP
-        WHERE id = ${job.id}
-      `;
+      const nextJob = await db.$transaction(async (tx) => {
+        const { job: jobDelegate } = getServerConfigDelegatesOrThrow(tx);
+        const queuedJob = await jobDelegate.findFirst({
+          where: {
+            serverId,
+            status: 'queued',
+          },
+          orderBy: {
+            requestedAt: 'asc',
+          },
+        });
+        if (!queuedJob) return null;
+        return jobDelegate.update({
+          where: { id: queuedJob.id },
+          data: {
+            status: 'processing',
+            claimedByRuntimeKey: runtimeKey,
+            claimedAt: new Date(),
+          },
+        });
+      });
+      if (!nextJob) return { ok: true, job: null };
       return {
         ok: true,
-        job: await readJobRow(db, job.id),
+        job: normalizeJobRow(nextJob),
       };
     });
   }
@@ -1171,98 +1047,86 @@ function createPlatformServerConfigService(deps = {}) {
 
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
-      const currentJob = await readJobRow(db, jobId);
-      await db.$executeRaw`
-        UPDATE platform_server_config_jobs
-        SET
-          status = ${jobStatus},
-          completed_at = CURRENT_TIMESTAMP,
-          error_text = ${lastError},
-          result_json = ${JSON.stringify(result)},
-          claimed_by_runtime_key = COALESCE(claimed_by_runtime_key, ${runtimeKey})
-        WHERE id = ${jobId}
-      `;
+      const completion = await db.$transaction(async (tx) => {
+        const {
+          job: jobDelegate,
+          backup: backupDelegate,
+          snapshot: snapshotDelegate,
+        } = getServerConfigDelegatesOrThrow(tx);
+        const currentJob = await jobDelegate.findUnique({
+          where: { id: jobId },
+        });
+        const updatedJob = await jobDelegate.update({
+          where: { id: jobId },
+          data: {
+            status: jobStatus,
+            completedAt: new Date(),
+            errorText: lastError,
+            resultJson: JSON.stringify(result),
+            claimedByRuntimeKey: trimText(currentJob?.claimedByRuntimeKey, 200) || runtimeKey,
+          },
+        });
 
-      for (const backup of backups) {
-        await db.$executeRaw`
-          INSERT INTO platform_server_config_backups (
-            id,
-            tenant_id,
-            server_id,
-            job_id,
-            file_name,
-            backup_path,
-            changed_by,
-            change_summary_json,
-            meta_json,
-            created_at
-          )
-          VALUES (
-            ${backup.id},
-            ${tenantId},
-            ${serverId},
-            ${jobId},
-            ${backup.file},
-            ${backup.backupPath},
-            ${backup.changedBy},
-            ${JSON.stringify(backup.changeSummary)},
-            ${JSON.stringify(backup.meta)},
-            CURRENT_TIMESTAMP
-          )
-        `;
-      }
+        for (const backup of backups) {
+          await backupDelegate.create({
+            data: {
+              id: backup.id,
+              tenantId,
+              serverId,
+              jobId,
+              fileName: backup.file,
+              backupPath: backup.backupPath,
+              changedBy: backup.changedBy,
+              changeSummaryJson: JSON.stringify(backup.changeSummary),
+              metaJson: JSON.stringify(backup.meta),
+            },
+          });
+        }
 
-      if (snapshotInput) {
-        const snapshot = normalizeSnapshotInput(snapshotInput);
-        await db.$executeRaw`
-          INSERT INTO platform_server_config_snapshots (
-            server_id,
-            tenant_id,
-            runtime_key,
-            status,
-            snapshot_json,
-            collected_at,
-            updated_by,
-            last_job_id,
-            last_error,
-            updated_at
-          )
-          VALUES (
-            ${serverId},
-            ${tenantId},
-            ${runtimeKey},
-            ${snapshot.status || (jobStatus === 'succeeded' ? 'ready' : 'error')},
-            ${JSON.stringify(snapshot)},
-            ${snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date()},
-            ${trimText(actor, 200) || 'server-bot'},
-            ${jobId},
-            ${lastError},
-            CURRENT_TIMESTAMP
-          )
-          ON CONFLICT (server_id)
-          DO UPDATE SET
-            runtime_key = EXCLUDED.runtime_key,
-            status = EXCLUDED.status,
-            snapshot_json = EXCLUDED.snapshot_json,
-            collected_at = EXCLUDED.collected_at,
-            updated_by = EXCLUDED.updated_by,
-            last_job_id = EXCLUDED.last_job_id,
-            last_error = EXCLUDED.last_error,
-            updated_at = CURRENT_TIMESTAMP
-        `;
-      } else {
-        await db.$executeRaw`
-          UPDATE platform_server_config_snapshots
-          SET
-            last_job_id = ${jobId},
-            last_error = ${lastError},
-            updated_by = ${trimText(actor, 200) || 'server-bot'},
-            updated_at = CURRENT_TIMESTAMP
-          WHERE server_id = ${serverId}
-        `;
-      }
+        if (snapshotInput) {
+          const snapshot = normalizeSnapshotInput(snapshotInput);
+          await snapshotDelegate.upsert({
+            where: { serverId },
+            create: {
+              serverId,
+              tenantId,
+              runtimeKey,
+              status: snapshot.status || (jobStatus === 'succeeded' ? 'ready' : 'error'),
+              snapshotJson: JSON.stringify(snapshot),
+              collectedAt: snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date(),
+              updatedBy: trimText(actor, 200) || 'server-bot',
+              lastJobId: jobId,
+              lastError,
+            },
+            update: {
+              tenantId,
+              runtimeKey,
+              status: snapshot.status || (jobStatus === 'succeeded' ? 'ready' : 'error'),
+              snapshotJson: JSON.stringify(snapshot),
+              collectedAt: snapshot.collectedAt ? new Date(snapshot.collectedAt) : new Date(),
+              updatedBy: trimText(actor, 200) || 'server-bot',
+              lastJobId: jobId,
+              lastError,
+            },
+          });
+        } else {
+          await snapshotDelegate.updateMany({
+            where: { serverId },
+            data: {
+              lastJobId: jobId,
+              lastError,
+              updatedBy: trimText(actor, 200) || 'server-bot',
+            },
+          });
+        }
 
-      const restartPlanId = trimText(currentJob?.meta?.restartPlanId, 160) || null;
+        return {
+          currentJob: normalizeJobRow(currentJob),
+          updatedJob: normalizeJobRow(updatedJob),
+        };
+      });
+
+      const restartPlanId = trimText(completion.currentJob?.meta?.restartPlanId, 160) || null;
       if (restartPlanId) {
         await recordRestartExecution({
           planId: restartPlanId,
@@ -1275,8 +1139,8 @@ function createPlatformServerConfigService(deps = {}) {
           detail: lastError || trimText(result.detail, 800) || `Config job ${jobStatus}`,
           metadata: {
             jobId,
-            jobType: currentJob?.jobType || null,
-            applyMode: currentJob?.applyMode || null,
+            jobType: completion.currentJob?.jobType || null,
+            applyMode: completion.currentJob?.applyMode || null,
           },
         }).catch(() => null);
         await completeRestartPlan({
@@ -1292,7 +1156,7 @@ function createPlatformServerConfigService(deps = {}) {
 
       return {
         ok: true,
-        job: await readJobRow(db, jobId),
+        job: completion.updatedJob,
         snapshot: await readSnapshotRow(db, serverId),
         backups: await readBackupRows(db, serverId, 20),
       };

@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
@@ -62,6 +63,16 @@ function collectAgentDetailText(message, meta = null) {
     }
   }
   return parts.filter(Boolean).join(' | ');
+}
+
+function secureTokenMatch(actual, expected) {
+  const left = String(actual || '').trim();
+  const right = String(expected || '').trim();
+  if (!left || !right) return false;
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function classifyAgentIssue(codeInput, messageInput, meta = null, options = {}) {
@@ -924,8 +935,14 @@ function startScumConsoleAgent(options = {}) {
   const server = http.createServer(async (req, res) => {
     const reply = createJsonResponder(res);
     const url = new URL(req.url || '/', `http://${settings.host}:${settings.port}`);
+    const requestToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
+      || String(req.headers['x-agent-token'] || '').trim();
+    const authorized = secureTokenMatch(requestToken, settings.token);
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/healthz')) {
+      if (!authorized) {
+        return reply(401, { ok: false, error: 'unauthorized' });
+      }
       const status = getAgentStatus();
       const diagnostic = buildCurrentAgentDiagnostic();
       return reply(200, {
@@ -956,6 +973,9 @@ function startScumConsoleAgent(options = {}) {
     }
 
     if (req.method === 'GET' && url.pathname === '/preflight') {
+      if (!authorized) {
+        return reply(401, { ok: false, error: 'unauthorized' });
+      }
       try {
         const result = await runPreflight();
         const status = getAgentStatus();
@@ -1011,9 +1031,7 @@ function startScumConsoleAgent(options = {}) {
       return reply(405, { ok: false, error: 'method-not-allowed' });
     }
 
-    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
-      || String(req.headers['x-agent-token'] || '').trim();
-    if (!settings.token || token !== settings.token) {
+    if (!authorized) {
       return reply(401, { ok: false, error: 'unauthorized' });
     }
 

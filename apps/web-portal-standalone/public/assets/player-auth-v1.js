@@ -78,9 +78,8 @@
     setDebugLink(null);
     setStatus('กำลังเตรียมเมจิกลิงก์...', 'info');
     try {
-      const data = await requestJson('/player/api/auth/email/request', { email });
+      await requestJson('/player/api/auth/email/request', { email });
       setStatus('ถ้าบัญชีผู้เล่นนี้ผูกไว้แล้ว เมจิกลิงก์พร้อมใช้งานแล้ว', 'success');
-      setDebugLink(data?.debugUrl || null);
     } catch (error) {
       setStatus(localizeAuthError(String(error?.message || 'Could not prepare the magic link.')), 'error');
     } finally {

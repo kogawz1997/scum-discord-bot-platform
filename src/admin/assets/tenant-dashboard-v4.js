@@ -827,6 +827,38 @@
     };
   }
 
+  function buildQuickActions(setupFlow) {
+    const nextHref = setupFlow?.primaryAction?.href || '#server-status';
+    return [
+      {
+        key: 'create-server-bot',
+        label: 'เปิดหน้า Server Bot',
+        href: '#server-bots',
+        detail: 'สร้างหรือเชื่อมบอทเซิร์ฟเวอร์สำหรับ log การซิงก์ และงานควบคุมเซิร์ฟเวอร์',
+      },
+      {
+        key: 'create-delivery-agent',
+        label: 'เปิดหน้า Delivery Agent',
+        href: '#delivery-agents',
+        detail: 'สร้างหรือเชื่อมตัวส่งของในเกมสำหรับงานส่งของและประกาศสำคัญ',
+      },
+      {
+        key: 'open-config',
+        label: 'เปิดหน้าตั้งค่าเซิร์ฟเวอร์',
+        href: '#server-config',
+        detail: 'ตรวจและปรับค่าหลักของเซิร์ฟเวอร์ก่อนเปิดใช้งานประจำวัน',
+      },
+      {
+        key: 'restart-server',
+        label: 'เปิดหน้าควบคุมการรีสตาร์ต',
+        href: '#restart-control',
+        detail: nextHref === '#restart-control'
+          ? 'เปิดหน้าควบคุมการรีสตาร์ตเพื่อทำขั้นถัดไปให้เสร็จ'
+          : 'ใช้เมื่ออยากรีสตาร์ตอย่างเป็นขั้นตอนและบอกผู้เล่นล่วงหน้า',
+      },
+    ];
+  }
+
   function createTenantDashboardV4Model(legacyState) {
     const state = legacyState && typeof legacyState === 'object' ? legacyState : {};
     const rawTenantName = firstNonEmpty([
@@ -859,6 +891,13 @@
     const issues = buildIssues(state);
     const setupFlow = buildSetupFlowV2(state, serverStatus, executeStatus, syncStatus, issues);
     const setupReady = Array.isArray(setupFlow?.steps) && setupFlow.steps.every((step) => step.ready);
+    const readinessPercent = setupFlow?.steps?.length
+      ? Math.round((Number(setupFlow.completedSteps || 0) / Number(setupFlow.steps.length)) * 100)
+      : 0;
+    const nextRequiredStep = Array.isArray(setupFlow?.steps)
+      ? setupFlow.steps.find((step) => !step.ready) || null
+      : null;
+    const quickActions = buildQuickActions(setupFlow);
     const leadingIssue = Array.isArray(issues) && issues.length > 0 ? issues[0] : null;
     const decisionPanel = !setupReady
       ? {
@@ -938,6 +977,14 @@
       },
       kpis: [
         {
+          label: 'System readiness',
+          value: `${formatNumber(readinessPercent, '0')}%`,
+          detail: nextRequiredStep
+            ? `Next required step: ${nextRequiredStep.title}`
+            : 'Core tenant setup is complete and ready for daily operations',
+          tone: setupReady ? 'success' : readinessPercent >= 50 ? 'warning' : 'danger',
+        },
+        {
           label: 'แพ็กเกจปัจจุบัน',
           value: extractPackageName(state),
           detail: 'สิทธิ์หลักของ tenant นี้',
@@ -975,8 +1022,21 @@
         },
       ],
       decisionPanel,
+      readiness: {
+        percent: readinessPercent,
+        completedSteps: Number(setupFlow?.completedSteps || 0),
+        totalSteps: Array.isArray(setupFlow?.steps) ? setupFlow.steps.length : 0,
+        nextRequiredStep: nextRequiredStep
+          ? {
+              title: nextRequiredStep.title,
+              detail: nextRequiredStep.detail,
+              href: nextRequiredStep.href,
+            }
+          : null,
+      },
       setupReady,
       setupFlow,
+      quickActions,
       taskGroups: DEFAULT_TASK_GROUPS,
       issues,
       contextBlocks: buildContextBlocks(state),
@@ -1205,6 +1265,35 @@
         : '',
       '<section class="tdv4-kpi-strip">',
       ...(Array.isArray(safeModel.kpis) ? safeModel.kpis.map(renderKpi) : []),
+      '</section>',
+      '<section class="tdv4-dual-grid">',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">ความพร้อมของระบบ</div>',
+      '<h2 class="tdv4-section-title">ตอนนี้พร้อมแค่ไหน และต้องทำอะไรต่อ</h2>',
+      `<p class="tdv4-section-copy">${escapeHtml(
+        safeModel.readiness && safeModel.readiness.nextRequiredStep
+          ? `ตอนนี้พร้อม ${safeModel.readiness.percent}% และควรทำ "${safeModel.readiness.nextRequiredStep.title}" เป็นขั้นถัดไป`
+          : `ตอนนี้พร้อม ${safeModel.readiness && typeof safeModel.readiness.percent === 'number' ? safeModel.readiness.percent : 0}% และตั้งค่าหลักครบแล้วสำหรับ tenant นี้`
+      )}</p>`,
+      '<div class="tdv4-chip-row">',
+      renderBadge(`ความพร้อม ${String(safeModel.readiness && safeModel.readiness.percent || 0)}%`, safeModel.setupReady ? 'success' : 'warning'),
+      renderBadge(
+        `ทำแล้ว ${String(safeModel.readiness && safeModel.readiness.completedSteps || 0)}/${String(safeModel.readiness && safeModel.readiness.totalSteps || 0)} ขั้น`,
+        'info'
+      ),
+      '</div>',
+      safeModel.readiness && safeModel.readiness.nextRequiredStep
+        ? `<div class="tdv4-priority-note tdv4-tone-warning"><strong>${escapeHtml(safeModel.readiness.nextRequiredStep.title)}</strong><p>${escapeHtml(safeModel.readiness.nextRequiredStep.detail || '')}</p><a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(safeModel.readiness.nextRequiredStep.href || '#')}">ไปทำขั้นถัดไป</a></div>`
+        : '<div class="tdv4-empty-state"><strong>ตั้งค่าหลักครบแล้ว</strong><p>Server Bot, Delivery Agent และค่าหลักของเซิร์ฟเวอร์พร้อมสำหรับงานประจำวันแล้ว</p></div>',
+      '</section>',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">ทางลัด</div>',
+      '<h2 class="tdv4-section-title">งานหลักที่ควรเปิดบ่อย</h2>',
+      '<p class="tdv4-section-copy">ใช้ทางลัดชุดนี้เพื่อเปิดหน้าที่ต้องเช็กบ่อยโดยไม่ต้องไล่หาในเมนู</p>',
+      '<div class="tdv4-action-list">',
+      ...(Array.isArray(safeModel.quickActions) ? safeModel.quickActions.map((action) => `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(action.href || '#')}" title="${escapeHtml(action.detail || '')}">${escapeHtml(action.label || '')}</a>`) : []),
+      '</div>',
+      '</section>',
       '</section>',
       renderDecisionPanel(safeModel.decisionPanel),
       safeModel.setupFlow && !safeModel.setupReady

@@ -1,6 +1,9 @@
 require('dotenv').config();
 
 const { startScumConsoleAgent } = require('./services/scumConsoleAgent');
+const { assertDeliveryAgentEnv } = require('./utils/env');
+
+assertDeliveryAgentEnv(process.env);
 
 const runtime = startScumConsoleAgent();
 

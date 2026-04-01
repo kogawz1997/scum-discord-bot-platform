@@ -1704,9 +1704,25 @@ function extractAgentRecovery(payload) {
 async function fetchAgentHealth(settings, routeInput = {}) {
   const connection = resolveAgentConnection(routeInput);
   const baseUrl = connection.baseUrl;
+  const token = connection.token;
+  if (!token) {
+    return {
+      ok: false,
+      reachable: false,
+      baseUrl,
+      errorCode: 'AGENT_TOKEN_MISSING',
+      error: 'SCUM_CONSOLE_AGENT_TOKEN is not set',
+      classification: null,
+      recovery: null,
+      routeSource: connection.source,
+      route: connection.route,
+      fallbackReason: connection.fallbackReason,
+    };
+  }
   try {
     const response = await requestConsoleAgent('/healthz', {
       baseUrl,
+      token,
       method: 'GET',
       headers: {
         Accept: 'application/json',

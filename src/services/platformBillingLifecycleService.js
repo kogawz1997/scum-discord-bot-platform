@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { Prisma } = require('@prisma/client');
 
 const { prisma, getTenantScopedPrismaClient } = require('../prisma');
+const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -32,7 +33,7 @@ function normalizeProvider(value) {
 
 function normalizeInvoiceStatus(value, fallback = 'draft') {
   const normalized = trimText(value, 40).toLowerCase();
-  return ['draft', 'open', 'paid', 'past_due', 'void', 'canceled', 'failed'].includes(normalized)
+  return ['draft', 'open', 'paid', 'past_due', 'void', 'canceled', 'failed', 'refunded', 'disputed'].includes(normalized)
     ? normalized
     : fallback;
 }
@@ -109,6 +110,10 @@ function resolveBillingCycleDays(cycle) {
   if (normalized === 'trial') return 14;
   if (normalized === 'one-time') return 0;
   return 30;
+}
+
+function hasOwn(obj, key) {
+  return Boolean(obj) && Object.prototype.hasOwnProperty.call(obj, key);
 }
 
 function getScopedBillingDb(tenantId, db = prisma) {
@@ -344,112 +349,138 @@ function buildCheckoutSession(attempt, invoice = null) {
   };
 }
 
+function getBillingCustomerDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformBillingCustomer : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getBillingInvoiceDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformBillingInvoice : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getBillingPaymentAttemptDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformBillingPaymentAttempt : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getBillingSubscriptionEventDelegate(client = null) {
+  const delegate = client && typeof client === 'object' ? client.platformSubscriptionEvent : null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    return null;
+  }
+  return delegate;
+}
+
+function getBillingDelegates(client = null) {
+  const customer = getBillingCustomerDelegate(client);
+  const invoice = getBillingInvoiceDelegate(client);
+  const paymentAttempt = getBillingPaymentAttemptDelegate(client);
+  const subscriptionEvent = getBillingSubscriptionEventDelegate(client);
+  if (!customer || !invoice || !paymentAttempt || !subscriptionEvent) {
+    return null;
+  }
+  return {
+    customer,
+    invoice,
+    paymentAttempt,
+    subscriptionEvent,
+  };
+}
+
+function getBillingDelegatesOrThrow(client = null) {
+  const delegates = getBillingDelegates(client);
+  if (delegates) return delegates;
+  throw new Error('platform-billing-lifecycle-delegates-unavailable');
+}
+
+function getBillingPersistenceMode() {
+  const runtime = resolveDatabaseRuntime();
+  return runtime.isServerEngine ? 'prisma' : 'sql';
+}
+
 async function ensurePlatformBillingLifecycleTables(db = prisma) {
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_billing_customers (
-      id TEXT PRIMARY KEY,
-      tenantId TEXT NOT NULL UNIQUE,
-      userId TEXT,
-      email TEXT,
-      displayName TEXT,
-      externalRef TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
-      metadataJson TEXT,
-      createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_billing_invoices (
-      id TEXT PRIMARY KEY,
-      tenantId TEXT NOT NULL,
-      subscriptionId TEXT,
-      customerId TEXT,
-      status TEXT NOT NULL DEFAULT 'draft',
-      currency TEXT NOT NULL DEFAULT 'THB',
-      amountCents INTEGER NOT NULL DEFAULT 0,
-      dueAt TEXT,
-      paidAt TEXT,
-      externalRef TEXT,
-      metadataJson TEXT,
-      createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_billing_payment_attempts (
-      id TEXT PRIMARY KEY,
-      invoiceId TEXT,
-      tenantId TEXT NOT NULL,
-      provider TEXT NOT NULL DEFAULT 'platform_local',
-      status TEXT NOT NULL DEFAULT 'pending',
-      amountCents INTEGER NOT NULL DEFAULT 0,
-      currency TEXT NOT NULL DEFAULT 'THB',
-      externalRef TEXT,
-      errorCode TEXT,
-      errorDetail TEXT,
-      attemptedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      completedAt TEXT,
-      metadataJson TEXT,
-      createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_subscription_events (
-      id TEXT PRIMARY KEY,
-      tenantId TEXT NOT NULL,
-      subscriptionId TEXT NOT NULL,
-      eventType TEXT NOT NULL,
-      billingStatus TEXT,
-      actor TEXT,
-      payloadJson TEXT,
-      occurredAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  if (getBillingPersistenceMode() !== 'prisma') return;
+  getBillingDelegatesOrThrow(db);
 }
 
 async function getCustomerRowByTenantRaw(db, tenantId) {
-  const rows = await db.$queryRaw`
-    SELECT id, tenantId, userId, email, displayName, externalRef, status, metadataJson, createdAt, updatedAt
-    FROM platform_billing_customers
-    WHERE tenantId = ${tenantId}
-    LIMIT 1
-  `;
-  return normalizeCustomerRow(Array.isArray(rows) ? rows[0] : null);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const rows = await db.$queryRaw`
+      SELECT id, tenantId, userId, email, displayName, externalRef, status, metadataJson, createdAt, updatedAt
+      FROM platform_billing_customers
+      WHERE tenantId = ${tenantId}
+      LIMIT 1
+    `;
+    return normalizeCustomerRow(Array.isArray(rows) ? rows[0] : null);
+  }
+  const { customer } = getBillingDelegatesOrThrow(db);
+  const row = await customer.findUnique({
+    where: { tenantId },
+  }).catch(() => null);
+  return normalizeCustomerRow(row);
 }
 
 async function getInvoiceRowByIdRaw(db, invoiceId) {
-  const rows = await db.$queryRaw`
-    SELECT id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
-    FROM platform_billing_invoices
-    WHERE id = ${invoiceId}
-    LIMIT 1
-  `;
-  return normalizeInvoiceRow(Array.isArray(rows) ? rows[0] : null);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const rows = await db.$queryRaw`
+      SELECT id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
+      FROM platform_billing_invoices
+      WHERE id = ${invoiceId}
+      LIMIT 1
+    `;
+    return normalizeInvoiceRow(Array.isArray(rows) ? rows[0] : null);
+  }
+  const { invoice } = getBillingDelegatesOrThrow(db);
+  const row = await invoice.findUnique({
+    where: { id: invoiceId },
+  }).catch(() => null);
+  return normalizeInvoiceRow(row);
 }
 
 async function getPaymentAttemptRowByIdRaw(db, attemptId) {
-  const rows = await db.$queryRaw`
-    SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
-    FROM platform_billing_payment_attempts
-    WHERE id = ${attemptId}
-    LIMIT 1
-  `;
-  return normalizePaymentAttemptRow(Array.isArray(rows) ? rows[0] : null);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const rows = await db.$queryRaw`
+      SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
+      FROM platform_billing_payment_attempts
+      WHERE id = ${attemptId}
+      LIMIT 1
+    `;
+    return normalizePaymentAttemptRow(Array.isArray(rows) ? rows[0] : null);
+  }
+  const { paymentAttempt } = getBillingDelegatesOrThrow(db);
+  const row = await paymentAttempt.findUnique({
+    where: { id: attemptId },
+  }).catch(() => null);
+  return normalizePaymentAttemptRow(row);
 }
 
 async function getPaymentAttemptRowByExternalRefRaw(db, externalRef) {
-  const rows = await db.$queryRaw`
-    SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
-    FROM platform_billing_payment_attempts
-    WHERE externalRef = ${externalRef}
-    ORDER BY updatedAt DESC, createdAt DESC
-    LIMIT 1
-  `;
-  return normalizePaymentAttemptRow(Array.isArray(rows) ? rows[0] : null);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const rows = await db.$queryRaw`
+      SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
+      FROM platform_billing_payment_attempts
+      WHERE externalRef = ${externalRef}
+      ORDER BY updatedAt DESC, createdAt DESC
+      LIMIT 1
+    `;
+    return normalizePaymentAttemptRow(Array.isArray(rows) ? rows[0] : null);
+  }
+  const { paymentAttempt } = getBillingDelegatesOrThrow(db);
+  const row = await paymentAttempt.findFirst({
+    where: { externalRef },
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+  }).catch(() => null);
+  return normalizePaymentAttemptRow(row);
 }
 
 async function listBillingInvoices(options = {}, db = prisma) {
@@ -458,19 +489,31 @@ async function listBillingInvoices(options = {}, db = prisma) {
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
-  const filters = [];
-  if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
-  if (status) filters.push(Prisma.sql`status = ${status}`);
-  const whereSql = filters.length > 0
-    ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
-    : Prisma.empty;
-  const rows = await scopedDb.$queryRaw(Prisma.sql`
-    SELECT id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
-    FROM platform_billing_invoices
-    ${whereSql}
-    ORDER BY updatedAt DESC, createdAt DESC
-    LIMIT ${limit}
-  `);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const filters = [];
+    if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
+    if (status) filters.push(Prisma.sql`status = ${status}`);
+    const whereSql = filters.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+      : Prisma.empty;
+    const rows = await scopedDb.$queryRaw(Prisma.sql`
+      SELECT id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
+      FROM platform_billing_invoices
+      ${whereSql}
+      ORDER BY updatedAt DESC, createdAt DESC
+      LIMIT ${limit}
+    `);
+    return Array.isArray(rows) ? rows.map(normalizeInvoiceRow).filter(Boolean) : [];
+  }
+  const { invoice } = getBillingDelegatesOrThrow(scopedDb);
+  const rows = await invoice.findMany({
+    where: {
+      ...(tenantId ? { tenantId } : {}),
+      ...(status ? { status } : {}),
+    },
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    take: limit,
+  }).catch(() => []);
   return Array.isArray(rows) ? rows.map(normalizeInvoiceRow).filter(Boolean) : [];
 }
 
@@ -481,20 +524,33 @@ async function listBillingPaymentAttempts(options = {}, db = prisma) {
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
-  const filters = [];
-  if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
-  if (status) filters.push(Prisma.sql`status = ${status}`);
-  if (provider) filters.push(Prisma.sql`provider = ${provider}`);
-  const whereSql = filters.length > 0
-    ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
-    : Prisma.empty;
-  const rows = await scopedDb.$queryRaw(Prisma.sql`
-    SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
-    FROM platform_billing_payment_attempts
-    ${whereSql}
-    ORDER BY updatedAt DESC, createdAt DESC
-    LIMIT ${limit}
-  `);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const filters = [];
+    if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
+    if (status) filters.push(Prisma.sql`status = ${status}`);
+    if (provider) filters.push(Prisma.sql`provider = ${provider}`);
+    const whereSql = filters.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+      : Prisma.empty;
+    const rows = await scopedDb.$queryRaw(Prisma.sql`
+      SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
+      FROM platform_billing_payment_attempts
+      ${whereSql}
+      ORDER BY updatedAt DESC, createdAt DESC
+      LIMIT ${limit}
+    `);
+    return Array.isArray(rows) ? rows.map(normalizePaymentAttemptRow).filter(Boolean) : [];
+  }
+  const { paymentAttempt } = getBillingDelegatesOrThrow(scopedDb);
+  const rows = await paymentAttempt.findMany({
+    where: {
+      ...(tenantId ? { tenantId } : {}),
+      ...(status ? { status } : {}),
+      ...(provider ? { provider } : {}),
+    },
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    take: limit,
+  }).catch(() => []);
   return Array.isArray(rows) ? rows.map(normalizePaymentAttemptRow).filter(Boolean) : [];
 }
 
@@ -516,13 +572,20 @@ function getBillingProviderConfigSummary() {
 }
 
 async function getSubscriptionEventRowByIdRaw(db, eventId) {
-  const rows = await db.$queryRaw`
-    SELECT id, tenantId, subscriptionId, eventType, billingStatus, actor, payloadJson, occurredAt, createdAt, updatedAt
-    FROM platform_subscription_events
-    WHERE id = ${eventId}
-    LIMIT 1
-  `;
-  return normalizeSubscriptionEventRow(Array.isArray(rows) ? rows[0] : null);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const rows = await db.$queryRaw`
+      SELECT id, tenantId, subscriptionId, eventType, billingStatus, actor, payloadJson, occurredAt, createdAt, updatedAt
+      FROM platform_subscription_events
+      WHERE id = ${eventId}
+      LIMIT 1
+    `;
+    return normalizeSubscriptionEventRow(Array.isArray(rows) ? rows[0] : null);
+  }
+  const { subscriptionEvent } = getBillingDelegatesOrThrow(db);
+  const row = await subscriptionEvent.findUnique({
+    where: { id: eventId },
+  }).catch(() => null);
+  return normalizeSubscriptionEventRow(row);
 }
 
 async function ensureBillingCustomer(input = {}, db = prisma) {
@@ -530,40 +593,78 @@ async function ensureBillingCustomer(input = {}, db = prisma) {
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const existing = await getCustomerRowByTenantRaw(scopedDb, tenantId);
+    const nextId = existing?.id || trimText(input.id, 160) || createId('cust');
+    const metadataJson = buildJson(mergeMeta(existing?.metadata, input.metadata));
+    const now = new Date().toISOString();
+    if (existing) {
+      await scopedDb.$executeRaw`
+        UPDATE platform_billing_customers
+        SET
+          userId = ${trimText(input.userId, 160) || existing.userId || null},
+          email = ${trimText(input.email, 200).toLowerCase() || existing.email || null},
+          displayName = ${trimText(input.displayName, 200) || existing.displayName || null},
+          externalRef = ${trimText(input.externalRef, 200) || existing.externalRef || null},
+          status = ${trimText(input.status, 40) || existing.status || 'active'},
+          metadataJson = ${metadataJson},
+          updatedAt = ${now}
+        WHERE id = ${nextId}
+      `;
+    } else {
+      await scopedDb.$executeRaw`
+        INSERT INTO platform_billing_customers (
+          id, tenantId, userId, email, displayName, externalRef, status, metadataJson, createdAt, updatedAt
+        )
+        VALUES (
+          ${nextId},
+          ${tenantId},
+          ${trimText(input.userId, 160) || null},
+          ${trimText(input.email, 200).toLowerCase() || null},
+          ${trimText(input.displayName, 200) || null},
+          ${trimText(input.externalRef, 200) || null},
+          ${trimText(input.status, 40) || 'active'},
+          ${metadataJson},
+          ${now},
+          ${now}
+        )
+      `;
+    }
+    return { ok: true, customer: await getCustomerRowByTenantRaw(scopedDb, tenantId) };
+  }
+  const { customer } = getBillingDelegatesOrThrow(scopedDb);
   const existing = await getCustomerRowByTenantRaw(scopedDb, tenantId);
   const nextId = existing?.id || trimText(input.id, 160) || createId('cust');
   const metadataJson = buildJson(mergeMeta(existing?.metadata, input.metadata));
+  const now = new Date();
   if (existing) {
-    await scopedDb.$executeRaw`
-      UPDATE platform_billing_customers
-      SET
-        userId = ${trimText(input.userId, 160) || null},
-        email = ${trimText(input.email, 200).toLowerCase() || null},
-        displayName = ${trimText(input.displayName, 200) || null},
-        externalRef = ${trimText(input.externalRef, 200) || null},
-        status = ${trimText(input.status, 40) || 'active'},
-        metadataJson = ${metadataJson},
-        updatedAt = ${new Date().toISOString()}
-      WHERE id = ${nextId}
-    `;
+    await customer.update({
+      where: { id: nextId },
+      data: {
+        userId: trimText(input.userId, 160) || existing.userId || null,
+        email: trimText(input.email, 200).toLowerCase() || existing.email || null,
+        displayName: trimText(input.displayName, 200) || existing.displayName || null,
+        externalRef: trimText(input.externalRef, 200) || existing.externalRef || null,
+        status: trimText(input.status, 40) || existing.status || 'active',
+        metadataJson,
+        updatedAt: now,
+      },
+    });
   } else {
-    await scopedDb.$executeRaw`
-      INSERT INTO platform_billing_customers (
-        id, tenantId, userId, email, displayName, externalRef, status, metadataJson, createdAt, updatedAt
-      )
-      VALUES (
-        ${nextId},
-        ${tenantId},
-        ${trimText(input.userId, 160) || null},
-        ${trimText(input.email, 200).toLowerCase() || null},
-        ${trimText(input.displayName, 200) || null},
-        ${trimText(input.externalRef, 200) || null},
-        ${trimText(input.status, 40) || 'active'},
-        ${metadataJson},
-        ${new Date().toISOString()},
-        ${new Date().toISOString()}
-      )
-    `;
+    await customer.create({
+      data: {
+        id: nextId,
+        tenantId,
+        userId: trimText(input.userId, 160) || null,
+        email: trimText(input.email, 200).toLowerCase() || null,
+        displayName: trimText(input.displayName, 200) || null,
+        externalRef: trimText(input.externalRef, 200) || null,
+        status: trimText(input.status, 40) || 'active',
+        metadataJson,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
   }
   return { ok: true, customer: await getCustomerRowByTenantRaw(scopedDb, tenantId) };
 }
@@ -585,27 +686,51 @@ async function createInvoiceDraft(input = {}, db = prisma) {
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const invoiceId = trimText(input.id, 160) || createId('inv');
+    const now = new Date().toISOString();
+    await scopedDb.$executeRaw`
+      INSERT INTO platform_billing_invoices (
+        id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
+      )
+      VALUES (
+        ${invoiceId},
+        ${tenantId},
+        ${trimText(input.subscriptionId, 160) || null},
+        ${trimText(input.customerId, 160) || null},
+        ${normalizeInvoiceStatus(input.status, 'draft')},
+        ${normalizeCurrency(input.currency)},
+        ${asInt(input.amountCents, 0, 0)},
+        ${toIso(input.dueAt)},
+        ${toIso(input.paidAt)},
+        ${trimText(input.externalRef, 200) || null},
+        ${buildJson(input.metadata)},
+        ${now},
+        ${now}
+      )
+    `;
+    return { ok: true, invoice: await getInvoiceRowByIdRaw(scopedDb, invoiceId) };
+  }
+  const { invoice } = getBillingDelegatesOrThrow(scopedDb);
   const invoiceId = trimText(input.id, 160) || createId('inv');
-  await scopedDb.$executeRaw`
-    INSERT INTO platform_billing_invoices (
-      id, tenantId, subscriptionId, customerId, status, currency, amountCents, dueAt, paidAt, externalRef, metadataJson, createdAt, updatedAt
-    )
-    VALUES (
-      ${invoiceId},
-      ${tenantId},
-      ${trimText(input.subscriptionId, 160) || null},
-      ${trimText(input.customerId, 160) || null},
-      ${normalizeInvoiceStatus(input.status, 'draft')},
-      ${normalizeCurrency(input.currency)},
-      ${asInt(input.amountCents, 0, 0)},
-      ${toIso(input.dueAt)},
-      ${toIso(input.paidAt)},
-      ${trimText(input.externalRef, 200) || null},
-      ${buildJson(input.metadata)},
-      ${new Date().toISOString()},
-      ${new Date().toISOString()}
-    )
-  `;
+  const now = new Date();
+  await invoice.create({
+    data: {
+      id: invoiceId,
+      tenantId,
+      subscriptionId: trimText(input.subscriptionId, 160) || null,
+      customerId: trimText(input.customerId, 160) || null,
+      status: normalizeInvoiceStatus(input.status, 'draft'),
+      currency: normalizeCurrency(input.currency),
+      amountCents: asInt(input.amountCents, 0, 0),
+      dueAt: parseDate(input.dueAt),
+      paidAt: parseDate(input.paidAt),
+      externalRef: trimText(input.externalRef, 200) || null,
+      metadataJson: buildJson(input.metadata),
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
   return { ok: true, invoice: await getInvoiceRowByIdRaw(scopedDb, invoiceId) };
 }
 
@@ -616,17 +741,155 @@ async function updateInvoiceStatus(input = {}, db = prisma) {
   const existing = await getInvoiceRowByIdRaw(scopedDb, invoiceId);
   if (!existing) return { ok: false, reason: 'invoice-not-found' };
   const nextStatus = normalizeInvoiceStatus(input.status, existing.status || 'draft');
-  await scopedDb.$executeRaw`
-    UPDATE platform_billing_invoices
-    SET
-      status = ${nextStatus},
-      paidAt = ${input.paidAt === null ? null : toIso(input.paidAt) || (nextStatus === 'paid' ? new Date().toISOString() : existing.paidAt)},
-      externalRef = ${trimText(input.externalRef, 200) || existing.externalRef || null},
-      metadataJson = ${buildJson(mergeMeta(existing.metadata, input.metadata))},
-      updatedAt = ${new Date().toISOString()}
-    WHERE id = ${invoiceId}
-  `;
-  return { ok: true, invoice: await getInvoiceRowByIdRaw(scopedDb, invoiceId) };
+  const paidAt = input.paidAt === null
+    ? null
+    : parseDate(input.paidAt) || (nextStatus === 'paid' ? new Date() : parseDate(existing.paidAt));
+  const externalRef = trimText(input.externalRef, 200) || existing.externalRef || null;
+  const mergedMetadata = mergeMeta(existing.metadata, input.metadata);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    await scopedDb.$executeRaw`
+      UPDATE platform_billing_invoices
+      SET
+        status = ${nextStatus},
+        paidAt = ${toIso(paidAt)},
+        externalRef = ${externalRef},
+        metadataJson = ${buildJson(mergedMetadata)},
+        updatedAt = ${new Date().toISOString()}
+      WHERE id = ${invoiceId}
+    `;
+  } else {
+    const { invoice } = getBillingDelegatesOrThrow(scopedDb);
+    await invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: nextStatus,
+        paidAt,
+        externalRef,
+        metadataJson: buildJson(mergedMetadata),
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  const invoice = await getInvoiceRowByIdRaw(scopedDb, invoiceId);
+  if (!invoice || input.applyLifecycle === false || !invoice.subscriptionId) {
+    return { ok: true, invoice };
+  }
+
+  const invoiceMetadata = parseJsonObject(invoice.metadata || invoice.metadataJson);
+  const existingSubscription = await findTenantSubscription(scopedDb, invoice.tenantId, invoice.subscriptionId).catch(() => null);
+  if (!existingSubscription) {
+    return { ok: true, invoice };
+  }
+
+  let subscriptionResult = null;
+  const actor = trimText(input.actor, 200) || 'owner-billing';
+  if (nextStatus === 'paid') {
+    subscriptionResult = await updateSubscriptionBillingState({
+      tenantId: invoice.tenantId,
+      subscriptionId: invoice.subscriptionId,
+      planId: trimText(input.planId || invoiceMetadata.targetPlanId, 120) || undefined,
+      billingCycle: trimText(input.billingCycle || invoiceMetadata.targetBillingCycle, 40) || undefined,
+      status: 'active',
+      amountCents: invoice.amountCents,
+      currency: invoice.currency,
+      canceledAt: null,
+      externalRef,
+      metadata: {
+        packageId: trimText(input.packageId || invoiceMetadata.targetPackageId, 120) || null,
+        lastInvoiceId: invoice.id,
+        lastInvoiceStatus: nextStatus,
+        lastSuccessfulPaymentAt: toIso(paidAt || new Date()),
+      },
+      actor,
+    }, scopedDb).catch(() => null);
+  } else if (nextStatus === 'past_due' || nextStatus === 'failed') {
+    subscriptionResult = await updateSubscriptionBillingState({
+      tenantId: invoice.tenantId,
+      subscriptionId: invoice.subscriptionId,
+      status: 'past_due',
+      externalRef,
+      metadata: {
+        lastInvoiceId: invoice.id,
+        lastInvoiceStatus: nextStatus,
+        lastPaymentFailureAt: toIso(new Date()),
+      },
+      actor,
+    }, scopedDb).catch(() => null);
+  } else if (nextStatus === 'void' || nextStatus === 'canceled') {
+    const currentSubscriptionStatus = normalizeSubscriptionStatus(existingSubscription.status, 'active');
+    if (['pending', 'trialing', 'past_due'].includes(currentSubscriptionStatus)) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        status: 'canceled',
+        canceledAt: new Date(),
+        externalRef,
+        metadata: {
+          lastInvoiceId: invoice.id,
+          lastInvoiceStatus: nextStatus,
+          canceledByInvoiceStatus: nextStatus,
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    }
+  } else if (nextStatus === 'disputed') {
+    const currentSubscriptionStatus = normalizeSubscriptionStatus(existingSubscription.status, 'active');
+    if (!['canceled', 'expired'].includes(currentSubscriptionStatus)) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        status: 'past_due',
+        externalRef,
+        metadata: {
+          lastInvoiceId: invoice.id,
+          lastInvoiceStatus: nextStatus,
+          billingReviewState: 'disputed',
+          disputedAt: toIso(new Date()),
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    }
+  } else if (nextStatus === 'refunded') {
+    const currentSubscriptionStatus = normalizeSubscriptionStatus(existingSubscription.status, 'active');
+    if (['pending', 'trialing', 'past_due'].includes(currentSubscriptionStatus)) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        status: 'canceled',
+        canceledAt: new Date(),
+        externalRef,
+        metadata: {
+          lastInvoiceId: invoice.id,
+          lastInvoiceStatus: nextStatus,
+          billingReviewState: 'refunded',
+          refundedAt: toIso(new Date()),
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    } else if (!['canceled', 'expired'].includes(currentSubscriptionStatus)) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        status: 'past_due',
+        externalRef,
+        metadata: {
+          lastInvoiceId: invoice.id,
+          lastInvoiceStatus: nextStatus,
+          billingReviewState: 'refunded',
+          refundedAt: toIso(new Date()),
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    }
+  }
+
+  return {
+    ok: true,
+    invoice,
+    subscription: subscriptionResult?.subscription || null,
+    event: subscriptionResult?.event || null,
+  };
 }
 
 async function recordPaymentAttempt(input = {}, db = prisma) {
@@ -634,29 +897,55 @@ async function recordPaymentAttempt(input = {}, db = prisma) {
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const attemptId = trimText(input.id, 160) || createId('pay');
+    const now = new Date().toISOString();
+    await scopedDb.$executeRaw`
+      INSERT INTO platform_billing_payment_attempts (
+        id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
+      )
+      VALUES (
+        ${attemptId},
+        ${trimText(input.invoiceId, 160) || null},
+        ${tenantId},
+        ${normalizeProvider(input.provider)},
+        ${normalizePaymentStatus(input.status, 'pending')},
+        ${asInt(input.amountCents, 0, 0)},
+        ${normalizeCurrency(input.currency)},
+        ${trimText(input.externalRef, 200) || null},
+        ${trimText(input.errorCode, 120) || null},
+        ${trimText(input.errorDetail, 600) || null},
+        ${toIso(input.attemptedAt) || now},
+        ${toIso(input.completedAt)},
+        ${buildJson(input.metadata)},
+        ${now},
+        ${now}
+      )
+    `;
+    return { ok: true, attempt: await getPaymentAttemptRowByIdRaw(scopedDb, attemptId) };
+  }
+  const { paymentAttempt } = getBillingDelegatesOrThrow(scopedDb);
   const attemptId = trimText(input.id, 160) || createId('pay');
-  await scopedDb.$executeRaw`
-    INSERT INTO platform_billing_payment_attempts (
-      id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
-    )
-    VALUES (
-      ${attemptId},
-      ${trimText(input.invoiceId, 160) || null},
-      ${tenantId},
-      ${normalizeProvider(input.provider)},
-      ${normalizePaymentStatus(input.status, 'pending')},
-      ${asInt(input.amountCents, 0, 0)},
-      ${normalizeCurrency(input.currency)},
-      ${trimText(input.externalRef, 200) || null},
-      ${trimText(input.errorCode, 120) || null},
-      ${trimText(input.errorDetail, 600) || null},
-      ${toIso(input.attemptedAt) || new Date().toISOString()},
-      ${toIso(input.completedAt)},
-      ${buildJson(input.metadata)},
-      ${new Date().toISOString()},
-      ${new Date().toISOString()}
-    )
-  `;
+  const now = new Date();
+  await paymentAttempt.create({
+    data: {
+      id: attemptId,
+      invoiceId: trimText(input.invoiceId, 160) || null,
+      tenantId,
+      provider: normalizeProvider(input.provider),
+      status: normalizePaymentStatus(input.status, 'pending'),
+      amountCents: asInt(input.amountCents, 0, 0),
+      currency: normalizeCurrency(input.currency),
+      externalRef: trimText(input.externalRef, 200) || null,
+      errorCode: trimText(input.errorCode, 120) || null,
+      errorDetail: trimText(input.errorDetail, 600) || null,
+      attemptedAt: parseDate(input.attemptedAt) || now,
+      completedAt: parseDate(input.completedAt),
+      metadataJson: buildJson(input.metadata),
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
   return { ok: true, attempt: await getPaymentAttemptRowByIdRaw(scopedDb, attemptId) };
 }
 
@@ -667,19 +956,171 @@ async function updatePaymentAttempt(input = {}, db = prisma) {
   const existing = await getPaymentAttemptRowByIdRaw(scopedDb, attemptId);
   if (!existing) return { ok: false, reason: 'payment-attempt-not-found' };
   const nextStatus = normalizePaymentStatus(input.status, existing.status || 'pending');
-  await scopedDb.$executeRaw`
-    UPDATE platform_billing_payment_attempts
-    SET
-      status = ${nextStatus},
-      completedAt = ${input.completedAt === null ? null : toIso(input.completedAt) || (['succeeded', 'failed', 'canceled'].includes(nextStatus) ? new Date().toISOString() : existing.completedAt)},
-      externalRef = ${trimText(input.externalRef, 200) || existing.externalRef || null},
-      errorCode = ${trimText(input.errorCode, 120) || null},
-      errorDetail = ${trimText(input.errorDetail, 600) || null},
-      metadataJson = ${buildJson(mergeMeta(existing.metadata, input.metadata))},
-      updatedAt = ${new Date().toISOString()}
-    WHERE id = ${attemptId}
-  `;
-  return { ok: true, attempt: await getPaymentAttemptRowByIdRaw(scopedDb, attemptId) };
+  const completedAt = input.completedAt === null
+    ? null
+    : parseDate(input.completedAt) || (['succeeded', 'failed', 'canceled'].includes(nextStatus) ? new Date() : parseDate(existing.completedAt));
+  const externalRef = trimText(input.externalRef, 200) || existing.externalRef || null;
+  const errorCode = trimText(input.errorCode, 120) || null;
+  const errorDetail = trimText(input.errorDetail, 600) || null;
+  const mergedMetadata = mergeMeta(existing.metadata, input.metadata);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    await scopedDb.$executeRaw`
+      UPDATE platform_billing_payment_attempts
+      SET
+        status = ${nextStatus},
+        completedAt = ${toIso(completedAt)},
+        externalRef = ${externalRef},
+        errorCode = ${errorCode},
+        errorDetail = ${errorDetail},
+        metadataJson = ${buildJson(mergedMetadata)},
+        updatedAt = ${new Date().toISOString()}
+      WHERE id = ${attemptId}
+    `;
+  } else {
+    const { paymentAttempt } = getBillingDelegatesOrThrow(scopedDb);
+    await paymentAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: nextStatus,
+        completedAt,
+        externalRef,
+        errorCode,
+        errorDetail,
+        metadataJson: buildJson(mergedMetadata),
+        updatedAt: new Date(),
+      },
+    });
+  }
+  const attempt = await getPaymentAttemptRowByIdRaw(scopedDb, attemptId);
+  if (!attempt || input.applyLifecycle === false || !attempt.invoiceId) {
+    return { ok: true, attempt };
+  }
+
+  const invoice = await findInvoiceById(scopedDb, attempt.invoiceId);
+  if (!invoice) {
+    return { ok: true, attempt };
+  }
+
+  const invoiceMetadata = parseJsonObject(invoice.metadata || invoice.metadataJson);
+  const lifecycleAt = completedAt || new Date();
+  let invoiceResult = null;
+  let subscriptionResult = null;
+  const actor = trimText(input.actor, 200) || 'owner-billing';
+
+  if (nextStatus === 'failed') {
+    invoiceResult = await updateInvoiceStatus({
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      applyLifecycle: false,
+      status: 'past_due',
+      paidAt: null,
+      externalRef,
+      metadata: {
+        lastPaymentAttemptId: attempt.id,
+        lastPaymentAttemptStatus: nextStatus,
+        lastPaymentFailureAt: toIso(lifecycleAt),
+        lastBillingProvider: attempt.provider,
+      },
+    }, scopedDb);
+    if (invoice.subscriptionId) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        status: 'past_due',
+        externalRef,
+        metadata: {
+          lastPaymentFailureAt: toIso(lifecycleAt),
+          lastBillingProvider: attempt.provider,
+          lastPaymentAttemptId: attempt.id,
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    }
+  } else if (nextStatus === 'succeeded') {
+    const targetCycle = normalizeBillingCycle(
+      input.billingCycle
+        || invoiceMetadata.targetBillingCycle
+        || 'monthly',
+    );
+    const renewDays = resolveBillingCycleDays(targetCycle);
+    invoiceResult = await updateInvoiceStatus({
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      applyLifecycle: false,
+      status: 'paid',
+      paidAt: lifecycleAt,
+      externalRef,
+      metadata: {
+        lastPaymentAttemptId: attempt.id,
+        lastPaymentAttemptStatus: nextStatus,
+        lastSuccessfulPaymentAt: toIso(lifecycleAt),
+        lastBillingProvider: attempt.provider,
+      },
+    }, scopedDb);
+    if (invoice.subscriptionId) {
+      subscriptionResult = await updateSubscriptionBillingState({
+        tenantId: invoice.tenantId,
+        subscriptionId: invoice.subscriptionId,
+        planId: trimText(input.planId || invoiceMetadata.targetPlanId, 120) || undefined,
+        billingCycle: targetCycle,
+        status: 'active',
+        amountCents: invoice.amountCents,
+        currency: invoice.currency,
+        renewsAt: renewDays > 0 ? addDays(lifecycleAt, renewDays) : null,
+        canceledAt: null,
+        externalRef,
+        metadata: {
+          packageId: trimText(input.packageId || invoiceMetadata.targetPackageId, 120) || null,
+          lastSuccessfulPaymentAt: toIso(lifecycleAt),
+          lastBillingProvider: attempt.provider,
+          lastPaymentAttemptId: attempt.id,
+        },
+        actor,
+      }, scopedDb).catch(() => null);
+    }
+  } else if (nextStatus === 'canceled') {
+    invoiceResult = await updateInvoiceStatus({
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      applyLifecycle: false,
+      status: normalizeInvoiceStatus(invoice.status, 'open') === 'paid' ? 'paid' : 'canceled',
+      paidAt: normalizeInvoiceStatus(invoice.status, 'open') === 'paid' ? invoice.paidAt : null,
+      externalRef,
+      metadata: {
+        lastPaymentAttemptId: attempt.id,
+        lastPaymentAttemptStatus: nextStatus,
+        canceledByAttempt: true,
+        lastBillingProvider: attempt.provider,
+      },
+    }, scopedDb);
+    if (invoice.subscriptionId) {
+      const existingSubscription = await findTenantSubscription(scopedDb, invoice.tenantId, invoice.subscriptionId).catch(() => null);
+      const currentSubscriptionStatus = normalizeSubscriptionStatus(existingSubscription?.status, 'active');
+      if (existingSubscription && ['pending', 'trialing', 'past_due'].includes(currentSubscriptionStatus)) {
+        subscriptionResult = await updateSubscriptionBillingState({
+          tenantId: invoice.tenantId,
+          subscriptionId: invoice.subscriptionId,
+          status: 'canceled',
+          canceledAt: lifecycleAt,
+          externalRef,
+          metadata: {
+            canceledByAttempt: true,
+            lastBillingProvider: attempt.provider,
+            lastPaymentAttemptId: attempt.id,
+          },
+          actor,
+        }, scopedDb).catch(() => null);
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    attempt,
+    invoice: invoiceResult?.invoice || invoice,
+    subscription: subscriptionResult?.subscription || null,
+    event: subscriptionResult?.event || null,
+  };
 }
 
 async function recordSubscriptionEvent(input = {}, db = prisma) {
@@ -688,24 +1129,45 @@ async function recordSubscriptionEvent(input = {}, db = prisma) {
   if (!tenantId || !subscriptionId) return { ok: false, reason: 'subscription-event-invalid' };
   const scopedDb = getScopedBillingDb(tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
+  if (getBillingPersistenceMode() !== 'prisma') {
+    const eventId = trimText(input.id, 160) || createId('subevt');
+    const now = new Date().toISOString();
+    await scopedDb.$executeRaw`
+      INSERT INTO platform_subscription_events (
+        id, tenantId, subscriptionId, eventType, billingStatus, actor, payloadJson, occurredAt, createdAt, updatedAt
+      )
+      VALUES (
+        ${eventId},
+        ${tenantId},
+        ${subscriptionId},
+        ${trimText(input.eventType, 120) || 'subscription.updated'},
+        ${trimText(input.billingStatus, 40) || null},
+        ${trimText(input.actor, 200) || null},
+        ${buildJson(input.payload)},
+        ${toIso(input.occurredAt) || now},
+        ${now},
+        ${now}
+      )
+    `;
+    return { ok: true, event: await getSubscriptionEventRowByIdRaw(scopedDb, eventId) };
+  }
+  const { subscriptionEvent } = getBillingDelegatesOrThrow(scopedDb);
   const eventId = trimText(input.id, 160) || createId('subevt');
-  await scopedDb.$executeRaw`
-    INSERT INTO platform_subscription_events (
-      id, tenantId, subscriptionId, eventType, billingStatus, actor, payloadJson, occurredAt, createdAt, updatedAt
-    )
-    VALUES (
-      ${eventId},
-      ${tenantId},
-      ${subscriptionId},
-      ${trimText(input.eventType, 120) || 'subscription.updated'},
-      ${trimText(input.billingStatus, 40) || null},
-      ${trimText(input.actor, 200) || null},
-      ${buildJson(input.payload)},
-      ${toIso(input.occurredAt) || new Date().toISOString()},
-      ${new Date().toISOString()},
-      ${new Date().toISOString()}
-    )
-  `;
+  const now = new Date();
+  await subscriptionEvent.create({
+    data: {
+      id: eventId,
+      tenantId,
+      subscriptionId,
+      eventType: trimText(input.eventType, 120) || 'subscription.updated',
+      billingStatus: trimText(input.billingStatus, 40) || null,
+      actor: trimText(input.actor, 200) || null,
+      payloadJson: buildJson(input.payload),
+      occurredAt: parseDate(input.occurredAt) || now,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
   return { ok: true, event: await getSubscriptionEventRowByIdRaw(scopedDb, eventId) };
 }
 
@@ -724,21 +1186,73 @@ async function updateSubscriptionBillingState(input = {}, db = prisma) {
   const scopedDb = getScopedBillingDb(tenantId, db);
   const existing = await findTenantSubscription(scopedDb, tenantId, input.subscriptionId);
   if (!existing) return { ok: false, reason: 'subscription-not-found' };
+  const nextBillingCycle = normalizeBillingCycle(input.billingCycle || existing.billingCycle);
+  const nextStatus = normalizeSubscriptionStatus(input.status, existing.status || 'active');
+  const now = new Date();
+  const currentRenewsAt = parseDate(existing.renewsAt);
+  const currentCanceledAt = parseDate(existing.canceledAt);
+  const nextRenewsAt = hasOwn(input, 'renewsAt')
+    ? (input.renewsAt === null ? null : parseDate(input.renewsAt) || currentRenewsAt)
+    : (
+      nextStatus === 'active'
+      && ['canceled', 'past_due', 'expired'].includes(normalizeSubscriptionStatus(existing.status, 'active'))
+      && (!currentRenewsAt || currentRenewsAt.getTime() <= now.getTime())
+        ? (() => {
+          const renewDays = resolveBillingCycleDays(nextBillingCycle);
+          return renewDays > 0 ? addDays(now, renewDays) : null;
+        })()
+        : currentRenewsAt
+    );
+  const nextCanceledAt = hasOwn(input, 'canceledAt')
+    ? (input.canceledAt === null ? null : parseDate(input.canceledAt) || currentCanceledAt)
+    : (nextStatus === 'canceled' ? currentCanceledAt || now : null);
+  const nextMetadataJson = buildJson(mergeMeta(existing.metadataJson, input.metadata));
   const row = await scopedDb.platformSubscription.update({
     where: { id: existing.id },
     data: {
       planId: trimText(input.planId, 120) || existing.planId,
-      billingCycle: normalizeBillingCycle(input.billingCycle || existing.billingCycle),
-      status: normalizeSubscriptionStatus(input.status, existing.status || 'active'),
+      billingCycle: nextBillingCycle,
+      status: nextStatus,
       currency: normalizeCurrency(input.currency || existing.currency),
       amountCents: input.amountCents == null ? existing.amountCents : asInt(input.amountCents, existing.amountCents || 0, 0),
-      renewsAt: input.renewsAt === null ? null : parseDate(input.renewsAt) || existing.renewsAt,
-      canceledAt: input.canceledAt === null ? null : parseDate(input.canceledAt) || existing.canceledAt,
+      renewsAt: nextRenewsAt,
+      canceledAt: nextCanceledAt,
       externalRef: trimText(input.externalRef, 200) || existing.externalRef || null,
-      metadataJson: buildJson(mergeMeta(existing.metadataJson, input.metadata)),
+      metadataJson: nextMetadataJson,
     },
   });
-  return { ok: true, subscription: row };
+  let event = null;
+  if (input.recordEvent !== false) {
+    const previousStatus = normalizeSubscriptionStatus(existing.status, 'active');
+    const eventType = nextStatus === 'canceled' && previousStatus !== 'canceled'
+      ? 'subscription.canceled'
+      : previousStatus === 'canceled' && nextStatus === 'active'
+        ? 'subscription.reactivated'
+        : previousStatus === 'past_due' && nextStatus === 'active'
+          ? 'subscription.recovered'
+          : nextStatus === 'past_due' && previousStatus !== 'past_due'
+            ? 'subscription.past_due'
+            : 'subscription.updated';
+    event = await recordSubscriptionEvent({
+      tenantId,
+      subscriptionId: row.id,
+      eventType,
+      billingStatus: nextStatus,
+      actor: trimText(input.actor, 200) || 'billing-admin',
+      payload: {
+        previousStatus,
+        nextStatus,
+        previousPlanId: trimText(existing.planId, 120) || null,
+        nextPlanId: trimText(row.planId, 120) || null,
+        billingCycle: nextBillingCycle,
+        amountCents: row.amountCents,
+        currency: row.currency,
+        renewsAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
+        canceledAt: row.canceledAt ? new Date(row.canceledAt).toISOString() : null,
+      },
+    }, scopedDb).catch(() => null);
+  }
+  return { ok: true, subscription: row, event: event?.event || null };
 }
 
 async function createStripeCheckoutSession(input = {}, invoice, customer, sessionToken) {
@@ -1036,6 +1550,7 @@ async function processBillingWebhookEvent(input = {}, db = prisma) {
   const updatedInvoice = await updateInvoiceStatus({
     invoiceId: invoice.id,
     tenantId: invoice.tenantId,
+    applyLifecycle: false,
     status: invoiceStatus,
     paidAt: invoiceStatus === 'paid' ? new Date() : null,
     externalRef: externalRef || invoice.externalRef || null,
@@ -1046,6 +1561,7 @@ async function processBillingWebhookEvent(input = {}, db = prisma) {
     ? await updatePaymentAttempt({
       attemptId: existingAttempt.id,
       tenantId: existingAttempt.tenantId,
+      applyLifecycle: false,
       status: paymentStatus,
       completedAt: ['succeeded', 'failed', 'canceled'].includes(paymentStatus) ? new Date() : null,
       externalRef: externalRef || existingAttempt.externalRef || null,
@@ -1071,6 +1587,7 @@ async function processBillingWebhookEvent(input = {}, db = prisma) {
     ? await updateSubscriptionBillingState({
       tenantId: invoice.tenantId,
       subscriptionId,
+      recordEvent: false,
       ...subscriptionPatch,
     }, scopedDb).catch(() => null)
     : null;
@@ -1175,5 +1692,6 @@ module.exports = {
   recordPaymentAttempt,
   recordSubscriptionEvent,
   updateInvoiceStatus,
+  updatePaymentAttempt,
   updateSubscriptionBillingState,
 };

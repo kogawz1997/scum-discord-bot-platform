@@ -16,18 +16,18 @@ test('player home v4 model maps current player state into trust-first workspace'
       wallet: { balance: 4200 },
       latestOrder: { purchaseCode: 'P-001', itemName: 'Starter Pack', status: 'delivering', createdAt: '2026-03-26T13:00:00+07:00' },
       missionsSummary: { dailyClaimable: true, weeklyClaimable: false },
-      announcements: ['คืนนี้มีช่วง Raid Time']
+      announcements: ['คืนนี้มีช่วง Raid Time'],
     },
     serverInfo: {
       serverInfo: { name: 'SCUM TH Frontier', maxPlayers: 64, description: 'Community server' },
       status: { onlinePlayers: 35 },
-      raidTimes: ['21:00 - 23:00']
+      raidTimes: ['21:00 - 23:00'],
     },
     walletLedger: { wallet: { balance: 4200 } },
     steamLink: { linked: true, steamId: '7656119', inGameName: 'MiraTH' },
     notifications: [{ severity: 'warning', title: 'Order delayed', detail: 'กำลังรอรอบส่งของ', createdAt: '2026-03-26T13:10:00+07:00' }],
     orders: [{ purchaseCode: 'P-001', status: 'delivering' }],
-    lastRefreshedAt: '2026-03-26T13:18:00+07:00'
+    lastRefreshedAt: '2026-03-26T13:18:00+07:00',
   });
 
   assert.equal(model.header.title, 'ภาพรวมผู้เล่น');

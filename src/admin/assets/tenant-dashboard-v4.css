@@ -836,3 +836,201 @@ body.surface-tenant .tdv4-pagehead {
     width: 100%;
   }
 }
+
+.tdv4-pagehead {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.tdv4-pagehead > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tdv4-pagehead::before,
+.tdv4-pagehead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tdv4-pagehead::before {
+  background:
+    linear-gradient(118deg, rgba(7, 11, 9, 0.92) 0%, rgba(7, 11, 9, 0.64) 44%, rgba(7, 11, 9, 0.18) 100%),
+    var(--tdv4-pagehead-image, url("/admin/assets/tenant-panel-scene.svg"));
+  background-size: cover;
+  background-position: center;
+  opacity: 0.9;
+  transform: scale(1.02);
+  animation: tdv4HeroDrift 20s ease-in-out infinite alternate;
+}
+
+.tdv4-pagehead::after {
+  inset: auto -10% -34% auto;
+  width: 300px;
+  height: 300px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(207, 177, 100, 0.28) 0%, rgba(207, 177, 100, 0.08) 34%, transparent 72%);
+  filter: blur(10px);
+  animation: tdv4GlowPulse 8s ease-in-out infinite;
+}
+
+.tdv4-main > .tdv4-pagehead,
+.tdv4-main > .tdv4-kpi-strip,
+.tdv4-main > .tdv4-panel,
+.tdv4-main > .tdv4-dual-grid {
+  animation: tdv4RiseIn 500ms ease both;
+}
+
+.tdv4-kpi-strip > * {
+  animation: tdv4RiseIn 560ms ease both;
+}
+
+.tdv4-note-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: var(--tdv4-radius-sm);
+  border: 1px solid var(--tdv4-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tdv4-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.tdv4-stack-full {
+  grid-column: 1 / -1;
+}
+
+.tdv4-spotlight-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 16px;
+}
+
+.tdv4-spotlight-media {
+  position: relative;
+  min-height: 252px;
+  overflow: hidden;
+  border-radius: var(--tdv4-radius);
+  border: 1px solid var(--tdv4-border);
+  background: var(--tdv4-surface-soft);
+  isolation: isolate;
+}
+
+.tdv4-spotlight-media::before,
+.tdv4-spotlight-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tdv4-spotlight-media::before {
+  background: var(--tdv4-media-image, linear-gradient(135deg, rgba(8, 12, 10, 0.5), rgba(8, 12, 10, 0.15)), url("/admin/assets/tenant-panel-scene.svg"));
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.02);
+  animation: tdv4HeroDrift 20s ease-in-out infinite alternate;
+}
+
+.tdv4-spotlight-media::after {
+  inset: auto -8% -36% auto;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(207, 177, 100, 0.28) 0%, rgba(207, 177, 100, 0.06) 38%, transparent 72%);
+  filter: blur(8px);
+  animation: tdv4GlowPulse 7.2s ease-in-out infinite;
+}
+
+.tdv4-spotlight-overlay {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  align-content: end;
+  min-height: 100%;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(8, 12, 10, 0.08) 0%, rgba(8, 12, 10, 0.82) 100%);
+}
+
+.tdv4-spotlight-copy {
+  max-width: 44ch;
+}
+
+body.surface-tenant {
+  --tdv4-pagehead-image: url("/admin/assets/tenant-panel-scene.svg");
+}
+
+body.surface-tenant[data-tenant-route="dashboard"],
+body.surface-tenant[data-tenant-route="onboarding"] {
+  --tdv4-pagehead-image: url("/admin/assets/tenant-panel-scene.svg");
+}
+
+body.surface-tenant[data-tenant-route="server-status"],
+body.surface-tenant[data-tenant-route="server-config"],
+body.surface-tenant[data-tenant-route="restart-control"],
+body.surface-tenant[data-tenant-route="server-bots"],
+body.surface-tenant[data-tenant-route="delivery-agents"],
+body.surface-tenant[data-tenant-route="logs-sync"] {
+  --tdv4-pagehead-image: linear-gradient(120deg, rgba(8, 12, 10, 0.9), rgba(8, 12, 10, 0.3)), url("/admin/assets/tenant-panel-scene.svg");
+}
+
+body.surface-tenant[data-tenant-route="orders"],
+body.surface-tenant[data-tenant-route="billing"],
+body.surface-tenant[data-tenant-route="modules"],
+body.surface-tenant[data-tenant-route="events"],
+body.surface-tenant[data-tenant-route="analytics"],
+body.surface-tenant[data-tenant-route="players"],
+body.surface-tenant[data-tenant-route="settings"] {
+  --tdv4-pagehead-image: linear-gradient(120deg, rgba(9, 13, 11, 0.88), rgba(9, 13, 11, 0.34)), url("/admin/assets/tenant-panel-scene.svg");
+}
+
+@keyframes tdv4HeroDrift {
+  0% { transform: scale(1.02) translate3d(0, 0, 0); }
+  100% { transform: scale(1.08) translate3d(1.2%, -1%, 0); }
+}
+
+@keyframes tdv4GlowPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.66; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes tdv4RiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tdv4-pagehead::before,
+  .tdv4-pagehead::after,
+  .tdv4-spotlight-media::before,
+  .tdv4-spotlight-media::after,
+  .tdv4-main > .tdv4-pagehead,
+  .tdv4-main > .tdv4-kpi-strip,
+  .tdv4-main > .tdv4-panel,
+  .tdv4-main > .tdv4-dual-grid,
+  .tdv4-kpi-strip > * {
+    animation: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  .tdv4-form-grid,
+  .tdv4-spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+}

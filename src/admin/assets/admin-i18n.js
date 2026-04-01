@@ -8,6 +8,7 @@
     th: '/admin/assets/locales/th/admin-ui-extra.json',
   });
   const LOADED_EXTERNAL_LOCALES = new Set();
+  const MOJIBAKE_MARKERS = ['Ã', 'Â', '\u00e0\u00b8', '\u00e0\u00b9', '\ufffd'];
   const SUPPORTED_LANGUAGES = [
     ['en', 'English'],
     ['th', 'ไทย'],
@@ -16,6 +17,42 @@
     ['zh-CN', '简体中文'],
     ['es', 'Español'],
   ];
+
+  function looksLikeMojibake(value) {
+    const text = String(value || '');
+    return MOJIBAKE_MARKERS.some((marker) => text.includes(marker));
+  }
+
+  function repairMojibakeText(value) {
+    const original = String(value || '');
+    if (!original || !looksLikeMojibake(original) || typeof TextDecoder !== 'function') {
+      return original;
+    }
+    try {
+      const bytes = Uint8Array.from(Array.from(original, (char) => char.charCodeAt(0) & 0xff));
+      const repaired = new TextDecoder('utf-8').decode(bytes);
+      return looksLikeMojibake(repaired) ? original : repaired;
+    } catch {
+      return original;
+    }
+  }
+
+  function repairValueDeep(value) {
+    if (typeof value === 'string') {
+      return repairMojibakeText(value);
+    }
+    if (Array.isArray(value)) {
+      return value.map((entry) => repairValueDeep(entry));
+    }
+    if (value && typeof value === 'object') {
+      const next = {};
+      Object.entries(value).forEach(([key, nested]) => {
+        next[key] = repairValueDeep(nested);
+      });
+      return next;
+    }
+    return value;
+  }
 
   const DICTIONARY = {
     en: {
@@ -5592,6 +5629,27 @@
     'tenant.config.detail': 'แก้ feature flag การเปลี่ยนค่าเซิร์ฟเวอร์ และการตั้งค่าพอร์ทัลภายในขอบเขตผู้เช่ารายนี้ โดยเว้นค่าว่างได้และตรวจ JSON ก่อนบันทึก',
     'deliveryLifecycle.action.retryDeadLetterBatch': 'ลองซ้ำงานที่ล้มเหลว',
   });
+
+  repairValueDeep(SUPPORTED_LANGUAGES).forEach((entry, index) => {
+    SUPPORTED_LANGUAGES[index] = entry;
+  });
+  Object.assign(DICTIONARY.th, repairValueDeep(DICTIONARY.th));
+  Object.assign(DICTIONARY.en, {
+    'common.roleOwner': 'Owner',
+    'common.roleAdmin': 'Admin',
+    'common.rolePlayer': 'Player',
+  });
+  Object.assign(DICTIONARY.th, {
+    'common.language': 'ภาษา',
+    'owner.nav.runtime': 'สถานะบริการ',
+  });
+  SUPPORTED_LANGUAGES.splice(0, SUPPORTED_LANGUAGES.length,
+    ['en', 'English'],
+    ['th', 'ไทย'],
+    ['ja', '日本語'],
+    ['ko', '한국어'],
+    ['zh-CN', '简体中文'],
+    ['es', 'Español']);
 
   function initSelector(selectId) {
     const select = document.getElementById(selectId);

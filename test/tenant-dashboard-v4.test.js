@@ -28,9 +28,12 @@ test('tenant dashboard v4 model maps legacy tenant state into operator-first con
   });
 
   assert.equal(model.header.title, 'SCUM TH Production');
-  assert.equal(model.kpis.length, 6);
+  assert.equal(model.kpis.length, 7);
   assert.equal(model.setupFlow.steps.length, 7);
   assert.equal(model.setupFlow.completedSteps, 4);
+  assert.equal(model.readiness.percent, 57);
+  assert.equal(model.readiness.nextRequiredStep.title, 'ติดตั้ง Server Bot');
+  assert.equal(model.quickActions.length, 4);
   assert.equal(model.taskGroups.length, 3);
   assert.ok(model.issues.some((item) => item.title.includes('ล้มเหลว')));
   assert.ok(model.contextBlocks.some((item) => item.label === 'สถานะแพ็กเกจ'));
@@ -48,6 +51,13 @@ test('tenant dashboard v4 html includes shell, decision panel, and issue center'
   assert.match(html, /tdv4-priority-panel/);
   assert.match(html, /dashboard-issues/);
   assert.match(html, /tdv4-details-panel/);
+  assert.match(html, /System readiness/);
+  assert.match(html, /ตอนนี้พร้อมแค่ไหน และต้องทำอะไรต่อ/);
+  assert.match(html, /งานหลักที่ควรเปิดบ่อย/);
+  assert.match(html, /สร้าง Server Bot/);
+  assert.match(html, /สร้าง Delivery Agent/);
+  assert.match(html, /เปิดหน้าตั้งค่าเซิร์ฟเวอร์/);
+  assert.match(html, /เปิดหน้าควบคุมการรีสตาร์ต/);
   assert.match(html, /ทำแล้ว 0\/7 ขั้น/);
   assert.match(html, /ไปทำขั้นนี้/);
 });

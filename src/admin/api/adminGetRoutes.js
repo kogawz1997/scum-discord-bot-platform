@@ -3,40 +3,37 @@
  * admin server entrypoint so auth and runtime wiring stay readable.
  */
 
-function escapeCsvCell(value) {
-  const text = String(value ?? '');
-  if (/[",\r\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-function buildAdminNotificationsCsv(rows = []) {
-  const headers = [
-    'id',
-    'type',
-    'source',
-    'kind',
-    'severity',
-    'title',
-    'message',
-    'entityKey',
-    'createdAt',
-    'acknowledgedAt',
-    'acknowledgedBy',
-  ];
-  const lines = [
-    headers.join(','),
-    ...rows.map((row) => headers.map((key) => escapeCsvCell(row?.[key] ?? '')).join(',')),
-  ];
-  return `${lines.join('\n')}\n`;
-}
+const {
+  createAdminBillingGetRouteHandler,
+} = require('./adminBillingGetRoutes');
+const {
+  createAdminCommunityGetRouteHandler,
+} = require('./adminCommunityGetRoutes');
+const {
+  createAdminDiagnosticsGetRouteHandler,
+} = require('./adminDiagnosticsGetRoutes');
+const {
+  createAdminDonationGetRouteHandler,
+} = require('./adminDonationGetRoutes');
+const {
+  createAdminDeliveryOpsGetRouteHandler,
+} = require('./adminDeliveryOpsGetRoutes');
+const {
+  createAdminNotificationGetRouteHandler,
+} = require('./adminNotificationGetRoutes');
+const {
+  createAdminObservabilityGetRouteHandler,
+} = require('./adminObservabilityGetRoutes');
+const {
+  createAdminRuntimeConfigGetRouteHandler,
+} = require('./adminRuntimeConfigGetRoutes');
 
 function createAdminGetRoutes(deps) {
   const {
     prisma,
     sendJson,
     sendDownload,
+    readJsonBody,
     consumeTransientDownload,
     ensureRole,
     ensurePortalTokenAuth,
@@ -73,6 +70,7 @@ function createAdminGetRoutes(deps) {
     buildTenantSupportCaseCsv,
     buildDeliveryLifecycleReport,
     buildDeliveryLifecycleCsv,
+    buildTenantDonationOverview,
     getPlatformPublicOverview,
     getPlatformPermissionCatalog,
     getPlanCatalog,
@@ -93,6 +91,8 @@ function createAdminGetRoutes(deps) {
     listTenantStaffMemberships,
     listServerEvents,
     getParticipants,
+    listRaidActivitySnapshot,
+    listKillFeedEntries,
     listPlatformSubscriptions,
     listPlatformLicenses,
     listBillingInvoices,
@@ -219,6 +219,119 @@ function createAdminGetRoutes(deps) {
       },
     };
   }
+
+  const handleAdminBillingGetRoute = createAdminBillingGetRouteHandler({
+    ensureRole,
+    sendJson,
+    sendDownload,
+    requiredString,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    readOptionalAdminData,
+    listBillingInvoices,
+    listBillingPaymentAttempts,
+    getBillingProviderConfigSummary,
+    asInt,
+    jsonReplacer,
+  });
+  const handleAdminRuntimeConfigGetRoute = createAdminRuntimeConfigGetRouteHandler({
+    ensureRole,
+    sendJson,
+    requiredString,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    asInt,
+    listServerConfigBackups,
+    getServerConfigCategory,
+    getServerConfigWorkspace,
+    listRestartPlans,
+    listRestartExecutions,
+    getPlatformTenantConfig,
+    listPlatformTenantConfigs,
+  });
+  const handleAdminCommunityGetRoute = createAdminCommunityGetRouteHandler({
+    ensureRole,
+    sendJson,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    requiredString,
+    asInt,
+    listServerEvents,
+    getParticipants,
+    listRaidActivitySnapshot,
+    listKillFeedEntries,
+  });
+  const handleAdminNotificationGetRoute = createAdminNotificationGetRouteHandler({
+    ensureRole,
+    sendJson,
+    sendDownload,
+    asInt,
+    jsonReplacer,
+    listAdminNotifications,
+  });
+  const handleAdminDiagnosticsGetRoute = createAdminDiagnosticsGetRouteHandler({
+    ensureRole,
+    sendJson,
+    sendDownload,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    requiredString,
+    asInt,
+    jsonReplacer,
+    listPlatformSyncEvents,
+    buildTenantDiagnosticsBundle,
+    buildTenantDiagnosticsCsv,
+    buildTenantSupportCaseBundle,
+    buildTenantSupportCaseCsv,
+    buildDeliveryLifecycleReport,
+    buildDeliveryLifecycleCsv,
+  });
+  const handleAdminDonationGetRoute = createAdminDonationGetRouteHandler({
+    ensureRole,
+    sendJson,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    requiredString,
+    asInt,
+    buildTenantDonationOverview,
+  });
+  const handleAdminDeliveryOpsGetRoute = createAdminDeliveryOpsGetRouteHandler({
+    ensureRole,
+    sendJson,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    requiredString,
+    asInt,
+    prisma,
+    normalizePurchaseStatus,
+    listKnownPurchaseStatuses,
+    listAllowedPurchaseTransitions,
+    listFilteredDeliveryQueue,
+    listFilteredDeliveryDeadLetters,
+    getDeliveryRuntimeStatus,
+    listScumAdminCommandCapabilities,
+    listAdminCommandCapabilityPresets,
+    getDeliveryCommandOverride,
+    getDeliveryDetailsByPurchaseCode,
+    buildAdminDashboardCards,
+    listPlayerAccounts,
+    getPlayerDashboard,
+  });
+  const handleAdminObservabilityGetRoute = createAdminObservabilityGetRouteHandler({
+    ensureRole,
+    sendJson,
+    sendDownload,
+    requiredString,
+    asInt,
+    jsonReplacer,
+    clampMetricsWindowMs,
+    parseMetricsSeriesKeys,
+    getCurrentObservabilitySnapshot,
+    getAdminRequestLogMetrics,
+    listAdminRequestLogs,
+    buildObservabilityCsv,
+    buildObservabilityExportPayload,
+  });
 
   function buildTenantQuotaFallback(tenantId) {
     return {
@@ -748,111 +861,31 @@ function createAdminGetRoutes(deps) {
       return true;
     }
 
-    const serverConfigBackupsMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/backups$/);
-    if (serverConfigBackupsMatch) {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
-        required: true,
-      });
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listServerConfigBackups({
-          tenantId,
-          serverId: serverConfigBackupsMatch[1],
-          limit: asInt(urlObj.searchParams.get('limit'), 30) || 30,
-        }),
-      });
+    if (await handleAdminRuntimeConfigGetRoute(context)) {
       return true;
     }
 
-    const serverConfigCategoryMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config\/([^/]+)$/);
-    if (serverConfigCategoryMatch) {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
-        required: true,
-      });
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await getServerConfigCategory({
-          tenantId,
-          serverId: serverConfigCategoryMatch[1],
-          category: serverConfigCategoryMatch[2],
-          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
-        }),
-      });
+    if (await handleAdminCommunityGetRoute(context)) {
       return true;
     }
 
-    const serverConfigWorkspaceMatch = pathname.match(/^\/admin\/api\/platform\/servers\/([^/]+)\/config$/);
-    if (serverConfigWorkspaceMatch) {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
-        required: true,
-      });
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await getServerConfigWorkspace({
-          tenantId,
-          serverId: serverConfigWorkspaceMatch[1],
-          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
-        }),
-      });
+    if (await handleAdminDiagnosticsGetRoute(context)) {
       return true;
     }
 
-    if (pathname === '/admin/api/platform/restart-plans') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: false },
-      );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listRestartPlans({
-          tenantId,
-          serverId: requiredString(urlObj.searchParams.get('serverId')),
-          status: requiredString(urlObj.searchParams.get('status')),
-          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
-        }),
-      });
+    if (await handleAdminDonationGetRoute(context)) {
       return true;
     }
 
-    if (pathname === '/admin/api/platform/restart-executions') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: false },
-      );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listRestartExecutions({
-          tenantId,
-          serverId: requiredString(urlObj.searchParams.get('serverId')),
-          planId: requiredString(urlObj.searchParams.get('planId')),
-          status: requiredString(urlObj.searchParams.get('status')),
-          limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
-        }),
-      });
+    if (await handleAdminDeliveryOpsGetRoute(context)) {
+      return true;
+    }
+
+    if (await handleAdminNotificationGetRoute(context)) {
+      return true;
+    }
+
+    if (await handleAdminObservabilityGetRoute(context)) {
       return true;
     }
 
@@ -925,7 +958,12 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/runtime-download') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
-      const token = requiredString(urlObj.searchParams.get('token'));
+      if (req.method !== 'POST') {
+        sendJson(res, 405, { ok: false, error: 'method-not-allowed' });
+        return true;
+      }
+      const body = await readJsonBody(req);
+      const token = requiredString(body?.token);
       if (!token) {
         sendJson(res, 400, { ok: false, error: 'token is required' });
         return true;
@@ -1058,192 +1096,6 @@ function createAdminGetRoutes(deps) {
       return true;
     }
 
-    if (pathname === '/admin/api/platform/sync-events') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: false },
-      );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listPlatformSyncEvents({
-          tenantId,
-          serverId: requiredString(urlObj.searchParams.get('serverId')),
-          agentId: requiredString(urlObj.searchParams.get('agentId')),
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-diagnostics') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await buildTenantDiagnosticsBundle(tenantId, {
-          limit: asInt(urlObj.searchParams.get('limit'), 25) || 25,
-          windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-          pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-diagnostics/export') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      const data = await buildTenantDiagnosticsBundle(tenantId, {
-        limit: asInt(urlObj.searchParams.get('limit'), 25) || 25,
-        windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-        pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-      });
-      const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      if (format === 'csv') {
-        sendDownload(
-          res,
-          200,
-          buildTenantDiagnosticsCsv(data),
-          {
-            filename: `tenant-diagnostics-${tenantId}-${timestamp}.csv`,
-            contentType: 'text/csv; charset=utf-8',
-          },
-        );
-        return true;
-      }
-      sendDownload(
-        res,
-        200,
-        `${JSON.stringify(data, jsonReplacer, 2)}\n`,
-        {
-          filename: `tenant-diagnostics-${tenantId}-${timestamp}.json`,
-          contentType: 'application/json; charset=utf-8',
-        },
-      );
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-support-case') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await buildTenantSupportCaseBundle(tenantId, {
-          limit: asInt(urlObj.searchParams.get('limit'), 25) || 25,
-          windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-          pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-support-case/export') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      const data = await buildTenantSupportCaseBundle(tenantId, {
-        limit: asInt(urlObj.searchParams.get('limit'), 25) || 25,
-        windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-        pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-      });
-      const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      if (format === 'csv') {
-        sendDownload(
-          res,
-          200,
-          buildTenantSupportCaseCsv(data),
-          {
-            filename: `tenant-support-case-${tenantId}-${timestamp}.csv`,
-            contentType: 'text/csv; charset=utf-8',
-          },
-        );
-        return true;
-      }
-      sendDownload(
-        res,
-        200,
-        `${JSON.stringify(data, jsonReplacer, 2)}\n`,
-        {
-          filename: `tenant-support-case-${tenantId}-${timestamp}.json`,
-          contentType: 'application/json; charset=utf-8',
-        },
-      );
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-config') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await getPlatformTenantConfig(tenantId),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/tenant-configs') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listPlatformTenantConfigs({
-          tenantId,
-          limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-        }),
-      });
-      return true;
-    }
-
     if (pathname === '/admin/api/platform/tenant-staff') {
       const auth = ensureRole(req, urlObj, 'viewer', res);
       if (!auth) return true;
@@ -1294,35 +1146,6 @@ function createAdminGetRoutes(deps) {
       return true;
     }
 
-    if (pathname === '/admin/api/event/list') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        requiredString(urlObj.searchParams.get('tenantId')) || getAuthTenantId(auth),
-        { required: true },
-      );
-      if (!tenantId) return true;
-      const limit = asInt(urlObj.searchParams.get('limit'), 50) || 50;
-      const listedEvents = typeof listServerEvents === 'function'
-        ? listServerEvents({ tenantId })
-        : [];
-      const rows = Array.isArray(listedEvents)
-        ? listedEvents.slice(0, limit)
-        : [];
-      sendJson(res, 200, {
-        ok: true,
-        data: rows.map((event) => ({
-          ...event,
-          participants: typeof getParticipants === 'function'
-            ? getParticipants(event?.id, { tenantId })
-            : [],
-        })),
-      });
-      return true;
-    }
 
     if (pathname === '/admin/api/platform/subscriptions') {
       const auth = ensureRole(req, urlObj, 'mod', res);
@@ -1364,79 +1187,7 @@ function createAdminGetRoutes(deps) {
       return true;
     }
 
-    if (pathname === '/admin/api/platform/billing/overview') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      const [invoices, paymentAttempts] = await Promise.all([
-        readOptionalAdminData('billing-overview-invoices', () => listBillingInvoices({
-          tenantId,
-          limit: asInt(urlObj.searchParams.get('invoiceLimit'), 100) || 100,
-        }), []),
-        readOptionalAdminData('billing-overview-payment-attempts', () => listBillingPaymentAttempts({
-          tenantId,
-          limit: asInt(urlObj.searchParams.get('attemptLimit'), 100) || 100,
-        }), []),
-      ]);
-      const paidInvoices = invoices.filter((row) => row?.status === 'paid');
-      const openInvoices = invoices.filter((row) => ['draft', 'open', 'past_due'].includes(String(row?.status || '').trim().toLowerCase()));
-      const failedAttempts = paymentAttempts.filter((row) => row?.status === 'failed');
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          provider: getBillingProviderConfigSummary(),
-          summary: {
-            invoiceCount: invoices.length,
-            openInvoiceCount: openInvoices.length,
-            paidInvoiceCount: paidInvoices.length,
-            collectedCents: paidInvoices.reduce((sum, row) => sum + Number(row?.amountCents || 0), 0),
-            failedAttemptCount: failedAttempts.length,
-          },
-        },
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/billing/invoices') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await readOptionalAdminData('billing-invoices', () => listBillingInvoices({
-          tenantId,
-          status: requiredString(urlObj.searchParams.get('status')),
-          limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-        }), []),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/platform/billing/payment-attempts') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await readOptionalAdminData('billing-payment-attempts', () => listBillingPaymentAttempts({
-          tenantId,
-          provider: requiredString(urlObj.searchParams.get('provider')),
-          status: requiredString(urlObj.searchParams.get('status')),
-          limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-        }), []),
-      });
+    if (await handleAdminBillingGetRoute(context)) {
       return true;
     }
 
@@ -1556,78 +1307,6 @@ function createAdminGetRoutes(deps) {
           forceRefresh: refreshRaw === '1' || refreshRaw === 'true',
         }),
       });
-      return true;
-    }
-
-    if (pathname === '/admin/api/observability') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await getCurrentObservabilitySnapshot({
-          windowMs: clampMetricsWindowMs(urlObj.searchParams.get('windowMs')),
-          seriesKeys: parseMetricsSeriesKeys(urlObj.searchParams.get('series')),
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/observability/requests') {
-      const auth = ensureRole(req, urlObj, 'admin', res);
-      if (!auth) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          metrics: getAdminRequestLogMetrics({
-            windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-          }),
-          items: listAdminRequestLogs({
-            limit: asInt(urlObj.searchParams.get('limit'), 200) || 200,
-            windowMs: asInt(urlObj.searchParams.get('windowMs'), null),
-            statusClass: requiredString(urlObj.searchParams.get('statusClass')),
-            routeGroup: requiredString(urlObj.searchParams.get('routeGroup')),
-            authMode: requiredString(urlObj.searchParams.get('authMode')),
-            requestId: requiredString(urlObj.searchParams.get('requestId')),
-            tenantId: requiredString(urlObj.searchParams.get('tenantId')),
-            pathContains: requiredString(urlObj.searchParams.get('path')),
-            onlyErrors:
-              String(urlObj.searchParams.get('onlyErrors') || '').trim().toLowerCase() === 'true',
-          }),
-        },
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/observability/export') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const data = await getCurrentObservabilitySnapshot({
-        windowMs: clampMetricsWindowMs(urlObj.searchParams.get('windowMs')),
-        seriesKeys: parseMetricsSeriesKeys(urlObj.searchParams.get('series')),
-      });
-      const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      if (format === 'csv') {
-        sendDownload(
-          res,
-          200,
-          buildObservabilityCsv(data),
-          {
-            filename: `observability-${timestamp}.csv`,
-            contentType: 'text/csv; charset=utf-8',
-          },
-        );
-        return true;
-      }
-      sendDownload(
-        res,
-        200,
-        `${JSON.stringify(buildObservabilityExportPayload(data), jsonReplacer, 2)}\n`,
-        {
-          filename: `observability-${timestamp}.json`,
-          contentType: 'application/json; charset=utf-8',
-        },
-      );
       return true;
     }
 
@@ -1824,347 +1503,6 @@ function createAdminGetRoutes(deps) {
         ok: true,
         data: { total: items.length, items },
       });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/queue') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: listFilteredDeliveryQueue({
-          limit: asInt(urlObj.searchParams.get('limit'), 500) || 500,
-          errorCode: String(urlObj.searchParams.get('errorCode') || '').trim(),
-          q: String(urlObj.searchParams.get('q') || '').trim(),
-          tenantId: tenantId || getAuthTenantId(auth) || undefined,
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/dead-letter') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: listFilteredDeliveryDeadLetters({
-          limit: asInt(urlObj.searchParams.get('limit'), 500) || 500,
-          errorCode: String(urlObj.searchParams.get('errorCode') || '').trim(),
-          q: String(urlObj.searchParams.get('q') || '').trim(),
-          tenantId: tenantId || getAuthTenantId(auth) || undefined,
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/lifecycle') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await buildDeliveryLifecycleReport({
-          tenantId: tenantId || getAuthTenantId(auth) || undefined,
-          limit: asInt(urlObj.searchParams.get('limit'), 120) || 120,
-          pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-          retryHeavyAttempts: asInt(urlObj.searchParams.get('retryHeavyAttempts'), null),
-          poisonAttempts: asInt(urlObj.searchParams.get('poisonAttempts'), null),
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/lifecycle/export') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      const data = await buildDeliveryLifecycleReport({
-        tenantId: tenantId || getAuthTenantId(auth) || undefined,
-        limit: asInt(urlObj.searchParams.get('limit'), 120) || 120,
-        pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
-        retryHeavyAttempts: asInt(urlObj.searchParams.get('retryHeavyAttempts'), null),
-        poisonAttempts: asInt(urlObj.searchParams.get('poisonAttempts'), null),
-      });
-      const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const scopeLabel = tenantId || getAuthTenantId(auth) || 'global';
-      if (format === 'csv') {
-        sendDownload(
-          res,
-          200,
-          buildDeliveryLifecycleCsv(data),
-          {
-            filename: `delivery-lifecycle-${scopeLabel}-${timestamp}.csv`,
-            contentType: 'text/csv; charset=utf-8',
-          },
-        );
-        return true;
-      }
-      sendDownload(
-        res,
-        200,
-        `${JSON.stringify(data, jsonReplacer, 2)}\n`,
-        {
-          filename: `delivery-lifecycle-${scopeLabel}-${timestamp}.json`,
-          contentType: 'application/json; charset=utf-8',
-        },
-      );
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/runtime') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await getDeliveryRuntimeStatus(),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/capabilities') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          builtin: listScumAdminCommandCapabilities(),
-          presets: listAdminCommandCapabilityPresets(200),
-        },
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/command-template') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      try {
-        sendJson(res, 200, {
-          ok: true,
-          data: getDeliveryCommandOverride({
-            lookupKey: String(urlObj.searchParams.get('lookupKey') || '').trim() || undefined,
-            itemId: String(urlObj.searchParams.get('itemId') || '').trim() || undefined,
-            gameItemId: String(urlObj.searchParams.get('gameItemId') || '').trim() || undefined,
-          }),
-        });
-      } catch (error) {
-        sendJson(res, 400, {
-          ok: false,
-          error: String(error?.message || 'ไม่สามารถโหลด command template ได้'),
-        });
-      }
-      return true;
-    }
-
-    if (pathname === '/admin/api/delivery/detail') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const purchaseCode = String(urlObj.searchParams.get('code') || '').trim();
-      if (!purchaseCode) {
-        sendJson(res, 400, { ok: false, error: 'code is required' });
-        return true;
-      }
-      const tenantId = resolveScopedTenantId(
-        req,
-        res,
-        auth,
-        String(urlObj.searchParams.get('tenantId') || '').trim(),
-      );
-      if (tenantId === null && getAuthTenantId(auth)) return true;
-      try {
-        const data = await getDeliveryDetailsByPurchaseCode(
-          purchaseCode,
-          asInt(urlObj.searchParams.get('limit'), 50) || 50,
-          { tenantId },
-        );
-        const hasData = Boolean(
-          data?.purchase
-            || data?.queueJob
-            || data?.deadLetter
-            || (Array.isArray(data?.auditRows) && data.auditRows.length > 0),
-        );
-        if (!hasData) {
-          sendJson(res, 404, { ok: false, error: 'Resource not found' });
-          return true;
-        }
-        sendJson(res, 200, { ok: true, data });
-      } catch (error) {
-        sendJson(res, 400, {
-          ok: false,
-          error: String(error?.message || 'ไม่สามารถโหลดรายละเอียด delivery ได้'),
-        });
-      }
-      return true;
-    }
-
-    if (pathname === '/admin/api/notifications') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const acknowledgedRaw = String(urlObj.searchParams.get('acknowledged') || '').trim().toLowerCase();
-      const acknowledged =
-        acknowledgedRaw === 'true'
-          ? true
-          : acknowledgedRaw === 'false'
-            ? false
-            : null;
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          items: listAdminNotifications({
-            limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-            type: String(urlObj.searchParams.get('type') || '').trim(),
-            kind: String(urlObj.searchParams.get('kind') || '').trim(),
-            severity: String(urlObj.searchParams.get('severity') || '').trim(),
-            entityKey: String(urlObj.searchParams.get('entityKey') || '').trim(),
-            acknowledged,
-          }),
-        },
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/notifications/export') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const acknowledgedRaw = String(urlObj.searchParams.get('acknowledged') || '').trim().toLowerCase();
-      const acknowledged =
-        acknowledgedRaw === 'true'
-          ? true
-          : acknowledgedRaw === 'false'
-            ? false
-            : null;
-      const rows = listAdminNotifications({
-        limit: asInt(urlObj.searchParams.get('limit'), 500) || 500,
-        type: String(urlObj.searchParams.get('type') || '').trim(),
-        kind: String(urlObj.searchParams.get('kind') || '').trim(),
-        severity: String(urlObj.searchParams.get('severity') || '').trim(),
-        entityKey: String(urlObj.searchParams.get('entityKey') || '').trim(),
-        acknowledged,
-      });
-      const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      if (format === 'csv') {
-        sendDownload(
-          res,
-          200,
-          buildAdminNotificationsCsv(rows),
-          {
-            filename: `admin-notifications-${timestamp}.csv`,
-            contentType: 'text/csv; charset=utf-8',
-          },
-        );
-        return true;
-      }
-      sendDownload(
-        res,
-        200,
-        `${JSON.stringify({ ok: true, data: { items: rows } }, jsonReplacer, 2)}\n`,
-        {
-          filename: `admin-notifications-${timestamp}.json`,
-          contentType: 'application/json; charset=utf-8',
-        },
-      );
-      return true;
-    }
-
-    if (pathname === '/admin/api/purchase/statuses') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const current = normalizePurchaseStatus(
-        String(urlObj.searchParams.get('current') || ''),
-      );
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          knownStatuses: listKnownPurchaseStatuses(),
-          currentStatus: current || null,
-          allowedTransitions: current
-            ? listAllowedPurchaseTransitions(current)
-            : [],
-        },
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/dashboard/cards') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const refreshRaw = String(urlObj.searchParams.get('refresh') || '').trim().toLowerCase();
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await buildAdminDashboardCards({
-          prisma,
-          client,
-          tenantId,
-          forceRefresh: refreshRaw === '1' || refreshRaw === 'true',
-        }),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/player/accounts') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      sendJson(res, 200, {
-        ok: true,
-        data: await listPlayerAccounts(
-          asInt(urlObj.searchParams.get('limit'), 200) || 200,
-          tenantId ? { tenantId } : {},
-        ),
-      });
-      return true;
-    }
-
-    if (pathname === '/admin/api/player/dashboard') {
-      const auth = ensureRole(req, urlObj, 'mod', res);
-      if (!auth) return true;
-      const userId = requiredString(urlObj.searchParams.get('userId'));
-      if (!userId) {
-        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
-        return true;
-      }
-      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
-        required: false,
-      });
-      if (requestedTenantId && !tenantId) return true;
-      const dashboard = await getPlayerDashboard(userId, tenantId ? { tenantId } : {});
-      if (!dashboard.ok) {
-        sendJson(res, 400, {
-          ok: false,
-          error: dashboard.reason || 'Cannot build player dashboard',
-        });
-        return true;
-      }
-      sendJson(res, 200, { ok: true, data: dashboard.data });
       return true;
     }
 

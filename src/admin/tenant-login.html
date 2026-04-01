@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Tenant Login</title>
+  <title>SCUM TH Platform | เข้าสู่ระบบผู้เช่า</title>
   <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260328-route-1">
   <style>
     .tenant-auth-stage {
@@ -38,7 +38,8 @@
       color: rgba(243,237,225,.74);
       line-height: 1.68;
     }
-    .tenant-auth-grid {
+    .tenant-auth-grid,
+    .tenant-auth-note-grid {
       display: grid;
       gap: 16px;
     }
@@ -64,18 +65,66 @@
       color: #d67f72;
       font-size: .84rem;
     }
-    .tenant-auth-points {
-      display: grid;
-      gap: 12px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
+    .tenant-auth-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }
-    .tenant-auth-points li {
+    .tenant-auth-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(191,170,112,.18);
+      background: rgba(255,255,255,.03);
+      color: rgba(243,237,225,.9);
+      font-size: .86rem;
+      font-weight: 600;
+    }
+    .tenant-auth-visual {
+      position: relative;
+      min-height: 250px;
+      border-radius: 20px;
+      border: 1px solid rgba(191,170,112,.14);
+      background:
+        linear-gradient(120deg, rgba(8,10,8,.2), rgba(8,10,8,.68)),
+        url('/admin/assets/tenant-panel-scene.svg');
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      overflow: hidden;
+      animation: tenant-auth-float 8s ease-in-out infinite alternate;
+    }
+    .tenant-auth-visual::after {
+      content: "";
+      position: absolute;
+      inset: auto -12% -24% auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(207,177,100,.34) 0%, rgba(207,177,100,.08) 34%, transparent 72%);
+      filter: blur(10px);
+      animation: tenant-auth-glow 6.5s ease-in-out infinite;
+    }
+    .tenant-auth-note {
       padding: 16px 18px;
       border-radius: 18px;
       border: 1px solid rgba(191,170,112,.14);
       background: rgba(255,255,255,.02);
+      display: grid;
+      gap: 8px;
+    }
+    .tenant-auth-note strong {
+      font-size: 1rem;
+    }
+    @keyframes tenant-auth-float {
+      from { transform: translateY(0) scale(1.01); }
+      to { transform: translateY(-8px) scale(1.04); }
+    }
+    @keyframes tenant-auth-glow {
+      0%, 100% { transform: scale(.95); opacity: .66; }
+      50% { transform: scale(1.08); opacity: 1; }
     }
     @media (max-width: 920px) {
       .tenant-auth-stage {
@@ -92,53 +141,68 @@
         <a class="surface-brand" href="/tenant/login">
           <span class="surface-brand-mark">SCUM</span>
           <span class="surface-brand-copy">
-            <span class="surface-brand-eyebrow">Tenant Admin</span>
-            <strong class="surface-brand-title">Tenant Admin Login</strong>
-            <span class="surface-brand-detail">Sign in to manage your server, runtime tools, staff access, and daily operations.</span>
+            <span class="surface-brand-eyebrow">ผู้เช่า</span>
+            <strong class="surface-brand-title">เข้าสู่ระบบผู้เช่า</strong>
+            <span class="surface-brand-detail">เข้าพื้นที่ดูแลเซิร์ฟเวอร์ บอท คำสั่งซื้อ และงานประจำวันของชุมชนคุณจากหน้าหลักเดียว</span>
           </span>
         </a>
       </div>
       <div class="surface-globalbar-tools">
         <nav class="surface-role-switch" aria-label="Surface switch">
-          <a class="surface-role-link is-active" href="/tenant/login">Tenant</a>
-          <a class="surface-role-link" href="/owner/login">Owner</a>
+          <a class="surface-role-link is-active" href="/tenant/login">ผู้เช่า</a>
+          <a class="surface-role-link" href="/owner/login">เจ้าของระบบ</a>
         </nav>
       </div>
     </header>
     <main class="surface-stage">
       <section class="tenant-auth-stage">
         <article class="tenant-auth-panel">
-          <span class="surface-brand-eyebrow">Daily Operations</span>
-          <h1>Open the real tenant product directly</h1>
-          <p>Use the tenant account created during signup or by a tenant owner. After sign-in you will land in the real Tenant Admin Panel, including onboarding, server tools, runtime management, and package-aware locked states.</p>
-          <ul class="tenant-auth-points">
-            <li>Server status, config, and restart controls stay in the Tenant product.</li>
-            <li>Delivery Agent and Server Bot remain separate in the product and runtime logic.</li>
-            <li>Locked features stay visible with an upgrade path instead of disappearing.</li>
-          </ul>
+          <span class="surface-brand-eyebrow">งานประจำวันของผู้เช่า</span>
+          <h1>เข้าพื้นที่ดูแลเซิร์ฟเวอร์ได้จากหน้าเดียว</h1>
+          <p>ใช้บัญชีเจ้าของผู้เช่าหรือทีมงานที่ได้รับสิทธิ์ หลังเข้าสู่ระบบแล้วจะเข้าแผงผู้เช่าจริงที่รวม onboarding, เซิร์ฟเวอร์, บอท, คำสั่งซื้อ และงานประจำวันไว้ครบ</p>
+          <div class="tenant-auth-chip-row">
+            <span class="tenant-auth-chip">สถานะเซิร์ฟเวอร์</span>
+            <span class="tenant-auth-chip">บอทเซิร์ฟเวอร์</span>
+            <span class="tenant-auth-chip">บอทส่งของ</span>
+          </div>
+          <div class="tenant-auth-visual"></div>
+          <div class="tenant-auth-note-grid">
+            <div class="tenant-auth-note">
+              <strong>เริ่มจากความพร้อมของระบบ</strong>
+              <p>ระบบจะบอกขั้นถัดไปที่ควรทำก่อน เช่น ติดตั้งบอทเซิร์ฟเวอร์ เชื่อมต่อบอทส่งของ และตรวจค่าตั้งเซิร์ฟเวอร์</p>
+            </div>
+            <div class="tenant-auth-note">
+              <strong>เครื่องมือหลักแยกชัด</strong>
+              <p>บอทเซิร์ฟเวอร์กับบอทส่งของยังแยกกันชัด ทั้งในหน้าใช้งานและ runtime จริง</p>
+            </div>
+            <div class="tenant-auth-note">
+              <strong>ฟีเจอร์ที่ยังไม่เปิดไม่หายไป</strong>
+              <p>ระบบจะโชว์สิ่งที่ยังล็อกอยู่พร้อมเหตุผลและทางไปต่อ ไม่ปล่อยให้เดาเอง</p>
+            </div>
+          </div>
         </article>
         <section class="tenant-auth-form">
-          <span class="surface-brand-eyebrow">Sign In</span>
-          <h2>Tenant account login</h2>
-          <p>Use the owner or staff email linked to this tenant. Enter the full email address here, not a username like "admin".</p>
+          <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
+          <h2>ลงชื่อเข้าใช้บัญชีผู้เช่า</h2>
+          <p>ใช้อีเมลของเจ้าของผู้เช่าหรือทีมงานที่ผูกกับผู้เช่านี้ กรอกอีเมลเต็ม ไม่ใช่ชื่อผู้ใช้แบบสั้น</p>
           <form id="tenantLoginForm" class="tenant-auth-grid" novalidate>
             <label class="tenant-auth-field">
-              <span>Email</span>
+              <span>อีเมล</span>
               <input id="tenantLoginEmail" class="tenant-auth-input" type="email" autocomplete="username" placeholder="owner@example.com" required>
             </label>
             <label class="tenant-auth-field">
-              <span>Password</span>
-              <input id="tenantLoginPassword" class="tenant-auth-input" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+              <span>รหัสผ่าน</span>
+              <input id="tenantLoginPassword" class="tenant-auth-input" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
             </label>
             <div id="tenantLoginError" class="tenant-auth-error" aria-live="polite"></div>
             <div class="surface-tool-cluster">
-              <button id="tenantLoginSubmit" class="surface-button surface-button-primary" type="submit">Open Tenant Admin</button>
+              <button id="tenantLoginSubmit" class="surface-button surface-button-primary" type="submit">เปิดแผงผู้เช่า</button>
             </div>
           </form>
         </section>
       </section>
     </main>
   </div>
-  <script src="/admin/assets/tenant-login-v1.js?v=20260331-login-help-1"></script>
+  <script src="/admin/assets/tenant-login-v1.js?v=20260401-tenant-login-visual-1"></script>
 </body>
 </html>

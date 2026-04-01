@@ -1,16 +1,31 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+process.env.NODE_ENV = 'test';
+process.env.PRISMA_TEST_DATABASE_URL = 'file:C:/new/prisma/prisma/test.db';
+process.env.PRISMA_TEST_DATABASE_PROVIDER = 'sqlite';
+process.env.DATABASE_URL = process.env.PRISMA_TEST_DATABASE_URL;
+process.env.DATABASE_PROVIDER = 'sqlite';
+process.env.PRISMA_SCHEMA_PROVIDER = 'sqlite';
+
 const { prisma } = require('../src/prisma');
 const { createSubscription } = require('../src/services/platformService');
 const { ensurePlatformBillingLifecycleTables } = require('../src/services/platformBillingLifecycleService');
 
 async function cleanupFixtures() {
   await ensurePlatformBillingLifecycleTables(prisma);
-  await prisma.$executeRawUnsafe("DELETE FROM platform_billing_payment_attempts WHERE tenantId = 'tenant-sub-billing-test'").catch(() => null);
-  await prisma.$executeRawUnsafe("DELETE FROM platform_billing_invoices WHERE tenantId = 'tenant-sub-billing-test'").catch(() => null);
-  await prisma.$executeRawUnsafe("DELETE FROM platform_subscription_events WHERE tenantId = 'tenant-sub-billing-test'").catch(() => null);
-  await prisma.$executeRawUnsafe("DELETE FROM platform_billing_customers WHERE tenantId = 'tenant-sub-billing-test'").catch(() => null);
+  await prisma.platformBillingPaymentAttempt.deleteMany({
+    where: { tenantId: 'tenant-sub-billing-test' },
+  }).catch(() => null);
+  await prisma.platformBillingInvoice.deleteMany({
+    where: { tenantId: 'tenant-sub-billing-test' },
+  }).catch(() => null);
+  await prisma.platformSubscriptionEvent.deleteMany({
+    where: { tenantId: 'tenant-sub-billing-test' },
+  }).catch(() => null);
+  await prisma.platformBillingCustomer.deleteMany({
+    where: { tenantId: 'tenant-sub-billing-test' },
+  }).catch(() => null);
   await prisma.platformSubscription.deleteMany({
     where: { tenantId: 'tenant-sub-billing-test' },
   }).catch(() => null);

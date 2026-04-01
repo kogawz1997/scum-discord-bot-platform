@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const { startScumServerBotRuntime } = require('../../src/services/scumServerBotRuntime');
+const { assertServerBotEnv } = require('../../src/utils/env');
 
 function installShutdown(runtime) {
   const shutdown = async (code = 0) => {
@@ -15,6 +16,7 @@ function installShutdown(runtime) {
 }
 
 async function startServerBotRuntime() {
+  assertServerBotEnv(process.env);
   const runtime = startScumServerBotRuntime();
   installShutdown(runtime);
 

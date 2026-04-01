@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const { startAdminWebServer } = require('../../src/adminWebServer');
+const { assertAdminRuntimeEnv } = require('../../src/utils/env');
 
 const defaultClient = {
   guilds: { cache: new Map() },
@@ -12,6 +13,7 @@ const defaultClient = {
 let serverInstance = null;
 
 function startApiServer(client = defaultClient) {
+  assertAdminRuntimeEnv(process.env);
   if (serverInstance?.listening) {
     return serverInstance;
   }

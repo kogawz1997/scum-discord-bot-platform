@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+process.env.ADMIN_REQUEST_LOG_STORE_MODE = 'file';
+
 const {
   clearAdminRequestLogs,
   getAdminRequestLogMetrics,

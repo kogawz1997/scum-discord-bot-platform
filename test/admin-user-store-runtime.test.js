@@ -213,6 +213,62 @@ test('admin user store falls back to env-backed users when prisma is unavailable
   assert.equal(auth?.role, 'owner');
 });
 
+test('admin user store refuses ephemeral token and password fallback in production', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalAdminToken = process.env.ADMIN_WEB_TOKEN;
+  const originalAdminPassword = process.env.ADMIN_WEB_PASSWORD;
+  const originalLocalRecovery = process.env.ADMIN_WEB_LOCAL_RECOVERY;
+
+  process.env.NODE_ENV = 'production';
+  delete process.env.ADMIN_WEB_TOKEN;
+  delete process.env.ADMIN_WEB_PASSWORD;
+  process.env.ADMIN_WEB_LOCAL_RECOVERY = 'false';
+
+  try {
+    const runtime = createAdminUserStoreRuntime({
+      prisma: { adminWebUser: null },
+      crypto,
+      secureEqual: (left, right) => String(left) === String(right),
+      normalizeRole,
+      resolveDatabaseRuntime: () => ({ engine: 'postgresql' }),
+      adminWebUser: 'fallback_owner',
+      adminWebUserRole: 'owner',
+      adminWebUsersJson: '',
+      logger: { warn() {} },
+    });
+
+    assert.throws(
+      () => runtime.getAdminToken(),
+      /ADMIN_WEB_TOKEN is required in production/i,
+    );
+    assert.throws(
+      () => runtime.getAdminLoginPassword(),
+      /ADMIN_WEB_PASSWORD is required in production/i,
+    );
+  } finally {
+    if (originalNodeEnv == null) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalAdminToken == null) {
+      delete process.env.ADMIN_WEB_TOKEN;
+    } else {
+      process.env.ADMIN_WEB_TOKEN = originalAdminToken;
+    }
+    if (originalAdminPassword == null) {
+      delete process.env.ADMIN_WEB_PASSWORD;
+    } else {
+      process.env.ADMIN_WEB_PASSWORD = originalAdminPassword;
+    }
+    if (originalLocalRecovery == null) {
+      delete process.env.ADMIN_WEB_LOCAL_RECOVERY;
+    } else {
+      process.env.ADMIN_WEB_LOCAL_RECOVERY = originalLocalRecovery;
+    }
+  }
+});
+
 test('admin user store resolves active admin session access context from persisted users', async () => {
   const mock = createMockPrisma();
   const runtime = createAdminUserStoreRuntime({

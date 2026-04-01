@@ -33,6 +33,7 @@ function buildRoutes(overrides = {}) {
     buildLegacyAdminUrl: (pathname) => `https://admin.example.com${pathname}`,
     buildAdminProductUrl: (pathname) => `https://admin.example.com${pathname}`,
     getCanonicalRedirectUrl: () => null,
+    readJsonBody: async () => ({}),
     sendJson: (res, statusCode, payload) => {
       res.writeHead(statusCode, { 'content-type': 'application/json' });
       res.end(JSON.stringify(payload));
@@ -248,6 +249,7 @@ test('portal page routes allow capture-only dashboard auth with a valid token', 
   const handler = buildRoutes({
     allowCaptureAuth: true,
     captureAuthToken: 'capture-token',
+    readJsonBody: async () => ({ token: 'capture-token' }),
     createCaptureSession: () => 'capture-session-id',
     buildSessionCookie: () => 'scum_portal_session=capture-session-id; Path=/; HttpOnly',
   });
@@ -256,9 +258,9 @@ test('portal page routes allow capture-only dashboard auth with a valid token', 
   const handled = await handler({
     req: { headers: {} },
     res,
-    urlObj: new URL('https://player.example.com/player/capture-auth?token=capture-token'),
+    urlObj: new URL('https://player.example.com/player/capture-auth'),
     pathname: '/player/capture-auth',
-    method: 'GET',
+    method: 'POST',
   });
 
   assert.equal(handled, true);

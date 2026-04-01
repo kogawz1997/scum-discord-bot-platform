@@ -5,6 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SCUM TH Platform | เข้าสู่ระบบผู้เล่น</title>
   <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260328-route-1">
+  <style>
+    .player-auth-stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.88fr);
+      gap: 24px;
+    }
+    .player-auth-hero {
+      min-height: 320px;
+      border-radius: 24px;
+      border: 1px solid var(--site-border);
+      background:
+        linear-gradient(120deg, rgba(8, 12, 10, 0.18), rgba(8, 12, 10, 0.7)),
+        url('/player/assets/ui/visuals/scum/hero-player.jpg');
+      background-position: center;
+      background-size: cover;
+      box-shadow: var(--site-shadow);
+      animation: player-auth-float 9s ease-in-out infinite alternate;
+    }
+    .player-auth-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .player-auth-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--site-border-strong);
+      background: rgba(255,255,255,0.04);
+      color: var(--site-text);
+      font-size: .86rem;
+      font-weight: 600;
+    }
+    .player-auth-note-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .player-auth-note {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--site-border);
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      gap: 8px;
+    }
+    .player-auth-note strong {
+      font-size: 1rem;
+    }
+    @keyframes player-auth-float {
+      from { transform: translateY(0) scale(1.01); }
+      to { transform: translateY(-8px) scale(1.04); }
+    }
+    @media (max-width: 960px) {
+      .player-auth-stage {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body class="public-v3">
   <div class="site-shell">
@@ -20,11 +80,16 @@
       </div>
     </header>
     <main class="site-main">
-      <section class="site-grid-2">
+      <section class="player-auth-stage">
         <article class="site-auth-card site-stack">
           <span class="site-kicker">ทางเข้าผู้เล่น</span>
-          <h1 class="site-page-title">เข้าสู่ระบบพอร์ทัลผู้เล่น</h1>
-          <p class="site-page-copy">Discord ยังเป็นช่องทางหลักสำหรับผู้เล่น ส่วนเมจิกลิงก์ทางอีเมลใช้กับบัญชีผู้เล่นที่ผูกไว้แล้ว โดยไม่ต้องสร้างรหัสผ่านแยกอีกชุด</p>
+          <h1 class="site-page-title">เข้าพอร์ทัลผู้เล่นได้จากทางเดียว</h1>
+          <p class="site-page-copy">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ กิจกรรม และการสนับสนุนเซิร์ฟเวอร์ โดยไม่ต้องแยกบัญชีอีกชุด</p>
+          <div class="player-auth-chip-row">
+            <span class="player-auth-chip">โปรไฟล์ผู้เล่น</span>
+            <span class="player-auth-chip">คำสั่งซื้อและการส่งของ</span>
+            <span class="player-auth-chip">กิจกรรมและแรงก์</span>
+          </div>
           <div class="site-tool-cluster">
             <a class="site-button site-button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
           </div>
@@ -43,16 +108,26 @@
         </article>
         <article class="site-panel site-help-panel">
           <span class="site-kicker">ก่อนเริ่มใช้งาน</span>
-          <h2 class="site-card-title">สิ่งที่การเข้าสู่ระบบนี้ต้องใช้</h2>
-          <ul class="marketing-list">
-            <li>บัญชี Discord ของคุณควรอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว</li>
-            <li>เมจิกลิงก์ทางอีเมลใช้ได้เฉพาะบัญชีผู้เล่นที่ผูกไว้แล้วในช่วงนี้</li>
-            <li>งานแอดมินและการจัดการเซิร์ฟเวอร์จะไม่อยู่ในพอร์ทัลผู้เล่น</li>
-          </ul>
+          <h2 class="site-card-title">สิ่งที่ผู้เล่นควรรู้ก่อนเข้า</h2>
+          <div class="player-auth-hero"></div>
+          <div class="player-auth-note-grid">
+            <div class="player-auth-note">
+              <strong>Discord เป็นทางเข้าหลัก</strong>
+              <p>ถ้าบัญชี Discord ของคุณอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว มักเข้าใช้งานได้เร็วที่สุดจากปุ่มด้านซ้าย</p>
+            </div>
+            <div class="player-auth-note">
+              <strong>เมจิกลิงก์ใช้กับบัญชีที่ผูกไว้แล้ว</strong>
+              <p>ระบบจะส่งลิงก์เข้าใช้งานให้อีเมลที่เชื่อมกับบัญชีผู้เล่น ไม่ต้องตั้งรหัสผ่านใหม่</p>
+            </div>
+            <div class="player-auth-note">
+              <strong>งานดูแลเซิร์ฟเวอร์ไม่อยู่ในพอร์ทัลนี้</strong>
+              <p>หน้าผู้เล่นจะโฟกัสที่โปรไฟล์ สถิติ ร้านค้า คำสั่งซื้อ การส่งของ และกิจกรรมเท่านั้น</p>
+            </div>
+          </div>
         </article>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/player-auth-v1.js?v=20260331-player-auth-th-1"></script>
+  <script src="/player/assets/ui/player-auth-v1.js?v=20260401-player-login-visual-1"></script>
 </body>
 </html>

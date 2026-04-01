@@ -252,12 +252,32 @@ function writeEntriesToDisk() {
   atomicWriteJson(FILE_PATH, payload);
 }
 
+function dedupeEntriesById(sourceEntries = []) {
+  const deduped = new Map();
+  for (const entry of Array.isArray(sourceEntries) ? sourceEntries : []) {
+    const normalized = normalizeEntry(entry);
+    deduped.set(normalized.id, normalized);
+  }
+  return Array.from(deduped.values())
+    .sort((left, right) => String(left.at || '').localeCompare(String(right.at || '')))
+    .slice(-MAX_ENTRIES);
+}
+
 async function writeEntriesToDatabase(delegate = getRequestLogDelegate()) {
   if (!delegate) return;
-  const rows = (Array.isArray(entries) ? entries : [])
-    .slice(-MAX_ENTRIES)
+  const rows = dedupeEntriesById(entries)
     .map(serializeEntryRow);
   await delegate.deleteMany({});
+  if (rows.length > 0 && typeof delegate.upsert === 'function') {
+    for (const row of rows) {
+      await delegate.upsert({
+        where: { id: row.id },
+        create: row,
+        update: row,
+      });
+    }
+    return;
+  }
   if (rows.length > 0) {
     await delegate.createMany({ data: rows });
   }
@@ -347,10 +367,8 @@ function initAdminRequestLogStore() {
 function recordAdminRequestLog(entry = {}) {
   void initAdminRequestLogStore();
   mutationVersion += 1;
-  entries.push(normalizeEntry(entry));
-  if (entries.length > MAX_ENTRIES) {
-    entries.splice(0, entries.length - MAX_ENTRIES);
-  }
+  const normalizedEntry = normalizeEntry(entry);
+  entries = dedupeEntriesById([...(Array.isArray(entries) ? entries : []), normalizedEntry]);
   queueWrite(
     () => runWithPreferredPersistence(
       (delegate) => writeEntriesToDatabase(delegate),
@@ -358,7 +376,7 @@ function recordAdminRequestLog(entry = {}) {
     ),
     'persist',
   );
-  return entries[entries.length - 1];
+  return entries.find((item) => item.id === normalizedEntry.id) || entries[entries.length - 1] || null;
 }
 
 function listAdminRequestLogs(options = {}) {

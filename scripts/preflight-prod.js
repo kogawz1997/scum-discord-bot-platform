@@ -116,7 +116,16 @@ function runNpmScript(scriptName) {
 
 async function checkRuntimeHealth(label, url, validator = null) {
   assertOrThrow(url, `${label} URL is not configured`);
-  const { res, json } = await fetchJson(`${trimTrailingSlash(url)}/healthz`);
+  const isConsoleAgent = label === 'console agent';
+  const agentToken = isConsoleAgent ? String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim() : '';
+  const { res, json } = await fetchJson(`${trimTrailingSlash(url)}/healthz`, {
+    headers: agentToken
+      ? {
+        Accept: 'application/json',
+        Authorization: `Bearer ${agentToken}`,
+      }
+      : undefined,
+  });
   assertOrThrow(res.status === 200, `${label} health returned ${res.status}`);
   assertOrThrow(json?.ok === true, `${label} health payload is not ok=true`);
   if (typeof validator === 'function') {
@@ -302,10 +311,16 @@ async function main() {
     ).trim().toLowerCase() || 'rcon';
     if (deliveryMode === 'agent') {
       assertOrThrow(agentHealthBase, 'SCUM_CONSOLE_AGENT_BASE_URL/PORT must be set for agent mode');
+      const agentToken = String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
+      assertOrThrow(agentToken, 'SCUM_CONSOLE_AGENT_TOKEN is required for console agent health/preflight checks');
       await checkRuntimeHealth('console agent', agentHealthBase, (payload) => {
         assertOrThrow(payload.ready === true, `console agent is not ready (${payload.statusCode || payload.status || 'unknown'})`);
       });
       const { res, json } = await fetchJson(`${agentHealthBase}/preflight`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${agentToken}`,
+        },
         timeoutMs: 12000,
       });
       assertOrThrow(res.status === 200, `console agent preflight returned ${res.status}`);

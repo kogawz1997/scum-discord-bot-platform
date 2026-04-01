@@ -418,7 +418,7 @@
       railCards: [
         { title: 'ภาพรวมเชิงพาณิชย์', body: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} รายการใกล้ต่ออายุหรือหมดอายุ` : 'ตอนนี้ยังไม่เห็นแรงกดดันด้านการต่ออายุที่ต้องรีบจัดการ', meta: Number(subscriptions.mrr) > 0 ? `รายได้ที่ติดตามได้ ฿${formatNumber(subscriptions.mrr, '0')}` : 'ใช้หน้านี้ทบทวนแพ็กเกจและการสมัครใช้', tone: expiringCount > 0 ? 'danger' : 'success' },
         { title: 'งานดูแลลูกค้า', body: state.supportCase && state.supportCase.signals ? `${formatNumber(state.supportCase.signals.total, '0')} สัญญาณถูกผูกกับเคสที่กำลังดูอยู่` : 'ตอนนี้งานดูแลลูกค้าค่อนข้างสงบ', meta: 'เปิดดูงานดูแลลูกค้าและวินิจฉัยระบบก่อนแตะสถานะบริการหรือโควตา', tone: state.supportCase ? 'warning' : 'muted' },
-        { title: 'จุดร้อนของระบบสังเกตการณ์', body: hotspot ? `${hotspot.routeGroup || hotspot.samplePath || '/'} · p95 ${formatNumber(hotspot.p95LatencyMs, '0')} ms` : 'ยังไม่มีสรุป hotspot จากตัวอย่างคำขอชุดล่าสุด', meta: hotspot ? `${formatNumber(hotspot.requests, '0')} คำขอ · ${formatNumber(hotspot.errors, '0')} ข้อผิดพลาด` : 'รีเฟรชหน้าสังเกตการณ์เพื่อเติมข้อมูลส่วนนี้', tone: hotspot && hotspot.errors > 0 ? 'warning' : 'info' },
+        { title: 'เส้นทางที่ช้าที่สุดตอนนี้', body: hotspot ? `${hotspot.routeGroup || hotspot.samplePath || '/'} ใช้เวลาประมาณ ${formatNumber(hotspot.p95LatencyMs, '0')} ms` : 'ยังไม่มีสรุปเส้นทางที่ช้าจากคำขอชุดล่าสุด', meta: hotspot ? `${formatNumber(hotspot.requests, '0')} คำขอ | ${formatNumber(hotspot.errors, '0')} ข้อผิดพลาด` : 'รีเฟรชหน้าสถานะเพื่อเติมข้อมูลส่วนนี้', tone: hotspot && hotspot.errors > 0 ? 'warning' : 'info' },
       ],
     };
   }
@@ -539,7 +539,7 @@
       '<div id="overview" class="odv4-focus-target" data-owner-focus-route="overview dashboard">',
       '<section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">ศูนย์ควบคุมเจ้าของระบบ</span>',
       `<h1 class="odv4-page-title">${escapeHtml(safeModel.header.title || '')}</h1><p class="odv4-page-subtitle">${escapeHtml(safeModel.header.subtitle || '')}</p><div class="odv4-chip-row">${renderChips(safeModel.header.statusChips)}</div></div>`,
-      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'Open')}</a></div></section>`,
+      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'เปิดต่อ')}</a></div></section>`,
       '</div>',
       `<section class="odv4-kpi-strip">${renderKpis(safeModel.kpis)}</section>`,
       renderDecisionPanel(safeModel.decisionPanel),

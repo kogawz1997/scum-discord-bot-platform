@@ -8,6 +8,7 @@ const {
   createDiscordOnlySurfaceServer,
   isDiscordOnlyMode,
 } = require('../../src/config/discordOnlyMode');
+const { assertPortalEnv } = require('../../src/utils/env');
 loadMergedEnvFiles({
   basePath: path.resolve(process.cwd(), '.env'),
   overlayPath: path.join(__dirname, '.env'),
@@ -104,6 +105,8 @@ if (isDiscordOnlyMode(process.env)) {
   });
   return;
 }
+
+assertPortalEnv(process.env);
 
 const {
   startupReady,

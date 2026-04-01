@@ -532,11 +532,19 @@
     let revenueTodayCents = 0;
     let revenueMonthCents = 0;
     let openInvoiceCount = 0;
+    let disputedInvoiceCount = 0;
+    let refundedInvoiceCount = 0;
     rows.forEach((row) => {
       const status = trimText(row && row.status).toLowerCase();
       const timestamp = parseDate(row && (row.paidAt || row.updatedAt || row.createdAt || row.issuedAt));
       if (['draft', 'open', 'past_due'].includes(status)) {
         openInvoiceCount += 1;
+      }
+      if (status === 'disputed') {
+        disputedInvoiceCount += 1;
+      }
+      if (status === 'refunded') {
+        refundedInvoiceCount += 1;
       }
       if (status !== 'paid' || !timestamp) return;
       const amount = Number(row && row.amountCents) || 0;
@@ -555,8 +563,146 @@
       revenueTodayCents,
       revenueMonthCents,
       openInvoiceCount,
+      disputedInvoiceCount,
+      refundedInvoiceCount,
       failedPaymentCount: attempts.filter((row) => trimText(row && row.status).toLowerCase() === 'failed').length,
     };
+  }
+
+  function buildBillingRecoveryQueue(tenantRows, invoices, paymentAttempts) {
+    const rows = Array.isArray(tenantRows) ? tenantRows : [];
+    const invoiceRows = Array.isArray(invoices) ? invoices : [];
+    const attemptRows = Array.isArray(paymentAttempts) ? paymentAttempts : [];
+    const tenantLookup = new Map(rows.map((row) => [trimText(row && row.tenantId, 160), row]));
+    const invoiceLookup = new Map(invoiceRows.map((row) => [trimText(row && row.id, 160), row]));
+    const seen = new Set();
+    const queue = [];
+
+    function tenantNameFor(tenantId) {
+      const row = tenantLookup.get(trimText(tenantId, 160));
+      return firstNonEmpty([
+        row && row.tenant && (row.tenant.name || row.tenant.slug),
+        row && row.tenantId,
+        tenantId,
+      ], '-');
+    }
+
+    function buildLifecycleContext(tenantId, invoiceRow, subscriptionRow, fallbackAmountCents, fallbackCurrency) {
+      const tenantRow = tenantLookup.get(trimText(tenantId, 160)) || null;
+      const subscription = subscriptionRow || (tenantRow && tenantRow.subscription) || {};
+      const metadata = parseObject(invoiceRow && (invoiceRow.metadata || invoiceRow.metadataJson || invoiceRow.meta));
+      return {
+        tenantId: trimText(tenantId, 160),
+        invoiceId: trimText(invoiceRow && invoiceRow.id, 160),
+        subscriptionId: trimText(invoiceRow && invoiceRow.subscriptionId, 160) || trimText(subscription && subscription.id, 160),
+        planId: firstNonEmpty([metadata.targetPlanId, invoiceRow && invoiceRow.planId, subscription && subscription.planId], ''),
+        packageId: firstNonEmpty([metadata.targetPackageId, invoiceRow && invoiceRow.packageId, tenantRow && tenantRow.packageId, subscription && subscription.packageId], ''),
+        billingCycle: firstNonEmpty([metadata.targetBillingCycle, invoiceRow && invoiceRow.billingCycle, subscription && subscription.billingCycle], 'monthly'),
+        amountCents: Number(invoiceRow && invoiceRow.amountCents) || Number(fallbackAmountCents) || Number(subscription && subscription.amountCents) || 0,
+        currency: trimText(invoiceRow && invoiceRow.currency, 12) || trimText(fallbackCurrency, 12) || trimText(subscription && subscription.currency, 12) || 'THB',
+        externalRef: trimText(subscription && subscription.externalRef, 200),
+      };
+    }
+
+    function pushItem(item) {
+      const key = trimText(item && item.key, 200);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      queue.push(item);
+    }
+
+    attemptRows.forEach((row) => {
+      const status = trimText(row && row.status, 40).toLowerCase();
+      const tenantId = trimText(row && row.tenantId, 160);
+      const attemptId = trimText(row && row.id, 160);
+      if (status !== 'failed' || !tenantId || !attemptId) return;
+      const invoiceRow = invoiceLookup.get(trimText(row && row.invoiceId, 160)) || null;
+      const context = buildLifecycleContext(tenantId, invoiceRow, null, row && row.amountCents, row && row.currency);
+      pushItem({
+        key: `attempt-${attemptId}`,
+        weight: 400,
+        tone: 'danger',
+        label: 'Failed payment attempt',
+        title: tenantNameFor(tenantId),
+        detail: `Attempt ${attemptId} failed for ${formatCurrencyCents(row && row.amountCents || 0, row && row.currency || 'THB')}. Last activity ${formatDateTime(row && (row.completedAt || row.attemptedAt || row.updatedAt || row.createdAt))}.`,
+        actions: [
+          `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-payment-attempt-status" data-tenant-id="${escapeHtml(tenantId)}" data-attempt-id="${escapeHtml(attemptId)}" data-target-status="succeeded">Mark succeeded</button>`,
+          context.invoiceId
+            ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="retry-billing-checkout" data-tenant-id="${escapeHtml(context.tenantId)}" data-invoice-id="${escapeHtml(context.invoiceId)}" data-subscription-id="${escapeHtml(context.subscriptionId)}" data-plan-id="${escapeHtml(context.planId)}" data-package-id="${escapeHtml(context.packageId)}" data-billing-cycle="${escapeHtml(context.billingCycle)}" data-amount-cents="${escapeHtml(String(context.amountCents))}" data-currency="${escapeHtml(context.currency)}">Retry checkout</button>`
+            : '',
+        ].filter(Boolean).join(''),
+      });
+    });
+
+    invoiceRows.forEach((row) => {
+      const tenantId = trimText(row && row.tenantId, 160);
+      const invoiceId = trimText(row && row.id, 160);
+      const status = trimText(row && row.status, 40).toLowerCase();
+      if (!tenantId || !invoiceId || !['open', 'past_due', 'disputed', 'refunded'].includes(status)) return;
+      const context = buildLifecycleContext(tenantId, row, null);
+      const baseDetail = `${invoiceId} · ${formatCurrencyCents(row && row.amountCents || 0, row && row.currency || 'THB')} · ${formatDateTime(row && (row.dueAt || row.updatedAt || row.createdAt || row.issuedAt))}`;
+      if (status === 'disputed') {
+        pushItem({
+          key: `invoice-${invoiceId}`,
+          weight: 320,
+          tone: 'danger',
+          label: 'Disputed invoice',
+          title: tenantNameFor(tenantId),
+          detail: `Invoice ${baseDetail} was marked disputed and needs an owner decision.`,
+          actions: [
+            `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="paid">Mark paid</button>`,
+            `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="refunded">Mark refunded</button>`,
+          ].join(''),
+        });
+        return;
+      }
+      if (status === 'refunded') {
+        pushItem({
+          key: `invoice-${invoiceId}`,
+          weight: 180,
+          tone: 'warning',
+          label: 'Refund follow-up',
+          title: tenantNameFor(tenantId),
+          detail: `Invoice ${baseDetail} was refunded. Review whether the subscription should stay active or be recovered.`,
+          actions: context.subscriptionId
+            ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(context.tenantId)}" data-subscription-id="${escapeHtml(context.subscriptionId)}" data-plan-id="${escapeHtml(context.planId)}" data-package-id="${escapeHtml(context.packageId)}" data-billing-cycle="${escapeHtml(context.billingCycle)}" data-currency="${escapeHtml(context.currency)}" data-amount-cents="${escapeHtml(String(context.amountCents))}" data-external-ref="${escapeHtml(context.externalRef)}">Reactivate subscription</button>`
+            : '',
+        });
+        return;
+      }
+      pushItem({
+        key: `invoice-${invoiceId}`,
+        weight: status === 'past_due' ? 300 : 240,
+        tone: status === 'past_due' ? 'danger' : 'warning',
+        label: status === 'past_due' ? 'Past-due invoice' : 'Open invoice',
+        title: tenantNameFor(tenantId),
+        detail: `Invoice ${baseDetail} is still waiting for collection.`,
+        actions: [
+          `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="paid">Mark paid</button>`,
+          `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="retry-billing-checkout" data-tenant-id="${escapeHtml(context.tenantId)}" data-invoice-id="${escapeHtml(context.invoiceId)}" data-subscription-id="${escapeHtml(context.subscriptionId)}" data-plan-id="${escapeHtml(context.planId)}" data-package-id="${escapeHtml(context.packageId)}" data-billing-cycle="${escapeHtml(context.billingCycle)}" data-amount-cents="${escapeHtml(String(context.amountCents))}" data-currency="${escapeHtml(context.currency)}">Retry checkout</button>`,
+        ].join(''),
+      });
+    });
+
+    rows.forEach((row) => {
+      const subscription = row && row.subscription ? row.subscription : {};
+      const subscriptionId = trimText(subscription && subscription.id, 160);
+      const status = trimText(subscription && subscription.status, 40).toLowerCase();
+      if (!subscriptionId || !['canceled', 'expired', 'past_due'].includes(status)) return;
+      pushItem({
+        key: `subscription-${subscriptionId}`,
+        weight: status === 'past_due' ? 220 : 160,
+        tone: status === 'past_due' ? 'warning' : 'info',
+        label: status === 'past_due' ? 'Subscription at risk' : 'Recover subscription',
+        title: firstNonEmpty([row && row.tenant && (row.tenant.name || row.tenant.slug), row && row.tenantId], '-'),
+        detail: `Subscription ${subscriptionId} is ${formatOwnerDisplayValue(status)}. Plan ${firstNonEmpty([subscription && subscription.planId, row && row.packageId], '-')}.`,
+        actions: `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(trimText(row && row.tenantId, 160))}" data-subscription-id="${escapeHtml(subscriptionId)}" data-plan-id="${escapeHtml(trimText(subscription && subscription.planId, 120))}" data-package-id="${escapeHtml(trimText(row && row.packageId || subscription && subscription.packageId, 120))}" data-billing-cycle="${escapeHtml(trimText(subscription && subscription.billingCycle, 40) || 'monthly')}" data-currency="${escapeHtml(trimText(subscription && subscription.currency, 12) || 'THB')}" data-amount-cents="${escapeHtml(String(Number(subscription && subscription.amountCents) || 0))}" data-external-ref="${escapeHtml(trimText(subscription && subscription.externalRef, 200))}">Reactivate subscription</button>`,
+      });
+    });
+
+    return queue
+      .sort((left, right) => (Number(right && right.weight) || 0) - (Number(left && left.weight) || 0))
+      .slice(0, 6);
   }
 
   function buildExpiringRows(tenantRows) {
@@ -1048,6 +1194,12 @@
         { label: 'รายได้เดือนนี้', value: formatCurrencyCents(invoiceSummary.revenueMonthCents || subscriptionAnalytics.mrrCents || 0), detail: 'ยอดรับเงินเดือนนี้ / MRR ล่าสุด', tone: 'info' },
         { label: 'Expiring soon', value: formatNumber(expiringRows.length, '0'), detail: 'subscription ที่ใกล้ต่ออายุภายใน 14 วัน', tone: expiringRows.length ? 'warning' : 'muted' },
         { label: 'บริการที่ออนไลน์', value: formatNumber(onlineRuntimeCount, '0'), detail: 'บอตส่งของและบอตเซิร์ฟเวอร์ที่ออนไลน์อยู่จริง', tone: onlineRuntimeCount ? 'success' : 'warning' },
+        { label: 'Disputed invoices', value: formatNumber(invoiceSummary.disputedInvoiceCount, '0'), detail: 'Invoices waiting for billing review', tone: invoiceSummary.disputedInvoiceCount ? 'danger' : 'success' },
+        { label: 'Refunded invoices', value: formatNumber(invoiceSummary.refundedInvoiceCount, '0'), detail: 'Invoices already refunded', tone: invoiceSummary.refundedInvoiceCount ? 'warning' : 'muted' },
+        { label: 'Disputed invoices', value: formatNumber(invoiceSummary.disputedInvoiceCount, '0'), detail: 'Invoices waiting for billing review', tone: invoiceSummary.disputedInvoiceCount ? 'danger' : 'success' },
+        { label: 'Refunded invoices', value: formatNumber(invoiceSummary.refundedInvoiceCount, '0'), detail: 'Invoices already refunded', tone: invoiceSummary.refundedInvoiceCount ? 'warning' : 'muted' },
+        { label: 'Disputed invoices', value: formatNumber(invoiceSummary.disputedInvoiceCount, '0'), detail: 'Invoices waiting for billing review', tone: invoiceSummary.disputedInvoiceCount ? 'danger' : 'success' },
+        { label: 'Refunded invoices', value: formatNumber(invoiceSummary.refundedInvoiceCount, '0'), detail: 'Invoices already refunded', tone: invoiceSummary.refundedInvoiceCount ? 'warning' : 'muted' },
       ])}</div>`,
       '<div class="odvc4-action-row">',
     '<a class="odv4-button odv4-button-primary" href="/owner/tenants">สร้างลูกค้า</a>',
@@ -1717,12 +1869,18 @@
         ? escapeHtml(expiringRows.slice(0, 3).map((row) => `${row.name} · ${formatDateTime(row.renewsAt)}`).join(' · '))
         : 'ตอนนี้ยังไม่พบ subscription ที่ใกล้หมดอายุภายใน 14 วัน',
       '</p></div>',
+      '<section class="odv4-panel odvc4-panel" id="owner-billing-recovery-queue" data-owner-billing-recovery-queue>',
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Recovery queue</span><h2 class="odv4-section-title">Resolve billing issues before they grow</h2><p class="odv4-section-copy">Prioritized billing follow-up items surface the owner actions that already exist in the workspace so support can recover revenue faster.</p></div>',
+      recoveryQueueCards
+        ? `<div class="odvc4-card-grid">${recoveryQueueCards}</div>`
+        : '<div class="odvc4-note-card"><strong>No urgent billing recovery work</strong><p>No urgent billing recovery work is waiting right now.</p></div>',
+      '</section>',
       '<section class="odv4-panel odvc4-panel" id="owner-subscriptions-actions">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุได้จากหน้านี้ทันที</h2><p class="odv4-section-copy">ใช้ส่วนนี้ตามรายการที่ใกล้ต่ออายุหรือค้างชำระก่อน แล้วค่อยเปิดหน้ารายละเอียดลูกค้าเมื่อจำเป็น</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีการสมัครใช้งาน</strong><p>เปิดหน้าลูกค้าเพื่อสร้างการสมัครใช้งานครั้งแรกให้บัญชีนั้นได้ทันที</p></div>'}</div>`,
       '</section>',
-    '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th></tr></thead><tbody>',
-      subscriptionTableRows || '<tr><td colspan="6">ยังไม่มีรายการสมัครใช้งาน</td></tr>',
+    '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th><th>การทำงาน</th></tr></thead><tbody>',
+      subscriptionTableRows || '<tr><td colspan="7">ยังไม่มีรายการสมัครใช้งาน</td></tr>',
       '</tbody></table></div>',
       '</section>',
     ].join('');
@@ -2086,12 +2244,18 @@
         ? escapeHtml(expiringRows.slice(0, 3).map((row) => `${row.name} · ${formatDateTime(row.renewsAt)}`).join(' · '))
         : 'ยังไม่มีรายการสมัครใช้งานที่ใกล้หมดอายุใน 14 วันข้างหน้า',
       '</p></div>',
+      '<section class="odv4-panel odvc4-panel" id="owner-billing-recovery-queue" data-owner-billing-recovery-queue>',
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Recovery queue</span><h2 class="odv4-section-title">Resolve billing issues before they grow</h2><p class="odv4-section-copy">Prioritized billing follow-up items surface the owner actions that already exist in the workspace so support can recover revenue faster.</p></div>',
+      recoveryQueueCards
+        ? `<div class="odvc4-card-grid">${recoveryQueueCards}</div>`
+        : '<div class="odvc4-note-card"><strong>No urgent billing recovery work</strong><p>No urgent billing recovery work is waiting right now.</p></div>',
+      '</section>',
       '<section class="odv4-panel odvc4-panel" id="owner-subscriptions-actions">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุได้จากหน้านี้ทันที</h2><p class="odv4-section-copy">จัดการบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือมีความเสี่ยงก่อน แล้วค่อยเปิดประวัติลูกค้าเมื่อจำเป็นต้องดูรายละเอียดเพิ่ม</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีประวัติลูกค้า</strong><p>สร้างลูกค้ารายแรกก่อน แล้วค่อยจัดการการสมัครใช้จากหน้านี้</p></div>'}</div>`,
       '</section>',
-      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th></tr></thead><tbody>',
-      subscriptionTableRows || '<tr><td colspan="6">ยังไม่มีรายการการสมัครใช้</td></tr>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th><th>การทำงาน</th></tr></thead><tbody>',
+      subscriptionTableRows || '<tr><td colspan="7">ยังไม่มีรายการการสมัครใช้</td></tr>',
       '</tbody></table></div>',
       '</section>',
     ].join('');
@@ -2211,8 +2375,8 @@
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุจากหน้านี้</h2><p class="odv4-section-copy">จัดการบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือเสี่ยงสูงก่อน แล้วค่อยเปิดหน้าลูกค้าเมื่อจำเป็น</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีข้อมูลลูกค้า</strong><p>สร้างลูกค้ารายแรกก่อน แล้วค่อยกลับมาจัดการการสมัครใช้งานจากหน้านี้</p></div>'}</div>`,
       '</section>',
-      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบบิล</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th></tr></thead><tbody>',
-      subscriptionTableRows || '<tr><td colspan="6">ยังไม่มีรายการสมัครใช้งาน</td></tr>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบบิล</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th><th>การทำงาน</th></tr></thead><tbody>',
+      subscriptionTableRows || '<tr><td colspan="7">ยังไม่มีรายการสมัครใช้งาน</td></tr>',
       '</tbody></table></div>',
       '</section>',
     ].join('');
@@ -2222,6 +2386,22 @@
     const rows = Array.isArray(tenantRows) ? tenantRows : [];
     const invoices = Array.isArray(billingInvoices) ? billingInvoices : [];
     const paymentAttempts = Array.isArray(billingPaymentAttempts) ? billingPaymentAttempts : [];
+    const recoveryQueue = buildBillingRecoveryQueue(rows, invoices, paymentAttempts);
+    const riskSpotlightItems = [
+      invoiceSummary.failedPaymentCount
+        ? `${formatNumber(invoiceSummary.failedPaymentCount, '0')} failed payment attempts need recovery`
+        : '',
+      invoiceSummary.openInvoiceCount
+        ? `${formatNumber(invoiceSummary.openInvoiceCount, '0')} invoices are still open or past due`
+        : '',
+      invoiceSummary.disputedInvoiceCount
+        ? `${formatNumber(invoiceSummary.disputedInvoiceCount, '0')} invoices were marked disputed`
+        : '',
+      invoiceSummary.refundedInvoiceCount
+        ? `${formatNumber(invoiceSummary.refundedInvoiceCount, '0')} invoices were marked refunded`
+        : '',
+    ].filter(Boolean);
+    const billingExportBaseUrl = '/owner/api/platform/billing/export';
     const packageLabelLookup = buildOwnerPackageLabelLookup(packageCatalog);
     const packageOptions = (Array.isArray(packageCatalog) ? packageCatalog : [])
       .filter((entry) => trimText(entry && entry.id, 120))
@@ -2254,7 +2434,25 @@
       .slice(0, 6);
     const tenantLookup = new Map(rows.map((row) => [trimText(row && row.tenantId, 160), row]));
     const invoiceLookup = new Map(invoices.map((row) => [trimText(row && row.id, 160), row]));
-    const quickForms = actionableRows.map((row) => {
+    const recoveryQueueCards = recoveryQueue.map((item) => [
+      `<article class="odvc4-note-card" data-owner-billing-recovery-item="${escapeHtml(item.key)}">`,
+      `<div class="odvc4-action-row"><span class="odv4-pill odv4-pill-${escapeHtml(item.tone || 'warning')}">${escapeHtml(item.label || 'Recovery item')}</span></div>`,
+      `<strong>${escapeHtml(item.title || 'Billing recovery')}</strong>`,
+      `<p>${escapeHtml(item.detail || '')}</p>`,
+      item.actions
+        ? `<div class="odvc4-action-row">${item.actions}</div>`
+        : '<div class="odvc4-inline-note">No immediate action configured.</div>',
+      '</article>',
+    ].join('')).join('');
+    const recoveryQueuePanel = [
+      '<section class="odv4-panel odvc4-panel" id="owner-billing-recovery-queue" data-owner-billing-recovery-queue>',
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Recovery queue</span><h2 class="odv4-section-title">Resolve billing issues before they grow</h2><p class="odv4-section-copy">Prioritized billing follow-up items surface the owner actions that already exist in the workspace so support can recover revenue faster.</p></div>',
+      recoveryQueueCards
+        ? `<div class="odvc4-card-grid">${recoveryQueueCards}</div>`
+        : '<div class="odvc4-note-card"><strong>No urgent billing recovery work</strong><p>No urgent billing recovery work is waiting right now.</p></div>',
+      '</section>',
+    ].join('');
+    const quickActionCards = actionableRows.map((row) => {
       const subscription = row.subscription || {};
       const hasSubscription = Boolean(subscription && (subscription.id || subscription.planId || subscription.renewsAt || subscription.status));
       const packageId = firstNonEmpty([
@@ -2308,16 +2506,30 @@
         '</article>',
       ].join('');
     }).join('');
-    const subscriptionTableRows = rows.slice(0, 16).map((row) => [
-      '<tr>',
-      `<td><a href="${escapeHtml(ownerTenantHref(row.tenantId))}">${escapeHtml(row.tenant && (row.tenant.name || row.tenant.slug) || row.tenantId)}</a></td>`,
-      `<td>${escapeHtml(row.packageLabel)}</td>`,
-      `<td>${escapeHtml(row.status)}</td>`,
-      `<td>${escapeHtml(row.subscription && (row.subscription.billingCycle || '-'))}</td>`,
-      `<td>${escapeHtml(row.subscription && (row.subscription.renewsAt ? formatDateTime(row.subscription.renewsAt) : '-'))}</td>`,
-      `<td>${escapeHtml(formatCurrencyCents(row.subscription && row.subscription.amountCents || 0, row.subscription && row.subscription.currency || 'THB'))}</td>`,
-      '</tr>',
-    ].join('')).join('');
+    const quickForms = `${recoveryQueuePanel}${quickActionCards}`;
+    const subscriptionTableRows = rows.slice(0, 16).map((row) => {
+      const subscription = row.subscription || {};
+      const subscriptionStatus = trimText(subscription.status || row.status, 40).toLowerCase();
+      const actionButtons = [
+        subscription && subscription.id && subscriptionStatus !== 'canceled'
+          ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="cancel-billing-subscription" data-tenant-id="${escapeHtml(row.tenantId)}" data-subscription-id="${escapeHtml(trimText(subscription.id, 160))}" data-plan-id="${escapeHtml(trimText(subscription.planId, 120))}" data-package-id="${escapeHtml(trimText(row.packageId || subscription.packageId, 120))}" data-billing-cycle="${escapeHtml(trimText(subscription.billingCycle, 40) || 'monthly')}" data-currency="${escapeHtml(trimText(subscription.currency, 12) || 'THB')}" data-amount-cents="${escapeHtml(String(Number(subscription.amountCents) || 0))}" data-external-ref="${escapeHtml(trimText(subscription.externalRef, 200))}">Cancel subscription</button>`
+          : '',
+        subscription && subscription.id && ['canceled', 'past_due', 'expired'].includes(subscriptionStatus)
+          ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(row.tenantId)}" data-subscription-id="${escapeHtml(trimText(subscription.id, 160))}" data-plan-id="${escapeHtml(trimText(subscription.planId, 120))}" data-package-id="${escapeHtml(trimText(row.packageId || subscription.packageId, 120))}" data-billing-cycle="${escapeHtml(trimText(subscription.billingCycle, 40) || 'monthly')}" data-currency="${escapeHtml(trimText(subscription.currency, 12) || 'THB')}" data-amount-cents="${escapeHtml(String(Number(subscription.amountCents) || 0))}" data-external-ref="${escapeHtml(trimText(subscription.externalRef, 200))}">Reactivate subscription</button>`
+          : '',
+      ].filter(Boolean).join('');
+      return [
+        '<tr>',
+        `<td><a href="${escapeHtml(ownerTenantHref(row.tenantId))}">${escapeHtml(row.tenant && (row.tenant.name || row.tenant.slug) || row.tenantId)}</a></td>`,
+        `<td>${escapeHtml(row.packageLabel)}</td>`,
+        `<td>${escapeHtml(row.status)}</td>`,
+        `<td>${escapeHtml(subscription && (subscription.billingCycle || '-'))}</td>`,
+        `<td>${escapeHtml(subscription && (subscription.renewsAt ? formatDateTime(subscription.renewsAt) : '-'))}</td>`,
+        `<td>${escapeHtml(formatCurrencyCents(subscription && subscription.amountCents || 0, subscription && subscription.currency || 'THB'))}</td>`,
+        `<td><div class="odvc4-action-row">${actionButtons || '<span class="odvc4-inline-note">No extra actions</span>'}</div></td>`,
+        '</tr>',
+      ].join('');
+    }).join('');
     const invoiceRows = invoices.slice(0, 10).map((row) => {
       const tenantId = trimText(row && row.tenantId, 160);
       const invoiceId = trimText(row && row.id, 160);
@@ -2333,6 +2545,12 @@
           : '',
         trimText(row && row.status, 40).toLowerCase() !== 'past_due'
           ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="past_due">บันทึกว่าค้างชำระ</button>`
+          : '',
+        trimText(row && row.status, 40).toLowerCase() !== 'disputed'
+          ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="disputed">Mark disputed</button>`
+          : '',
+        trimText(row && row.status, 40).toLowerCase() !== 'refunded'
+          ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="refunded">Mark refunded</button>`
           : '',
         trimText(row && row.status, 40).toLowerCase() !== 'void'
           ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(tenantId)}" data-invoice-id="${escapeHtml(invoiceId)}" data-target-status="void">ยกเลิกใบแจ้งหนี้</button>`
@@ -2397,6 +2615,10 @@
         { label: 'ใบแจ้งหนี้ที่ยังเปิดอยู่', value: formatNumber(invoiceSummary.openInvoiceCount, '0'), detail: 'ใบแจ้งหนี้ที่ยังรอการชำระ', tone: invoiceSummary.openInvoiceCount ? 'warning' : 'success' },
         { label: 'การชำระเงินที่ล้มเหลว', value: formatNumber(invoiceSummary.failedPaymentCount, '0'), detail: 'รายการที่ควรตรวจสอบเพิ่มเติม', tone: invoiceSummary.failedPaymentCount ? 'danger' : 'success' },
       ])}</div>`,
+      '<div class="odvc4-card-grid">',
+      `<div class="odvc4-note-card" data-owner-billing-risk-spotlight><strong>Risk spotlight</strong><p>${escapeHtml(riskSpotlightItems.length ? riskSpotlightItems.join(' · ') : 'No urgent billing recovery signals right now.')}</p></div>`,
+      `<div class="odvc4-note-card" data-owner-billing-export-actions><strong>Export billing evidence</strong><p>${escapeHtml(`${formatNumber(invoices.length, '0')} invoices and ${formatNumber(paymentAttempts.length, '0')} payment attempts are available for export.`)}</p><div class="odvc4-action-row"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(`${billingExportBaseUrl}?format=csv`)}" download>Export CSV</a><a class="odv4-button odv4-button-secondary" href="${escapeHtml(`${billingExportBaseUrl}?format=json`)}" download>Export JSON</a></div></div>`,
+      '</div>',
       '<div class="odvc4-note-card"><strong>บัญชีที่ใกล้หมดอายุ</strong><p>',
       expiringRows.length
         ? escapeHtml(expiringRows.slice(0, 3).map((row) => `${row.name} · ${formatDateTime(row.renewsAt)}`).join(' · '))
@@ -2406,8 +2628,8 @@
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุได้จากหน้านี้ทันที</h2><p class="odv4-section-copy">จัดการบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือมีความเสี่ยงก่อน แล้วค่อยเปิดประวัติลูกค้าเมื่อจำเป็นต้องดูรายละเอียดเพิ่ม</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีประวัติลูกค้า</strong><p>สร้างลูกค้ารายแรกก่อน แล้วค่อยจัดการการสมัครใช้จากหน้านี้</p></div>'}</div>`,
       '</section>',
-      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th></tr></thead><tbody>',
-      subscriptionTableRows || '<tr><td colspan="6">ยังไม่มีรายการการสมัครใช้</td></tr>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>ลูกค้า</th><th>แพ็กเกจ</th><th>สถานะ</th><th>รอบชำระ</th><th>ต่ออายุเมื่อ</th><th>จำนวนเงิน</th><th>การทำงาน</th></tr></thead><tbody>',
+      subscriptionTableRows || '<tr><td colspan="7">ยังไม่มีรายการการสมัครใช้</td></tr>',
       '</tbody></table></div>',
       '<section class="odv4-panel odvc4-panel" id="owner-billing-invoices-workspace">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานด้านการเงิน</span><h2 class="odv4-section-title">ติดตามใบแจ้งหนี้</h2><p class="odv4-section-copy">เปลี่ยนสถานะใบแจ้งหนี้หรือเริ่มการชำระใหม่ได้จากหน้านี้ โดยไม่ต้องออกจากพื้นที่งานของเจ้าของระบบ</p></div>',

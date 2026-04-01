@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 
 const { getFilePath } = require('../../../store/_persist');
+const { decryptAgentStateToken } = require('../../../utils/agentStateSecret');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -52,12 +53,23 @@ function readPlatformAgentState(env = process.env) {
 async function postAgentSyncPayload(input = {}, env = process.env) {
   const baseUrl = resolveControlPlaneBaseUrl(env);
   const state = readPlatformAgentState(env);
+  const runtimeKey = trimText(
+    env.PLATFORM_AGENT_RUNTIME_KEY
+      || env.SCUM_SERVER_BOT_RUNTIME_KEY
+      || env.SCUM_SYNC_RUNTIME_KEY
+      || 'platform-agent',
+    120,
+  ).replace(/[^a-z0-9._-]+/gi, '-').toLowerCase() || 'platform-agent';
+  const persistedToken = trimText(
+    decryptAgentStateToken(state?.encryptedRawKey, env, runtimeKey),
+    1200,
+  ) || trimText(state?.rawKey, 1200);
   const token = trimText(
     env.SCUM_SYNC_AGENT_TOKEN
       || env.PLATFORM_AGENT_TOKEN
       || env.SCUM_AGENT_TOKEN,
     500,
-  ) || trimText(state?.rawKey, 1200);
+  ) || persistedToken;
   if (!baseUrl) {
     return { ok: false, reason: 'control-plane-base-url-missing' };
   }

@@ -1,7 +1,6 @@
 ﻿const crypto = require('node:crypto');
 
 const { getTenantScopedPrismaClient } = require('../prisma');
-const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
 const {
   buildScopedRowKey,
@@ -1046,117 +1045,21 @@ function mapAuditPresetRow(row, auth = {}) {
 }
 
 async function ensureAdminAuditPresetSchema(prisma) {
-  if (!prisma || typeof prisma.$executeRawUnsafe !== 'function' || typeof prisma.$queryRawUnsafe !== 'function') {
+  if (!prisma) {
     throw new Error('prisma dependency is required');
   }
   if (ensureAdminAuditPresetSchemaPromise) {
     return ensureAdminAuditPresetSchemaPromise;
   }
   ensureAdminAuditPresetSchemaPromise = (async () => {
-    const runtime = resolveDatabaseRuntime();
-    if (runtime.engine === 'postgresql') {
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "AdminAuditPreset" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "name" TEXT NOT NULL,
-          "view" TEXT NOT NULL DEFAULT 'wallet',
-          "visibility" TEXT NOT NULL DEFAULT 'public',
-          "sharedRole" TEXT,
-          "query" TEXT,
-          "userId" TEXT,
-          "actor" TEXT,
-          "actorMode" TEXT NOT NULL DEFAULT 'contains',
-          "reason" TEXT,
-          "reference" TEXT,
-          "referenceMode" TEXT NOT NULL DEFAULT 'contains',
-          "status" TEXT,
-          "statusMode" TEXT NOT NULL DEFAULT 'contains',
-          "dateFrom" TEXT,
-          "dateTo" TEXT,
-          "sortBy" TEXT NOT NULL DEFAULT 'timestamp',
-          "sortOrder" TEXT NOT NULL DEFAULT 'desc',
-          "windowMs" INTEGER,
-          "pageSize" INTEGER NOT NULL DEFAULT 50,
-          "createdBy" TEXT,
-          "createdByUser" TEXT,
-          "updatedBy" TEXT,
-          "updatedByUser" TEXT,
-          "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
-    } else {
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "AdminAuditPreset" (
-          "id" TEXT NOT NULL PRIMARY KEY,
-          "name" TEXT NOT NULL,
-          "view" TEXT NOT NULL DEFAULT 'wallet',
-          "visibility" TEXT NOT NULL DEFAULT 'public',
-          "sharedRole" TEXT,
-          "query" TEXT,
-          "userId" TEXT,
-          "actor" TEXT,
-          "actorMode" TEXT NOT NULL DEFAULT 'contains',
-          "reason" TEXT,
-          "reference" TEXT,
-          "referenceMode" TEXT NOT NULL DEFAULT 'contains',
-          "status" TEXT,
-          "statusMode" TEXT NOT NULL DEFAULT 'contains',
-          "dateFrom" TEXT,
-          "dateTo" TEXT,
-          "sortBy" TEXT NOT NULL DEFAULT 'timestamp',
-          "sortOrder" TEXT NOT NULL DEFAULT 'desc',
-          "windowMs" INTEGER,
-          "pageSize" INTEGER NOT NULL DEFAULT 50,
-          "createdBy" TEXT,
-          "createdByUser" TEXT,
-          "updatedBy" TEXT,
-          "updatedByUser" TEXT,
-          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
+    if (!prisma.adminAuditPreset || typeof prisma.adminAuditPreset.findFirst !== 'function') {
+      const error = new Error(
+        'Admin audit preset schema is not ready. Run the database migrations before using audit presets.',
+      );
+      error.code = 'ADMIN_AUDIT_PRESET_SCHEMA_REQUIRED';
+      error.statusCode = 500;
+      throw error;
     }
-    const columns = runtime.engine === 'postgresql'
-      ? await prisma.$queryRaw`
-        SELECT column_name AS name
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'AdminAuditPreset'
-      `
-      : await prisma.$queryRawUnsafe(`PRAGMA table_info("AdminAuditPreset")`);
-    const columnNames = new Set((Array.isArray(columns) ? columns : []).map((row) => String(row?.name || '')));
-    const alterStatements = [];
-    if (!columnNames.has('visibility')) {
-      alterStatements.push(`ALTER TABLE "AdminAuditPreset" ADD COLUMN "visibility" TEXT NOT NULL DEFAULT 'public'`);
-    }
-    if (!columnNames.has('sharedRole')) {
-      alterStatements.push(`ALTER TABLE "AdminAuditPreset" ADD COLUMN "sharedRole" TEXT`);
-    }
-    if (!columnNames.has('createdByUser')) {
-      alterStatements.push(`ALTER TABLE "AdminAuditPreset" ADD COLUMN "createdByUser" TEXT`);
-    }
-    if (!columnNames.has('updatedByUser')) {
-      alterStatements.push(`ALTER TABLE "AdminAuditPreset" ADD COLUMN "updatedByUser" TEXT`);
-    }
-    for (const statement of alterStatements) {
-      await prisma.$executeRawUnsafe(statement);
-    }
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "AdminAuditPreset_updatedAt_idx" ON "AdminAuditPreset"("updatedAt")`,
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "AdminAuditPreset_name_idx" ON "AdminAuditPreset"("name")`,
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "AdminAuditPreset_visibility_idx" ON "AdminAuditPreset"("visibility")`,
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "AdminAuditPreset_sharedRole_idx" ON "AdminAuditPreset"("sharedRole")`,
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "AdminAuditPreset_createdByUser_idx" ON "AdminAuditPreset"("createdByUser")`,
-    );
   })().catch((error) => {
     ensureAdminAuditPresetSchemaPromise = null;
     throw error;

@@ -64,6 +64,12 @@
     return Array.isArray(list) ? list.length : 0;
   }
 
+  function parseOptionalDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
   function deriveRestartHistory(state) {
     if (Array.isArray(state?.restartHistory) && state.restartHistory.length > 0) {
       return state.restartHistory;
@@ -84,6 +90,32 @@
         actor: plan?.requestedBy || execution?.runtimeKey || '-',
       };
     });
+  }
+
+  function deriveRestartMonitoring(state) {
+    const restartPlans = Array.isArray(state?.restartPlans) ? state.restartPlans.filter(Boolean) : [];
+    const restartAnnouncements = Array.isArray(state?.restartAnnouncements) ? state.restartAnnouncements.filter(Boolean) : [];
+    const blockedPlans = restartPlans.filter((plan) => String(plan?.status || '').trim().toLowerCase() === 'blocked');
+    const pendingVerificationPlans = restartPlans.filter((plan) => {
+      const healthStatus = String(plan?.healthStatus || '').trim().toLowerCase();
+      const status = String(plan?.status || '').trim().toLowerCase();
+      return healthStatus === 'pending_verification' || ((status === 'completed' || status === 'executed') && !plan?.healthVerifiedAt);
+    });
+    const nextScheduledPlan = restartPlans
+      .filter((plan) => ['scheduled', 'running'].includes(String(plan?.status || '').trim().toLowerCase()) && parseOptionalDate(plan?.scheduledFor))
+      .sort((left, right) => parseOptionalDate(left?.scheduledFor) - parseOptionalDate(right?.scheduledFor))[0] || null;
+    const nextAnnouncement = restartAnnouncements
+      .filter((entry) => String(entry?.status || '').trim().toLowerCase() === 'pending' && parseOptionalDate(entry?.scheduledFor))
+      .sort((left, right) => parseOptionalDate(left?.scheduledFor) - parseOptionalDate(right?.scheduledFor))[0] || null;
+
+    return {
+      blockedPlans,
+      pendingVerificationPlans,
+      nextScheduledPlan,
+      nextAnnouncement,
+      blockedCount: blockedPlans.length,
+      pendingVerificationCount: pendingVerificationPlans.length,
+    };
   }
 
   function statusTone(status) {
@@ -129,6 +161,7 @@
     ]);
     const maintenanceState = firstNonEmpty([state?.maintenance?.status, state?.restartState?.status, 'idle']);
     const blockers = [];
+    const monitoring = deriveRestartMonitoring(state);
     if (!['ready', 'active', 'online', 'healthy'].includes(String(runtimeStatus || '').trim().toLowerCase())) {
       blockers.push('Delivery Agent is not fully ready for in-game announcements.');
     }
@@ -140,6 +173,12 @@
     }
     if (state?.serverBotReady === false) {
       blockers.push('Server Bot is not ready to execute restart workflows.');
+    }
+    if (monitoring.blockedCount > 0) {
+      blockers.push('A safe restart is currently blocked. Clear blockers and schedule it again.');
+    }
+    if (monitoring.pendingVerificationCount > 0) {
+      blockers.push('The previous restart still needs post-restart health verification.');
     }
 
     const history = deriveRestartHistory(state);
@@ -211,6 +250,8 @@
           { label: `announcements ${runtimeStatus}`, tone: statusTone(runtimeStatus) },
           { label: `queue ${formatNumber(listCount(state?.queueItems), '0')}`, tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success' },
           { label: `maintenance ${maintenanceState}`, tone: statusTone(maintenanceState) },
+          { label: `blocked ${formatNumber(monitoring.blockedCount, '0')}`, tone: monitoring.blockedCount > 0 ? 'danger' : 'success' },
+          { label: `verify ${formatNumber(monitoring.pendingVerificationCount, '0')}`, tone: monitoring.pendingVerificationCount > 0 ? 'warning' : 'success' },
         ],
         primaryAction: recommendedMode
           ? {
@@ -240,6 +281,26 @@
           tone: listCount(state?.queueItems) > 0 ? 'warning' : 'success',
         },
         {
+          label: 'Next scheduled restart',
+          value: monitoring.nextScheduledPlan ? formatDateTime(monitoring.nextScheduledPlan.scheduledFor) : 'No restart queued',
+          detail: monitoring.nextScheduledPlan
+            ? firstNonEmpty([
+                monitoring.nextScheduledPlan.restartMode,
+                monitoring.nextScheduledPlan.status,
+                'Scheduled',
+              ])
+            : 'Nothing is queued to run right now.',
+          tone: monitoring.nextScheduledPlan ? statusTone(monitoring.nextScheduledPlan.status || 'scheduled') : 'muted',
+        },
+        {
+          label: 'Health verification',
+          value: monitoring.pendingVerificationCount > 0 ? `${formatNumber(monitoring.pendingVerificationCount, '0')} pending` : 'Up to date',
+          detail: monitoring.pendingVerificationCount > 0
+            ? 'Review the most recent restart checks before the next maintenance window.'
+            : 'No restart plans are waiting on verification.',
+          tone: monitoring.pendingVerificationCount > 0 ? 'warning' : 'success',
+        },
+        {
           label: 'Last restart',
           value: history[0] ? formatDateTime(history[0].at) : 'No history yet',
           detail: history[0] ? firstNonEmpty([history[0].mode, history[0].result, '-']) : 'No restart history visible yet',
@@ -247,6 +308,24 @@
         },
       ],
       blockers,
+      monitoring: {
+        nextScheduledRestart: monitoring.nextScheduledPlan
+          ? {
+              at: formatDateTime(monitoring.nextScheduledPlan.scheduledFor),
+              mode: firstNonEmpty([monitoring.nextScheduledPlan.restartMode, monitoring.nextScheduledPlan.status, 'scheduled']),
+              tone: statusTone(monitoring.nextScheduledPlan.status || 'scheduled'),
+            }
+          : null,
+        nextAnnouncement: monitoring.nextAnnouncement
+          ? {
+              at: formatDateTime(monitoring.nextAnnouncement.scheduledFor),
+              checkpointLabel: `${formatNumber(monitoring.nextAnnouncement.checkpointSeconds, '0')} seconds`,
+              tone: statusTone(monitoring.nextAnnouncement.status || 'pending'),
+            }
+          : null,
+        blockedCount: monitoring.blockedCount,
+        pendingVerificationCount: monitoring.pendingVerificationCount,
+      },
       announcementPlan: buildAnnouncementPlan(300),
       recommendedMode,
       secondaryModes,
@@ -424,6 +503,24 @@
       (Array.isArray(safeModel.blockers) && safeModel.blockers.length
         ? `<div class="tdv4-list">${safeModel.blockers.map((item) => `<div class="tdv4-list-item"><strong>Warning</strong><p>${escapeHtml(item)}</p></div>`).join('')}</div>`
         : '<div class="tdv4-empty-state">No major blockers are visible right now.</div>'),
+      '</section>',
+      '</section>',
+      '<section class="tdv4-dual-grid tdv4-restart-monitoring-grid">',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Scheduled / verification</div>',
+      '<h2 class="tdv4-section-title">Upcoming restart operations</h2>',
+      '<div class="tdv4-list">',
+      `<div class="tdv4-list-item"><strong>Next scheduled restart</strong><p>${escapeHtml(safeModel.monitoring?.nextScheduledRestart ? `${safeModel.monitoring.nextScheduledRestart.at} · ${safeModel.monitoring.nextScheduledRestart.mode}` : 'No restart is queued right now.')}</p></div>`,
+      `<div class="tdv4-list-item"><strong>Next announcement checkpoint</strong><p>${escapeHtml(safeModel.monitoring?.nextAnnouncement ? `${safeModel.monitoring.nextAnnouncement.at} · ${safeModel.monitoring.nextAnnouncement.checkpointLabel}` : 'No pending announcement is waiting to be sent.')}</p></div>`,
+      '</div>',
+      '</section>',
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-section-kicker">Scheduled / verification</div>',
+      '<h2 class="tdv4-section-title">Health verification</h2>',
+      '<div class="tdv4-list">',
+      `<div class="tdv4-list-item"><strong>Blocked plans</strong><p>${escapeHtml(formatNumber(safeModel.monitoring?.blockedCount, '0'))} safe restart plans currently blocked.</p></div>`,
+      `<div class="tdv4-list-item"><strong>Verification pending</strong><p>${escapeHtml(formatNumber(safeModel.monitoring?.pendingVerificationCount, '0'))} restart plans still need post-restart checks.</p></div>`,
+      '</div>',
       '</section>',
       '</section>',
       '<section class="tdv4-panel">',

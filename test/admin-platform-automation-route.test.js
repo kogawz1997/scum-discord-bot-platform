@@ -100,6 +100,7 @@ function buildGetRoutes(overrides = {}) {
       });
       res.end(content);
     },
+    readJsonBody: async (req) => req?.body || {},
     ensureRole: () => ({ user: 'owner', role: 'owner', tenantId: null }),
     getAuthTenantId: (auth) => auth?.tenantId || null,
     resolveScopedTenantId: (_req, _res, auth, requestedTenantId) => requestedTenantId || auth?.tenantId || null,
@@ -596,7 +597,9 @@ test('admin platform runtime download prepare route returns a signed download UR
   assert.equal(calls[0].context.tenantId, 'tenant-1');
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.ok, true);
-  assert.equal(payload.data.downloadUrl, '/admin/api/platform/runtime-download?token=download-token-42');
+  assert.equal(payload.data.downloadEndpoint, '/admin/api/platform/runtime-download');
+  assert.equal(payload.data.downloadMethod, 'POST');
+  assert.equal(payload.data.downloadToken, 'download-token-42');
 });
 
 test('admin platform runtime download route streams attachment with filename', async () => {
@@ -617,9 +620,9 @@ test('admin platform runtime download route streams attachment with filename', a
 
   const handled = await handler({
     client: null,
-    req: { method: 'GET', headers: {} },
+    req: { method: 'POST', headers: {}, body: { token: 'download-token-42' } },
     res,
-    urlObj: new URL('https://tenant.example.com/admin/api/platform/runtime-download?token=download-token-42'),
+    urlObj: new URL('https://tenant.example.com/admin/api/platform/runtime-download'),
     pathname: '/admin/api/platform/runtime-download',
   });
 
@@ -670,6 +673,7 @@ test('admin platform subscription update route allows owner to change package as
   assert.equal(calls.length, 1);
   assert.equal(calls[0].tenantId, 'tenant-1');
   assert.equal(calls[0].metadata.packageId, 'PRO');
+  assert.equal(calls[0].actor, 'owner-web:owner');
 });
 
 test('admin platform subscription update route blocks tenant-scoped admin', async () => {
@@ -722,6 +726,7 @@ test('admin platform invoice update route allows owner billing actions', async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0].invoiceId, 'inv-1');
   assert.equal(calls[0].status, 'paid');
+  assert.equal(calls[0].actor, 'owner-web:owner');
 });
 
 test('admin platform invoice update route blocks tenant-scoped admin', async () => {
@@ -774,6 +779,7 @@ test('admin platform payment attempt update route allows owner billing actions',
   assert.equal(calls.length, 1);
   assert.equal(calls[0].attemptId, 'pay-1');
   assert.equal(calls[0].status, 'failed');
+  assert.equal(calls[0].actor, 'owner-web:owner');
 });
 
 test('admin platform checkout session route allows owner to retry checkout', async () => {

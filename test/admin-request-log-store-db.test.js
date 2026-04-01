@@ -39,7 +39,15 @@ function createDelegateHarness() {
         return { count: 0 };
       },
       async createMany({ data }) {
+        const seen = new Set();
         for (const row of Array.isArray(data) ? data : []) {
+          const id = String(row.id);
+          if (seen.has(id)) {
+            const error = new Error('unique');
+            error.code = 'P2002';
+            throw error;
+          }
+          seen.add(id);
           rows.set(String(row.id), clone(row));
         }
         return { count: rows.size };
@@ -127,6 +135,43 @@ test('admin request log store persists request rows through the prisma delegate 
   await store.waitForAdminRequestLogPersistence();
   assert.equal(store.listAdminRequestLogs({ limit: 10 }).length, 0);
   assert.equal(harness.snapshot().length, 0);
+});
+
+test('admin request log store dedupes repeated request ids before db persistence', async () => {
+  const harness = createDelegateHarness();
+  const store = loadStoreWithMocks(harness.delegate);
+
+  await store.initAdminRequestLogStore();
+  store.clearAdminRequestLogs();
+
+  store.recordAdminRequestLog({
+    id: 'req-dup',
+    at: '2026-03-28T05:00:00.000Z',
+    method: 'GET',
+    path: '/admin/api/platform/tenant',
+    routeGroup: 'platform',
+    statusCode: 200,
+    latencyMs: 120,
+  });
+  store.recordAdminRequestLog({
+    id: 'req-dup',
+    at: '2026-03-28T05:00:02.000Z',
+    method: 'POST',
+    path: '/admin/api/platform/tenant',
+    routeGroup: 'platform',
+    statusCode: 500,
+    latencyMs: 820,
+    note: 'retry',
+  });
+
+  await store.waitForAdminRequestLogPersistence();
+
+  const rows = store.listAdminRequestLogs({ limit: 10 });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'req-dup');
+  assert.equal(rows[0].statusCode, 500);
+  assert.equal(rows[0].note, 'retry');
+  assert.equal(harness.snapshot().length, 1);
 });
 
 test('admin request log store does not fall back to file mode when db persistence is required', async () => {

@@ -26,6 +26,9 @@ function createAdminEntityPostRoutes(deps) {
     startServerEvent,
     finishServerEvent,
     joinServerEvent,
+    reviewRaidRequest,
+    createRaidWindow,
+    createRaidSummary,
     bindSteamLinkForUser,
     removeSteamLink,
     upsertPlayerAccount,
@@ -322,6 +325,99 @@ function createAdminEntityPostRoutes(deps) {
           participantsCount: result.participantsCount,
         },
       });
+      return true;
+    }
+
+    if (pathname === '/admin/api/raid/request/review') {
+      const eventCheck = await requireEventManagement(
+        'Raid request reviews are locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
+      const id = asInt(body.id);
+      const status = requiredString(body, 'status').toLowerCase();
+      if (id == null || !['approved', 'rejected', 'pending'].includes(status)) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = typeof reviewRaidRequest === 'function'
+        ? await reviewRaidRequest({
+          id,
+          status,
+          decisionNote: requiredString(body, 'decisionNote') || null,
+          reviewedBy: auth?.user || 'admin-web',
+          tenantId: scopedTenantId,
+          serverId: requiredString(body, 'serverId') || null,
+        })
+        : { ok: false, reason: 'raid-review-unavailable' };
+      if (!result.ok) {
+        sendJson(res, result.reason === 'not-found' ? 404 : 400, {
+          ok: false,
+          error: result.reason || 'Invalid request payload',
+        });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.request });
+      return true;
+    }
+
+    if (pathname === '/admin/api/raid/window/create') {
+      const eventCheck = await requireEventManagement(
+        'Raid windows are locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
+      const title = requiredString(body, 'title');
+      const startsAt = requiredString(body, 'startsAt');
+      if (!title || !startsAt) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = typeof createRaidWindow === 'function'
+        ? await createRaidWindow({
+          requestId: asInt(body.requestId),
+          title,
+          startsAt,
+          endsAt: requiredString(body, 'endsAt') || null,
+          status: requiredString(body, 'status') || 'scheduled',
+          notes: requiredString(body, 'notes') || null,
+          actor: auth?.user || 'admin-web',
+          tenantId: scopedTenantId,
+          serverId: requiredString(body, 'serverId') || null,
+        })
+        : { ok: false, reason: 'raid-window-unavailable' };
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.window });
+      return true;
+    }
+
+    if (pathname === '/admin/api/raid/summary/create') {
+      const eventCheck = await requireEventManagement(
+        'Raid summaries are locked until the current package includes event tools.',
+      );
+      if (!eventCheck.allowed) return true;
+      const outcome = requiredString(body, 'outcome');
+      if (!outcome) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const result = typeof createRaidSummary === 'function'
+        ? await createRaidSummary({
+          requestId: asInt(body.requestId),
+          windowId: asInt(body.windowId),
+          outcome,
+          notes: requiredString(body, 'notes') || null,
+          createdBy: auth?.user || 'admin-web',
+          tenantId: scopedTenantId,
+          serverId: requiredString(body, 'serverId') || null,
+        })
+        : { ok: false, reason: 'raid-summary-unavailable' };
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, error: result.reason || 'Invalid request payload' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, data: result.summary });
       return true;
     }
 

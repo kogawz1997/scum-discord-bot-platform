@@ -7,8 +7,11 @@ process.env.DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || 'sqlite';
 process.env.PRISMA_SCHEMA_PROVIDER = process.env.PRISMA_SCHEMA_PROVIDER || 'sqlite';
 
 const {
+  completeEmailVerification,
   ensurePlatformIdentityTables,
+  ensurePlatformUserIdentity,
   ensurePlatformUserPasswordColumn,
+  issueEmailVerificationToken,
   invalidateIdentitySchemaCaches,
 } = require('../src/services/platformIdentityService');
 
@@ -139,6 +142,150 @@ function createMockDb(options = {}) {
       calls.push({ method: '$queryRaw', query: renderRawSql(args[0]) });
       return [];
     },
+    ...(options.delegates || {}),
+  };
+}
+
+function matchesWhere(row, where) {
+  if (!where || typeof where !== 'object') return true;
+  if (Array.isArray(where.OR) && where.OR.length > 0 && !where.OR.some((entry) => matchesWhere(row, entry))) {
+    return false;
+  }
+  if (Array.isArray(where.AND) && where.AND.length > 0 && !where.AND.every((entry) => matchesWhere(row, entry))) {
+    return false;
+  }
+  return Object.entries(where).every(([key, value]) => {
+    if (key === 'OR' || key === 'AND') return true;
+    if (value && typeof value === 'object' && !(value instanceof Date)) {
+      return false;
+    }
+    return (row?.[key] ?? null) === value;
+  });
+}
+
+function sortRows(rows, orderBy) {
+  if (!orderBy || typeof orderBy !== 'object') {
+    return [...rows];
+  }
+  const [[field, direction]] = Object.entries(orderBy);
+  const factor = String(direction || 'asc').toLowerCase() === 'desc' ? -1 : 1;
+  return [...rows].sort((left, right) => {
+    const leftValue = left?.[field] instanceof Date ? left[field].getTime() : left?.[field];
+    const rightValue = right?.[field] instanceof Date ? right[field].getTime() : right?.[field];
+    if (leftValue == null && rightValue == null) return 0;
+    if (leftValue == null) return 1 * factor;
+    if (rightValue == null) return -1 * factor;
+    if (leftValue < rightValue) return -1 * factor;
+    if (leftValue > rightValue) return 1 * factor;
+    return 0;
+  });
+}
+
+function createDelegateIdentityDb() {
+  const tables = REQUIRED_TABLES;
+  const columns = {
+    platform_users: ['id', 'primaryEmail', 'displayName', 'passwordHash', 'locale', 'status', 'metadataJson', 'createdAt', 'updatedAt'],
+    platform_user_identities: ['id', 'userId', 'provider', 'providerUserId', 'providerEmail', 'displayName', 'avatarUrl', 'verifiedAt', 'linkedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    platform_memberships: ['id', 'userId', 'tenantId', 'membershipType', 'role', 'status', 'isPrimary', 'acceptedAt', 'revokedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    platform_password_reset_tokens: ['id', 'userId', 'previewAccountId', 'email', 'tokenPrefix', 'tokenHash', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    platform_verification_tokens: ['id', 'userId', 'previewAccountId', 'email', 'purpose', 'tokenType', 'tokenPrefix', 'tokenHash', 'target', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    platform_player_profiles: ['id', 'userId', 'tenantId', 'discordUserId', 'steamId', 'inGameName', 'verificationState', 'linkedAt', 'lastSeenAt', 'metadataJson', 'createdAt', 'updatedAt'],
+  };
+  const state = {
+    users: [],
+    identities: [],
+    memberships: [],
+    profiles: [],
+    verificationTokens: [],
+    passwordResetTokens: [],
+  };
+
+  function stampCreate(data) {
+    const createdAt = new Date();
+    return {
+      ...data,
+      createdAt,
+      updatedAt: createdAt,
+    };
+  }
+
+  function stampUpdate(existing, data) {
+    return {
+      ...existing,
+      ...data,
+      createdAt: existing.createdAt,
+      updatedAt: new Date(),
+    };
+  }
+
+  function createCollectionDelegate(target, options = {}) {
+    return {
+      async findUnique(args = {}) {
+        const where = args.where || {};
+        if (where.id) {
+          return target.find((entry) => entry.id === where.id) || null;
+        }
+        if (where.primaryEmail) {
+          return target.find((entry) => entry.primaryEmail === where.primaryEmail) || null;
+        }
+        if (where.provider_providerUserId) {
+          const composite = where.provider_providerUserId;
+          return target.find((entry) => entry.provider === composite.provider && entry.providerUserId === composite.providerUserId) || null;
+        }
+        return null;
+      },
+      async findFirst(args = {}) {
+        const rows = sortRows(target.filter((entry) => matchesWhere(entry, args.where || {})), args.orderBy);
+        return rows[0] || null;
+      },
+      async findMany(args = {}) {
+        return sortRows(target.filter((entry) => matchesWhere(entry, args.where || {})), args.orderBy);
+      },
+      async create(args = {}) {
+        const row = stampCreate(args.data || {});
+        target.push(row);
+        return row;
+      },
+      async update(args = {}) {
+        const where = args.where || {};
+        const index = target.findIndex((entry) => entry.id === where.id);
+        if (index < 0) {
+          throw new Error('record-not-found');
+        }
+        const row = stampUpdate(target[index], args.data || {});
+        target[index] = row;
+        return row;
+      },
+      async updateMany(args = {}) {
+        let count = 0;
+        target.forEach((entry, index) => {
+          if (!matchesWhere(entry, args.where || {})) return;
+          target[index] = stampUpdate(entry, args.data || {});
+          count += 1;
+        });
+        return { count };
+      },
+      ...options,
+    };
+  }
+
+  const db = createMockDb({
+    runtime: 'postgresql',
+    tables,
+    columns,
+    delegates: {
+      platformUser: createCollectionDelegate(state.users),
+      platformUserIdentity: createCollectionDelegate(state.identities),
+      platformMembership: createCollectionDelegate(state.memberships),
+      platformPlayerProfile: createCollectionDelegate(state.profiles),
+      platformVerificationToken: createCollectionDelegate(state.verificationTokens),
+      platformPasswordResetToken: createCollectionDelegate(state.passwordResetTokens),
+    },
+  });
+
+  return {
+    db,
+    state,
   };
 }
 
@@ -314,4 +461,123 @@ test('workspace auth can add platform_users.passwordHash outside production when
     true,
   );
   assert.equal((db.columns.get('platform_users') || new Set()).has('passwordHash'), true);
+});
+
+test('identity service prefers prisma delegates for server-engine user and membership writes', async () => {
+  const { db, state } = createDelegateIdentityDb();
+
+  await withEnv({
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://identity.example/test',
+    PRISMA_SCHEMA_PROVIDER: 'postgresql',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
+  }, async () => {
+    const result = await ensurePlatformUserIdentity({
+      provider: 'email_preview',
+      providerUserId: 'preview-account-delegate-test',
+      email: 'delegate-identity@example.com',
+      displayName: 'Delegate Identity',
+      tenantId: 'tenant-delegate-test',
+      membershipType: 'tenant',
+      role: 'owner',
+      identityMetadata: { source: 'delegate-test' },
+      membershipMetadata: { source: 'delegate-test' },
+    }, db);
+
+    assert.equal(result.ok, true);
+    assert.equal(String(result.user?.primaryEmail || ''), 'delegate-identity@example.com');
+    assert.equal(state.users.length, 1);
+    assert.equal(state.identities.length, 1);
+    assert.equal(state.memberships.length, 1);
+  });
+
+  assert.equal(db.calls.some((entry) => entry.method === '$executeRaw'), false);
+});
+
+test('identity service prefers prisma delegates for verification token lifecycle on server engines', async () => {
+  const { db, state } = createDelegateIdentityDb();
+  state.users.push({
+    id: 'user-verify-1',
+    primaryEmail: 'delegate-verify@example.com',
+    displayName: 'Delegate Verify',
+    locale: 'en',
+    status: 'active',
+    metadataJson: '{}',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  state.identities.push({
+    id: 'ident-verify-1',
+    userId: 'user-verify-1',
+    provider: 'email_preview',
+    providerUserId: 'delegate-verify-preview',
+    providerEmail: 'delegate-verify@example.com',
+    displayName: 'Delegate Verify',
+    avatarUrl: null,
+    verifiedAt: null,
+    linkedAt: new Date(),
+    metadataJson: '{}',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  await withEnv({
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://identity.example/test',
+    PRISMA_SCHEMA_PROVIDER: 'postgresql',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
+  }, async () => {
+    const issued = await issueEmailVerificationToken({
+      email: 'delegate-verify@example.com',
+      userId: 'user-verify-1',
+    }, db);
+    assert.equal(issued.ok, true);
+    assert.equal(state.verificationTokens.length, 1);
+
+    const completed = await completeEmailVerification({
+      token: issued.rawToken,
+      email: 'delegate-verify@example.com',
+    }, db);
+    assert.equal(completed.ok, true);
+    assert.ok(state.verificationTokens[0].consumedAt instanceof Date);
+    assert.ok(state.identities[0].verifiedAt instanceof Date);
+  });
+
+  assert.equal(db.calls.some((entry) => entry.method === '$executeRaw'), false);
+});
+
+test('identity service refuses server-engine CRUD when prisma delegates are unavailable', async () => {
+  const db = createMockDb({
+    runtime: 'postgresql',
+    tables: REQUIRED_TABLES,
+    columns: {
+      platform_users: ['id', 'primaryEmail', 'displayName', 'passwordHash', 'locale', 'status', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_user_identities: ['id', 'userId', 'provider', 'providerUserId', 'providerEmail', 'displayName', 'avatarUrl', 'verifiedAt', 'linkedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_memberships: ['id', 'userId', 'tenantId', 'membershipType', 'role', 'status', 'isPrimary', 'acceptedAt', 'revokedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_password_reset_tokens: ['id', 'userId', 'previewAccountId', 'email', 'tokenPrefix', 'tokenHash', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_verification_tokens: ['id', 'userId', 'previewAccountId', 'email', 'purpose', 'tokenType', 'tokenPrefix', 'tokenHash', 'target', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_player_profiles: ['id', 'userId', 'tenantId', 'discordUserId', 'steamId', 'inGameName', 'verificationState', 'linkedAt', 'lastSeenAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    },
+  });
+
+  await withEnv({
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://identity.example/test',
+    PRISMA_SCHEMA_PROVIDER: 'postgresql',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
+  }, async () => {
+    await assert.rejects(
+      () => ensurePlatformUserIdentity({
+        provider: 'email_preview',
+        providerUserId: 'delegate-required-test',
+        email: 'delegate-required@example.com',
+        displayName: 'Delegate Required',
+        tenantId: 'tenant-required-test',
+      }, db),
+      (error) => String(error?.code || '') === 'PLATFORM_IDENTITY_DELEGATES_REQUIRED',
+    );
+  });
+
+  assert.equal(db.calls.some((entry) => entry.method === '$executeRaw'), false);
+  assert.equal(db.calls.some((entry) => entry.method === '$queryRaw'), false);
 });

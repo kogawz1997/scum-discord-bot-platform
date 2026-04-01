@@ -1,9 +1,81 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
-const {
-  createPublicPreviewService,
-} = require('../src/services/publicPreviewService');
+const servicePath = path.resolve(__dirname, '../src/services/publicPreviewService.js');
+const platformServicePath = path.resolve(__dirname, '../src/services/platformService.js');
+const packageCatalogServicePath = path.resolve(__dirname, '../src/domain/billing/packageCatalogService.js');
+const previewStorePath = path.resolve(__dirname, '../src/store/publicPreviewAccountStore.js');
+const identityServicePath = path.resolve(__dirname, '../src/services/platformIdentityService.js');
+
+function installMock(modulePath, exportsValue) {
+  delete require.cache[modulePath];
+  require.cache[modulePath] = {
+    id: modulePath,
+    filename: modulePath,
+    loaded: true,
+    exports: exportsValue,
+  };
+}
+
+function clearModule(modulePath) {
+  delete require.cache[modulePath];
+}
+
+function loadCreatePublicPreviewService() {
+  clearModule(servicePath);
+  installMock(platformServicePath, {
+    createTenant: async () => ({ ok: false, reason: 'not-mocked' }),
+    createSubscription: async () => ({ ok: false, reason: 'not-mocked' }),
+    getTenantFeatureAccess: async () => null,
+    getTenantQuotaSnapshot: async () => null,
+  });
+  installMock(packageCatalogServicePath, {
+    getPackageById(packageId) {
+      if (String(packageId || '').toUpperCase() === 'BOT_LOG_DELIVERY') {
+        return { id: 'BOT_LOG_DELIVERY', title: 'Bot Log + Delivery' };
+      }
+      return null;
+    },
+    getPackageCatalog() {
+      return [{ id: 'BOT_LOG_DELIVERY', title: 'Bot Log + Delivery' }];
+    },
+    resolveFeatureAccess() {
+      return {
+        package: { id: 'BOT_LOG_DELIVERY', title: 'Bot Log + Delivery' },
+        enabledFeatureKeys: ['bot_delivery', 'execute_agent', 'sync_agent'],
+        catalog: [
+          { key: 'bot_delivery', title: 'Bot Delivery', enabled: true },
+          { key: 'execute_agent', title: 'Execute Agent', enabled: true },
+          { key: 'sync_agent', title: 'Sync Agent', enabled: true },
+        ],
+      };
+    },
+  });
+  installMock(previewStorePath, {
+    createPreviewAccount: async () => { throw new Error('not-mocked'); },
+    getPreviewAccountByEmail: async () => null,
+    getPreviewAccountById: async () => null,
+    updatePreviewAccount: async () => null,
+  });
+  installMock(identityServicePath, {
+    completeEmailVerification: async () => ({ ok: false, reason: 'not-mocked' }),
+    completePasswordReset: async () => ({ ok: false, reason: 'not-mocked' }),
+    ensurePlatformUserIdentity: async () => ({ ok: false, reason: 'not-mocked' }),
+    getIdentitySummaryForPreviewAccount: async () => null,
+    issueEmailVerificationToken: async () => ({ ok: false, reason: 'not-mocked' }),
+    issuePasswordResetToken: async () => ({ ok: false, reason: 'not-mocked' }),
+  });
+  return require(servicePath).createPublicPreviewService;
+}
+
+test.afterEach(() => {
+  clearModule(servicePath);
+  clearModule(platformServicePath);
+  clearModule(packageCatalogServicePath);
+  clearModule(previewStorePath);
+  clearModule(identityServicePath);
+});
 
 function createStoreHarness() {
   const byId = new Map();
@@ -72,6 +144,7 @@ function createStoreHarness() {
 }
 
 test('public preview service validates signup input and creates preview tenant state', async () => {
+  const createPublicPreviewService = loadCreatePublicPreviewService();
   const store = createStoreHarness();
   const issuedResetTokens = [];
   const issuedVerificationTokens = [];
@@ -234,6 +307,7 @@ test('public preview service validates signup input and creates preview tenant s
 });
 
 test('public preview service falls back to lightweight preview state when tenant bootstrap fails', async () => {
+  const createPublicPreviewService = loadCreatePublicPreviewService();
   const store = createStoreHarness();
   const service = createPublicPreviewService({
     createTenant: async () => {

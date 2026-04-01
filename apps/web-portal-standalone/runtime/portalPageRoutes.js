@@ -16,6 +16,7 @@ function createPortalPageRoutes(deps) {
     buildAdminProductUrl,
     buildLegacyAdminUrl,
     getCanonicalRedirectUrl,
+    readJsonBody,
     sendJson,
     sendHtml,
     sendFavicon,
@@ -50,6 +51,9 @@ function createPortalPageRoutes(deps) {
   const serveLegacyPlayerHtml = typeof getLegacyPlayerHtml === 'function'
     ? getLegacyPlayerHtml
     : getPlayerHtml;
+  const readBody = typeof readJsonBody === 'function'
+    ? readJsonBody
+    : async () => ({});
 
   return async function handlePortalPageRoute(context) {
     const {
@@ -92,8 +96,9 @@ function createPortalPageRoutes(deps) {
       return true;
     }
 
-    if (allowCaptureAuth && pathname === '/player/capture-auth' && method === 'GET') {
-      const token = String(urlObj.searchParams.get('token') || '').trim();
+    if (allowCaptureAuth && pathname === '/player/capture-auth' && method === 'POST') {
+      const body = await readBody(req);
+      const token = String(body?.token || '').trim();
       if (!token || token !== String(captureAuthToken || '').trim()) {
         sendJson(res, 403, {
           ok: false,

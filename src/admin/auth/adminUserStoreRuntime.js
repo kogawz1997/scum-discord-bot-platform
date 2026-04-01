@@ -25,6 +25,17 @@ function createAdminUserStoreRuntime(options = {}) {
   let envFallbackMode = false;
   let envUserRows = null;
 
+  function isTruthy(value) {
+    const text = String(value || '').trim().toLowerCase();
+    return text === '1' || text === 'true' || text === 'yes' || text === 'on';
+  }
+
+  function shouldAllowEphemeralAdminCredentials() {
+    const nodeEnv = String(process.env.NODE_ENV || '').trim().toLowerCase();
+    if (nodeEnv !== 'production') return true;
+    return isTruthy(process.env.ADMIN_WEB_LOCAL_RECOVERY);
+  }
+
   function getAdminToken() {
     if (resolvedToken) return resolvedToken;
     const fromEnv = String(process.env.ADMIN_WEB_TOKEN || '').trim();
@@ -32,9 +43,14 @@ function createAdminUserStoreRuntime(options = {}) {
       resolvedToken = fromEnv;
       return resolvedToken;
     }
+    if (!shouldAllowEphemeralAdminCredentials()) {
+      throw new Error(
+        'ADMIN_WEB_TOKEN is required in production; refusing to generate an ephemeral admin token.',
+      );
+    }
     resolvedToken = crypto.randomBytes(18).toString('hex');
     logger.warn('[admin-web] ยังไม่ได้ตั้งค่า ADMIN_WEB_TOKEN จึงสร้างโทเค็นเซสชันชั่วคราว:');
-    logger.warn(`[admin-web] ${resolvedToken}`);
+    logger.warn('[admin-web] ADMIN_WEB_TOKEN is not configured; generated an ephemeral token for this process only.');
     return resolvedToken;
   }
 
@@ -45,6 +61,12 @@ function createAdminUserStoreRuntime(options = {}) {
     if (fromEnv) {
       resolvedLoginPassword = fromEnv;
       return resolvedLoginPassword;
+    }
+
+    if (!shouldAllowEphemeralAdminCredentials()) {
+      throw new Error(
+        'ADMIN_WEB_PASSWORD is required in production; refusing to reuse ADMIN_WEB_TOKEN as the admin password.',
+      );
     }
 
     resolvedLoginPassword = getAdminToken();

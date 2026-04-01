@@ -41,6 +41,69 @@
     return String(url.searchParams.get(key) || '').trim();
   }
 
+  const CHECKOUT_SESSION_STORAGE_KEY = 'platform_checkout_session_token';
+
+  function persistCheckoutSessionToken(token) {
+    const value = String(token || '').trim();
+    if (!value) return;
+    try {
+      window.sessionStorage.setItem(CHECKOUT_SESSION_STORAGE_KEY, value);
+    } catch {}
+  }
+
+  function readCheckoutSessionToken() {
+    try {
+      return String(window.sessionStorage.getItem(CHECKOUT_SESSION_STORAGE_KEY) || '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  function clearCheckoutSessionToken() {
+    try {
+      window.sessionStorage.removeItem(CHECKOUT_SESSION_STORAGE_KEY);
+    } catch {}
+  }
+
+  function scrubUrlParams(keys) {
+    try {
+      const url = new URL(window.location.href);
+      let changed = false;
+      keys.forEach((key) => {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          changed = true;
+        }
+      });
+      if (!changed) return;
+      const search = url.searchParams.toString();
+      const nextUrl = `${url.pathname}${search ? `?${search}` : ''}${url.hash || ''}`;
+      window.history.replaceState({}, document.title, nextUrl);
+    } catch {}
+  }
+
+  function submitBootstrapForm(nextUrl, bootstrapToken) {
+    const action = String(nextUrl || '').trim() || '/tenant/onboarding';
+    const token = String(bootstrapToken || '').trim();
+    if (!token) {
+      window.location.href = action;
+      return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.style.display = 'none';
+    ['bootstrapToken', 'bootstrap'].forEach((fieldName) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = fieldName;
+      input.value = token;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   function buildPackageOptions(select, packages, selectedPackageId) {
     if (!select) return;
     const rows = Array.isArray(packages) ? packages : [];
@@ -86,7 +149,7 @@
             locale: window.PortalUiI18n?.getLocale?.() || 'en',
           }),
         });
-        window.location.href = data?.nextUrl || '/tenant/onboarding';
+        submitBootstrapForm(data?.nextUrl || '/tenant/onboarding', data?.bootstrapToken || '');
       } catch (error) {
         setStatus(status, error?.message || t('public.workspaceSignup.error', 'สร้างบัญชีและพื้นที่ทำงานไม่สำเร็จ'), 'error');
       } finally {
@@ -459,8 +522,8 @@
                   cancelUrl: '/checkout',
                 }),
               });
-              window.location.href = data?.session?.checkoutUrl
-                || `/payment-result?session=${encodeURIComponent(data?.session?.sessionToken || '')}`;
+              persistCheckoutSessionToken(data?.session?.sessionToken || '');
+              window.location.href = data?.session?.checkoutUrl || '/payment-result';
             } catch (error) {
               setStatus(status, error?.message || t('public.checkout.error', 'Could not create checkout session.'), 'error');
             } finally {
@@ -480,8 +543,13 @@
     const copy = $('paymentResultCopy');
     const primary = $('paymentResultPrimary');
     const secondary = $('paymentResultSecondary');
-    const sessionToken = getQueryParam('session');
+    const legacySessionToken = getQueryParam('session');
     const stripeSessionId = getQueryParam('stripe_session_id') || getQueryParam('session_id');
+    if (legacySessionToken) {
+      persistCheckoutSessionToken(legacySessionToken);
+      scrubUrlParams(['session']);
+    }
+    const sessionToken = readCheckoutSessionToken();
     if (!sessionToken) return;
     const action = getQueryParam('status') || 'paid';
     title.textContent = t('public.payment.confirmingTitle', 'Confirming your payment...');
@@ -489,7 +557,12 @@
       copy.textContent = t('public.payment.confirmingCopy', 'We are applying your package and updating the workspace now.');
     }
     try {
-      await requestJson(`/api/public/checkout/session?token=${encodeURIComponent(sessionToken)}`);
+      await requestJson('/api/public/checkout/session/resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionToken,
+        }),
+      });
       const result = await requestJson('/api/public/checkout/complete', {
         method: 'POST',
         body: JSON.stringify({
@@ -498,6 +571,7 @@
           stripeSessionId,
         }),
       });
+      clearCheckoutSessionToken();
       const isPaid = String(result?.invoice?.status || '').trim().toLowerCase() === 'paid';
       title.textContent = isPaid
         ? t('public.payment.successTitle', 'Package activated')

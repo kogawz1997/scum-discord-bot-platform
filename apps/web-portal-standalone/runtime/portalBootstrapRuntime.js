@@ -93,7 +93,17 @@ const {
 } = require('../../../src/services/platformBillingLifecycleService');
 const {
   ensurePlatformPlayerIdentity,
+  getPlatformUserIdentitySummary,
 } = require('../../../src/services/platformIdentityService');
+const {
+  createRaidRequest,
+  listRaidRequests,
+  listRaidSummaries,
+  listRaidWindows,
+} = require('../../../src/services/raidService');
+const {
+  listKillFeedEntries,
+} = require('../../../src/services/killFeedService');
 const {
   createServerRegistryService,
 } = require('../../../src/domain/servers/serverRegistryService');
@@ -503,6 +513,12 @@ function createPortalBootstrapRuntime({
       claimDaily,
       claimWeekly,
       getTenantFeatureAccess,
+      getPlatformUserIdentitySummary,
+      createRaidRequest,
+      listRaidRequests,
+      listRaidWindows,
+      listRaidSummaries,
+      listKillFeedEntries,
     },
     pageAssetDeps: {
       isProduction,
@@ -544,6 +560,7 @@ function createPortalBootstrapRuntime({
       buildAdminProductUrl: (pathname, search) => buildAdminProductUrl(legacyAdminUrl, pathname, search),
       buildLegacyAdminUrl: (pathname, search) => buildLegacyAdminUrl(legacyAdminUrl, pathname, search),
       getCanonicalRedirectUrl,
+      readJsonBody,
       sendJson,
       sendHtml,
       buildHealthPayload,

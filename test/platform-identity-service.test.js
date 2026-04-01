@@ -15,6 +15,7 @@ const {
   ensurePlatformIdentityTables,
   ensurePlatformPlayerIdentity,
   ensurePlatformUserIdentity,
+  getPlatformUserIdentitySummary,
   getIdentitySummaryForPreviewAccount,
   issueEmailVerificationToken,
   issuePasswordResetToken,
@@ -172,6 +173,46 @@ test('platform identity service links discord and steam into a shared player pro
   assert.equal(String(steam.user?.id || ''), String(discord.user?.id || ''));
   assert.equal(String(steam.profile?.steamId || ''), '76561199012345678');
   assert.equal(String(steam.profile?.discordUserId || ''), '123456789012345678');
+});
+
+test('platform identity service can summarize linked user identities by discord and tenant scope', async (t) => {
+  await cleanupIdentityFixtures();
+  t.after(cleanupIdentityFixtures);
+
+  const discord = await ensurePlatformPlayerIdentity({
+    provider: 'discord',
+    providerUserId: '123456789012345678',
+    providerEmail: 'identity-test@example.com',
+    email: 'identity-test@example.com',
+    displayName: 'Identity Player',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    verificationState: 'discord_verified',
+  });
+
+  await ensurePlatformPlayerIdentity({
+    provider: 'steam',
+    providerUserId: '76561199012345678',
+    email: 'identity-test@example.com',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    steamId: '76561199012345678',
+    inGameName: 'Identity Survivor',
+    verificationState: 'fully_verified',
+  });
+
+  const summary = await getPlatformUserIdentitySummary({
+    discordUserId: '123456789012345678',
+    tenantId: 'tenant-identity-test',
+  });
+
+  assert.equal(summary.ok, true);
+  assert.equal(String(summary.user?.id || ''), String(discord.user?.id || ''));
+  assert.equal(String(summary.profile?.steamId || ''), '76561199012345678');
+  assert.equal(String(summary.profile?.verificationState || ''), 'fully_verified');
+  assert.equal(summary.identities.some((entry) => entry.provider === 'discord'), true);
+  assert.equal(summary.identities.some((entry) => entry.provider === 'steam'), true);
+  assert.equal(summary.memberships.some((entry) => String(entry.tenantId || '') === 'tenant-identity-test'), true);
 });
 
 test('platform identity service reuses discord-linked user when steam link has no email', async (t) => {

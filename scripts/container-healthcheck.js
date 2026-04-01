@@ -43,10 +43,16 @@ async function main() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
+    const token = role === 'console-agent'
+      ? String(process.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim()
+      : '';
     const res = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     });
     const payload = await res.json().catch(() => null);
     if (!res.ok || !payload || payload.ok !== true) {

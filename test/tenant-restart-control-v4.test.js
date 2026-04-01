@@ -30,6 +30,7 @@ test('tenant restart control v4 html includes action buttons and blockers', () =
 
   assert.match(html, /tdv4-mode-grid/);
   assert.match(html, /tdv4-restart-summary-strip/);
+  assert.match(html, /Scheduled \/ verification/);
   assert.match(html, /Blockers/);
   assert.match(html, /tdv4-action-list/);
   assert.match(html, /data-restart-action-button/);
@@ -54,7 +55,48 @@ test('tenant restart control v4 derives history from restart plans and execution
   });
 
   assert.equal(model.history.length, 1);
-  assert.equal(model.summaryStrip[3].detail, 'restart');
+  const lastRestart = model.summaryStrip.find((item) => item.label === 'Last restart');
+  assert.equal(lastRestart.detail, 'restart');
+});
+
+test('tenant restart control v4 derives blocked and verification monitoring state', () => {
+  const model = createTenantRestartControlV4Model({
+    restartPlans: [
+      {
+        id: 'rplan-blocked',
+        status: 'blocked',
+        restartMode: 'safe_restart',
+        scheduledFor: '2026-03-26T08:00:00+07:00',
+      },
+      {
+        id: 'rplan-pending-verify',
+        status: 'completed',
+        healthStatus: 'pending_verification',
+        scheduledFor: '2026-03-26T09:00:00+07:00',
+      },
+      {
+        id: 'rplan-scheduled',
+        status: 'scheduled',
+        restartMode: 'delayed',
+        scheduledFor: '2026-03-26T10:00:00+07:00',
+      },
+    ],
+    restartAnnouncements: [
+      {
+        id: 'rann-1',
+        status: 'pending',
+        scheduledFor: '2026-03-26T09:55:00+07:00',
+        checkpointSeconds: 300,
+      },
+    ],
+  });
+
+  assert.equal(model.monitoring.blockedCount, 1);
+  assert.equal(model.monitoring.pendingVerificationCount, 1);
+  assert.match(model.monitoring.nextScheduledRestart.at, /26/);
+  assert.match(model.monitoring.nextAnnouncement.checkpointLabel, /300/);
+  assert.ok(model.blockers.some((item) => /blocked/i.test(item)));
+  assert.ok(model.blockers.some((item) => /health verification/i.test(item)));
 });
 
 test('tenant restart control preview html references parallel assets', () => {

@@ -296,22 +296,24 @@ function createAdminConfigPostRoutes(deps) {
           : 'Your tenant role cannot change tenant settings.',
       });
       if (!permissionCheck.allowed) return true;
-      const actionKey = updateScope === 'modules'
-        ? 'can_use_modules'
-        : 'can_edit_config';
-      const entitlementCheck = await requireTenantActionEntitlement({
-        sendJson,
-        res,
-        getTenantFeatureAccess,
-        buildTenantProductEntitlements,
-        tenantId,
-        actionKey,
-        message: actionKey === 'can_use_modules'
-          ? 'Module changes are locked until the current package includes module controls.'
-          : 'Tenant settings changes are locked until the current package includes config editing.',
-      });
-      if (!entitlementCheck.allowed) {
-        return true;
+      if (getAuthTenantId(auth)) {
+        const actionKey = updateScope === 'modules'
+          ? 'can_use_modules'
+          : 'can_edit_config';
+        const entitlementCheck = await requireTenantActionEntitlement({
+          sendJson,
+          res,
+          getTenantFeatureAccess,
+          buildTenantProductEntitlements,
+          tenantId,
+          actionKey,
+          message: actionKey === 'can_use_modules'
+            ? 'Module changes are locked until the current package includes module controls.'
+            : 'Tenant settings changes are locked until the current package includes config editing.',
+        });
+        if (!entitlementCheck.allowed) {
+          return true;
+        }
       }
       const tenant = await getPlatformTenantById(tenantId);
       if (!tenant) {

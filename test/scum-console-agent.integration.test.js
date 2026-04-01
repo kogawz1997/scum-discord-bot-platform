@@ -29,11 +29,19 @@ test('scum console agent: exec backend executes command template', async () => {
 
   try {
     await runtime.ready;
-    const health = await fetchJson('http://127.0.0.1:3313/healthz');
+    const health = await fetchJson('http://127.0.0.1:3313/healthz', {
+      headers: {
+        Authorization: 'Bearer exec-agent-token-123456',
+      },
+    });
     assert.equal(health.res.status, 200);
     assert.equal(health.payload.backend, 'exec');
 
-    const preflight = await fetchJson('http://127.0.0.1:3313/preflight');
+    const preflight = await fetchJson('http://127.0.0.1:3313/preflight', {
+      headers: {
+        Authorization: 'Bearer exec-agent-token-123456',
+      },
+    });
     assert.equal(preflight.res.status, 200);
     assert.equal(preflight.payload.ok, true);
     assert.equal(preflight.payload.ready, true);
@@ -75,7 +83,11 @@ test('scum console agent: process backend autostarts child and writes command to
 
   try {
     await runtime.ready;
-    const preflight = await fetchJson('http://127.0.0.1:3314/preflight');
+    const preflight = await fetchJson('http://127.0.0.1:3314/preflight', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-123456',
+      },
+    });
     assert.equal(preflight.res.status, 200);
     assert.equal(preflight.payload.ok, true);
     assert.equal(preflight.payload.result?.backend, 'process');
@@ -92,7 +104,11 @@ test('scum console agent: process backend autostarts child and writes command to
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const healthDuring = await fetchJson('http://127.0.0.1:3314/healthz');
+    const healthDuring = await fetchJson('http://127.0.0.1:3314/healthz', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-123456',
+      },
+    });
     assert.equal(healthDuring.res.status, 200);
     assert.equal(Number(healthDuring.payload.queueDepth || 0) >= 1, true);
 
@@ -102,7 +118,11 @@ test('scum console agent: process backend autostarts child and writes command to
     assert.equal(execRes.payload.result.backend, 'process');
     assert.match(execRes.payload.result.stdout, /ACK:#SpawnItem/);
 
-    const health = await fetchJson('http://127.0.0.1:3314/healthz');
+    const health = await fetchJson('http://127.0.0.1:3314/healthz', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-123456',
+      },
+    });
     assert.equal(health.res.status, 200);
     assert.equal(health.payload.managedServer.running, true);
     assert.ok(health.payload.managedServer.pid);
@@ -130,7 +150,11 @@ test('scum console agent: window-script preflight exposes actionable stderr deta
 
   try {
     await runtime.ready;
-    const preflight = await fetchJson('http://127.0.0.1:3315/preflight');
+    const preflight = await fetchJson('http://127.0.0.1:3315/preflight', {
+      headers: {
+        Authorization: 'Bearer window-agent-token-123456',
+      },
+    });
     assert.equal(preflight.res.status, 500);
     assert.equal(preflight.payload.ok, false);
     assert.equal(preflight.payload.errorCode, 'AGENT_PREFLIGHT_FAILED');
@@ -180,12 +204,20 @@ test('scum console agent: successful preflight clears stale health error state',
     });
     assert.equal(execRes.res.status, 200);
 
-    const preflight = await fetchJson('http://127.0.0.1:3316/preflight');
+    const preflight = await fetchJson('http://127.0.0.1:3316/preflight', {
+      headers: {
+        Authorization: 'Bearer window-agent-token-healthy',
+      },
+    });
     assert.equal(preflight.res.status, 200);
     assert.equal(preflight.payload.ok, true);
     assert.equal(preflight.payload.ready, true);
 
-    const health = await fetchJson('http://127.0.0.1:3316/healthz');
+    const health = await fetchJson('http://127.0.0.1:3316/healthz', {
+      headers: {
+        Authorization: 'Bearer window-agent-token-healthy',
+      },
+    });
     assert.equal(health.res.status, 200);
     assert.equal(health.payload.ready, true);
     assert.equal(health.payload.statusCode, 'READY');
@@ -222,7 +254,11 @@ test('scum console agent: process backend schedules restart after unexpected chi
     let degraded = null;
     const deadline = Date.now() + 2500;
     while (Date.now() < deadline) {
-      degraded = await fetchJson('http://127.0.0.1:3317/healthz');
+      degraded = await fetchJson('http://127.0.0.1:3317/healthz', {
+        headers: {
+          Authorization: 'Bearer process-agent-token-restart',
+        },
+      });
       if (degraded.payload?.statusCode === 'AGENT_MANAGED_SERVER_RESTARTING') {
         break;
       }
@@ -235,12 +271,20 @@ test('scum console agent: process backend schedules restart after unexpected chi
     assert.equal(degraded?.payload.recovery?.action, 'wait-for-restart');
     assert.equal(degraded?.payload.managedServer?.restart?.pending, true);
 
-    const preflight = await fetchJson('http://127.0.0.1:3317/preflight');
+    const preflight = await fetchJson('http://127.0.0.1:3317/preflight', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-restart',
+      },
+    });
     assert.equal(preflight.res.status, 200);
     assert.equal(preflight.payload.ok, true);
     assert.equal(preflight.payload.result?.backend, 'process');
 
-    const healthy = await fetchJson('http://127.0.0.1:3317/healthz');
+    const healthy = await fetchJson('http://127.0.0.1:3317/healthz', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-restart',
+      },
+    });
     assert.equal(healthy.res.status, 200);
     assert.equal(healthy.payload.ready, true);
     assert.equal(Number(healthy.payload.managedServer?.restart?.restartCount || 0) >= 1, true);

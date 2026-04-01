@@ -299,6 +299,91 @@ model Bounty {
   claimedBy  String?
 }
 
+model KillFeedEvent {
+  id            Int      @id @default(autoincrement())
+  tenantId      String?
+  serverId      String?
+  killerName    String
+  killerSteamId String?
+  killerUserId  String?
+  victimName    String
+  victimSteamId String?
+  victimUserId  String?
+  weapon        String
+  distance      Int?
+  hitZone       String?
+  sector        String?
+  mapImageUrl   String?
+  metadataJson  String?
+  occurredAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, serverId, occurredAt])
+  @@index([killerUserId, occurredAt])
+  @@index([victimUserId, occurredAt])
+  @@map("kill_feed_events")
+}
+
+model PlatformRaidRequest {
+  id             Int      @id @default(autoincrement())
+  tenantId       String?  @map("tenant_id")
+  requesterUserId String  @map("requester_user_id")
+  requesterName  String   @map("requester_name")
+  requestText    String   @map("request_text")
+  preferredWindow String? @map("preferred_window")
+  status         String   @default("pending")
+  decisionNote   String?  @map("decision_note")
+  reviewedBy     String?  @map("reviewed_by")
+  reviewedAt     DateTime? @map("reviewed_at")
+  serverId       String?  @map("server_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, requesterUserId, updatedAt])
+  @@index([tenantId, serverId, updatedAt])
+  @@map("platform_raid_requests")
+}
+
+model PlatformRaidWindow {
+  id         Int      @id @default(autoincrement())
+  tenantId   String?  @map("tenant_id")
+  requestId  Int?     @map("request_id")
+  title      String
+  startsAt   DateTime @map("starts_at")
+  endsAt     DateTime? @map("ends_at")
+  status     String   @default("scheduled")
+  notes      String?
+  actor      String?
+  serverId   String?  @map("server_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, startsAt])
+  @@index([tenantId, serverId, startsAt])
+  @@index([requestId, startsAt])
+  @@map("platform_raid_windows")
+}
+
+model PlatformRaidSummary {
+  id        Int      @id @default(autoincrement())
+  tenantId  String?  @map("tenant_id")
+  requestId Int?     @map("request_id")
+  windowId  Int?     @map("window_id")
+  outcome   String
+  notes     String?
+  createdBy String?  @map("created_by")
+  serverId  String?  @map("server_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, serverId, createdAt])
+  @@index([requestId, createdAt])
+  @@index([windowId, createdAt])
+  @@map("platform_raid_summaries")
+}
+
 model Stats {
   userId          String @id
   kills           Int    @default(0)

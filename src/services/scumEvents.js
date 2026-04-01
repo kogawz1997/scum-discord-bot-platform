@@ -10,6 +10,7 @@ const { addKill, addDeath } = require('../store/statsStore');
 const { recordWeaponKill } = require('../store/weaponStatsStore');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 const { queueLeaderboardRefreshForGuild } = require('./leaderboardPanels');
+const { recordKillFeedEntry } = require('./killFeedService');
 const { looksLikeMojibake } = require('../utils/mojibake');
 const {
   buildProgressBar,
@@ -320,6 +321,34 @@ async function sendKillFeed(guild, event, options = {}) {
   const victimLink = victimSteamId ? getLinkBySteamId(victimSteamId, scopeOptions) : null;
   if (killerLink?.userId) addKill(killerLink.userId, 1, scopeOptions);
   if (victimLink?.userId) addDeath(victimLink.userId, 1, scopeOptions);
+  try {
+    await recordKillFeedEntry(
+      {
+        killerName,
+        killerSteamId: killerSteamId || null,
+        killerUserId: killerLink?.userId || null,
+        victimName,
+        victimSteamId: victimSteamId || null,
+        victimUserId: victimLink?.userId || null,
+        weapon: normalizedWeapon,
+        distance: event.distance,
+        hitZone: resolvedHitZone,
+        sector: resolvedSector,
+        mapImageUrl,
+        occurredAt: event.occurredAt || null,
+        metadata: {
+          killStreak: killerNowStreak,
+          victimStreakEnded: victimBeforeStreak,
+        },
+      },
+      {
+        ...scopeOptions,
+        serverId: String(options.serverId || event.serverId || '').trim() || null,
+      },
+    );
+  } catch (error) {
+    console.warn('[scumEvents] failed to persist kill feed entry:', error?.message || error);
+  }
 
   publishAdminLiveUpdate('scum-kill', {
     guildId: guild.id,

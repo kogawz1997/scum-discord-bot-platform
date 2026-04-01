@@ -39,7 +39,15 @@ function createNotificationDelegateHarness() {
         return { count: 0 };
       },
       async createMany({ data }) {
+        const seen = new Set();
         for (const row of Array.isArray(data) ? data : []) {
+          const id = String(row.id || '');
+          if (id && seen.has(id)) {
+            const error = new Error('unique');
+            error.code = 'P2002';
+            throw error;
+          }
+          seen.add(id);
           rows.set(String(row.id), clone(row));
         }
         return { count: rows.size };
@@ -137,6 +145,42 @@ test('admin notification store persists notification lifecycle through the prism
   rows = store.listAdminNotifications({ limit: 10 });
   assert.equal(rows.length, 0);
   assert.equal(harness.snapshot().length, 0);
+});
+
+test('admin notification store dedupes repeated notification ids before db persistence', async () => {
+  const harness = createNotificationDelegateHarness();
+  const store = loadStoreWithMocks(harness.delegate);
+
+  await store.initAdminNotificationStore();
+
+  store.addAdminNotification({
+    id: 'note-dup',
+    type: 'ops-alert',
+    source: 'ops',
+    kind: 'runtime-offline',
+    severity: 'warn',
+    title: 'Runtime Offline',
+    message: 'watcher offline',
+    entityKey: 'watcher',
+  });
+  store.addAdminNotification({
+    id: 'note-dup',
+    type: 'ops-alert',
+    source: 'ops',
+    kind: 'runtime-offline',
+    severity: 'error',
+    title: 'Runtime Offline',
+    message: 'watcher hard-down',
+    entityKey: 'watcher',
+  });
+  await store.waitForAdminNotificationPersistence();
+
+  const rows = store.listAdminNotifications({ limit: 10 });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'note-dup');
+  assert.equal(rows[0].severity, 'error');
+  assert.equal(rows[0].message, 'watcher hard-down');
+  assert.equal(harness.snapshot().length, 1);
 });
 
 test('admin notification store does not fall back to file mode when db persistence is required', async () => {

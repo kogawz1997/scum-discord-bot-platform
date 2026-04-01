@@ -125,8 +125,6 @@ test('player general routes support email magic-link request without a session',
     ok: true,
     data: {
       requested: true,
-      queued: true,
-      debugUrl: '/player/login?token=tok-for-player%40example.com',
     },
   });
 });

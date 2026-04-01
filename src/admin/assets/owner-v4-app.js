@@ -1549,7 +1549,11 @@
         tenantId: trimText(button.dataset.tenantId, 160),
         invoiceId,
         status,
-        paidAt: status === 'paid' ? new Date().toISOString() : null,
+        paidAt: status === 'paid'
+          ? new Date().toISOString()
+          : ['past_due', 'failed'].includes(status)
+            ? null
+            : undefined,
         metadata: {
           source: 'owner-panel',
           action: 'invoice-status-update',
@@ -1607,6 +1611,36 @@
       }
       await refreshState({ silent: true });
       setStatus(checkoutUrl ? 'เปิดลิงก์ชำระเงินใหม่ในแท็บใหม่แล้ว' : 'สร้างเซสชันชำระเงินใหม่แล้ว', 'success');
+      navigateOwnerRoute('/owner/subscriptions');
+      return;
+    }
+    if (action === 'cancel-billing-subscription' || action === 'reactivate-billing-subscription') {
+      const tenantId = trimText(button.dataset.tenantId, 160);
+      const subscriptionId = trimText(button.dataset.subscriptionId, 160);
+      const planId = trimText(button.dataset.planId, 120);
+      if (!tenantId || !subscriptionId || !planId) {
+        throw new Error('Subscription billing action is missing required fields');
+      }
+      const isCancel = action === 'cancel-billing-subscription';
+      await ownerMutation('/owner/api/platform/subscription/update', {
+        tenantId,
+        subscriptionId,
+        packageId: trimText(button.dataset.packageId, 120),
+        planId,
+        billingCycle: trimText(button.dataset.billingCycle, 40) || 'monthly',
+        status: isCancel ? 'canceled' : 'active',
+        amountCents: parseNumericValue(button.dataset.amountCents),
+        currency: trimText(button.dataset.currency, 12) || 'THB',
+        canceledAt: isCancel ? new Date().toISOString() : null,
+        externalRef: trimText(button.dataset.externalRef, 200),
+        metadata: {
+          packageId: trimText(button.dataset.packageId, 120),
+          source: 'owner-panel',
+          action: isCancel ? 'subscription-cancel' : 'subscription-reactivate',
+        },
+      });
+      await refreshState({ silent: true });
+      setStatus(isCancel ? 'Subscription canceled' : 'Subscription reactivated', isCancel ? 'warning' : 'success');
       navigateOwnerRoute('/owner/subscriptions');
       return;
     }
@@ -1997,6 +2031,8 @@
 
     const rawRoute = getRawPathRoute();
     const page = resolveOwnerPage(rawRoute);
+    document.body.dataset.ownerPage = page;
+    document.body.dataset.ownerRoute = rawRoute || page;
     const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
     if (window.location.pathname !== canonicalPath) {
       window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
@@ -2019,7 +2055,7 @@
     focusCurrentRoute(rawRoute, page);
     const presentation = routePresentationFor(rawRoute, page);
     const titleFallback = normalizeOwnerActiveTextV2(presentation.title || ROUTE_TITLE_FALLBACKS[rawRoute] || ROUTE_TITLE_FALLBACKS[page] || 'Platform overview');
-    document.title = `SCUM TH Platform | เจ้าของระบบ | ${titleFallback}`;
+    document.title = `SCUM TH Platform | Owner | ${titleFallback}`;
   }
 
   window.addEventListener('DOMContentLoaded', () => {

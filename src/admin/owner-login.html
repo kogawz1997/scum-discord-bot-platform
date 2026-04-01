@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | เข้าสู่ระบบเจ้าของระบบ</title>
+  <title>SCUM TH Platform | เข้าสู่ระบบเจ้าของแพลตฟอร์ม</title>
   <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
   <style>
     .auth-stage {
@@ -40,11 +40,30 @@
       line-height: 1.68;
     }
     .auth-grid,
-    .auth-card-stack {
+    .auth-card-stack,
+    .auth-visual-stack {
       display: grid;
       gap: 16px;
     }
-    .auth-card {
+    .auth-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .auth-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(191,170,112,.18);
+      background: rgba(255,255,255,.03);
+      color: rgba(243,237,225,.92);
+      font-size: .86rem;
+      font-weight: 600;
+    }
+    .auth-card,
+    .auth-visual-card {
       padding: 18px;
       border: 1px solid rgba(191,170,112,.14);
       border-radius: 18px;
@@ -52,7 +71,8 @@
       display: grid;
       gap: 8px;
     }
-    .auth-card strong {
+    .auth-card strong,
+    .auth-visual-card strong {
       font-size: 1rem;
     }
     .auth-field {
@@ -87,15 +107,58 @@
       font-size: .84rem;
     }
     .auth-visual {
-      min-height: 220px;
+      position: relative;
+      min-height: 250px;
       border-radius: 20px;
       border: 1px solid rgba(191,170,112,.14);
       background:
-        linear-gradient(180deg, rgba(7,10,8,.18), rgba(8,10,8,.54)),
+        linear-gradient(118deg, rgba(7,10,8,.18), rgba(8,10,8,.68)),
         url('/admin/assets/owner-panel-scene.svg');
       background-position: center;
       background-repeat: no-repeat;
       background-size: cover;
+      overflow: hidden;
+      animation: auth-float 8s ease-in-out infinite alternate;
+    }
+    .auth-visual::after {
+      content: "";
+      position: absolute;
+      inset: auto -12% -24% auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(207,174,101,.34) 0%, rgba(207,174,101,.08) 34%, transparent 72%);
+      filter: blur(10px);
+      animation: auth-glow 6.8s ease-in-out infinite;
+    }
+    .auth-visual-card {
+      background: rgba(9,13,11,.72);
+      backdrop-filter: blur(10px);
+    }
+    .auth-visual-label {
+      color: rgba(243,237,225,.58);
+      font-size: .76rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .auth-visual-value {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+    }
+    .auth-form-shell {
+      align-content: start;
+    }
+    .auth-form-shell .surface-button {
+      min-width: 220px;
+    }
+    @keyframes auth-float {
+      from { transform: translateY(0) scale(1.01); }
+      to { transform: translateY(-8px) scale(1.04); }
+    }
+    @keyframes auth-glow {
+      0%, 100% { transform: scale(.95); opacity: .68; }
+      50% { transform: scale(1.08); opacity: 1; }
     }
     @media (max-width: 980px) {
       .auth-stage {
@@ -114,7 +177,7 @@
           <span class="surface-brand-copy">
             <span class="surface-brand-eyebrow">เจ้าของระบบ</span>
             <strong class="surface-brand-title">เข้าสู่ระบบเจ้าของแพลตฟอร์ม</strong>
-            <span class="surface-brand-detail">ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูภาพรวมลูกค้า แพ็กเกจ รายได้ ความปลอดภัย และสถานะระบบทั้งหมด</span>
+            <span class="surface-brand-detail">ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสุขภาพระบบจากจุดเดียว</span>
           </span>
         </a>
       </div>
@@ -129,26 +192,43 @@
     <main class="surface-stage">
       <section class="auth-stage">
         <article class="auth-panel">
-          <span class="surface-brand-eyebrow">การควบคุมแพลตฟอร์ม</span>
-          <h1>เข้าสู่เว็บเจ้าของระบบโดยตรง</h1>
-          <p>เว็บนี้ใช้สำหรับเจ้าของแพลตฟอร์มและทีมปฏิบัติการระดับแพลตฟอร์มเท่านั้น หลังเข้าสู่ระบบแล้ว ระบบจะพาไปยังพื้นที่เจ้าของระบบที่แยกจากพื้นที่ผู้ดูแลลูกค้าอย่างชัดเจน</p>
+          <span class="surface-brand-eyebrow">ศูนย์ควบคุมแพลตฟอร์ม</span>
+          <h1>เปิดมุมมองเจ้าของระบบได้จากที่เดียว</h1>
+          <p>ดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสัญญาณสำคัญของแพลตฟอร์มจากพื้นที่เดียว โดยไม่ปะปนกับงานผู้เช่ารายวัน</p>
+          <div class="auth-chip-row">
+            <span class="auth-chip">รายได้และแพ็กเกจ</span>
+            <span class="auth-chip">สุขภาพระบบ</span>
+            <span class="auth-chip">หลักฐานและความปลอดภัย</span>
+          </div>
           <div class="auth-visual"></div>
+          <div class="auth-visual-stack">
+            <div class="auth-visual-card">
+              <span class="auth-visual-label">โฟกัสแรก</span>
+              <span class="auth-visual-value">ภาพรวมธุรกิจ</span>
+              <p class="auth-note">เปิดมาแล้วเห็นลูกค้า รายได้ และเรื่องที่ต้องตัดสินใจก่อนในรอบวัน</p>
+            </div>
+            <div class="auth-visual-card">
+              <span class="auth-visual-label">โฟกัสถัดไป</span>
+              <span class="auth-visual-value">งานปฏิบัติการที่กระทบกว้าง</span>
+              <p class="auth-note">ตรวจคิวงาน บอท เหตุการณ์ และสัญญาณที่กระทบหลายผู้เช่าจากมุมเดียว</p>
+            </div>
+          </div>
           <div class="auth-card-stack">
             <div class="auth-card">
               <strong>ภาพรวมธุรกิจ</strong>
-              <p>ดูลูกค้า แพ็กเกจ รายได้ การสมัครใช้ และสถานะเชิงธุรกิจของแพลตฟอร์ม</p>
+              <p>ดูรายได้ การสมัครใช้ การต่ออายุ และลูกค้าที่ต้องตามก่อนในวันนั้น</p>
             </div>
             <div class="auth-card">
-              <strong>ปฏิบัติการแพลตฟอร์ม</strong>
-              <p>ตรวจสุขภาพระบบ คิวงาน บอตที่เชื่อมต่อ เหตุการณ์ความปลอดภัย และข้อมูลสำหรับการช่วยเหลือลูกค้า</p>
+              <strong>งานปฏิบัติการแพลตฟอร์ม</strong>
+              <p>ดูสุขภาพระบบ คิวงาน เหตุการณ์ ความปลอดภัย และหลักฐานที่ต้องใช้ตอบทีมงาน</p>
             </div>
           </div>
         </article>
 
         <section class="auth-form-shell">
           <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
-          <h2>เข้าสู่ระบบเจ้าของระบบ</h2>
-          <p>ถ้าเปิด 2FA ไว้ ระบบจะถามรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
+          <h2>ลงชื่อเข้าใช้ฝั่งเจ้าของระบบ</h2>
+          <p>ใช้บัญชีผู้ดูแลแพลตฟอร์มเท่านั้น ถ้าเปิด 2FA ระบบจะขอรหัสในขั้นถัดไปโดยอัตโนมัติ</p>
           <form id="loginForm" class="auth-grid" novalidate>
             <label class="auth-field">
               <span>ชื่อผู้ใช้</span>
@@ -164,13 +244,13 @@
             </label>
             <div id="errorBox" class="auth-error" aria-live="polite"></div>
             <div class="auth-actions">
-              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบเจ้าของระบบ</button>
+              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบเจ้าของแพลตฟอร์ม</button>
             </div>
           </form>
         </section>
       </section>
     </main>
   </div>
-  <script src="/admin/assets/admin-login-v4.js?v=20260331-owner-login-th-1"></script>
+  <script src="/admin/assets/admin-login-v4.js?v=20260401-owner-login-visual-1"></script>
 </body>
 </html>

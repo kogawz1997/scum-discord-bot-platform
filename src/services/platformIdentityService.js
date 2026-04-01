@@ -249,7 +249,7 @@ async function ensurePlatformVerificationTokenColumns(db = prisma, options = {})
       columns: columnState,
     };
   }
-  if (!columnState.runtimeBootstrapAllowed) {
+  if (columnState.runtime?.isServerEngine || !columnState.runtimeBootstrapAllowed) {
     throw buildIdentityVerificationTokenSchemaRequiredError({
       table: 'platform_verification_tokens',
       missingColumns: columnState.missingColumns,
@@ -319,7 +319,7 @@ async function ensurePlatformUserPasswordColumn(db = prisma, options = {}) {
       column: passwordColumnState,
     };
   }
-  if (!passwordColumnState.runtimeBootstrapAllowed) {
+  if (passwordColumnState.runtime?.isServerEngine || !passwordColumnState.runtimeBootstrapAllowed) {
     throw buildIdentityPasswordColumnRequiredError({
       column: 'platform_users.passwordHash',
       runtime: passwordColumnState.runtime,
@@ -357,7 +357,7 @@ async function ensurePlatformIdentityTables(db = prisma, options = {}) {
       schema: schemaState,
     };
   }
-  if (!schemaState.runtimeBootstrapAllowed) {
+  if (schemaState.runtime?.isServerEngine || !schemaState.runtimeBootstrapAllowed) {
     throw buildIdentitySchemaRequiredError({
       missingTables: schemaState.missingTables,
       runtime: schemaState.runtime,
@@ -492,6 +492,51 @@ function parseJsonObject(value) {
   }
 }
 
+function stringifyJsonObject(value) {
+  return JSON.stringify(
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? value
+      : {},
+  );
+}
+
+function toDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPlatformIdentityDelegates(db = prisma, env = process.env) {
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  if (!runtime.isServerEngine || !db || typeof db !== 'object') {
+    return null;
+  }
+  const delegates = {
+    users: db.platformUser,
+    identities: db.platformUserIdentity,
+    memberships: db.platformMembership,
+    profiles: db.platformPlayerProfile,
+    verificationTokens: db.platformVerificationToken,
+    passwordResetTokens: db.platformPasswordResetToken,
+  };
+  if (Object.values(delegates).every((delegate) => delegate && typeof delegate === 'object')) {
+    return delegates;
+  }
+  const error = new Error(
+    'Platform identity delegates are unavailable for the active server-engine runtime. Run Prisma generate and database migrations before using identity flows.',
+  );
+  error.code = 'PLATFORM_IDENTITY_DELEGATES_REQUIRED';
+  error.statusCode = 500;
+  error.identityRuntime = runtime;
+  throw error;
+}
+
 function normalizeRowLookupKey(value) {
   return String(value || '')
     .trim()
@@ -604,6 +649,13 @@ async function findUserById(db, userId) {
   const normalizedUserId = trimText(userId, 160);
   if (!normalizedUserId) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.users.findUnique({
+      where: { id: normalizedUserId },
+    });
+    return normalizeUserRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, primaryEmail, displayName, locale, status, metadataJson, createdAt, updatedAt
     FROM platform_users
@@ -617,6 +669,13 @@ async function findUserByPrimaryEmail(db, email) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.users.findUnique({
+      where: { primaryEmail: normalizedEmail },
+    });
+    return normalizeUserRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, primaryEmail, displayName, locale, status, metadataJson, createdAt, updatedAt
     FROM platform_users
@@ -631,6 +690,18 @@ async function findIdentityByProvider(db, provider, providerUserId) {
   const normalizedProviderUserId = trimText(providerUserId, 200);
   if (!normalizedProvider || !normalizedProviderUserId) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.identities.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: normalizedProvider,
+          providerUserId: normalizedProviderUserId,
+        },
+      },
+    });
+    return normalizeIdentityRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, provider, providerUserId, providerEmail, displayName, avatarUrl, verifiedAt, linkedAt, metadataJson
     FROM platform_user_identities
@@ -643,10 +714,22 @@ async function findIdentityByProvider(db, provider, providerUserId) {
 
 async function findMembership(db, userId, tenantId, membershipType = 'tenant') {
   const normalizedUserId = trimText(userId, 160);
-  const normalizedTenantId = trimText(tenantId, 160);
+  const normalizedTenantId = trimText(tenantId, 160) || null;
   const normalizedMembershipType = trimText(membershipType, 80) || 'tenant';
   if (!normalizedUserId) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.memberships.findFirst({
+      where: {
+        userId: normalizedUserId,
+        membershipType: normalizedMembershipType,
+        tenantId: normalizedTenantId,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return normalizeMembershipRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, tenantId, membershipType, role, status, isPrimary, acceptedAt, revokedAt, metadataJson, createdAt, updatedAt
     FROM platform_memberships
@@ -666,6 +749,14 @@ async function listIdentitiesForUser(db, userId) {
   const normalizedUserId = trimText(userId, 160);
   if (!normalizedUserId) return [];
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const rows = await delegates.identities.findMany({
+      where: { userId: normalizedUserId },
+      orderBy: { linkedAt: 'asc' },
+    });
+    return Array.isArray(rows) ? rows.map(normalizeIdentityRow).filter(Boolean) : [];
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, provider, providerUserId, providerEmail, displayName, avatarUrl, verifiedAt, linkedAt, metadataJson
     FROM platform_user_identities
@@ -679,6 +770,14 @@ async function listMembershipsForUser(db, userId) {
   const normalizedUserId = trimText(userId, 160);
   if (!normalizedUserId) return [];
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const rows = await delegates.memberships.findMany({
+      where: { userId: normalizedUserId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return Array.isArray(rows) ? rows.map(normalizeMembershipRow).filter(Boolean) : [];
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, tenantId, membershipType, role, status, isPrimary, acceptedAt, revokedAt, metadataJson, createdAt, updatedAt
     FROM platform_memberships
@@ -693,6 +792,17 @@ async function findPlayerProfile(db, userId, tenantId = null) {
   const normalizedTenantId = trimText(tenantId, 160) || null;
   if (!normalizedUserId) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.profiles.findFirst({
+      where: {
+        userId: normalizedUserId,
+        tenantId: normalizedTenantId,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return normalizePlayerProfileRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT
       id,
@@ -719,12 +829,64 @@ async function findPlayerProfile(db, userId, tenantId = null) {
   return normalizePlayerProfileRow(Array.isArray(rows) ? rows[0] : null);
 }
 
+async function findLatestPlayerProfileForUser(db, userId) {
+  const normalizedUserId = trimText(userId, 160);
+  if (!normalizedUserId) return null;
+  await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.profiles.findFirst({
+      where: { userId: normalizedUserId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return normalizePlayerProfileRow(row);
+  }
+  const rows = await db.$queryRaw`
+    SELECT
+      id,
+      userId,
+      tenantId,
+      discordUserId,
+      steamId,
+      inGameName,
+      verificationState,
+      linkedAt,
+      lastSeenAt,
+      metadataJson,
+      createdAt,
+      updatedAt
+    FROM platform_player_profiles
+    WHERE userId = ${normalizedUserId}
+    ORDER BY updatedAt DESC
+    LIMIT 1
+  `;
+  return normalizePlayerProfileRow(Array.isArray(rows) ? rows[0] : null);
+}
+
 async function findPlayerProfileByExternalIds(db, input = {}) {
   const tenantId = trimText(input.tenantId, 160) || null;
   const discordUserId = trimText(input.discordUserId, 200) || null;
   const steamId = trimText(input.steamId, 200) || null;
   if (!discordUserId && !steamId) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const filters = [];
+    if (discordUserId) {
+      filters.push({ discordUserId });
+    }
+    if (steamId) {
+      filters.push({ steamId });
+    }
+    const row = await delegates.profiles.findFirst({
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        OR: filters,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return normalizePlayerProfileRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT
       id,
@@ -779,6 +941,7 @@ async function ensurePlatformUserIdentity(input = {}, db = prisma) {
   }
 
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
   let identity = await findIdentityByProvider(db, provider, providerUserId);
   let user = identity ? await findUserById(db, identity.userId) : null;
 
@@ -791,80 +954,134 @@ async function ensurePlatformUserIdentity(input = {}, db = prisma) {
 
   if (!user) {
     const userId = createId('user');
-    await db.$executeRaw`
-      INSERT INTO platform_users (
-        id, primaryEmail, displayName, locale, status, metadataJson, createdAt, updatedAt
-      )
-      VALUES (
-        ${userId},
-        ${email || null},
-        ${displayName},
-        ${locale},
-        ${'active'},
-        ${JSON.stringify(input.userMetadata && typeof input.userMetadata === 'object' ? input.userMetadata : {})},
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-    user = await findUserByPrimaryEmail(db, email) || {
-      id: userId,
-      primaryEmail: email || null,
-      displayName,
-      locale,
-      status: 'active',
-      metadata: {},
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
+    if (delegates) {
+      user = normalizeUserRow(await delegates.users.create({
+        data: {
+          id: userId,
+          primaryEmail: email || null,
+          displayName,
+          locale,
+          status: 'active',
+          metadataJson: stringifyJsonObject(input.userMetadata),
+        },
+      }));
+    } else {
+      await db.$executeRaw`
+        INSERT INTO platform_users (
+          id, primaryEmail, displayName, locale, status, metadataJson, createdAt, updatedAt
+        )
+        VALUES (
+          ${userId},
+          ${email || null},
+          ${displayName},
+          ${locale},
+          ${'active'},
+          ${stringifyJsonObject(input.userMetadata)},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+      `;
+      user = await findUserByPrimaryEmail(db, email) || {
+        id: userId,
+        primaryEmail: email || null,
+        displayName,
+        locale,
+        status: 'active',
+        metadata: {},
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+    }
   } else {
-    await db.$executeRaw`
-      UPDATE platform_users
-      SET
-        primaryEmail = COALESCE(${email || null}, primaryEmail),
-        displayName = COALESCE(${displayName}, displayName),
-        locale = COALESCE(${locale}, locale),
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ${user.id}
-    `;
-    user = await findUserByPrimaryEmail(db, email || user.primaryEmail) || user;
+    if (delegates) {
+      const updateData = { locale };
+      if (email) updateData.primaryEmail = email;
+      if (displayName) updateData.displayName = displayName;
+      user = normalizeUserRow(await delegates.users.update({
+        where: { id: user.id },
+        data: updateData,
+      }));
+    } else {
+      await db.$executeRaw`
+        UPDATE platform_users
+        SET
+          primaryEmail = COALESCE(${email || null}, primaryEmail),
+          displayName = COALESCE(${displayName}, displayName),
+          locale = COALESCE(${locale}, locale),
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ${user.id}
+      `;
+      user = await findUserByPrimaryEmail(db, email || user.primaryEmail) || user;
+    }
   }
 
   if (!identity) {
     const identityId = createId('ident');
-    await db.$executeRaw`
-      INSERT INTO platform_user_identities (
-        id, userId, provider, providerUserId, providerEmail, displayName, avatarUrl, verifiedAt, linkedAt, metadataJson, createdAt, updatedAt
-      )
-      VALUES (
-        ${identityId},
-        ${user.id},
-        ${provider},
-        ${providerUserId},
-        ${email || null},
-        ${displayName},
-        ${trimText(input.avatarUrl, 600) || null},
-        ${verifiedAt},
-        CURRENT_TIMESTAMP,
-        ${JSON.stringify(identityMetadata)},
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-    identity = await findIdentityByProvider(db, provider, providerUserId);
+    if (delegates) {
+      identity = normalizeIdentityRow(await delegates.identities.create({
+        data: {
+          id: identityId,
+          userId: user.id,
+          provider,
+          providerUserId,
+          providerEmail: email || null,
+          displayName,
+          avatarUrl: trimText(input.avatarUrl, 600) || null,
+          verifiedAt: toDateValue(verifiedAt),
+          metadataJson: stringifyJsonObject(identityMetadata),
+        },
+      }));
+    } else {
+      await db.$executeRaw`
+        INSERT INTO platform_user_identities (
+          id, userId, provider, providerUserId, providerEmail, displayName, avatarUrl, verifiedAt, linkedAt, metadataJson, createdAt, updatedAt
+        )
+        VALUES (
+          ${identityId},
+          ${user.id},
+          ${provider},
+          ${providerUserId},
+          ${email || null},
+          ${displayName},
+          ${trimText(input.avatarUrl, 600) || null},
+          ${verifiedAt},
+          CURRENT_TIMESTAMP,
+          ${stringifyJsonObject(identityMetadata)},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+      `;
+      identity = await findIdentityByProvider(db, provider, providerUserId);
+    }
   } else {
-    await db.$executeRaw`
-      UPDATE platform_user_identities
-      SET
-        userId = ${user.id},
-        providerEmail = COALESCE(${email || null}, providerEmail),
-        displayName = COALESCE(${displayName}, displayName),
-        avatarUrl = COALESCE(${trimText(input.avatarUrl, 600) || null}, avatarUrl),
-        verifiedAt = COALESCE(${verifiedAt}, verifiedAt),
-        metadataJson = ${JSON.stringify(identityMetadata)},
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ${identity.id}
-    `;
-    identity = await findIdentityByProvider(db, provider, providerUserId);
+    if (delegates) {
+      const updateData = {
+        userId: user.id,
+        metadataJson: stringifyJsonObject(identityMetadata),
+      };
+      if (email) updateData.providerEmail = email;
+      if (displayName) updateData.displayName = displayName;
+      if (trimText(input.avatarUrl, 600)) updateData.avatarUrl = trimText(input.avatarUrl, 600);
+      if (verifiedAt) updateData.verifiedAt = toDateValue(verifiedAt);
+      identity = normalizeIdentityRow(await delegates.identities.update({
+        where: { id: identity.id },
+        data: updateData,
+      }));
+    } else {
+      await db.$executeRaw`
+        UPDATE platform_user_identities
+        SET
+          userId = ${user.id},
+          providerEmail = COALESCE(${email || null}, providerEmail),
+          displayName = COALESCE(${displayName}, displayName),
+          avatarUrl = COALESCE(${trimText(input.avatarUrl, 600) || null}, avatarUrl),
+          verifiedAt = COALESCE(${verifiedAt}, verifiedAt),
+          metadataJson = ${stringifyJsonObject(identityMetadata)},
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ${identity.id}
+      `;
+      identity = await findIdentityByProvider(db, provider, providerUserId);
+    }
   }
 
   let membership = null;
@@ -872,38 +1089,70 @@ async function ensurePlatformUserIdentity(input = {}, db = prisma) {
     membership = await findMembership(db, user.id, tenantId, membershipType);
     if (!membership) {
       const membershipId = createId('mship');
-      await db.$executeRaw`
-        INSERT INTO platform_memberships (
-          id, userId, tenantId, membershipType, role, status, isPrimary, acceptedAt, metadataJson, createdAt, updatedAt
-        )
-        VALUES (
-          ${membershipId},
-          ${user.id},
-          ${tenantId},
-          ${membershipType},
-          ${role},
-          ${'active'},
-          ${1},
-          CURRENT_TIMESTAMP,
-          ${JSON.stringify(membershipMetadata)},
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP
-        )
-      `;
-      membership = await findMembership(db, user.id, tenantId, membershipType);
+      if (delegates) {
+        membership = normalizeMembershipRow(await delegates.memberships.create({
+          data: {
+            id: membershipId,
+            userId: user.id,
+            tenantId,
+            membershipType,
+            role,
+            status: 'active',
+            isPrimary: true,
+            acceptedAt: new Date(),
+            metadataJson: stringifyJsonObject(membershipMetadata),
+          },
+        }));
+      } else {
+        await db.$executeRaw`
+          INSERT INTO platform_memberships (
+            id, userId, tenantId, membershipType, role, status, isPrimary, acceptedAt, metadataJson, createdAt, updatedAt
+          )
+          VALUES (
+            ${membershipId},
+            ${user.id},
+            ${tenantId},
+            ${membershipType},
+            ${role},
+            ${'active'},
+            ${1},
+            CURRENT_TIMESTAMP,
+            ${stringifyJsonObject(membershipMetadata)},
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+          )
+        `;
+        membership = await findMembership(db, user.id, tenantId, membershipType);
+      }
     } else {
-      await db.$executeRaw`
-        UPDATE platform_memberships
-        SET
-          role = COALESCE(${role}, role),
-          status = ${'active'},
-          isPrimary = CASE WHEN isPrimary = 1 THEN 1 ELSE ${membership.isPrimary ? 1 : 1} END,
-          acceptedAt = COALESCE(acceptedAt, CAST(CURRENT_TIMESTAMP AS TEXT)),
-          metadataJson = ${JSON.stringify(membershipMetadata)},
-          updatedAt = CURRENT_TIMESTAMP
-        WHERE id = ${membership.id}
-      `;
-      membership = await findMembership(db, user.id, tenantId, membershipType);
+      if (delegates) {
+        const updateData = {
+          role,
+          status: 'active',
+          isPrimary: true,
+          metadataJson: stringifyJsonObject(membershipMetadata),
+        };
+        if (!membership.acceptedAt) {
+          updateData.acceptedAt = new Date();
+        }
+        membership = normalizeMembershipRow(await delegates.memberships.update({
+          where: { id: membership.id },
+          data: updateData,
+        }));
+      } else {
+        await db.$executeRaw`
+          UPDATE platform_memberships
+          SET
+            role = COALESCE(${role}, role),
+            status = ${'active'},
+            isPrimary = CASE WHEN isPrimary = 1 THEN 1 ELSE ${membership.isPrimary ? 1 : 1} END,
+            acceptedAt = COALESCE(acceptedAt, CAST(CURRENT_TIMESTAMP AS TEXT)),
+            metadataJson = ${stringifyJsonObject(membershipMetadata)},
+            updatedAt = CURRENT_TIMESTAMP
+          WHERE id = ${membership.id}
+        `;
+        membership = await findMembership(db, user.id, tenantId, membershipType);
+      }
     }
   }
 
@@ -935,44 +1184,78 @@ async function upsertPlatformPlayerProfile(input = {}, db = prisma) {
   }
 
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
   let existing = await findPlayerProfile(db, userId, tenantId);
   if (!existing) {
     const profileId = createId('pprof');
-    await db.$executeRaw`
-      INSERT INTO platform_player_profiles (
-        id, userId, tenantId, discordUserId, steamId, inGameName, verificationState, linkedAt, lastSeenAt, metadataJson, createdAt, updatedAt
-      )
-      VALUES (
-        ${profileId},
-        ${userId},
-        ${tenantId},
-        ${discordUserId},
-        ${steamId},
-        ${inGameName},
-        ${verificationState},
-        ${linkedAt || nowIso()},
-        ${lastSeenAt},
-        ${JSON.stringify(metadata)},
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-    existing = await findPlayerProfile(db, userId, tenantId);
+    if (delegates) {
+      existing = normalizePlayerProfileRow(await delegates.profiles.create({
+        data: {
+          id: profileId,
+          userId,
+          tenantId,
+          discordUserId,
+          steamId,
+          inGameName,
+          verificationState,
+          linkedAt: toDateValue(linkedAt || nowIso()),
+          lastSeenAt: toDateValue(lastSeenAt),
+          metadataJson: stringifyJsonObject(metadata),
+        },
+      }));
+    } else {
+      await db.$executeRaw`
+        INSERT INTO platform_player_profiles (
+          id, userId, tenantId, discordUserId, steamId, inGameName, verificationState, linkedAt, lastSeenAt, metadataJson, createdAt, updatedAt
+        )
+        VALUES (
+          ${profileId},
+          ${userId},
+          ${tenantId},
+          ${discordUserId},
+          ${steamId},
+          ${inGameName},
+          ${verificationState},
+          ${linkedAt || nowIso()},
+          ${lastSeenAt},
+          ${stringifyJsonObject(metadata)},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+      `;
+      existing = await findPlayerProfile(db, userId, tenantId);
+    }
   } else {
-    await db.$executeRaw`
-      UPDATE platform_player_profiles
-      SET
-        discordUserId = COALESCE(${discordUserId}, discordUserId),
-        steamId = COALESCE(${steamId}, steamId),
-        inGameName = COALESCE(${inGameName}, inGameName),
-        verificationState = COALESCE(${verificationState}, verificationState),
-        linkedAt = COALESCE(${linkedAt}, linkedAt),
-        lastSeenAt = COALESCE(${lastSeenAt}, lastSeenAt),
-        metadataJson = ${JSON.stringify(metadata)},
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ${existing.id}
-    `;
-    existing = await findPlayerProfile(db, userId, tenantId);
+    if (delegates) {
+      const updateData = {
+        verificationState,
+        lastSeenAt: toDateValue(lastSeenAt),
+        metadataJson: stringifyJsonObject(metadata),
+      };
+      if (discordUserId) updateData.discordUserId = discordUserId;
+      if (steamId) updateData.steamId = steamId;
+      if (inGameName) updateData.inGameName = inGameName;
+      if (linkedAt) updateData.linkedAt = toDateValue(linkedAt);
+      existing = normalizePlayerProfileRow(await delegates.profiles.update({
+        where: { id: existing.id },
+        data: updateData,
+      }));
+    } else {
+      await db.$executeRaw`
+        UPDATE platform_player_profiles
+        SET
+          discordUserId = COALESCE(${discordUserId}, discordUserId),
+          steamId = COALESCE(${steamId}, steamId),
+          inGameName = COALESCE(${inGameName}, inGameName),
+          verificationState = COALESCE(${verificationState}, verificationState),
+          linkedAt = COALESCE(${linkedAt}, linkedAt),
+          lastSeenAt = COALESCE(${lastSeenAt}, lastSeenAt),
+          metadataJson = ${stringifyJsonObject(metadata)},
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ${existing.id}
+      `;
+      existing = await findPlayerProfile(db, userId, tenantId);
+    }
   }
 
   return {
@@ -1042,34 +1325,97 @@ async function getIdentitySummaryForPreviewAccount(account = {}, db = prisma) {
   };
 }
 
+async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
+  const userId = trimText(input.userId || input.platformUserId, 160);
+  const email = normalizeEmail(input.email || input.primaryEmail);
+  const tenantId = trimText(input.tenantId, 160) || null;
+  const discordUserId = trimText(input.discordUserId, 200) || null;
+  const steamId = trimText(input.steamId, 200) || null;
+
+  await ensurePlatformIdentityTables(db);
+
+  let user = null;
+  if (userId) {
+    user = await findUserById(db, userId);
+  }
+  if (!user && email) {
+    user = await findUserByPrimaryEmail(db, email);
+  }
+  if (!user && discordUserId) {
+    const discordIdentity = await findIdentityByProvider(db, 'discord', discordUserId);
+    user = discordIdentity?.userId ? await findUserById(db, discordIdentity.userId) : null;
+  }
+  if (!user && steamId) {
+    const steamIdentity = await findIdentityByProvider(db, 'steam', steamId);
+    user = steamIdentity?.userId ? await findUserById(db, steamIdentity.userId) : null;
+  }
+
+  if (!user) {
+    return { ok: false, reason: 'user-not-found' };
+  }
+
+  const [identities, memberships] = await Promise.all([
+    listIdentitiesForUser(db, user.id),
+    listMembershipsForUser(db, user.id),
+  ]);
+  const profile = tenantId
+    ? await findPlayerProfile(db, user.id, tenantId)
+    : await findLatestPlayerProfileForUser(db, user.id);
+
+  return {
+    ok: true,
+    user,
+    identities,
+    memberships,
+    profile,
+  };
+}
+
 async function issuePasswordResetToken(input = {}, db = prisma) {
   const email = normalizeEmail(input.email);
   if (!email) return { ok: false, reason: 'invalid-email' };
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
   const rawToken = createRawToken('rst');
   const tokenHash = sha256(rawToken);
   const tokenPrefix = rawToken.split('.')[0];
   const ttlMinutes = Math.max(5, Math.min(24 * 60, Number(input.ttlMinutes || 30) || 30));
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
   const rowId = createId('rst');
-  await db.$executeRaw`
-    INSERT INTO platform_password_reset_tokens (
-      id, userId, previewAccountId, email, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
-    )
-    VALUES (
-      ${rowId},
-      ${trimText(input.userId, 160) || null},
-      ${trimText(input.previewAccountId, 160) || null},
-      ${email},
-      ${tokenPrefix},
-      ${tokenHash},
-      ${expiresAt},
-      ${null},
-      ${JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {})},
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    )
-  `;
+  if (delegates) {
+    await delegates.passwordResetTokens.create({
+      data: {
+        id: rowId,
+        userId: trimText(input.userId, 160) || null,
+        previewAccountId: trimText(input.previewAccountId, 160) || null,
+        email,
+        tokenPrefix,
+        tokenHash,
+        expiresAt: toDateValue(expiresAt),
+        consumedAt: null,
+        metadataJson: stringifyJsonObject(input.metadata),
+      },
+    });
+  } else {
+    await db.$executeRaw`
+      INSERT INTO platform_password_reset_tokens (
+        id, userId, previewAccountId, email, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
+      )
+      VALUES (
+        ${rowId},
+        ${trimText(input.userId, 160) || null},
+        ${trimText(input.previewAccountId, 160) || null},
+        ${email},
+        ${tokenPrefix},
+        ${tokenHash},
+        ${expiresAt},
+        ${null},
+        ${stringifyJsonObject(input.metadata)},
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+    `;
+  }
   return {
     ok: true,
     rawToken,
@@ -1086,33 +1432,53 @@ async function issueEmailVerificationToken(input = {}, db = prisma) {
   const email = normalizeEmail(input.email);
   if (!email) return { ok: false, reason: 'invalid-email' };
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
   const rawToken = createRawToken('vfy');
   const tokenHash = sha256(rawToken);
   const tokenPrefix = rawToken.split('.')[0];
   const ttlMinutes = Math.max(5, Math.min(7 * 24 * 60, Number(input.ttlMinutes || 60) || 60));
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
   const rowId = createId('vfy');
-  await db.$executeRaw`
-    INSERT INTO platform_verification_tokens (
-      id, userId, previewAccountId, email, purpose, tokenType, tokenPrefix, tokenHash, target, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
-    )
-    VALUES (
-      ${rowId},
-      ${trimText(input.userId, 160) || null},
-      ${trimText(input.previewAccountId, 160) || null},
-      ${email},
-      ${'email_verification'},
-      ${'email_verification'},
-      ${tokenPrefix},
-      ${tokenHash},
-      ${email},
-      ${expiresAt},
-      ${null},
-      ${JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {})},
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    )
-  `;
+  if (delegates) {
+    await delegates.verificationTokens.create({
+      data: {
+        id: rowId,
+        userId: trimText(input.userId, 160) || null,
+        previewAccountId: trimText(input.previewAccountId, 160) || null,
+        email,
+        purpose: 'email_verification',
+        tokenType: 'email_verification',
+        tokenPrefix,
+        tokenHash,
+        target: email,
+        expiresAt: toDateValue(expiresAt),
+        consumedAt: null,
+        metadataJson: stringifyJsonObject(input.metadata),
+      },
+    });
+  } else {
+    await db.$executeRaw`
+      INSERT INTO platform_verification_tokens (
+        id, userId, previewAccountId, email, purpose, tokenType, tokenPrefix, tokenHash, target, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
+      )
+      VALUES (
+        ${rowId},
+        ${trimText(input.userId, 160) || null},
+        ${trimText(input.previewAccountId, 160) || null},
+        ${email},
+        ${'email_verification'},
+        ${'email_verification'},
+        ${tokenPrefix},
+        ${tokenHash},
+        ${email},
+        ${expiresAt},
+        ${null},
+        ${stringifyJsonObject(input.metadata)},
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+    `;
+  }
   return {
     ok: true,
     rawToken,
@@ -1131,6 +1497,17 @@ async function findPasswordResetTokenByHash(db, tokenHash, email = null) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedHash) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.passwordResetTokens.findFirst({
+      where: {
+        tokenHash: normalizedHash,
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return normalizeTokenRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, previewAccountId, email, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
     FROM platform_password_reset_tokens
@@ -1148,6 +1525,18 @@ async function findVerificationTokenByHash(db, tokenHash, purpose = 'email_verif
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedHash) return null;
   await ensurePlatformIdentityTables(db);
+  const delegates = getPlatformIdentityDelegates(db);
+  if (delegates) {
+    const row = await delegates.verificationTokens.findFirst({
+      where: {
+        tokenHash: normalizedHash,
+        purpose: normalizedPurpose,
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return normalizeTokenRow(row);
+  }
   const rows = await db.$queryRaw`
     SELECT id, userId, previewAccountId, email, purpose, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
     FROM platform_verification_tokens
@@ -1174,17 +1563,25 @@ async function completePasswordReset(input = {}, db = prisma) {
   const rawToken = trimText(input.token || input.rawToken, 512);
   const email = normalizeEmail(input.email);
   if (!rawToken) return { ok: false, reason: 'token-required' };
+  const delegates = getPlatformIdentityDelegates(db);
   const token = await findPasswordResetTokenByHash(db, sha256(rawToken), email);
   const tokenCheck = validateConsumableToken(token);
   if (!tokenCheck.ok) return tokenCheck;
   const consumedAt = nowIso();
-  await db.$executeRaw`
-    UPDATE platform_password_reset_tokens
-    SET
-      consumedAt = ${consumedAt},
-      updatedAt = CURRENT_TIMESTAMP
-    WHERE id = ${token.id}
-  `;
+  if (delegates) {
+    await delegates.passwordResetTokens.update({
+      where: { id: token.id },
+      data: { consumedAt: toDateValue(consumedAt) },
+    });
+  } else {
+    await db.$executeRaw`
+      UPDATE platform_password_reset_tokens
+      SET
+        consumedAt = ${consumedAt},
+        updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ${token.id}
+    `;
+  }
   return {
     ok: true,
     token: {
@@ -1198,37 +1595,79 @@ async function completeEmailVerification(input = {}, db = prisma) {
   const rawToken = trimText(input.token || input.rawToken, 512);
   const email = normalizeEmail(input.email);
   if (!rawToken) return { ok: false, reason: 'token-required' };
+  const delegates = getPlatformIdentityDelegates(db);
   const token = await findVerificationTokenByHash(db, sha256(rawToken), 'email_verification', email);
   const tokenCheck = validateConsumableToken(token);
   if (!tokenCheck.ok) return tokenCheck;
   const consumedAt = nowIso();
-  await db.$executeRaw`
-    UPDATE platform_verification_tokens
-    SET
-      consumedAt = ${consumedAt},
-      updatedAt = CURRENT_TIMESTAMP
-    WHERE id = ${token.id}
-  `;
+  if (delegates) {
+    await delegates.verificationTokens.update({
+      where: { id: token.id },
+      data: { consumedAt: toDateValue(consumedAt) },
+    });
+  } else {
+    await db.$executeRaw`
+      UPDATE platform_verification_tokens
+      SET
+        consumedAt = ${consumedAt},
+        updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ${token.id}
+    `;
+  }
   if (token.userId || token.email) {
-    await db.$executeRaw`
-      UPDATE platform_users
-      SET
-        primaryEmail = COALESCE(primaryEmail, ${token.email || null}),
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE (${token.userId || null} IS NOT NULL AND id = ${token.userId || null})
-         OR (${token.userId || null} IS NULL AND primaryEmail = ${token.email || null})
-    `;
-    await db.$executeRaw`
-      UPDATE platform_user_identities
-      SET
-        verifiedAt = COALESCE(verifiedAt, ${consumedAt}),
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE (
-        (${token.userId || null} IS NOT NULL AND userId = ${token.userId || null})
-        OR (${token.email || null} IS NOT NULL AND providerEmail = ${token.email || null})
-      )
-        AND (provider = 'email_preview' OR providerEmail = ${token.email || null})
-    `;
+    if (delegates) {
+      if (token.userId && token.email) {
+        await delegates.users.updateMany({
+          where: {
+            id: token.userId,
+            primaryEmail: null,
+          },
+          data: {
+            primaryEmail: token.email,
+          },
+        });
+      }
+      await delegates.identities.updateMany({
+        where: {
+          verifiedAt: null,
+          OR: [
+            ...(token.userId ? [{ userId: token.userId }] : []),
+            ...(token.email ? [{ providerEmail: token.email }] : []),
+          ],
+          AND: [
+            {
+              OR: [
+                { provider: 'email_preview' },
+                ...(token.email ? [{ providerEmail: token.email }] : []),
+              ],
+            },
+          ],
+        },
+        data: {
+          verifiedAt: toDateValue(consumedAt),
+        },
+      });
+    } else {
+      await db.$executeRaw`
+        UPDATE platform_users
+        SET
+          primaryEmail = COALESCE(primaryEmail, ${token.email || null}),
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE (${token.userId || null} IS NOT NULL AND id = ${token.userId || null})
+           OR (${token.userId || null} IS NULL AND primaryEmail = ${token.email || null})
+      `;
+      await db.$executeRaw`
+        UPDATE platform_user_identities
+        SET
+          verifiedAt = COALESCE(verifiedAt, ${consumedAt}),
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE (
+          (${token.userId || null} IS NOT NULL AND userId = ${token.userId || null})
+          OR (${token.email || null} IS NOT NULL AND providerEmail = ${token.email || null})
+        )
+          AND (provider = 'email_preview' OR providerEmail = ${token.email || null})
+      `;
+    }
   }
   return {
     ok: true,
@@ -1246,6 +1685,7 @@ module.exports = {
   ensurePlatformPlayerIdentity,
   ensurePlatformUserPasswordColumn,
   ensurePlatformUserIdentity,
+  getPlatformUserIdentitySummary,
   getPlatformUserPasswordColumnState,
   getIdentitySummaryForPreviewAccount,
   invalidateIdentitySchemaCaches,

@@ -305,6 +305,74 @@ body { padding: 24px; }
   padding: 20px;
 }
 
+.plv4-media-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 16px;
+  padding: 22px;
+  border-radius: var(--plv4-radius);
+  border: 1px solid var(--plv4-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 100%),
+    var(--plv4-surface);
+}
+
+.plv4-media-copy {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.plv4-media-frame {
+  position: relative;
+  min-height: 236px;
+  overflow: hidden;
+  border-radius: calc(var(--plv4-radius) - 2px);
+  border: 1px solid rgba(201, 172, 94, 0.14);
+  background:
+    linear-gradient(180deg, rgba(9, 12, 14, 0.12), rgba(9, 12, 14, 0.7)),
+    var(--plv4-media-image, url("/player/assets/ui/visuals/scum/hero-player.jpg"));
+  background-size: cover;
+  background-position: center;
+  isolation: isolate;
+}
+
+.plv4-media-frame::before,
+.plv4-media-frame::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.plv4-media-frame::before {
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 28%),
+    linear-gradient(140deg, rgba(9, 12, 14, 0.04), rgba(9, 12, 14, 0.72));
+}
+
+.plv4-media-frame::after {
+  right: -44px;
+  bottom: -56px;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(206, 174, 98, 0.28) 0%, rgba(206, 174, 98, 0.08) 42%, transparent 72%);
+  filter: blur(8px);
+  animation: plv4GlowPulse 7s ease-in-out infinite;
+}
+
+.plv4-media-badge-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 18px;
+}
+
 .plv4-panel-head {
   display: flex;
   align-items: flex-start;
@@ -473,7 +541,8 @@ select.plv4-input optgroup {
   }
 
   .plv4-summary-strip,
-  .plv4-content-grid-two {
+  .plv4-content-grid-two,
+  .plv4-media-panel {
     grid-template-columns: 1fr;
   }
 }
@@ -496,7 +565,8 @@ select.plv4-input optgroup {
 
   .plv4-summary-strip,
   .plv4-product-grid,
-  .plv4-task-grid {
+  .plv4-task-grid,
+  .plv4-media-panel {
     grid-template-columns: 1fr;
   }
 
@@ -757,5 +827,118 @@ body.player-shell-v3 .plv4-pagehead {
 
   .plv4-pagehead-actions {
     width: 100%;
+  }
+}
+
+.plv4-pagehead {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.plv4-pagehead > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plv4-pagehead::before,
+.plv4-pagehead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.plv4-pagehead::before {
+  background:
+    linear-gradient(118deg, rgba(6, 10, 11, 0.92) 0%, rgba(6, 10, 11, 0.62) 42%, rgba(6, 10, 11, 0.16) 100%),
+    var(--plv4-pagehead-image, url("/player/assets/ui/visuals/scum/hero-player.jpg"));
+  background-size: cover;
+  background-position: center;
+  opacity: 0.92;
+  transform: scale(1.02);
+  animation: plv4HeroDrift 18s ease-in-out infinite alternate;
+}
+
+.plv4-pagehead::after {
+  inset: auto -10% -34% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(206, 174, 98, 0.3) 0%, rgba(206, 174, 98, 0.08) 36%, transparent 72%);
+  filter: blur(8px);
+  animation: plv4GlowPulse 7.5s ease-in-out infinite;
+}
+
+.plv4-main > .plv4-pagehead,
+.plv4-main > .plv4-summary-strip,
+.plv4-main > .plv4-panel,
+.plv4-main > .plv4-content-grid {
+  animation: plv4RiseIn 520ms ease both;
+}
+
+.plv4-summary-strip > * {
+  animation: plv4RiseIn 580ms ease both;
+}
+
+body.player-shell-v3 {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/hero-player.jpg");
+}
+
+body.player-shell-v3[data-player-page="home"] {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/hero-player.jpg");
+}
+
+body.player-shell-v3[data-player-page="shop"],
+body.player-shell-v3[data-player-page="orders"],
+body.player-shell-v3[data-player-page="delivery"] {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/feature-loot.jpg");
+}
+
+body.player-shell-v3[data-player-page="events"],
+body.player-shell-v3[data-player-page="leaderboard"],
+body.player-shell-v3[data-player-page="stats"] {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/scene-radio.jpg");
+}
+
+body.player-shell-v3[data-player-page="support"] {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/scene-support.jpg");
+}
+
+body.player-shell-v3[data-player-page="profile"],
+body.player-shell-v3[data-player-page="donations"] {
+  --plv4-pagehead-image: url("/player/assets/ui/visuals/scum/feature-identity.jpg");
+}
+
+@keyframes plv4HeroDrift {
+  0% { transform: scale(1.02) translate3d(0, 0, 0); }
+  100% { transform: scale(1.07) translate3d(-1.1%, 1.1%, 0); }
+}
+
+@keyframes plv4GlowPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.66; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes plv4RiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plv4-pagehead::before,
+  .plv4-pagehead::after,
+  .plv4-main > .plv4-pagehead,
+  .plv4-main > .plv4-summary-strip,
+  .plv4-main > .plv4-panel,
+  .plv4-main > .plv4-content-grid,
+  .plv4-summary-strip > * {
+    animation: none;
   }
 }

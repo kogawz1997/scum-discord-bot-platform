@@ -6,6 +6,9 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const { validateCommandTemplate } = require('../src/utils/commandTemplate');
+const { getWatcherRuntimeErrors } = require('../src/utils/env');
+const { getFilePath } = require('../src/store/_persist');
+const { resolveAgentStateSecret } = require('../src/utils/agentStateSecret');
 const {
   getConfigFileDefinitions,
   getConfigSettingDefinitions,
@@ -272,6 +275,11 @@ function envFlag(name, fallback = false, env = process.env) {
   return ['1', 'true', 'yes', 'on'].includes(value);
 }
 
+function isLocalHost(host) {
+  const value = String(host || '').trim().toLowerCase();
+  return value === '127.0.0.1' || value === 'localhost' || value === '::1';
+}
+
 function readPort(value, fallback = 0) {
   const parsed = Number(String(value == null ? fallback : value).trim());
   if (!Number.isFinite(parsed)) return fallback;
@@ -282,6 +290,24 @@ function normalizeLoopbackHost(host) {
   const text = String(host || '').trim() || '127.0.0.1';
   if (text === '0.0.0.0' || text === '::') return '127.0.0.1';
   return text;
+}
+
+function parseUrlOrNull(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try {
+    return new URL(text);
+  } catch {
+    return null;
+  }
+}
+
+function isLocalOrExampleUrl(value) {
+  const parsed = parseUrlOrNull(value);
+  if (!parsed) return false;
+  const hostname = String(parsed.hostname || '').trim().toLowerCase();
+  if (!hostname) return false;
+  return isLocalHost(hostname) || hostname === '0.0.0.0' || hostname === 'example.com' || hostname.endsWith('.example.com');
 }
 
 function buildHttpBaseUrl(host, port, fallbackPort = 0) {
@@ -502,6 +528,13 @@ function resolveWatcherEnabledLocally(env = process.env) {
   return String(env.SCUM_LOG_PATH || '').trim().length > 0;
 }
 
+function normalizeWatcherTransport(value) {
+  const normalized = String(value || 'webhook').trim().toLowerCase() || 'webhook';
+  return ['webhook', 'control-plane', 'dual'].includes(normalized)
+    ? normalized
+    : String(value || '').trim().toLowerCase() || 'invalid';
+}
+
 function resolveConfiguredControlPlaneBaseUrl(env = process.env) {
   return trimTrailingSlash(
     env.SCUM_SYNC_CONTROL_PLANE_URL
@@ -538,6 +571,98 @@ function resolvePlatformAgentIdentity(env = process.env) {
   };
 }
 
+function resolvePlatformPresenceRuntimeKey(role, env = process.env) {
+  if (role === 'delivery-agent') {
+    return String(
+      env.PLATFORM_AGENT_RUNTIME_KEY
+        || env.SCUM_AGENT_RUNTIME_KEY
+        || env.SCUM_CONSOLE_AGENT_RUNTIME_KEY
+        || 'scum-console-agent',
+    ).trim();
+  }
+  return String(
+    env.PLATFORM_AGENT_RUNTIME_KEY
+      || env.SCUM_SERVER_BOT_RUNTIME_KEY
+      || env.SCUM_SYNC_RUNTIME_KEY
+      || 'scum-server-bot',
+  ).trim();
+}
+
+function resolvePlatformAgentStateFilePath(role, env = process.env) {
+  const explicit = String(
+    env.PLATFORM_AGENT_STATE_FILE || env.SCUM_PLATFORM_AGENT_STATE_FILE || '',
+  ).trim();
+  if (explicit) return explicit;
+  const runtimeKey = resolvePlatformPresenceRuntimeKey(role, env)
+    .replace(/[^a-z0-9._-]+/gi, '-')
+    .toLowerCase() || 'platform-agent';
+  return getFilePath(`platform-agent-${runtimeKey}.json`);
+}
+
+function readJsonFileSafe(filePath) {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return {};
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function addPlatformAgentStateCheck(target, context, role) {
+  const env = context.env;
+  const stateFilePath = resolvePlatformAgentStateFilePath(role, env);
+  const state = readJsonFileSafe(stateFilePath);
+  const issues = [];
+  const warnings = [];
+  const hasDedicatedStateSecret = Boolean(
+    String(env.PLATFORM_AGENT_STATE_SECRET || env.SCUM_PLATFORM_AGENT_STATE_SECRET || '').trim(),
+  );
+  const hasStateSecret = Boolean(resolveAgentStateSecret(env));
+  const hasSetupToken = Boolean(
+    String(env.PLATFORM_AGENT_SETUP_TOKEN || env.SCUM_PLATFORM_SETUP_TOKEN || '').trim(),
+  );
+  const hasDirectToken = role === 'delivery-agent'
+    ? Boolean(String(
+      env.PLATFORM_AGENT_TOKEN || env.SCUM_SYNC_AGENT_TOKEN || env.SCUM_AGENT_TOKEN || '',
+    ).trim())
+    : Boolean(resolvePlatformAgentIdentity(env).token);
+  const tokenPersistence = String(state.tokenPersistence || '').trim().toLowerCase();
+  const hasEncryptedRawKey = String(state.encryptedRawKey || '').trim() !== '';
+  const hasLegacyRawKey = String(state.rawKey || '').trim() !== '';
+
+  if (hasLegacyRawKey) {
+    issues.push('agent state file still contains legacy plaintext rawKey');
+  }
+
+  if (tokenPersistence === 'memory-only') {
+    issues.push('agent token persistence is memory-only and will be lost on process restart');
+  }
+
+  if (hasEncryptedRawKey && !hasStateSecret && !hasDirectToken) {
+    issues.push('agent state file contains encrypted token material but no decryption secret is configured');
+  }
+
+  if (hasSetupToken && !hasDedicatedStateSecret) {
+    const message = 'PLATFORM_AGENT_SETUP_TOKEN is doubling as the state-encryption secret; set PLATFORM_AGENT_STATE_SECRET so secrets can rotate independently';
+    if (context.isProduction) {
+      issues.push(message);
+    } else {
+      warnings.push(message);
+    }
+  }
+
+  pushCheck(target, `${role} platform-agent state`, {
+    status: issues.length > 0 ? 'failed' : warnings.length > 0 ? 'warning' : 'pass',
+    detail: [
+      `stateFile=${stateFilePath}`,
+      `exists=${fs.existsSync(stateFilePath) ? 'yes' : 'no'}`,
+      `persistence=${tokenPersistence || (hasEncryptedRawKey ? 'encrypted' : 'none')}`,
+    ].join(' | '),
+  });
+  addIssues(target, `${role} platform-agent state`, warnings, 'warnings');
+  addIssues(target, `${role} platform-agent state`, issues, 'errors');
+}
+
 async function checkHealthEndpoint(target, name, baseUrl, options = {}) {
   if (!baseUrl) {
     pushCheck(target, name, {
@@ -551,7 +676,10 @@ async function checkHealthEndpoint(target, name, baseUrl, options = {}) {
   }
 
   const url = `${trimTrailingSlash(baseUrl)}/healthz`;
-  const result = await fetchJson(url, { timeoutMs: options.timeoutMs });
+  const result = await fetchJson(url, {
+    timeoutMs: options.timeoutMs,
+    headers: options.headers || {},
+  });
   if (result.error) {
     pushCheck(target, name, {
       status: options.required === false ? 'warning' : 'failed',
@@ -618,6 +746,10 @@ function addConsoleAgentConfigCheck(target, context) {
   const backend = String(env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim().toLowerCase() || 'exec';
   const token = String(env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
   const baseUrl = resolveConsoleAgentBaseUrl(env);
+  const setupToken = String(env.PLATFORM_AGENT_SETUP_TOKEN || env.SCUM_PLATFORM_SETUP_TOKEN || '').trim();
+  const dedicatedAgentStateSecret = String(
+    env.PLATFORM_AGENT_STATE_SECRET || env.SCUM_PLATFORM_AGENT_STATE_SECRET || '',
+  ).trim();
   const issues = [];
   const warnings = [];
 
@@ -659,6 +791,14 @@ function addConsoleAgentConfigCheck(target, context) {
     warnings.push('Current host is not Windows; live SCUM client automation is usually expected on Windows');
   }
 
+  if (context.isProduction && envFlag('SCUM_CONSOLE_AGENT_ALLOW_NON_HASH', false, env)) {
+    issues.push('SCUM_CONSOLE_AGENT_ALLOW_NON_HASH must remain false in production');
+  }
+
+  if (context.isProduction && setupToken && !dedicatedAgentStateSecret) {
+    issues.push('PLATFORM_AGENT_STATE_SECRET is required in production when PLATFORM_AGENT_SETUP_TOKEN is used');
+  }
+
   pushCheck(target, 'delivery-agent config', {
     status: issues.length > 0 ? 'failed' : warnings.length > 0 ? 'warning' : 'pass',
     detail: `backend=${backend}${baseUrl ? ` | baseUrl=${baseUrl}` : ''}`,
@@ -675,12 +815,22 @@ function addConsoleAgentConfigCheck(target, context) {
 
 async function addConsoleAgentRuntimeChecks(target, context) {
   const baseUrl = resolveConsoleAgentBaseUrl(context.env);
+  const token = String(context.env.SCUM_CONSOLE_AGENT_TOKEN || '').trim();
+  const authHeaders = token
+    ? {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    }
+    : {
+      Accept: 'application/json',
+    };
   const healthPayload = await checkHealthEndpoint(
     target,
     'delivery-agent health',
     baseUrl,
     {
       required: true,
+      headers: authHeaders,
       timeoutMs: context.options.timeoutMs,
     },
   );
@@ -695,6 +845,7 @@ async function addConsoleAgentRuntimeChecks(target, context) {
 
   const preflightUrl = `${trimTrailingSlash(baseUrl)}/preflight`;
   const result = await fetchJson(preflightUrl, {
+    headers: authHeaders,
     timeoutMs: Math.max(context.options.timeoutMs, 12000),
   });
 
@@ -750,13 +901,25 @@ function addServerBotControlPlaneConfigCheck(target, context) {
     warnings.push(`PLATFORM_AGENT_TOKEN looks short (current=${identity.token.length})`);
   }
   if (identity.setupToken && identity.setupToken.length < 16) {
-    warnings.push(`PLATFORM_AGENT_SETUP_TOKEN looks short (current=${identity.setupToken.length})`);
+    if (context.isProduction) {
+      issues.push(`PLATFORM_AGENT_SETUP_TOKEN looks short (current=${identity.setupToken.length})`);
+    } else {
+      warnings.push(`PLATFORM_AGENT_SETUP_TOKEN looks short (current=${identity.setupToken.length})`);
+    }
   }
   if (!identity.tenantId) {
     issues.push('SCUM_TENANT_ID / TENANT_ID / PLATFORM_TENANT_ID is missing');
   }
   if (!identity.serverId) {
     issues.push('SCUM_SERVER_ID / PLATFORM_SERVER_ID is missing');
+  }
+  if (context.isProduction && baseUrl) {
+    const parsed = parseUrlOrNull(baseUrl);
+    if (!parsed) {
+      issues.push('control-plane URL is invalid');
+    } else if (!isLocalOrExampleUrl(baseUrl) && parsed.protocol !== 'https:') {
+      issues.push('control-plane URL must use https:// when non-local in production');
+    }
   }
 
   pushCheck(target, 'server-bot control-plane config', {
@@ -939,6 +1102,7 @@ async function addWatcherRuntimeCheck(target, context) {
   const watcherEnabled = resolveWatcherEnabledLocally(env);
   const logPath = String(env.SCUM_LOG_PATH || '').trim();
   const baseUrl = resolveWatcherHealthBaseUrl(env);
+  const watcherTransport = normalizeWatcherTransport(env.SCUM_SYNC_TRANSPORT);
 
   if (!watcherEnabled) {
     pushCheck(target, 'server-bot watcher health', {
@@ -946,6 +1110,20 @@ async function addWatcherRuntimeCheck(target, context) {
       detail: 'watcher is disabled on this machine',
     });
     target.warnings.push('[server-bot watcher health] watcher is disabled on this machine');
+    return;
+  }
+
+  const watcherRuntimeErrors = getWatcherRuntimeErrors(env);
+  pushCheck(target, 'server-bot watcher transport config', {
+    status: watcherRuntimeErrors.length > 0 ? 'failed' : 'pass',
+    detail: `transport=${watcherTransport} | logPath=${logPath || 'missing'} | healthUrl=${baseUrl || 'missing'}`,
+  });
+  addIssues(target, 'server-bot watcher transport config', watcherRuntimeErrors, 'errors');
+  if (watcherRuntimeErrors.length > 0) {
+    pushCheck(target, 'server-bot watcher health', {
+      status: 'skipped',
+      detail: 'skipped because watcher transport/config is invalid',
+    });
     return;
   }
 
@@ -995,6 +1173,7 @@ async function collectDeliveryAgentChecks(target, context, options = {}) {
     );
   }
   const config = addConsoleAgentConfigCheck(target, context);
+  addPlatformAgentStateCheck(target, context, 'delivery-agent');
   if (config.ok) {
     await addConsoleAgentRuntimeChecks(target, context);
   } else {
@@ -1016,6 +1195,7 @@ async function collectServerBotChecks(target, context, options = {}) {
     );
   }
   const controlPlane = addServerBotControlPlaneConfigCheck(target, context);
+  addPlatformAgentStateCheck(target, context, 'server-bot');
   if (controlPlane.ok) {
     await addControlPlaneReachabilityCheck(target, context, controlPlane.baseUrl);
   } else {

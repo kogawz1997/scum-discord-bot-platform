@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { Buffer } = require('node:buffer');
 
 /**
  * Admin public/platform routes that do not belong to the authenticated admin API
@@ -90,6 +91,25 @@ function createAdminPublicRoutes(deps) {
 
   function trimTrailingSlash(value) {
     return String(value || '').trim().replace(/\/+$/, '');
+  }
+
+  async function readTenantBootstrapBody(req) {
+    const contentType = String(req?.headers?.['content-type'] || '')
+      .trim()
+      .toLowerCase();
+    if (contentType.includes('application/json')) {
+      return readJsonBody(req);
+    }
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk || '')));
+    }
+    const raw = Buffer.concat(chunks).toString('utf8');
+    if (!raw) return {};
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      return Object.fromEntries(new URLSearchParams(raw).entries());
+    }
+    return {};
   }
 
   function buildSurfaceBaseUrl(surface, req) {
@@ -209,7 +229,15 @@ function createAdminPublicRoutes(deps) {
     if (!text) return fallback;
     if (!text.startsWith('/tenant')) return fallback;
     if (text.startsWith('//') || /[\r\n]/.test(text)) return fallback;
-    return text;
+    try {
+      const normalized = new URL(text, 'https://tenant.local');
+      normalized.searchParams.delete('bootstrap');
+      normalized.searchParams.delete('bootstrapToken');
+      normalized.searchParams.delete('token');
+      return `${normalized.pathname}${normalized.search}${normalized.hash}`;
+    } catch {
+      return text;
+    }
   }
 
   function buildTenantLoginSearch(pathname, search = '', options = {}) {
@@ -618,10 +646,11 @@ function createAdminPublicRoutes(deps) {
       return true;
     }
 
-    if (req.method === 'GET' && isTenantConsolePath(pathname)) {
-      const bootstrapToken = requiredString(urlObj.searchParams.get('bootstrap'));
+    if (req.method === 'POST' && isTenantConsolePath(pathname)) {
       const existingAuth = await getEffectiveAuth(req, urlObj, res);
-      if (!existingAuth && bootstrapToken && typeof consumeTenantBootstrapToken === 'function') {
+      const body = await readTenantBootstrapBody(req);
+      const bootstrapToken = requiredString(body?.bootstrapToken || body?.bootstrap);
+      if (bootstrapToken && typeof consumeTenantBootstrapToken === 'function') {
         const bootstrap = await consumeTenantBootstrapToken({ token: bootstrapToken });
         if (bootstrap?.ok && bootstrap?.membership?.tenantId) {
           req.__pendingAdminTenantId = bootstrap.membership.tenantId;
@@ -638,7 +667,7 @@ function createAdminPublicRoutes(deps) {
             'tenant-bootstrap',
             req,
           );
-          res.writeHead(302, {
+          res.writeHead(303, {
             Location: pathname,
             'Set-Cookie': buildSessionCookie(sessionId, req),
           });
@@ -646,10 +675,32 @@ function createAdminPublicRoutes(deps) {
           return true;
         }
       }
-      const splitTenantTarget = buildSurfaceRedirectUrl('tenant', req, pathname, urlObj?.search || '');
+      if (existingAuth) {
+        res.writeHead(303, { Location: pathname });
+        res.end();
+        return true;
+      }
+      const tenantLoginSearch = buildTenantLoginSearch(pathname, '', { switch: false });
+      res.writeHead(303, {
+        Location: `/tenant/login${tenantLoginSearch}`,
+      });
+      res.end();
+      return true;
+    }
+
+    if (req.method === 'GET' && isTenantConsolePath(pathname)) {
+      const existingAuth = await getEffectiveAuth(req, urlObj, res);
+      const tenantSearchParams = new URLSearchParams(urlObj?.search || '');
+      tenantSearchParams.delete('bootstrap');
+      tenantSearchParams.delete('bootstrapToken');
+      tenantSearchParams.delete('token');
+      const sanitizedTenantSearch = tenantSearchParams.toString()
+        ? `?${tenantSearchParams.toString()}`
+        : '';
+      const splitTenantTarget = buildSurfaceRedirectUrl('tenant', req, pathname, sanitizedTenantSearch);
       const auth = existingAuth;
       if (!auth) {
-        const tenantLoginSearch = buildTenantLoginSearch(pathname, urlObj?.search || '');
+        const tenantLoginSearch = buildTenantLoginSearch(pathname, sanitizedTenantSearch);
         if (splitTenantTarget) {
           res.writeHead(302, {
             Location: buildSurfaceRedirectUrl('tenant', req, '/tenant/login', tenantLoginSearch) || splitTenantTarget,
@@ -667,7 +718,7 @@ function createAdminPublicRoutes(deps) {
         return true;
       }
       if (!canAccessTenantSurface(auth)) {
-        const tenantLoginSearch = buildTenantLoginSearch(pathname, urlObj?.search || '', { switch: true });
+        const tenantLoginSearch = buildTenantLoginSearch(pathname, sanitizedTenantSearch, { switch: true });
         const redirectTarget = buildSurfaceRedirectUrl('tenant', req, '/tenant/login', tenantLoginSearch) || `/tenant/login${tenantLoginSearch}`;
         res.writeHead(302, { Location: redirectTarget });
         res.end();
@@ -960,6 +1011,7 @@ function createAdminPublicRoutes(deps) {
 
         if (req.method === 'GET' && pathname === '/platform/api/v1/server-config/jobs/next') {
           const platformAuth = await ensurePlatformApiKeyAny(req, res, [
+            ['agent:sync'],
             ['config:write'],
             ['server:control'],
           ]);
@@ -982,6 +1034,7 @@ function createAdminPublicRoutes(deps) {
 
         if (req.method === 'POST' && pathname === '/platform/api/v1/server-config/jobs/result') {
           const platformAuth = await ensurePlatformApiKeyAny(req, res, [
+            ['agent:sync'],
             ['config:write'],
             ['server:control'],
           ]);

@@ -827,3 +827,141 @@ body.surface-owner .odv4-pagehead {
     width: 100%;
   }
 }
+
+.odv4-pagehead {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.odv4-pagehead > * {
+  position: relative;
+  z-index: 1;
+}
+
+.odv4-pagehead::before,
+.odv4-pagehead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.odv4-pagehead::before {
+  background:
+    linear-gradient(115deg, rgba(7, 10, 8, 0.9) 0%, rgba(7, 10, 8, 0.62) 42%, rgba(7, 10, 8, 0.2) 100%),
+    var(--odv4-pagehead-image, url("/admin/assets/owner-panel-scene.svg"));
+  background-size: cover;
+  background-position: center;
+  opacity: 0.84;
+  transform: scale(1.02);
+  animation: odv4HeroDrift 18s ease-in-out infinite alternate;
+}
+
+.odv4-pagehead::after {
+  inset: auto -12% -38% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(207, 174, 101, 0.26) 0%, rgba(207, 174, 101, 0.08) 32%, transparent 72%);
+  filter: blur(6px);
+  opacity: 0.88;
+  animation: odv4GlowPulse 7s ease-in-out infinite;
+}
+
+.odv4-main > .odv4-pagehead,
+.odv4-main > .odv4-kpi-strip,
+.odv4-main > .odv4-panel,
+.odv4-main > .odv4-dual-grid,
+.odv4-main > .odv4-priority-panel {
+  animation: odv4RiseIn 480ms ease both;
+}
+
+.odv4-kpi-strip > * {
+  animation: odv4RiseIn 560ms ease both;
+}
+
+.odv4-kpi-strip > *:nth-child(2),
+.odv4-main > .odv4-panel:nth-of-type(2) {
+  animation-delay: 40ms;
+}
+
+.odv4-kpi-strip > *:nth-child(3),
+.odv4-main > .odv4-panel:nth-of-type(3) {
+  animation-delay: 80ms;
+}
+
+.odv4-kpi-strip > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.odv4-kpi-strip > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.odv4-kpi-strip > *:nth-child(6) {
+  animation-delay: 200ms;
+}
+
+body.surface-owner {
+  --odv4-pagehead-image: url("/admin/assets/owner-panel-scene.svg");
+}
+
+body.surface-owner[data-owner-route="overview"],
+body.surface-owner[data-owner-route="dashboard"] {
+  --odv4-pagehead-image: url("/admin/assets/owner-panel-scene.svg");
+}
+
+body.surface-owner[data-owner-route="tenants"],
+body.surface-owner[data-owner-route="packages"],
+body.surface-owner[data-owner-route="subscriptions"],
+body.surface-owner[data-owner-route="billing"],
+body.surface-owner[data-owner-route="create-tenant"] {
+  --odv4-pagehead-image: linear-gradient(115deg, rgba(10, 16, 13, 0.86), rgba(10, 16, 13, 0.34)), url("/admin/assets/owner-panel-scene.svg");
+}
+
+body.surface-owner[data-owner-route="runtime"],
+body.surface-owner[data-owner-route="runtime-health"],
+body.surface-owner[data-owner-route="incidents"],
+body.surface-owner[data-owner-route="observability"],
+body.surface-owner[data-owner-route="jobs"],
+body.surface-owner[data-owner-route="support"],
+body.surface-owner[data-owner-route="security"],
+body.surface-owner[data-owner-route="audit"] {
+  --odv4-pagehead-image: linear-gradient(115deg, rgba(8, 13, 11, 0.9), rgba(11, 20, 17, 0.4)), url("/admin/assets/owner-panel-scene.svg");
+}
+
+@keyframes odv4HeroDrift {
+  0% { transform: scale(1.02) translate3d(0, 0, 0); }
+  100% { transform: scale(1.08) translate3d(-1.4%, 1.2%, 0); }
+}
+
+@keyframes odv4GlowPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes odv4RiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .odv4-pagehead::before,
+  .odv4-pagehead::after,
+  .odv4-main > .odv4-pagehead,
+  .odv4-main > .odv4-kpi-strip,
+  .odv4-main > .odv4-panel,
+  .odv4-main > .odv4-dual-grid,
+  .odv4-main > .odv4-priority-panel,
+  .odv4-kpi-strip > * {
+    animation: none;
+  }
+}

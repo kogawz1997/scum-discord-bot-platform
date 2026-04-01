@@ -763,18 +763,20 @@ function tailFile(filePath, onLine) {
 }
 
 function startWatcher() {
-  const healthServer = createHealthServer();
   if (!WATCHER_ENABLED) {
+    const healthServer = createHealthServer();
     console.log('SCUM log watcher is disabled');
     registerShutdown(healthServer);
     return { healthServer, mode: 'disabled' };
   }
   if (!LOG_PATH) {
+    const healthServer = createHealthServer();
     console.warn('SCUM log watcher is enabled but SCUM_LOG_PATH is missing');
     registerShutdown(healthServer);
     return { healthServer, mode: 'not-configured' };
   }
   assertWatcherEnv();
+  const healthServer = createHealthServer();
 
   const pollLogFileState = () => {
     try {

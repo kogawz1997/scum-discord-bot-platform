@@ -6,6 +6,11 @@ const path = require('node:path');
 
 const { atomicWriteJson, getFilePath } = require('../store/_persist');
 const { resolveControlPlaneBaseUrl } = require('../integrations/scum/adapters/controlPlaneSyncClient');
+const {
+  decryptAgentStateToken,
+  encryptAgentStateToken,
+  resolveAgentStateSecret,
+} = require('../utils/agentStateSecret');
 
 function trimText(value, maxLen = 500) {
   const text = String(value || '').trim();
@@ -40,11 +45,17 @@ function buildStateFilePath(runtimeKey, env = process.env) {
   return getFilePath(`platform-agent-${safeRuntimeKey}.json`);
 }
 
-function buildBearerToken(env, state) {
+function buildBearerToken(env, state, runtimeKeyOverride = null) {
+  const runtimeKey = trimText(
+    runtimeKeyOverride || env.PLATFORM_AGENT_RUNTIME_KEY || env.SCUM_AGENT_RUNTIME_KEY || 'platform-agent',
+    160,
+  ) || 'platform-agent';
+  const encryptedStateToken = decryptAgentStateToken(state?.encryptedRawKey, env, runtimeKey);
   return trimText(
     env.PLATFORM_AGENT_TOKEN
     || env.SCUM_SYNC_AGENT_TOKEN
     || env.SCUM_AGENT_TOKEN
+    || encryptedStateToken
     || state?.rawKey,
     1200,
   );
@@ -70,14 +81,50 @@ function createPlatformAgentPresenceService(options = {}) {
   const localBaseUrl = trimText(options.localBaseUrl, 400) || null;
   const baseUrl = trimText(options.baseUrl, 400) || resolveControlPlaneBaseUrl(env);
   const setupToken = trimText(env.PLATFORM_AGENT_SETUP_TOKEN || env.SCUM_PLATFORM_SETUP_TOKEN, 800);
+  const stateSecretConfigured = Boolean(resolveAgentStateSecret(env));
   const heartbeatIntervalMs = asInt(env.PLATFORM_AGENT_HEARTBEAT_INTERVAL_MS, 30000, 5000);
   const stateFilePath = buildStateFilePath(runtimeKey, env);
   let heartbeatTimer = null;
   let state = readJsonFile(stateFilePath);
+  let transientToken = '';
+  let stateNeedsPersist = false;
+
+  // Migrate legacy plaintext state into encrypted-at-rest storage when a local
+  // secret is configured, while keeping the current process alive with an
+  // in-memory fallback if secure persistence is not yet configured.
+  const legacyRawKey = trimText(state?.rawKey, 1200);
+  if (legacyRawKey) {
+    transientToken = legacyRawKey;
+    state = {
+      ...state,
+      encryptedRawKey: stateSecretConfigured
+        ? (encryptAgentStateToken(legacyRawKey, env, runtimeKey) || state.encryptedRawKey || null)
+        : null,
+      rawKey: null,
+      tokenPersistence: stateSecretConfigured ? 'encrypted' : 'memory-only',
+    };
+    stateNeedsPersist = true;
+  }
 
   function persistState() {
     ensureParentDirectory(stateFilePath);
-    atomicWriteJson(stateFilePath, state);
+    const snapshot = {
+      ...state,
+    };
+    if (!snapshot.rawKey) {
+      delete snapshot.rawKey;
+    }
+    if (!snapshot.encryptedRawKey) {
+      delete snapshot.encryptedRawKey;
+    }
+    if (!snapshot.tokenPersistence) {
+      delete snapshot.tokenPersistence;
+    }
+    atomicWriteJson(stateFilePath, snapshot);
+  }
+
+  if (stateNeedsPersist) {
+    persistState();
   }
 
   async function requestJson(method, pathname, payload, token) {
@@ -128,7 +175,10 @@ function createPlatformAgentPresenceService(options = {}) {
   }
 
   async function ensureActivated() {
-    const existingToken = buildBearerToken(env, state);
+    const existingToken = buildBearerToken(env, {
+      ...state,
+      rawKey: transientToken || state?.rawKey,
+    }, runtimeKey);
     if (existingToken) return { ok: true, token: existingToken };
     if (!setupToken) {
       return { ok: false, error: 'platform-agent-token-missing' };
@@ -149,16 +199,27 @@ function createPlatformAgentPresenceService(options = {}) {
       },
     });
     if (!activation.ok) return activation;
+    const activatedRawKey = trimText(activation.data?.rawKey, 1200) || null;
+    transientToken = activatedRawKey || '';
     state = {
       ...state,
       activatedAt: new Date().toISOString(),
       activation: activation.data || null,
-      rawKey: trimText(activation.data?.rawKey, 1200) || null,
+      encryptedRawKey: activatedRawKey && stateSecretConfigured
+        ? encryptAgentStateToken(activatedRawKey, env, runtimeKey) || null
+        : null,
+      rawKey: null,
+      tokenPersistence: activatedRawKey
+        ? (stateSecretConfigured ? 'encrypted' : 'memory-only')
+        : null,
     };
     persistState();
     return {
       ok: true,
-      token: buildBearerToken(env, state),
+      token: buildBearerToken(env, {
+        ...state,
+        rawKey: transientToken,
+      }, runtimeKey),
     };
   }
 

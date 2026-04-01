@@ -10,6 +10,7 @@ const {
   createDiscordOnlySurfaceServer,
   isDiscordOnlyMode,
 } = require('../../src/config/discordOnlyMode');
+const { assertStandaloneSurfaceEnv } = require('../../src/utils/env');
 const {
   createAdminStandaloneSurfaceRuntime,
 } = require('../../src/admin/runtime/adminStandaloneSurfaceRuntime');
@@ -30,6 +31,8 @@ function startOwnerWebServer() {
       defaultPort: 3201,
     });
   }
+
+  assertStandaloneSurfaceEnv('owner', process.env);
 
   const runtime = createAdminStandaloneSurfaceRuntime({
     surface: 'owner',

@@ -17,6 +17,9 @@ function runSecurityCheck(env, args = []) {
       ADMIN_WEB_LOCAL_RECOVERY: 'false',
       ADMIN_WEB_2FA_ENABLED: 'true',
       ADMIN_WEB_2FA_SECRET: 'JBSWY3DPEHPK3PXP',
+      WEB_PORTAL_SESSION_SECRET: 'portal-session-secret-1234567890',
+      WEB_PORTAL_SECURE_COOKIE: 'true',
+      WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
       ...env,
     },
     encoding: 'utf8',
@@ -178,4 +181,116 @@ test('security-check fails when production keeps local recovery enabled', () => 
 
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}\n${result.stderr}`, /ADMIN_WEB_LOCAL_RECOVERY=false/i);
+});
+
+test('security-check fails when production enables debug tokens or setup-token activation without dedicated state secret', () => {
+  const result = runSecurityCheck({
+    NODE_ENV: 'production',
+    DISCORD_TOKEN: 'MTQ3ODY1MTQyNzA4ODc2MDg0Mg.ABCDEF.qwertyuiopasdfghjklzxcvbnm12',
+    SCUM_WEBHOOK_SECRET: 'webhook-secret-12345678901234567890',
+    ADMIN_WEB_PASSWORD: 'admin-password-123456',
+    ADMIN_WEB_TOKEN: 'admin-token-12345678901234567890',
+    ADMIN_WEB_ALLOW_TOKEN_QUERY: 'false',
+    ADMIN_WEB_ENFORCE_ORIGIN_CHECK: 'true',
+    ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+    ADMIN_WEB_SECURE_COOKIE: 'true',
+    ADMIN_WEB_HSTS_ENABLED: 'true',
+    DATABASE_URL: PROD_DB_URL,
+    PERSIST_REQUIRE_DB: 'true',
+    PERSIST_LEGACY_SNAPSHOTS: 'false',
+    WEB_PORTAL_MODE: 'player',
+    WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
+    WEB_PORTAL_DISCORD_CLIENT_SECRET: 'portal-secret-1234567890',
+    BOT_ENABLE_DELIVERY_WORKER: 'false',
+    WORKER_ENABLE_DELIVERY: 'false',
+    PUBLIC_PREVIEW_DEBUG_TOKENS: 'true',
+    PLAYER_MAGIC_LINK_DEBUG_TOKENS: 'true',
+    PLATFORM_AGENT_SETUP_TOKEN: 'setup-token-12345678901234567890',
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}\n${result.stderr}`, /PUBLIC_PREVIEW_DEBUG_TOKENS=false/i);
+  assert.match(`${result.stdout}\n${result.stderr}`, /PLAYER_MAGIC_LINK_DEBUG_TOKENS=false/i);
+  assert.match(`${result.stdout}\n${result.stderr}`, /PLATFORM_AGENT_STATE_SECRET/i);
+});
+
+test('security-check fails when production enables non-hash agent commands or hosted billing without provider secrets', () => {
+  const result = runSecurityCheck({
+    NODE_ENV: 'production',
+    DISCORD_TOKEN: 'MTQ3ODY1MTQyNzA4ODc2MDg0Mg.ABCDEF.qwertyuiopasdfghjklzxcvbnm12',
+    SCUM_WEBHOOK_SECRET: 'webhook-secret-12345678901234567890',
+    ADMIN_WEB_PASSWORD: 'admin-password-123456',
+    ADMIN_WEB_TOKEN: 'admin-token-12345678901234567890',
+    ADMIN_WEB_ALLOW_TOKEN_QUERY: 'false',
+    ADMIN_WEB_ENFORCE_ORIGIN_CHECK: 'true',
+    ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+    ADMIN_WEB_SECURE_COOKIE: 'true',
+    ADMIN_WEB_HSTS_ENABLED: 'true',
+    DATABASE_URL: PROD_DB_URL,
+    PERSIST_REQUIRE_DB: 'true',
+    PERSIST_LEGACY_SNAPSHOTS: 'false',
+    WEB_PORTAL_MODE: 'player',
+    WEB_PORTAL_BASE_URL: 'https://player.example.net',
+    WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
+    WEB_PORTAL_DISCORD_CLIENT_SECRET: 'portal-secret-1234567890',
+    BOT_ENABLE_DELIVERY_WORKER: 'false',
+    WORKER_ENABLE_DELIVERY: 'false',
+    DELIVERY_EXECUTION_MODE: 'agent',
+    SCUM_CONSOLE_AGENT_TOKEN: 'agent-token-12345678901234567890',
+    SCUM_CONSOLE_AGENT_EXEC_TEMPLATE: 'powershell -NoProfile -Command {command}',
+    SCUM_CONSOLE_AGENT_ALLOW_NON_HASH: 'true',
+    PLATFORM_BILLING_PROVIDER: 'stripe',
+    PLATFORM_BILLING_WEBHOOK_SECRET: '',
+    PLATFORM_BILLING_STRIPE_SECRET_KEY: '',
+    PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY: '',
+  });
+
+  assert.notEqual(result.status, 0);
+  const output = `${result.stdout}\n${result.stderr}`;
+  assert.match(output, /SCUM_CONSOLE_AGENT_ALLOW_NON_HASH=false/i);
+  assert.match(output, /PLATFORM_BILLING_WEBHOOK_SECRET/i);
+  assert.match(output, /PLATFORM_BILLING_STRIPE_SECRET_KEY/i);
+  assert.match(output, /PLATFORM_BILLING_STRIPE_PUBLISHABLE_KEY/i);
+});
+
+test('security-check fails when watcher transport is exposed insecurely in production', () => {
+  const result = runSecurityCheck({
+    NODE_ENV: 'production',
+    DISCORD_TOKEN: 'MTQ3ODY1MTQyNzA4ODc2MDg0Mg.ABCDEF.qwertyuiopasdfghjklzxcvbnm12',
+    SCUM_LOG_PATH: 'C:\\SCUM\\Saved\\Logs\\SCUM.log',
+    SCUM_WATCHER_ENABLED: 'true',
+    DISCORD_GUILD_ID: '12345678901234567',
+    SCUM_WEBHOOK_SECRET: 'webhook-secret-12345678901234567890',
+    SCUM_SYNC_TRANSPORT: 'dual',
+    SCUM_WEBHOOK_URL: 'http://watcher.platform.example.net/scum-event',
+    SCUM_SYNC_CONTROL_PLANE_URL: 'http://control.platform.example.net',
+    SCUM_TENANT_ID: '',
+    TENANT_ID: '',
+    PLATFORM_TENANT_ID: '',
+    SCUM_SERVER_ID: '',
+    PLATFORM_SERVER_ID: '',
+    ADMIN_WEB_PASSWORD: 'admin-password-123456',
+    ADMIN_WEB_TOKEN: 'admin-token-12345678901234567890',
+    ADMIN_WEB_ALLOW_TOKEN_QUERY: 'false',
+    ADMIN_WEB_ENFORCE_ORIGIN_CHECK: 'true',
+    ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+    ADMIN_WEB_SECURE_COOKIE: 'true',
+    ADMIN_WEB_HSTS_ENABLED: 'true',
+    DATABASE_URL: PROD_DB_URL,
+    PERSIST_REQUIRE_DB: 'true',
+    PERSIST_LEGACY_SNAPSHOTS: 'false',
+    WEB_PORTAL_MODE: 'player',
+    WEB_PORTAL_BASE_URL: 'https://player.example.net',
+    WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
+    WEB_PORTAL_DISCORD_CLIENT_SECRET: 'portal-secret-1234567890',
+    BOT_ENABLE_DELIVERY_WORKER: 'false',
+    WORKER_ENABLE_DELIVERY: 'false',
+  });
+
+  assert.notEqual(result.status, 0);
+  const output = `${result.stdout}\n${result.stderr}`;
+  assert.match(output, /SCUM_WEBHOOK_URL/i);
+  assert.match(output, /Watcher control-plane sync requires SCUM_TENANT_ID/i);
+  assert.match(output, /Watcher control-plane sync requires SCUM_SERVER_ID/i);
+  assert.match(output, /Production control-plane URLs must use https/i);
 });

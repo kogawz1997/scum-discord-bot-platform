@@ -92,6 +92,12 @@
     if (text === 'delivering') return 'กำลังส่งของ';
     if (text === 'processing') return 'กำลังดำเนินการ';
     if (text === 'pending') return 'รอดำเนินการ';
+    if (text === 'approved') return 'อนุมัติแล้ว';
+    if (text === 'rejected') return 'ปฏิเสธ';
+    if (text === 'scheduled') return 'ตั้งเวลาแล้ว';
+    if (text === 'completed') return 'เสร็จแล้ว';
+    if (text === 'canceled' || text === 'cancelled') return 'ยกเลิกแล้ว';
+    if (text === 'live') return 'กำลังเกิดขึ้น';
     if (text === 'used') return 'ใช้แล้ว';
     if (text === 'recorded') return 'บันทึกแล้ว';
     if (text === 'warning') return 'แจ้งเตือน';
@@ -102,6 +108,47 @@
 
   function buildCanonicalPlayerPath(pageKey) {
     return PAGE_META[pageKey]?.path || PAGE_META.home.path;
+  }
+
+  function localizeVerificationState(value) {
+    const raw = String(value || '').trim();
+    const text = raw.toLowerCase();
+    if (!text) return 'ยังไม่ยืนยัน';
+    if (text === 'fully_verified') return 'ยืนยันครบแล้ว';
+    if (text === 'verified') return 'ยืนยันแล้ว';
+    if (text === 'pending') return 'รอตรวจสอบ';
+    if (text === 'unverified') return 'ยังไม่ยืนยัน';
+    return raw;
+  }
+
+  function localizeYesNo(value) {
+    return value ? 'ใช่' : 'ไม่';
+  }
+
+  function localizeMembershipRole(value) {
+    const raw = String(value || '').trim();
+    const text = raw.toLowerCase();
+    if (!text) return 'สมาชิก';
+    if (text === 'player') return 'ผู้เล่น';
+    if (text === 'member') return 'สมาชิก';
+    if (text === 'tenant') return 'สมาชิกเซิร์ฟเวอร์';
+    if (text === 'tenant_admin' || text === 'tenant-admin') return 'ผู้ดูแลเซิร์ฟเวอร์';
+    if (text === 'owner') return 'เจ้าของระบบ';
+    if (text === 'guest') return 'ผู้เยี่ยมชม';
+    return raw;
+  }
+
+  function formatMembershipValue(activeMembership) {
+    if (!activeMembership) return 'ยังไม่มีสิทธิ์ใช้งาน';
+    const role = localizeMembershipRole(firstNonEmpty([activeMembership.role, activeMembership.membershipType], 'member'));
+    const status = localizePlayerStatus(firstNonEmpty([activeMembership.status], 'active'));
+    return `${role} (${status})`;
+  }
+
+  function formatLinkedAccountValue(account, fallback) {
+    if (!account || !account.linked) return fallback || 'ยังไม่เชื่อม';
+    const value = firstNonEmpty([account.value], 'เชื่อมแล้ว');
+    return `${value}${account.verified ? ' (ยืนยันแล้ว)' : ' (ยังไม่ยืนยัน)'}`;
   }
 
   function resolvePlayerPageKey(rawPage) {
@@ -215,6 +262,12 @@
     };
   }
 
+  function isSupporterLikeItem(item) {
+    const kind = String(item?.kind || item?.itemKind || '').trim().toLowerCase();
+    const haystack = `${item?.name || item?.itemName || ''} ${item?.description || ''}`.toLowerCase();
+    return kind === 'vip' || kind === 'supporter' || /support|donation|member|vip/.test(haystack);
+  }
+
   function createCommunityFeed(state) {
     const notifications = Array.isArray(state?.notifications) ? state.notifications : [];
     const announcements = Array.isArray(state?.dashboard?.announcements) ? state.dashboard.announcements : [];
@@ -269,7 +322,13 @@
     const linkHistory = Array.isArray(state?.linkHistory?.items)
       ? state.linkHistory.items
       : (Array.isArray(state?.linkHistory) ? state.linkHistory : []);
+    const raids = state?.raids && typeof state.raids === 'object' ? state.raids : {};
+    const raidRequests = Array.isArray(raids?.myRequests) ? raids.myRequests : [];
+    const raidWindows = Array.isArray(raids?.windows) ? raids.windows : [];
+    const raidSummaries = Array.isArray(raids?.summaries) ? raids.summaries : [];
+    const killfeed = Array.isArray(state?.killfeed) ? state.killfeed : [];
     const steamLink = state?.steamLink || {};
+    const identitySummary = state?.profile?.identitySummary || {};
     const stats = state?.stats || {};
     const party = state?.party || {};
     const serverInfo = state?.serverInfo?.serverInfo || {};
@@ -285,11 +344,21 @@
     const deliveredOrders = orders.filter((row) => String(row?.status || '').trim().toLowerCase() === 'delivered');
     const myRank = leaderboardItems.find((row) => Boolean(row?.isSelf)) || leaderboardItems[0] || null;
     const supportAlerts = notifications.filter((item) => ['warning', 'error'].includes(String(item?.severity || '').toLowerCase()));
-    const supporterItems = shopItems.filter((item) => {
-      const kind = String(item?.kind || '').trim().toLowerCase();
-      const haystack = `${item?.name || ''} ${item?.description || ''}`.toLowerCase();
-      return kind === 'vip' || kind === 'supporter' || /support|donation|member|vip/.test(haystack);
+    const supporterItems = shopItems.filter((item) => isSupporterLikeItem(item));
+    const supporterItemIds = new Set(
+      supporterItems
+        .map((item) => String(item?.id || '').trim())
+        .filter(Boolean),
+    );
+    const donationOrders = orders.filter((row) => {
+      const itemId = String(row?.itemId || '').trim();
+      return supporterItemIds.has(itemId) || isSupporterLikeItem(row);
     });
+    const latestDonationOrder = donationOrders[0] || null;
+    const activeSupporterOrder = donationOrders.find((row) => {
+      const status = String(row?.status || row?.statusText || '').trim().toLowerCase();
+      return ['pending', 'queued', 'processing', 'delivering', 'delivered', 'active'].includes(status);
+    }) || null;
     return {
       state,
       featureAccess,
@@ -298,13 +367,21 @@
       redeemHistory,
       shopItems,
       supporterItems,
+      donationOrders,
+      latestDonationOrder,
+      activeSupporterOrder,
       notifications,
       communityFeed: createCommunityFeed(state),
       missions,
       bounties,
       leaderboardItems,
       linkHistory,
+      raidRequests,
+      raidWindows,
+      raidSummaries,
+      killfeed,
       steamLink,
+      identitySummary,
       stats,
       party,
       serverInfo,
@@ -458,7 +535,7 @@
 
   function buildBountyFeed(rows) {
     const items = rows.map((row) => ({
-      category: 'Bounty',
+      category: 'ค่าหัว',
       tone: 'warning',
       title: firstNonEmpty([row.title, row.name], 'ภารกิจค่าหัว'),
       detail: firstNonEmpty([row.description, row.rewardLabel], 'ตรวจรายละเอียดกิจกรรมจากฟีดชุมชน'),
@@ -469,6 +546,79 @@
       },
     }));
     return renderFeed(items, 'ตอนนี้ยังไม่มีค่าหัวที่กำลังเปิดอยู่');
+  }
+
+  function buildKillFeedFeed(rows) {
+    const items = (Array.isArray(rows) ? rows : []).map((row) => {
+      const detailParts = [
+        firstNonEmpty([row.weapon], 'อาวุธไม่ทราบชนิด'),
+        row.distance != null ? `${formatNumber(row.distance, '0')}m` : '',
+        firstNonEmpty([row.sector], ''),
+      ].filter(Boolean);
+      const isPlayerKill = row.playerRole === 'killer';
+      const isPlayerDeath = row.playerRole === 'victim';
+      return {
+        category: isPlayerKill ? 'คิลของคุณ' : isPlayerDeath ? 'คุณถูกจัดการ' : 'ฟีดการต่อสู้',
+        tone: isPlayerKill ? 'success' : isPlayerDeath ? 'danger' : 'warning',
+        title: `${firstNonEmpty([row.killerName], 'ไม่ทราบชื่อ')} จัดการ ${firstNonEmpty([row.victimName], 'ไม่ทราบชื่อ')}`,
+        detail: detailParts.join(' | ') || 'เหตุการณ์การต่อสู้',
+        meta: formatDateTime(row.occurredAt || row.createdAt),
+        action: {
+          label: isPlayerKill || isPlayerDeath ? 'เปิดโปรไฟล์' : 'เปิดหน้าอันดับ',
+          href: isPlayerKill || isPlayerDeath
+            ? buildCanonicalPlayerPath('profile')
+            : buildCanonicalPlayerPath('leaderboard'),
+        },
+      };
+    });
+    return renderFeed(items, 'ยังไม่มีฟีดการต่อสู้ให้แสดง');
+  }
+
+  function buildRaidRequestTable(rows) {
+    return renderTable(
+      [
+        { label: 'เวลาที่ส่งคำขอ', render: (row) => escapeHtml(formatDateTime(row.createdAt || row.updatedAt)) },
+        { label: 'ช่วงเวลาที่อยากได้', render: (row) => escapeHtml(firstNonEmpty([row.preferredWindow], '-')) },
+        { label: 'รายละเอียดคำขอ', render: (row) => escapeHtml(firstNonEmpty([row.requestText], '-')) },
+        {
+          label: 'สถานะ',
+          render: (row) => badge(localizePlayerStatus(firstNonEmpty([row.status], 'pending')), toneForStatus(row.status)),
+        },
+        { label: 'โน้ตจากทีมงาน', render: (row) => escapeHtml(firstNonEmpty([row.decisionNote], '-')) },
+      ],
+      rows,
+      'ยังไม่มีคำขอเรดที่ส่งไว้',
+    );
+  }
+
+  function buildRaidWindowTable(rows) {
+    return renderTable(
+      [
+        { label: 'ชื่อช่วงเวลา', render: (row) => escapeHtml(firstNonEmpty([row.title], 'ช่วงเวลาเรด')) },
+        { label: 'เริ่ม', render: (row) => escapeHtml(formatDateTime(row.startsAt)) },
+        { label: 'สิ้นสุด', render: (row) => escapeHtml(formatDateTime(row.endsAt)) },
+        {
+          label: 'สถานะ',
+          render: (row) => badge(localizePlayerStatus(firstNonEmpty([row.status], 'scheduled')), toneForStatus(row.status)),
+        },
+        { label: 'หมายเหตุ', render: (row) => escapeHtml(firstNonEmpty([row.notes], '-')) },
+      ],
+      rows,
+      'ยังไม่มีช่วงเวลาเรดที่ประกาศไว้',
+    );
+  }
+
+  function buildRaidSummaryTable(rows) {
+    return renderTable(
+      [
+        { label: 'ประกาศเมื่อ', render: (row) => escapeHtml(formatDateTime(row.createdAt)) },
+        { label: 'ผลลัพธ์', render: (row) => escapeHtml(firstNonEmpty([row.outcome], '-')) },
+        { label: 'หมายเหตุ', render: (row) => escapeHtml(firstNonEmpty([row.notes], '-')) },
+        { label: 'อ้างอิงช่วงเวลา', render: (row) => escapeHtml(firstNonEmpty([row.windowId], '-')) },
+      ],
+      rows,
+      'ยังไม่มีสรุปผลเรดที่เผยแพร่ไว้',
+    );
   }
 
   function buildDisabledAttr(disabled, reason) {
@@ -575,6 +725,29 @@
       ],
       rows,
       'ตอนนี้รถเข็นยังว่างอยู่',
+    );
+  }
+
+  function buildSupporterOrderTable(rows) {
+    return renderTable(
+      [
+        { label: 'คำสั่งซื้อ', render: (row) => escapeHtml(firstNonEmpty([row.purchaseCode, row.code], '-')) },
+        { label: 'แพ็กเกจ', render: (row) => escapeHtml(firstNonEmpty([row.itemName, row.productName, row.itemId], '-')) },
+        {
+          label: 'สถานะ',
+          render: (row) => badge(localizePlayerStatus(orderStatusLabel(row.statusText || row.status)), toneForStatus(row.status || row.statusText)),
+        },
+        {
+          label: 'ยอดรวม',
+          render: (row) => escapeHtml(formatAmount(row.totalPrice, '0')),
+        },
+        {
+          label: 'เปิดเมื่อ',
+          render: (row) => escapeHtml(formatDateTime(row.createdAt || row.updatedAt)),
+        },
+      ],
+      rows,
+      'ยังไม่มีประวัติการซื้อผู้สนับสนุน',
     );
   }
 
@@ -727,6 +900,7 @@
       ],
       railCards: buildRailCommon(facts),
       mainHtml: [
+        '<section class="plv4-media-panel"><div class="plv4-media-copy"><span class="plv4-section-kicker">กิจกรรมของชุมชน</span><h2 class="plv4-section-title">รวมภารกิจ ฟีดการต่อสู้ และคำขอเรดไว้จุดเดียว</h2><p class="plv4-section-copy">ใช้หน้านี้เป็นศูนย์กลางของกิจกรรมผู้เล่น ทั้งการรับรางวัล ดูเหตุการณ์ล่าสุด และส่งคำขอเรดให้ทีมงานตรวจได้ทันที</p><div class="plv4-action-row"><a class="plv4-button plv4-button-primary" href="' + buildCanonicalPlayerPath('events') + '">อยู่หน้ากิจกรรมแล้ว</a><a class="plv4-button" href="' + buildCanonicalPlayerPath('leaderboard') + '">เปิดหน้าอันดับ</a></div></div><div class="plv4-media-frame" style="--plv4-media-image: linear-gradient(140deg, rgba(9, 12, 14, 0.18), rgba(9, 12, 14, 0.66)), url(\'/player/assets/ui/visuals/scum/scene-radio.jpg\');"><div class="plv4-media-badge-row"><span class="plv4-badge plv4-badge-info">กิจกรรม</span><span class="plv4-badge plv4-badge-success">' + escapeHtml(`${formatNumber(raidRequestCount, '0')} คำขอเรด`) + '</span></div></div></section>',
         '<section class="plv4-content-grid plv4-content-grid-two">',
         '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">สถิติส่วนตัว</span><h2 class="plv4-section-title">สรุปการเล่นของคุณ</h2><p class="plv4-section-copy">ใช้หน้านี้เป็นมุมมองสรุปผลงานของตัวเองแบบอ่านง่าย</p></div></div>',
         renderKeyValueList([
@@ -1010,13 +1184,22 @@
     const rewardEnabled = !Boolean(facts.state?.walletLedger?.locked);
     const dailyClaimable = rewardEnabled && missionsSummary.dailyClaimable === true;
     const weeklyClaimable = rewardEnabled && missionsSummary.weeklyClaimable === true;
+    const raidRequestCount = Array.isArray(facts.raidRequests) ? facts.raidRequests.length : 0;
+    const activeRaidWindowCount = Array.isArray(facts.raidWindows)
+      ? facts.raidWindows.filter((row) => ['scheduled', 'live'].includes(String(row?.status || '').trim().toLowerCase())).length
+      : 0;
+    const raidSummaryCount = Array.isArray(facts.raidSummaries) ? facts.raidSummaries.length : 0;
+    const killfeedCount = Array.isArray(facts.killfeed) ? facts.killfeed.length : 0;
+    const playerCombatCount = Array.isArray(facts.killfeed)
+      ? facts.killfeed.filter((row) => row?.involvesPlayer).length
+      : 0;
     const dailyReason = !rewardEnabled
-      ? 'Reward claims are not enabled on the current server package.'
+      ? 'แพ็กเกจของเซิร์ฟเวอร์นี้ยังไม่เปิดการรับรางวัล'
       : missionsSummary.dailyRemainingMs
         ? `${formatNumber(Math.max(1, Math.round(Number(missionsSummary.dailyRemainingMs || 0) / 60000)), '0')} นาทีคงเหลือ`
         : 'Daily reward is cooling down right now.';
     const weeklyReason = !rewardEnabled
-      ? 'Reward claims are not enabled on the current server package.'
+      ? 'แพ็กเกจของเซิร์ฟเวอร์นี้ยังไม่เปิดการรับรางวัล'
       : missionsSummary.weeklyRemainingMs
         ? `${formatNumber(Math.max(1, Math.round(Number(missionsSummary.weeklyRemainingMs || 0) / 3600000)), '0')} ชั่วโมงคงเหลือ`
         : 'Weekly reward is cooling down right now.';
@@ -1040,8 +1223,8 @@
         { label: 'ภารกิจ', value: formatNumber(facts.missions.length, '0'), detail: 'รายการภารกิจที่เปิดอยู่ตอนนี้', tone: facts.missions.length > 0 ? 'info' : 'muted' },
         { label: 'รับได้', value: formatNumber(facts.missions.filter((row) => row.claimable).length, '0'), detail: 'พร้อมรับรางวัลได้ตอนนี้', tone: facts.missions.some((row) => row.claimable) ? 'success' : 'muted' },
         { label: 'ค่าหัว', value: formatNumber(facts.bounties.length, '0'), detail: 'ค่าหัวของชุมชนที่เปิดอยู่', tone: facts.bounties.length > 0 ? 'warning' : 'muted' },
-        { label: 'ผู้เล่นออนไลน์', value: formatNumber(facts.serverStatus.onlinePlayers, '0'), detail: 'ความเคลื่อนไหวของชุมชนตอนนี้', tone: 'info' },
-        { label: 'ช่วงเวลาเรด', value: formatNumber(Array.isArray(facts.state?.serverInfo?.raidTimes) ? facts.state.serverInfo.raidTimes.length : 0, '0'), detail: 'ช่วงเวลาที่ประกาศไว้ให้ผู้เล่นเห็น', tone: 'info' },
+        { label: 'คำขอเรดของคุณ', value: formatNumber(raidRequestCount, '0'), detail: 'คำขอที่ส่งไว้และยังย้อนกลับมาดูได้จากหน้านี้', tone: raidRequestCount > 0 ? 'info' : 'muted' },
+        { label: 'ช่วงเวลาเรด', value: formatNumber(activeRaidWindowCount, '0'), detail: 'รอบที่ตั้งเวลาไว้หรือกำลังเปิดอยู่', tone: activeRaidWindowCount > 0 ? 'success' : 'muted' },
       ],
       railCards: buildRailCommon(facts),
       mainHtml: [
@@ -1080,6 +1263,27 @@
         '</article>',
         '<section class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ฟีดชุมชน</span><h2 class="plv4-section-title">ประกาศและช่วงเวลา</h2><p class="plv4-section-copy">ฟีดขนาดกระชับสำหรับอัปเดตฝั่งกิจกรรมของผู้เล่น</p></div></div>',
         `<div class="plv4-feed-list">${renderFeed(facts.communityFeed, 'ตอนนี้ยังไม่มีอัปเดตกิจกรรมที่กำลังเปิดอยู่')}</div></section>`,
+        '</section>',
+        '<section class="plv4-content-grid">',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ฟีดการต่อสู้</span><h2 class="plv4-section-title">การต่อสู้ล่าสุด</h2><p class="plv4-section-copy">ดูเหตุการณ์ล่าสุดที่เกี่ยวกับชุมชนและบัญชีที่คุณเชื่อมไว้ได้จากจุดเดียว</p></div></div>',
+        `<div class="plv4-feed-list" data-player-killfeed>${buildKillFeedFeed(facts.killfeed.slice(0, 12))}</div>`,
+        '</article>',
+        '</section>',
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ส่งคำขอเรด</span><h2 class="plv4-section-title">ส่งคำขอเรด</h2><p class="plv4-section-copy">ระบุช่วงเวลาที่ต้องการและรายละเอียดให้ครบ เพื่อให้ทีมงานตรวจคำขอได้จากหน้าเดียวโดยไม่ต้องไล่หาในแชต</p></div></div>',
+        '<form class="plv4-inline-form" data-player-raid-request-form>',
+        '<div class="plv4-form-grid">',
+        '<label class="plv4-stack"><span class="plv4-section-kicker">ช่วงเวลาที่อยากได้</span><input class="plv4-input" type="text" name="preferredWindow" placeholder="เช่น ศุกร์ 21:00 ICT"></label>',
+        '<label class="plv4-stack"><span class="plv4-section-kicker">สรุปคำขอ</span><textarea class="plv4-input" name="requestText" rows="4" placeholder="เช่น ขอเปิดเรดฝั่งตะวันตกหลังรวมทีมเรียบร้อย" required></textarea></label>',
+        '<button class="plv4-button plv4-button-primary" type="submit" data-player-raid-request-submit>ส่งคำขอเรด</button>',
+        '</div>',
+        '</form>',
+        buildRaidRequestTable(facts.raidRequests.slice(0, 8)),
+        '</article>',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">กระดานเรด</span><h2 class="plv4-section-title">ช่วงเวลาและสรุปผล</h2><p class="plv4-section-copy">ดูช่วงเวลาเรดที่ประกาศแล้วและสรุปผลล่าสุดโดยไม่ต้องออกจากพอร์ทัลผู้เล่น</p></div></div>',
+        buildRaidWindowTable(facts.raidWindows.slice(0, 8)),
+        buildRaidSummaryTable(facts.raidSummaries.slice(0, 8)),
+        '</article>',
         '</section>',
       ].join(''),
     };
@@ -1316,6 +1520,306 @@
     };
   }
 
+  function buildProfilePageContentReady(facts) {
+    const profile = facts.state?.profile || {};
+    const steamLinked = facts.steamLink.linked === true;
+    const steamLockReason = 'บัญชี Steam นี้เชื่อมไว้แล้ว ถ้าต้องการเปลี่ยนหรือถอดการเชื่อม ให้ติดต่อทีมงานเพื่อช่วยตรวจและยืนยันให้ปลอดภัยก่อน';
+    const identitySummary = facts.identitySummary || {};
+    const linkedAccounts = identitySummary.linkedAccounts || {};
+    const activeMembership = identitySummary.activeMembership || null;
+    const verificationState = firstNonEmpty([identitySummary.verificationState], steamLinked ? 'steam_linked' : 'unverified');
+    const emailAccount = linkedAccounts.email || {};
+    const discordAccount = linkedAccounts.discord || {};
+    const steamAccount = linkedAccounts.steam || {};
+    const inGameAccount = linkedAccounts.inGame || {};
+    const membershipValue = formatMembershipValue(activeMembership);
+    const linkedAccountRows = [
+      { label: 'สถานะการยืนยันตัวตน', value: localizeVerificationState(verificationState) },
+      { label: 'สิทธิ์ที่ใช้งานอยู่', value: membershipValue },
+      {
+        label: 'อีเมล',
+        value: formatLinkedAccountValue(emailAccount, 'ยังไม่เชื่อม'),
+      },
+      {
+        label: 'Discord',
+        value: formatLinkedAccountValue(discordAccount, 'ยังไม่เชื่อม'),
+      },
+      {
+        label: 'Steam',
+        value: steamAccount.linked
+          ? formatLinkedAccountValue({ ...steamAccount, value: firstNonEmpty([steamAccount.value, facts.steamLink.steamId], 'เชื่อมแล้ว') }, 'ยังไม่เชื่อม')
+          : 'ยังไม่เชื่อม',
+      },
+      {
+        label: 'โปรไฟล์ในเกม',
+        value: inGameAccount.linked
+          ? formatLinkedAccountValue({ ...inGameAccount, value: firstNonEmpty([inGameAccount.value, facts.steamLink.inGameName], 'เชื่อมแล้ว') }, 'ยังไม่เชื่อม')
+          : 'ยังไม่เชื่อม',
+      },
+    ];
+
+    return {
+      header: {
+        title: 'บัญชีและการเชื่อมต่อ',
+        subtitle: 'เช็กบัญชีที่เชื่อมไว้ ความพร้อมสำหรับรับของในเกม และสิทธิ์ที่ใช้งานอยู่จากหน้าเดียว',
+        statusChips: [
+          { label: `บัญชี ${localizePlayerStatus(firstNonEmpty([profile.accountStatus, facts.state?.me?.accountStatus], 'active'))}`, tone: toneForStatus(firstNonEmpty([profile.accountStatus, facts.state?.me?.accountStatus], 'active')) },
+          { label: steamLinked ? 'Steam เชื่อมแล้ว' : 'Steam ยังไม่เชื่อม', tone: steamLinked ? 'success' : 'warning' },
+          { label: `การยืนยัน ${localizeVerificationState(verificationState)}`, tone: /verified/i.test(verificationState || '') ? 'success' : 'warning' },
+          { label: activeMembership ? `สิทธิ์ ${localizeMembershipRole(firstNonEmpty([activeMembership.role, activeMembership.membershipType], 'member'))}` : 'ยังไม่มีสิทธิ์ใช้งาน', tone: activeMembership ? 'info' : 'warning' },
+          { label: `${formatNumber(facts.linkHistory.length, '0')} รายการในประวัติการเชื่อม`, tone: facts.linkHistory.length > 0 ? 'info' : 'muted' },
+          { label: facts.state?.lastRefreshedAt ? `อัปเดต ${formatRelative(facts.state.lastRefreshedAt)}` : 'รอข้อมูลล่าสุด', tone: 'info' },
+        ],
+        primaryAction: steamLinked
+          ? { label: 'เปิดร้านค้า', href: buildCanonicalPlayerPath('shop') }
+          : { label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') },
+        secondaryActions: [
+          { label: 'คำสั่งซื้อ', href: buildCanonicalPlayerPath('orders') },
+          { label: 'กลับหน้าแรก', href: buildCanonicalPlayerPath('home') },
+        ],
+      },
+      summaryStrip: [
+        { label: 'ชื่อที่ใช้แสดง', value: firstNonEmpty([profile.displayName, facts.state?.me?.user], 'ผู้เล่น'), detail: 'ชื่อที่ผู้เล่นคนอื่นและระบบมองเห็นตอนนี้', tone: 'info' },
+        { label: 'Steam', value: steamLinked ? firstNonEmpty([facts.steamLink.inGameName, facts.steamLink.steamId], 'เชื่อมแล้ว') : 'ยังไม่เชื่อม', detail: 'จำเป็นถ้าจะรับของที่ต้องส่งเข้าเกม', tone: steamLinked ? 'success' : 'warning' },
+        { label: 'อีเมลหลัก', value: firstNonEmpty([profile.primaryEmail, facts.state?.me?.primaryEmail], 'ยังไม่มีอีเมลในรอบนี้'), detail: 'ใช้กู้บัญชีและรับการแจ้งเตือนสำคัญ', tone: 'muted' },
+        { label: 'การยืนยัน', value: localizeVerificationState(verificationState), detail: 'ดูพร้อมกันทั้งบัญชีที่เชื่อมและความพร้อมในเกม', tone: /verified/i.test(verificationState || '') ? 'success' : 'warning' },
+        { label: 'สิทธิ์ที่ใช้งาน', value: membershipValue, detail: 'สิทธิ์ของผู้เล่นคนนี้ในชุมชนปัจจุบัน', tone: activeMembership ? 'info' : 'warning' },
+        { label: 'คำสั่งซื้อที่ยังไม่จบ', value: formatNumber(facts.pendingOrders.length, '0'), detail: 'เช็กตรงนี้ก่อนติดต่อทีมงานเรื่องการส่งของ', tone: facts.pendingOrders.length > 0 ? 'warning' : 'success' },
+      ],
+      railCards: buildRailCommon(facts),
+      mainHtml: [
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<section class="plv4-media-panel"><div class="plv4-media-copy"><span class="plv4-section-kicker">ภาพรวมบัญชี</span><h2 class="plv4-section-title">เช็กตัวตนและความพร้อมก่อนซื้อหรือขอความช่วยเหลือ</h2><p class="plv4-section-copy">ถ้าหน้านี้ชัด ผู้เล่นจะรู้เองว่าต้องเชื่อมอะไรเพิ่ม ต้องไปหน้าไหนต่อ และพร้อมรับของในเกมแล้วหรือยัง</p><div class="plv4-action-row"><a class="plv4-button plv4-button-primary" href="' + buildCanonicalPlayerPath(steamLinked ? 'shop' : 'support') + '">' + escapeHtml(steamLinked ? 'ไปที่ร้านค้า' : 'ไปที่หน้าช่วยเหลือ') + '</a><a class="plv4-button" href="' + buildCanonicalPlayerPath('orders') + '">ดูคำสั่งซื้อ</a></div></div><div class="plv4-media-frame" style="--plv4-media-image: linear-gradient(140deg, rgba(9, 12, 14, 0.2), rgba(9, 12, 14, 0.68)), url(\'/player/assets/ui/visuals/scum/feature-identity.jpg\');"><div class="plv4-media-badge-row"><span class="plv4-badge plv4-badge-info">บัญชี</span><span class="plv4-badge ' + (steamLinked ? 'plv4-badge-success' : 'plv4-badge-warning') + '">' + escapeHtml(steamLinked ? 'Steam พร้อมแล้ว' : 'ยังต้องเชื่อม Steam') + '</span></div></div></section>',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">โปรไฟล์</span><h2 class="plv4-section-title">สรุปบัญชี</h2><p class="plv4-section-copy">รวมข้อมูลหลักที่ผู้เล่นควรเช็กก่อนซื้อของ เชื่อมบัญชี หรือขอความช่วยเหลือ</p></div></div>',
+        renderKeyValueList([
+          { label: 'ชื่อที่ใช้แสดง', value: firstNonEmpty([profile.displayName, facts.state?.me?.user], 'ผู้เล่น') },
+          { label: 'สถานะบัญชี', value: localizePlayerStatus(firstNonEmpty([profile.accountStatus, facts.state?.me?.accountStatus], 'active')) },
+          { label: 'Steam เชื่อมแล้ว', value: localizeYesNo(steamLinked) },
+          { label: 'ชื่อในเกม', value: firstNonEmpty([facts.steamLink.inGameName], '-') },
+          { label: 'Steam ID', value: firstNonEmpty([facts.steamLink.steamId], '-') },
+          { label: 'อีเมลหลัก', value: firstNonEmpty([profile.primaryEmail, facts.state?.me?.primaryEmail], 'ยังไม่มีอีเมลในรอบนี้') },
+          { label: 'รหัสผู้ใช้แพลตฟอร์ม', value: firstNonEmpty([profile.platformUserId, facts.state?.me?.platformUserId], '-') },
+        ], 'ยังไม่มีรายละเอียดโปรไฟล์ให้แสดง'),
+        '</article>',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ตัวตนที่เชื่อมไว้</span><h2 class="plv4-section-title">บัญชีที่เชื่อมและความพร้อม</h2><p class="plv4-section-copy">ดูผู้ให้บริการที่เชื่อมไว้ สิทธิ์ที่ใช้งาน และความพร้อมสำหรับรับของในเกมโดยไม่ต้องเปิดหน้าแอดมิน</p></div></div>',
+        `<div data-player-identity-summary>${renderKeyValueList(linkedAccountRows, 'ยังไม่มีข้อมูลความพร้อมของบัญชีที่เชื่อมไว้')}</div>`,
+        steamLinked
+          ? [
+            renderKeyValueList([
+              { label: 'พร้อมรับของในเกม', value: 'ใช่' },
+              { label: 'คำสั่งซื้อที่ยังไม่จบ', value: formatNumber(facts.pendingOrders.length, '0') },
+              { label: 'คำสั่งซื้อที่ควรตามต่อ', value: formatNumber(facts.failedOrders.length, '0') },
+              { label: 'หน้าที่ควรเปิดต่อ', value: 'ร้านค้า' },
+            ], 'ยังไม่มีรายละเอียดความพร้อมเพิ่มเติม'),
+            `<p class="plv4-inline-copy">${escapeHtml(steamLockReason)}</p>`,
+            `<div class="plv4-action-row">${[
+              renderPlayerActionControl({ label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') }, 'เปิดหน้าช่วยเหลือ', buildCanonicalPlayerPath('support')),
+              renderPlayerActionControl({ label: 'ยังไม่เปิดให้ถอดการเชื่อมเอง', disabled: true, reason: steamLockReason }, 'ยังไม่เปิดให้ถอดการเชื่อมเอง', null),
+            ].join('')}</div>`,
+          ].join('')
+          : [
+            '<form class="plv4-inline-form" data-player-steam-link-form>',
+            '<div class="plv4-form-grid">',
+            '<label class="plv4-stack"><span class="plv4-section-kicker">Steam ID</span><input class="plv4-input" type="text" name="steamId" inputmode="numeric" placeholder="7656119..." required></label>',
+            '<button class="plv4-button plv4-button-primary" type="submit">เชื่อม Steam ID</button>',
+            '</div>',
+            '<p class="plv4-inline-copy">ใส่ Steam ID แบบตัวเลข 15-25 หลักที่ตรงกับบัญชีที่ใช้ในเกม ก่อนซื้อของที่ต้องส่งเข้าเกมจริง</p>',
+            '</form>',
+            renderKeyValueList([
+              { label: 'พร้อมรับของในเกม', value: 'ไม่' },
+              { label: 'คำสั่งซื้อที่ยังไม่จบ', value: formatNumber(facts.pendingOrders.length, '0') },
+              { label: 'คำสั่งซื้อที่ควรตามต่อ', value: formatNumber(facts.failedOrders.length, '0') },
+              { label: 'หน้าที่ควรเปิดต่อ', value: 'ช่วยเหลือ' },
+            ], 'ยังไม่มีรายละเอียดความพร้อมเพิ่มเติม'),
+          ].join(''),
+        '</article></section>',
+        '<section class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ประวัติ</span><h2 class="plv4-section-title">ประวัติการเชื่อมบัญชี</h2><p class="plv4-section-copy">ให้ผู้เล่นย้อนดูการเปลี่ยนแปลงของบัญชีที่เชื่อมไว้และกิจกรรมการยืนยันตัวตนได้จากจุดเดียว</p></div></div>',
+        buildLinkHistoryTable(facts.linkHistory.slice(0, 12)),
+        '</section>',
+      ].join(''),
+    };
+  }
+
+  function buildDonationsPageContentReady(facts) {
+    const donationsEnabled = sectionEnabledFromFacts(facts, 'donations');
+    const supporterOffers = facts.supporterItems.length ? facts.supporterItems : facts.shopItems.slice(0, 4);
+    const donationOrders = Array.isArray(facts.donationOrders) ? facts.donationOrders : [];
+    const latestDonationOrder = facts.latestDonationOrder || null;
+    const activeSupporterOrder = facts.activeSupporterOrder || null;
+    const latestDonationStatus = String(
+      latestDonationOrder?.rawStatus
+      || latestDonationOrder?.status
+      || latestDonationOrder?.statusText
+      || latestDonationOrder?.statusLabel
+      || '',
+    ).trim().toLowerCase();
+    const readinessItems = [];
+
+    if (!donationsEnabled) {
+      readinessItems.push({
+        tone: 'warning',
+        tag: 'แพ็กเกจ',
+        title: 'ยังไม่เปิดเครื่องมือผู้สนับสนุน',
+        detail: 'แพ็กเกจของเซิร์ฟเวอร์นี้ยังไม่เปิดการซื้อแพ็กเกจผู้สนับสนุน จึงควรรอให้เจ้าของระบบหรือแพ็กเกจปลดสิทธิ์ก่อน',
+        actions: [
+          { label: 'เปิดร้านค้า', href: buildCanonicalPlayerPath('shop'), primary: true },
+          { label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') },
+        ],
+      });
+    }
+
+    if (!facts.steamLink.linked) {
+      readinessItems.push({
+        tone: 'warning',
+        tag: 'บัญชี',
+        title: 'เชื่อม Steam ก่อนรับของผู้สนับสนุน',
+        detail: 'ถ้าแพ็กเกจผู้สนับสนุนมีของที่ต้องส่งเข้าเกม คุณต้องเชื่อม Steam ในหน้าโปรไฟล์ก่อน',
+        actions: [
+          { label: 'เปิดโปรไฟล์', href: buildCanonicalPlayerPath('profile'), primary: true },
+          { label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') },
+        ],
+      });
+    }
+
+    if (donationsEnabled && supporterOffers.length === 0) {
+      readinessItems.push({
+        tone: 'muted',
+        tag: 'รายการขาย',
+        title: 'ยังไม่มีแพ็กเกจผู้สนับสนุน',
+        detail: 'ตอนนี้ยังไม่มีแพ็กเกจผู้สนับสนุนที่เปิดขายในเซิร์ฟเวอร์นี้ แม้หน้าจะพร้อมแล้ว แต่ยังไม่มีอะไรให้เลือกซื้อ',
+        actions: [
+          { label: 'กลับหน้าแรก', href: buildCanonicalPlayerPath('home'), primary: true },
+          { label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') },
+        ],
+      });
+    }
+
+    if (donationsEnabled && supporterOffers.length > 0 && donationOrders.length === 0) {
+      readinessItems.push({
+        tone: 'info',
+        tag: 'ขั้นถัดไป',
+        title: 'เลือกแพ็กเกจผู้สนับสนุน',
+        detail: 'เลือกแพ็กเกจที่เปิดขายด้านล่าง เพิ่มลงตะกร้า แล้วค่อยไปจบการชำระเงินจากหน้าร้านค้าของผู้เล่น',
+        actions: [
+          { label: 'เปิดร้านค้า', href: buildCanonicalPlayerPath('shop'), primary: true },
+          { label: 'เปิดคำสั่งซื้อ', href: buildCanonicalPlayerPath('orders') },
+        ],
+      });
+    }
+
+    if (latestDonationOrder && ['pending', 'queued', 'processing', 'delivering', 'delivery_failed'].includes(latestDonationStatus)) {
+      readinessItems.push({
+        tone: latestDonationStatus === 'delivery_failed' ? 'warning' : 'info',
+        tag: 'การส่งของ',
+        title: latestDonationStatus === 'delivery_failed' ? 'การส่งของผู้สนับสนุนต้องตามต่อ' : 'ติดตามคำสั่งซื้อล่าสุดของผู้สนับสนุน',
+        detail: latestDonationStatus === 'delivery_failed'
+          ? 'คำสั่งซื้อล่าสุดยังต้องให้ทีมงานช่วยตามต่อหรือสั่งส่งใหม่อีกครั้ง'
+          : 'คำสั่งซื้อล่าสุดยังอยู่ระหว่างชำระเงินหรือส่งของ ควรเปิดหน้าคำสั่งซื้อทิ้งไว้จนกว่าจะเสร็จ',
+        actions: [
+          { label: 'เปิดคำสั่งซื้อ', href: buildCanonicalPlayerPath('orders'), primary: true },
+          { label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') },
+        ],
+      });
+    }
+
+    if (!readinessItems.length) {
+      readinessItems.push({
+        tone: 'success',
+        tag: 'พร้อมแล้ว',
+        title: 'เส้นทางผู้สนับสนุนพร้อมใช้งาน',
+        detail: 'บัญชีเชื่อมครบแล้ว แพ็กเกจมองเห็นได้ และตอนนี้ยังไม่มีเรื่องเร่งด่วนที่ต้องตามต่อ',
+        actions: [
+          { label: 'เปิดร้านค้า', href: buildCanonicalPlayerPath('shop'), primary: true },
+          { label: 'เปิดกิจกรรม', href: buildCanonicalPlayerPath('events') },
+        ],
+      });
+    }
+
+    return {
+      header: {
+        title: 'สนับสนุนเซิร์ฟเวอร์',
+        subtitle: 'รวมแพ็กเกจผู้สนับสนุน ความพร้อมของบัญชี และประวัติการซื้อไว้ในมุมมองเดียวของผู้เล่น',
+        statusChips: [
+          { label: `${formatNumber(supporterOffers.length, '0')} แพ็กเกจผู้สนับสนุน`, tone: supporterOffers.length > 0 ? 'info' : 'muted' },
+          { label: `ยอดคงเหลือ ${formatAmount(facts.wallet.balance, '0')}`, tone: 'success' },
+          { label: donationsEnabled ? 'เปิดสิทธิ์ผู้สนับสนุนแล้ว' : 'ยังไม่เปิดสิทธิ์ผู้สนับสนุน', tone: donationsEnabled ? 'success' : 'warning' },
+          { label: facts.steamLink.linked ? 'Steam พร้อมแล้ว' : 'ยังต้องเชื่อม Steam', tone: facts.steamLink.linked ? 'success' : 'warning' },
+        ],
+        primaryAction: { label: 'เปิดร้านค้า', href: buildCanonicalPlayerPath('shop') },
+        secondaryActions: [
+          { label: 'เปิดโปรไฟล์', href: buildCanonicalPlayerPath('profile') },
+          { label: 'เปิดคำสั่งซื้อ', href: buildCanonicalPlayerPath('orders') },
+        ],
+      },
+      summaryStrip: [
+        { label: 'แพ็กเกจผู้สนับสนุน', value: formatNumber(supporterOffers.length, '0'), detail: 'VIP หรือแพ็กเกจผู้สนับสนุนที่ผู้เล่นเลือกได้ตอนนี้', tone: supporterOffers.length > 0 ? 'info' : 'muted' },
+        { label: 'ประวัติการสนับสนุน', value: formatNumber(donationOrders.length, '0'), detail: 'รายการสนับสนุนที่บัญชีนี้เคยซื้อไว้แล้ว', tone: donationOrders.length > 0 ? 'success' : 'muted' },
+        { label: 'แพ็กเกจที่ใช้อยู่', value: activeSupporterOrder ? firstNonEmpty([activeSupporterOrder.itemName, activeSupporterOrder.itemId], '-') : 'ยังไม่มี', detail: activeSupporterOrder ? localizePlayerStatus(orderStatusLabel(activeSupporterOrder.statusText || activeSupporterOrder.status)) : 'ตอนนี้ยังไม่มีคำสั่งซื้อผู้สนับสนุนที่กำลังใช้งานอยู่', tone: activeSupporterOrder ? 'success' : 'muted' },
+        { label: 'ผู้เล่นออนไลน์ในชุมชน', value: formatNumber(facts.serverStatus.onlinePlayers, '0'), detail: 'ใช้งานสิทธิ์ผู้สนับสนุนและกิจกรรมได้โดยไม่ต้องออกจากพอร์ทัลนี้', tone: 'info' },
+      ],
+      railCards: buildRailCommon(facts),
+      mainHtml: [
+        '<section class="plv4-media-panel"><div class="plv4-media-copy"><span class="plv4-section-kicker">หน้าผู้สนับสนุน</span><h2 class="plv4-section-title">ดูแพ็กเกจที่ซื้อได้และความพร้อมของบัญชีก่อนกดจ่าย</h2><p class="plv4-section-copy">หน้านี้ควรตอบผู้เล่นให้ได้ทันทีว่ามีอะไรให้ซื้อ ต้องเชื่อมอะไรเพิ่ม และตอนนี้คำสั่งซื้อผู้สนับสนุนค้างอยู่หรือไม่</p><div class="plv4-action-row"><a class="plv4-button plv4-button-primary" href="' + buildCanonicalPlayerPath('shop') + '">เปิดร้านค้า</a><a class="plv4-button" href="' + buildCanonicalPlayerPath('profile') + '">เปิดโปรไฟล์</a></div></div><div class="plv4-media-frame" style="--plv4-media-image: linear-gradient(140deg, rgba(9, 12, 14, 0.18), rgba(9, 12, 14, 0.68)), url(\'/player/assets/ui/visuals/scum/feature-support.jpg\');"><div class="plv4-media-badge-row"><span class="plv4-badge plv4-badge-info">ผู้สนับสนุน</span><span class="plv4-badge ' + (facts.steamLink.linked ? 'plv4-badge-success' : 'plv4-badge-warning') + '">' + escapeHtml(facts.steamLink.linked ? 'พร้อมรับของในเกม' : 'ยังต้องเชื่อม Steam') + '</span></div></div></section>',
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<article class="plv4-panel" data-player-supporter-offers><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">แพ็กเกจผู้สนับสนุน</span><h2 class="plv4-section-title">แพ็กเกจที่เปิดขายอยู่ตอนนี้</h2><p class="plv4-section-copy">แสดงแพ็กเกจในมุมของผู้เล่นโดยตรง ไม่ปะปนกับหน้าจัดการของฝั่งแอดมิน</p></div></div>',
+        `<div class="plv4-product-grid">${renderPlayerOfferGrid(supporterOffers.map((item) => ({
+          name: firstNonEmpty([item.name, item.id], 'แพ็กเกจผู้สนับสนุน'),
+          description: firstNonEmpty([item.description], 'สนับสนุนชุมชน SCUM นี้ผ่านแพ็กเกจผู้สนับสนุนที่ผู้เล่นเลือกซื้อได้เอง'),
+          price: formatAmount(item.price, '0'),
+          kind: firstNonEmpty([item.kind], 'item'),
+          requiresSteamLink: Boolean(item.requiresSteamLink),
+          tone: 'info',
+          primaryAction: {
+            label: donationsEnabled ? 'เพิ่มลงตะกร้า' : 'ยังถูกล็อก',
+            primary: true,
+            data: {
+              'data-player-cart-add': firstNonEmpty([item.id], ''),
+            },
+            disabled: !donationsEnabled || !item.id || (Boolean(item.requiresSteamLink) && !facts.steamLink.linked),
+            reason: !donationsEnabled
+              ? 'การซื้อแพ็กเกจผู้สนับสนุนยังถูกล็อกโดยแพ็กเกจปัจจุบัน'
+              : Boolean(item.requiresSteamLink) && !facts.steamLink.linked
+                ? 'เชื่อม Steam ในหน้าโปรไฟล์ก่อน แล้วค่อยเพิ่มแพ็กเกจนี้ลงตะกร้า'
+                : '',
+          },
+          secondaryAction: {
+            label: 'เปิดโปรไฟล์',
+            href: buildCanonicalPlayerPath('profile'),
+          },
+        })))}</div></article>`,
+        '<article class="plv4-panel" data-player-supporter-summary><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">สถานะผู้สนับสนุน</span><h2 class="plv4-section-title">ความพร้อมและสถานะล่าสุด</h2><p class="plv4-section-copy">สรุปให้ชัดก่อนชำระเงินและหลังส่งของ ว่าตอนนี้บัญชีพร้อมแค่ไหนและมีอะไรต้องตามต่อ</p></div></div>',
+        renderKeyValueList([
+          { label: 'แพ็กเกจปัจจุบัน', value: activeSupporterOrder ? firstNonEmpty([activeSupporterOrder.itemName, activeSupporterOrder.itemId], '-') : 'ยังไม่มี' },
+          { label: 'คำสั่งซื้อล่าสุด', value: latestDonationOrder ? firstNonEmpty([latestDonationOrder.purchaseCode, latestDonationOrder.code], '-') : 'ยังไม่มีคำสั่งซื้อผู้สนับสนุน' },
+          { label: 'สถานะล่าสุด', value: latestDonationOrder ? localizePlayerStatus(orderStatusLabel(latestDonationOrder.statusText || latestDonationOrder.status)) : 'รอการซื้อครั้งแรก' },
+          { label: 'การเชื่อม Steam', value: facts.steamLink.linked ? firstNonEmpty([facts.steamLink.inGameName, facts.steamLink.steamId], 'เชื่อมแล้ว') : 'ยังต้องเชื่อมจากหน้าโปรไฟล์' },
+          { label: 'ยอดในกระเป๋าเงิน', value: formatAmount(facts.wallet.balance, '0') },
+        ], 'ยังไม่มีสรุปสถานะผู้สนับสนุน'),
+        `<div class="plv4-feed-list">${renderFeed((facts.supportAlerts.length ? facts.supportAlerts : facts.communityFeed).slice(0, 3), 'ตอนนี้ยังไม่มีการแจ้งเตือนสำหรับผู้สนับสนุน')}</div>`,
+        '</article>',
+        '</section>',
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<article class="plv4-panel" data-player-supporter-readiness><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ขั้นถัดไป</span><h2 class="plv4-section-title">เช็กลิสต์ความพร้อมของผู้สนับสนุน</h2><p class="plv4-section-copy">ระบบจะดันสิ่งที่ยังติดอยู่ขึ้นมาให้เห็นทันที เพื่อให้ผู้เล่นเดิน flow ผู้สนับสนุนได้เองโดยไม่ต้องรอทีมงานบอกทุกครั้ง</p></div></div>',
+        `<div class="plv4-task-grid">${renderTaskGroups(readinessItems)}</div>`,
+        '</article>',
+        '<article class="plv4-panel" data-player-supporter-history><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">ประวัติการสนับสนุน</span><h2 class="plv4-section-title">การซื้อผู้สนับสนุนล่าสุด</h2><p class="plv4-section-copy">ติดตามคำสั่งซื้อและสถานะการส่งของตรงนี้ ก่อนค่อยเปิดหน้าคำสั่งซื้อทั้งหมดถ้าจำเป็น</p></div></div>',
+        buildSupporterOrderTable(donationOrders.slice(0, 8)),
+        `<div class="plv4-action-row">${[
+          renderPlayerActionControl({ label: 'เปิดร้านค้าทั้งหมด', href: buildCanonicalPlayerPath('shop') }, 'เปิดร้านค้าทั้งหมด', buildCanonicalPlayerPath('shop')),
+          renderPlayerActionControl({
+            label: 'ไปชำระเงิน',
+            primary: true,
+            data: { 'data-player-cart-checkout': true },
+            disabled: !sectionEnabledFromFacts(facts, 'shop') || !Array.isArray(facts.cart?.rows) || facts.cart.rows.length === 0,
+            reason: !Array.isArray(facts.cart?.rows) || facts.cart.rows.length === 0 ? 'เพิ่มแพ็กเกจผู้สนับสนุนลงตะกร้าก่อน แล้วค่อยไปชำระเงิน' : '',
+          }, 'ไปชำระเงิน', null, { primary: true }),
+        ].join('')}</div>`,
+        '</article>',
+        '</section>',
+      ].join(''),
+    };
+  }
+
   function createPageContent(pageKey, facts) {
     switch (pageKey) {
       case 'home':
@@ -1333,9 +1837,9 @@
       case 'events':
         return buildEventsPageContent(facts);
       case 'donations':
-        return buildDonationsPageContent(facts);
+        return buildDonationsPageContentReady(facts);
       case 'profile':
-        return buildProfilePageContent(facts);
+        return buildProfilePageContentReady(facts);
       case 'support':
         return buildSupportPageContent(facts);
       default:

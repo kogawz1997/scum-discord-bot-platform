@@ -70,6 +70,12 @@ function createPlayerGeneralRoutes(deps) {
     transferCoins,
     isDiscordId,
     listServerRegistry,
+    getPlatformUserIdentitySummary,
+    createRaidRequest,
+    listRaidRequests,
+    listRaidWindows,
+    listRaidSummaries,
+    listKillFeedEntries,
   } = deps;
   const safeNormalizeText = typeof normalizeText === 'function'
     ? normalizeText
@@ -79,6 +85,12 @@ function createPlayerGeneralRoutes(deps) {
     : (value, fallback = 0) => {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : fallback;
+    };
+  const safeAsInt = typeof asInt === 'function'
+    ? asInt
+    : (value, fallback = null) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
     };
 
   async function getFeatureAccess(session) {
@@ -392,15 +404,10 @@ function createPlayerGeneralRoutes(deps) {
         });
         return true;
       }
-      const debugUrl = result?.debugToken
-        ? `/player/login?token=${encodeURIComponent(String(result.debugToken || ''))}`
-        : null;
       sendJson(res, 200, {
         ok: true,
         data: {
-          requested: result?.requested === true,
-          queued: result?.queued === true,
-          debugUrl,
+          requested: true,
         },
       });
       return true;
@@ -540,6 +547,122 @@ function createPlayerGeneralRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/player/api/raids' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module']);
+      }
+      const [myRequests, windows, summaries] = await Promise.all([
+        typeof listRaidRequests === 'function'
+          ? listRaidRequests({
+            tenantId: tenantOptions.tenantId || null,
+            serverId: tenantOptions.serverId || null,
+            requesterUserId: session.discordId,
+            limit: safeAsInt(urlObj.searchParams.get('limit'), 12, 1, 50) || 12,
+          })
+          : [],
+        typeof listRaidWindows === 'function'
+          ? listRaidWindows({
+            tenantId: tenantOptions.tenantId || null,
+            serverId: tenantOptions.serverId || null,
+            limit: 12,
+          })
+          : [],
+        typeof listRaidSummaries === 'function'
+          ? listRaidSummaries({
+            tenantId: tenantOptions.tenantId || null,
+            serverId: tenantOptions.serverId || null,
+            limit: 12,
+          })
+          : [],
+      ]);
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          myRequests: Array.isArray(myRequests) ? myRequests : [],
+          windows: Array.isArray(windows) ? windows : [],
+          summaries: Array.isArray(summaries) ? summaries : [],
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/raids/request' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module']);
+      }
+      const body = await readJsonBody(req);
+      const requestText = safeNormalizeText(body?.requestText || body?.summary);
+      const preferredWindow = safeNormalizeText(body?.preferredWindow);
+      if (!requestText) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'invalid-raid-request',
+          data: { message: 'Provide a raid request summary before submitting.' },
+        });
+        return true;
+      }
+      const result = typeof createRaidRequest === 'function'
+        ? await createRaidRequest({
+          tenantId: tenantOptions.tenantId || null,
+          serverId: tenantOptions.serverId || null,
+          requesterUserId: session.discordId,
+          requesterName: session.user || session.discordId || 'Player',
+          requestText,
+          preferredWindow: preferredWindow || null,
+        })
+        : { ok: false, reason: 'raid-service-unavailable' };
+      if (!result?.ok) {
+        sendJson(res, 503, {
+          ok: false,
+          error: result?.reason || 'raid-service-unavailable',
+          data: { message: 'Raid requests are temporarily unavailable right now.' },
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          request: result.request,
+          message: 'Raid request submitted. Staff can now review the preferred window.',
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/killfeed' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['event_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['event_module']);
+      }
+      const rows = typeof listKillFeedEntries === 'function'
+        ? await listKillFeedEntries({
+          tenantId: tenantOptions.tenantId || null,
+          serverId: tenantOptions.serverId || null,
+          limit: safeAsInt(urlObj.searchParams.get('limit'), 20) || 20,
+        })
+        : [];
+      const items = (Array.isArray(rows) ? rows : []).map((row) => ({
+        ...row,
+        involvesPlayer:
+          row?.killerUserId === session.discordId || row?.victimUserId === session.discordId,
+        playerRole:
+          row?.killerUserId === session.discordId
+            ? 'killer'
+            : row?.victimUserId === session.discordId
+              ? 'victim'
+              : null,
+      }));
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          items,
+        },
+      });
+      return true;
+    }
+
     if (pathname === '/player/api/online' && method === 'GET') {
       sendJson(res, 200, {
         ok: true,
@@ -652,6 +775,30 @@ function createPlayerGeneralRoutes(deps) {
         getPlayerAccount(session.discordId, tenantOptions),
         resolveSessionSteamLink(session.discordId, tenantOptions),
       ]);
+      const identity = await readOptionalPlayerData(
+        'player-identity-summary',
+        () => (
+          typeof getPlatformUserIdentitySummary === 'function'
+            ? getPlatformUserIdentitySummary({
+              userId: session.platformUserId || null,
+              email: session.primaryEmail || null,
+              discordUserId: session.discordId,
+              steamId: link?.steamId || null,
+              tenantId: tenantOptions.tenantId || null,
+            })
+            : null
+        ),
+        null,
+      );
+      const identities = Array.isArray(identity?.identities) ? identity.identities : [];
+      const memberships = Array.isArray(identity?.memberships) ? identity.memberships : [];
+      const emailIdentity = identities.find((entry) => String(entry?.provider || '').trim().toLowerCase() === 'email_preview') || null;
+      const discordIdentity = identities.find((entry) => String(entry?.provider || '').trim().toLowerCase() === 'discord') || null;
+      const steamIdentity = identities.find((entry) => String(entry?.provider || '').trim().toLowerCase() === 'steam') || null;
+      const activeMembership = memberships.find((entry) => normalizeText(entry?.tenantId) === normalizeText(tenantOptions.tenantId))
+        || memberships.find((entry) => normalizeText(entry?.status || '').toLowerCase() === 'active')
+        || memberships[0]
+        || null;
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -672,6 +819,57 @@ function createPlayerGeneralRoutes(deps) {
           createdAt: account?.createdAt || null,
           updatedAt: account?.updatedAt || null,
           steamLink: link,
+          platformUserId: identity?.user?.id || session.platformUserId || null,
+          platformProfileId: identity?.profile?.id || session.platformProfileId || null,
+          identitySummary: {
+            linkedProviders: identities
+              .map((entry) => normalizeText(entry?.provider).toLowerCase())
+              .filter(Boolean),
+            verificationState: normalizeText(identity?.profile?.verificationState).toLowerCase() || null,
+            memberships: memberships.map((entry) => ({
+              tenantId: entry?.tenantId || null,
+              membershipType: entry?.membershipType || null,
+              role: entry?.role || null,
+              status: entry?.status || null,
+            })),
+            linkedAccounts: {
+              email: {
+                linked: Boolean(emailIdentity || session.primaryEmail),
+                verified: Boolean(emailIdentity?.verifiedAt),
+                value: normalizeText(identity?.user?.primaryEmail)
+                  || normalizeText(emailIdentity?.providerEmail)
+                  || normalizeText(session.primaryEmail)
+                  || null,
+              },
+              discord: {
+                linked: Boolean(discordIdentity || session.discordId),
+                verified: Boolean(discordIdentity?.verifiedAt) || Boolean(session.discordId),
+                value: normalizeText(discordIdentity?.providerUserId) || normalizeText(session.discordId) || null,
+              },
+              steam: {
+                linked: Boolean(steamIdentity || link?.linked),
+                verified: Boolean(steamIdentity?.verifiedAt)
+                  || ['steam_linked', 'verified', 'fully_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
+                value: normalizeText(identity?.profile?.steamId)
+                  || normalizeText(steamIdentity?.providerUserId)
+                  || normalizeText(link?.steamId)
+                  || null,
+              },
+              inGame: {
+                linked: Boolean(identity?.profile?.inGameName),
+                verified: ['verified', 'fully_verified', 'in_game_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
+                value: normalizeText(identity?.profile?.inGameName) || normalizeText(link?.inGameName) || null,
+              },
+            },
+            activeMembership: activeMembership
+              ? {
+                  tenantId: activeMembership.tenantId || null,
+                  membershipType: activeMembership.membershipType || null,
+                  role: activeMembership.role || null,
+                  status: activeMembership.status || null,
+                }
+              : null,
+          },
         },
       });
       return true;

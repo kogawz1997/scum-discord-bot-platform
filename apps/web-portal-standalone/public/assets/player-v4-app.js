@@ -393,6 +393,8 @@
         missions,
         bounties,
         wheelState,
+        raids,
+        killfeed,
       ] = await Promise.all([
         hasAnyFeature(featureAccess, ['wallet_module'])
           ? safePlayerRead('/player/api/wallet/ledger?limit=20', { wallet: {}, items: [] }, loadWarnings, 'wallet-ledger')
@@ -424,6 +426,12 @@
         isSectionEnabled(featureAccess, 'events')
           ? safePlayerRead('/player/api/wheel/state?limit=10', {}, loadWarnings, 'wheel-state')
           : Promise.resolve({ enabled: false, history: [], locked: true }),
+        isSectionEnabled(featureAccess, 'events')
+          ? safePlayerRead('/player/api/raids', {}, loadWarnings, 'raids')
+          : Promise.resolve({ myRequests: [], windows: [], summaries: [], locked: true }),
+        isSectionEnabled(featureAccess, 'events')
+          ? safePlayerRead('/player/api/killfeed?limit=20', { items: [] }, loadWarnings, 'killfeed')
+          : Promise.resolve({ items: [], locked: true }),
       ]);
 
       state.payload = {
@@ -446,6 +454,8 @@
         missions,
         bounties,
         wheelState,
+        raids,
+        killfeed: Array.isArray(killfeed?.items) ? killfeed.items : (Array.isArray(killfeed) ? killfeed : []),
         party,
         lastRefreshedAt: new Date().toISOString(),
         __loadWarnings: loadWarnings,
@@ -486,6 +496,8 @@
       __surfaceNotice: surfaceState.notice,
     };
     const page = surfaceState.resolvedPage;
+    document.body.dataset.playerPage = page;
+    document.body.dataset.playerRoute = requestedPage || page;
     const canonicalPath = buildCanonicalPlayerPath(page);
     if (window.location.pathname !== canonicalPath) {
       window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
@@ -660,6 +672,28 @@
         form.reset();
         await completePlayerAction(result?.message || 'เชื่อม SteamID เรียบร้อยแล้ว');
       });
+      return;
+    }
+
+    if (form.hasAttribute('data-player-raid-request-form')) {
+      const requestText = String(form.elements.requestText?.value || '').trim();
+      const preferredWindow = String(form.elements.preferredWindow?.value || '').trim();
+      if (!requestText) {
+        setStatus('Describe the raid request before submitting the form', 'warning');
+        return;
+      }
+      const button = form.querySelector('button[type="submit"]');
+      await runPlayerAction(button, 'Submitting raid request...', async () => {
+        const result = await apiRequest('/player/api/raids/request', {
+          method: 'POST',
+          body: {
+            requestText,
+            preferredWindow,
+          },
+        }, null);
+        form.reset();
+        await completePlayerAction(result?.message || 'Raid request submitted');
+      });
     }
   }
 
@@ -679,7 +713,11 @@
         ? event.target
         : null;
       if (!form) return;
-      if (!form.hasAttribute('data-player-redeem-form') && !form.hasAttribute('data-player-steam-link-form')) {
+      if (
+        !form.hasAttribute('data-player-redeem-form')
+        && !form.hasAttribute('data-player-steam-link-form')
+        && !form.hasAttribute('data-player-raid-request-form')
+      ) {
         return;
       }
       event.preventDefault();

@@ -68,6 +68,7 @@ function buildRoutes(overrides = {}) {
     simulateDeliveryPlan: async () => ({ ok: true }),
     setDeliveryCommandOverride: async () => ({ ok: true }),
     sendTestDeliveryCommand: async () => ({ ok: true }),
+    getDeliveryDetailsByPurchaseCode: async () => null,
     saveAdminCommandCapabilityPreset: async () => ({ ok: true }),
     getAdminCommandCapabilityPresetById: async () => null,
     deleteAdminCommandCapabilityPreset: async () => ({ ok: true }),
@@ -170,6 +171,17 @@ test('admin delivery retry route denies order action when orders entitlement is 
       tenantId: 'tenant-1',
       enabledFeatureKeys: [],
     }),
+    getDeliveryDetailsByPurchaseCode: async () => ({
+      purchase: {
+        code: 'PUR-1001',
+        tenantId: 'tenant-1',
+      },
+      queueJob: {
+        purchaseCode: 'PUR-1001',
+        tenantId: 'tenant-1',
+      },
+      deadLetter: null,
+    }),
     retryDeliveryNow: async () => {
       called = true;
       return { ok: true };
@@ -195,4 +207,71 @@ test('admin delivery retry route denies order action when orders entitlement is 
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.error, 'feature-not-enabled');
   assert.equal(payload.data.actionKey, 'can_manage_orders');
+});
+
+test('tenant-scoped purchase status hides cross-tenant purchase codes before entitlement checks', async () => {
+  let updated = false;
+  const handler = buildRoutes({
+    getTenantFeatureAccess: async () => ({
+      tenantId: 'tenant-1',
+      enabledFeatureKeys: [],
+    }),
+    getDeliveryDetailsByPurchaseCode: async () => null,
+    updatePurchaseStatusForActor: async () => {
+      updated = true;
+      return { ok: true };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/purchase/status',
+    body: {
+      code: 'PUR-OTHER',
+      status: 'delivered',
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 404);
+  assert.equal(updated, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.error, 'Resource not found');
+});
+
+test('tenant-scoped delivery retry hides cross-tenant purchase codes before entitlement checks', async () => {
+  let retried = false;
+  const handler = buildRoutes({
+    getTenantFeatureAccess: async () => ({
+      tenantId: 'tenant-1',
+      enabledFeatureKeys: [],
+    }),
+    getDeliveryDetailsByPurchaseCode: async () => null,
+    retryDeliveryNow: async () => {
+      retried = true;
+      return { ok: true };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/delivery/retry',
+    body: {
+      code: 'PUR-OTHER',
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 404);
+  assert.equal(retried, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.error, 'Resource not found');
 });
