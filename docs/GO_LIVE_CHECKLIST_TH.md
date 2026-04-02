@@ -1,8 +1,13 @@
 # Production Go-Live Checklist
 
-เอกสารนี้ใช้เป็น checklist สั้น ๆ ก่อนเปิดใช้งานจริง โดยเน้น 3 เรื่อง: `hardening`, `runtime proof`, และ `delivery live validation`
+เอกสารนี้เป็น checklist สั้นก่อนเปิดใช้งานจริง โดยโฟกัส 4 เรื่อง:
 
-อัปเดตล่าสุด: **2026-03-15**
+- `security baseline`
+- `runtime proof`
+- `billing / entitlement correctness`
+- `operator validation`
+
+อัปเดตล่าสุด: **2026-04-02**
 
 ---
 
@@ -13,31 +18,37 @@
 - ใช้ `ADMIN_WEB_HSTS_ENABLED=true`
 - ใช้ `ADMIN_WEB_TRUST_PROXY=true`
 - ใช้ `ADMIN_WEB_ENFORCE_ORIGIN_CHECK=true`
-- ตั้ง `ADMIN_WEB_ALLOWED_ORIGINS` เป็น `https://...` เท่านั้น
+- ตั้ง `ADMIN_WEB_ALLOWED_ORIGINS` ให้เป็น `https://...` เท่านั้น
 - เปิด `ADMIN_WEB_2FA_ENABLED=true` และใส่ `ADMIN_WEB_2FA_SECRET`
 - เปิด `ADMIN_WEB_STEP_UP_ENABLED=true` และตั้ง `ADMIN_WEB_STEP_UP_TTL_MINUTES=15`
-- หมุน `ADMIN_WEB_PASSWORD`, `ADMIN_WEB_TOKEN`, `SCUM_WEBHOOK_SECRET`, `SCUM_CONSOLE_AGENT_TOKEN`, Discord OAuth secret ให้เป็นค่าจริง
-- แยก `admin` และ `player` คนละ origin/subdomain ถ้าเป็นไปได้
+- หมุนค่า `ADMIN_WEB_PASSWORD`, `ADMIN_WEB_TOKEN`, `SCUM_WEBHOOK_SECRET`, `SCUM_CONSOLE_AGENT_TOKEN`, Discord OAuth secret, และ billing provider secret ให้เป็นค่าจริง
+- แยก origin ของ `owner`, `tenant`, และ `player` ตาม profile production ที่ใช้อยู่
+- ยืนยันว่า rate limiting baseline สำหรับ login, runtime activation, config/restart, และ delivery actions ถูกเปิดตาม config ปัจจุบัน
 
 ---
 
 ## 2. Runtime Topology
 
-runtime ที่ควรแยกจริง:
+runtime ที่ควรแยกจริงใน production profile ปัจจุบัน:
 
-- `bot`
-- `worker`
-- `watcher`
-- `admin web`
-- `player portal`
-- `console-agent` ถ้าใช้ `agent mode`
+- `scum-owner-web`
+- `scum-tenant-web`
+- `scum-admin-web`
+- `scum-bot`
+- `scum-worker`
+- `scum-watcher`
+- `scum-server-bot`
+- `scum-console-agent` หรือ `Delivery Agent` บนเครื่องที่เปิด SCUM client
+- `scum-web-portal`
 
-ก่อนขึ้นจริงให้ยืนยันว่า:
+ก่อนเปิดจริงให้ยืนยันว่า:
 
-- ไม่มี service overlap ระหว่าง `bot` กับ `worker`
+- `Server Bot` และ `Delivery Agent` ยังแยกบทบาทกันชัด
+- `Server Bot` ใช้กับงาน log sync, config, backup, restart/start/stop เท่านั้น
+- `Delivery Agent` ใช้กับ delivery / in-game execution เท่านั้น
 - health endpoint ของทุก process ตอบได้
 - PM2 หรือ process manager ตั้ง autorestart แล้ว
-- มี external monitor เช็ก health เป็นระยะ ไม่พึ่ง dashboard อย่างเดียว
+- มี monitor ภายนอกหรือ health poller ที่ไม่พึ่ง dashboard อย่างเดียว
 
 ---
 
@@ -45,46 +56,68 @@ runtime ที่ควรแยกจริง:
 
 - ใช้ `PERSIST_REQUIRE_DB=true`
 - ใช้ `PERSIST_LEGACY_SNAPSHOTS=false`
+- ใช้ PostgreSQL เป็น production path
 - รัน migration / generate ให้ครบ
 - ทดสอบ backup และ restore แบบ dry-run ก่อนเสมอ
 - ยืนยันว่ามี rollback backup สำหรับ restore ล่าสุด
+- ยืนยัน tenant topology ที่ใช้อยู่ตรงกับ deployment จริง
 
 ---
 
-## 4. Commands / Delivery Validation
+## 4. Billing / Entitlement
 
-### ก่อนเปิดรับ order จริง
+ก่อนเปิดรับ tenant จริง ให้ยืนยันว่า:
 
-1. รัน `delivery preflight`
-2. รัน `delivery simulator`
-3. รัน `capability test`
-4. ยิง `test send` ด้วย item ที่รู้ผลลัพธ์แน่ชัด
-5. เปิดดู timeline และ verify ว่า step log ปิดงานครบ
-
-### ชุดคำสั่งขั้นต่ำที่ควรทดสอบ
-
-- `announce`
-- `teleport`
-- `spawn`
-- `multi-item`
-- `magazine StackCount`
+- tenant ใหม่ได้ `trial` หรือ package เริ่มต้นตาม flow ที่ตั้งใจไว้
+- package metadata แสดง `name`, `price`, `features`, `limits` ถูกต้อง
+- entitlement backend บังคับตาม `trial`, `active`, `expired`, `suspended`
+- action สำคัญถูกล็อกจริงเมื่อ subscription ไม่อนุญาต
+- tenant billing page แสดง:
+  - current plan
+  - subscription state
+  - expiry / current period
+  - upgrade path
+- ถ้าใช้ provider จริง:
+  - webhook secret ถูกตั้งแล้ว
+  - return/cancel URL ถูกต้อง
+  - checkout/upgrade flow ยิงไป origin ที่ถูกต้อง
 
 ---
 
-## 5. Agent Mode Live Proof
+## 5. Runtime Provisioning / Validation
 
-ถ้าใช้ `agent mode` ต้องยืนยันเพิ่ม:
+### Server Bot
 
-- SCUM admin client เปิดค้างอยู่จริง
-- บัญชีแอดมินอยู่ในเซิร์ฟเวอร์
-- Windows session ไม่ lock
-- console-agent online
-- capability test ผ่านบนเครื่อง production จริง
+1. ออก setup token จาก Tenant UI
+2. ติดตั้งผ่าน `scripts/install-server-bot.ps1`
+3. รัน `scripts/runtime-env-check.js --role server-bot`
+4. เปิด process แล้วดูว่า runtime online
+5. ยืนยันว่าแสดง:
+   - machine name
+   - version
+   - last seen
+   - latest error ถ้ามี
+6. ทดสอบ:
+   - config sync
+   - config access
+   - restart probe
 
-หมายเหตุ:
+### Delivery Agent
 
-- repo และ test ช่วยยืนยัน logic และ command execution path ได้
-- แต่ live proof ยังต้องอาศัย runtime ภายนอกจริง เช่น SCUM client และ Windows session
+1. ออก setup token จาก Tenant UI
+2. ติดตั้งผ่าน `scripts/install-delivery-agent.ps1`
+3. รัน `scripts/runtime-env-check.js --role delivery-agent`
+4. เปิด process แล้วดูว่า runtime online
+5. ยืนยันว่าแสดง:
+   - machine name
+   - version
+   - last seen
+   - latest error ถ้ามี
+6. ทดสอบ:
+   - preflight
+   - simulator
+   - capability test
+   - test send
 
 ---
 
@@ -99,19 +132,39 @@ npm run readiness:prod
 npm run smoke:postdeploy
 ```
 
-ถ้าใช้ admin/player ผ่าน public URL จริง ให้ตั้ง:
+ถ้าใช้ public URL จริง ให้ตั้งค่าฐาน smoke ให้ตรง deployment:
 
 ```bash
-set SMOKE_ADMIN_BASE_URL=https://admin.genz.noah-dns.online/admin
-set SMOKE_PLAYER_BASE_URL=https://player.genz.noah-dns.online
+set SMOKE_ADMIN_BASE_URL=https://admin.example.com/admin
+set SMOKE_PLAYER_BASE_URL=https://player.example.com
 npm run smoke:postdeploy
+```
+
+ถ้าจะยืนยัน runtime installer บนเครื่องเป้าหมาย:
+
+```bash
+node scripts/runtime-env-check.js --role server-bot --env-file .runtime/server-bot.env
+node scripts/runtime-env-check.js --role delivery-agent --env-file .runtime/delivery-agent.env
+node scripts/runtime-inventory-report.js --json
 ```
 
 ---
 
 ## 7. หลังเปิดจริง 24 ชั่วโมงแรก
 
-- ดู notification center ว่ามี dead-letter, backlog หรือ watcher silence หรือไม่
+- ดู notification center ว่ามี runtime offline, failed config apply, failed restart, หรือ subscription expiring หรือไม่
+- ดู `Logs & Sync` ว่ามี failed jobs หรือ config retry backlog หรือไม่
 - ดู runtime supervisor ว่ามี process ไหน degraded/offline หรือไม่
-- ตรวจ order จริง 2-3 รายการว่า timeline และ audit ครบ
+- ตรวจ order จริง 2-3 รายการว่ามี timeline และ action result ครบ
+- ตรวจ restart history อย่างน้อย 1 รายการถ้ามีการใช้งาน
 - ตรวจ backup ล่าสุดและ restore status อีกครั้ง
+
+---
+
+## 8. สิ่งที่ต้องพูดให้ชัดกับลูกค้า
+
+- `Delivery Agent` ยังพึ่ง Windows session และ SCUM client จริง
+- `Server Bot` ต้องเข้าถึง `SCUM.log` และ config path จริง
+- บาง proof ยังเป็น machine-specific proof ไม่ใช่ universal proof ทุก environment
+- billing/commercial layer พร้อมในระดับ repo/product flow แล้ว แต่ provider-grade operations ยังต้องเฝ้าดูตอนเปิดจริง
+- public slug pages และ supporter flows พร้อมใช้งานแล้ว แต่ยังควรติดตามข้อมูลจริงหลังเปิด tenant แรก

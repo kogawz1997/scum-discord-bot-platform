@@ -1,8 +1,8 @@
 # Customer Onboarding
 
-Last updated: **2026-03-15**
+Last updated: **2026-04-02**
 
-This document is for production deployment and handoff. It describes the supported topology, prerequisites, validation steps, and limits that should be stated to the customer.
+This document is for production deployment and customer handoff. It describes the supported topology, prerequisites, validation steps, and operational limits that should be stated clearly.
 
 ## Deployment Topology
 
@@ -13,27 +13,33 @@ Current example split-origin deployment:
 
 Runtime roles:
 
-- `bot`: Discord gateway, command handling, admin web, SCUM webhook receiver
-- `worker`: delivery queue and rent bike runtime
+- `owner-web`: platform owner surface
+- `tenant-web`: tenant admin surface
+- `admin-web`: shared admin/control-plane HTTP surface
+- `bot`: Discord gateway, command handling, SCUM webhook receiver
+- `worker`: delivery queue and rent-bike runtime
 - `watcher`: reads `SCUM.log` and posts events into `/scum-event`
+- `server-bot`: server-side runtime for log sync, config, backup, and restart/start/stop
+- `delivery-agent`: runtime on a machine with the SCUM client open for delivery and in-game execution
 - `web`: standalone player portal
-- `console-agent`: bridge between API calls and SCUM admin client
 
-Recommended split for `agent` execution:
+Recommended split:
 
-- `Machine A`: bot, admin web, worker, player portal, PostgreSQL
-- `Machine B`: SCUM client, console-agent, watcher (when `SCUM.log` is local there)
+- `Machine A`: owner-web, tenant-web, admin-web, bot, worker, player portal, PostgreSQL
+- `Machine B`: Server Bot on the server-side machine with real config/log access
+- `Machine C`: Delivery Agent on the SCUM client workstation when in-game execution is required
 
 For the short operator-friendly explanation of these boundaries, see [RUNTIME_BOUNDARY_EXPLAINER.md](./RUNTIME_BOUNDARY_EXPLAINER.md).
 
 ## Customer Deliverables
 
 - Discord bot for economy, shop, reward, moderation, and community operations
-- Admin web for config, audit, runtime status, security events, and restore workflows
-- Player portal for wallet, purchase history, redeem, profile, and Steam linking
+- Owner and Tenant web surfaces for package awareness, onboarding, runtime management, config, audit, notifications, and support workflows
+- Player portal for wallet, shop, order history, delivery status, profile, and linked-account flows
 - Worker runtime for queue processing
 - Optional watcher runtime for `SCUM.log`
-- Optional console-agent runtime for agent-based execution
+- Server Bot runtime for server-side sync/config/restart
+- Optional Delivery Agent runtime for in-game delivery execution
 
 ## Prerequisites
 
@@ -41,10 +47,13 @@ For the short operator-friendly explanation of these boundaries, see [RUNTIME_BO
 2. npm
 3. PostgreSQL for production
 4. A real Discord application and bot token
-5. If `agent` execution is required:
+5. If `Delivery Agent` execution is required:
    - an unlocked Windows session
    - a running SCUM client logged in with the required admin context
-6. If PM2 will be used:
+6. If `Server Bot` will manage server config/restart:
+   - access to the real `SCUM.log` path
+   - access to the real server config directory
+7. If PM2 will be used:
 
 ```bat
 npm i -g pm2
@@ -76,15 +85,16 @@ or:
 npm run env:prepare:multi-tenant-prod
 ```
 
-If you want the control plane and the SCUM execution workstation split across two hosts, use:
+If you want the control plane, server-side automation, and SCUM execution workstation split across hosts, use:
 
 ```bat
 npm run env:prepare:machine-a-control-plane
-npm run env:prepare:machine-b-game-bot
+npm run env:prepare:machine-b-server-bot
+npm run env:prepare:machine-c-delivery-agent
 ```
 
 See [SINGLE_HOST_PRODUCTION_PROFILE.md](./SINGLE_HOST_PRODUCTION_PROFILE.md) for the profile-specific assumptions and bootstrap flow.
-See [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md) for the split-host control-plane + game-bot topology.
+See [TWO_MACHINE_AGENT_TOPOLOGY.md](./TWO_MACHINE_AGENT_TOPOLOGY.md) for the split-host control-plane and game-runtime model.
 
 ## Required Root Env Values
 
@@ -105,7 +115,7 @@ In [`.env`](../.env):
 Split runtime defaults:
 
 - bot
-  - `BOT_ENABLE_ADMIN_WEB=true`
+  - `BOT_ENABLE_ADMIN_WEB=false`
   - `BOT_ENABLE_RENTBIKE_SERVICE=false`
   - `BOT_ENABLE_DELIVERY_WORKER=false`
 - worker
@@ -163,7 +173,8 @@ Use separate terminals:
 npm run start:bot
 npm run start:worker
 npm run start:watcher
-npm run start:scum-agent
+npm run start:server-bot
+npm run start:agent
 npm run start:web-standalone
 ```
 
@@ -174,14 +185,17 @@ npm run pm2:start:prod
 pm2 status
 ```
 
-For the split Machine A / Machine B layout:
+For the split Machine A / Machine B / Machine C layout:
 
 ```bat
 :: Machine A
 npm run pm2:start:machine-a-control-plane
 
 :: Machine B
-npm run pm2:start:machine-b-game-bot
+npm run pm2:start:machine-b-server-bot
+
+:: Machine C
+npm run pm2:start:machine-c-delivery-agent
 ```
 
 Reload after env changes:
@@ -198,8 +212,11 @@ Health endpoints:
 - worker: `http://127.0.0.1:3211/healthz`
 - watcher: `http://127.0.0.1:3212/healthz`
 - admin web: `http://127.0.0.1:3200/healthz`
+- owner web: `http://127.0.0.1:3201/healthz`
+- tenant web: `http://127.0.0.1:3202/healthz`
 - player portal: `http://127.0.0.1:3300/healthz`
-- console-agent: `http://127.0.0.1:3213/healthz`
+- Delivery Agent / console-agent: `http://127.0.0.1:3213/healthz`
+- Server Bot: `http://127.0.0.1:3214/healthz`
 
 Required validation commands:
 
@@ -213,21 +230,23 @@ npm run readiness:prod
 
 ## What To Show During Handoff
 
-- Admin runtime overview
-- Control panel and raw config boundaries
+- Tenant onboarding checklist and next-step CTA
+- Tenant billing state, locked features, and upgrade path
+- Runtime tables for `Server Bot` and `Delivery Agent`
+- Config editor, restart control, and `Logs & Sync`
 - Security events, active sessions, and step-up protected routes
-- Backup / restore preview flow
-- Player portal login, wallet, purchase history, redeem, and Steam link
+- Player portal login, wallet, shop, order history, donation/supporter view, and public slug pages
 - Evidence links from CI artifacts and docs
 
 ## What Must Be Stated Clearly
 
-- `agent` execution depends on Windows session state and a live SCUM client
-- the recommended way to contain that dependency is the Machine A / Machine B split, not an all-in-one host
-- Admin web does not yet cover every env/config setting
-- Tenant isolation has a PostgreSQL RLS foundation for selected tenant-scoped tables, but it is not database-per-tenant
-- Watcher readiness depends on a real `SCUM.log` path
-- Restore is guarded and should still be treated as a maintenance operation
+- `Delivery Agent` depends on Windows session state and a live SCUM client
+- `Server Bot` depends on real log/config access on the server-side machine
+- the recommended way to contain those dependencies is a split runtime topology, not an all-in-one host
+- admin and tenant surfaces do not yet cover every environment/config setting
+- tenant isolation has a PostgreSQL-first foundation, but rollout proof still matters per environment
+- watcher readiness depends on a real `SCUM.log` path
+- restore is guarded and should still be treated as a maintenance operation
 
 ## Reference Documents
 
