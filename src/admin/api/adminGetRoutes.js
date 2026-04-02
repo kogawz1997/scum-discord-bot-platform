@@ -16,6 +16,9 @@ const {
   createAdminDonationGetRouteHandler,
 } = require('./adminDonationGetRoutes');
 const {
+  createAdminModuleGetRouteHandler,
+} = require('./adminModuleGetRoutes');
+const {
   createAdminDeliveryOpsGetRouteHandler,
 } = require('./adminDeliveryOpsGetRoutes');
 const {
@@ -71,6 +74,7 @@ function createAdminGetRoutes(deps) {
     buildDeliveryLifecycleReport,
     buildDeliveryLifecycleCsv,
     buildTenantDonationOverview,
+    buildTenantModuleOverview,
     getPlatformPublicOverview,
     getPlatformPermissionCatalog,
     getPlanCatalog,
@@ -294,6 +298,15 @@ function createAdminGetRoutes(deps) {
     requiredString,
     asInt,
     buildTenantDonationOverview,
+  });
+  const handleAdminModuleGetRoute = createAdminModuleGetRouteHandler({
+    ensureRole,
+    sendJson,
+    resolveScopedTenantId,
+    getAuthTenantId,
+    requiredString,
+    asInt,
+    buildTenantModuleOverview,
   });
   const handleAdminDeliveryOpsGetRoute = createAdminDeliveryOpsGetRouteHandler({
     ensureRole,
@@ -874,6 +887,10 @@ function createAdminGetRoutes(deps) {
     }
 
     if (await handleAdminDonationGetRoute(context)) {
+      return true;
+    }
+
+    if (await handleAdminModuleGetRoute(context)) {
       return true;
     }
 

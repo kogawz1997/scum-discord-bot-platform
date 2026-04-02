@@ -233,6 +233,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
     buildDeliveryLifecycleReport: 'build-delivery-lifecycle-report-marker',
     buildDeliveryLifecycleCsv: 'build-delivery-lifecycle-csv-marker',
     buildTenantDonationOverview: 'build-tenant-donation-overview-marker',
+    buildTenantModuleOverview: 'build-tenant-module-overview-marker',
     getPlatformPermissionCatalog: 'get-platform-permission-catalog-marker',
     getPlanCatalog: 'get-plan-catalog-marker',
     listPersistedPackageCatalog: 'list-persisted-package-catalog-marker',
@@ -392,6 +393,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
   assert.equal(getRouteDeps.listPlatformServerRegistry, 'list-server-registry-marker');
   assert.equal(getRouteDeps.listPlatformSyncRuns, 'list-control-plane-sync-runs-marker');
   assert.equal(getRouteDeps.buildTenantDonationOverview, 'build-tenant-donation-overview-marker');
+  assert.equal(getRouteDeps.buildTenantModuleOverview, 'build-tenant-module-overview-marker');
   assert.equal(platformPostDeps.createServer, 'create-server-marker');
   assert.equal(platformPostDeps.createServerConfigApplyJob, 'create-server-config-apply-job-marker');
   assert.equal(routeRuntimeDeps.handleAdminPlatformPostRoute, platformMarker);

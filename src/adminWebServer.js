@@ -256,6 +256,9 @@ const {
   buildTenantDonationOverview,
 } = require('./services/tenantDonationOverviewService');
 const {
+  buildTenantModuleOverview,
+} = require('./services/tenantModuleOverviewService');
+const {
   buildSecretRotationReport,
   buildSecretRotationCsv,
 } = require('./utils/secretRotationCheck');
@@ -948,11 +951,12 @@ const {
   buildTenantDiagnosticsBundle,
   buildTenantDiagnosticsCsv,
   buildTenantSupportCaseBundle,
-  buildTenantSupportCaseCsv,
-  buildDeliveryLifecycleReport,
-  buildDeliveryLifecycleCsv,
-  buildTenantDonationOverview,
-  getPlatformPermissionCatalog,
+    buildTenantSupportCaseCsv,
+    buildDeliveryLifecycleReport,
+    buildDeliveryLifecycleCsv,
+    buildTenantDonationOverview,
+    buildTenantModuleOverview,
+    getPlatformPermissionCatalog,
   getPlanCatalog,
   listPersistedPackageCatalog,
   buildTenantActorAccessSummary,
