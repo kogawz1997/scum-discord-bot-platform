@@ -49,6 +49,7 @@ npm run runtime:inventory -- --role server-bot --tenant-id tenant-example --serv
 ## 3. Delivery Agent Machine
 
 - Confirm the SCUM client session stays unlocked and interactive
+- Treat `Delivery Agent` as the operator-facing name; the compatibility runtime key remains `console-agent`
 - Prepare the machine-local env bundle:
 
 ```bat
@@ -65,6 +66,7 @@ npm run runtime:install:delivery-agent -- ^
 
 - Load the generated PowerShell env loader
 - Start `apps/agent/server.js`
+- The process started above loads the current Delivery Agent entrypoint while preserving the existing compatibility runtime key
 - Run the generated env check first:
 
 ```bat

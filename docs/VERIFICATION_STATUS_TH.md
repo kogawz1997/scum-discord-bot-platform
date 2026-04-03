@@ -37,7 +37,7 @@ Closest local equivalent to CI:
 npm run ci:verify
 ```
 
-Additional commands used in the current workstation update on `2026-04-02`:
+Additional commands used in the current workstation update on `2026-04-03`:
 
 ```bash
 node scripts/prisma-with-provider.js --provider postgresql generate
@@ -48,6 +48,8 @@ node output/playwright/deep-role-audit.js
 node output/playwright/player-capture-verify.js
 node scripts/runtime-env-check.js --role server-bot --env-file .runtime/server-bot.env
 node scripts/runtime-env-check.js --role delivery-agent --env-file .runtime/delivery-agent.env
+npm test
+npm run lint:text
 ```
 
 ## Reading Rule
@@ -59,7 +61,7 @@ node scripts/runtime-env-check.js --role delivery-agent --env-file .runtime/deli
 
 ## Current Local Runtime Notes
 
-On this workstation as of `2026-04-02`:
+On this workstation as of `2026-04-03`:
 
 - local PostgreSQL is reachable at `127.0.0.1:55432`
 - PostgreSQL Prisma client generation was rerun successfully through `scripts/prisma-with-provider.js`
@@ -71,7 +73,7 @@ On this workstation as of `2026-04-02`:
   - `scum-bot`
   - `scum-worker`
   - `scum-watcher`
-  - `scum-console-agent`
+  - `scum-console-agent` (`Delivery Agent` runtime key)
   - `scum-server-bot`
   - `scum-web-portal`
 - local admin web is reachable and `POST /admin/api/login` returned `200 OK`
@@ -85,6 +87,31 @@ On this workstation as of `2026-04-02`:
 - `player-capture-verify.js` passed and confirmed the player home/shop/orders workbench shell
 - runtime installer smoke for `install-server-bot.ps1` and `install-delivery-agent.ps1` completed successfully on this workstation
 - `pm2 save` was rerun after the latest runtime recovery and browser-audit pass
+
+## 2026-04-03 Repo-Local Closeout
+
+As of `2026-04-03`, the current workstation branch includes the latest repo-local closeout work and has been pushed to:
+
+- branch: `codex/local-runtime-finish`
+- commit: `d449dd4`
+
+Treat the items below as closed at repo level on this branch:
+
+- core data and identity consistency:
+  - preview identity state now derives from the centralized platform identity summary
+  - linked account summary now reflects email, Discord, Steam, and player-match state more consistently
+- commercial and runtime productization:
+  - billing webhook replay handling is idempotent at the repo layer
+  - product-facing runtime wording now uses `Delivery Agent` while retaining `console-agent` as the compatibility runtime key
+- surface polish:
+  - owner commercial/support views, tenant runtime wording, and player-facing runtime/shop wording were aligned with the current product model
+- security and readiness sweep:
+  - tenant-scope mismatch attempts now emit explicit security signals
+  - repo-local regression sweep completed with `npm test`
+  - repo-local text and encoding checks completed with `npm run lint:text`
+- delivery audit restore hardening:
+  - delivery-audit replace/restore paths now dedupe and upsert safely
+  - snapshot preview/restore counts now use logical unique delivery-audit rows
 
 ## Current Local Caveats
 
