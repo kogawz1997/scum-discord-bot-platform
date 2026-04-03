@@ -453,7 +453,6 @@
     'Customer name': 'ชื่อลูกค้า',
     'Owner name': 'ชื่อผู้ดูแลหลัก',
     'Owner email': 'อีเมลผู้ดูแลหลัก',
-    'Type': 'ประเภท',
     'Locale': 'ภาษา',
     'Parent tenant': 'ลูกค้าต้นทาง',
     'Save customer record': 'บันทึกข้อมูลลูกค้า',

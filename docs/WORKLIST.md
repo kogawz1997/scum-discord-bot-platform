@@ -110,7 +110,7 @@ The repo is no longer in the "nothing left except external evidence" state. The 
 - Main files:
   - [../src/prisma.js](../src/prisma.js)
   - [../src/data/repositories/controlPlaneRegistryRepository.js](../src/data/repositories/controlPlaneRegistryRepository.js)
-  - [../src/store/_persist.js](../src/store/_persist.js)
+  - [../src/store/\_persist.js](../src/store/_persist.js)
   - [../src/services/platformTenantConfigService.js](../src/services/platformTenantConfigService.js)
   - [../src/services/platformServerConfigService.js](../src/services/platformServerConfigService.js)
 

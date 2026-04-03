@@ -222,7 +222,6 @@ async function getVerificationTokenColumnState(db = prisma, env = process.env) {
   const requiredColumns = ['previewAccountId', 'purpose', 'tokenType', 'target'];
   const missingColumns = [];
   for (const columnName of requiredColumns) {
-    // eslint-disable-next-line no-await-in-loop
     const exists = await queryColumnExists(db, runtime, 'platform_verification_tokens', columnName);
     if (!exists) {
       missingColumns.push(columnName);
@@ -267,7 +266,6 @@ async function ensurePlatformVerificationTokenColumns(db = prisma, options = {})
     const sql = alterStatements[columnName];
     if (!sql) continue;
     try {
-      // eslint-disable-next-line no-await-in-loop
       await db.$executeRawUnsafe(sql);
     } catch (error) {
       const message = String(error?.message || '').toLowerCase();

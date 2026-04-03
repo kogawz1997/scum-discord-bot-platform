@@ -387,6 +387,7 @@
 - P0-5
 
 ผลลัพธ์ที่ควรได้:
+
 - data model เริ่มนิ่ง
 - auth/identity ไม่กระจัดกระจาย
 - production posture ชัดขึ้นมาก
@@ -399,6 +400,7 @@
 - P0-4
 
 ผลลัพธ์ที่ควรได้:
+
 - runtime path ใช้งานจริงได้
 - recovery path พิสูจน์ได้
 - topology จริงเริ่มเชื่อถือได้
@@ -412,6 +414,7 @@
 - P1-3
 
 ผลลัพธ์ที่ควรได้:
+
 - พร้อม pilot / managed service rollout
 - commercial foundation เริ่มครบ
 
@@ -423,6 +426,7 @@
 - P3 ทั้งหมด
 
 ผลลัพธ์ที่ควรได้:
+
 - platform ครบตาม product vision
 - เข้าใกล้ commercial-ready service
 

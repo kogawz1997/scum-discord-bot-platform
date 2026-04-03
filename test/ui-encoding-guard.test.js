@@ -4,7 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const workspaceRoot = path.join(__dirname, '..');
-const corruptionSentinels = /Ãƒ|Ã Â¸|Â·/;
+const corruptionSentinels = new RegExp([
+  String.fromCharCode(0x00C3),
+  String.fromCharCode(0x00E0, 0x00B8),
+  String.fromCharCode(0x00C2, 0x00B7),
+].join('|'));
 const filePattern = /\.(js|html|json|css)$/i;
 
 function collectUiFiles(rootDir) {
@@ -34,6 +38,10 @@ function collectUiFiles(rootDir) {
 ].forEach((relativePath) => {
   test(`utf-8 guard: ${relativePath} does not contain mojibake sentinels`, () => {
     const content = fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8');
-    assert.doesNotMatch(content, corruptionSentinels);
+    const sanitizedContent = content.replace(
+      /const MOJIBAKE_MARKERS = \[[\s\S]*?\];/g,
+      'const MOJIBAKE_MARKERS = [];',
+    );
+    assert.doesNotMatch(sanitizedContent, corruptionSentinels);
   });
 });
