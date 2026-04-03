@@ -24,6 +24,7 @@ const { listAdminNotifications } = require('../store/adminNotificationStore');
 const { listAdminRequestLogs } = require('../store/adminRequestLogStore');
 const { getPlatformOpsState } = require('../store/platformOpsStateStore');
 const { getPlatformAutomationState } = require('../store/platformAutomationStateStore');
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -121,7 +122,13 @@ function buildDiagnosticsHeadline(bundle) {
 }
 
 async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
-  const scopedTenantId = trimText(tenantId, 120);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: false,
+    env: options.env || process.env,
+    operation: 'tenant diagnostics bundle',
+  });
+  const scopedTenantId = trimText(scope.tenantId, 120);
   if (!scopedTenantId) {
     return null;
   }

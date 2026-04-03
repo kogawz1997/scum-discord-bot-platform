@@ -1,5 +1,10 @@
 # Project HQ
 
+Language:
+
+- English: `PROJECT_HQ.md`
+- Thai: [PROJECT_HQ_TH.md](./PROJECT_HQ_TH.md)
+
 [![CI](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml)
 [![Release](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml)
 

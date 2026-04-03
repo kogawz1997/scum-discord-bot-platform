@@ -77,6 +77,7 @@ function createPlayerGeneralRoutes(deps) {
     getPlatformTenantById,
     getPlatformTenantConfig,
     getPlatformUserIdentitySummary,
+    issueEmailVerificationToken,
     createRaidRequest,
     listRaidRequests,
     listRaidWindows,
@@ -111,6 +112,10 @@ function createPlayerGeneralRoutes(deps) {
     create: { windowMs: 15 * 60_000, maxAttempts: 3 },
   };
   const supportTicketAttemptsByKey = new Map();
+  const identityRateLimits = {
+    emailVerification: { windowMs: 15 * 60_000, maxAttempts: 3 },
+  };
+  const identityAttemptsByKey = new Map();
 
   function getClientIp(req) {
     const forwarded = String(req?.headers?.['x-forwarded-for'] || '')
@@ -120,8 +125,8 @@ function createPlayerGeneralRoutes(deps) {
     return safeNormalizeText(req?.socket?.remoteAddress) || 'unknown-ip';
   }
 
-  function consumeMagicLinkRateLimit(actionType, req, actor) {
-    const configForAction = magicLinkRateLimits[actionType];
+  function consumeRateLimitBucket(rateLimitPolicies, rateLimitStore, actionType, req, actor) {
+    const configForAction = rateLimitPolicies[actionType];
     const ip = getClientIp(req);
     if (!configForAction) {
       return {
@@ -131,16 +136,16 @@ function createPlayerGeneralRoutes(deps) {
       };
     }
     const now = Date.now();
-    for (const [key, entry] of magicLinkAttemptsByKey.entries()) {
+    for (const [key, entry] of rateLimitStore.entries()) {
       if (!entry || now - entry.firstAt > entry.windowMs) {
-        magicLinkAttemptsByKey.delete(key);
+        rateLimitStore.delete(key);
       }
     }
     const normalizedActor = safeNormalizeText(actor) || 'anonymous';
     const key = `${actionType}::${ip}::${normalizedActor}`;
-    const existing = magicLinkAttemptsByKey.get(key);
+    const existing = rateLimitStore.get(key);
     if (!existing || now - existing.firstAt > configForAction.windowMs) {
-      magicLinkAttemptsByKey.set(key, {
+      rateLimitStore.set(key, {
         firstAt: now,
         count: 1,
         windowMs: configForAction.windowMs,
@@ -158,7 +163,7 @@ function createPlayerGeneralRoutes(deps) {
         ip,
       };
     }
-    magicLinkAttemptsByKey.set(key, {
+    rateLimitStore.set(key, {
       ...existing,
       count: existing.count + 1,
       windowMs: configForAction.windowMs,
@@ -170,54 +175,22 @@ function createPlayerGeneralRoutes(deps) {
     };
   }
 
+  function consumeMagicLinkRateLimit(actionType, req, actor) {
+    return consumeRateLimitBucket(magicLinkRateLimits, magicLinkAttemptsByKey, actionType, req, actor);
+  }
+
   function consumeSupportTicketRateLimit(actionType, req, actor) {
-    const configForAction = supportTicketRateLimits[actionType];
-    const ip = getClientIp(req);
-    if (!configForAction) {
-      return {
-        limited: false,
-        retryAfterMs: 0,
-        ip,
-      };
-    }
-    const now = Date.now();
-    for (const [key, entry] of supportTicketAttemptsByKey.entries()) {
-      if (!entry || now - entry.firstAt > entry.windowMs) {
-        supportTicketAttemptsByKey.delete(key);
-      }
-    }
-    const normalizedActor = safeNormalizeText(actor) || 'anonymous';
-    const key = `${actionType}::${ip}::${normalizedActor}`;
-    const existing = supportTicketAttemptsByKey.get(key);
-    if (!existing || now - existing.firstAt > configForAction.windowMs) {
-      supportTicketAttemptsByKey.set(key, {
-        firstAt: now,
-        count: 1,
-        windowMs: configForAction.windowMs,
-      });
-      return {
-        limited: false,
-        retryAfterMs: 0,
-        ip,
-      };
-    }
-    if (existing.count >= configForAction.maxAttempts) {
-      return {
-        limited: true,
-        retryAfterMs: Math.max(0, configForAction.windowMs - (now - existing.firstAt)),
-        ip,
-      };
-    }
-    supportTicketAttemptsByKey.set(key, {
-      ...existing,
-      count: existing.count + 1,
-      windowMs: configForAction.windowMs,
-    });
-    return {
-      limited: false,
-      retryAfterMs: 0,
-      ip,
-    };
+    return consumeRateLimitBucket(
+      supportTicketRateLimits,
+      supportTicketAttemptsByKey,
+      actionType,
+      req,
+      actor,
+    );
+  }
+
+  function consumeIdentityRateLimit(actionType, req, actor) {
+    return consumeRateLimitBucket(identityRateLimits, identityAttemptsByKey, actionType, req, actor);
   }
 
   async function getFeatureAccess(session) {
@@ -873,6 +846,94 @@ function createPlayerGeneralRoutes(deps) {
       return true;
     }
 
+    if (pathname === '/player/api/profile/email-verification/request' && method === 'POST') {
+      if (!session?.discordId) {
+        sendJson(res, 401, { ok: false, error: 'player-session-required' });
+        return true;
+      }
+      const identity = await readOptionalPlayerData(
+        'player-email-verification-request',
+        () => (
+          typeof getPlatformUserIdentitySummary === 'function'
+            ? getPlatformUserIdentitySummary({
+              userId: session.platformUserId || null,
+              email: session.primaryEmail || null,
+              discordUserId: session.discordId,
+              tenantId: tenantOptions.tenantId || null,
+            })
+            : null
+        ),
+        null,
+      );
+      const email = safeNormalizeText(
+        identity?.identitySummary?.linkedAccounts?.email?.value
+          || identity?.user?.primaryEmail
+          || session.primaryEmail,
+      ).toLowerCase();
+      if (!email) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'player-email-required',
+          data: {
+            message: 'Add a primary email before requesting verification.',
+          },
+        });
+        return true;
+      }
+      if (identity?.identitySummary?.linkedAccounts?.email?.verified === true) {
+        sendJson(res, 200, {
+          ok: true,
+          data: {
+            queued: false,
+            alreadyVerified: true,
+            message: 'Email is already verified.',
+          },
+        });
+        return true;
+      }
+      const rateLimit = consumeIdentityRateLimit('emailVerification', req, email || session.discordId);
+      if (rateLimit.limited) {
+        const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+        sendJson(res, 429, {
+          ok: false,
+          error: `Too many email verification requests. Please wait ${retryAfterSec}s and try again.`,
+        }, {
+          'Retry-After': String(retryAfterSec),
+        });
+        return true;
+      }
+      const result = typeof issueEmailVerificationToken === 'function'
+        ? await issueEmailVerificationToken({
+          email,
+          userId: identity?.user?.id || session.platformUserId || null,
+          metadata: {
+            source: 'player-profile-email-verification',
+            tenantId: tenantOptions.tenantId || null,
+            discordUserId: session.discordId,
+            profileId: identity?.profile?.id || session.platformProfileId || null,
+          },
+        })
+        : { ok: false, reason: 'email-verification-not-configured' };
+      if (!result?.ok) {
+        sendJson(res, 503, {
+          ok: false,
+          error: result?.reason || 'email-verification-request-failed',
+          data: {
+            message: 'Email verification could not be queued right now.',
+          },
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          queued: true,
+          message: 'Email verification was queued for this account.',
+        },
+      });
+      return true;
+    }
+
     if (pathname === '/player/api/logout' && method === 'POST') {
       removeSession(req);
       sendJson(
@@ -1285,6 +1346,7 @@ function createPlayerGeneralRoutes(deps) {
                   status: activeMembership.status || null,
                 }
               : null,
+            nextSteps: [],
           },
         },
       });

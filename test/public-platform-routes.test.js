@@ -412,3 +412,61 @@ test('public platform routes expose tenant-isolated server workspace by slug', a
   assert.equal(missingRes.statusCode, 404);
   assert.equal(missingRes.payload.error, 'tenant-not-found');
 });
+
+test('public platform routes resolve slot-based branding into the public workspace payload', async () => {
+  const route = createPublicPlatformRoutes({
+    sendJson: createSendJson(),
+    readJsonBody: async () => ({}),
+    getPlatformPublicOverview: async () => ({ billing: { packages: [], features: [], plans: [] } }),
+    getPlatformTenantBySlug: async () => ({ id: 'tenant-slot-1', slug: 'slot-prime', name: 'Slot Prime' }),
+    getPlatformTenantConfig: async () => ({
+      portalEnvPatch: {
+        mediaSlots: {
+          logo: { url: 'https://cdn.example.com/shared-logo.png' },
+        },
+        publicMediaSlots: {
+          hero: { url: 'https://cdn.example.com/public-hero.png', alt: 'Public hero' },
+          favicon: { url: '/branding/slot-favicon.png' },
+        },
+      },
+    }),
+    listAllStats: async () => ([]),
+    listShopItems: async () => ([]),
+    filterShopItems: () => ([]),
+    listServerEvents: async () => ([]),
+    buildTenantDonationOverview: async () => ({ summary: {}, topPackages: [], recentPurchases: [], issues: [], readiness: { ready: false } }),
+    listKillFeedEntries: async () => ([]),
+    listServerRegistry: async () => ([]),
+    registerPreviewAccount: async () => ({ ok: false }),
+    authenticatePreviewAccount: async () => ({ ok: false }),
+    getPreviewState: async () => ({ ok: false }),
+    requestEmailVerification: async () => ({ ok: true }),
+    completeEmailVerification: async () => ({ ok: true }),
+    requestPasswordReset: async () => ({ ok: true }),
+    completePasswordReset: async () => ({ ok: true }),
+    createCheckoutSession: async () => ({ ok: false }),
+    getCheckoutSessionByToken: async () => null,
+    finalizeCheckoutSession: async () => ({ ok: false }),
+    processBillingWebhookEvent: async () => ({ ok: true }),
+    createPreviewSession: () => 'preview-session-1',
+    getPreviewSession: () => null,
+    buildPreviewSessionCookie: () => 'preview_cookie=session; Path=/; HttpOnly',
+    buildClearPreviewSessionCookie: () => 'preview_cookie=; Path=/; Max-Age=0',
+    removePreviewSession: () => {},
+  });
+
+  const workspaceRes = createResponse();
+  const handledWorkspace = await route({
+    req: {},
+    res: workspaceRes,
+    pathname: '/api/public/server/slot-prime/workspace',
+    method: 'GET',
+  });
+
+  assert.equal(handledWorkspace, true);
+  assert.equal(workspaceRes.statusCode, 200);
+  assert.equal(workspaceRes.payload.data.brand.logoUrl, 'https://cdn.example.com/shared-logo.png');
+  assert.equal(workspaceRes.payload.data.brand.bannerUrl, 'https://cdn.example.com/public-hero.png');
+  assert.equal(workspaceRes.payload.data.brand.faviconUrl, '/branding/slot-favicon.png');
+  assert.equal(workspaceRes.payload.data.brand.mediaSlots.hero.url, 'https://cdn.example.com/public-hero.png');
+});

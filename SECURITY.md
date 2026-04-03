@@ -1,5 +1,10 @@
 # Security Policy
 
+Language:
+
+- English: `SECURITY.md`
+- Thai: [SECURITY_TH.md](./SECURITY_TH.md)
+
 ## Reporting
 
 For security issues, do not open a public issue with secrets, tokens, database URLs, or exploit details.

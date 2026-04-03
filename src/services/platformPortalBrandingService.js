@@ -44,6 +44,46 @@ function normalizeColorToken(value) {
   return /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(text) ? text : null;
 }
 
+function normalizeMediaSlotKey(value) {
+  const text = trimText(value, 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return text || null;
+}
+
+function normalizeMediaSlotEntry(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const url = normalizePortalAssetUrl(value);
+    return url ? { url, alt: null, title: null } : null;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const url = normalizePortalAssetUrl(
+    value.url || value.src || value.imageUrl || value.assetUrl,
+  );
+  if (!url) return null;
+  return {
+    url,
+    alt: trimText(value.alt || value.label, 160) || null,
+    title: trimText(value.title, 160) || null,
+  };
+}
+
+function normalizeMediaSlotCollection(value) {
+  const slots = value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : null;
+  if (!slots) return {};
+  return Object.entries(slots).reduce((accumulator, [rawKey, rawValue]) => {
+    const key = normalizeMediaSlotKey(rawKey);
+    const entry = normalizeMediaSlotEntry(rawValue);
+    if (!key || !entry) return accumulator;
+    accumulator[key] = entry;
+    return accumulator;
+  }, {});
+}
+
 function normalizePublishedBranding(raw) {
   const published = raw && typeof raw === 'object' && !Array.isArray(raw)
     ? raw
@@ -139,6 +179,26 @@ function buildTenantPortalBranding(options = {}) {
     surface === 'player' ? portalEnvPatch.publicTheme : portalEnvPatch.playerTheme,
     'scum-dark',
   ], 80, 'scum-dark');
+  const oppositeSurface = surface === 'player' ? 'public' : 'player';
+  const mediaSlots = {
+    ...normalizeMediaSlotCollection(portalEnvPatch[`${oppositeSurface}MediaSlots`]),
+    ...normalizeMediaSlotCollection(portalEnvPatch.mediaSlots),
+    ...normalizeMediaSlotCollection(portalEnvPatch[`${surface}MediaSlots`]),
+  };
+  const logoSlotUrl = pickFirstText([
+    mediaSlots.logo?.url,
+    mediaSlots.mark?.url,
+  ], 800, '');
+  const bannerSlotUrl = pickFirstText([
+    mediaSlots.banner?.url,
+    mediaSlots.hero?.url,
+    mediaSlots.header?.url,
+  ], 800, '');
+  const faviconUrl = normalizePortalAssetUrl(
+    portalEnvPatch.faviconUrl
+    || mediaSlots.favicon?.url
+    || '',
+  );
   const siteName = pickFirstText([
     surface === 'player' ? portalEnvPatch.playerSiteName : '',
     surface === 'public' ? portalEnvPatch.publicSiteName : '',
@@ -153,13 +213,13 @@ function buildTenantPortalBranding(options = {}) {
   ], 280, fallbackSiteDetail);
   const logoUrl = normalizePortalAssetUrl(
     surface === 'player'
-      ? portalEnvPatch.playerLogoUrl || portalEnvPatch.logoUrl || portalEnvPatch.publicLogoUrl
-      : portalEnvPatch.publicLogoUrl || portalEnvPatch.logoUrl || portalEnvPatch.playerLogoUrl,
+      ? portalEnvPatch.playerLogoUrl || portalEnvPatch.logoUrl || portalEnvPatch.publicLogoUrl || logoSlotUrl
+      : portalEnvPatch.publicLogoUrl || portalEnvPatch.logoUrl || portalEnvPatch.playerLogoUrl || logoSlotUrl,
   );
   const bannerUrl = normalizePortalAssetUrl(
     surface === 'player'
-      ? portalEnvPatch.playerBannerUrl || portalEnvPatch.bannerUrl || portalEnvPatch.publicBannerUrl
-      : portalEnvPatch.publicBannerUrl || portalEnvPatch.bannerUrl || portalEnvPatch.playerBannerUrl,
+      ? portalEnvPatch.playerBannerUrl || portalEnvPatch.bannerUrl || portalEnvPatch.publicBannerUrl || bannerSlotUrl
+      : portalEnvPatch.publicBannerUrl || portalEnvPatch.bannerUrl || portalEnvPatch.playerBannerUrl || bannerSlotUrl,
   );
   const primaryColor = normalizeColorToken(
     surface === 'player'
@@ -179,8 +239,10 @@ function buildTenantPortalBranding(options = {}) {
     theme,
     logoUrl,
     bannerUrl,
+    faviconUrl,
     primaryColor,
     accentColor,
+    mediaSlots,
   };
   return {
     ...brand,

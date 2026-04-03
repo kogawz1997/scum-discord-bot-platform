@@ -664,6 +664,205 @@
     return feed.slice(0, 6);
   }
 
+  function pickLatestRow(rows, timestampFields) {
+    const list = Array.isArray(rows) ? rows.filter((row) => row && typeof row === 'object') : [];
+    if (list.length === 0) return null;
+    const fields = Array.isArray(timestampFields) && timestampFields.length > 0
+      ? timestampFields
+      : ['updatedAt', 'completedAt', 'finishedAt', 'occurredAt', 'createdAt', 'requestedAt', 'claimedAt', 'startedAt'];
+    return list
+      .slice()
+      .sort((left, right) => {
+        const leftValue = firstNonEmpty(fields.map((field) => left?.[field]), '');
+        const rightValue = firstNonEmpty(fields.map((field) => right?.[field]), '');
+        const leftTime = parseDate(leftValue)?.getTime() || 0;
+        const rightTime = parseDate(rightValue)?.getTime() || 0;
+        return rightTime - leftTime;
+      })[0] || null;
+  }
+
+  function isJobFailureStatus(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['failed', 'error', 'offline', 'revoked', 'dead-letter', 'dead_letter', 'deadletter'].includes(normalized);
+  }
+
+  function summarizeJobWatchCandidate(raw, options = {}) {
+    if (!raw || typeof raw !== 'object') return null;
+    const status = firstNonEmpty([
+      options.status,
+      raw?.status,
+      raw?.resultStatus,
+      raw?.healthStatus,
+      raw?.severity,
+      raw?.state,
+      '',
+    ], 'unknown');
+    const at = firstNonEmpty([
+      raw?.updatedAt,
+      raw?.completedAt,
+      raw?.finishedAt,
+      raw?.occurredAt,
+      raw?.createdAt,
+      raw?.requestedAt,
+      raw?.claimedAt,
+      raw?.startedAt,
+      '',
+    ], '');
+    const metaPrefix = options.metaLabel ? `${options.metaLabel} · ` : '';
+    return {
+      title: firstNonEmpty([
+        options.title,
+        raw?.displayName,
+        raw?.jobType,
+        raw?.kind,
+        raw?.eventType,
+        raw?.purchaseCode,
+        raw?.code,
+        'Workflow signal',
+      ]),
+      detail: firstNonEmpty([
+        extractReadableText(raw?.error, ''),
+        extractReadableText(raw?.detail, ''),
+        extractReadableText(raw?.message, ''),
+        extractReadableText(raw?.summary, ''),
+        extractReadableText(raw?.reason, ''),
+        extractReadableText(raw?.meta, ''),
+        raw?.jobType ? `${raw.jobType} is ${status}` : '',
+        'No extra detail yet',
+      ], 'No extra detail yet'),
+      tone: options.tone || toneForStatus(status),
+      status,
+      href: options.href || '#logs-sync',
+      actionLabel: options.actionLabel || 'Open logs & sync',
+      timestamp: at,
+      meta: at
+        ? `${metaPrefix}${formatDateTime(at)}`
+        : `${metaPrefix}${firstNonEmpty([options.fallbackMeta], 'No timestamp yet')}`,
+    };
+  }
+
+  function buildJobWatch(legacyState, lastSyncAt) {
+    const currentJob = summarizeJobWatchCandidate(
+      legacyState?.serverConfigWorkspace?.currentJob,
+      {
+        title: 'Current job',
+        href: '#logs-sync',
+        actionLabel: 'Open logs & sync',
+        metaLabel: 'In progress',
+      },
+    );
+    const latestDeadLetter = summarizeJobWatchCandidate(
+      pickLatestRow(legacyState?.deadLetters, ['updatedAt', 'createdAt']),
+      {
+        title: 'Latest failed delivery job',
+        tone: 'danger',
+        href: '#orders',
+        actionLabel: 'Open orders',
+        metaLabel: 'Delivery',
+        status: 'failed',
+      },
+    );
+    const latestRestartFailure = summarizeJobWatchCandidate(
+      pickLatestRow(
+        (Array.isArray(legacyState?.restartExecutions) ? legacyState.restartExecutions : [])
+          .filter((row) => isJobFailureStatus(row?.resultStatus || row?.status)),
+        ['finishedAt', 'updatedAt', 'createdAt'],
+      ),
+      {
+        title: 'Latest failed restart',
+        tone: 'danger',
+        href: '#restart-control',
+        actionLabel: 'Open restart control',
+        metaLabel: 'Restart',
+      },
+    );
+    const latestSyncFailure = summarizeJobWatchCandidate(
+      pickLatestRow(
+        (Array.isArray(legacyState?.syncRuns) ? legacyState.syncRuns : [])
+          .filter((row) => isJobFailureStatus(row?.status || row?.resultStatus || row?.healthStatus)),
+        ['finishedAt', 'updatedAt', 'startedAt', 'createdAt'],
+      ),
+      {
+        title: 'Latest failed sync',
+        tone: 'warning',
+        href: '#logs-sync',
+        actionLabel: 'Open logs & sync',
+        metaLabel: 'Sync',
+      },
+    );
+    const latestFailure = [latestDeadLetter, latestRestartFailure, latestSyncFailure]
+      .filter(Boolean)
+      .sort((left, right) => {
+        const leftTime = parseDate(left?.timestamp)?.getTime() || 0;
+        const rightTime = parseDate(right?.timestamp)?.getTime() || 0;
+        return rightTime - leftTime;
+      })[0] || null;
+    const queueDepth = listCount(legacyState?.queueItems);
+    const deadLetterCount = listCount(legacyState?.deadLetters);
+    const latestSyncRun = pickLatestRow(legacyState?.syncRuns, ['finishedAt', 'startedAt', 'createdAt']);
+    const queueTone = deadLetterCount > 0 ? 'danger' : queueDepth > 0 ? 'warning' : 'success';
+    const queueRow = {
+      title: 'Queue backlog',
+      detail: deadLetterCount > 0
+        ? `${formatNumber(queueDepth, '0')} queued workflows and ${formatNumber(deadLetterCount, '0')} failed jobs still need operator follow-up.`
+        : queueDepth > 0
+          ? `${formatNumber(queueDepth, '0')} queued workflows are still waiting for delivery or server processing.`
+          : 'No queued or failed workflow is waiting for follow-up right now.',
+      meta: deadLetterCount > 0
+        ? 'Open orders first, then inspect logs & sync if the runtime looks unhealthy.'
+        : queueDepth > 0
+          ? 'Open orders to inspect what is waiting next.'
+          : 'Queue is clear',
+      tone: queueTone,
+    };
+    const syncRow = {
+      title: 'Sync pulse',
+      detail: latestSyncRun
+        ? firstNonEmpty([
+          extractReadableText(latestSyncRun?.detail, ''),
+          extractReadableText(latestSyncRun?.summary, ''),
+          extractReadableText(latestSyncRun?.message, ''),
+          extractReadableText(latestSyncRun?.runtimeKey, ''),
+          'Latest sync run is available in Logs & Sync.',
+        ], 'Latest sync run is available in Logs & Sync.')
+        : 'No sync run has reported back yet. Open Logs & Sync to inspect the next handshake.',
+      meta: lastSyncAt
+        ? `Last sync ${formatRelative(lastSyncAt)} · ${formatDateTime(lastSyncAt)}`
+        : 'No sync timestamp yet',
+      tone: latestSyncRun ? toneForStatus(latestSyncRun?.status || latestSyncRun?.resultStatus || latestSyncRun?.healthStatus) : 'muted',
+    };
+    const rows = [
+      currentJob,
+      latestFailure,
+      queueRow,
+      syncRow,
+    ].filter(Boolean);
+    const primaryAction = latestFailure
+      ? { label: latestFailure.actionLabel, href: latestFailure.href }
+      : currentJob
+        ? { label: currentJob.actionLabel, href: currentJob.href }
+        : queueDepth > 0
+          ? { label: 'Open orders', href: '#orders' }
+          : { label: 'Open server status', href: '#server-status' };
+
+    return {
+      title: 'Current and failed jobs',
+      detail: 'See the active workflow, the latest failure, and where operators should open next without leaving the dashboard first.',
+      badges: [
+        { label: currentJob ? `active ${firstNonEmpty([currentJob.status], 'job')}` : 'no active job', tone: currentJob ? currentJob.tone : 'muted' },
+        { label: deadLetterCount > 0 ? `${formatNumber(deadLetterCount, '0')} failed jobs` : 'no failed jobs', tone: deadLetterCount > 0 ? 'danger' : 'success' },
+        { label: queueDepth > 0 ? `${formatNumber(queueDepth, '0')} queued workflows` : 'queue clear', tone: queueDepth > 0 ? 'warning' : 'success' },
+      ],
+      primaryAction,
+      secondaryActions: [
+        { label: 'Open logs & sync', href: '#logs-sync' },
+        { label: 'Open restart control', href: '#restart-control' },
+        { label: 'Open orders', href: '#orders' },
+      ],
+      rows,
+    };
+  }
+
   function buildSetupFlow(legacyState, serverStatus, executeStatus, syncStatus, issues) {
     const hasSyncRuntime = hasAgentRecord(
       legacyState?.agents,
@@ -1038,6 +1237,7 @@
       setupFlow,
       quickActions,
       taskGroups: DEFAULT_TASK_GROUPS,
+      jobWatch: buildJobWatch(state, lastSyncAt),
       issues,
       contextBlocks: buildContextBlocks(state),
       highlights: buildHighlights(state),
@@ -1223,6 +1423,35 @@
     ].join('');
   }
 
+  function renderJobWatchPanel(panel) {
+    if (!panel) return '';
+    return [
+      '<section class="tdv4-panel">',
+      '<div class="tdv4-panel-head">',
+      '<div class="tdv4-stack">',
+      '<span class="tdv4-section-kicker">Job watch</span>',
+      `<h2 class="tdv4-section-title">${escapeHtml(panel.title || '')}</h2>`,
+      `<p class="tdv4-section-copy">${escapeHtml(panel.detail || '')}</p>`,
+      '<div class="tdv4-chip-row">',
+      ...(Array.isArray(panel.badges) ? panel.badges.map((chip) => renderBadge(chip.label, chip.tone)) : []),
+      '</div>',
+      '</div>',
+      '<div class="tdv4-action-list">',
+      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(panel.primaryAction?.href || '#')}">${escapeHtml(panel.primaryAction?.label || 'Open workflow')}</a>`,
+      ...(Array.isArray(panel.secondaryActions)
+        ? panel.secondaryActions.map((action) => `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || '')}</a>`)
+        : []),
+      '</div>',
+      '</div>',
+      '<div class="tdv4-list">',
+      Array.isArray(panel.rows) && panel.rows.length > 0
+        ? panel.rows.map(renderActivity).join('')
+        : '<div class="tdv4-empty-state"><strong>No workflow signal yet</strong><p>Open Logs & Sync or Orders to inspect the next operator action.</p><a class="tdv4-button tdv4-button-secondary" href="#logs-sync">Open logs & sync</a></div>',
+      '</div>',
+      '</section>',
+    ].join('');
+  }
+
   function buildTenantDashboardV4Html(model) {
     const safeModel = model || createTenantDashboardV4Model({});
     return [
@@ -1296,6 +1525,7 @@
       '</section>',
       '</section>',
       renderDecisionPanel(safeModel.decisionPanel),
+      renderJobWatchPanel(safeModel.jobWatch),
       safeModel.setupFlow && !safeModel.setupReady
         ? [
           '<section class="tdv4-panel tdv4-setup-flow-panel">',

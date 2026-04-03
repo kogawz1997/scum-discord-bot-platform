@@ -98,3 +98,61 @@ test('platform portal branding service prefers published branding over the draft
   assert.equal(branding.publishedVersion, 4);
   assert.equal(branding.publishedBy, 'tenant-web:owner-1');
 });
+
+test('platform portal branding service resolves slot-based media safely for each surface', () => {
+  const branding = buildTenantPortalBranding({
+    surface: 'public',
+    tenant: {
+      id: 'tenant-2',
+      slug: 'slot-hub',
+      name: 'Slot Hub',
+    },
+    tenantConfig: {
+      portalEnvPatch: {
+        mediaSlots: {
+          logo: { url: 'https://cdn.example.com/shared-logo.png', alt: 'Shared logo' },
+          hero: { url: 'https://cdn.example.com/shared-hero.png', alt: 'Shared hero' },
+        },
+        publicMediaSlots: {
+          hero: { url: 'https://cdn.example.com/public-hero.png', alt: 'Public hero' },
+          favicon: { url: '/branding/favicon.png' },
+        },
+        playerMediaSlots: {
+          hero: { url: 'https://cdn.example.com/player-hero.png', alt: 'Player hero' },
+        },
+      },
+    },
+  });
+
+  assert.equal(branding.logoUrl, 'https://cdn.example.com/shared-logo.png');
+  assert.equal(branding.bannerUrl, 'https://cdn.example.com/public-hero.png');
+  assert.equal(branding.faviconUrl, '/branding/favicon.png');
+  assert.equal(branding.mediaSlots.logo.url, 'https://cdn.example.com/shared-logo.png');
+  assert.equal(branding.mediaSlots.hero.url, 'https://cdn.example.com/public-hero.png');
+  assert.equal(branding.mediaSlots.hero.alt, 'Public hero');
+});
+
+test('platform portal branding service drops unsafe slot media values', () => {
+  const branding = buildTenantPortalBranding({
+    surface: 'player',
+    tenant: {
+      slug: 'unsafe-slot-community',
+      name: 'Unsafe Slot Community',
+    },
+    tenantConfig: {
+      portalEnvPatch: {
+        mediaSlots: {
+          hero: { url: 'javascript:alert(1)' },
+          logo: { url: 'ftp://example.com/logo.png' },
+          safe: { url: 'https://cdn.example.com/safe.png', alt: 'Safe media' },
+        },
+      },
+    },
+  });
+
+  assert.equal(branding.bannerUrl, null);
+  assert.equal(branding.logoUrl, null);
+  assert.equal(branding.mediaSlots.hero, undefined);
+  assert.equal(branding.mediaSlots.logo, undefined);
+  assert.equal(branding.mediaSlots.safe.url, 'https://cdn.example.com/safe.png');
+});

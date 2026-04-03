@@ -212,3 +212,146 @@ test('player me route exposes tenant branding for the player portal shell', asyn
   assert.equal(res.payload.data.branding.bannerUrl, '/branding/prime-banner.jpg');
   assert.equal(res.payload.data.branding.themeTokens.primary, '#3366ff');
 });
+
+test('player email verification request queues a verification token for an unverified linked email', async () => {
+  const issued = [];
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    normalizeText(value) {
+      return String(value || '').trim();
+    },
+    getPlatformUserIdentitySummary: async () => ({
+      ok: true,
+      user: {
+        id: 'platform-user-1',
+        primaryEmail: 'mira@example.com',
+      },
+      profile: {
+        id: 'platform-profile-1',
+        steamId: '76561199012345678',
+        inGameName: 'MiraTH',
+      },
+      identitySummary: {
+        verificationState: 'partially_verified',
+        linkedAccounts: {
+          email: { linked: true, verified: false, value: 'mira@example.com' },
+          discord: { linked: true, verified: true, value: '123456789012345678' },
+          steam: { linked: true, verified: true, value: '76561199012345678' },
+          inGame: { linked: true, verified: true, value: 'MiraTH' },
+        },
+        nextSteps: [
+          {
+            key: 'verify-email',
+            title: 'Verify email',
+            detail: 'Confirm your email before asking staff to review account issues.',
+            blocking: true,
+          },
+        ],
+      },
+    }),
+    issueEmailVerificationToken: async (payload) => {
+      issued.push(payload);
+      return { ok: true };
+    },
+  });
+
+  const res = createResponse();
+  const handled = await route({
+    req: {
+      headers: {
+        'x-forwarded-for': '203.0.113.10',
+      },
+    },
+    res,
+    urlObj: createUrl('/player/api/profile/email-verification/request'),
+    pathname: '/player/api/profile/email-verification/request',
+    method: 'POST',
+    session: {
+      discordId: '123456789012345678',
+      user: 'MiraTH',
+      role: 'player',
+      primaryEmail: 'mira@example.com',
+      platformUserId: 'platform-user-1',
+      platformProfileId: 'platform-profile-1',
+      tenantId: 'tenant-prod-001',
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.ok, true);
+  assert.equal(res.payload.data.queued, true);
+  assert.equal(issued.length, 1);
+  assert.deepEqual(issued[0], {
+    email: 'mira@example.com',
+    userId: 'platform-user-1',
+    metadata: {
+      source: 'player-profile-email-verification',
+      tenantId: 'tenant-prod-001',
+      discordUserId: '123456789012345678',
+      profileId: 'platform-profile-1',
+    },
+  });
+});
+
+test('player email verification request enforces the profile rate limit', async () => {
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    normalizeText(value) {
+      return String(value || '').trim();
+    },
+    getPlatformUserIdentitySummary: async () => ({
+      ok: true,
+      user: {
+        id: 'platform-user-1',
+        primaryEmail: 'mira@example.com',
+      },
+      profile: {
+        id: 'platform-profile-1',
+      },
+      identitySummary: {
+        linkedAccounts: {
+          email: { linked: true, verified: false, value: 'mira@example.com' },
+        },
+      },
+    }),
+    issueEmailVerificationToken: async () => ({ ok: true }),
+  });
+
+  const attempt = async () => {
+    const res = createResponse();
+    await route({
+      req: {
+        headers: {
+          'x-forwarded-for': '203.0.113.11',
+        },
+      },
+      res,
+      urlObj: createUrl('/player/api/profile/email-verification/request'),
+      pathname: '/player/api/profile/email-verification/request',
+      method: 'POST',
+      session: {
+        discordId: '123456789012345678',
+        user: 'MiraTH',
+        role: 'player',
+        primaryEmail: 'mira@example.com',
+        platformUserId: 'platform-user-1',
+        platformProfileId: 'platform-profile-1',
+        tenantId: 'tenant-prod-001',
+      },
+    });
+    return res;
+  };
+
+  const first = await attempt();
+  const second = await attempt();
+  const third = await attempt();
+  const fourth = await attempt();
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(third.statusCode, 200);
+  assert.equal(fourth.statusCode, 429);
+  assert.equal(fourth.headers['Retry-After'], '900');
+  assert.match(fourth.payload.error, /too many email verification requests/i);
+});

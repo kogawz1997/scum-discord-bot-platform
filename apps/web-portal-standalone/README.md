@@ -1,4 +1,9 @@
-# Standalone SCUM Player Portal
+﻿# Standalone SCUM Player Portal
+
+Language:
+
+- English: `README.md`
+- Thai: [README_TH.md](./README_TH.md)
 
 This app runs the player-facing portal as its own process and keeps the player path separate from the admin control plane.
 
@@ -108,3 +113,4 @@ See also:
 - [../../README.md](../../README.md)
 - [../../docs/OPERATOR_QUICKSTART.md](../../docs/OPERATOR_QUICKSTART.md)
 - [../../docs/PRODUCT_READY_GAP_MATRIX.md](../../docs/PRODUCT_READY_GAP_MATRIX.md)
+

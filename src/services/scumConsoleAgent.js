@@ -35,6 +35,20 @@ function parseJsonArray(value) {
   }
 }
 
+function normalizeBoundaryMode(value, fallback = 'strict-separated') {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return fallback;
+  if ([
+    'legacy',
+    'legacy-embedded-server-control',
+    'embedded-server-control',
+    'allow-embedded-server-control',
+  ].includes(text)) {
+    return 'legacy-embedded-server-control';
+  }
+  return 'strict-separated';
+}
+
 function createAgentError(code, message, meta = null) {
   const error = new Error(message);
   error.agentCode = String(code || 'AGENT_ERROR');
@@ -93,7 +107,7 @@ function classifyAgentIssue(codeInput, messageInput, meta = null, options = {}) 
   };
 
   if (
-    /AGENT_TOKEN_MISSING|AGENT_EXEC_TEMPLATE_MISSING|AGENT_BACKEND_UNSUPPORTED|AGENT_SERVER_START_FAILED|AGENT_MANAGED_SERVER_CONTROL_DISABLED/.test(
+    /AGENT_TOKEN_MISSING|AGENT_EXEC_TEMPLATE_MISSING|AGENT_BACKEND_UNSUPPORTED|AGENT_SERVER_START_FAILED|AGENT_MANAGED_SERVER_CONTROL_DISABLED|AGENT_BOUNDARY_EXCEPTION_REQUIRED/.test(
       code,
     )
     || detailText.includes('server_exe is required')
@@ -276,6 +290,10 @@ function getAgentSettings(env = process.env) {
     env.SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL,
     false,
   );
+  const boundaryMode = normalizeBoundaryMode(
+    env.SCUM_CONSOLE_AGENT_BOUNDARY_MODE,
+    'strict-separated',
+  );
   const processResponseWaitMs = Math.max(
     50,
     Math.trunc(asNumber(env.SCUM_CONSOLE_AGENT_PROCESS_RESPONSE_WAIT_MS, 200)),
@@ -295,6 +313,8 @@ function getAgentSettings(env = process.env) {
     serverWorkdir,
     autoStartServer,
     allowManagedServerControl,
+    boundaryMode,
+    boundaryExceptionApproved: boundaryMode === 'legacy-embedded-server-control',
     processResponseWaitMs,
   };
 }
@@ -425,18 +445,34 @@ function startScumConsoleAgent(options = {}) {
 
   function assertManagedServerControlEnabled() {
     if (settings.backend !== 'process') return true;
-    if (settings.allowManagedServerControl) return true;
+    if (!settings.allowManagedServerControl) {
+      throw createAgentError(
+        'AGENT_MANAGED_SERVER_CONTROL_DISABLED',
+        'Managed server control is disabled for this console agent',
+        {
+          requiredEnv: 'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+        },
+      );
+    }
+    if (settings.boundaryExceptionApproved) return true;
     throw createAgentError(
-      'AGENT_MANAGED_SERVER_CONTROL_DISABLED',
-      'Managed server control is disabled for this console agent',
+      'AGENT_BOUNDARY_EXCEPTION_REQUIRED',
+      'Managed server control requires an explicit runtime boundary exception',
       {
-        requiredEnv: 'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+        requiredEnv: [
+          'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+          'SCUM_CONSOLE_AGENT_BOUNDARY_MODE=legacy-embedded-server-control',
+        ],
+        boundaryMode: settings.boundaryMode,
       },
     );
   }
 
   function getManagedRestartEnabled() {
-    return settings.backend === 'process' && settings.autoStartServer && settings.allowManagedServerControl;
+    return settings.backend === 'process'
+      && settings.autoStartServer
+      && settings.allowManagedServerControl
+      && settings.boundaryExceptionApproved;
   }
 
   function pruneManagedRestartAttempts(now = Date.now()) {
@@ -482,6 +518,23 @@ function startScumConsoleAgent(options = {}) {
         message: 'Managed server control is disabled for this console agent',
         meta: {
           requiredEnv: 'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+        },
+      };
+    }
+    if (
+      settings.backend === 'process'
+      && settings.allowManagedServerControl
+      && !settings.boundaryExceptionApproved
+    ) {
+      return {
+        code: 'AGENT_BOUNDARY_EXCEPTION_REQUIRED',
+        message: 'Managed server control requires an explicit runtime boundary exception',
+        meta: {
+          requiredEnv: [
+            'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+            'SCUM_CONSOLE_AGENT_BOUNDARY_MODE=legacy-embedded-server-control',
+          ],
+          boundaryMode: settings.boundaryMode,
         },
       };
     }
@@ -561,6 +614,18 @@ function startScumConsoleAgent(options = {}) {
         message: 'Process backend requires SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
       };
     }
+    if (
+      settings.backend === 'process'
+      && settings.allowManagedServerControl
+      && !settings.boundaryExceptionApproved
+    ) {
+      return {
+        status: 'error',
+        ready: false,
+        code: 'AGENT_BOUNDARY_EXCEPTION_REQUIRED',
+        message: 'Process backend requires SCUM_CONSOLE_AGENT_BOUNDARY_MODE=legacy-embedded-server-control',
+      };
+    }
     if (settings.backend === 'process' && settings.autoStartServer && !managedChild) {
       const issue = getCurrentAgentIssue();
       return {
@@ -600,9 +665,11 @@ function startScumConsoleAgent(options = {}) {
     };
   }
 
-    function getManagedServerState() {
+  function getManagedServerState() {
       return {
-        controlEnabled: settings.allowManagedServerControl,
+        controlEnabled: settings.allowManagedServerControl && settings.boundaryExceptionApproved,
+        boundaryMode: settings.boundaryMode,
+        boundaryExceptionApproved: settings.boundaryExceptionApproved,
         running: Boolean(managedChild && !managedChild.killed),
         pid: managedChild?.pid || null,
         exit: managedChildExit,
@@ -961,7 +1028,7 @@ function startScumConsoleAgent(options = {}) {
     return true;
   }
 
-  if (settings.backend === 'process' && settings.autoStartServer && settings.allowManagedServerControl) {
+  if (settings.backend === 'process' && settings.autoStartServer && settings.allowManagedServerControl && settings.boundaryExceptionApproved) {
     void ensureManagedServerStarted().catch((error) => {
       lastError = error.message;
       lastErrorCode = String(error.agentCode || error.code || 'AGENT_SERVER_START_FAILED');
@@ -1191,9 +1258,18 @@ function startScumConsoleAgent(options = {}) {
       console.log(`[${name}] listening at http://${settings.host}:${settings.port}`);
       console.log(`[${name}] backend=${settings.backend}`);
       void platformPresence.start({
+        meta: {
+          runtimeKind: 'delivery-agents',
+          managedServerControlEnabled: settings.allowManagedServerControl,
+          boundaryMode: settings.boundaryMode,
+          boundaryExceptionApproved: settings.boundaryExceptionApproved,
+        },
         getDiagnostics: () => ({
           backend: settings.backend,
           baseUrl: settings.baseUrl,
+          managedServerControlEnabled: settings.allowManagedServerControl,
+          boundaryMode: settings.boundaryMode,
+          boundaryExceptionApproved: settings.boundaryExceptionApproved,
         }),
       }).catch(() => null);
       resolve();

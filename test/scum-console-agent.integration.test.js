@@ -73,6 +73,7 @@ test('scum console agent: process backend autostarts child and writes command to
       SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-123456',
       SCUM_CONSOLE_AGENT_BACKEND: 'process',
       SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL: 'true',
+      SCUM_CONSOLE_AGENT_BOUNDARY_MODE: 'legacy-embedded-server-control',
       SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
       SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
@@ -241,6 +242,7 @@ test('scum console agent: process backend schedules restart after unexpected chi
       SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-restart',
       SCUM_CONSOLE_AGENT_BACKEND: 'process',
       SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL: 'true',
+      SCUM_CONSOLE_AGENT_BOUNDARY_MODE: 'legacy-embedded-server-control',
       SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
       SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
@@ -299,13 +301,14 @@ test('scum console agent: process backend schedules restart after unexpected chi
   }
 });
 
-test('scum console agent: process backend stays disabled until managed server control is explicitly allowed', async () => {
+test('scum console agent: process backend stays disabled until managed server control and boundary exception are explicitly allowed', async () => {
   const runtime = startScumConsoleAgent({
     env: {
       SCUM_CONSOLE_AGENT_HOST: '127.0.0.1',
       SCUM_CONSOLE_AGENT_PORT: '3318',
       SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-disabled',
       SCUM_CONSOLE_AGENT_BACKEND: 'process',
+      SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL: 'true',
       SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
       SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
@@ -324,8 +327,10 @@ test('scum console agent: process backend stays disabled until managed server co
     });
     assert.equal(health.res.status, 200);
     assert.equal(health.payload.ready, false);
-    assert.equal(health.payload.statusCode, 'AGENT_MANAGED_SERVER_CONTROL_DISABLED');
+    assert.equal(health.payload.statusCode, 'AGENT_BOUNDARY_EXCEPTION_REQUIRED');
     assert.equal(health.payload.managedServer?.controlEnabled, false);
+    assert.equal(health.payload.managedServer?.boundaryMode, 'strict-separated');
+    assert.equal(health.payload.managedServer?.boundaryExceptionApproved, false);
 
     const preflight = await fetchJson('http://127.0.0.1:3318/preflight', {
       headers: {
@@ -334,7 +339,7 @@ test('scum console agent: process backend stays disabled until managed server co
     });
     assert.equal(preflight.res.status, 500);
     assert.equal(preflight.payload.ok, false);
-    assert.equal(preflight.payload.errorCode, 'AGENT_MANAGED_SERVER_CONTROL_DISABLED');
+    assert.equal(preflight.payload.errorCode, 'AGENT_BOUNDARY_EXCEPTION_REQUIRED');
   } finally {
     await runtime.close();
   }

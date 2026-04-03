@@ -1083,6 +1083,7 @@
         tenantBillingOverview,
         tenantBillingInvoices,
         tenantBillingPaymentAttempts,
+        tenantSupportCase,
       ] = await Promise.all([
         api(
           `/admin/api/platform/billing/overview?tenantId=${encodeURIComponent(scopedTenantId)}`,
@@ -1096,6 +1097,10 @@
           `/admin/api/platform/billing/payment-attempts?tenantId=${encodeURIComponent(scopedTenantId)}&limit=12`,
           [],
         ).catch(() => []),
+        api(
+          `/admin/api/platform/tenant-support-case?tenantId=${encodeURIComponent(scopedTenantId)}&includeAudit=false`,
+          null,
+        ).catch(() => null),
       ]);
 
       const playerRows = Array.isArray(players?.items) ? players.items : [];
@@ -1172,6 +1177,7 @@
         billingOverview: tenantBillingOverview && typeof tenantBillingOverview === 'object' ? tenantBillingOverview : {},
         billingInvoices: Array.isArray(tenantBillingInvoices) ? tenantBillingInvoices : [],
         billingPaymentAttempts: Array.isArray(tenantBillingPaymentAttempts) ? tenantBillingPaymentAttempts : [],
+        tenantSupportCase: tenantSupportCase && typeof tenantSupportCase === 'object' ? tenantSupportCase : null,
         killfeed: Array.isArray(killfeed?.items) ? killfeed.items : (Array.isArray(killfeed) ? killfeed : []),
         purchaseLookup,
         deliveryCase,
@@ -3265,7 +3271,33 @@
     );
   }
 
-  async function queueServerBotProbe(renderState, triggerButton) {
+  function getTenantLogsSyncPageRuntime() {
+    const runtimeApi = logsSyncRuntimeApi();
+    if (typeof runtimeApi.createTenantLogsSyncPageRuntime !== 'function') {
+      return null;
+    }
+    return runtimeApi.createTenantLogsSyncPageRuntime({
+      apiRequest,
+      buildRuntimeActionNotice,
+      currentState: () => state,
+      disableActionNodes,
+      getRenderServerId,
+      getRenderTenantId,
+      getServerBotCommandReadiness,
+      getServerBotProbeLockReason,
+      getTenantActionEntitlement,
+      getTenantPermissionLockReason,
+      hasActiveServerBot,
+      hasTenantPermission,
+      isSurfacePreview,
+      refreshState,
+      renderCurrentPage,
+      setActionButtonBusy,
+      setStatus,
+    });
+  }
+
+  async function legacyQueueServerBotProbe(renderState, triggerButton) {
     const tenantId = getRenderTenantId(renderState);
     const serverId = getRenderServerId(renderState);
     if (!tenantId || !serverId) {
@@ -3315,7 +3347,7 @@
     }
   }
 
-  function wireServerBotProbeActions(renderState, surfaceState) {
+  function legacyWireServerBotProbeActions(renderState, surfaceState) {
     const buttons = Array.from(document.querySelectorAll('[data-server-bot-probe-action]'));
     if (!buttons.length) return;
     const previewMode = isSurfacePreview(surfaceState, renderState);
@@ -3354,12 +3386,21 @@
           if (!window.confirm(confirmMessage)) {
             return;
           }
-          await queueServerBotProbe(renderState, button);
+          await legacyQueueServerBotProbe(renderState, button);
         } catch (error) {
           setStatus(String(error?.message || error), 'danger');
         }
       });
     });
+  }
+
+  function wireServerBotProbeActions(renderState, surfaceState) {
+    const runtime = getTenantLogsSyncPageRuntime();
+    if (runtime && typeof runtime.wireServerBotProbeActions === 'function') {
+      runtime.wireServerBotProbeActions(renderState, surfaceState);
+      return;
+    }
+    legacyWireServerBotProbeActions(renderState, surfaceState);
   }
 
   function wireServerBotDiscordLinksPage(renderState, surfaceState) {
@@ -3943,6 +3984,7 @@
   }
 
   const moduleRuntimeApi = () => window.TenantModulesRuntime || {};
+  const logsSyncRuntimeApi = () => window.TenantLogsSyncRuntime || {};
 
   function collectModuleFeatureFlags(renderState) {
     const runtimeApi = moduleRuntimeApi();
@@ -4512,7 +4554,7 @@
     });
   }
 
-  function wireLogsSyncPage(renderState, surfaceState) {
+  function legacyWireLogsSyncPage(renderState, surfaceState) {
     const refreshButton = document.querySelector('[data-tenant-logs-sync-refresh]');
     const previewMode = isSurfacePreview(surfaceState, renderState);
     const lockReason = firstNonEmpty([
@@ -4531,6 +4573,16 @@
         setActionButtonBusy(refreshButton, false);
       }
     });
+    wireServerBotProbeActions(renderState, surfaceState);
+  }
+
+  function wireLogsSyncPage(renderState, surfaceState) {
+    const runtime = getTenantLogsSyncPageRuntime();
+    if (runtime && typeof runtime.wireLogsSyncPage === 'function') {
+      runtime.wireLogsSyncPage(renderState, surfaceState);
+      return;
+    }
+    legacyWireLogsSyncPage(renderState, surfaceState);
   }
 
   function wireSettingsPage(renderState, surfaceState) {

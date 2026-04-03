@@ -277,6 +277,27 @@ test('player control v4 profile page shows linked account readiness and membersh
   assert.match(profileModel.mainHtml, /ผู้เล่น \(ใช้งานอยู่\)/);
 });
 
+test('player control v4 profile page exposes a verify-email action when identity readiness requires it', () => {
+  const state = buildSampleState();
+  state.profile.identitySummary.verificationState = 'partially_verified';
+  state.profile.identitySummary.linkedAccounts.email.verified = false;
+  state.profile.identitySummary.nextSteps = [
+    {
+      key: 'verify-email',
+      title: 'Verify email',
+      detail: 'Confirm your email address before asking staff to review account issues.',
+      blocking: true,
+    },
+  ];
+
+  const profileModel = createPlayerControlV4Model(state, 'profile');
+  const html = buildPlayerControlV4Html(profileModel);
+
+  assert.match(html, /data-player-identity-next-steps/);
+  assert.match(html, /data-player-email-verification-request/);
+  assert.match(html, /Verify email/);
+});
+
 test('player control v4 support page exposes a real support ticket form when no open ticket exists', () => {
   const supportModel = createPlayerControlV4Model(buildSampleState(), 'support');
 

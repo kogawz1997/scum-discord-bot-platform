@@ -677,6 +677,45 @@
     return `<button class="${className}" type="button"${dataAttrs}${buildDisabledAttr(action.disabled === true, reason)}>${escapeHtml(label)}</button>`;
   }
 
+  function renderIdentityNextStepActions(steps) {
+    const items = Array.isArray(steps) ? steps.filter(Boolean).slice(0, 4) : [];
+    if (!items.length) return '';
+    const cards = items.map((step) => {
+      const key = firstNonEmpty([step?.key], 'next-step');
+      const title = firstNonEmpty([step?.title], 'Next step');
+      const detail = firstNonEmpty([step?.detail], 'Complete the remaining account-readiness step before asking staff to review it manually.');
+      let actionControl = '';
+      if (key === 'verify-email') {
+        actionControl = renderPlayerActionControl({
+          label: 'Send verification email',
+          primary: true,
+          data: {
+            'data-player-email-verification-request': true,
+          },
+        }, 'Send verification email', null, { primary: true });
+      } else if (key === 'link-steam') {
+        actionControl = renderPlayerActionControl({
+          label: 'Open profile',
+          href: buildCanonicalPlayerPath('profile'),
+        }, 'Open profile', buildCanonicalPlayerPath('profile'));
+      } else {
+        actionControl = renderPlayerActionControl({
+          label: 'Open support',
+          href: buildCanonicalPlayerPath('support'),
+        }, 'Open support', buildCanonicalPlayerPath('support'));
+      }
+      return [
+        `<article class="plv4-product-card plv4-tone-${escapeHtml(step?.blocking ? 'warning' : 'info')}" data-player-identity-next-step="${escapeHtml(key)}">`,
+        `<div class="plv4-product-meta">${badge(step?.blocking ? 'Blocking' : 'Recommended', step?.blocking ? 'warning' : 'info')}</div>`,
+        `<h3 class="plv4-section-title">${escapeHtml(title)}</h3>`,
+        `<p class="plv4-section-copy">${escapeHtml(detail)}</p>`,
+        `<div class="plv4-action-row">${actionControl}</div>`,
+        '</article>',
+      ].join('');
+    }).join('');
+    return `<section class="plv4-stack" data-player-identity-next-steps><div class="plv4-product-grid">${cards}</div></section>`;
+  }
+
   function renderPlayerOfferGrid(items) {
     const rows = Array.isArray(items) ? items : [];
     if (!rows.length) {
@@ -844,7 +883,6 @@
         ],
       },
     ];
-
     return {
       header: {
         title: 'หน้าหลักผู้เล่น',
@@ -1431,6 +1469,8 @@
         ], 'ยังไม่มีรายละเอียดโปรไฟล์'),
         '</article>',
         '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">การเชื่อมต่อ</span><h2 class="plv4-section-title">การเชื่อม Steam และความพร้อม</h2><p class="plv4-section-copy">ให้เงื่อนไขเรื่อง Steam ยังมองเห็นได้ เพื่อให้การซื้อและการส่งของคาดเดาได้ง่าย</p></div></div>',
+        renderIdentityNextStepActions(facts.identitySummary?.nextSteps),
+        renderIdentityNextStepActions(identitySummary.nextSteps),
         steamLinked
           ? [
             renderKeyValueList([
@@ -1661,7 +1701,6 @@
           : 'ยังไม่เชื่อม',
       },
     ];
-
     return {
       header: {
         title: 'บัญชีและการเชื่อมต่อ',
@@ -1967,6 +2006,7 @@
     const state = source && typeof source === 'object' ? source : {};
     return {
       pageKey,
+      state,
       pageTitle: PAGE_META[pageKey]?.docLabel || 'ผู้เล่น',
       shell: buildBrandAwareShell(state, pageKey),
       notice: buildNotice(state, pageKey),
@@ -1976,6 +2016,9 @@
 
   function buildPlayerControlV4Html(model) {
     const safe = model || createPlayerControlV4Model({}, 'home');
+    const profileIdentityNextStepsHtml = safe.pageKey === 'profile'
+      ? renderIdentityNextStepActions(safe.state?.profile?.identitySummary?.nextSteps)
+      : '';
     return [
       '<div class="plv4-app">',
       '<header class="plv4-topbar">',
@@ -2019,6 +2062,7 @@
       Array.isArray(safe.summaryStrip) && safe.summaryStrip.length
         ? `<section class="plv4-summary-strip">${renderSummaryStrip(safe.summaryStrip)}</section>`
         : '',
+      profileIdentityNextStepsHtml,
       safe.mainHtml || '',
       '</main>',
       '<aside class="plv4-rail"><div class="plv4-rail-sticky plv4-rail-list">',

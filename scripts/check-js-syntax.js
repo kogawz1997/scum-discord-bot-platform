@@ -4,7 +4,6 @@ const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const includeDirs = ['src', 'scripts', 'apps', 'test'];
-const includeFiles = ['scum-log-watcher.js'];
 const jsFiles = [];
 
 function walk(dirPath) {
@@ -23,9 +22,6 @@ function walk(dirPath) {
 
 for (const dir of includeDirs) {
   walk(path.join(root, dir));
-}
-for (const file of includeFiles) {
-  jsFiles.push(path.join(root, file));
 }
 
 let hasError = false;

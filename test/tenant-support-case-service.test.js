@@ -90,6 +90,21 @@ test('buildTenantSupportCaseBundle derives lifecycle, checklist, and actions fro
   assert.ok(bundle.actions.some((item) => item.key === 'inspect-dead-letters'));
 });
 
+test('buildTenantSupportCaseBundle enforces tenant scope in strict isolation mode', async () => {
+  await assert.rejects(
+    () => buildTenantSupportCaseBundle('', {
+      deps: createDeps(),
+      env: {
+        DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+        DATABASE_PROVIDER: 'postgresql',
+        PRISMA_SCHEMA_PROVIDER: 'postgresql',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }),
+    /requires tenantId/i,
+  );
+});
+
 test('buildTenantSupportCaseCsv flattens the support case summary', () => {
   const csv = buildTenantSupportCaseCsv({
     generatedAt: '2026-03-20T10:00:00.000Z',

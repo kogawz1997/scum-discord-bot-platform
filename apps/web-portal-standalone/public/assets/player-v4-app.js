@@ -670,6 +670,22 @@
       return;
     }
 
+    if (button.hasAttribute('data-player-email-verification-request')) {
+      await runPlayerAction(button, 'Sending verification email...', async () => {
+        const result = await apiRequest('/player/api/profile/email-verification/request', {
+          method: 'POST',
+          body: {},
+        }, null);
+        await completePlayerAction(
+          result?.alreadyVerified
+            ? (result?.message || 'Email is already verified.')
+            : (result?.message || 'Email verification was queued for this account.'),
+          { navigateTo: 'profile' },
+        );
+      });
+      return;
+    }
+
     if (button.hasAttribute('data-player-support-ticket-close')) {
       const channelId = String(button.getAttribute('data-player-support-ticket-close') || '').trim();
       if (!channelId) return;
@@ -683,25 +699,6 @@
       return;
     }
 
-    if (form.hasAttribute('data-player-support-appeal-form')) {
-      const reason = String(form.elements.reason?.value || '').trim();
-      if (reason.length < 10) {
-        setStatus('Please describe the appeal in at least 10 characters before submitting', 'warning');
-        return;
-      }
-      const button = form.querySelector('button[type="submit"]');
-      await runPlayerAction(button, 'Submitting appeal...', async () => {
-        const result = await apiRequest('/player/api/support/tickets', {
-          method: 'POST',
-          body: {
-            category: 'appeal',
-            reason,
-          },
-        }, null);
-        form.reset();
-        await completePlayerAction(result?.message || 'Appeal submitted', { navigateTo: 'support' });
-      });
-    }
   }
 
   async function handlePlayerFormSubmit(form) {
@@ -783,6 +780,28 @@
         form.reset();
         await completePlayerAction(result?.message || 'ส่งคำขอช่วยเหลือแล้ว', { navigateTo: 'support' });
       });
+      return;
+    }
+
+    if (form.hasAttribute('data-player-support-appeal-form')) {
+      const reason = String(form.elements.reason?.value || '').trim();
+      if (reason.length < 10) {
+        setStatus('Please describe the appeal in at least 10 characters before submitting', 'warning');
+        return;
+      }
+      const button = form.querySelector('button[type="submit"]');
+      await runPlayerAction(button, 'Submitting appeal...', async () => {
+        const result = await apiRequest('/player/api/support/tickets', {
+          method: 'POST',
+          body: {
+            category: 'appeal',
+            reason,
+          },
+        }, null);
+        form.reset();
+        await completePlayerAction(result?.message || 'Appeal submitted', { navigateTo: 'support' });
+      });
+      return;
     }
   }
 
@@ -818,7 +837,7 @@
     });
     document.addEventListener('click', (event) => {
       const button = event.target instanceof Element
-        ? event.target.closest('[data-player-cart-add],[data-player-cart-remove],[data-player-cart-clear],[data-player-cart-checkout],[data-player-reward-claim],[data-player-support-ticket-close]')
+        ? event.target.closest('[data-player-cart-add],[data-player-cart-remove],[data-player-cart-clear],[data-player-cart-checkout],[data-player-reward-claim],[data-player-email-verification-request],[data-player-support-ticket-close]')
         : null;
       if (!button) return;
       event.preventDefault();

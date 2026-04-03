@@ -1,5 +1,10 @@
 ﻿# SCUM TH Platform
 
+Language:
+
+- English: `README.md`
+- Thai: [README_TH.md](./README_TH.md)
+
 [![CI](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/ci.yml)
 [![Release](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml/badge.svg)](https://github.com/kogawz1997/Scum-bot-discord-Full-/actions/workflows/release.yml)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-2f7d32?style=for-the-badge&logo=node.js&logoColor=white)
@@ -503,3 +508,4 @@ set SMOKE_PLAYER_BASE_URL=https://player.genz.noah-dns.online
 ```
 
 For the full env reference, see [docs/ENV_REFERENCE_TH.md](./docs/ENV_REFERENCE_TH.md).
+

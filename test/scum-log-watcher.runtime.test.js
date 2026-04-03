@@ -4,8 +4,7 @@ const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 
-const watcherModulePath = path.join(__dirname, '..', 'scum-log-watcher.js');
-const watcherRuntimeModulePath = path.join(
+const watcherModulePath = path.join(
   __dirname,
   '..',
   'src',
@@ -38,14 +37,12 @@ function restoreWatcherEnv() {
 
 function loadWatcherRuntime() {
   delete require.cache[watcherModulePath];
-  delete require.cache[watcherRuntimeModulePath];
   return require(watcherModulePath);
 }
 
 test.afterEach(() => {
   restoreWatcherEnv();
   delete require.cache[watcherModulePath];
-  delete require.cache[watcherRuntimeModulePath];
 });
 
 async function waitFor(predicate, timeoutMs = 2000) {

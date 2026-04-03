@@ -37,7 +37,6 @@ It intentionally does not try to explain every test file or every static asset i
 - [../package.json](../package.json) - runtime roles, scripts, and executable surfaces.
 - [../Dockerfile](../Dockerfile) - container build entrypoint for deployment.
 - [../setup-easy.cmd](../setup-easy.cmd) - local/bootstrap helper for easier setup.
-- [../scum-log-watcher.js](../scum-log-watcher.js) - legacy or utility runtime entry tied to SCUM log watching.
 
 ## Environment and Deployment Files
 

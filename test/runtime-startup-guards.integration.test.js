@@ -92,7 +92,7 @@ test('delivery-agent entrypoint fails fast when non-hash commands remain enabled
 });
 
 test('watcher entrypoint fails fast when dual transport uses insecure external urls in production', () => {
-  const result = runEntrypoint('scum-log-watcher.js', {
+  const result = runEntrypoint('apps/watcher/server.js', {
     SCUM_WATCHER_ENABLED: 'true',
     SCUM_LOG_PATH: 'C:\\SCUM\\Saved\\Logs\\SCUM.log',
     DISCORD_GUILD_ID: '12345678901234567',

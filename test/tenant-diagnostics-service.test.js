@@ -84,6 +84,21 @@ test('buildTenantDiagnosticsBundle aggregates tenant support context', async () 
   assert.equal(bundle.headline.deadLetters, 1);
 });
 
+test('buildTenantDiagnosticsBundle enforces tenant scope in strict isolation mode', async () => {
+  await assert.rejects(
+    () => buildTenantDiagnosticsBundle('', {
+      deps: createDeps(),
+      env: {
+        DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+        DATABASE_PROVIDER: 'postgresql',
+        PRISMA_SCHEMA_PROVIDER: 'postgresql',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }),
+    /requires tenantId/i,
+  );
+});
+
 test('buildTenantDiagnosticsCsv flattens the diagnostics headline', () => {
   const csv = buildTenantDiagnosticsCsv({
     generatedAt: '2026-03-20T10:00:00.000Z',

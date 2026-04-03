@@ -117,3 +117,73 @@ test('tenant dashboard v4 humanizes admin security notifications', () => {
   assert.ok(model.activity.some((item) => item.detail.includes('IP 127.0.0.1')));
   assert.ok(model.activity.every((item) => !item.detail.includes('reason=invalid-credentials')));
 });
+
+test('tenant dashboard v4 exposes a first-class job watch model for operators', () => {
+  const model = createTenantDashboardV4Model({
+    me: { tenantId: 'tenant-jobs-001', role: 'tenant_admin' },
+    tenantConfig: { name: 'Tenant Jobs' },
+    queueItems: [{ id: 'queue-1' }, { id: 'queue-2' }, { id: 'queue-3' }],
+    deadLetters: [{
+      id: 'dead-1',
+      purchaseCode: 'PUR-1001',
+      createdAt: '2026-04-03T09:30:00+07:00',
+      reason: 'Runtime offline during delivery',
+    }],
+    serverConfigWorkspace: {
+      currentJob: {
+        id: 'job-apply-1',
+        displayName: 'Apply server config',
+        status: 'running',
+        claimedAt: '2026-04-03T09:45:00+07:00',
+        meta: { detail: 'Server Bot is applying a managed config patch.' },
+      },
+    },
+    syncRuns: [{
+      id: 'sync-1',
+      name: 'SCUM log sync',
+      status: 'completed',
+      startedAt: '2026-04-03T09:40:00+07:00',
+      detail: 'Applied 12 log records',
+    }],
+    overview: {
+      analytics: {
+        delivery: { lastSyncAt: '2026-04-03T09:40:00+07:00' },
+      },
+    },
+  });
+
+  assert.equal(model.jobWatch.title, 'Current and failed jobs');
+  assert.equal(model.jobWatch.primaryAction.href, '#orders');
+  assert.ok(model.jobWatch.rows.some((item) => item.title === 'Current job'));
+  assert.ok(model.jobWatch.rows.some((item) => item.title === 'Latest failed delivery job'));
+  assert.ok(model.jobWatch.rows.some((item) => item.title === 'Queue backlog'));
+  assert.ok(model.jobWatch.rows.some((item) => item.title === 'Sync pulse'));
+  assert.ok(model.jobWatch.rows.some((item) => item.detail.includes('Runtime offline during delivery')));
+});
+
+test('tenant dashboard v4 html surfaces the job watch panel and direct operator actions', () => {
+  const html = buildTenantDashboardV4Html(createTenantDashboardV4Model({
+    me: { tenantId: 'tenant-jobs-002', role: 'tenant_admin' },
+    tenantConfig: { name: 'Tenant Jobs 2' },
+    deadLetters: [{
+      id: 'dead-2',
+      purchaseCode: 'PUR-1002',
+      createdAt: '2026-04-03T10:10:00+07:00',
+      reason: 'Steam delivery timeout',
+    }],
+    restartExecutions: [{
+      id: 'restart-1',
+      resultStatus: 'failed',
+      finishedAt: '2026-04-03T10:00:00+07:00',
+      detail: 'Health verification failed after restart',
+    }],
+    queueItems: [{ id: 'queue-1' }],
+  }));
+
+  assert.match(html, /Job watch/);
+  assert.match(html, /Current and failed jobs/);
+  assert.match(html, /Latest failed delivery job|Latest failed restart/);
+  assert.match(html, /Open logs &amp; sync/);
+  assert.match(html, /Open restart control/);
+  assert.match(html, /Open orders/);
+});

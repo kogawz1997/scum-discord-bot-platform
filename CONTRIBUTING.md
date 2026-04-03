@@ -1,5 +1,10 @@
 # Contributing
 
+Language:
+
+- English: `CONTRIBUTING.md`
+- Thai: [CONTRIBUTING_TH.md](./CONTRIBUTING_TH.md)
+
 ## Ground Rules
 
 - keep changes aligned with the current architecture and runtime model
