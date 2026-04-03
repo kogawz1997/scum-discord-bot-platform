@@ -1,5 +1,9 @@
 'use strict';
 
+const {
+  buildTenantPortalBranding,
+} = require('../../../src/services/platformPortalBrandingService');
+
 function trimText(value, maxLen = 320) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -20,6 +24,99 @@ function getClientIp(req) {
   return trimText(req?.socket?.remoteAddress, 120) || 'unknown';
 }
 
+function normalizeSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeInteger(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
+}
+
+function parsePublicServerPath(pathname) {
+  const match = String(pathname || '').match(/^\/api\/public\/server\/([^/]+?)(?:\/(workspace|stats|shop|events|donate))?\/?$/);
+  if (!match) return null;
+  return {
+    slug: normalizeSlug(decodeURIComponent(match[1] || '')),
+    section: String(match[2] || 'workspace').trim().toLowerCase() || 'workspace',
+  };
+}
+
+async function readOptional(readFn, fallback) {
+  try {
+    return await Promise.resolve().then(() => readFn());
+  } catch {
+    return fallback;
+  }
+}
+
+function buildPublicBrand(tenant, tenantConfig) {
+  return buildTenantPortalBranding({
+    tenant,
+    tenantConfig,
+    surface: 'public',
+    fallbackSiteDetail: `Public server hub for ${tenant?.name || tenant?.slug || 'this community'}.`,
+  });
+}
+
+function buildStatsPayload(rows, killfeed) {
+  const statsRows = (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      userId: trimText(row?.userId, 120) || null,
+      kills: Math.max(0, normalizeInteger(row?.kills, 0)),
+      deaths: Math.max(0, normalizeInteger(row?.deaths, 0)),
+      playtimeMinutes: Math.max(0, normalizeInteger(row?.playtimeMinutes, 0)),
+      squad: trimText(row?.squad, 120) || null,
+    }))
+    .filter((row) => row.userId);
+  const topPlayers = [...statsRows]
+    .sort((left, right) => {
+      if (right.kills !== left.kills) return right.kills - left.kills;
+      if (right.playtimeMinutes !== left.playtimeMinutes) return right.playtimeMinutes - left.playtimeMinutes;
+      return String(left.userId).localeCompare(String(right.userId));
+    })
+    .slice(0, 10)
+    .map((row) => ({
+      ...row,
+      kd: row.deaths > 0 ? Number((row.kills / row.deaths).toFixed(2)) : row.kills,
+    }));
+  return {
+    playersTracked: statsRows.length,
+    totalKills: statsRows.reduce((sum, row) => sum + row.kills, 0),
+    totalDeaths: statsRows.reduce((sum, row) => sum + row.deaths, 0),
+    totalPlaytimeMinutes: statsRows.reduce((sum, row) => sum + row.playtimeMinutes, 0),
+    topPlayers,
+    killfeed: Array.isArray(killfeed) ? killfeed : [],
+  };
+}
+
+function buildShopPayload(rows) {
+  return {
+    total: Array.isArray(rows) ? rows.length : 0,
+    items: Array.isArray(rows) ? rows : [],
+  };
+}
+
+function buildEventsPayload(rows) {
+  const items = (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      id: row?.id,
+      name: trimText(row?.name, 160) || 'Event',
+      time: trimText(row?.time, 160) || null,
+      reward: trimText(row?.reward, 160) || null,
+      status: trimText(row?.status, 80) || 'scheduled',
+    }))
+    .slice(0, 12);
+  return {
+    total: items.length,
+    items,
+  };
+}
+
 /**
  * Public product-site routes for signup, pricing, and pre-auth commercial
  * flows. The public site should hand users into the real Tenant or Player
@@ -32,6 +129,8 @@ function createPublicPlatformRoutes(deps = {}) {
     readJsonBody,
     readRawBody,
     getPlatformPublicOverview,
+    getPlatformTenantBySlug,
+    getPlatformTenantConfig,
     registerTenantOwnerAccount,
     registerPreviewAccount,
     authenticatePreviewAccount,
@@ -51,6 +150,13 @@ function createPublicPlatformRoutes(deps = {}) {
     buildPreviewSessionCookie,
     buildClearPreviewSessionCookie,
     removePreviewSession,
+    listAllStats,
+    listShopItems,
+    filterShopItems,
+    listServerEvents,
+    buildTenantDonationOverview,
+    listKillFeedEntries,
+    listServerRegistry,
   } = deps;
   const rateLimitState = new Map();
 
@@ -96,6 +202,129 @@ function createPublicPlatformRoutes(deps = {}) {
     };
   }
 
+  async function buildPublicServerWorkspace(slug) {
+    const normalizedSlug = normalizeSlug(slug);
+    if (!normalizedSlug || typeof getPlatformTenantBySlug !== 'function') {
+      return { ok: false, reason: 'tenant-not-found' };
+    }
+
+    const tenant = await getPlatformTenantBySlug(normalizedSlug);
+    if (!tenant?.id) {
+      return { ok: false, reason: 'tenant-not-found' };
+    }
+
+    const tenantId = trimText(tenant.id, 120);
+    const [
+      tenantConfig,
+      serverRegistry,
+      statsRows,
+      killfeedRows,
+      rawShopRows,
+      eventRows,
+      donationOverview,
+    ] = await Promise.all([
+      readOptional(
+        () => (typeof getPlatformTenantConfig === 'function' ? getPlatformTenantConfig(tenantId) : null),
+        null,
+      ),
+      readOptional(
+        () => (typeof listServerRegistry === 'function' ? listServerRegistry({ tenantId }) : []),
+        [],
+      ),
+      readOptional(
+        () => (typeof listAllStats === 'function' ? listAllStats({ tenantId }) : []),
+        [],
+      ),
+      readOptional(
+        () => (typeof listKillFeedEntries === 'function' ? listKillFeedEntries({ tenantId, limit: 8 }) : []),
+        [],
+      ),
+      readOptional(
+        () => (typeof listShopItems === 'function' ? listShopItems({ tenantId, includeDisabled: false }) : []),
+        [],
+      ),
+      readOptional(
+        () => (typeof listServerEvents === 'function' ? listServerEvents({ tenantId }) : []),
+        [],
+      ),
+      readOptional(
+        () => (
+          typeof buildTenantDonationOverview === 'function'
+            ? buildTenantDonationOverview({ tenantId, limit: 6 })
+            : null
+        ),
+        null,
+      ),
+    ]);
+
+    const shopRows = typeof filterShopItems === 'function'
+      ? filterShopItems(rawShopRows, { kind: 'all', limit: 12 })
+      : (Array.isArray(rawShopRows) ? rawShopRows.slice(0, 12) : []);
+    const stats = buildStatsPayload(statsRows, killfeedRows);
+    const shop = buildShopPayload(shopRows);
+    const events = buildEventsPayload(eventRows);
+    const brand = buildPublicBrand(tenant, tenantConfig);
+    const servers = (Array.isArray(serverRegistry) ? serverRegistry : [])
+      .map((server) => ({
+        id: trimText(server?.id, 120) || null,
+        name: trimText(server?.name, 160) || 'SCUM Server',
+        region: trimText(server?.region, 120) || null,
+        status: trimText(server?.status, 80) || 'unknown',
+        guildLinks: Array.isArray(server?.guildLinks) ? server.guildLinks.length : 0,
+      }))
+      .filter((server) => server.id || server.name);
+    const primaryServer = servers[0] || null;
+    const donationData = donationOverview && typeof donationOverview === 'object'
+      ? {
+          summary: donationOverview.summary || null,
+          readiness: donationOverview.readiness || null,
+          issues: Array.isArray(donationOverview.issues) ? donationOverview.issues : [],
+          topPackages: Array.isArray(donationOverview.topPackages) ? donationOverview.topPackages.slice(0, 6) : [],
+          recentPurchases: Array.isArray(donationOverview.recentPurchases) ? donationOverview.recentPurchases.slice(0, 6) : [],
+        }
+      : {
+          summary: null,
+          readiness: null,
+          issues: [],
+          topPackages: [],
+          recentPurchases: [],
+        };
+
+    return {
+      ok: true,
+      tenant: {
+        id: tenantId,
+        slug: trimText(tenant.slug, 160) || normalizedSlug,
+        name: trimText(tenant.name, 160) || trimText(tenant.slug, 160) || 'SCUM Community',
+      },
+      brand,
+      links: {
+        workspace: `/s/${normalizedSlug}`,
+        stats: `/s/${normalizedSlug}/stats`,
+        shop: `/s/${normalizedSlug}/shop`,
+        events: `/s/${normalizedSlug}/events`,
+        donate: `/s/${normalizedSlug}/donate`,
+      },
+      overview: {
+        tenantId,
+        tenantName: trimText(tenant.name, 160) || trimText(tenant.slug, 160) || 'SCUM Community',
+        serverCount: servers.length,
+        primaryServerName: primaryServer?.name || null,
+        playersTracked: stats.playersTracked,
+        shopItemCount: shop.total,
+        eventCount: events.total,
+        supporterRevenueCoins30d: Number(donationData.summary?.supporterRevenueCoins30d || 0) || 0,
+        supporterPurchases30d: Number(donationData.summary?.supporterPurchases30d || 0) || 0,
+        lastPurchaseAt: donationData.summary?.lastPurchaseAt || null,
+      },
+      servers,
+      stats,
+      shop,
+      events,
+      donate: donationData,
+    };
+  }
+
   return async function handlePublicApiRoute(context) {
     const {
       req,
@@ -109,6 +338,57 @@ function createPublicPlatformRoutes(deps = {}) {
         : null;
       return built || `${pathname}${search || ''}`;
     };
+    const publicServerRequest = parsePublicServerPath(pathname);
+
+    if (publicServerRequest && method === 'GET') {
+      const workspace = await buildPublicServerWorkspace(publicServerRequest.slug);
+      if (!workspace?.ok) {
+        sendJson(res, 404, {
+          ok: false,
+          error: workspace?.reason || 'tenant-not-found',
+        });
+        return true;
+      }
+
+      const baseData = {
+        tenant: workspace.tenant,
+        brand: workspace.brand,
+        links: workspace.links,
+        overview: workspace.overview,
+      };
+      const section = publicServerRequest.section;
+
+      if (section === 'stats') {
+        sendJson(res, 200, { ok: true, data: { ...baseData, section, stats: workspace.stats } });
+        return true;
+      }
+      if (section === 'shop') {
+        sendJson(res, 200, { ok: true, data: { ...baseData, section, shop: workspace.shop } });
+        return true;
+      }
+      if (section === 'events') {
+        sendJson(res, 200, { ok: true, data: { ...baseData, section, events: workspace.events } });
+        return true;
+      }
+      if (section === 'donate') {
+        sendJson(res, 200, { ok: true, data: { ...baseData, section, donate: workspace.donate } });
+        return true;
+      }
+
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          ...baseData,
+          section: 'workspace',
+          servers: workspace.servers,
+          stats: workspace.stats,
+          shop: workspace.shop,
+          events: workspace.events,
+          donate: workspace.donate,
+        },
+      });
+      return true;
+    }
 
     if (pathname === '/api/public/packages' && method === 'GET') {
       const overview = await getPlatformPublicOverview();

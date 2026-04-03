@@ -118,6 +118,17 @@
     .tenant-auth-note strong {
       font-size: 1rem;
     }
+    .tenant-auth-inline-note {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(191,170,112,.16);
+      background: rgba(255,255,255,.025);
+      color: rgba(243,237,225,.84);
+      line-height: 1.6;
+    }
+    .tenant-auth-form [hidden] {
+      display: none !important;
+    }
     @keyframes tenant-auth-float {
       from { transform: translateY(0) scale(1.01); }
       to { transform: translateY(-8px) scale(1.04); }
@@ -185,6 +196,9 @@
           <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
           <h2>ลงชื่อเข้าใช้บัญชีผู้เช่า</h2>
           <p>ใช้อีเมลของเจ้าของผู้เช่าหรือทีมงานที่ผูกกับผู้เช่านี้ กรอกอีเมลเต็ม ไม่ใช่ชื่อผู้ใช้แบบสั้น</p>
+          <div id="tenantInviteNotice" class="tenant-auth-inline-note" hidden>
+            Finish accepting your tenant invite by confirming the invited email and setting a password.
+          </div>
           <form id="tenantLoginForm" class="tenant-auth-grid" novalidate>
             <label class="tenant-auth-field">
               <span>อีเมล</span>
@@ -193,6 +207,10 @@
             <label class="tenant-auth-field">
               <span>รหัสผ่าน</span>
               <input id="tenantLoginPassword" class="tenant-auth-input" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
+            </label>
+            <label id="tenantLoginDisplayNameWrap" class="tenant-auth-field" hidden>
+              <span>Display name</span>
+              <input id="tenantLoginDisplayName" class="tenant-auth-input" type="text" autocomplete="name" placeholder="Your name">
             </label>
             <div id="tenantLoginError" class="tenant-auth-error" aria-live="polite"></div>
             <div class="surface-tool-cluster">

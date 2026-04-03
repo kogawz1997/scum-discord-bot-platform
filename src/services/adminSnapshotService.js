@@ -213,6 +213,18 @@ function normalizeConfig() {
   };
 }
 
+function dedupeSnapshotDeliveryAuditRows(rows = []) {
+  const deduped = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || typeof row !== 'object') continue;
+    const id = String(row.id || '').trim();
+    if (!id) continue;
+    deduped.set(id, row);
+  }
+  return Array.from(deduped.values())
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+}
+
 function primeSnapshotStoreReaders() {
   listTickets();
   listBounties();
@@ -875,7 +887,7 @@ async function restoreAdminSnapshotData(snapshot = {}) {
   replaceTopPanels(Array.isArray(snapshot.topPanels) ? snapshot.topPanels : []);
   replaceCarts(Array.isArray(snapshot.carts) ? snapshot.carts : []);
   replaceStatus(snapshot.status || {});
-  replaceDeliveryAudit(Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : []);
+  replaceDeliveryAudit(dedupeSnapshotDeliveryAuditRows(snapshot.deliveryAudit));
   replaceAdminNotifications(
     Array.isArray(snapshot.adminNotifications) ? snapshot.adminNotifications : [],
   );
@@ -929,6 +941,7 @@ async function restoreAdminSnapshotData(snapshot = {}) {
 }
 
 function buildRestoreCounts(snapshot = {}) {
+  const deliveryAudit = dedupeSnapshotDeliveryAuditRows(snapshot.deliveryAudit);
   return {
     wallets: Array.isArray(snapshot.wallets) ? snapshot.wallets.length : 0,
     walletLedgers: Array.isArray(snapshot.walletLedgers)
@@ -969,7 +982,7 @@ function buildRestoreCounts(snapshot = {}) {
     deliveryDeadLetters: Array.isArray(snapshot.deliveryDeadLetters)
       ? snapshot.deliveryDeadLetters.length
       : 0,
-    deliveryAudit: Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit.length : 0,
+    deliveryAudit: deliveryAudit.length,
     adminNotifications: Array.isArray(snapshot.adminNotifications)
       ? snapshot.adminNotifications.length
       : 0,
@@ -1336,7 +1349,7 @@ async function buildAdminSnapshot(options = {}) {
     backupRestore: getAdminRestoreState(),
     deliveryQueue: listDeliveryQueue(500),
     deliveryDeadLetters: listDeliveryDeadLetters(1000),
-    deliveryAudit: listDeliveryAudit(1000),
+    deliveryAudit: dedupeSnapshotDeliveryAuditRows(listDeliveryAudit(1000)),
     adminNotifications: listAdminNotifications({ limit: 300 }),
     adminSecurityEvents: await listAdminSecurityEvents({ limit: 300 }),
     adminRequestLogs: listAdminRequestLogs({ limit: 300 }),

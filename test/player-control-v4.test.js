@@ -206,6 +206,32 @@ test('player control v4 builds route-specific player pages', () => {
   assert.match(profileModel.mainHtml, /data-player-steam-link-form|Steam/);
 });
 
+test('player control v4 uses tenant branding when the player payload includes it', () => {
+  const state = buildSampleState();
+  state.branding = {
+    siteName: 'Prime SCUM Network',
+    siteDetail: 'Official player community',
+    logoUrl: 'https://cdn.example.com/prime-logo.png',
+    bannerUrl: '/branding/prime-banner.jpg',
+    brandMark: 'PS',
+    theme: 'midnight-ops',
+    themeTokens: {
+      primary: '#3366ff',
+      accent: '#99ddaa',
+      surface: '#0d1722',
+      text: '#e7f2ff',
+    },
+  };
+
+  const model = createPlayerControlV4Model(state, 'home');
+  const html = buildPlayerControlV4Html(model);
+
+  assert.equal(model.shell.surfaceLabel, 'Prime SCUM Network');
+  assert.equal(model.shell.logoUrl, 'https://cdn.example.com/prime-logo.png');
+  assert.match(html, /Prime SCUM Network/);
+  assert.match(html, /prime-logo\.png/);
+});
+
 test('player control v4 shop page exposes add-to-cart and checkout actions', () => {
   const shopModel = createPlayerControlV4Model(buildSampleState(), 'shop');
 

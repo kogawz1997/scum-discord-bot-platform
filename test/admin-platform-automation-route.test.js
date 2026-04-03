@@ -34,8 +34,8 @@ function createMockRes() {
 
 function buildPostRoutes(overrides = {}) {
   return createAdminPlatformPostRoutes({
-    sendJson(res, statusCode, payload) {
-      res.writeHead(statusCode, { 'content-type': 'application/json' });
+    sendJson(res, statusCode, payload, headers = {}) {
+      res.writeHead(statusCode, { 'content-type': 'application/json', ...headers });
       res.end(JSON.stringify(payload));
     },
     requiredString(value, key) {
@@ -47,6 +47,8 @@ function buildPostRoutes(overrides = {}) {
     parseStringArray: () => [],
     getAuthTenantId: (auth) => auth?.tenantId || null,
     resolveScopedTenantId: (_req, _res, auth, requestedTenantId) => requestedTenantId || auth?.tenantId || null,
+    consumeActionRateLimit: () => ({ limited: false, retryAfterMs: 0, ip: '127.0.0.1' }),
+    recordAdminSecuritySignal: () => {},
     createAdminBackup: async () => ({}),
     previewAdminBackupRestore: async () => ({}),
     restoreAdminBackup: async () => ({}),
@@ -489,6 +491,109 @@ test('admin platform server probe route queues restart probe for tenant scope', 
   assert.equal(calls[0].input.serverId, 'server-2');
   assert.equal(calls[0].input.jobType, 'probe_restart');
   assert.match(calls[0].actor, /admin-web:tenant-owner/);
+});
+
+test('admin platform server restart route is rate limited before a plan is scheduled', async () => {
+  let scheduled = false;
+  const handler = buildPostRoutes({
+    consumeActionRateLimit: (actionType) => ({
+      actionType,
+      limited: actionType === 'restart',
+      retryAfterMs: 5_000,
+      ip: '127.0.0.1',
+    }),
+    scheduleRestartPlan: async () => {
+      scheduled = true;
+      return { ok: true };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/platform/servers/server-1/restart',
+    body: { tenantId: 'tenant-1' },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 429);
+  assert.equal(scheduled, false);
+  assert.equal(res.headers['Retry-After'], '5');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /Too many restart actions/i);
+});
+
+test('admin platform server config save route rejects invalid applyMode before queueing a job', async () => {
+  let queued = false;
+  const handler = buildPostRoutes({
+    createServerConfigSaveJob: async () => {
+      queued = true;
+      return { ok: true };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/platform/servers/server-1/config/save',
+    body: {
+      tenantId: 'tenant-1',
+      applyMode: 'save_everything',
+      changes: [{ file: 'ServerSettings.ini', section: 'ServerSettings', key: 'ServerName', value: 'Test' }],
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 400);
+  assert.equal(queued, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error, 'Invalid applyMode.');
+});
+
+test('admin platform server restart route rejects invalid restartMode before scheduling', async () => {
+  let scheduled = false;
+  const signals = [];
+  const handler = buildPostRoutes({
+    scheduleRestartPlan: async () => {
+      scheduled = true;
+      return { ok: true };
+    },
+    recordAdminSecuritySignal: (type, payload) => {
+      signals.push({ type, payload });
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/platform/servers/server-1/restart',
+    body: {
+      tenantId: 'tenant-1',
+      restartMode: 'chaos_restart',
+      announcementPlan: [{ delaySeconds: 60, message: 'Server restart soon' }],
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 400);
+  assert.equal(scheduled, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error, 'Invalid restartMode.');
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0].type, 'restart-invalid-payload');
+  assert.equal(signals[0].payload.reason, 'invalid-request-payload');
 });
 
 test('admin platform agent provision route denies Server Bot creation when sync entitlement is locked', async () => {

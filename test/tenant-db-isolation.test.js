@@ -5,6 +5,7 @@ const {
   assertTenantDbIsolationScope,
   buildTenantDbIsolationStatements,
   getTenantDbIsolationRuntime,
+  installTenantDbIsolation,
   normalizeTenantDbIsolationMode,
   withTenantDbIsolation,
 } = require('../src/utils/tenantDbIsolation');
@@ -85,6 +86,60 @@ test('withTenantDbIsolation configures tenant session state in transaction when 
   assert.ok(calls.some((entry) => entry.sql.includes("set_config('app.tenant_id'")));
   assert.ok(calls.some((entry) => entry.sql.includes("set_config('app.tenant_enforce'")));
   assert.ok(calls.some((entry) => entry.sql.includes("set_config('app.tenant_bypass'")));
+});
+
+test('installTenantDbIsolation requires migrated tables instead of creating them implicitly', async () => {
+  const calls = [];
+  const fakeClient = {
+    $queryRawUnsafe: async (_sql, tableName) => (
+      tableName === 'platform_tenant_configs' ? [] : [{ present: true }]
+    ),
+    $executeRawUnsafe: async (sql) => {
+      calls.push(String(sql));
+      return 1;
+    },
+  };
+
+  await assert.rejects(
+    () => installTenantDbIsolation(fakeClient, {
+      env: {
+        DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+        DATABASE_PROVIDER: 'postgresql',
+        PRISMA_SCHEMA_PROVIDER: 'postgresql',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-foundation',
+      },
+    }),
+    (error) => {
+      assert.equal(error?.code, 'TENANT_DB_ISOLATION_TABLE_REQUIRED');
+      assert.equal(error?.tenantDbIsolation?.tableName, 'platform_tenant_configs');
+      return true;
+    },
+  );
+  assert.equal(calls.some((sql) => /CREATE TABLE IF NOT EXISTS platform_tenant_configs/i.test(sql)), false);
+});
+
+test('installTenantDbIsolation applies policies when target tables already exist', async () => {
+  const executed = [];
+  const fakeClient = {
+    $queryRawUnsafe: async () => [{ present: true }],
+    $executeRawUnsafe: async (sql) => {
+      executed.push(String(sql));
+      return 1;
+    },
+  };
+
+  const result = await installTenantDbIsolation(fakeClient, {
+    env: {
+      DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+      DATABASE_PROVIDER: 'postgresql',
+      PRISMA_SCHEMA_PROVIDER: 'postgresql',
+      TENANT_DB_ISOLATION_MODE: 'postgres-rls-foundation',
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.applied.length > 0, true);
+  assert.equal(executed.length > 0, true);
 });
 
 test('assertTenantDbIsolationScope requires tenantId in strict mode unless global access is explicit', () => {

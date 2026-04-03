@@ -206,9 +206,10 @@ test('tenant detail workspace exposes support shortcut and tenant runtime action
     supportCaseLoading: false,
   });
   const html = buildOwnerControlV4Html(model);
-  assert.match(html, /Open support case/);
-  assert.match(html, /Save customer record/);
-  assert.match(html, /Tenant runtime context/);
+  assert.match(html, /id="owner-tenant-detail-summary"/);
+  assert.match(html, /href="\/owner\/support\/tenant-1"/);
+  assert.match(html, /id="owner-tenant-detail-form"/);
+  assert.match(html, /id="owner-tenant-detail-runtime-live"/);
   assert.match(html, /data-owner-action="inspect-runtime"/);
 });
 
@@ -231,9 +232,9 @@ test('support workspace exposes dead-letter, alert, and request-error tools', ()
     supportDeadLettersLoading: false,
   });
   const html = buildOwnerControlV4Html(model);
-  assert.match(html, /Dead letters and delivery retries/);
+  assert.match(html, /id="owner-tenant-support-dead-letters-live"/);
   assert.match(html, /data-owner-action="retry-dead-letter"/);
   assert.match(html, /data-owner-action="clear-dead-letter"/);
   assert.match(html, /data-owner-action="acknowledge-notification"/);
-  assert.match(html, /Recent owner-side request failures/);
+  assert.match(html, /id="owner-tenant-support-request-errors-live"/);
 });

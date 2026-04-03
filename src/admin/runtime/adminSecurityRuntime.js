@@ -19,7 +19,54 @@ function createAdminSecurityRuntime(options = {}) {
 
   const loginAttemptsByIp = new Map();
   const loginFailureEvents = [];
+  const actionAttemptsByKey = new Map();
   let lastLoginSpikeAlertAt = 0;
+  const actionRateLimits = normalizeActionRateLimits(options.actionRateLimits);
+
+  function normalizeActionRateLimits(value) {
+    const input = value && typeof value === 'object' ? value : {};
+    const defaults = {
+      'config-apply': { windowMs: 60_000, maxAttempts: 6 },
+      restart: { windowMs: 60_000, maxAttempts: 4 },
+      delivery: { windowMs: 60_000, maxAttempts: 12 },
+      'tenant-public-login': { windowMs: 10 * 60_000, maxAttempts: 6 },
+      'tenant-public-invite-accept': { windowMs: 10 * 60_000, maxAttempts: 6 },
+    };
+    const normalized = {};
+    Object.entries(defaults).forEach(([actionType, fallback]) => {
+      const override = input[actionType] && typeof input[actionType] === 'object'
+        ? input[actionType]
+        : {};
+      const windowMs = Number(override.windowMs);
+      const maxAttempts = Number(override.maxAttempts);
+      normalized[actionType] = {
+        windowMs: Number.isFinite(windowMs) && windowMs > 0 ? Math.trunc(windowMs) : fallback.windowMs,
+        maxAttempts: Number.isFinite(maxAttempts) && maxAttempts > 0 ? Math.trunc(maxAttempts) : fallback.maxAttempts,
+      };
+    });
+    return normalized;
+  }
+
+  function trimText(value, maxLen = 160) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return text.length <= maxLen ? text : text.slice(0, maxLen);
+  }
+
+  function buildActionRateLimitKey(actionType, req, optionsArg = {}) {
+    const ip = trimText(getClientIp(req), 160) || 'unknown-ip';
+    const tenantId = trimText(optionsArg.tenantId, 160) || 'global';
+    const actor = trimText(optionsArg.actor, 160) || 'anonymous';
+    return `${trimText(actionType, 80) || 'action'}::${tenantId}::${ip}::${actor}`;
+  }
+
+  function cleanupActionAttempts(now = Date.now()) {
+    for (const [key, entry] of actionAttemptsByKey.entries()) {
+      if (!entry || !entry.windowMs || now - entry.firstAt > entry.windowMs) {
+        actionAttemptsByKey.delete(key);
+      }
+    }
+  }
 
   function cleanupLoginAttempts(now = Date.now()) {
     for (const [ip, entry] of loginAttemptsByIp.entries()) {
@@ -149,6 +196,56 @@ function createAdminSecurityRuntime(options = {}) {
     return { limited: false, ip, retryAfterMs: 0 };
   }
 
+  function consumeActionRateLimit(actionType, req, optionsArg = {}) {
+    const normalizedActionType = trimText(actionType, 80).toLowerCase();
+    const config = actionRateLimits[normalizedActionType];
+    const ip = trimText(getClientIp(req), 160) || 'unknown-ip';
+    if (!config) {
+      return {
+        actionType: normalizedActionType,
+        limited: false,
+        ip,
+        retryAfterMs: 0,
+      };
+    }
+    const now = Date.now();
+    cleanupActionAttempts(now);
+    const key = buildActionRateLimitKey(normalizedActionType, req, optionsArg);
+    const existing = actionAttemptsByKey.get(key);
+    if (!existing || now - existing.firstAt > config.windowMs) {
+      actionAttemptsByKey.set(key, {
+        count: 1,
+        firstAt: now,
+        windowMs: config.windowMs,
+      });
+      return {
+        actionType: normalizedActionType,
+        limited: false,
+        ip,
+        retryAfterMs: 0,
+      };
+    }
+    if (existing.count >= config.maxAttempts) {
+      return {
+        actionType: normalizedActionType,
+        limited: true,
+        ip,
+        retryAfterMs: Math.max(0, config.windowMs - (now - existing.firstAt)),
+      };
+    }
+    actionAttemptsByKey.set(key, {
+      ...existing,
+      count: existing.count + 1,
+      windowMs: config.windowMs,
+    });
+    return {
+      actionType: normalizedActionType,
+      limited: false,
+      ip,
+      retryAfterMs: 0,
+    };
+  }
+
   function recordLoginAttempt(req, success) {
     const now = Date.now();
     cleanupLoginAttempts(now);
@@ -196,6 +293,7 @@ function createAdminSecurityRuntime(options = {}) {
 
   return {
     cleanupDiscordOauthStates,
+    consumeActionRateLimit,
     getLoginFailureMetrics,
     getLoginRateLimitState,
     recordAdminSecuritySignal,

@@ -40,6 +40,29 @@
     window.PortalUiI18n?.apply?.(rootNode);
   }
 
+  function applyPlayerBranding(branding) {
+    const rootStyle = document.documentElement?.style;
+    if (!rootStyle) return;
+    const tokens = branding?.themeTokens && typeof branding.themeTokens === 'object'
+      ? branding.themeTokens
+      : {};
+    const assign = (name, value) => {
+      if (value) {
+        rootStyle.setProperty(name, String(value));
+        return;
+      }
+      rootStyle.removeProperty(name);
+    };
+    assign('--plv4-accent', tokens.primary || branding?.primaryColor || null);
+    assign('--plv4-surface', tokens.surface || null);
+    assign('--plv4-surface-soft', tokens.surface || null);
+    assign('--plv4-text', tokens.text || null);
+    assign('--plv4-media-image', branding?.bannerUrl ? `url("${String(branding.bannerUrl).replace(/"/g, '\\"')}")` : null);
+    if (document.body) {
+      document.body.dataset.playerBrandTheme = String(branding?.theme || 'default');
+    }
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -436,6 +459,7 @@
 
       state.payload = {
         me,
+        branding: me?.branding || null,
         serverScope,
         featureAccess,
         dashboard,
@@ -505,9 +529,10 @@
     const model = window.PlayerControlV4?.renderPlayerControlV4
       ? window.PlayerControlV4.renderPlayerControlV4(target, renderState, { page })
       : window.PlayerHomeV4.renderPlayerHomeV4(target, renderState);
+    applyPlayerBranding(state.payload.branding || null);
     applyI18n(target);
     canonicalizePlayerLinks(target);
-    document.title = `SCUM TH Platform | Player | ${String(model?.pageTitle || PAGE_TITLE_LABELS[page] || 'หน้าแรก')}`;
+    document.title = `${String(state.payload.branding?.siteName || 'SCUM TH Platform')} | Player | ${String(model?.pageTitle || PAGE_TITLE_LABELS[page] || 'หน้าแรก')}`;
     return surfaceState;
   }
 

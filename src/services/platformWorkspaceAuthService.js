@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 
 const { prisma } = require('../prisma');
+const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const {
   ensurePlatformUserPasswordColumn,
   ensurePlatformUserIdentity,
@@ -73,6 +74,16 @@ function createRawToken(prefix = 'tok') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function toSqlTimestampValue(value, env = process.env) {
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  return runtime.isServerEngine ? parsed : parsed.toISOString();
 }
 
 function createPasswordHash(password) {
@@ -209,9 +220,9 @@ async function findPlatformUserByEmail(db, email) {
   if (!normalizedEmail) return null;
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT id, primaryEmail, displayName, locale, status, metadataJson, passwordHash, createdAt, updatedAt
+    SELECT id, "primaryEmail", "displayName", locale, status, "metadataJson", "passwordHash", "createdAt", "updatedAt"
     FROM platform_users
-    WHERE primaryEmail = ${normalizedEmail}
+    WHERE "primaryEmail" = ${normalizedEmail}
     LIMIT 1
   `;
   return normalizeUserRow(Array.isArray(rows) ? rows[0] : null);
@@ -222,7 +233,7 @@ async function findPlatformUserById(db, userId) {
   if (!normalizedUserId) return null;
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT id, primaryEmail, displayName, locale, status, metadataJson, passwordHash, createdAt, updatedAt
+    SELECT id, "primaryEmail", "displayName", locale, status, "metadataJson", "passwordHash", "createdAt", "updatedAt"
     FROM platform_users
     WHERE id = ${normalizedUserId}
     LIMIT 1
@@ -235,11 +246,11 @@ async function findPlatformUserByIdentityEmail(db, email) {
   if (!normalizedEmail) return null;
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT u.id, u.primaryEmail, u.displayName, u.locale, u.status, u.metadataJson, u.passwordHash, u.createdAt, u.updatedAt
+    SELECT u.id, u."primaryEmail", u."displayName", u.locale, u.status, u."metadataJson", u."passwordHash", u."createdAt", u."updatedAt"
     FROM platform_user_identities i
-    INNER JOIN platform_users u ON u.id = i.userId
-    WHERE i.providerEmail = ${normalizedEmail}
-    ORDER BY i.linkedAt DESC
+    INNER JOIN platform_users u ON u.id = i."userId"
+    WHERE i."providerEmail" = ${normalizedEmail}
+    ORDER BY i."linkedAt" DESC
     LIMIT 1
   `;
   return normalizeUserRow(Array.isArray(rows) ? rows[0] : null);
@@ -250,10 +261,10 @@ async function listPlatformMembershipsForUser(db, userId) {
   if (!normalizedUserId) return [];
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT id, userId, tenantId, membershipType, role, status, isPrimary, acceptedAt, revokedAt, metadataJson, createdAt, updatedAt
+    SELECT id, "userId", "tenantId", "membershipType", role, status, "isPrimary", "acceptedAt", "revokedAt", "metadataJson", "createdAt", "updatedAt"
     FROM platform_memberships
-    WHERE userId = ${normalizedUserId}
-    ORDER BY isPrimary DESC, updatedAt DESC
+    WHERE "userId" = ${normalizedUserId}
+    ORDER BY "isPrimary" DESC, "updatedAt" DESC
   `;
   return Array.isArray(rows) ? rows.map(normalizeMembershipRow).filter(Boolean) : [];
 }
@@ -263,10 +274,10 @@ async function findLatestPlayerProfileForUser(db, userId) {
   if (!normalizedUserId) return null;
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT id, userId, tenantId, discordUserId, steamId, inGameName, verificationState, metadataJson, createdAt, updatedAt
+    SELECT id, "userId", "tenantId", "discordUserId", "steamId", "inGameName", "verificationState", "metadataJson", "createdAt", "updatedAt"
     FROM platform_player_profiles
-    WHERE userId = ${normalizedUserId}
-    ORDER BY updatedAt DESC
+    WHERE "userId" = ${normalizedUserId}
+    ORDER BY "updatedAt" DESC
     LIMIT 1
   `;
   return normalizeProfileRow(Array.isArray(rows) ? rows[0] : null);
@@ -277,11 +288,11 @@ async function findDiscordIdentityForUser(db, userId) {
   if (!normalizedUserId) return null;
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT providerUserId
+    SELECT "providerUserId"
     FROM platform_user_identities
-    WHERE userId = ${normalizedUserId}
+    WHERE "userId" = ${normalizedUserId}
       AND provider = ${'discord'}
-    ORDER BY linkedAt DESC
+    ORDER BY "linkedAt" DESC
     LIMIT 1
   `;
   const row = Array.isArray(rows) ? rows[0] : null;
@@ -384,10 +395,10 @@ async function setPlatformUserPassword(input = {}, db = prisma) {
   await db.$executeRaw`
     UPDATE platform_users
     SET
-      passwordHash = ${passwordHash},
-      updatedAt = CURRENT_TIMESTAMP
+      "passwordHash" = ${passwordHash},
+      "updatedAt" = CURRENT_TIMESTAMP
     WHERE (CAST(${userId || null} AS TEXT) IS NOT NULL AND id = CAST(${userId || null} AS TEXT))
-       OR (CAST(${userId || null} AS TEXT) IS NULL AND primaryEmail = CAST(${email || null} AS TEXT))
+       OR (CAST(${userId || null} AS TEXT) IS NULL AND "primaryEmail" = CAST(${email || null} AS TEXT))
   `;
   return { ok: true };
 }
@@ -401,11 +412,12 @@ async function issuePurposeToken(input = {}, db = prisma) {
   const tokenHash = sha256(rawToken);
   const tokenPrefix = rawToken.split('.')[0];
   const ttlMinutes = Math.max(5, Math.min(7 * 24 * 60, Number(input.ttlMinutes || 60) || 60));
-  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+  const expiresAtValue = new Date(Date.now() + ttlMinutes * 60 * 1000);
+  const expiresAt = expiresAtValue.toISOString();
   const rowId = createId(purpose);
   await db.$executeRaw`
     INSERT INTO platform_verification_tokens (
-      id, userId, previewAccountId, email, purpose, tokenType, tokenPrefix, tokenHash, target, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
+      id, "userId", "previewAccountId", email, purpose, "tokenType", "tokenPrefix", "tokenHash", target, "expiresAt", "consumedAt", "metadataJson", "createdAt", "updatedAt"
     )
     VALUES (
       ${rowId},
@@ -417,7 +429,7 @@ async function issuePurposeToken(input = {}, db = prisma) {
       ${tokenPrefix},
       ${tokenHash},
       ${email || null},
-      ${expiresAt},
+      ${toSqlTimestampValue(expiresAtValue)},
       ${null},
       ${JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {})},
       CURRENT_TIMESTAMP,
@@ -446,12 +458,12 @@ async function consumePurposeToken(input = {}, db = prisma) {
   if (!purpose) return { ok: false, reason: 'purpose-required' };
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
-    SELECT id, userId, previewAccountId, email, purpose, tokenPrefix, tokenHash, expiresAt, consumedAt, metadataJson, createdAt, updatedAt
+    SELECT id, "userId", "previewAccountId", email, purpose, "tokenPrefix", "tokenHash", "expiresAt", "consumedAt", "metadataJson", "createdAt", "updatedAt"
     FROM platform_verification_tokens
-    WHERE tokenHash = ${sha256(rawToken)}
+    WHERE "tokenHash" = ${sha256(rawToken)}
       AND purpose = ${purpose}
       AND (CAST(${email || null} AS TEXT) IS NULL OR email = CAST(${email || null} AS TEXT))
-    ORDER BY createdAt DESC
+    ORDER BY "createdAt" DESC
     LIMIT 1
   `;
   const token = normalizeTokenRow(Array.isArray(rows) ? rows[0] : null);
@@ -461,12 +473,13 @@ async function consumePurposeToken(input = {}, db = prisma) {
   if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
     return { ok: false, reason: 'token-expired' };
   }
-  const consumedAt = nowIso();
+  const consumedAtValue = new Date();
+  const consumedAt = consumedAtValue.toISOString();
   await db.$executeRaw`
     UPDATE platform_verification_tokens
     SET
-      consumedAt = ${consumedAt},
-      updatedAt = CURRENT_TIMESTAMP
+      "consumedAt" = ${toSqlTimestampValue(consumedAtValue)},
+      "updatedAt" = CURRENT_TIMESTAMP
     WHERE id = ${token.id}
   `;
   return {
@@ -476,6 +489,160 @@ async function consumePurposeToken(input = {}, db = prisma) {
       consumedAt,
     },
   };
+}
+
+async function findPurposeTokenPreview(input = {}, db = prisma) {
+  const rawToken = trimText(input.token || input.rawToken, 512);
+  const purpose = trimText(input.purpose, 80).toLowerCase();
+  const email = normalizeEmail(input.email);
+  if (!rawToken) return { ok: false, reason: 'token-required' };
+  if (!purpose) return { ok: false, reason: 'purpose-required' };
+  await ensurePasswordColumn(db);
+  const rows = await db.$queryRaw`
+    SELECT id, "userId", "previewAccountId", email, purpose, "tokenPrefix", "tokenHash", "expiresAt", "consumedAt", "metadataJson", "createdAt", "updatedAt"
+    FROM platform_verification_tokens
+    WHERE "tokenHash" = ${sha256(rawToken)}
+      AND purpose = ${purpose}
+      AND (CAST(${email || null} AS TEXT) IS NULL OR email = CAST(${email || null} AS TEXT))
+    ORDER BY "createdAt" DESC
+    LIMIT 1
+  `;
+  const token = normalizeTokenRow(Array.isArray(rows) ? rows[0] : null);
+  if (!token) return { ok: false, reason: 'token-not-found' };
+  if (token.consumedAt) return { ok: false, reason: 'token-already-used' };
+  const expiresAt = token.expiresAt ? new Date(token.expiresAt) : null;
+  if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+    return { ok: false, reason: 'token-expired' };
+  }
+  return {
+    ok: true,
+    token,
+  };
+}
+
+async function acceptTenantStaffInvite(input = {}, db = prisma) {
+  const requestedEmail = normalizeEmail(input.email);
+  const password = String(input.password || '');
+  const displayName = trimText(input.displayName, 200);
+  const requestedLocale = trimText(input.locale, 16) ? normalizeLocale(input.locale) : '';
+  const transactionRunner = typeof db.$transaction === 'function'
+    ? db.$transaction.bind(db)
+    : async (callback) => callback(db);
+
+  return transactionRunner(async (tx) => {
+    const preview = await findPurposeTokenPreview({
+      token: input.token || input.inviteToken,
+      purpose: 'tenant_staff_invite',
+      email: requestedEmail || undefined,
+    }, tx);
+    if (!preview?.ok || !preview?.token) return preview;
+
+    const inviteToken = preview.token;
+    const inviteEmail = requestedEmail || inviteToken.email;
+    const tenantId = trimText(input.tenantId || inviteToken.metadata?.tenantId, 160);
+    const membershipId = trimText(input.membershipId || inviteToken.metadata?.membershipId, 160);
+    const inviteUserId = trimText(inviteToken.userId || inviteToken.metadata?.userId, 160);
+
+    if (!tenantId || !membershipId) {
+      return { ok: false, reason: 'tenant-staff-invite-invalid' };
+    }
+
+    const user = inviteUserId
+      ? await findPlatformUserById(tx, inviteUserId)
+      : await findPlatformUserByEmail(tx, inviteEmail)
+        || await findPlatformUserByIdentityEmail(tx, inviteEmail);
+    if (!user?.id) return { ok: false, reason: 'tenant-user-not-found' };
+    if (trimText(user.status, 40).toLowerCase() !== 'active') {
+      return { ok: false, reason: 'tenant-user-inactive' };
+    }
+
+    if (password) {
+      if (password.length < 8) return { ok: false, reason: 'weak-password' };
+      const passwordResult = await setPlatformUserPassword({
+        userId: user.id,
+        password,
+      }, tx);
+      if (!passwordResult?.ok) return passwordResult;
+    } else if (!user.passwordHash) {
+      return { ok: false, reason: 'password-required' };
+    }
+
+    if (displayName || requestedLocale) {
+      await tx.$executeRaw`
+        UPDATE platform_users
+        SET
+          "displayName" = COALESCE(CAST(${displayName || null} AS TEXT), "displayName"),
+          locale = COALESCE(CAST(${requestedLocale || null} AS TEXT), locale),
+          "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${user.id}
+      `;
+    }
+
+    const memberships = await listPlatformMembershipsForUser(tx, user.id);
+    const membership = memberships.find((row) => row?.id === membershipId)
+      || findTenantMembershipForTenant(memberships, tenantId);
+    if (!membership?.id || membership.membershipType !== 'tenant' || membership.tenantId !== tenantId) {
+      return { ok: false, reason: 'tenant-membership-required' };
+    }
+
+    const membershipStatus = normalizeTenantMembershipStatus(membership.status);
+    if (membershipStatus === 'disabled' || membershipStatus === 'revoked') {
+      return { ok: false, reason: 'tenant-membership-inactive' };
+    }
+
+    const acceptedAtValue = new Date();
+    const consumedAtValue = new Date();
+    const acceptedAt = acceptedAtValue.toISOString();
+    const consumedAt = consumedAtValue.toISOString();
+    const updateCount = await tx.$executeRaw`
+      UPDATE platform_verification_tokens
+      SET
+        "consumedAt" = ${toSqlTimestampValue(consumedAtValue)},
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE id = ${inviteToken.id}
+        AND "consumedAt" IS NULL
+    `;
+    if (!Number(updateCount || 0)) {
+      return { ok: false, reason: 'token-already-used' };
+    }
+
+    await tx.$executeRaw`
+      UPDATE platform_memberships
+      SET
+        status = ${'active'},
+        "acceptedAt" = COALESCE("acceptedAt", ${toSqlTimestampValue(acceptedAtValue)}),
+        "revokedAt" = ${null},
+        "metadataJson" = ${JSON.stringify({
+          ...(membership.metadata || {}),
+          source: 'tenant-staff-invite-accept',
+          inviteState: 'accepted',
+          acceptedAt,
+        })},
+        "updatedAt" = ${toSqlTimestampValue(acceptedAtValue)}
+      WHERE id = ${membership.id}
+    `;
+
+    const resolved = await resolveTenantSessionAccessContext({
+      tenantId,
+      userId: user.id,
+      email: inviteEmail,
+      authMethod: 'tenant-staff-invite',
+    }, tx);
+    if (!resolved?.ok || !resolved?.membership?.tenantId) {
+      return { ok: false, reason: resolved?.reason || 'tenant-membership-required' };
+    }
+
+    return {
+      ok: true,
+      token: {
+        ...inviteToken,
+        consumedAt,
+      },
+      user: resolved.user,
+      membership: resolved.membership,
+      memberships: resolved.memberships,
+    };
+  });
 }
 
 async function registerTenantOwnerAccount(input = {}, db = prisma) {
@@ -782,6 +949,7 @@ async function consumePlayerMagicLink(input = {}, db = prisma) {
 }
 
 module.exports = {
+  acceptTenantStaffInvite,
   authenticateTenantUser,
   consumePlayerMagicLink,
   consumePurposeToken,

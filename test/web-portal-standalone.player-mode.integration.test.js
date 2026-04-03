@@ -172,8 +172,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
 test('web-portal-standalone routes local /admin traffic to legacy admin before player canonical redirect', async () => {
   const port = pickPort();
   const localBase = `http://127.0.0.1:${port}`;
-  const canonicalBase = 'https://player.example.com';
-  const legacyAdminUrl = 'https://admin.example.com/admin';
+  const canonicalBase = 'https://player.scumth-platform.test';
+  const legacyAdminUrl = 'https://admin.scumth-platform.test/admin';
 
   const child = spawn(process.execPath, ['apps/web-portal-standalone/server.js'], {
     cwd: process.cwd(),

@@ -339,7 +339,7 @@ function listAdminPermissionMatrix() {
 }
 
 function buildRoleMatrix() {
-  const roles = ['viewer', 'staff', 'admin', 'owner'];
+  const roles = ['viewer', 'mod', 'staff', 'admin', 'owner'];
   return roles.map((role) => ({
     role,
     permissions: POST_PERMISSION_MATRIX

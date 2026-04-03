@@ -55,6 +55,26 @@
     .player-auth-note strong {
       font-size: 1rem;
     }
+    .player-auth-locale {
+      display: inline-grid;
+      gap: 6px;
+      min-width: 124px;
+    }
+    .player-auth-locale span {
+      font-size: .76rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(243, 237, 225, 0.7);
+    }
+    .player-auth-locale select {
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid var(--site-border-strong);
+      background: rgba(255,255,255,0.04);
+      color: var(--site-text);
+      font: inherit;
+    }
     @keyframes player-auth-float {
       from { transform: translateY(0) scale(1.01); }
       to { transform: translateY(-8px) scale(1.04); }
@@ -65,6 +85,17 @@
       }
     }
   </style>
+  <script>
+    (() => {
+      try {
+        const url = new URL(window.location.href);
+        const stored = window.localStorage.getItem('scum.ui.language');
+        const requested = url.searchParams.get('lang') || url.searchParams.get('locale') || stored || navigator.language || 'th';
+        const locale = String(requested || '').toLowerCase().startsWith('en') ? 'en' : 'th';
+        document.documentElement.lang = locale;
+      } catch {}
+    })();
+  </script>
 </head>
 <body class="public-v3">
   <div class="site-shell">
@@ -73,29 +104,38 @@
         <a class="site-brand" href="/landing">
           <span class="site-brand-mark">SCUM</span>
           <span class="site-brand-copy">
-            <strong class="site-brand-title">พอร์ทัลผู้เล่น</strong>
-            <span class="site-brand-detail">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ และกิจกรรมของคุณ</span>
+            <strong id="playerAuthBrandTitle" class="site-brand-title">พอร์ทัลผู้เล่น</strong>
+            <span id="playerAuthBrandDetail" class="site-brand-detail">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าดูโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ และกิจกรรมของคุณ</span>
           </span>
         </a>
+      </div>
+      <div class="site-topbar-tools">
+        <label class="player-auth-locale">
+          <span id="playerAuthLanguageLabel">ภาษา</span>
+          <select id="playerAuthLocale" aria-label="Language switcher">
+            <option value="th">ไทย</option>
+            <option value="en">English</option>
+          </select>
+        </label>
       </div>
     </header>
     <main class="site-main">
       <section class="player-auth-stage">
         <article class="site-auth-card site-stack">
-          <span class="site-kicker">ทางเข้าผู้เล่น</span>
-          <h1 class="site-page-title">เข้าพอร์ทัลผู้เล่นได้จากทางเดียว</h1>
-          <p class="site-page-copy">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ กิจกรรม และการสนับสนุนเซิร์ฟเวอร์ โดยไม่ต้องแยกบัญชีอีกชุด</p>
+          <span id="playerAuthKicker" class="site-kicker">ทางเข้าผู้เล่น</span>
+          <h1 id="playerAuthTitle" class="site-page-title">เข้าพอร์ทัลผู้เล่นได้จากทางเดียว</h1>
+          <p id="playerAuthIntro" class="site-page-copy">ใช้ Discord หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ กิจกรรม และการสนับสนุนเซิร์ฟเวอร์ โดยไม่ต้องแยกบัญชีอีกชุด</p>
           <div class="player-auth-chip-row">
-            <span class="player-auth-chip">โปรไฟล์ผู้เล่น</span>
-            <span class="player-auth-chip">คำสั่งซื้อและการส่งของ</span>
-            <span class="player-auth-chip">กิจกรรมและแรงก์</span>
+            <span id="playerAuthChipProfile" class="player-auth-chip">โปรไฟล์ผู้เล่น</span>
+            <span id="playerAuthChipOrders" class="player-auth-chip">คำสั่งซื้อและการส่งของ</span>
+            <span id="playerAuthChipEvents" class="player-auth-chip">กิจกรรมและแรงก์</span>
           </div>
           <div class="site-tool-cluster">
-            <a class="site-button site-button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
+            <a id="playerAuthDiscordLink" class="site-button site-button-primary" href="/auth/discord/start">เข้าสู่ระบบด้วย Discord</a>
           </div>
           <form id="playerMagicLinkForm" class="site-form-grid">
             <label class="site-field site-field-span">
-              <span>อีเมล</span>
+              <span id="playerAuthEmailLabel">อีเมล</span>
               <input id="playerMagicLinkEmail" class="auth-input" type="email" placeholder="player@example.com" autocomplete="email">
             </label>
             <div class="site-field site-field-span">
@@ -104,30 +144,30 @@
             </div>
           </form>
           <div id="playerMagicLinkDebug" class="site-field site-field-span"></div>
-          <div class="form-status is-error">__ERROR_MESSAGE__</div>
+          <div id="playerAuthError" class="form-status is-error">__ERROR_MESSAGE__</div>
         </article>
         <article class="site-panel site-help-panel">
-          <span class="site-kicker">ก่อนเริ่มใช้งาน</span>
-          <h2 class="site-card-title">สิ่งที่ผู้เล่นควรรู้ก่อนเข้า</h2>
+          <span id="playerAuthInfoKicker" class="site-kicker">ก่อนเริ่มใช้งาน</span>
+          <h2 id="playerAuthInfoTitle" class="site-card-title">สิ่งที่ผู้เล่นควรรู้ก่อนเข้า</h2>
           <div class="player-auth-hero"></div>
           <div class="player-auth-note-grid">
             <div class="player-auth-note">
-              <strong>Discord เป็นทางเข้าหลัก</strong>
-              <p>ถ้าบัญชี Discord ของคุณอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว มักเข้าใช้งานได้เร็วที่สุดจากปุ่มด้านซ้าย</p>
+              <strong id="playerAuthNoteDiscordTitle">Discord เป็นทางเข้าหลัก</strong>
+              <p id="playerAuthNoteDiscordCopy">ถ้าบัญชี Discord ของคุณอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว มักเข้าใช้งานได้เร็วที่สุดจากปุ่มด้านซ้าย</p>
             </div>
             <div class="player-auth-note">
-              <strong>เมจิกลิงก์ใช้กับบัญชีที่ผูกไว้แล้ว</strong>
-              <p>ระบบจะส่งลิงก์เข้าใช้งานให้อีเมลที่เชื่อมกับบัญชีผู้เล่น ไม่ต้องตั้งรหัสผ่านใหม่</p>
+              <strong id="playerAuthNoteMagicTitle">เมจิกลิงก์ใช้กับบัญชีที่ผูกไว้แล้ว</strong>
+              <p id="playerAuthNoteMagicCopy">ระบบจะส่งลิงก์เข้าใช้งานให้อีเมลที่เชื่อมกับบัญชีผู้เล่น โดยไม่ต้องตั้งรหัสผ่านใหม่</p>
             </div>
             <div class="player-auth-note">
-              <strong>งานดูแลเซิร์ฟเวอร์ไม่อยู่ในพอร์ทัลนี้</strong>
-              <p>หน้าผู้เล่นจะโฟกัสที่โปรไฟล์ สถิติ ร้านค้า คำสั่งซื้อ การส่งของ และกิจกรรมเท่านั้น</p>
+              <strong id="playerAuthNoteScopeTitle">งานดูแลเซิร์ฟเวอร์ไม่อยู่ในหน้านี้</strong>
+              <p id="playerAuthNoteScopeCopy">หน้าผู้เล่นจะโฟกัสที่โปรไฟล์ สถิติ ร้านค้า คำสั่งซื้อ การส่งของ และกิจกรรมเท่านั้น</p>
             </div>
           </div>
         </article>
       </section>
     </main>
   </div>
-  <script src="/player/assets/ui/player-auth-v1.js?v=20260401-player-login-visual-1"></script>
+  <script src="/player/assets/player-auth-v1.js?v=20260403-player-login-i18n-1"></script>
 </body>
 </html>

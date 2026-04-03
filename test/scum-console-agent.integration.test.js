@@ -72,6 +72,7 @@ test('scum console agent: process backend autostarts child and writes command to
       SCUM_CONSOLE_AGENT_PORT: '3314',
       SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-123456',
       SCUM_CONSOLE_AGENT_BACKEND: 'process',
+      SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL: 'true',
       SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
       SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
@@ -239,6 +240,7 @@ test('scum console agent: process backend schedules restart after unexpected chi
       SCUM_CONSOLE_AGENT_PORT: '3317',
       SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-restart',
       SCUM_CONSOLE_AGENT_BACKEND: 'process',
+      SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL: 'true',
       SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
       SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
       SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
@@ -293,6 +295,47 @@ test('scum console agent: process backend schedules restart after unexpected chi
     if (fs.existsSync(markerPath)) {
       fs.unlinkSync(markerPath);
     }
+    await runtime.close();
+  }
+});
+
+test('scum console agent: process backend stays disabled until managed server control is explicitly allowed', async () => {
+  const runtime = startScumConsoleAgent({
+    env: {
+      SCUM_CONSOLE_AGENT_HOST: '127.0.0.1',
+      SCUM_CONSOLE_AGENT_PORT: '3318',
+      SCUM_CONSOLE_AGENT_TOKEN: 'process-agent-token-disabled',
+      SCUM_CONSOLE_AGENT_BACKEND: 'process',
+      SCUM_CONSOLE_AGENT_AUTOSTART: 'true',
+      SCUM_CONSOLE_AGENT_SERVER_EXE: process.execPath,
+      SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
+        path.join(process.cwd(), 'scripts', 'fake-console-child.js'),
+      ]),
+    },
+  });
+
+  try {
+    await runtime.ready;
+
+    const health = await fetchJson('http://127.0.0.1:3318/healthz', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-disabled',
+      },
+    });
+    assert.equal(health.res.status, 200);
+    assert.equal(health.payload.ready, false);
+    assert.equal(health.payload.statusCode, 'AGENT_MANAGED_SERVER_CONTROL_DISABLED');
+    assert.equal(health.payload.managedServer?.controlEnabled, false);
+
+    const preflight = await fetchJson('http://127.0.0.1:3318/preflight', {
+      headers: {
+        Authorization: 'Bearer process-agent-token-disabled',
+      },
+    });
+    assert.equal(preflight.res.status, 500);
+    assert.equal(preflight.payload.ok, false);
+    assert.equal(preflight.payload.errorCode, 'AGENT_MANAGED_SERVER_CONTROL_DISABLED');
+  } finally {
     await runtime.close();
   }
 });

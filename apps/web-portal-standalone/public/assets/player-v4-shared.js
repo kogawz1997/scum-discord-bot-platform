@@ -91,6 +91,50 @@
     return fallback;
   }
 
+  function buildPlayerBrandMark(siteName, fallback = 'SCUM') {
+    const source = firstNonEmpty([siteName], '');
+    if (!source) return fallback;
+    const parts = source
+      .split(/[\s_-]+/g)
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+    const mark = parts.slice(0, 2).map((entry) => entry.charAt(0).toUpperCase()).join('');
+    return firstNonEmpty([mark, source.slice(0, 4).toUpperCase()], fallback);
+  }
+
+  function buildPlayerPortalShell(source, options = {}) {
+    const state = source && typeof source === 'object' ? source : {};
+    const branding = state.branding && typeof state.branding === 'object' ? state.branding : {};
+    const navGroups = Array.isArray(options.navGroups) ? options.navGroups : [];
+    const fallbackWorkspaceLabel = firstNonEmpty([options.workspaceLabel], 'Player Workspace');
+    const fallbackEnvironmentLabel = firstNonEmpty([options.environmentLabel], 'SCUM Player Community');
+    return {
+      brand: firstNonEmpty([branding.brandMark], buildPlayerBrandMark(branding.siteName, 'SCUM')),
+      logoUrl: firstNonEmpty([branding.logoUrl], '') || null,
+      bannerUrl: firstNonEmpty([branding.bannerUrl], '') || null,
+      siteName: firstNonEmpty([branding.siteName], 'SCUM TH'),
+      siteDetail: firstNonEmpty([branding.siteDetail], ''),
+      theme: firstNonEmpty([branding.theme], 'scum-dark'),
+      themeTokens: branding.themeTokens && typeof branding.themeTokens === 'object' ? branding.themeTokens : null,
+      surfaceLabel: firstNonEmpty([branding.siteName, options.surfaceLabel], 'Player Portal'),
+      workspaceLabel: fallbackWorkspaceLabel,
+      environmentLabel: firstNonEmpty([branding.siteDetail, options.environmentLabel], fallbackEnvironmentLabel),
+      navGroups,
+    };
+  }
+
+  function renderPlayerBrandMark(shell) {
+    const safeShell = shell && typeof shell === 'object' ? shell : {};
+    if (safeShell.logoUrl) {
+      return [
+        '<span class="plv4-brand-mark plv4-brand-mark-logo">',
+        `<img class="plv4-brand-logo" src="${escapeHtml(safeShell.logoUrl)}" alt="${escapeHtml(firstNonEmpty([safeShell.siteName, safeShell.brand], 'SCUM'))}">`,
+        '</span>',
+      ].join('');
+    }
+    return `<span class="plv4-brand-mark">${escapeHtml(firstNonEmpty([safeShell.brand], 'SCUM'))}</span>`;
+  }
+
   function listCount(list) {
     return Array.isArray(list) ? list.length : 0;
   }
@@ -256,6 +300,7 @@
 
   return {
     badge,
+    buildPlayerPortalShell,
     createPlayerNavGroups,
     escapeHtml,
     firstNonEmpty,
@@ -267,6 +312,7 @@
     orderStatusLabel,
     renderBadges,
     renderFeed,
+    renderPlayerBrandMark,
     renderKeyValueList,
     renderNavGroups,
     renderProductGrid,

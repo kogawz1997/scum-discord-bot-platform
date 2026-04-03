@@ -129,6 +129,55 @@ test('player general routes support email magic-link request without a session',
   });
 });
 
+test('player general routes rate limit repeated email magic-link requests', async () => {
+  let requestCalls = 0;
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    readJsonBody: async () => ({ email: 'player@example.com' }),
+    requestPlayerMagicLink: async () => {
+      requestCalls += 1;
+      return { ok: true, requested: true };
+    },
+  });
+
+  for (let index = 0; index < 5; index += 1) {
+    const res = createResponse();
+    const handled = await route({
+      req: {
+        headers: {
+          'x-forwarded-for': '203.0.113.40',
+        },
+      },
+      res,
+      urlObj: createUrl('/player/api/auth/email/request'),
+      pathname: '/player/api/auth/email/request',
+      method: 'POST',
+      session: null,
+    });
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 200);
+  }
+
+  const limitedRes = createResponse();
+  const handled = await route({
+    req: {
+      headers: {
+        'x-forwarded-for': '203.0.113.40',
+      },
+    },
+    res: limitedRes,
+    urlObj: createUrl('/player/api/auth/email/request'),
+    pathname: '/player/api/auth/email/request',
+    method: 'POST',
+    session: null,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(limitedRes.statusCode, 429);
+  assert.equal(limitedRes.headers['Retry-After'], '600');
+  assert.equal(requestCalls, 5);
+});
+
 test('player general routes persist primary email into email magic-link sessions', async () => {
   let capturedSession = null;
   const route = createPlayerGeneralRoutes({
@@ -173,6 +222,55 @@ test('player general routes persist primary email into email magic-link sessions
   assert.equal(res.statusCode, 200);
   assert.equal(capturedSession.primaryEmail, 'player@example.com');
   assert.equal(capturedSession.tenantId, 'tenant-prod-001');
+});
+
+test('player general routes rate limit repeated email magic-link completion attempts', async () => {
+  let consumeCalls = 0;
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    readJsonBody: async () => ({ email: 'player@example.com', token: 'player-token' }),
+    consumePlayerMagicLink: async () => {
+      consumeCalls += 1;
+      return { ok: false, reason: 'token-not-found' };
+    },
+  });
+
+  for (let index = 0; index < 8; index += 1) {
+    const res = createResponse();
+    const handled = await route({
+      req: {
+        headers: {
+          'x-forwarded-for': '203.0.113.41',
+        },
+      },
+      res,
+      urlObj: createUrl('/player/api/auth/email/complete'),
+      pathname: '/player/api/auth/email/complete',
+      method: 'POST',
+      session: null,
+    });
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 400);
+  }
+
+  const limitedRes = createResponse();
+  const handled = await route({
+    req: {
+      headers: {
+        'x-forwarded-for': '203.0.113.41',
+      },
+    },
+    res: limitedRes,
+    urlObj: createUrl('/player/api/auth/email/complete'),
+    pathname: '/player/api/auth/email/complete',
+    method: 'POST',
+    session: null,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(limitedRes.statusCode, 429);
+  assert.equal(limitedRes.headers['Retry-After'], '600');
+  assert.equal(consumeCalls, 8);
 });
 
 test('player general routes expose server scope choices for the current tenant', async () => {

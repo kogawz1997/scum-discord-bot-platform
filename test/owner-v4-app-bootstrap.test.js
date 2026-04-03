@@ -13,6 +13,12 @@ test('owner v4 app stages optional owner reads behind the core payload', () => {
   assert.match(source, /async function loadOwnerOptionalPayload\(\)/);
   assert.match(source, /loadOwnerOptionalPayload\(\)\s*\.then\(\(optionalPayload\) =>/);
   assert.match(source, /agents:\s*\[\],[\s\S]*agentRegistry:\s*\[\],[\s\S]*requestLogs:\s*\{\s*metrics:\s*\{\},\s*items:\s*\[\]\s*\}/);
+  assert.match(source, /optionalOwnerRead\('\/owner\/api\/platform\/restart-plans\?limit=20', \[\], 2500\)/);
+  assert.match(source, /optionalOwnerRead\('\/owner\/api\/platform\/restart-executions\?limit=20', \[\], 2500\)/);
+  assert.match(source, /optionalOwnerRead\('\/owner\/api\/delivery\/audit\?limit=20', \[\], 2500\)/);
+  assert.match(source, /optionalOwnerRead\('\/owner\/api\/platform\/sync-runs\?limit=20', \[\], 2500\)/);
+  assert.match(source, /optionalOwnerRead\('\/owner\/api\/platform\/sync-events\?limit=20', \[\], 2500\)/);
+  assert.match(source, /deliveryLifecycle:\s*\{\},[\s\S]*deliveryAudit:\s*\[\],[\s\S]*restartPlans:\s*\[\],[\s\S]*restartExecutions:\s*\[\],[\s\S]*syncRuns:\s*\[\],[\s\S]*syncEvents:\s*\[\]/);
   assert.match(source, /กำลังโหลดรายชื่อลูกค้า สุขภาพบริการ และเหตุการณ์ล่าสุดของแพลตฟอร์ม/);
   assert.match(source, /กำลังโหลดรายละเอียดลูกค้า\.\.\./);
 });

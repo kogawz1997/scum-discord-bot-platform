@@ -40,13 +40,16 @@ function createAdminRequestRuntime(options = {}) {
   }
 
   function getClientIp(req) {
+    const headers = req && typeof req === 'object' && req.headers && typeof req.headers === 'object'
+      ? req.headers
+      : {};
     if (adminWebTrustProxy) {
-      const forwarded = String(req.headers['x-forwarded-for'] || '')
+      const forwarded = String(headers['x-forwarded-for'] || '')
         .split(',')[0]
         .trim();
       if (forwarded) return forwarded;
     }
-    return String(req.socket?.remoteAddress || '').trim() || 'unknown';
+    return String(req?.socket?.remoteAddress || '').trim() || 'unknown';
   }
 
   function setRequestMeta(req, patch = {}) {
@@ -101,9 +104,12 @@ function createAdminRequestRuntime(options = {}) {
   }
 
   function getRequestOrigin(req) {
-    const fromOrigin = normalizeOrigin(req.headers.origin);
+    const headers = req && typeof req === 'object' && req.headers && typeof req.headers === 'object'
+      ? req.headers
+      : {};
+    const fromOrigin = normalizeOrigin(headers.origin);
     if (fromOrigin) return fromOrigin;
-    const referrer = String(req.headers.referer || '').trim();
+    const referrer = String(headers.referer || '').trim();
     if (!referrer) return '';
     try {
       return new URL(referrer).origin.toLowerCase();
@@ -119,7 +125,10 @@ function createAdminRequestRuntime(options = {}) {
 
   function violatesBrowserOriginPolicy(req, allowedOrigins) {
     if (!adminWebEnforceOriginCheck) return false;
-    const fetchSite = String(req.headers['sec-fetch-site'] || '')
+    const headers = req && typeof req === 'object' && req.headers && typeof req.headers === 'object'
+      ? req.headers
+      : {};
+    const fetchSite = String(headers['sec-fetch-site'] || '')
       .trim()
       .toLowerCase();
     if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) {

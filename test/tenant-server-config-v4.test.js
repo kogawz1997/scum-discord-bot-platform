@@ -34,6 +34,8 @@ function createFixture() {
       portalEnvPatch: {
         publicTheme: 'midnight-ops',
         communityFeedEnabled: true,
+        siteName: 'Codex Prime',
+        logoUrl: 'https://cdn.example.com/logo.png',
       },
     },
     serverConfigWorkspace: {
@@ -161,6 +163,9 @@ test('tenant server config html renders category form, save actions, and advance
   assert.match(html, /data-feature-flag-toggle/);
   assert.match(html, /data-config-patch-field="serverLabel"/);
   assert.match(html, /data-portal-env-field="publicTheme"/);
+  assert.match(html, /data-portal-env-field="siteName"/);
+  assert.match(html, /data-portal-env-field="logoUrl"/);
+  assert.match(html, /data-portal-env-field="bannerUrl"/);
   assert.match(html, /tdv4-editor-featureFlags/);
   assert.match(html, /tdv4-editor-configPatch/);
   assert.match(html, /tdv4-editor-portalEnvPatch/);

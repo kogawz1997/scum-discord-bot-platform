@@ -83,8 +83,13 @@ const {
 const { awardWheelRewardForUser } = require('../../../src/services/wheelService');
 const {
   getPlatformPublicOverview,
+  getPlatformTenantById,
+  getPlatformTenantBySlug,
   getTenantFeatureAccess,
 } = require('../../../src/services/platformService');
+const {
+  getPlatformTenantConfig,
+} = require('../../../src/services/platformTenantConfigService');
 const {
   createCheckoutSession,
   finalizeCheckoutSession,
@@ -95,6 +100,12 @@ const {
   ensurePlatformPlayerIdentity,
   getPlatformUserIdentitySummary,
 } = require('../../../src/services/platformIdentityService');
+const {
+  listServerEvents,
+} = require('../../../src/services/eventService');
+const {
+  buildTenantDonationOverview,
+} = require('../../../src/services/tenantDonationOverviewService');
 const {
   createRaidRequest,
   listRaidRequests,
@@ -509,6 +520,8 @@ function createPortalBootstrapRuntime({
       transferCoins,
       isDiscordId,
       listServerRegistry,
+      getPlatformTenantById,
+      getPlatformTenantConfig,
       listUserPurchases,
       claimDaily,
       claimWeekly,
@@ -577,6 +590,8 @@ function createPortalBootstrapRuntime({
       readJsonBody,
       readRawBody,
       getPlatformPublicOverview,
+      getPlatformTenantBySlug,
+      getPlatformTenantConfig,
       registerTenantOwnerAccount,
       registerPreviewAccount: publicPreviewService.registerPreviewAccount,
       authenticatePreviewAccount: publicPreviewService.authenticatePreviewAccount,
@@ -596,6 +611,13 @@ function createPortalBootstrapRuntime({
       buildPreviewSessionCookie,
       buildClearPreviewSessionCookie,
       removePreviewSession,
+      listAllStats,
+      listShopItems,
+      filterShopItems,
+      listServerEvents,
+      buildTenantDonationOverview,
+      listKillFeedEntries,
+      listServerRegistry,
     },
     requestRuntimeDeps: {
       sendJson,

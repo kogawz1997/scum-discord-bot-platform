@@ -22,6 +22,12 @@ The repository still keeps SQLite compatibility for:
 - Tenant-scoped Prisma datasource routing: [src/prisma.js](../src/prisma.js)
 - Tenant DB topology ops script: [scripts/tenant-database-topology.js](../scripts/tenant-database-topology.js)
 
+`prisma/schema.prisma` is the in-repo compatibility template.
+Provider-specific runtime and migration operations must use the schema rendered by
+`scripts/prisma-with-provider.js`, and `src/prisma.js` now exposes a runtime profile helper
+so the active runtime provider can be inspected explicitly instead of inferred from the
+template alone.
+
 ## Tenant isolation foundation
 
 - `TENANT_DB_ISOLATION_MODE=postgres-rls-strict` enables PostgreSQL tenant session context helpers and strict guardrails for tenant-scoped platform/admin paths.

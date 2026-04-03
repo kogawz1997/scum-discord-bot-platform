@@ -18,6 +18,8 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     parseStringArray,
     getAuthTenantId,
     resolveScopedTenantId,
+    consumeActionRateLimit,
+    recordAdminSecuritySignal,
     listKnownPurchaseStatuses,
     setCoinsExact,
     creditCoins,
@@ -54,6 +56,43 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     getTenantFeatureAccess,
     buildTenantProductEntitlements,
   } = deps;
+
+  function enforceActionRateLimit({ actionType, req, res, auth, pathname, tenantId }) {
+    if (typeof consumeActionRateLimit !== 'function') return false;
+    const rateLimit = consumeActionRateLimit(actionType, req, {
+      actor: auth?.user || 'unknown',
+      tenantId: tenantId || getAuthTenantId(auth) || 'global',
+    });
+    if (!rateLimit?.limited) return false;
+    if (typeof recordAdminSecuritySignal === 'function') {
+      recordAdminSecuritySignal(`${actionType}-rate-limited`, {
+        severity: 'warn',
+        actor: auth?.user || 'unknown',
+        targetUser: auth?.user || 'unknown',
+        role: auth?.role || null,
+        authMethod: auth?.authMethod || null,
+        sessionId: auth?.sessionId || null,
+        ip: rateLimit.ip || null,
+        path: pathname,
+        reason: 'too-many-attempts',
+        detail: `Admin action ${actionType} was rate limited`,
+        data: {
+          actionType,
+          tenantId: tenantId || getAuthTenantId(auth) || null,
+          retryAfterMs: rateLimit.retryAfterMs || 0,
+        },
+        notify: true,
+      });
+    }
+    const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+    sendJson(res, 429, {
+      ok: false,
+      error: `Too many ${actionType} actions. Please wait ${retryAfterSec}s and try again.`,
+    }, {
+      'Retry-After': String(retryAfterSec),
+    });
+    return true;
+  }
 
   async function getScopedDeliveryCase(code, tenantId) {
     if (!tenantId || typeof getDeliveryDetailsByPurchaseCode !== 'function') {
@@ -602,6 +641,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -654,6 +701,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -703,6 +758,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -743,6 +806,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -798,6 +869,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const ordersPermission = requireTenantPermission({
         sendJson,
         res,
@@ -841,6 +920,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -890,6 +977,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
@@ -1055,6 +1150,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/command-template') {
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId: authTenantId || null,
+      })) return true;
       try {
         sendJson(res, 200, {
           ok: true,
@@ -1085,6 +1188,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         requiredString(body, 'tenantId'),
       );
       if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId,
+      })) return true;
       const itemId = requiredString(body, 'itemId');
       const gameItemId = requiredString(body, 'gameItemId');
       if (!itemId && !gameItemId) {
@@ -1117,6 +1228,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/capability-preset') {
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId: authTenantId || null,
+      })) return true;
       try {
         sendJson(res, 200, {
           ok: true,
@@ -1148,6 +1267,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/capability-preset/delete') {
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId: authTenantId || null,
+      })) return true;
       const presetId = requiredString(body, 'presetId') || requiredString(body, 'id');
       if (!presetId) {
         sendJson(res, 400, { ok: false, error: 'presetId is required' });
@@ -1169,6 +1296,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
     }
 
     if (pathname === '/admin/api/delivery/capability-test') {
+      if (enforceActionRateLimit({
+        actionType: 'delivery',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId: authTenantId || null,
+      })) return true;
       const presetId = requiredString(body, 'presetId');
       const preset = presetId ? getAdminCommandCapabilityPresetById(presetId) : null;
       if (presetId && !preset) {

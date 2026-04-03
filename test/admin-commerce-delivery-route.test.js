@@ -27,8 +27,8 @@ function createMockRes() {
 
 function buildRoutes(overrides = {}) {
   return createAdminCommerceDeliveryPostRoutes({
-    sendJson(res, statusCode, payload) {
-      res.writeHead(statusCode, { 'content-type': 'application/json' });
+    sendJson(res, statusCode, payload, headers = {}) {
+      res.writeHead(statusCode, { 'content-type': 'application/json', ...headers });
       res.end(JSON.stringify(payload));
     },
     requiredString(value, key) {
@@ -44,6 +44,8 @@ function buildRoutes(overrides = {}) {
     parseStringArray: () => [],
     getAuthTenantId: (auth) => auth?.tenantId || null,
     resolveScopedTenantId: (_req, _res, auth, requestedTenantId) => requestedTenantId || auth?.tenantId || null,
+    consumeActionRateLimit: () => ({ limited: false, retryAfterMs: 0, ip: '127.0.0.1' }),
+    recordAdminSecuritySignal: () => {},
     listKnownPurchaseStatuses: () => [],
     setCoinsExact: async () => ({ ok: true }),
     creditCoins: async () => ({ ok: true }),
@@ -274,4 +276,40 @@ test('tenant-scoped delivery retry hides cross-tenant purchase codes before enti
   assert.equal(retried, false);
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.error, 'Resource not found');
+});
+
+test('admin delivery retry route is rate limited before retrying queue work', async () => {
+  let retried = false;
+  const handler = buildRoutes({
+    consumeActionRateLimit: () => ({
+      limited: true,
+      retryAfterMs: 3_000,
+      ip: '127.0.0.1',
+    }),
+    retryDeliveryNow: async () => {
+      retried = true;
+      return { ok: true };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/delivery/retry',
+    body: {
+      tenantId: 'tenant-1',
+      code: 'PUR-1001',
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 429);
+  assert.equal(retried, false);
+  assert.equal(res.headers['Retry-After'], '3');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /Too many delivery actions/i);
 });

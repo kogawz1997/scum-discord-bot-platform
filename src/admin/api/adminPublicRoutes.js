@@ -63,10 +63,12 @@ function createAdminPublicRoutes(deps) {
     deleteDiscordOauthState,
     getClientIp,
     recordAdminSecuritySignal,
+    consumeActionRateLimit,
     createSession,
     buildSessionCookie,
     buildClearSessionCookie,
     invalidateSession,
+    acceptTenantStaffInvite,
     authenticateTenantUser,
     consumeTenantBootstrapToken,
     resolveTenantSessionAccessContext,
@@ -91,6 +93,71 @@ function createAdminPublicRoutes(deps) {
 
   function trimTrailingSlash(value) {
     return String(value || '').trim().replace(/\/+$/, '');
+  }
+
+  function recordTenantPublicAuthSignal(type, optionsArg = {}) {
+    if (typeof recordAdminSecuritySignal !== 'function') return;
+    recordAdminSecuritySignal(type, {
+      severity: optionsArg.severity || 'info',
+      actor: optionsArg.actor || 'unknown',
+      targetUser: optionsArg.targetUser || optionsArg.actor || 'unknown',
+      role: optionsArg.role || null,
+      authMethod: optionsArg.authMethod || null,
+      sessionId: optionsArg.sessionId || null,
+      ip:
+        optionsArg.ip
+        || (typeof getClientIp === 'function' && optionsArg.req ? getClientIp(optionsArg.req) : null),
+      path: optionsArg.path || null,
+      reason: optionsArg.reason || null,
+      detail: optionsArg.detail || null,
+      data: optionsArg.data || null,
+      notify: optionsArg.notify === true,
+    });
+  }
+
+  function enforceTenantPublicAuthRateLimit({
+    actionType,
+    req,
+    res,
+    pathname,
+    actor,
+  }) {
+    if (typeof consumeActionRateLimit !== 'function') return false;
+    const rateLimit = consumeActionRateLimit(actionType, req, {
+      actor: String(actor || '').trim() || 'anonymous',
+      tenantId: 'public-tenant-auth',
+    });
+    if (!rateLimit?.limited) return false;
+    recordTenantPublicAuthSignal(`${actionType}-rate-limited`, {
+      req,
+      severity: 'warn',
+      actor: String(actor || '').trim() || 'unknown',
+      authMethod:
+        actionType === 'tenant-public-invite-accept'
+          ? 'tenant-staff-invite'
+          : 'platform-user-password',
+      path: pathname,
+      reason: 'too-many-attempts',
+      detail: `Tenant public auth action ${actionType} was rate limited`,
+      data: {
+        actionType,
+        retryAfterMs: Number(rateLimit.retryAfterMs || 0),
+      },
+      notify: true,
+    });
+    const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+    sendJson(
+      res,
+      429,
+      {
+        ok: false,
+        error: `Too many ${actionType} attempts. Please wait ${retryAfterSec}s and try again.`,
+      },
+      {
+        'Retry-After': String(retryAfterSec),
+      },
+    );
+    return true;
   }
 
   async function readTenantBootstrapBody(req) {
@@ -154,8 +221,6 @@ function createAdminPublicRoutes(deps) {
   }
 
   function buildPlayerPortalUrl(req, urlObj, pathname) {
-    const splitSurfaceTarget = buildSurfaceRedirectUrl('player', req, pathname, urlObj?.search || '');
-    if (splitSurfaceTarget) return splitSurfaceTarget;
     const requestHost = String(req?.headers?.host || '').trim();
     const requestHostname = extractHostname(requestHost);
     const search = String(urlObj?.search || '');
@@ -164,6 +229,9 @@ function createAdminPublicRoutes(deps) {
       const localPort = String(process.env.WEB_PORTAL_PORT || '3300').trim() || '3300';
       return `http://${localHost}:${localPort}${pathname}${search}`;
     }
+
+    const splitSurfaceTarget = buildSurfaceRedirectUrl('player', req, pathname, search);
+    if (splitSurfaceTarget) return splitSurfaceTarget;
 
     const configuredBase = String(process.env.WEB_PORTAL_BASE_URL || '').trim();
     if (!configuredBase) return null;
@@ -254,6 +322,13 @@ function createAdminPublicRoutes(deps) {
     }
     const query = params.toString();
     return query ? `?${query}` : '';
+  }
+
+  function hasTenantInviteToken(urlObj) {
+    return Boolean(
+      requiredString(urlObj?.searchParams?.get('inviteToken'))
+      || requiredString(urlObj?.searchParams?.get('invite')),
+    );
   }
 
   function getRequestedSurface(pathname) {
@@ -485,7 +560,8 @@ function createAdminPublicRoutes(deps) {
       )
     ) {
       const auth = await getEffectiveAuth(req, urlObj, res);
-      if (auth) {
+      const inviteTokenActive = pathname.startsWith('/tenant/login') && hasTenantInviteToken(urlObj);
+      if (auth && !inviteTokenActive) {
         const requestedSurface = getRequestedSurface(pathname);
         const canAccessRequestedSurface = (
           requestedSurface === 'admin'
@@ -533,15 +609,38 @@ function createAdminPublicRoutes(deps) {
 
     if (req.method === 'POST' && pathname === '/tenant/api/auth/login') {
       const body = await readJsonBody(req);
+      const email = requiredString(body, 'email');
+      const password = requiredString(body, 'password');
       const nextUrl = normalizeTenantNextUrl(
         body?.nextUrl || body?.next || urlObj?.searchParams?.get('next'),
         '/tenant/onboarding',
       ) || '/tenant/onboarding';
+      if (enforceTenantPublicAuthRateLimit({
+        actionType: 'tenant-public-login',
+        req,
+        res,
+        pathname,
+        actor: email,
+      })) {
+        return true;
+      }
       const result = await authenticateTenantUser?.({
-        email: requiredString(body, 'email'),
-        password: requiredString(body, 'password'),
+        email,
+        password,
       });
       if (!result?.ok || !result?.membership?.tenantId) {
+        recordTenantPublicAuthSignal('tenant-login-failed', {
+          req,
+          actor: email || 'unknown',
+          targetUser: email || 'unknown',
+          authMethod: 'platform-user-password',
+          path: pathname,
+          reason: result?.reason || 'tenant-login-failed',
+          detail: 'Tenant login failed',
+          data: {
+            nextUrl,
+          },
+        });
         sendJson(res, 401, {
           ok: false,
           error: result?.reason || 'tenant-login-failed',
@@ -562,6 +661,113 @@ function createAdminPublicRoutes(deps) {
         'platform-user-password',
         req,
       );
+      recordTenantPublicAuthSignal('tenant-login-succeeded', {
+        req,
+        actor: result.user?.primaryEmail || email || result.membership.tenantId,
+        targetUser: result.user?.primaryEmail || email || result.membership.tenantId,
+        role: result.membership.role || 'viewer',
+        authMethod: 'platform-user-password',
+        sessionId,
+        path: pathname,
+        detail: 'Tenant login succeeded',
+        data: {
+          tenantId: result.membership.tenantId,
+          tenantMembershipId: result.membership?.id || null,
+        },
+      });
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          data: {
+            tenantId: result.membership.tenantId,
+            role: result.membership.role || 'viewer',
+            nextUrl,
+          },
+        },
+        {
+          'Set-Cookie': buildSessionCookie(sessionId, req),
+        },
+      );
+      return true;
+    }
+
+    if (req.method === 'POST' && pathname === '/tenant/api/auth/accept-invite') {
+      const body = await readJsonBody(req);
+      const token = requiredString(body, 'token') || requiredString(body, 'inviteToken');
+      const email = requiredString(body, 'email');
+      const password = requiredString(body, 'password');
+      const displayName = requiredString(body, 'displayName');
+      const locale = requiredString(body, 'locale');
+      const nextUrl = normalizeTenantNextUrl(
+        body?.nextUrl || body?.next || urlObj?.searchParams?.get('next'),
+        '/tenant',
+      ) || '/tenant';
+      if (enforceTenantPublicAuthRateLimit({
+        actionType: 'tenant-public-invite-accept',
+        req,
+        res,
+        pathname,
+        actor: email || token,
+      })) {
+        return true;
+      }
+      const result = await acceptTenantStaffInvite?.({
+        token,
+        email,
+        password,
+        displayName,
+        locale,
+      });
+      if (!result?.ok || !result?.membership?.tenantId) {
+        recordTenantPublicAuthSignal('tenant-invite-accept-failed', {
+          req,
+          actor: email || token || 'unknown',
+          targetUser: email || token || 'unknown',
+          authMethod: 'tenant-staff-invite',
+          path: pathname,
+          reason: result?.reason || 'tenant-invite-accept-failed',
+          detail: 'Tenant invite acceptance failed',
+          data: {
+            hasToken: Boolean(token),
+            nextUrl,
+          },
+        });
+        sendJson(res, 400, {
+          ok: false,
+          error: result?.reason || 'tenant-invite-accept-failed',
+        });
+        return true;
+      }
+      req.__pendingAdminTenantId = result.membership.tenantId;
+      req.__pendingAdminSessionContext = {
+        userId: result.user?.id || null,
+        primaryEmail: result.user?.primaryEmail || null,
+        tenantMembershipId: result.membership?.id || null,
+        tenantMembershipType: result.membership?.membershipType || 'tenant',
+        tenantMembershipStatus: result.membership?.status || 'active',
+      };
+      const sessionId = createSession(
+        result.user?.primaryEmail || result.user?.displayName || result.membership.tenantId,
+        result.membership.role || 'viewer',
+        'tenant-staff-invite',
+        req,
+      );
+      recordTenantPublicAuthSignal('tenant-invite-accept-succeeded', {
+        req,
+        actor: result.user?.primaryEmail || email || result.membership.tenantId,
+        targetUser: result.user?.primaryEmail || email || result.membership.tenantId,
+        role: result.membership.role || 'viewer',
+        authMethod: 'tenant-staff-invite',
+        sessionId,
+        path: pathname,
+        detail: 'Tenant invite acceptance succeeded',
+        data: {
+          tenantId: result.membership.tenantId,
+          tenantMembershipId: result.membership?.id || null,
+        },
+      });
       sendJson(
         res,
         200,

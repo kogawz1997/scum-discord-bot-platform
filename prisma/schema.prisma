@@ -1,3 +1,8 @@
+// Source-of-truth note:
+// - This file is the compatibility schema template kept in-repo for local/offline workflows.
+// - Provider-specific runtime and migration schemas must be rendered via scripts/prisma-with-provider.js.
+// - Do not infer the production runtime provider from the literal datasource provider in this file alone.
+
 generator client {
   provider = "prisma-client-js"
 }

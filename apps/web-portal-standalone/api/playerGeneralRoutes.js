@@ -3,6 +3,10 @@
  */
 
 const {
+  buildTenantPortalBranding,
+} = require('../../../src/services/platformPortalBrandingService');
+
+const {
   buildPlayerPortalFeatureAccess,
   hasFeatureAccess,
   loadPlayerFeatureAccess,
@@ -70,6 +74,8 @@ function createPlayerGeneralRoutes(deps) {
     transferCoins,
     isDiscordId,
     listServerRegistry,
+    getPlatformTenantById,
+    getPlatformTenantConfig,
     getPlatformUserIdentitySummary,
     createRaidRequest,
     listRaidRequests,
@@ -92,6 +98,69 @@ function createPlayerGeneralRoutes(deps) {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
     };
+  const magicLinkRateLimits = {
+    request: { windowMs: 10 * 60_000, maxAttempts: 5 },
+    complete: { windowMs: 10 * 60_000, maxAttempts: 8 },
+  };
+  const magicLinkAttemptsByKey = new Map();
+
+  function getClientIp(req) {
+    const forwarded = String(req?.headers?.['x-forwarded-for'] || '')
+      .split(',')[0]
+      .trim();
+    if (forwarded) return forwarded;
+    return safeNormalizeText(req?.socket?.remoteAddress) || 'unknown-ip';
+  }
+
+  function consumeMagicLinkRateLimit(actionType, req, actor) {
+    const configForAction = magicLinkRateLimits[actionType];
+    const ip = getClientIp(req);
+    if (!configForAction) {
+      return {
+        limited: false,
+        retryAfterMs: 0,
+        ip,
+      };
+    }
+    const now = Date.now();
+    for (const [key, entry] of magicLinkAttemptsByKey.entries()) {
+      if (!entry || now - entry.firstAt > entry.windowMs) {
+        magicLinkAttemptsByKey.delete(key);
+      }
+    }
+    const normalizedActor = safeNormalizeText(actor) || 'anonymous';
+    const key = `${actionType}::${ip}::${normalizedActor}`;
+    const existing = magicLinkAttemptsByKey.get(key);
+    if (!existing || now - existing.firstAt > configForAction.windowMs) {
+      magicLinkAttemptsByKey.set(key, {
+        firstAt: now,
+        count: 1,
+        windowMs: configForAction.windowMs,
+      });
+      return {
+        limited: false,
+        retryAfterMs: 0,
+        ip,
+      };
+    }
+    if (existing.count >= configForAction.maxAttempts) {
+      return {
+        limited: true,
+        retryAfterMs: Math.max(0, configForAction.windowMs - (now - existing.firstAt)),
+        ip,
+      };
+    }
+    magicLinkAttemptsByKey.set(key, {
+      ...existing,
+      count: existing.count + 1,
+      windowMs: configForAction.windowMs,
+    });
+    return {
+      limited: false,
+      retryAfterMs: 0,
+      ip,
+    };
+  }
 
   async function getFeatureAccess(session) {
     return loadPlayerFeatureAccess(deps.getTenantFeatureAccess, session);
@@ -104,6 +173,21 @@ function createPlayerGeneralRoutes(deps) {
       console.warn(`[player-portal] optional player data unavailable (${label})`, error?.message || error);
       return fallback;
     }
+  }
+
+  async function resolvePlayerPortalBranding(tenantId) {
+    const normalizedTenantId = safeNormalizeText(tenantId);
+    if (!normalizedTenantId) return null;
+    const [tenant, tenantConfig] = await Promise.all([
+      typeof getPlatformTenantById === 'function' ? getPlatformTenantById(normalizedTenantId) : null,
+      typeof getPlatformTenantConfig === 'function' ? getPlatformTenantConfig(normalizedTenantId) : null,
+    ]);
+    return buildTenantPortalBranding({
+      tenant,
+      tenantConfig,
+      surface: 'player',
+      fallbackSiteDetail: 'Linked account, orders, delivery, stats, and support in one player workspace.',
+    });
   }
 
   function normalizeEconomySnapshot(raw) {
@@ -265,9 +349,14 @@ function createPlayerGeneralRoutes(deps) {
     };
 
     if (pathname === '/player/api/me' && method === 'GET') {
-      const [account, link] = await Promise.all([
+      const [account, link, branding] = await Promise.all([
         getPlayerAccount(session.discordId, tenantOptions),
         resolveSessionSteamLink(session.discordId, tenantOptions),
+        readOptionalPlayerData(
+          'player-portal-branding',
+          () => resolvePlayerPortalBranding(tenantOptions.tenantId || null),
+          null,
+        ),
       ]);
       sendJson(res, 200, {
         ok: true,
@@ -288,6 +377,7 @@ function createPlayerGeneralRoutes(deps) {
           effectiveServerId: playerServerState?.effectiveServerId || null,
           effectiveServerName: playerServerState?.effectiveServerName || null,
           serverSelectionRequired: playerServerState?.selectionRequired === true,
+          branding,
         },
       });
       return true;
@@ -392,9 +482,21 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/auth/email/request' && method === 'POST') {
       const body = await readJsonBody(req);
+      const email = body?.email;
+      const rateLimit = consumeMagicLinkRateLimit('request', req, email);
+      if (rateLimit.limited) {
+        const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+        sendJson(res, 429, {
+          ok: false,
+          error: `Too many magic link requests. Please wait ${retryAfterSec}s and try again.`,
+        }, {
+          'Retry-After': String(retryAfterSec),
+        });
+        return true;
+      }
       const result = typeof requestPlayerMagicLink === 'function'
         ? await requestPlayerMagicLink({
-          email: body?.email,
+          email,
         })
         : { ok: false, reason: 'email-magic-link-not-configured' };
       if (!result?.ok) {
@@ -415,6 +517,17 @@ function createPlayerGeneralRoutes(deps) {
 
     if (pathname === '/player/api/auth/email/complete' && method === 'POST') {
       const body = await readJsonBody(req);
+      const rateLimit = consumeMagicLinkRateLimit('complete', req, body?.email || body?.token);
+      if (rateLimit.limited) {
+        const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+        sendJson(res, 429, {
+          ok: false,
+          error: `Too many magic link sign-in attempts. Please wait ${retryAfterSec}s and try again.`,
+        }, {
+          'Retry-After': String(retryAfterSec),
+        });
+        return true;
+      }
       const result = typeof consumePlayerMagicLink === 'function'
         ? await consumePlayerMagicLink({
           token: body?.token,
@@ -799,6 +912,9 @@ function createPlayerGeneralRoutes(deps) {
         || memberships.find((entry) => normalizeText(entry?.status || '').toLowerCase() === 'active')
         || memberships[0]
         || null;
+      const centralizedIdentitySummary = identity?.identitySummary && typeof identity.identitySummary === 'object'
+        ? identity.identitySummary
+        : null;
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -821,7 +937,7 @@ function createPlayerGeneralRoutes(deps) {
           steamLink: link,
           platformUserId: identity?.user?.id || session.platformUserId || null,
           platformProfileId: identity?.profile?.id || session.platformProfileId || null,
-          identitySummary: {
+          identitySummary: centralizedIdentitySummary || {
             linkedProviders: identities
               .map((entry) => normalizeText(entry?.provider).toLowerCase())
               .filter(Boolean),

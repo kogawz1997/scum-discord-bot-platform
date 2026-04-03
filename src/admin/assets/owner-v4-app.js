@@ -1866,6 +1866,11 @@
       runtimeSupervisor,
       requestLogs,
       deliveryLifecycle,
+      deliveryAudit,
+      restartPlans,
+      restartExecutions,
+      syncRuns,
+      syncEvents,
     ] = await Promise.all([
       optionalOwnerRead('/owner/api/platform/agents?limit=50', [], 2500),
       optionalOwnerRead('/owner/api/platform/agent-registry?limit=200', [], 2500),
@@ -1878,6 +1883,11 @@
       optionalOwnerRead('/owner/api/runtime/supervisor', null, 2500),
       optionalOwnerRead('/owner/api/observability/requests?limit=20&onlyErrors=true', { metrics: {}, items: [] }, 2500),
       optionalOwnerRead('/owner/api/delivery/lifecycle?limit=80&pendingOverdueMs=1200000', {}, 2500),
+      optionalOwnerRead('/owner/api/delivery/audit?limit=20', [], 2500),
+      optionalOwnerRead('/owner/api/platform/restart-plans?limit=20', [], 2500),
+      optionalOwnerRead('/owner/api/platform/restart-executions?limit=20', [], 2500),
+      optionalOwnerRead('/owner/api/platform/sync-runs?limit=20', [], 2500),
+      optionalOwnerRead('/owner/api/platform/sync-events?limit=20', [], 2500),
     ]);
     return {
       agents,
@@ -1891,6 +1901,11 @@
       runtimeSupervisor,
       requestLogs,
       deliveryLifecycle,
+      deliveryAudit,
+      restartPlans,
+      restartExecutions,
+      syncRuns,
+      syncEvents,
     };
   }
 
@@ -1960,6 +1975,11 @@
         runtimeSupervisor: null,
         requestLogs: { metrics: {}, items: [] },
         deliveryLifecycle: {},
+        deliveryAudit: [],
+        restartPlans: [],
+        restartExecutions: [],
+        syncRuns: [],
+        syncEvents: [],
         tenantQuotaSnapshots: [],
         __loadWarnings: loadWarnings,
       };

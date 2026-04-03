@@ -134,20 +134,35 @@ function listTenantDbIsolationTables() {
 }
 
 async function ensureTenantDbIsolationTable(client, table) {
-  if (String(table?.tableName || '').trim() !== 'platform_tenant_configs') {
+  const tableName = trimText(table?.tableName, 160);
+  if (!tableName) {
+    throw new Error('tenant isolation table metadata is incomplete');
+  }
+  const rows = await client.$queryRawUnsafe(
+    `
+    SELECT 1
+    FROM pg_class c
+    INNER JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = current_schema()
+      AND c.relname = $1
+    LIMIT 1
+    `,
+    tableName,
+  );
+  if (Array.isArray(rows) && rows.length > 0) {
     return;
   }
-  await client.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_tenant_configs (
-      tenant_id TEXT PRIMARY KEY,
-      config_patch_json TEXT,
-      portal_env_patch_json TEXT,
-      feature_flags_json TEXT,
-      updated_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+  const error = new Error(
+    `Tenant isolation target table "${tableName}" must exist before installing RLS policies`,
+  );
+  error.code = 'TENANT_DB_ISOLATION_TABLE_REQUIRED';
+  error.statusCode = 409;
+  error.tenantDbIsolation = {
+    tableName,
+    action: 'install',
+    reason: 'table-missing',
+  };
+  throw error;
 }
 
 async function configureTenantDbIsolationSession(client, options = {}) {

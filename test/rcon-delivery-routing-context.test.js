@@ -43,6 +43,7 @@ test('delivery preflight routes execute checks through the control-plane registr
   const {
     getDeliveryPreflightReport,
   } = require(deliveryPath);
+  await repository.initControlPlaneRegistryRepository();
 
   const server = http.createServer((req, res) => {
     if (req.url === '/healthz') {
@@ -122,6 +123,7 @@ test('delivery preflight routes execute checks through the control-plane registr
     version: '1.0.0',
     baseUrl: `http://127.0.0.1:${port}`,
   });
+  await repository.waitForControlPlaneRegistryPersistence();
 
   const report = await getDeliveryPreflightReport({
     tenantId: 'tenant-routing',

@@ -45,6 +45,7 @@ function buildRoutes(overrides = {}) {
     getRootEnvFilePath: () => 'C:\\new\\.env',
     getPortalEnvFilePath: () => 'C:\\new\\.env.portal',
     recordAdminSecuritySignal: () => {},
+    consumeActionRateLimit: () => ({ limited: false, retryAfterMs: 0, ip: '127.0.0.1' }),
     getClientIp: () => '127.0.0.1',
     upsertAdminUserInDb: async () => ({}),
     revokeSessionsForUser: () => [],
@@ -179,4 +180,42 @@ test('admin tenant-config route allows module save when module entitlement is en
   assert.equal(calls[0].tenantId, 'tenant-1');
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.ok, true);
+});
+
+test('admin runtime restart-service route is rate limited before restarting managed services', async () => {
+  let restarted = false;
+  const handler = buildRoutes({
+    consumeActionRateLimit: () => ({
+      limited: true,
+      retryAfterMs: 4_000,
+      ip: '127.0.0.1',
+    }),
+    restartManagedRuntimeServices: async () => {
+      restarted = true;
+      return { ok: true, services: ['worker'] };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/runtime/restart-service',
+    body: {
+      service: 'worker',
+    },
+    res,
+    auth: {
+      user: 'platform-owner',
+      role: 'owner',
+      tenantId: null,
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 429);
+  assert.equal(restarted, false);
+  assert.equal(res.headers['Retry-After'], '4');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /Too many restart actions/i);
 });

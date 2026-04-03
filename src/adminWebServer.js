@@ -77,6 +77,7 @@ const {
   listDeliveryQueue,
   listFilteredDeliveryQueue,
   listFilteredDeliveryDeadLetters,
+  listDeliveryAudit,
   retryDeliveryNow,
   retryDeliveryNowMany,
   retryDeliveryDeadLetter,
@@ -269,11 +270,12 @@ const { getPlatformOpsState } = require('./store/platformOpsStateStore');
 const {
   getPlatformAutomationState,
 } = require('./store/platformAutomationStateStore');
-const {
-  authenticateTenantUser,
-  consumeTenantBootstrapToken,
-  resolveTenantSessionAccessContext,
-} = require('./services/platformWorkspaceAuthService');
+  const {
+    acceptTenantStaffInvite,
+    authenticateTenantUser,
+    consumeTenantBootstrapToken,
+    resolveTenantSessionAccessContext,
+  } = require('./services/platformWorkspaceAuthService');
 const {
   revokeWelcomePackClaimForAdmin,
   clearWelcomePackClaimsForAdmin,
@@ -609,6 +611,7 @@ const {
 
 const {
   cleanupDiscordOauthStates,
+  consumeActionRateLimit,
   getLoginFailureMetrics,
   getLoginRateLimitState,
   recordAdminSecuritySignal,
@@ -854,6 +857,7 @@ const {
   resolveAdminEditableRootEnvFilePath,
   resolveAdminEditablePortalEnvFilePath,
   recordAdminSecuritySignal,
+  consumeActionRateLimit,
   getClientIp,
   upsertAdminUserInDb,
   revokeSessionsForUser,
@@ -914,11 +918,12 @@ const {
   SSO_DISCORD_DEFAULT_ROLE,
   discordOauthStates,
   createSession,
-  buildSessionCookie,
-  invalidateSession,
-  authenticateTenantUser,
-  consumeTenantBootstrapToken,
-  resolveTenantSessionAccessContext,
+    buildSessionCookie,
+    invalidateSession,
+    acceptTenantStaffInvite,
+    authenticateTenantUser,
+    consumeTenantBootstrapToken,
+    resolveTenantSessionAccessContext,
   resolveAdminSessionAccessContext,
   prisma,
   sendDownload,
@@ -999,6 +1004,7 @@ const {
   listActiveBountiesForUser,
   listFilteredDeliveryQueue,
   listFilteredDeliveryDeadLetters,
+  listDeliveryAudit,
   getDeliveryRuntimeStatus,
   listScumAdminCommandCapabilities,
   listAdminCommandCapabilityPresets,

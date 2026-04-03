@@ -509,3 +509,57 @@ test('platform billing lifecycle service refunds pending subscriptions into canc
   assert.equal(String(refunded.subscription?.status || ''), 'canceled');
   assert.equal(String(refunded.event?.eventType || ''), 'subscription.canceled');
 });
+
+test('platform billing lifecycle service records suspended subscriptions and reactivates them cleanly', async (t) => {
+  await cleanupBillingFixtures();
+  t.after(cleanupBillingFixtures);
+
+  await prisma.platformTenant.create({
+    data: {
+      id: 'tenant-billing-test',
+      slug: 'tenant-billing-test',
+      name: 'Billing Suspension Test',
+    },
+  });
+
+  await prisma.platformSubscription.create({
+    data: {
+      id: 'sub-billing-suspended',
+      tenantId: 'tenant-billing-test',
+      planId: 'platform-starter',
+      billingCycle: 'monthly',
+      status: 'active',
+      amountCents: 490000,
+      currency: 'THB',
+      renewsAt: new Date('2026-04-15T00:00:00.000Z'),
+    },
+  });
+
+  const suspended = await updateSubscriptionBillingState({
+    tenantId: 'tenant-billing-test',
+    subscriptionId: 'sub-billing-suspended',
+    status: 'suspended',
+    actor: 'owner-web:test',
+    metadata: {
+      suspendedBy: 'owner-web:test',
+      suspensionReason: 'manual-review',
+    },
+  });
+
+  assert.equal(suspended.ok, true);
+  assert.equal(String(suspended.subscription?.status || ''), 'suspended');
+  assert.equal(String(suspended.event?.eventType || ''), 'subscription.suspended');
+
+  const reactivated = await updateSubscriptionBillingState({
+    tenantId: 'tenant-billing-test',
+    subscriptionId: 'sub-billing-suspended',
+    status: 'active',
+    actor: 'owner-web:test',
+    canceledAt: null,
+  });
+
+  assert.equal(reactivated.ok, true);
+  assert.equal(String(reactivated.subscription?.status || ''), 'active');
+  assert.ok(reactivated.subscription?.renewsAt);
+  assert.equal(String(reactivated.event?.eventType || ''), 'subscription.reactivated');
+});

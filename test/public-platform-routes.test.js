@@ -298,3 +298,117 @@ test('public platform routes create and finalize checkout sessions for preview u
   assert.equal(webhookRes.statusCode, 200);
   assert.equal(webhookRes.payload.data.eventType, 'invoice.paid');
 });
+
+test('public platform routes expose tenant-isolated server workspace by slug', async () => {
+  const route = createPublicPlatformRoutes({
+    sendJson: createSendJson(),
+    readJsonBody: async () => ({}),
+    getPlatformPublicOverview: async () => ({ billing: { packages: [], features: [], plans: [] } }),
+    getPlatformTenantBySlug: async (slug) => (
+      slug === 'prime'
+        ? { id: 'tenant-1', slug: 'prime', name: 'Prime SCUM' }
+        : null
+    ),
+    getPlatformTenantConfig: async () => ({
+      portalEnvPatch: {
+        publicSiteName: 'Prime SCUM Public',
+        publicSiteDetail: 'Official community server page',
+        publicTheme: 'midnight-ops',
+        publicPrimaryColor: '#3366ff',
+      },
+    }),
+    listAllStats: () => ([
+      { userId: 'alice', kills: 12, deaths: 3, playtimeMinutes: 240 },
+      { userId: 'bob', kills: 7, deaths: 5, playtimeMinutes: 180 },
+    ]),
+    listShopItems: async () => ([
+      { id: 'vip-gold', name: 'VIP Gold', description: 'Priority queue', kind: 'vip' },
+      { id: 'kit-1', name: 'Starter Kit', description: 'Starter loadout', kind: 'item' },
+    ]),
+    filterShopItems: (rows, options = {}) => Array.isArray(rows)
+      ? rows.slice(0, Number(options.limit || rows.length))
+      : [],
+    listServerEvents: async () => ([
+      { id: 1, name: 'Weekend Raid', time: '2026-04-05T18:00:00Z', reward: 'Loot crate', status: 'scheduled' },
+    ]),
+    buildTenantDonationOverview: async () => ({
+      summary: {
+        supporterRevenueCoins30d: 9500,
+        supporterPurchases30d: 4,
+        lastPurchaseAt: '2026-04-02T12:30:00.000Z',
+      },
+      topPackages: [
+        { itemName: 'VIP Gold', ordersCount: 4, revenueCoins: 9500 },
+      ],
+      recentPurchases: [
+        { code: 'SUP-1', itemName: 'VIP Gold', price: 2500 },
+      ],
+      issues: [],
+      readiness: { ready: true },
+    }),
+    listKillFeedEntries: async () => ([
+      { killerName: 'Alice', victimName: 'Bob', weapon: 'AK-47' },
+    ]),
+    listServerRegistry: async () => ([
+      { id: 'server-1', name: 'Prime EU #1', status: 'online', region: 'eu-west', guildLinks: [{ id: 'guild-link-1' }] },
+    ]),
+    registerPreviewAccount: async () => ({ ok: false }),
+    authenticatePreviewAccount: async () => ({ ok: false }),
+    getPreviewState: async () => ({ ok: false }),
+    requestEmailVerification: async () => ({ ok: true }),
+    completeEmailVerification: async () => ({ ok: true }),
+    requestPasswordReset: async () => ({ ok: true }),
+    completePasswordReset: async () => ({ ok: true }),
+    createCheckoutSession: async () => ({ ok: false }),
+    getCheckoutSessionByToken: async () => null,
+    finalizeCheckoutSession: async () => ({ ok: false }),
+    processBillingWebhookEvent: async () => ({ ok: true }),
+    createPreviewSession: () => 'preview-session-1',
+    getPreviewSession: () => null,
+    buildPreviewSessionCookie: () => 'preview_cookie=session; Path=/; HttpOnly',
+    buildClearPreviewSessionCookie: () => 'preview_cookie=; Path=/; Max-Age=0',
+    removePreviewSession: () => {},
+  });
+
+  const workspaceRes = createResponse();
+  const handledWorkspace = await route({
+    req: {},
+    res: workspaceRes,
+    pathname: '/api/public/server/prime/workspace',
+    method: 'GET',
+  });
+
+  assert.equal(handledWorkspace, true);
+  assert.equal(workspaceRes.statusCode, 200);
+  assert.equal(workspaceRes.payload.data.tenant.slug, 'prime');
+  assert.equal(workspaceRes.payload.data.brand.siteName, 'Prime SCUM Public');
+  assert.equal(workspaceRes.payload.data.overview.shopItemCount, 2);
+  assert.equal(workspaceRes.payload.data.stats.topPlayers[0].userId, 'alice');
+  assert.equal(workspaceRes.payload.data.events.total, 1);
+  assert.equal(workspaceRes.payload.data.donate.summary.supporterRevenueCoins30d, 9500);
+
+  const statsRes = createResponse();
+  const handledStats = await route({
+    req: {},
+    res: statsRes,
+    pathname: '/api/public/server/prime/stats',
+    method: 'GET',
+  });
+
+  assert.equal(handledStats, true);
+  assert.equal(statsRes.statusCode, 200);
+  assert.equal(statsRes.payload.data.section, 'stats');
+  assert.equal(statsRes.payload.data.stats.playersTracked, 2);
+
+  const missingRes = createResponse();
+  const handledMissing = await route({
+    req: {},
+    res: missingRes,
+    pathname: '/api/public/server/missing/workspace',
+    method: 'GET',
+  });
+
+  assert.equal(handledMissing, true);
+  assert.equal(missingRes.statusCode, 404);
+  assert.equal(missingRes.payload.error, 'tenant-not-found');
+});

@@ -151,6 +151,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
     resolveAdminEditableRootEnvFilePath: 'resolve-root-env-path-marker',
     resolveAdminEditablePortalEnvFilePath: 'resolve-portal-env-path-marker',
     recordAdminSecuritySignal: 'record-admin-security-signal-marker',
+    consumeActionRateLimit: 'consume-action-rate-limit-marker',
     getClientIp: 'get-client-ip-marker',
     upsertAdminUserInDb: 'upsert-admin-user-marker',
     revokeSessionsForUser: 'revoke-sessions-for-user-marker',
@@ -197,6 +198,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
     createSession: 'create-session-marker',
     buildSessionCookie: 'build-session-cookie-marker',
     invalidateSession: 'invalidate-session-marker',
+    acceptTenantStaffInvite: 'accept-tenant-staff-invite-marker',
     authenticateTenantUser: 'authenticate-tenant-user-marker',
     consumeTenantBootstrapToken: 'consume-tenant-bootstrap-token-marker',
     resolveTenantSessionAccessContext: 'resolve-tenant-session-access-context-marker',
@@ -280,6 +282,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
     listActiveBountiesForUser: 'list-active-bounties-for-user-marker',
     listFilteredDeliveryQueue: 'list-filtered-delivery-queue-marker',
     listFilteredDeliveryDeadLetters: 'list-filtered-delivery-dead-letters-marker',
+    listDeliveryAudit: 'list-delivery-audit-marker',
     getDeliveryRuntimeStatus: 'get-delivery-runtime-status-marker',
     listScumAdminCommandCapabilities: 'list-scum-admin-command-capabilities-marker',
     listAdminCommandCapabilityPresets: 'list-admin-command-capability-presets-marker',
@@ -389,11 +392,15 @@ test('admin route handlers runtime wires service outputs into route factories', 
   assert.equal(publicRouteDeps.registerPlatformAgent, 'register-agent-marker');
   assert.equal(publicRouteDeps.ingestPlatformAgentSync, 'ingest-platform-agent-sync-marker');
   assert.equal(publicRouteDeps.getPackageCatalog, 'get-package-catalog-summary-marker');
+  assert.equal(publicRouteDeps.acceptTenantStaffInvite, 'accept-tenant-staff-invite-marker');
+  assert.equal(publicRouteDeps.consumeActionRateLimit, 'consume-action-rate-limit-marker');
   assert.equal(getRouteDeps.listPlatformServerRegistry, 'list-server-registry-marker');
   assert.equal(getRouteDeps.listPlatformSyncRuns, 'list-control-plane-sync-runs-marker');
+  assert.equal(getRouteDeps.listDeliveryAudit, 'list-delivery-audit-marker');
   assert.equal(getRouteDeps.buildTenantDonationOverview, 'build-tenant-donation-overview-marker');
   assert.equal(platformPostDeps.createServer, 'create-server-marker');
   assert.equal(platformPostDeps.createServerConfigApplyJob, 'create-server-config-apply-job-marker');
+  assert.equal(platformPostDeps.consumeActionRateLimit, 'consume-action-rate-limit-marker');
   assert.equal(routeRuntimeDeps.handleAdminPlatformPostRoute, platformMarker);
   assert.equal(routeRuntimeDeps.handleAdminCommerceDeliveryPostRoute, commerceMarker);
 

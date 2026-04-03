@@ -13,6 +13,7 @@
 
   const {
     badge,
+    buildPlayerPortalShell,
     escapeHtml,
     firstNonEmpty,
     formatAmount,
@@ -22,6 +23,7 @@
     orderStatusLabel,
     renderBadges,
     renderFeed,
+    renderPlayerBrandMark,
     renderKeyValueList,
     renderNavGroups,
     renderProductGrid,
@@ -418,6 +420,17 @@
         ? state.__surfaceShell.navGroups
         : createPlayerPortalNavGroups(pageKey, state?.featureAccess),
     };
+  }
+
+  function buildBrandAwareShell(state, pageKey) {
+    return buildPlayerPortalShell(state, {
+      surfaceLabel: 'Player Portal',
+      workspaceLabel: firstNonEmpty([state?.profile?.displayName, state?.me?.user], 'Player Workspace'),
+      environmentLabel: firstNonEmpty([state?.serverInfo?.serverInfo?.name], 'SCUM Player Community'),
+      navGroups: Array.isArray(state?.__surfaceShell?.navGroups)
+        ? state.__surfaceShell.navGroups
+        : createPlayerPortalNavGroups(pageKey, state?.featureAccess),
+    });
   }
 
   function buildOrdersTable(rows) {
@@ -1864,7 +1877,7 @@
     return {
       pageKey,
       pageTitle: PAGE_META[pageKey]?.docLabel || 'ผู้เล่น',
-      shell: buildShell(state, pageKey),
+      shell: buildBrandAwareShell(state, pageKey),
       notice: buildNotice(state, pageKey),
       ...createPageContent(pageKey, createPlayerFacts(state)),
     };
@@ -1876,7 +1889,7 @@
       '<div class="plv4-app">',
       '<header class="plv4-topbar">',
       '<div class="plv4-brand-row">',
-      `<span class="plv4-brand-mark">${escapeHtml(safe.shell.brand || 'SCUM')}</span>`,
+      renderPlayerBrandMark(safe.shell),
       '<div class="plv4-brand-copy">',
       `<span class="plv4-surface-label">${escapeHtml(safe.shell.surfaceLabel || '')}</span>`,
       `<strong class="plv4-workspace-label">${escapeHtml(safe.shell.workspaceLabel || '')}</strong>`,

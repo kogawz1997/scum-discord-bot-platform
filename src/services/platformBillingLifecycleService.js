@@ -47,7 +47,7 @@ function normalizePaymentStatus(value, fallback = 'pending') {
 
 function normalizeSubscriptionStatus(value, fallback = 'active') {
   const normalized = trimText(value, 40).toLowerCase();
-  return ['active', 'trialing', 'pending', 'past_due', 'canceled', 'expired'].includes(normalized)
+  return ['active', 'trialing', 'pending', 'past_due', 'suspended', 'canceled', 'expired'].includes(normalized)
     ? normalized
     : fallback;
 }
@@ -1194,11 +1194,11 @@ async function updateSubscriptionBillingState(input = {}, db = prisma) {
   const nextRenewsAt = hasOwn(input, 'renewsAt')
     ? (input.renewsAt === null ? null : parseDate(input.renewsAt) || currentRenewsAt)
     : (
-      nextStatus === 'active'
-      && ['canceled', 'past_due', 'expired'].includes(normalizeSubscriptionStatus(existing.status, 'active'))
-      && (!currentRenewsAt || currentRenewsAt.getTime() <= now.getTime())
-        ? (() => {
-          const renewDays = resolveBillingCycleDays(nextBillingCycle);
+        nextStatus === 'active'
+        && ['canceled', 'past_due', 'suspended', 'expired'].includes(normalizeSubscriptionStatus(existing.status, 'active'))
+        && (!currentRenewsAt || currentRenewsAt.getTime() <= now.getTime())
+          ? (() => {
+            const renewDays = resolveBillingCycleDays(nextBillingCycle);
           return renewDays > 0 ? addDays(now, renewDays) : null;
         })()
         : currentRenewsAt
@@ -1224,15 +1224,19 @@ async function updateSubscriptionBillingState(input = {}, db = prisma) {
   let event = null;
   if (input.recordEvent !== false) {
     const previousStatus = normalizeSubscriptionStatus(existing.status, 'active');
-    const eventType = nextStatus === 'canceled' && previousStatus !== 'canceled'
-      ? 'subscription.canceled'
-      : previousStatus === 'canceled' && nextStatus === 'active'
-        ? 'subscription.reactivated'
-        : previousStatus === 'past_due' && nextStatus === 'active'
-          ? 'subscription.recovered'
-          : nextStatus === 'past_due' && previousStatus !== 'past_due'
-            ? 'subscription.past_due'
-            : 'subscription.updated';
+      const eventType = nextStatus === 'canceled' && previousStatus !== 'canceled'
+        ? 'subscription.canceled'
+        : previousStatus === 'canceled' && nextStatus === 'active'
+          ? 'subscription.reactivated'
+          : previousStatus === 'suspended' && nextStatus === 'active'
+            ? 'subscription.reactivated'
+          : previousStatus === 'past_due' && nextStatus === 'active'
+            ? 'subscription.recovered'
+            : nextStatus === 'suspended' && previousStatus !== 'suspended'
+              ? 'subscription.suspended'
+            : nextStatus === 'past_due' && previousStatus !== 'past_due'
+              ? 'subscription.past_due'
+              : 'subscription.updated';
     event = await recordSubscriptionEvent({
       tenantId,
       subscriptionId: row.id,

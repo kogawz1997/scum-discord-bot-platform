@@ -509,6 +509,21 @@ function toDateValue(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function toIsoOrNull(value) {
+  const parsed = toDateValue(value);
+  return parsed ? parsed.toISOString() : null;
+}
+
+function toSqlTimestampValue(value, env = process.env) {
+  const parsed = toDateValue(value);
+  if (!parsed) return null;
+  const runtime = resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  return runtime.isServerEngine ? parsed : parsed.toISOString();
+}
+
 function getPlatformIdentityDelegates(db = prisma, env = process.env) {
   const runtime = resolveDatabaseRuntime({
     databaseUrl: env.DATABASE_URL,
@@ -628,6 +643,183 @@ function normalizePlayerProfileRow(row) {
   };
 }
 
+function normalizeIdentityProvider(value) {
+  return trimText(value, 80).toLowerCase();
+}
+
+function buildIdentityNextSteps(input = {}) {
+  const linkedAccounts = input.linkedAccounts && typeof input.linkedAccounts === 'object'
+    ? input.linkedAccounts
+    : {};
+  const readiness = input.readiness && typeof input.readiness === 'object'
+    ? input.readiness
+    : {};
+  const activeMembership = input.activeMembership && typeof input.activeMembership === 'object'
+    ? input.activeMembership
+    : null;
+  const nextSteps = [];
+
+  if (linkedAccounts.email?.linked && linkedAccounts.email?.verified !== true) {
+    nextSteps.push({
+      key: 'verify-email',
+      title: 'Verify email',
+      detail: 'Email verification is still pending for recovery and trust checks.',
+      blocking: true,
+    });
+  } else if (linkedAccounts.email?.linked !== true) {
+    nextSteps.push({
+      key: 'add-email',
+      title: 'Add email',
+      detail: 'Add an email address so recovery and account ownership checks can complete.',
+      blocking: true,
+    });
+  }
+
+  if (linkedAccounts.discord?.linked !== true) {
+    nextSteps.push({
+      key: 'link-discord',
+      title: 'Link Discord',
+      detail: 'Discord should be linked so player access and support flows stay scoped to the right account.',
+      blocking: true,
+    });
+  }
+
+  if (linkedAccounts.steam?.linked !== true) {
+    nextSteps.push({
+      key: 'link-steam',
+      title: 'Link Steam',
+      detail: 'Steam should be linked before in-game delivery and player-specific actions are trusted.',
+      blocking: true,
+    });
+  }
+
+  if (linkedAccounts.steam?.linked === true && readiness.playerMatched !== true) {
+    nextSteps.push({
+      key: 'match-player',
+      title: 'Match in-game player',
+      detail: 'Confirm the in-game player profile so delivery and raid flows can target the right survivor.',
+      blocking: false,
+    });
+  }
+
+  if (!activeMembership) {
+    nextSteps.push({
+      key: 'membership-pending',
+      title: 'Confirm tenant access',
+      detail: 'This account is not active in a tenant yet, so package-gated product access may still be limited.',
+      blocking: false,
+    });
+  }
+
+  return nextSteps;
+}
+
+function buildLinkedAccountSummary(input = {}) {
+  const user = input.user && typeof input.user === 'object' ? input.user : null;
+  const profile = input.profile && typeof input.profile === 'object' ? input.profile : null;
+  const identities = Array.isArray(input.identities) ? input.identities : [];
+  const memberships = Array.isArray(input.memberships) ? input.memberships : [];
+  const tenantId = trimText(input.tenantId, 160) || null;
+  const fallbackEmail = normalizeEmail(input.email || input.primaryEmail);
+  const fallbackDiscordUserId = trimText(input.discordUserId, 200) || null;
+  const fallbackSteamId = trimText(input.steamId, 200) || null;
+  const fallbackInGameName = trimText(input.inGameName, 200) || null;
+
+  const normalizedMemberships = memberships.map((entry) => ({
+    tenantId: trimText(entry?.tenantId, 160) || null,
+    membershipType: trimText(entry?.membershipType, 80) || null,
+    role: trimText(entry?.role, 80) || null,
+    status: trimText(entry?.status, 80) || null,
+  }));
+  const findIdentity = (providerNames) => identities.find((entry) => {
+    const provider = normalizeIdentityProvider(entry?.provider);
+    return providerNames.includes(provider);
+  }) || null;
+  const emailIdentity = findIdentity(['email', 'email_preview']);
+  const discordIdentity = findIdentity(['discord']);
+  const steamIdentity = findIdentity(['steam']);
+  const verificationState = normalizeIdentityProvider(profile?.verificationState) || null;
+  const activeMembership = normalizedMemberships.find((entry) => trimText(entry?.tenantId, 160) === tenantId)
+    || normalizedMemberships.find((entry) => normalizeIdentityProvider(entry?.status) === 'active')
+    || normalizedMemberships[0]
+    || null;
+  const emailValue = normalizeEmail(user?.primaryEmail)
+    || normalizeEmail(emailIdentity?.providerEmail)
+    || fallbackEmail
+    || null;
+  const discordValue = trimText(discordIdentity?.providerUserId, 200)
+    || fallbackDiscordUserId
+    || trimText(profile?.discordUserId, 200)
+    || null;
+  const steamValue = trimText(profile?.steamId, 200)
+    || trimText(steamIdentity?.providerUserId, 200)
+    || fallbackSteamId
+    || null;
+  const inGameValue = trimText(profile?.inGameName, 200)
+    || fallbackInGameName
+    || null;
+  const emailVerified = Boolean(emailIdentity?.verifiedAt);
+  const discordVerified = Boolean(discordIdentity?.verifiedAt) || Boolean(discordValue);
+  const steamVerified = Boolean(steamIdentity?.verifiedAt)
+    || ['steam_linked', 'verified', 'fully_verified'].includes(verificationState);
+  const inGameVerified = ['verified', 'fully_verified', 'in_game_verified'].includes(verificationState);
+  const fullyVerified = ['fully_verified', 'verified'].includes(verificationState)
+    || (emailVerified && discordVerified && steamVerified);
+  const linkedAccounts = {
+    email: {
+      linked: Boolean(emailValue),
+      verified: emailVerified,
+      value: emailValue,
+    },
+    discord: {
+      linked: Boolean(discordValue),
+      verified: discordVerified,
+      value: discordValue,
+    },
+    steam: {
+      linked: Boolean(steamValue),
+      verified: steamVerified,
+      value: steamValue,
+    },
+    inGame: {
+      linked: Boolean(inGameValue),
+      verified: inGameVerified,
+      value: inGameValue,
+    },
+  };
+  const readiness = {
+    emailVerified,
+    discordLinked: Boolean(discordValue),
+    steamLinked: Boolean(steamValue),
+    playerMatched: Boolean(inGameValue),
+    fullyVerified,
+  };
+  const summarizedMembership = activeMembership
+    ? {
+        tenantId: activeMembership.tenantId,
+        membershipType: activeMembership.membershipType,
+        role: activeMembership.role,
+        status: activeMembership.status,
+      }
+    : null;
+
+  return {
+    linkedProviders: identities
+      .map((entry) => normalizeIdentityProvider(entry?.provider))
+      .filter(Boolean),
+    verificationState,
+    memberships: normalizedMemberships,
+    linkedAccounts,
+    activeMembership: summarizedMembership,
+    readiness,
+    nextSteps: buildIdentityNextSteps({
+      linkedAccounts,
+      readiness,
+      activeMembership: summarizedMembership,
+    }),
+  };
+}
+
 function normalizeTokenRow(row) {
   if (!row) return null;
   return {
@@ -637,11 +829,11 @@ function normalizeTokenRow(row) {
     email: normalizeEmail(getRowValue(row, 'email')) || null,
     purpose: trimText(getRowValue(row, 'purpose'), 80) || null,
     tokenPrefix: trimText(getRowValue(row, 'tokenPrefix'), 120) || null,
-    expiresAt: getRowValue(row, 'expiresAt') ? new Date(getRowValue(row, 'expiresAt')).toISOString() : null,
-    consumedAt: getRowValue(row, 'consumedAt') ? new Date(getRowValue(row, 'consumedAt')).toISOString() : null,
+    expiresAt: toIsoOrNull(getRowValue(row, 'expiresAt')),
+    consumedAt: toIsoOrNull(getRowValue(row, 'consumedAt')),
     metadata: parseJsonObject(getRowValue(row, 'metadataJson')),
-    createdAt: getRowValue(row, 'createdAt') ? new Date(getRowValue(row, 'createdAt')).toISOString() : null,
-    updatedAt: getRowValue(row, 'updatedAt') ? new Date(getRowValue(row, 'updatedAt')).toISOString() : null,
+    createdAt: toIsoOrNull(getRowValue(row, 'createdAt')),
+    updatedAt: toIsoOrNull(getRowValue(row, 'updatedAt')),
   };
 }
 
@@ -1315,13 +1507,35 @@ async function getIdentitySummaryForPreviewAccount(account = {}, db = prisma) {
   const previewAccountId = trimText(account.id, 160);
   if (!email && !previewAccountId) return null;
   await ensurePlatformIdentityTables(db);
-  const user = email ? await findUserByPrimaryEmail(db, email) : null;
+  let user = null;
+  if (previewAccountId) {
+    const previewIdentity = await findIdentityByProvider(db, 'email_preview', previewAccountId);
+    user = previewIdentity?.userId ? await findUserById(db, previewIdentity.userId) : null;
+  }
+  if (!user && email) {
+    user = await findUserByPrimaryEmail(db, email);
+  }
   if (!user) return null;
+  const identities = await listIdentitiesForUser(db, user.id);
+  const memberships = await listMembershipsForUser(db, user.id);
+  const tenantId = trimText(account.tenantId, 160) || null;
+  const profile = tenantId
+    ? await findPlayerProfile(db, user.id, tenantId)
+    : await findLatestPlayerProfileForUser(db, user.id);
   return {
     user,
-    identities: await listIdentitiesForUser(db, user.id),
-    memberships: await listMembershipsForUser(db, user.id),
+    identities,
+    memberships,
     previewAccountId: previewAccountId || null,
+    profile,
+    identitySummary: buildLinkedAccountSummary({
+      user,
+      identities,
+      memberships,
+      profile,
+      tenantId,
+      email,
+    }),
   };
 }
 
@@ -1361,6 +1575,16 @@ async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
   const profile = tenantId
     ? await findPlayerProfile(db, user.id, tenantId)
     : await findLatestPlayerProfileForUser(db, user.id);
+  const identitySummary = buildLinkedAccountSummary({
+    user,
+    identities,
+    memberships,
+    profile,
+    tenantId,
+    email,
+    discordUserId,
+    steamId,
+  });
 
   return {
     ok: true,
@@ -1368,6 +1592,7 @@ async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
     identities,
     memberships,
     profile,
+    identitySummary,
   };
 }
 
@@ -1380,7 +1605,8 @@ async function issuePasswordResetToken(input = {}, db = prisma) {
   const tokenHash = sha256(rawToken);
   const tokenPrefix = rawToken.split('.')[0];
   const ttlMinutes = Math.max(5, Math.min(24 * 60, Number(input.ttlMinutes || 30) || 30));
-  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+  const expiresAtValue = new Date(Date.now() + ttlMinutes * 60 * 1000);
+  const expiresAt = expiresAtValue.toISOString();
   const rowId = createId('rst');
   if (delegates) {
     await delegates.passwordResetTokens.create({
@@ -1408,7 +1634,7 @@ async function issuePasswordResetToken(input = {}, db = prisma) {
         ${email},
         ${tokenPrefix},
         ${tokenHash},
-        ${expiresAt},
+        ${toSqlTimestampValue(expiresAtValue)},
         ${null},
         ${stringifyJsonObject(input.metadata)},
         CURRENT_TIMESTAMP,
@@ -1437,7 +1663,8 @@ async function issueEmailVerificationToken(input = {}, db = prisma) {
   const tokenHash = sha256(rawToken);
   const tokenPrefix = rawToken.split('.')[0];
   const ttlMinutes = Math.max(5, Math.min(7 * 24 * 60, Number(input.ttlMinutes || 60) || 60));
-  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+  const expiresAtValue = new Date(Date.now() + ttlMinutes * 60 * 1000);
+  const expiresAt = expiresAtValue.toISOString();
   const rowId = createId('vfy');
   if (delegates) {
     await delegates.verificationTokens.create({
@@ -1471,7 +1698,7 @@ async function issueEmailVerificationToken(input = {}, db = prisma) {
         ${tokenPrefix},
         ${tokenHash},
         ${email},
-        ${expiresAt},
+        ${toSqlTimestampValue(expiresAtValue)},
         ${null},
         ${stringifyJsonObject(input.metadata)},
         CURRENT_TIMESTAMP,
@@ -1567,7 +1794,8 @@ async function completePasswordReset(input = {}, db = prisma) {
   const token = await findPasswordResetTokenByHash(db, sha256(rawToken), email);
   const tokenCheck = validateConsumableToken(token);
   if (!tokenCheck.ok) return tokenCheck;
-  const consumedAt = nowIso();
+  const consumedAtValue = new Date();
+  const consumedAt = consumedAtValue.toISOString();
   if (delegates) {
     await delegates.passwordResetTokens.update({
       where: { id: token.id },
@@ -1577,7 +1805,7 @@ async function completePasswordReset(input = {}, db = prisma) {
     await db.$executeRaw`
       UPDATE platform_password_reset_tokens
       SET
-        consumedAt = ${consumedAt},
+        consumedAt = ${toSqlTimestampValue(consumedAtValue)},
         updatedAt = CURRENT_TIMESTAMP
       WHERE id = ${token.id}
     `;
@@ -1599,7 +1827,8 @@ async function completeEmailVerification(input = {}, db = prisma) {
   const token = await findVerificationTokenByHash(db, sha256(rawToken), 'email_verification', email);
   const tokenCheck = validateConsumableToken(token);
   if (!tokenCheck.ok) return tokenCheck;
-  const consumedAt = nowIso();
+  const consumedAtValue = new Date();
+  const consumedAt = consumedAtValue.toISOString();
   if (delegates) {
     await delegates.verificationTokens.update({
       where: { id: token.id },
@@ -1609,7 +1838,7 @@ async function completeEmailVerification(input = {}, db = prisma) {
     await db.$executeRaw`
       UPDATE platform_verification_tokens
       SET
-        consumedAt = ${consumedAt},
+        consumedAt = ${toSqlTimestampValue(consumedAtValue)},
         updatedAt = CURRENT_TIMESTAMP
       WHERE id = ${token.id}
     `;
@@ -1679,6 +1908,7 @@ async function completeEmailVerification(input = {}, db = prisma) {
 }
 
 module.exports = {
+  buildLinkedAccountSummary,
   completeEmailVerification,
   completePasswordReset,
   ensurePlatformIdentityTables,

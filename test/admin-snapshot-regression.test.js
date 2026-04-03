@@ -182,3 +182,89 @@ test('restoreAdminBackup rolls back when restore fails after writes start', asyn
   const restored = await buildAdminSnapshot();
   assert.equal(Number(restored.status?.onlinePlayers || 0), expectedOnlinePlayers);
 });
+
+test('restoreAdminBackup verifies delivery audit counts by logical unique ids', async (t) => {
+  clearSnapshotModules();
+  const {
+    buildAdminSnapshot,
+    createAdminBackup,
+    getAdminRestoreState,
+    jsonReplacer,
+    previewAdminBackupRestore,
+    restoreAdminBackup,
+    restoreAdminSnapshotData,
+  } = require('../src/services/adminSnapshotService');
+
+  const baseline = await buildAdminSnapshot();
+  const targetSnapshot = JSON.parse(JSON.stringify(baseline));
+  const duplicateAuditId = `snapshot-dup-audit-${Date.now()}`;
+  targetSnapshot.deliveryAudit = [
+    ...(Array.isArray(targetSnapshot.deliveryAudit) ? targetSnapshot.deliveryAudit : []),
+    {
+      id: duplicateAuditId,
+      createdAt: '2026-04-03T00:00:00.000Z',
+      level: 'info',
+      action: 'restore-regression',
+      message: 'first',
+    },
+    {
+      id: duplicateAuditId,
+      createdAt: '2026-04-03T00:01:00.000Z',
+      level: 'info',
+      action: 'restore-regression',
+      message: 'latest',
+    },
+  ];
+
+  const backup = await createAdminBackup({
+    actor: 'snapshot-regression',
+    role: 'owner',
+    note: 'dedupe-regression',
+    includeSnapshot: false,
+  });
+  const backupPayload = {
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    createdBy: 'snapshot-regression',
+    role: 'owner',
+    note: 'dedupe-regression',
+    snapshot: targetSnapshot,
+  };
+  fs.writeFileSync(backup.absolutePath, JSON.stringify(backupPayload, jsonReplacer, 2), 'utf8');
+  const preview = await previewAdminBackupRestore(backup.file, {
+    actor: 'snapshot-regression',
+    role: 'owner',
+    issuePreviewToken: true,
+  });
+
+  t.after(async () => {
+    await restoreAdminSnapshotData(baseline);
+    const restoreState = getAdminRestoreState();
+    if (backup.absolutePath) {
+      fs.rmSync(backup.absolutePath, { force: true });
+    }
+    if (restoreState.rollbackBackup) {
+      const rollbackPath = backup.absolutePath.replace(backup.file, restoreState.rollbackBackup);
+      fs.rmSync(rollbackPath, { force: true });
+    }
+    clearSnapshotModules();
+  });
+
+  const restored = await restoreAdminBackup(backup.file, {
+    actor: 'snapshot-regression',
+    role: 'owner',
+    confirmBackup: backup.file,
+    previewToken: preview.previewToken,
+  });
+
+  assert.equal(restored.restored, true);
+  assert.equal(Boolean(restored.verification?.ready), true);
+  assert.equal(Boolean(restored.verification?.countsMatch), true);
+
+  const after = await buildAdminSnapshot();
+  const matching = (after.deliveryAudit || []).filter(
+    (row) => String(row?.id || '') === duplicateAuditId,
+  );
+  assert.equal(matching.length, 1);
+  assert.equal(String(matching[0]?.message || ''), 'latest');
+});

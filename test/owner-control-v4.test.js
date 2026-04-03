@@ -126,8 +126,96 @@ function buildState() {
     requestLogs: {
       items: [
         { method: 'GET', path: '/owner/api/platform/overview', statusCode: 200, at: '2026-03-29T08:30:00.000Z' },
+        { method: 'POST', path: '/owner/api/platform/servers/server-1/restart', statusCode: 503, at: '2026-03-29T08:31:00.000Z' },
       ],
     },
+    deliveryLifecycle: {
+      summary: {
+        queueCount: 3,
+        deadLetterCount: 1,
+        inFlightCount: 1,
+        overdueCount: 1,
+        retryableDeadLetters: 1,
+      },
+      runtime: {
+        queueLength: 3,
+        deadLetterCount: 1,
+        inFlightCount: 1,
+      },
+      signals: [
+        {
+          key: 'overdue',
+          tone: 'warning',
+          count: 1,
+          detail: 'Queue entries have waited longer than 20 minutes.',
+        },
+      ],
+      topErrors: [
+        {
+          key: 'delivery-timeout',
+          count: 2,
+          tone: 'warning',
+        },
+      ],
+      actionPlan: {
+        actions: [
+          {
+            key: 'retry-queue-batch',
+            tone: 'warning',
+            count: 2,
+            codes: ['PUR-1', 'PUR-2'],
+            topErrorKey: 'delivery-timeout',
+          },
+        ],
+      },
+    },
+    restartPlans: [
+      {
+        id: 'plan-1',
+        tenantId: 'tenant-1',
+        serverId: 'server-1',
+        runtimeKey: 'server-bot',
+        status: 'scheduled',
+        scheduledFor: '2026-03-29T09:00:00.000Z',
+      },
+    ],
+    restartExecutions: [
+      {
+        id: 'exec-1',
+        tenantId: 'tenant-1',
+        action: 'restart',
+        resultStatus: 'failed',
+        detail: 'Health verification failed',
+      },
+    ],
+    syncRuns: [
+      {
+        id: 'sync-run-1',
+        tenantId: 'tenant-1',
+        kind: 'log_sync',
+        status: 'completed',
+        detail: 'Applied 4 log records',
+      },
+    ],
+    syncEvents: [
+      {
+        id: 'sync-event-1',
+        tenantId: 'tenant-1',
+        kind: 'log_ingest',
+        severity: 'warning',
+        detail: 'Lag detected',
+      },
+    ],
+    deliveryAudit: [
+      {
+        id: 'audit-1',
+        tenantId: 'tenant-1',
+        purchaseCode: 'PUR-1001',
+        action: 'verify-ok',
+        message: 'Verified command response from delivery runtime.',
+        createdAt: '2026-03-29T08:32:00.000Z',
+      },
+    ],
     agents: [
       {
         tenantId: 'tenant-1',
@@ -340,6 +428,9 @@ test('owner control tenant detail workspace exposes tenant and subscription acti
   assert.match(html, /data-owner-form="update-tenant"/);
   assert.match(html, /data-owner-form="update-subscription"/);
   assert.match(html, /data-owner-action="set-tenant-status"/);
+  assert.match(html, /data-owner-tenant-commercial-priority-live/);
+  assert.match(html, /Keep this tenant commercially healthy/);
+  assert.match(html, /Renewal is approaching/);
   assert.match(html, /owner-tenant-detail-form/);
 });
 
@@ -374,6 +465,16 @@ test('owner control runtime workspace exposes runtime lifecycle actions', () => 
   assert.match(html, /data-owner-action="reset-runtime-binding"/);
   assert.match(html, /data-owner-action="revoke-runtime"/);
   assert.match(html, /setup token/i);
+  assert.match(html, /data-owner-jobs-workspace/);
+  assert.match(html, /Queue pressure and recovery work/);
+  assert.match(html, /data-owner-delivery-signal="overdue"/);
+  assert.match(html, /data-owner-delivery-action="retry-queue-batch"/);
+  assert.match(html, /data-owner-restart-plan="plan-1"/);
+  assert.match(html, /data-owner-restart-execution="exec-1"/);
+  assert.match(html, /data-owner-failed-request="\/owner\/api\/platform\/servers\/server-1\/restart"/);
+  assert.match(html, /data-owner-delivery-audit="audit-1"/);
+  assert.match(html, /data-owner-sync-run="sync-run-1"/);
+  assert.match(html, /data-owner-sync-event="sync-event-1"/);
 });
 
 test('owner control packages and audit workspaces surface business and audit tables', () => {
@@ -402,6 +503,9 @@ test('owner control subscriptions workspace exposes quick update forms', () => {
   assert.match(html, /Risk spotlight/);
   assert.match(html, /data-owner-billing-export-actions/);
   assert.match(html, /data-owner-billing-recovery-queue/);
+  assert.match(html, /data-owner-expiring-tenant-workspace/);
+  assert.match(html, /Prioritize tenants that renew soon/);
+  assert.match(html, /data-owner-expiring-tenant="tenant-1"/);
   assert.match(html, /Resolve billing issues before they grow/);
   assert.match(html, /data-owner-billing-recovery-item="attempt-pay-1"/);
   assert.match(html, /\/owner\/api\/platform\/billing\/export\?format=csv/);

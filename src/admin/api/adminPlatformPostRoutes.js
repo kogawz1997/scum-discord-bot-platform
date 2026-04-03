@@ -86,6 +86,8 @@ function createAdminPlatformPostRoutes(deps) {
     parseStringArray,
     getAuthTenantId,
     resolveScopedTenantId,
+    consumeActionRateLimit,
+    recordAdminSecuritySignal,
     createAdminBackup,
     previewAdminBackupRestore,
     restoreAdminBackup,
@@ -149,6 +151,8 @@ function createAdminPlatformPostRoutes(deps) {
     requiredString,
     resolveScopedTenantId,
     getAuthTenantId,
+    consumeActionRateLimit,
+    recordAdminSecuritySignal,
     getTenantFeatureAccess,
     buildTenantProductEntitlements,
     createServerConfigApplyJob,
@@ -416,9 +420,15 @@ function createAdminPlatformPostRoutes(deps) {
         });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: result.staff });
-      return true;
-    }
+        sendJson(res, 200, {
+          ok: true,
+          data: {
+            ...(result.staff || {}),
+            invite: result.invite || null,
+          },
+        });
+        return true;
+      }
 
     if (pathname === '/admin/api/platform/tenant-staff/role') {
       const tenantId = resolveScopedTenantId(

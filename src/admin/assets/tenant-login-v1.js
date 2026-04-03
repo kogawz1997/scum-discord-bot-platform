@@ -22,6 +22,15 @@
     if (raw === 'invalid-credentials') {
       return 'Use the tenant email address for this workspace. Username-style values like "admin" will not work here.';
     }
+    if (raw === 'token-expired') {
+      return 'This invite link has expired. Ask a tenant owner to send a new invite.';
+    }
+    if (raw === 'token-already-used') {
+      return 'This invite link was already used. Sign in with the tenant account password for this workspace.';
+    }
+    if (raw === 'password-required' || raw === 'weak-password') {
+      return 'Set a password with at least 8 characters to finish accepting this invite.';
+    }
     return String(error?.message || 'Tenant login failed.');
   }
 
@@ -32,6 +41,39 @@
     if (!nextUrl.startsWith('/tenant')) return '';
     if (nextUrl.startsWith('//') || /[\r\n]/.test(nextUrl)) return '';
     return nextUrl;
+  }
+
+  function getInviteContext() {
+    const url = new URL(window.location.href);
+    const token = String(url.searchParams.get('inviteToken') || url.searchParams.get('invite') || '').trim();
+    return {
+      active: Boolean(token),
+      token,
+      email: String(url.searchParams.get('email') || '').trim(),
+    };
+  }
+
+  function applyInviteMode(invite) {
+    if (!invite?.active) return;
+    const email = $('tenantLoginEmail');
+    const password = $('tenantLoginPassword');
+    const displayNameWrap = $('tenantLoginDisplayNameWrap');
+    const submit = $('tenantLoginSubmit');
+    const notice = $('tenantInviteNotice');
+
+    if (notice) notice.hidden = false;
+    if (displayNameWrap) displayNameWrap.hidden = false;
+    if (email && invite.email) {
+      email.value = invite.email;
+      email.readOnly = true;
+    }
+    if (password) {
+      password.autocomplete = 'new-password';
+      password.placeholder = 'Set a password with at least 8 characters';
+    }
+    if (submit) {
+      submit.textContent = 'Accept invite and open workspace';
+    }
   }
 
   async function requestJson(url, body) {
@@ -57,6 +99,8 @@
     const submit = $('tenantLoginSubmit');
     const email = String($('tenantLoginEmail')?.value || '').trim();
     const password = String($('tenantLoginPassword')?.value || '');
+    const displayName = String($('tenantLoginDisplayName')?.value || '').trim();
+    const invite = getInviteContext();
 
     if (!email || !password) {
       setError('Please enter your tenant email and password.', 'warning');
@@ -68,14 +112,22 @@
     }
 
     submit.disabled = true;
-    setError('Checking your tenant access...', 'info');
+    setError(invite.active ? 'Checking your tenant invite...' : 'Checking your tenant access...', 'info');
     try {
       const nextUrl = resolveSafeTenantNextUrl();
-      const data = await requestJson('/tenant/api/auth/login', {
-        email,
-        password,
-        nextUrl,
-      });
+      const data = invite.active
+        ? await requestJson('/tenant/api/auth/accept-invite', {
+          email,
+          token: invite.token,
+          password,
+          displayName,
+          nextUrl,
+        })
+        : await requestJson('/tenant/api/auth/login', {
+          email,
+          password,
+          nextUrl,
+        });
       window.location.href = data?.nextUrl || nextUrl || '/tenant';
     } catch (error) {
       setError(humanizeLoginError(error), 'danger');
@@ -85,6 +137,7 @@
   }
 
   window.addEventListener('DOMContentLoaded', () => {
+    applyInviteMode(getInviteContext());
     $('tenantLoginForm')?.addEventListener('submit', handleSubmit);
   });
 })();

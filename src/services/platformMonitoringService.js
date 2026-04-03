@@ -6,6 +6,7 @@ const {
   listPlatformAgentRuntimes,
   getPlatformAnalyticsOverview,
   getTenantQuotaSnapshot,
+  listPlatformSubscriptions,
   listPlatformTenants,
   reconcileDeliveryState,
 } = require('./platformService');
@@ -63,6 +64,11 @@ function getMonitoringConfig() {
       10 * 60 * 1000,
       60 * 1000,
     ),
+    subscriptionRenewalSoonMs: asInt(
+      config.platform?.monitoring?.subscriptionRenewalSoonMs,
+      3 * 24 * 60 * 60 * 1000,
+      60 * 60 * 1000,
+    ),
     backups: {
       enabled: config.platform?.backups?.enabled === true,
       intervalMs: asInt(config.platform?.backups?.intervalMs, 6 * 60 * 60 * 1000, 5 * 60 * 1000),
@@ -82,6 +88,20 @@ function markAlert(state, key) {
   return {
     ...(state?.lastAlertAtByKey || {}),
     [key]: nowIso(),
+  };
+}
+
+function normalizeStatus(value) {
+  return trimText(value, 80).toLowerCase();
+}
+
+function buildSubscriptionAlertEntry(subscription) {
+  return {
+    tenantId: subscription.tenantId || null,
+    subscriptionId: subscription.id || null,
+    planId: subscription.planId || null,
+    status: normalizeStatus(subscription.status),
+    renewsAt: subscription.renewsAt || null,
   };
 }
 
@@ -165,10 +185,11 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
       const reconcile = shouldReconcile
         ? await reconcileDeliveryState({ allowGlobal: true })
         : null;
-      const [runtimeSupervisor, agentRuntimes, tenants] = await Promise.all([
+      const [runtimeSupervisor, agentRuntimes, tenants, subscriptions] = await Promise.all([
         getRuntimeSupervisorSnapshot({ forceRefresh: true }).catch(() => null),
         listPlatformAgentRuntimes({ limit: 500, allowGlobal: true }),
         listPlatformTenants({ limit: 500 }),
+        listPlatformSubscriptions({ limit: 500, allowGlobal: true }).catch(() => []),
       ]);
 
       report.analytics = analytics;
@@ -182,6 +203,13 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
         tenants: 0,
         exceeded: [],
         nearLimit: [],
+      };
+      report.subscriptions = {
+        total: Array.isArray(subscriptions) ? subscriptions.length : 0,
+        expiringSoon: [],
+        pastDue: [],
+        suspended: [],
+        expired: [],
       };
 
       if (reconcile?.summary?.anomalies > 0) {
@@ -286,6 +314,75 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
               updatedAlertMap[alertKey] = generatedAt;
               report.alerts.push(alertKey);
             }
+          }
+        }
+      }
+
+      for (const subscription of Array.isArray(subscriptions) ? subscriptions : []) {
+        const entry = buildSubscriptionAlertEntry(subscription);
+        const status = entry.status;
+        const renewsAt = toDate(entry.renewsAt);
+        const timeUntilRenewalMs = renewsAt ? renewsAt.getTime() - Date.now() : Number.POSITIVE_INFINITY;
+
+        if (
+          (status === 'active' || status === 'trialing')
+          && renewsAt
+          && timeUntilRenewalMs >= 0
+          && timeUntilRenewalMs <= monitoring.subscriptionRenewalSoonMs
+        ) {
+          report.subscriptions.expiringSoon.push(entry);
+          const alertKey = `subscription-expiring-soon:${entry.tenantId}:${entry.subscriptionId}`;
+          if (force || cooldownAllowsAlert(state, alertKey, monitoring.alertCooldownMs)) {
+            publishAdminLiveUpdate('ops-alert', {
+              source: 'platform-monitor',
+              kind: 'subscription-expiring-soon',
+              ...entry,
+              remainingMs: timeUntilRenewalMs,
+            });
+            updatedAlertMap[alertKey] = generatedAt;
+            report.alerts.push(alertKey);
+          }
+        }
+
+        if (status === 'past_due') {
+          report.subscriptions.pastDue.push(entry);
+          const alertKey = `subscription-past-due:${entry.tenantId}:${entry.subscriptionId}`;
+          if (force || cooldownAllowsAlert(state, alertKey, monitoring.alertCooldownMs)) {
+            publishAdminLiveUpdate('ops-alert', {
+              source: 'platform-monitor',
+              kind: 'subscription-past-due',
+              ...entry,
+            });
+            updatedAlertMap[alertKey] = generatedAt;
+            report.alerts.push(alertKey);
+          }
+        }
+
+        if (status === 'suspended') {
+          report.subscriptions.suspended.push(entry);
+          const alertKey = `subscription-suspended:${entry.tenantId}:${entry.subscriptionId}`;
+          if (force || cooldownAllowsAlert(state, alertKey, monitoring.alertCooldownMs)) {
+            publishAdminLiveUpdate('ops-alert', {
+              source: 'platform-monitor',
+              kind: 'subscription-suspended',
+              ...entry,
+            });
+            updatedAlertMap[alertKey] = generatedAt;
+            report.alerts.push(alertKey);
+          }
+        }
+
+        if (status === 'expired') {
+          report.subscriptions.expired.push(entry);
+          const alertKey = `subscription-expired:${entry.tenantId}:${entry.subscriptionId}`;
+          if (force || cooldownAllowsAlert(state, alertKey, monitoring.alertCooldownMs)) {
+            publishAdminLiveUpdate('ops-alert', {
+              source: 'platform-monitor',
+              kind: 'subscription-expired',
+              ...entry,
+            });
+            updatedAlertMap[alertKey] = generatedAt;
+            report.alerts.push(alertKey);
           }
         }
       }

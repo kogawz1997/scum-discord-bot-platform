@@ -112,7 +112,7 @@ test('persistence smoke fails when db-required store mode or file mirror policy 
   process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE = 'db';
   process.env.PLATFORM_OPS_STATE_STORE_MODE = 'db';
   process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
-  delete process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES;
+  process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = '';
 
   const { buildPersistenceSmokeReport } = loadScriptWithPrismaMock({
     async $disconnect() {},

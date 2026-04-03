@@ -44,6 +44,9 @@ function buildRoutes(overrides = {}) {
     listFilteredDeliveryDeadLetters: () => ([
       { id: 'dead-1', tenantId: 'tenant-1', purchaseCode: 'PUR-1002' },
     ]),
+    listDeliveryAudit: () => ([
+      { id: 'audit-1', tenantId: 'tenant-1', purchaseCode: 'PUR-1001', action: 'verify-ok', message: 'Verified delivery response' },
+    ]),
     getDeliveryRuntimeStatus: async () => ({ online: true, agents: 1 }),
     listScumAdminCommandCapabilities: () => ([
       { key: 'announce', supported: true },
@@ -97,6 +100,27 @@ test('delivery queue route is handled by extracted delivery ops slice', async ()
   assert.equal(payload.ok, true);
   assert.equal(payload.data.length, 1);
   assert.equal(payload.data[0].purchaseCode, 'PUR-1001');
+});
+
+test('delivery audit route is handled by extracted delivery ops slice', async () => {
+  const handler = buildRoutes();
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/admin/api/delivery/audit?tenantId=tenant-1&limit=25'),
+    pathname: '/admin/api/delivery/audit',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.length, 1);
+  assert.equal(payload.data[0].purchaseCode, 'PUR-1001');
+  assert.equal(payload.data[0].action, 'verify-ok');
 });
 
 test('delivery detail route returns 404 when extracted handler cannot find data', async () => {

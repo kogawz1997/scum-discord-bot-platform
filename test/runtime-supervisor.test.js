@@ -366,6 +366,13 @@ test('runtime supervisor does not alert optional watcher or console-agent when d
   process.env.WORKER_ENABLE_RENTBIKE = 'false';
   process.env.WORKER_ENABLE_DELIVERY = 'false';
   delete process.env.SCUM_LOG_PATH;
+  process.env.SCUM_SERVER_BOT_ENABLED = 'false';
+  process.env.SCUM_SERVER_BOT_REQUIRED = 'false';
+  delete process.env.SCUM_SERVER_BOT_HEALTH_HOST;
+  delete process.env.SCUM_SERVER_BOT_HEALTH_PORT;
+  delete process.env.SCUM_SERVER_CONFIG_ROOT;
+  delete process.env.SCUM_SERVER_SETTINGS_DIR;
+  delete process.env.SCUM_SERVER_DIR;
   process.env.SCUM_WATCHER_HEALTH_HOST = watcher.host;
   process.env.SCUM_WATCHER_HEALTH_PORT = String(watcher.port);
   delete process.env.SCUM_WATCHER_REQUIRED;

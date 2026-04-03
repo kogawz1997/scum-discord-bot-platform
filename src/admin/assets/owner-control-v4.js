@@ -718,7 +718,58 @@
       status: row.status,
       renewsAt: row.subscription && (row.subscription.renewsAt || row.subscription.expiresAt || row.subscription.endsAt),
       amountLabel: formatCurrencyCents(row.subscription && row.subscription.amountCents || 0, row.subscription && row.subscription.currency || 'THB'),
+      subscriptionId: trimText(row.subscription && row.subscription.id, 160),
+      subscriptionStatus: trimText(row.subscription && (row.subscription.status || row.status), 40).toLowerCase(),
+      planId: trimText(row.subscription && row.subscription.planId, 120),
+      packageId: trimText(row.packageId || row.subscription && row.subscription.packageId, 120),
+      billingCycle: trimText(row.subscription && row.subscription.billingCycle, 40) || 'monthly',
+      currency: trimText(row.subscription && row.subscription.currency, 12) || 'THB',
+      amountCents: Number(row.subscription && row.subscription.amountCents) || 0,
+      externalRef: trimText(row.subscription && row.subscription.externalRef, 200),
     }));
+  }
+
+  function renderExpiringTenantControls(expiringRows) {
+    const rows = (Array.isArray(expiringRows) ? expiringRows : []).slice(0, 6);
+    const cards = rows.map((row) => {
+      const subscriptionStatus = trimText(row && row.subscriptionStatus, 40).toLowerCase();
+      const tenantStatus = trimText(row && row.status, 40).toLowerCase() || 'active';
+      const tone = ['past_due', 'expired', 'canceled'].includes(subscriptionStatus)
+        ? 'danger'
+        : 'warning';
+      const renewalSummary = firstNonEmpty([
+        row && row.renewsAt ? `Renews ${formatDateTime(row.renewsAt)}` : '',
+      ], 'Renewal date is not set yet.');
+      const detailParts = [
+        renewalSummary,
+        row && row.amountLabel ? `Value ${row.amountLabel}` : '',
+        row && row.packageLabel ? `Package ${row.packageLabel}` : '',
+      ].filter(Boolean);
+      const actions = [
+        `<a class="odv4-button odv4-button-secondary" href="${escapeHtml(ownerTenantHref(row.tenantId))}">Open customer</a>`,
+        `<a class="odv4-button odv4-button-secondary" href="${escapeHtml(ownerSupportHref(row.tenantId))}">Open support</a>`,
+        `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="set-tenant-status" data-tenant-id="${escapeHtml(row.tenantId)}" data-target-status="${tenantStatus === 'suspended' ? 'active' : 'suspended'}">${escapeHtml(tenantStatus === 'suspended' ? 'Reactivate customer' : 'Suspend customer')}</button>`,
+        row && row.subscriptionId && ['past_due', 'expired', 'canceled'].includes(subscriptionStatus)
+          ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(row.tenantId)}" data-subscription-id="${escapeHtml(row.subscriptionId)}" data-plan-id="${escapeHtml(row.planId)}" data-package-id="${escapeHtml(row.packageId)}" data-billing-cycle="${escapeHtml(row.billingCycle)}" data-currency="${escapeHtml(row.currency)}" data-amount-cents="${escapeHtml(String(row.amountCents))}" data-external-ref="${escapeHtml(row.externalRef)}">Recover subscription</button>`
+          : '',
+      ].filter(Boolean).join('');
+      return [
+        `<article class="odvc4-note-card" data-owner-expiring-tenant="${escapeHtml(row.tenantId)}">`,
+        `<div class="odvc4-action-row"><span class="odv4-pill odv4-pill-${escapeHtml(tone)}">${escapeHtml(subscriptionStatus ? formatOwnerDisplayValue(subscriptionStatus) : 'Expiring soon')}</span><span class="odv4-table-label">${escapeHtml(formatOwnerDisplayValue(row.packageLabel || '-'))}</span></div>`,
+        `<strong>${escapeHtml(row.name || row.tenantId)}</strong>`,
+        `<p>${escapeHtml(detailParts.join(' · '))}</p>`,
+        `<div class="odvc4-action-row">${actions}</div>`,
+        '</article>',
+      ].join('');
+    }).join('');
+    return [
+      '<section class="odv4-panel odvc4-panel" id="owner-expiring-tenant-workspace" data-owner-expiring-tenant-workspace>',
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Renewals</span><h2 class="odv4-section-title">Prioritize tenants that renew soon</h2><p class="odv4-section-copy">These customers renew within the next 14 days. Open the tenant record, open support, suspend access, or recover billing without leaving the owner workspace.</p></div>',
+      cards
+        ? `<div class="odvc4-card-grid">${cards}</div>`
+        : '<div class="odvc4-note-card"><strong>No upcoming renewals</strong><p>No tenant subscription renews within the next 14 days.</p></div>',
+      '</section>',
+    ].join('');
   }
 
   function matchByTenantAgentRuntime(row, tenantId, serverId, agentId, runtimeKey) {
@@ -1482,6 +1533,30 @@
     const notificationCount = Array.isArray(diagnostics.notifications) ? diagnostics.notifications.length : 0;
     const requestErrorCount = Number(diagnostics.requestErrors && diagnostics.requestErrors.summary && diagnostics.requestErrors.summary.total) || 0;
     const deadLetterCount = Number(diagnostics.delivery && diagnostics.delivery.deadLetters) || 0;
+    const renewsAt = subscription && (subscription.renewsAt || subscription.expiresAt || subscription.endsAt);
+    const renewsAtDate = parseDate(renewsAt);
+    const subscriptionStatus = trimText(subscription.status || tenantRow.status, 40).toLowerCase();
+    const renewalDueSoon = Boolean(renewsAtDate) && renewsAtDate.getTime() <= (Date.now() + (14 * 24 * 60 * 60 * 1000));
+    const commercialControlActions = [
+      '<a class="odv4-button odv4-button-secondary" href="/owner/subscriptions">Open billing workspace</a>',
+      `<a class="odv4-button odv4-button-secondary" href="${escapeHtml(ownerSupportHref(tenantRow.tenantId))}">Open support case</a>`,
+      `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="set-tenant-status" data-tenant-id="${escapeHtml(tenantRow.tenantId)}" data-target-status="${currentStatus === 'suspended' ? 'active' : 'suspended'}">${escapeHtml(currentStatus === 'suspended' ? 'Reactivate customer' : 'Suspend customer')}</button>`,
+      subscription && subscription.id && ['past_due', 'expired', 'canceled'].includes(subscriptionStatus)
+        ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(tenantRow.tenantId)}" data-subscription-id="${escapeHtml(trimText(subscription.id, 160))}" data-plan-id="${escapeHtml(trimText(subscription.planId, 120))}" data-package-id="${escapeHtml(trimText(tenantRow.packageId || subscription.packageId, 120))}" data-billing-cycle="${escapeHtml(trimText(subscription.billingCycle, 40) || 'monthly')}" data-currency="${escapeHtml(trimText(subscription.currency, 12) || 'THB')}" data-amount-cents="${escapeHtml(String(Number(subscription.amountCents) || 0))}" data-external-ref="${escapeHtml(trimText(subscription.externalRef, 200))}">Recover subscription</button>`
+        : '',
+    ].filter(Boolean).join('');
+    const commercialControlSection = renewalDueSoon || currentStatus === 'suspended' || ['past_due', 'expired', 'canceled'].includes(subscriptionStatus)
+      ? [
+        '<section class="odv4-panel odvc4-panel" id="owner-tenant-commercial-priority-live" data-owner-tenant-commercial-priority-live>',
+        '<div class="odv4-section-head"><span class="odv4-section-kicker">Renewal priority</span><h2 class="odv4-section-title">Keep this tenant commercially healthy</h2><p class="odv4-section-copy">This tenant needs attention before the next renewal or billing recovery step. Use the same owner actions you already have here instead of jumping between pages.</p></div>',
+        `<div class="odvc4-note-card"><strong>${escapeHtml(renewalDueSoon ? 'Renewal is approaching' : 'Commercial follow-up is required')}</strong><p>${escapeHtml([
+          renewalDueSoon && renewsAt ? `Renews ${formatDateTime(renewsAt)}.` : '',
+          subscriptionStatus ? `Subscription status: ${formatOwnerDisplayValue(subscriptionStatus)}.` : '',
+          currentStatus === 'suspended' ? 'Tenant access is currently suspended.' : '',
+        ].filter(Boolean).join(' '))}</p><div class="odvc4-action-row">${commercialControlActions}</div></div>`,
+        '</section>',
+      ].join('')
+      : '';
 
     return [
       '<section class="odv4-panel odvc4-panel" id="owner-tenant-detail-summary" data-owner-focus-route="tenant-detail">',
@@ -1503,6 +1578,7 @@
         ? `<div class="odvc4-note-card"><strong>${escapeHtml(firstNonEmpty([lifecycle.label], 'โหลดบริบทงานดูแลลูกค้าแล้ว'))}</strong><p>${escapeHtml(firstNonEmpty([lifecycle.detail], 'เปิดเคสดูแลลูกค้าเพื่อจัดการงานค้างผิดพลาด การแจ้งเตือน และคำขอที่มีปัญหาของลูกค้ารายนี้'))}</p></div>`
         : `<div class="odvc4-note-card"><strong>${supportCaseLoading ? 'กำลังโหลดบริบทงานดูแลลูกค้า' : 'ยังไม่ได้โหลดบริบทงานดูแลลูกค้า'}</strong><p>${escapeHtml(supportCaseLoading ? 'กำลังรวบรวมบริบทการส่งของ การแจ้งเตือน และการเริ่มต้นใช้งานของลูกค้ารายนี้' : 'ใช้หน้าเคสดูแลลูกค้าเมื่อคุณต้องตรวจงานค้างผิดพลาด การแจ้งเตือนของลูกค้า หรือคำขอฝั่ง Owner ที่เพิ่งล้มเหลว')}</p></div>`,
       '</section>',
+      commercialControlSection,
       '<section class="odv4-panel odvc4-panel" id="owner-tenant-detail-runtime-live">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">บอท</span><h2 class="odv4-section-title">บริบทบอทของลูกค้า</h2><p class="odv4-section-copy">ตรวจบอทส่งของและบอทเซิร์ฟเวอร์ของลูกค้ารายนี้ แล้วออกโทเค็นใหม่หรือยกเลิกสิทธิ์ได้จากหน้านี้ทันทีเมื่อจำเป็น</p></div>',
       renderTenantRuntimeTable(tenantRuntimeRows, {
@@ -1875,6 +1951,7 @@
         ? `<div class="odvc4-card-grid">${recoveryQueueCards}</div>`
         : '<div class="odvc4-note-card"><strong>No urgent billing recovery work</strong><p>No urgent billing recovery work is waiting right now.</p></div>',
       '</section>',
+      renderExpiringTenantControls(expiringRows),
       '<section class="odv4-panel odvc4-panel" id="owner-subscriptions-actions">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุได้จากหน้านี้ทันที</h2><p class="odv4-section-copy">ใช้ส่วนนี้ตามรายการที่ใกล้ต่ออายุหรือค้างชำระก่อน แล้วค่อยเปิดหน้ารายละเอียดลูกค้าเมื่อจำเป็น</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีการสมัครใช้งาน</strong><p>เปิดหน้าลูกค้าเพื่อสร้างการสมัครใช้งานครั้งแรกให้บัญชีนั้นได้ทันที</p></div>'}</div>`,
@@ -1886,7 +1963,103 @@
     ].join('');
   }
 
-  function renderRuntimeWorkspace(runtimeRows, selectedRuntime, runtimeBootstrap) {
+  function getOwnerOpsTone(status) {
+    const normalized = trimText(status, 80).toLowerCase();
+    if (!normalized) return 'muted';
+    if (['completed', 'succeeded', 'success', 'online', 'healthy'].includes(normalized)) return 'success';
+    if (['failed', 'error', 'poisoncandidate', 'nonretryabledeadletter', 'offline', 'revoked'].includes(normalized)) return 'danger';
+    if (['scheduled', 'blocked', 'running', 'pending', 'queued', 'processing', 'overdue', 'retryheavy', 'retryabledeadletter', 'warning'].includes(normalized)) return 'warning';
+    return 'info';
+  }
+
+  function buildRestartJobSummary(restartPlans, restartExecutions) {
+    const plans = Array.isArray(restartPlans) ? restartPlans : [];
+    const executions = Array.isArray(restartExecutions) ? restartExecutions : [];
+    const activePlanCount = plans.filter((row) => ['scheduled', 'blocked', 'running', 'pending', 'queued', 'processing'].includes(trimText(row && row.status, 80).toLowerCase())).length;
+    const runningPlanCount = plans.filter((row) => ['running', 'processing'].includes(trimText(row && row.status, 80).toLowerCase())).length;
+    const failedExecutionCount = executions.filter((row) => ['failed', 'error'].includes(trimText(row && row.resultStatus, 80).toLowerCase())).length;
+    const recentSuccessCount = executions.filter((row) => ['completed', 'succeeded', 'success'].includes(trimText(row && row.resultStatus, 80).toLowerCase())).length;
+    return {
+      activePlanCount,
+      runningPlanCount,
+      failedExecutionCount,
+      recentSuccessCount,
+    };
+  }
+
+  function renderRuntimeJobsWorkspace(state) {
+    const requestItems = Array.isArray(state.requestLogs && state.requestLogs.items) ? state.requestLogs.items : [];
+    const failedRequests = requestItems.filter((row) => Number(row && row.statusCode) >= 500);
+    const lifecycle = state.deliveryLifecycle && typeof state.deliveryLifecycle === 'object' ? state.deliveryLifecycle : {};
+    const summary = lifecycle.summary && typeof lifecycle.summary === 'object' ? lifecycle.summary : {};
+    const runtime = lifecycle.runtime && typeof lifecycle.runtime === 'object' ? lifecycle.runtime : {};
+    const signals = Array.isArray(lifecycle.signals) ? lifecycle.signals : [];
+    const actionRows = Array.isArray(lifecycle.actionPlan && lifecycle.actionPlan.actions) ? lifecycle.actionPlan.actions : [];
+    const topErrors = Array.isArray(lifecycle.topErrors) ? lifecycle.topErrors : [];
+    const deliveryAudit = Array.isArray(state.deliveryAudit) ? state.deliveryAudit : [];
+    const restartPlans = Array.isArray(state.restartPlans) ? state.restartPlans : [];
+    const restartExecutions = Array.isArray(state.restartExecutions) ? state.restartExecutions : [];
+    const syncRuns = Array.isArray(state.syncRuns) ? state.syncRuns : [];
+    const syncEvents = Array.isArray(state.syncEvents) ? state.syncEvents : [];
+    const restartSummary = buildRestartJobSummary(restartPlans, restartExecutions);
+
+    const signalTableRows = signals.slice(0, 6).map((row) => `<tr data-owner-delivery-signal="${escapeHtml(trimText(row && row.key, 80) || 'signal')}"><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && row.tone))}">${escapeHtml(trimText(row && row.key, 80) || 'signal')}</span></td><td>${escapeHtml(formatNumber(row && row.count, '0'))}</td><td>${escapeHtml(firstNonEmpty([row && row.detail], '-'))}</td></tr>`).join('');
+    const actionPlanRows = actionRows.slice(0, 6).map((row) => `<tr data-owner-delivery-action="${escapeHtml(trimText(row && row.key, 80) || 'action')}"><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && row.tone))}">${escapeHtml(trimText(row && row.key, 80) || 'action')}</span></td><td>${escapeHtml(formatNumber(row && row.count, '0'))}</td><td>${escapeHtml((Array.isArray(row && row.codes) ? row.codes.slice(0, 3) : []).join(', ') || firstNonEmpty([row && row.topErrorKey], '-'))}</td></tr>`).join('');
+    const restartPlanRows = restartPlans.slice(0, 6).map((row) => `<tr data-owner-restart-plan="${escapeHtml(trimText(row && row.id, 120) || 'plan')}"><td>${escapeHtml(trimText(row && row.tenantId, 120) || '-')}</td><td>${escapeHtml(trimText(row && row.runtimeKey, 120) || trimText(row && row.serverId, 120) || '-')}</td><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && row.status))}">${escapeHtml(trimText(row && row.status, 80) || '-')}</span></td><td>${escapeHtml(formatDateTime(row && (row.scheduledFor || row.createdAt || row.updatedAt)))}</td></tr>`).join('');
+    const restartExecutionRows = restartExecutions.slice(0, 6).map((row) => `<tr data-owner-restart-execution="${escapeHtml(trimText(row && row.id, 120) || 'execution')}"><td>${escapeHtml(trimText(row && row.tenantId, 120) || '-')}</td><td>${escapeHtml(trimText(row && row.action, 80) || '-')}</td><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && row.resultStatus))}">${escapeHtml(trimText(row && row.resultStatus, 80) || '-')}</span></td><td>${escapeHtml(firstNonEmpty([row && row.detail], '-'))}</td></tr>`).join('');
+    const failedRequestRows = failedRequests.slice(0, 6).map((row) => `<tr data-owner-failed-request="${escapeHtml(trimText((row && (row.path || row.routeGroup)) || '/', 160))}"><td>${escapeHtml(trimText(row && row.method, 16) || 'REQ')}</td><td>${escapeHtml(trimText(row && (row.path || row.routeGroup), 160) || '/')}</td><td>${escapeHtml(trimText(row && row.statusCode, 16) || '-')}</td><td>${escapeHtml(formatDateTime(row && (row.at || row.createdAt)))}</td></tr>`).join('');
+    const deliveryAuditRows = deliveryAudit.slice(0, 6).map((row) => `<tr data-owner-delivery-audit="${escapeHtml(trimText(row && row.id, 120) || trimText(row && row.purchaseCode, 120) || 'audit')}"><td>${escapeHtml(trimText(row && row.tenantId, 120) || '-')}</td><td>${escapeHtml(trimText(row && row.purchaseCode, 120) || '-')}</td><td>${escapeHtml(trimText(row && row.action, 80) || 'event')}</td><td>${escapeHtml(firstNonEmpty([row && row.message, row && row.detail, row && row.commandKey, row && row.level], '-'))}</td></tr>`).join('');
+    const syncRunRows = syncRuns.slice(0, 6).map((row) => `<tr data-owner-sync-run="${escapeHtml(trimText(row && row.id, 120) || trimText(row && row.syncRunId, 120) || 'run')}"><td>${escapeHtml(trimText(row && row.tenantId, 120) || '-')}</td><td>${escapeHtml(trimText(row && (row.kind || row.name), 80) || 'sync')}</td><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && (row.status || row.resultStatus || row.healthStatus)))}">${escapeHtml(trimText(row && (row.status || row.resultStatus || row.healthStatus), 80) || '-')}</span></td><td>${escapeHtml(firstNonEmpty([row && row.detail, row && row.summary, row && row.message, row && row.runtimeKey], '-'))}</td></tr>`).join('');
+    const syncEventRows = syncEvents.slice(0, 6).map((row) => `<tr data-owner-sync-event="${escapeHtml(trimText(row && row.id, 120) || trimText(row && row.syncRunId, 120) || 'event')}"><td>${escapeHtml(trimText(row && row.tenantId, 120) || '-')}</td><td>${escapeHtml(trimText(row && (row.kind || row.eventType || row.code), 80) || 'event')}</td><td><span class="odv4-pill odv4-pill-${escapeHtml(getOwnerOpsTone(row && (row.status || row.severity || row.healthStatus)))}">${escapeHtml(trimText(row && (row.status || row.severity || row.healthStatus), 80) || '-')}</span></td><td>${escapeHtml(firstNonEmpty([row && row.detail, row && row.message, row && row.summary, row && row.runtimeKey], '-'))}</td></tr>`).join('');
+    const topErrorText = topErrors.slice(0, 3).map((row) => `${trimText(row && row.key, 80) || 'UNKNOWN'} (${formatNumber(row && row.count, '0')})`).join(' · ');
+
+    return [
+      '<section class="odv4-panel odvc4-panel" id="owner-jobs-workspace" data-owner-jobs-workspace data-owner-focus-route="jobs incidents observability">',
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Jobs and queues</span><h2 class="odv4-section-title">Queue pressure and recovery work</h2><p class="odv4-section-copy">This workspace keeps delivery queue pressure, restart jobs, and failed request evidence together so owner operators can triage recovery work without leaving the runtime view.</p></div>',
+      `<div class="odvc4-metric-grid">${renderMetricCards([
+        { label: 'Delivery queue', value: formatNumber(summary.queueCount || runtime.queueLength || 0, '0'), detail: `In flight ${formatNumber(summary.inFlightCount || runtime.inFlightCount || 0, '0')}`, tone: Number(summary.overdueCount || 0) > 0 ? 'warning' : 'info' },
+        { label: 'Dead letters', value: formatNumber(summary.deadLetterCount || runtime.deadLetterCount || 0, '0'), detail: `Retryable ${formatNumber(summary.retryableDeadLetters || 0, '0')}`, tone: Number(summary.deadLetterCount || runtime.deadLetterCount || 0) > 0 ? 'danger' : 'success' },
+        { label: 'Restart work', value: formatNumber(restartSummary.activePlanCount, '0'), detail: `${formatNumber(restartSummary.runningPlanCount, '0')} running · ${formatNumber(restartSummary.failedExecutionCount, '0')} failed`, tone: restartSummary.failedExecutionCount > 0 ? 'warning' : 'info' },
+        { label: 'Failed requests', value: formatNumber(failedRequests.length, '0'), detail: `Recent 5xx samples ${formatNumber(requestItems.length, '0')}`, tone: failedRequests.length > 0 ? 'danger' : 'success' },
+        { label: 'Delivery audit', value: formatNumber(deliveryAudit.length, '0'), detail: 'Recent job evidence from delivery flows', tone: deliveryAudit.length > 0 ? 'info' : 'muted' },
+        { label: 'Sync runs', value: formatNumber(syncRuns.length, '0'), detail: `${formatNumber(syncEvents.length, '0')} sync events`, tone: syncEvents.some((row) => getOwnerOpsTone(row && (row.status || row.severity || row.healthStatus)) === 'danger') ? 'warning' : 'info' },
+      ])}</div>`,
+      `<div class="odvc4-note-card"><strong>Top delivery errors</strong><p>${escapeHtml(topErrorText || 'No recurring delivery error was detected in the current sample window.')}</p></div>`,
+      '<div class="odvc4-split-grid">',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Delivery signal</th><th>Count</th><th>Why it matters</th></tr></thead><tbody>',
+      signalTableRows || '<tr><td colspan="3">No queue pressure is currently visible.</td></tr>',
+      '</tbody></table></div>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Recommended action</th><th>Count</th><th>Scope</th></tr></thead><tbody>',
+      actionPlanRows || '<tr><td colspan="3">No recovery action is waiting right now.</td></tr>',
+      '</tbody></table></div>',
+      '</div>',
+      '<div class="odvc4-split-grid">',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Tenant</th><th>Runtime</th><th>Restart status</th><th>Scheduled</th></tr></thead><tbody>',
+      restartPlanRows || '<tr><td colspan="4">No restart plans are queued right now.</td></tr>',
+      '</tbody></table></div>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Tenant</th><th>Action</th><th>Result</th><th>Detail</th></tr></thead><tbody>',
+      restartExecutionRows || '<tr><td colspan="4">No recent restart executions were sampled.</td></tr>',
+      '</tbody></table></div>',
+      '</div>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Method</th><th>Path</th><th>Status</th><th>When</th></tr></thead><tbody>',
+      failedRequestRows || '<tr><td colspan="4">No failed request evidence is currently visible.</td></tr>',
+      '</tbody></table></div>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Tenant</th><th>Purchase</th><th>Audit action</th><th>Detail</th></tr></thead><tbody>',
+      deliveryAuditRows || '<tr><td colspan="4">No delivery audit evidence was sampled yet.</td></tr>',
+      '</tbody></table></div>',
+      '<div class="odvc4-split-grid">',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Tenant</th><th>Sync run</th><th>Status</th><th>Detail</th></tr></thead><tbody>',
+      syncRunRows || '<tr><td colspan="4">No sync runs were sampled yet.</td></tr>',
+      '</tbody></table></div>',
+      '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>Tenant</th><th>Sync event</th><th>Severity</th><th>Detail</th></tr></thead><tbody>',
+      syncEventRows || '<tr><td colspan="4">No sync events were sampled yet.</td></tr>',
+      '</tbody></table></div>',
+      '</div>',
+      '</section>',
+    ].join('');
+  }
+
+  function renderRuntimeWorkspace(runtimeRows, selectedRuntime, runtimeBootstrap, state) {
     const runtimeTableRows = runtimeRows.map((row) => [
       '<tr>',
       `<td><strong>${escapeHtml(row.displayName || row.runtimeKey || row.agentId)}</strong><div class="odvc4-table-note">${escapeHtml(row.tenantName)}</div></td>`,
@@ -1936,6 +2109,7 @@
     return [
       bootstrapCard,
       inspector,
+      renderRuntimeJobsWorkspace(state && typeof state === 'object' ? state : {}),
       '<section class="odv4-panel odvc4-panel" id="owner-runtime-workspace" data-owner-focus-route="runtime runtime-health jobs incidents">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">ภาพรวมบริการ</span><h2 class="odv4-section-title">ทะเบียนบริการและการควบคุมโทเค็น</h2><p class="odv4-section-copy">Owner เห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุม registry, binding และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน</p></div>',
       '<div class="odvc4-table-wrap"><table class="odvc4-table"><thead><tr><th>บริการ</th><th>ประเภท</th><th>สถานะ</th><th>เวอร์ชัน</th><th>พบล่าสุด</th><th>การทำงาน</th></tr></thead><tbody>',
@@ -2624,6 +2798,7 @@
         ? escapeHtml(expiringRows.slice(0, 3).map((row) => `${row.name} · ${formatDateTime(row.renewsAt)}`).join(' · '))
         : 'ยังไม่มีการสมัครใช้รายการใดที่จะหมดอายุใน 14 วันข้างหน้า',
       '</p></div>',
+      renderExpiringTenantControls(expiringRows),
       '<section class="odv4-panel odvc4-panel" id="owner-subscriptions-actions">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">อัปเดตการต่ออายุได้จากหน้านี้ทันที</h2><p class="odv4-section-copy">จัดการบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือมีความเสี่ยงก่อน แล้วค่อยเปิดประวัติลูกค้าเมื่อจำเป็นต้องดูรายละเอียดเพิ่ม</p></div>',
       `<div class="odvc4-card-grid">${quickForms || '<div class="odvc4-note-card"><strong>ยังไม่มีประวัติลูกค้า</strong><p>สร้างลูกค้ารายแรกก่อน แล้วค่อยจัดการการสมัครใช้จากหน้านี้</p></div>'}</div>`,
@@ -2885,7 +3060,7 @@
         ));
         headerAction = { label: 'ดูลูกค้าที่ใกล้ต่ออายุ', href: '#owner-subscriptions-workspace', localFocus: true };
       } else if (routeKind === 'runtime') {
-        sections.push(renderRuntimeWorkspace(runtimeRows, selectedRuntime, settings.runtimeBootstrap));
+        sections.push(renderRuntimeWorkspace(runtimeRows, selectedRuntime, settings.runtimeBootstrap, state));
       headerAction = { label: 'เปิดทะเบียนบริการ', href: '#owner-runtime-workspace', localFocus: true };
       } else if (routeKind === 'analytics') {
         sections.push(renderAnalyticsWorkspace(state, packageUsageRows, runtimeRows, invoiceSummary));

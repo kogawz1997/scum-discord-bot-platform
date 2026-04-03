@@ -183,6 +183,31 @@ test('public preview service validates signup input and creates preview tenant s
       user: { id: `user-${account.id}` },
       identities: [{ provider: 'email_preview' }],
       memberships: account.tenantId ? [{ tenantId: account.tenantId, role: 'owner', membershipType: 'tenant' }] : [],
+      identitySummary: {
+        linkedProviders: ['email_preview'],
+        verificationState: null,
+        linkedAccounts: {
+          email: { linked: true, verified: false, value: account.email },
+          discord: { linked: false, verified: false, value: null },
+          steam: { linked: false, verified: false, value: null },
+          inGame: { linked: false, verified: false, value: null },
+        },
+        activeMembership: account.tenantId
+          ? { tenantId: account.tenantId, role: 'owner', membershipType: 'tenant', status: 'active' }
+          : null,
+        readiness: {
+          emailVerified: false,
+          discordLinked: false,
+          steamLinked: false,
+          playerMatched: false,
+          fullyVerified: false,
+        },
+        nextSteps: [
+          { key: 'verify-email', blocking: true },
+          { key: 'link-discord', blocking: true },
+          { key: 'link-steam', blocking: true },
+        ],
+      },
     }),
     issuePasswordResetToken: async (input) => {
       issuedResetTokens.push(input);
@@ -269,6 +294,12 @@ test('public preview service validates signup input and creates preview tenant s
   assert.equal(state.state.account.email, 'demo@example.com');
   assert.deepEqual(state.state.entitlements.enabledFeatureKeys, ['bot_log', 'shop_module']);
   assert.equal(String(state.state.identity?.userId || ''), 'user-preview-account-1');
+  assert.equal(state.state.identity?.identitySummary?.linkedAccounts?.email?.linked, true);
+  assert.equal(state.state.account.linkedIdentities.steamLinked, false);
+  assert.deepEqual(
+    state.state.identity?.identitySummary?.nextSteps?.map((entry) => entry.key),
+    ['verify-email', 'link-discord', 'link-steam'],
+  );
 
   const reset = await service.requestPasswordReset({
     email: 'demo@example.com',
@@ -292,6 +323,7 @@ test('public preview service validates signup input and creates preview tenant s
   });
   assert.equal(verified.ok, true);
   assert.equal(verified.account.verificationState, 'email_verified');
+  assert.equal(verified.account.identity?.identitySummary?.linkedAccounts?.email?.linked, true);
 
   const resetComplete = await service.completePasswordReset({
     token: 'rst_test.token',
@@ -332,6 +364,30 @@ test('public preview service falls back to lightweight preview state when tenant
       user: { id: `user-${account.id}` },
       identities: [{ provider: 'email_preview' }],
       memberships: [],
+      identitySummary: {
+        linkedProviders: ['email_preview'],
+        verificationState: null,
+        linkedAccounts: {
+          email: { linked: true, verified: false, value: account.email },
+          discord: { linked: false, verified: false, value: null },
+          steam: { linked: false, verified: false, value: null },
+          inGame: { linked: false, verified: false, value: null },
+        },
+        activeMembership: null,
+        readiness: {
+          emailVerified: false,
+          discordLinked: false,
+          steamLinked: false,
+          playerMatched: false,
+          fullyVerified: false,
+        },
+        nextSteps: [
+          { key: 'verify-email', blocking: true },
+          { key: 'link-discord', blocking: true },
+          { key: 'link-steam', blocking: true },
+          { key: 'membership-pending', blocking: false },
+        ],
+      },
     }),
     ...store,
   });
@@ -357,4 +413,65 @@ test('public preview service falls back to lightweight preview state when tenant
   assert.ok(state.state.entitlements.enabledFeatureKeys.includes('bot_delivery'));
   assert.ok(state.state.entitlements.enabledFeatureKeys.includes('execute_agent'));
   assert.equal(String(state.state.identity?.userId || ''), 'user-preview-account-1');
+  assert.deepEqual(
+    state.state.identity?.identitySummary?.nextSteps?.map((entry) => entry.key),
+    ['verify-email', 'link-discord', 'link-steam', 'membership-pending'],
+  );
+});
+
+test('public preview service skips issuing verification token when email is already verified centrally', async () => {
+  const createPublicPreviewService = loadCreatePublicPreviewService();
+  const store = createStoreHarness();
+  const service = createPublicPreviewService({
+    ensurePlatformUserIdentity: async () => ({ ok: true, user: { id: 'user-preview-account-1' }, identities: [] }),
+    getIdentitySummaryForPreviewAccount: async (account) => ({
+      user: { id: `user-${account.id}` },
+      identities: [{ provider: 'email_preview', providerEmail: account.email, verifiedAt: '2026-04-01T10:00:00.000Z' }],
+      memberships: [],
+      identitySummary: {
+        linkedProviders: ['email_preview'],
+        verificationState: null,
+        linkedAccounts: {
+          email: { linked: true, verified: true, value: account.email },
+          discord: { linked: false, verified: false, value: null },
+          steam: { linked: false, verified: false, value: null },
+          inGame: { linked: false, verified: false, value: null },
+        },
+        activeMembership: null,
+        readiness: {
+          emailVerified: true,
+          discordLinked: false,
+          steamLinked: false,
+          playerMatched: false,
+          fullyVerified: false,
+        },
+        nextSteps: [
+          { key: 'link-discord', blocking: true },
+          { key: 'link-steam', blocking: true },
+          { key: 'membership-pending', blocking: false },
+        ],
+      },
+    }),
+    issueEmailVerificationToken: async () => {
+      throw new Error('should-not-issue-token');
+    },
+    ...store,
+  });
+
+  await service.registerPreviewAccount({
+    displayName: 'Verified User',
+    email: 'verified@example.com',
+    password: 'strong-pass-123',
+    communityName: 'Verified Community',
+    packageId: 'BOT_LOG_DELIVERY',
+    locale: 'en',
+  });
+
+  const result = await service.requestEmailVerification({
+    email: 'verified@example.com',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.requested, false);
+  assert.equal(result.alreadyVerified, true);
+  assert.equal(result.verificationTokenQueued, false);
 });

@@ -12,6 +12,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
     listAllowedPurchaseTransitions,
     listFilteredDeliveryQueue,
     listFilteredDeliveryDeadLetters,
+    listDeliveryAudit,
     getDeliveryRuntimeStatus,
     listScumAdminCommandCapabilities,
     listAdminCommandCapabilityPresets,
@@ -67,6 +68,24 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
           q: String(urlObj.searchParams.get('q') || '').trim(),
           tenantId: tenantId || getAuthTenantId(auth) || undefined,
         }),
+      });
+      return true;
+    }
+
+    if (pathname === '/admin/api/delivery/audit') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
+      sendJson(res, 200, {
+        ok: true,
+        data: listDeliveryAudit(
+          asInt(urlObj.searchParams.get('limit'), 200) || 200,
+          { tenantId: tenantId || getAuthTenantId(auth) || undefined },
+        ),
       });
       return true;
     }

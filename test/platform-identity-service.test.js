@@ -108,6 +108,12 @@ test('platform identity service creates unified user, identity, membership, and 
   });
   assert.equal(String(summary?.user?.primaryEmail || ''), 'identity-test@example.com');
   assert.equal(summary?.memberships?.length, 1);
+  assert.equal(summary?.identitySummary?.linkedAccounts?.email?.linked, true);
+  assert.equal(summary?.identitySummary?.linkedAccounts?.email?.value, 'identity-test@example.com');
+  assert.deepEqual(
+    (summary?.identitySummary?.nextSteps || []).map((entry) => entry.key),
+    ['link-discord', 'link-steam'],
+  );
 
   const reset = await issuePasswordResetToken({
     email: 'identity-test@example.com',
@@ -213,6 +219,13 @@ test('platform identity service can summarize linked user identities by discord 
   assert.equal(summary.identities.some((entry) => entry.provider === 'discord'), true);
   assert.equal(summary.identities.some((entry) => entry.provider === 'steam'), true);
   assert.equal(summary.memberships.some((entry) => String(entry.tenantId || '') === 'tenant-identity-test'), true);
+  assert.equal(summary.identitySummary?.linkedAccounts?.steam?.linked, true);
+  assert.equal(summary.identitySummary?.linkedAccounts?.inGame?.value, 'Identity Survivor');
+  assert.equal(summary.identitySummary?.readiness?.fullyVerified, true);
+  assert.deepEqual(
+    (summary.identitySummary?.nextSteps || []).map((entry) => entry.key),
+    ['verify-email'],
+  );
 });
 
 test('platform identity service reuses discord-linked user when steam link has no email', async (t) => {

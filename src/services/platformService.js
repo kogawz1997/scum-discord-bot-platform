@@ -678,7 +678,7 @@ function isTenantRuntimeStatusAllowed(status) {
 
 function isSubscriptionOperational(row) {
   if (!row) return true;
-  const status = normalizeStatus(row.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']);
+  const status = normalizeStatus(row.status, ['active', 'trialing', 'paused', 'past_due', 'suspended', 'canceled', 'expired']);
   return status === 'active' || status === 'trialing';
 }
 
@@ -1269,6 +1269,15 @@ async function getPlatformTenantById(tenantId) {
   return sanitizeTenantRow(row);
 }
 
+async function getPlatformTenantBySlug(slug) {
+  const normalizedSlug = normalizeSlug(slug);
+  if (!normalizedSlug) return null;
+  const row = await prisma.platformTenant.findFirst({
+    where: { slug: normalizedSlug },
+  });
+  return sanitizeTenantRow(row);
+}
+
 async function createSubscription(input = {}, actor = 'system') {
   const tenantId = trimText(input.tenantId, 120);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
@@ -1293,15 +1302,15 @@ async function createSubscription(input = {}, actor = 'system') {
     );
     const renewsAt = parseDateOrNull(input.renewsAt) || new Date(startedAt.getTime() + intervalDays * 24 * 60 * 60 * 1000);
     const row = await db.platformSubscription.create({
-      data: {
-        id: trimText(input.id, 120) || createId('sub'),
-        tenantId,
-        planId: trimText(input.planId, 120) || plan?.id || 'custom',
-        billingCycle: cycle,
-        status: normalizeStatus(input.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']),
-        currency: normalizeCurrency(input.currency || config.platform?.billing?.currency),
-        amountCents: asInt(input.amountCents, plan?.amountCents || 0, 0),
-        startedAt,
+        data: {
+          id: trimText(input.id, 120) || createId('sub'),
+          tenantId,
+          planId: trimText(input.planId, 120) || plan?.id || 'custom',
+          billingCycle: cycle,
+          status: normalizeStatus(input.status, ['active', 'trialing', 'paused', 'past_due', 'suspended', 'canceled', 'expired']),
+          currency: normalizeCurrency(input.currency || config.platform?.billing?.currency),
+          amountCents: asInt(input.amountCents, plan?.amountCents || 0, 0),
+          startedAt,
         renewsAt,
         canceledAt: parseDateOrNull(input.canceledAt),
         externalRef: trimText(input.externalRef, 180) || null,
@@ -1415,7 +1424,7 @@ async function listPlatformSubscriptions(options = {}) {
   const take = Math.max(1, Math.min(500, asInt(options.limit, 100, 1)));
   const where = {};
   if (tenantId) where.tenantId = tenantId;
-  if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'past_due', 'canceled', 'expired']);
+  if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'past_due', 'suspended', 'canceled', 'expired']);
   const rows = !tenantId && getTenantDatabaseTopologyMode() !== 'shared'
     ? sortRowsByTimestampDesc(
       await readAcrossPlatformTenantScopes(
@@ -2428,6 +2437,7 @@ module.exports = {
   getPlatformPermissionCatalog,
   getPlatformPublicOverview,
   getPlatformTenantById,
+  getPlatformTenantBySlug,
   getTenantFeatureAccess: async (tenantId, options = {}) => {
     const snapshot = await getTenantQuotaSnapshot(tenantId, options);
     return {

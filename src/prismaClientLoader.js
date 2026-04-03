@@ -65,8 +65,26 @@ function normalizeProvider(value) {
   return '';
 }
 
+function resolveProviderFromDatabaseUrl(databaseUrl = process.env.DATABASE_URL) {
+  const raw = trimText(databaseUrl, 4000).toLowerCase();
+  if (!raw) return '';
+  if (raw.startsWith('file:')) return 'sqlite';
+  if (raw.startsWith('postgresql://') || raw.startsWith('postgres://')) {
+    return 'postgresql';
+  }
+  if (raw.startsWith('mysql://')) return 'mysql';
+  return '';
+}
+
 function resolveRequestedProvider() {
-  return normalizeProvider(process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER);
+  const explicitProvider = normalizeProvider(
+    process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER,
+  );
+  const databaseUrlProvider = resolveProviderFromDatabaseUrl();
+  if (databaseUrlProvider && explicitProvider && databaseUrlProvider !== explicitProvider) {
+    return databaseUrlProvider;
+  }
+  return explicitProvider || databaseUrlProvider;
 }
 
 function findLatestGeneratedClientForProvider(provider) {
@@ -126,6 +144,7 @@ module.exports = {
   getGeneratedClientMetadata,
   getPrismaClientModule,
   normalizeProvider,
+  resolveProviderFromDatabaseUrl,
   resolveRequestedProvider,
   resolveClientModulePath,
 };

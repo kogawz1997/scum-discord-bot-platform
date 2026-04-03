@@ -70,7 +70,7 @@ function loadI18nRuntime(assetPath, globalName) {
   };
 }
 
-test('admin i18n repairs mojibake in runtime translations and language labels', async () => {
+test('admin i18n exposes repaired runtime translations and readable language labels', async () => {
   const runtime = loadI18nRuntime(
     'C:/new/src/admin/assets/admin-i18n.js',
     'AdminUiI18n',
@@ -85,9 +85,10 @@ test('admin i18n repairs mojibake in runtime translations and language labels', 
   assert.equal(runtime.api.t('common.roleOwner'), 'Owner');
   assert.match(runtime.select.innerHTML, /ไทย/);
   assert.match(runtime.select.innerHTML, /Español/);
+  assert.match(runtime.select.innerHTML, /日本語/);
 });
 
-test('portal i18n repairs mojibake in runtime translations and language labels', async () => {
+test('portal i18n exposes repaired runtime translations and readable language labels', async () => {
   const runtime = loadI18nRuntime(
     'C:/new/apps/web-portal-standalone/public/assets/portal-i18n.js',
     'PortalUiI18n',
@@ -100,4 +101,5 @@ test('portal i18n repairs mojibake in runtime translations and language labels',
   assert.equal(runtime.api.t('player.badge'), 'พอร์ทัลผู้เล่น');
   assert.match(runtime.select.innerHTML, /ไทย/);
   assert.match(runtime.select.innerHTML, /Español/);
+  assert.match(runtime.select.innerHTML, /한국어/);
 });

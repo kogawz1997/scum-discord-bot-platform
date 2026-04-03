@@ -6,7 +6,12 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const { once } = require('node:events');
-const { createPurchase, listShopItems } = require('../src/store/memoryStore');
+const {
+  addShopItem,
+  createPurchase,
+  deleteShopItem,
+  listShopItems,
+} = require('../src/store/memoryStore');
 const { setLink } = require('../src/store/linkStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
@@ -1805,9 +1810,23 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(Boolean(templateDelete.data.data?.exists), false);
 
   const initialShopItems = await listShopItems();
-  const detailShopItem = initialShopItems.find(
+  let detailShopItem = initialShopItems.find(
     (row) => String(row?.kind || 'item').trim().toLowerCase() === 'item',
   );
+  let detailFallbackItemId = null;
+  if (!detailShopItem) {
+    detailFallbackItemId = `admin-delivery-detail-item-${Date.now()}`;
+    detailShopItem = await addShopItem(
+      detailFallbackItemId,
+      'Admin Delivery Detail Item',
+      100,
+      'integration fallback item',
+      {
+        kind: 'item',
+        deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
+      },
+    );
+  }
   assert.ok(detailShopItem, 'expected at least one item-kind shop item');
   const purchase = await createPurchase(
     'admin-delivery-detail-user',
@@ -1871,6 +1890,10 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(deadRetryManyRes.data.ok, true);
   assert.equal(Number(deadRetryManyRes.data.data?.total || 0), 1);
   assert.equal(Number(deadRetryManyRes.data.data?.queued || 0), 0);
+
+  if (detailFallbackItemId) {
+    await deleteShopItem(detailFallbackItemId).catch(() => null);
+  }
 });
 
 test('admin API control panel settings, env patching, and admin user management', async (t) => {

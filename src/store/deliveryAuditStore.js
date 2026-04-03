@@ -15,6 +15,18 @@ let dbWriteQueue = Promise.resolve();
 let initPromise = null;
 let isHydrating = false;
 
+function dedupeAuditRows(sourceRows = []) {
+  const deduped = new Map();
+  for (const row of Array.isArray(sourceRows) ? sourceRows : []) {
+    const normalized = normalizeAudit(row);
+    if (!normalized) continue;
+    deduped.set(normalized.id, normalized);
+  }
+  return Array.from(deduped.values())
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .slice(-MAX_AUDIT_ITEMS);
+}
+
 function normalizeAudit(entry) {
   if (!entry || typeof entry !== 'object') return null;
   const createdAt = entry.createdAt ? new Date(entry.createdAt) : new Date();
@@ -300,9 +312,9 @@ function replaceDeliveryAudit(nextAudits = [], options = {}) {
     if (tenantId && normalized.tenantId !== tenantId) continue;
     audits.push(normalized);
   }
-  if (audits.length > MAX_AUDIT_ITEMS) {
-    audits.splice(0, audits.length - MAX_AUDIT_ITEMS);
-  }
+  const deduped = dedupeAuditRows(audits);
+  audits.length = 0;
+  audits.push(...deduped);
 
   queueDbWrite(
     async () => {
@@ -310,8 +322,22 @@ function replaceDeliveryAudit(nextAudits = [], options = {}) {
         await runWithDeliveryPersistenceScope(tenantId, async (db) => {
           await db.deliveryAudit.deleteMany({ where: { tenantId } });
           for (const entry of audits.filter((row) => row.tenantId === tenantId)) {
-            await db.deliveryAudit.create({
-              data: {
+            await db.deliveryAudit.upsert({
+              where: { id: entry.id },
+              update: {
+                createdAt: entry.createdAt,
+                tenantId: entry.tenantId,
+                level: entry.level,
+                action: entry.action,
+                purchaseCode: entry.purchaseCode,
+                itemId: entry.itemId,
+                userId: entry.userId,
+                steamId: entry.steamId,
+                attempt: entry.attempt,
+                message: entry.message,
+                metaJson: entry.meta ? JSON.stringify(entry.meta) : null,
+              },
+              create: {
                 id: entry.id,
                 createdAt: entry.createdAt,
                 tenantId: entry.tenantId,
@@ -335,8 +361,22 @@ function replaceDeliveryAudit(nextAudits = [], options = {}) {
       const sharedRows = groups.get(null) || [];
       await prisma.deliveryAudit.deleteMany({});
       for (const entry of sharedRows) {
-        await prisma.deliveryAudit.create({
-          data: {
+        await prisma.deliveryAudit.upsert({
+          where: { id: entry.id },
+          update: {
+            createdAt: entry.createdAt,
+            tenantId: entry.tenantId,
+            level: entry.level,
+            action: entry.action,
+            purchaseCode: entry.purchaseCode,
+            itemId: entry.itemId,
+            userId: entry.userId,
+            steamId: entry.steamId,
+            attempt: entry.attempt,
+            message: entry.message,
+            metaJson: entry.meta ? JSON.stringify(entry.meta) : null,
+          },
+          create: {
             id: entry.id,
             createdAt: entry.createdAt,
             tenantId: entry.tenantId,
@@ -357,8 +397,22 @@ function replaceDeliveryAudit(nextAudits = [], options = {}) {
         await runWithDeliveryPersistenceScope(scopedTenantId, async (db) => {
           await db.deliveryAudit.deleteMany({ where: { tenantId: scopedTenantId } });
           for (const entry of tenantRows) {
-            await db.deliveryAudit.create({
-              data: {
+            await db.deliveryAudit.upsert({
+              where: { id: entry.id },
+              update: {
+                createdAt: entry.createdAt,
+                tenantId: entry.tenantId,
+                level: entry.level,
+                action: entry.action,
+                purchaseCode: entry.purchaseCode,
+                itemId: entry.itemId,
+                userId: entry.userId,
+                steamId: entry.steamId,
+                attempt: entry.attempt,
+                message: entry.message,
+                metaJson: entry.meta ? JSON.stringify(entry.meta) : null,
+              },
+              create: {
                 id: entry.id,
                 createdAt: entry.createdAt,
                 tenantId: entry.tenantId,

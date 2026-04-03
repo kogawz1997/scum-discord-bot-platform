@@ -268,3 +268,43 @@ test('portal page routes allow capture-only dashboard auth with a valid token', 
   assert.equal(res.headers.Location, '/player');
   assert.equal(res.headers['Set-Cookie'], 'scum_portal_session=capture-session-id; Path=/; HttpOnly');
 });
+
+test('portal page routes serve public server pages under /s/:slug', async () => {
+  const handler = buildRoutes();
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: { 'accept-language': 'th-TH,th;q=0.9,en;q=0.8' } },
+    res,
+    urlObj: new URL('https://player.example.com/s/prime/events'),
+    pathname: '/s/prime/events',
+    method: 'GET',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body, /data-public-server-slug="prime"/);
+  assert.match(res.body, /data-public-server-section="events"/);
+  assert.match(res.body, /\/api\/public\/server\/prime\/workspace/);
+  assert.match(res.body, /<html lang="th">/);
+  assert.match(res.body, /กิจกรรม/);
+});
+
+test('portal page routes let explicit locale query override the default public server language', async () => {
+  const handler = buildRoutes();
+  const res = createMockRes();
+
+  const handled = await handler({
+    req: { headers: { 'accept-language': 'th-TH,th;q=0.9' } },
+    res,
+    urlObj: new URL('https://player.example.com/s/prime?lang=en'),
+    pathname: '/s/prime',
+    method: 'GET',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body, /<html lang="en">/);
+  assert.match(res.body, /Overview/);
+  assert.match(res.body, /Player Portal/);
+});

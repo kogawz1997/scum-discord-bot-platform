@@ -131,6 +131,76 @@ function sanitizePreviewState(account, tenantSnapshot, featureAccess) {
   };
 }
 
+function buildPreviewIdentityPayload(identitySummary) {
+  if (!identitySummary || typeof identitySummary !== 'object') return null;
+  const summary = identitySummary.identitySummary && typeof identitySummary.identitySummary === 'object'
+    ? identitySummary.identitySummary
+    : null;
+  return {
+    userId: identitySummary.user?.id || null,
+    providers: Array.isArray(identitySummary.identities)
+      ? identitySummary.identities.map((entry) => entry.provider).filter(Boolean)
+      : [],
+    memberships: Array.isArray(identitySummary.memberships)
+      ? identitySummary.memberships.map((entry) => ({
+        tenantId: entry.tenantId,
+        role: entry.role,
+        membershipType: entry.membershipType,
+        status: entry.status || null,
+      }))
+      : [],
+    identitySummary: summary,
+  };
+}
+
+function derivePreviewLinkedIdentities(account, identitySummary) {
+  const summary = identitySummary?.identitySummary && typeof identitySummary.identitySummary === 'object'
+    ? identitySummary.identitySummary
+    : null;
+  const fallback = account?.linkedIdentities && typeof account.linkedIdentities === 'object'
+    ? account.linkedIdentities
+    : {};
+  if (!summary) {
+    return {
+      discordLinked: fallback.discordLinked === true,
+      discordVerified: fallback.discordVerified === true,
+      steamLinked: fallback.steamLinked === true,
+      playerMatched: fallback.playerMatched === true,
+      fullyVerified: fallback.fullyVerified === true,
+    };
+  }
+  return {
+    discordLinked: summary.linkedAccounts?.discord?.linked === true,
+    discordVerified: summary.linkedAccounts?.discord?.verified === true,
+    steamLinked: summary.linkedAccounts?.steam?.linked === true,
+    playerMatched: summary.linkedAccounts?.inGame?.linked === true,
+    fullyVerified: summary.readiness?.fullyVerified === true,
+  };
+}
+
+function derivePreviewVerificationState(account, identitySummary) {
+  const current = trimText(account?.verificationState, 80) || 'pending_email_verification';
+  const summary = identitySummary?.identitySummary && typeof identitySummary.identitySummary === 'object'
+    ? identitySummary.identitySummary
+    : null;
+  if (summary?.linkedAccounts?.email?.verified) {
+    return 'email_verified';
+  }
+  return current;
+}
+
+function arePreviewLinkedIdentitiesEqual(left, right) {
+  const a = left && typeof left === 'object' ? left : {};
+  const b = right && typeof right === 'object' ? right : {};
+  return (
+    a.discordLinked === b.discordLinked
+    && a.discordVerified === b.discordVerified
+    && a.steamLinked === b.steamLinked
+    && a.playerMatched === b.playerMatched
+    && a.fullyVerified === b.fullyVerified
+  );
+}
+
 function buildFallbackFeatureAccess(packageId) {
   const resolved = resolveFeatureAccess({
     planId: 'trial-14d',
@@ -378,18 +448,20 @@ function createPublicPreviewService(deps = {}) {
         ? new Date().toISOString()
         : null,
     }).catch(() => null);
+    const identitySummary = await getIdentitySummaryForPreviewAccountImpl(updated || account).catch(() => null);
     return {
       ok: true,
       account: {
         ...(updated || account),
-        identity: identity?.ok
-          ? {
-            userId: identity.user?.id || null,
-            providers: Array.isArray(identity.identities)
-              ? identity.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-          }
-          : null,
+        identity: buildPreviewIdentityPayload(identitySummary)
+          || (identity?.ok
+            ? {
+              userId: identity.user?.id || null,
+              providers: Array.isArray(identity.identities)
+                ? identity.identities.map((entry) => entry.provider).filter(Boolean)
+                : [],
+            }
+            : null),
       },
     };
   }
@@ -410,26 +482,28 @@ function createPublicPreviewService(deps = {}) {
       : buildFallbackFeatureAccess(account.packageId);
     const tenantSnapshot = tenantSnapshotRaw || buildFallbackTenantSnapshot(account, featureAccess);
     const identitySummary = await getIdentitySummaryForPreviewAccountImpl(account).catch(() => null);
+    const nextLinkedIdentities = derivePreviewLinkedIdentities(account, identitySummary);
+    const nextVerificationState = derivePreviewVerificationState(account, identitySummary);
+    let accountForState = account;
+    if (
+      !arePreviewLinkedIdentitiesEqual(account.linkedIdentities, nextLinkedIdentities)
+      || trimText(account.verificationState, 80) !== nextVerificationState
+    ) {
+      accountForState = await updatePreviewAccountImpl(account.id, {
+        linkedIdentities: nextLinkedIdentities,
+        verificationState: nextVerificationState,
+      }) || {
+        ...account,
+        linkedIdentities: nextLinkedIdentities,
+        verificationState: nextVerificationState,
+      };
+    }
 
     return {
       ok: true,
       state: sanitizePreviewState({
-        ...account,
-        identity: identitySummary
-          ? {
-            userId: identitySummary.user?.id || null,
-            providers: Array.isArray(identitySummary.identities)
-              ? identitySummary.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-            memberships: Array.isArray(identitySummary.memberships)
-              ? identitySummary.memberships.map((entry) => ({
-                tenantId: entry.tenantId,
-                role: entry.role,
-                membershipType: entry.membershipType,
-              }))
-              : [],
-          }
-          : null,
+        ...accountForState,
+        identity: buildPreviewIdentityPayload(identitySummary),
       }, tenantSnapshot, featureAccess),
       packageCatalog: getPackageCatalogImpl(),
     };
@@ -490,6 +564,19 @@ function createPublicPreviewService(deps = {}) {
       return {
         ok: true,
         requested: false,
+        verificationTokenQueued: false,
+        verificationTokenPreview: null,
+      };
+    }
+    const currentIdentitySummary = await getIdentitySummaryForPreviewAccountImpl(account).catch(() => null);
+    if (
+      trimText(account.verificationState, 80).toLowerCase() === 'email_verified'
+      || currentIdentitySummary?.identitySummary?.linkedAccounts?.email?.verified === true
+    ) {
+      return {
+        ok: true,
+        requested: false,
+        alreadyVerified: true,
         verificationTokenQueued: false,
         verificationTokenPreview: null,
       };
@@ -564,18 +651,20 @@ function createPublicPreviewService(deps = {}) {
       },
       verifiedAt: new Date().toISOString(),
     }).catch(() => null);
+    const refreshedIdentitySummary = await getIdentitySummaryForPreviewAccountImpl(updated || account).catch(() => null);
     return {
       ok: true,
       account: {
         ...(updated || account),
-        identity: identity?.ok
-          ? {
-            userId: identity.user?.id || null,
-            providers: Array.isArray(identity.identities)
-              ? identity.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-          }
-          : null,
+        identity: buildPreviewIdentityPayload(refreshedIdentitySummary)
+          || (identity?.ok
+            ? {
+              userId: identity.user?.id || null,
+              providers: Array.isArray(identity.identities)
+                ? identity.identities.map((entry) => entry.provider).filter(Boolean)
+                : [],
+            }
+            : null),
       },
       nextUrl: '/login',
     };

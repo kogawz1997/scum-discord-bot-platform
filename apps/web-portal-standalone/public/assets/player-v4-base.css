@@ -80,6 +80,18 @@ body { padding: 24px; }
   letter-spacing: 0.04em;
 }
 
+.plv4-brand-mark.plv4-brand-mark-logo {
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.plv4-brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
 .plv4-brand-copy,
 .plv4-sidebar,
 .plv4-main,

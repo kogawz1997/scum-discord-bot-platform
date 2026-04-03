@@ -4903,25 +4903,38 @@
       const localeField = inviteForm.querySelector('[name="locale"]');
       setActionButtonBusy(inviteButton, true, 'Inviting...');
       try {
-        await apiRequest('/admin/api/platform/tenant-staff', {
-          method: 'POST',
-          body: {
-            tenantId,
-            email,
+          const inviteResult = await apiRequest('/admin/api/platform/tenant-staff', {
+            method: 'POST',
+            body: {
+              tenantId,
+              email,
             displayName: String(formData.get('displayName') || '').trim(),
             role: String(formData.get('role') || roleField?.value || 'staff').trim(),
             locale: String(formData.get('locale') || localeField?.value || 'en').trim(),
           },
         });
         inviteForm.reset();
-        if (roleField) {
-          const defaultOption = roleField.querySelector('option');
-          roleField.value = defaultOption ? String(defaultOption.value || 'staff').trim() : 'staff';
-        }
-        if (localeField) localeField.value = 'en';
-        setStatus('Tenant staff invitation created.', 'success');
-        await refreshState({ silent: true });
-      } catch (error) {
+          if (roleField) {
+            const defaultOption = roleField.querySelector('option');
+            roleField.value = defaultOption ? String(defaultOption.value || 'staff').trim() : 'staff';
+          }
+          if (localeField) localeField.value = 'en';
+          const invitePath = String(inviteResult?.invite?.acceptPath || '').trim();
+          const inviteUrl = invitePath ? new URL(invitePath, window.location.origin).toString() : '';
+          if (inviteUrl && navigator?.clipboard?.writeText) {
+            try {
+              await navigator.clipboard.writeText(inviteUrl);
+              setStatus(`Tenant staff invitation created. Invite link copied: ${inviteUrl}`, 'success');
+            } catch {
+              setStatus(`Tenant staff invitation created. Share this link: ${inviteUrl}`, 'success');
+            }
+          } else if (inviteUrl) {
+            setStatus(`Tenant staff invitation created. Share this link: ${inviteUrl}`, 'success');
+          } else {
+            setStatus('Tenant staff invitation created.', 'success');
+          }
+          await refreshState({ silent: true });
+        } catch (error) {
         setStatus(String(error?.message || error), 'danger');
       } finally {
         setActionButtonBusy(inviteButton, false);

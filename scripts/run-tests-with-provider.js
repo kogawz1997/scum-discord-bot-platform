@@ -87,6 +87,24 @@ function quoteIdentifier(value) {
   return `"${String(value || '').replaceAll('"', '""')}"`;
 }
 
+function listSchemasByPrefix(pgBinDir, databaseUrl, schemaPrefix) {
+  const sql = `
+    SELECT schema_name
+    FROM information_schema.schemata
+    WHERE schema_name LIKE '${escapeSqlLikePattern(schemaPrefix)}%' ESCAPE '\\'
+    ORDER BY schema_name
+  `;
+  const result = runCommand(
+    path.join(pgBinDir, 'psql.exe'),
+    ['-v', 'ON_ERROR_STOP=1', '-At', databaseUrl, '-c', sql],
+    { stdio: 'pipe' },
+  );
+  return String(result.stdout || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function buildPostgresTestRuntime() {
   const rawUrl = String(process.env.DATABASE_URL || '').trim();
   if (!/^postgres(?:ql)?:\/\//i.test(rawUrl)) {
@@ -117,22 +135,17 @@ function buildPostgresTestRuntime() {
     provider: 'postgresql',
     tenantSchemaPrefix,
     cleanup: () => {
-      const cleanupSql = `
-        DO $cleanup$
-        DECLARE scoped_schema record;
-        BEGIN
-          FOR scoped_schema IN
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name LIKE '${escapeSqlLikePattern(tenantSchemaPrefix)}%' ESCAPE '\\'
-          LOOP
-            EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', scoped_schema.schema_name);
-          END LOOP;
-        END
-        $cleanup$;
-        DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;
-      `;
-      runCommand(path.join(pgBinDir, 'psql.exe'), ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', cleanupSql]);
+      const tenantSchemas = listSchemasByPrefix(pgBinDir, baseUrl.toString(), tenantSchemaPrefix);
+      for (const scopedSchema of tenantSchemas) {
+        runCommand(
+          path.join(pgBinDir, 'psql.exe'),
+          ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', `DROP SCHEMA IF EXISTS ${quoteIdentifier(scopedSchema)} CASCADE;`],
+        );
+      }
+      runCommand(
+        path.join(pgBinDir, 'psql.exe'),
+        ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', `DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;`],
+      );
     },
   };
 }

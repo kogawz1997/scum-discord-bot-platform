@@ -77,10 +77,12 @@ function buildRoutes(overrides = {}) {
     deleteDiscordOauthState: () => {},
     getClientIp: () => '127.0.0.1',
     recordAdminSecuritySignal: () => {},
+    consumeActionRateLimit: () => ({ limited: false, retryAfterMs: 0, ip: '127.0.0.1' }),
     createSession: () => ({ id: 'session-id' }),
     buildSessionCookie: () => 'session-id',
     buildClearSessionCookie: () => 'scum_admin_session=; Max-Age=0',
     invalidateSession: () => {},
+    acceptTenantStaffInvite: async () => ({ ok: false, reason: 'not-configured' }),
     ...overrides,
   });
 }
@@ -574,6 +576,28 @@ test('tenant login route redirects tenant owner session into tenant console', as
   assert.equal(res.headers.Location, '/tenant');
 });
 
+test('tenant login route stays on login page when invite acceptance token is present', async () => {
+  const handler = buildRoutes({
+    isAuthorized: () => true,
+    getAuthContext: () => ({ user: 'tenant-owner', role: 'owner', tenantId: 'tenant-1' }),
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/login?inviteToken=tenant_s_demo&email=staff%40example.com'),
+    pathname: '/tenant/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body, '<tenant-login/>');
+});
+
 test('tenant login response keeps a safe nextUrl for direct tenant routes', async () => {
   const handler = buildRoutes({
     readJsonBody: async () => ({
@@ -651,6 +675,172 @@ test('tenant login response falls back to onboarding for unsafe nextUrl values',
   const payload = JSON.parse(String(res.body || '{}'));
   assert.equal(payload.ok, true);
   assert.equal(payload.data.nextUrl, '/tenant/onboarding');
+});
+
+test('tenant invite acceptance response creates a tenant session and keeps a safe nextUrl', async () => {
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'staff@example.com',
+      token: 'tenant_s_demo',
+      password: 'StrongPass123!',
+      nextUrl: '/tenant/server/config',
+    }),
+    acceptTenantStaffInvite: async () => ({
+      ok: true,
+      user: { id: 'user-2', primaryEmail: 'staff@example.com' },
+      membership: {
+        id: 'membership-2',
+        tenantId: 'tenant-2',
+        role: 'staff',
+        membershipType: 'tenant',
+        status: 'active',
+      },
+    }),
+    createSession: () => 'session-tenant-staff',
+    buildSessionCookie: () => 'tenant-staff-session-cookie',
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/accept-invite'),
+    pathname: '/tenant/api/auth/accept-invite',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.tenantId, 'tenant-2');
+  assert.equal(payload.data.nextUrl, '/tenant/server/config');
+  assert.equal(res.headers['Set-Cookie'], 'tenant-staff-session-cookie');
+});
+
+test('tenant login rate limiting blocks repeated public auth attempts and records a security signal', async () => {
+  const securitySignals = [];
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'tenant-owner@example.com',
+      password: 'secret',
+    }),
+    consumeActionRateLimit: () => ({
+      limited: true,
+      retryAfterMs: 5_000,
+      ip: '203.0.113.20',
+    }),
+    recordAdminSecuritySignal: (type, payload) => {
+      securitySignals.push({ type, payload });
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/login'),
+    pathname: '/tenant/api/auth/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.headers['Retry-After'], '5');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /Too many tenant-public-login attempts/i);
+  assert.equal(securitySignals.length, 1);
+  assert.equal(securitySignals[0].type, 'tenant-public-login-rate-limited');
+  assert.equal(securitySignals[0].payload.reason, 'too-many-attempts');
+});
+
+test('tenant login success records a tenant auth security event', async () => {
+  const securitySignals = [];
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'tenant-owner@example.com',
+      password: 'secret',
+      nextUrl: '/tenant',
+    }),
+    authenticateTenantUser: async () => ({
+      ok: true,
+      user: { id: 'user-1', primaryEmail: 'tenant-owner@example.com' },
+      membership: {
+        id: 'membership-1',
+        tenantId: 'tenant-1',
+        role: 'owner',
+        membershipType: 'tenant',
+        status: 'active',
+      },
+    }),
+    createSession: () => 'session-tenant-1',
+    recordAdminSecuritySignal: (type, payload) => {
+      securitySignals.push({ type, payload });
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/login'),
+    pathname: '/tenant/api/auth/login',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(securitySignals.length, 1);
+  assert.equal(securitySignals[0].type, 'tenant-login-succeeded');
+  assert.equal(securitySignals[0].payload.role, 'owner');
+  assert.equal(securitySignals[0].payload.sessionId, 'session-tenant-1');
+});
+
+test('tenant invite acceptance rate limiting blocks repeated invite claims and records a security signal', async () => {
+  const securitySignals = [];
+  const handler = buildRoutes({
+    readJsonBody: async () => ({
+      email: 'staff@example.com',
+      token: 'tenant_s_demo',
+      password: 'StrongPass123!',
+    }),
+    consumeActionRateLimit: () => ({
+      limited: true,
+      retryAfterMs: 7_000,
+      ip: '203.0.113.30',
+    }),
+    recordAdminSecuritySignal: (type, payload) => {
+      securitySignals.push({ type, payload });
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: { host: 'admin.example.com' } },
+    res,
+    urlObj: new URL('https://admin.example.com/tenant/api/auth/accept-invite'),
+    pathname: '/tenant/api/auth/accept-invite',
+    host: 'admin.example.com',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.headers['Retry-After'], '7');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /Too many tenant-public-invite-accept attempts/i);
+  assert.equal(securitySignals.length, 1);
+  assert.equal(securitySignals[0].type, 'tenant-public-invite-accept-rate-limited');
+  assert.equal(securitySignals[0].payload.reason, 'too-many-attempts');
 });
 
 test('owner login route stays on owner login for tenant-scoped admins', async () => {

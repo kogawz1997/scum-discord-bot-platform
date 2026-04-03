@@ -22,6 +22,7 @@ function createAdminConfigPostRoutes(deps) {
     getRootEnvFilePath,
     getPortalEnvFilePath,
     recordAdminSecuritySignal,
+    consumeActionRateLimit,
     getClientIp,
     upsertAdminUserInDb,
     revokeSessionsForUser,
@@ -34,6 +35,43 @@ function createAdminConfigPostRoutes(deps) {
     getTenantFeatureAccess,
     buildTenantProductEntitlements,
   } = deps;
+
+  function enforceActionRateLimit({ actionType, req, res, auth, pathname, tenantId }) {
+    if (typeof consumeActionRateLimit !== 'function') return false;
+    const rateLimit = consumeActionRateLimit(actionType, req, {
+      actor: auth?.user || 'unknown',
+      tenantId: tenantId || getAuthTenantId(auth) || 'global',
+    });
+    if (!rateLimit?.limited) return false;
+    if (typeof recordAdminSecuritySignal === 'function') {
+      recordAdminSecuritySignal(`${actionType}-rate-limited`, {
+        severity: 'warn',
+        actor: auth?.user || 'unknown',
+        targetUser: auth?.user || 'unknown',
+        role: auth?.role || null,
+        authMethod: auth?.authMethod || null,
+        sessionId: auth?.sessionId || null,
+        ip: rateLimit.ip || null,
+        path: pathname,
+        reason: 'too-many-attempts',
+        detail: `Admin action ${actionType} was rate limited`,
+        data: {
+          actionType,
+          tenantId: tenantId || getAuthTenantId(auth) || null,
+          retryAfterMs: rateLimit.retryAfterMs || 0,
+        },
+        notify: true,
+      });
+    }
+    const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit.retryAfterMs || 0) / 1000));
+    sendJson(res, 429, {
+      ok: false,
+      error: `Too many ${actionType} actions. Please wait ${retryAfterSec}s and try again.`,
+    }, {
+      'Retry-After': String(retryAfterSec),
+    });
+    return true;
+  }
 
   return async function handleAdminConfigPostRoute(context) {
     const {
@@ -170,6 +208,14 @@ function createAdminConfigPostRoutes(deps) {
         });
         return true;
       }
+      if (enforceActionRateLimit({
+        actionType: 'restart',
+        req,
+        res,
+        auth,
+        pathname,
+        tenantId: null,
+      })) return true;
       const requestedServices = parseStringArray(body?.services);
       const singleService = requiredString(body, 'service');
       const services = requestedServices.length > 0

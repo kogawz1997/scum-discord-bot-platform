@@ -1,21 +1,33 @@
 const path = require('node:path');
-const { PrismaClient } = require('./prismaClientLoader');
-const { resolveTenantDatabaseTarget } = require('./utils/tenantDatabaseTopology');
-const {
-  clearProvisionedTenantDatabaseTargets,
-  ensureTenantDatabaseTargetProvisioned,
-  shouldAutoProvisionTenantDatabaseTarget,
-} = require('./utils/tenantDatabaseProvisioning');
+const fs = require('node:fs');
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function readSourceSchemaProvider(options = {}) {
+  const projectRoot = options.projectRoot || process.cwd();
+  const schemaPath = options.schemaPath || path.join(projectRoot, 'prisma', 'schema.prisma');
+  if (!fs.existsSync(schemaPath)) {
+    return null;
+  }
+  try {
+    const source = fs.readFileSync(schemaPath, 'utf8');
+    const match = source.match(/datasource\s+db\s*\{[\s\S]*?provider\s*=\s*"([^"]+)"/m);
+    return normalizeText(match?.[1]).toLowerCase() || null;
+  } catch {
+    return null;
+  }
 }
 
 function isNodeTestRuntime() {
   if (normalizeText(process.env.NODE_ENV).toLowerCase() === 'test') {
     return true;
   }
-  return process.execArgv.some((arg) => String(arg || '').startsWith('--test'));
+  if (process.execArgv.some((arg) => String(arg || '').startsWith('--test'))) {
+    return true;
+  }
+  return process.argv.some((arg) => /\.test\.(c|m)?js$/i.test(String(arg || '').trim()));
 }
 
 function normalizeFileDatabasePath(databaseUrl) {
@@ -69,6 +81,20 @@ function ensureTestDatabaseDefaults() {
   }
 }
 
+ensureTestDatabaseDefaults();
+
+const {
+  PrismaClient,
+  getGeneratedClientMetadata,
+  resolveRequestedProvider,
+} = require('./prismaClientLoader');
+const { resolveTenantDatabaseTarget } = require('./utils/tenantDatabaseTopology');
+const {
+  clearProvisionedTenantDatabaseTargets,
+  ensureTenantDatabaseTargetProvisioned,
+  shouldAutoProvisionTenantDatabaseTarget,
+} = require('./utils/tenantDatabaseProvisioning');
+
 let cachedClient = null;
 let cachedKey = '';
 const scopedClientCache = new Map();
@@ -116,6 +142,40 @@ function getClientKey() {
     databaseUrl: managedUrl,
     provider: String(process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER || '').trim(),
     nodeEnv: String(process.env.NODE_ENV || '').trim(),
+  });
+}
+
+function getPrismaRuntimeProfile(options = {}) {
+  ensureTestDatabaseDefaults();
+  const env = options.env || process.env;
+  const managedUrl = buildManagedDatasourceUrl(options.databaseUrl || env.DATABASE_URL, options);
+  const sourceSchemaProvider = readSourceSchemaProvider(options);
+  const runtimeProvider = normalizeText(
+    options.provider
+      || env.PRISMA_SCHEMA_PROVIDER
+      || env.DATABASE_PROVIDER,
+  ).toLowerCase() || null;
+  const generatedClientMetadata = getGeneratedClientMetadata();
+  const generatedClientProvider = normalizeText(generatedClientMetadata?.provider).toLowerCase() || null;
+  const requestedProvider = normalizeText(resolveRequestedProvider()).toLowerCase() || runtimeProvider || null;
+  const databaseEngine = /^postgres(?:ql)?:\/\//i.test(managedUrl)
+    ? 'postgresql'
+    : /^mysql:\/\//i.test(managedUrl)
+      ? 'mysql'
+      : managedUrl.startsWith('file:')
+        ? 'sqlite'
+        : 'unsupported';
+  const effectiveRuntimeProvider = runtimeProvider || databaseEngine || null;
+  const compatibilityTemplate = sourceSchemaProvider === 'sqlite' && effectiveRuntimeProvider !== 'sqlite';
+  return Object.freeze({
+    sourceSchemaProvider,
+    requestedProvider,
+    runtimeDatabaseProvider: effectiveRuntimeProvider,
+    generatedClientProvider,
+    databaseEngine,
+    compatibilityTemplate,
+    truthMode: compatibilityTemplate ? 'provider-rendered-runtime' : 'source-schema-runtime',
+    managedDatabaseUrl: managedUrl,
   });
 }
 
@@ -316,9 +376,11 @@ const prisma = new Proxy({}, {
 module.exports = {
   prisma,
   getPrismaClient,
+  getPrismaRuntimeProfile,
   getDefaultTenantScopedPrismaClient,
   getTenantScopedPrismaClient,
   withTenantScopedPrismaClient,
+  readSourceSchemaProvider,
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,
   disconnectPrismaClient,

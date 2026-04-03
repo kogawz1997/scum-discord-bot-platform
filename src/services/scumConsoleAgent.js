@@ -93,7 +93,7 @@ function classifyAgentIssue(codeInput, messageInput, meta = null, options = {}) 
   };
 
   if (
-    /AGENT_TOKEN_MISSING|AGENT_EXEC_TEMPLATE_MISSING|AGENT_BACKEND_UNSUPPORTED|AGENT_SERVER_START_FAILED/.test(
+    /AGENT_TOKEN_MISSING|AGENT_EXEC_TEMPLATE_MISSING|AGENT_BACKEND_UNSUPPORTED|AGENT_SERVER_START_FAILED|AGENT_MANAGED_SERVER_CONTROL_DISABLED/.test(
       code,
     )
     || detailText.includes('server_exe is required')
@@ -272,6 +272,10 @@ function getAgentSettings(env = process.env) {
   const serverArgs = parseJsonArray(env.SCUM_CONSOLE_AGENT_SERVER_ARGS_JSON);
   const serverWorkdir = String(env.SCUM_CONSOLE_AGENT_SERVER_WORKDIR || '').trim();
   const autoStartServer = envFlag(env.SCUM_CONSOLE_AGENT_AUTOSTART, false);
+  const allowManagedServerControl = envFlag(
+    env.SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL,
+    false,
+  );
   const processResponseWaitMs = Math.max(
     50,
     Math.trunc(asNumber(env.SCUM_CONSOLE_AGENT_PROCESS_RESPONSE_WAIT_MS, 200)),
@@ -290,6 +294,7 @@ function getAgentSettings(env = process.env) {
     serverArgs,
     serverWorkdir,
     autoStartServer,
+    allowManagedServerControl,
     processResponseWaitMs,
   };
 }
@@ -418,8 +423,20 @@ function startScumConsoleAgent(options = {}) {
     return Math.max(0, queuedExecutionCount);
   }
 
+  function assertManagedServerControlEnabled() {
+    if (settings.backend !== 'process') return true;
+    if (settings.allowManagedServerControl) return true;
+    throw createAgentError(
+      'AGENT_MANAGED_SERVER_CONTROL_DISABLED',
+      'Managed server control is disabled for this console agent',
+      {
+        requiredEnv: 'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+      },
+    );
+  }
+
   function getManagedRestartEnabled() {
-    return settings.backend === 'process' && settings.autoStartServer;
+    return settings.backend === 'process' && settings.autoStartServer && settings.allowManagedServerControl;
   }
 
   function pruneManagedRestartAttempts(now = Date.now()) {
@@ -459,6 +476,15 @@ function startScumConsoleAgent(options = {}) {
   }
 
   function getCurrentAgentIssue() {
+    if (settings.backend === 'process' && !settings.allowManagedServerControl) {
+      return {
+        code: 'AGENT_MANAGED_SERVER_CONTROL_DISABLED',
+        message: 'Managed server control is disabled for this console agent',
+        meta: {
+          requiredEnv: 'SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+        },
+      };
+    }
     const restartState = getManagedRestartState();
     if (restartState.suppressedAt) {
       return {
@@ -527,6 +553,14 @@ function startScumConsoleAgent(options = {}) {
     if (settings.backend === 'exec' && !settings.execTemplate) {
       return { status: 'error', ready: false, code: 'AGENT_EXEC_TEMPLATE_MISSING', message: 'SCUM_CONSOLE_AGENT_EXEC_TEMPLATE is not set' };
     }
+    if (settings.backend === 'process' && !settings.allowManagedServerControl) {
+      return {
+        status: 'error',
+        ready: false,
+        code: 'AGENT_MANAGED_SERVER_CONTROL_DISABLED',
+        message: 'Process backend requires SCUM_CONSOLE_AGENT_ALLOW_MANAGED_SERVER_CONTROL=true',
+      };
+    }
     if (settings.backend === 'process' && settings.autoStartServer && !managedChild) {
       const issue = getCurrentAgentIssue();
       return {
@@ -566,11 +600,12 @@ function startScumConsoleAgent(options = {}) {
     };
   }
 
-  function getManagedServerState() {
-    return {
-      running: Boolean(managedChild && !managedChild.killed),
-      pid: managedChild?.pid || null,
-      exit: managedChildExit,
+    function getManagedServerState() {
+      return {
+        controlEnabled: settings.allowManagedServerControl,
+        running: Boolean(managedChild && !managedChild.killed),
+        pid: managedChild?.pid || null,
+        exit: managedChildExit,
       exe: settings.serverExe || null,
       workdir: settings.serverWorkdir || null,
       args: settings.serverArgs,
@@ -678,6 +713,7 @@ function startScumConsoleAgent(options = {}) {
   }
 
   async function ensureManagedServerStarted() {
+    assertManagedServerControlEnabled();
     if (managedChild && !managedChild.killed) {
       return managedChild;
     }
@@ -744,6 +780,7 @@ function startScumConsoleAgent(options = {}) {
   }
 
   async function executeWithProcessBackend(command) {
+    assertManagedServerControlEnabled();
     const child = await ensureManagedServerStarted();
     if (!child.stdin || child.stdin.destroyed || !child.stdin.writable) {
       throw createAgentError(
@@ -837,6 +874,7 @@ function startScumConsoleAgent(options = {}) {
     }
 
     if (settings.backend === 'process') {
+      assertManagedServerControlEnabled();
       const running = Boolean(managedChild && !managedChild.killed);
       if (!running && settings.autoStartServer) {
         await ensureManagedServerStarted();
@@ -923,7 +961,7 @@ function startScumConsoleAgent(options = {}) {
     return true;
   }
 
-  if (settings.backend === 'process' && settings.autoStartServer) {
+  if (settings.backend === 'process' && settings.autoStartServer && settings.allowManagedServerControl) {
     void ensureManagedServerStarted().catch((error) => {
       lastError = error.message;
       lastErrorCode = String(error.agentCode || error.code || 'AGENT_SERVER_START_FAILED');
@@ -1085,6 +1123,7 @@ function startScumConsoleAgent(options = {}) {
         if (settings.backend !== 'process') {
           throw new Error('server start is only supported for process backend');
         }
+        assertManagedServerControlEnabled();
         managedStopRequested = false;
         managedRestartSuppressedAt = null;
         managedRestartSuppressedReason = null;
@@ -1121,8 +1160,20 @@ function startScumConsoleAgent(options = {}) {
     }
 
     if (url.pathname === '/server/stop') {
-      const stopped = stopManagedServer();
-      return reply(200, { ok: true, stopped });
+      try {
+        assertManagedServerControlEnabled();
+        const stopped = stopManagedServer();
+        return reply(200, { ok: true, stopped });
+      } catch (error) {
+        lastError = error.message;
+        lastErrorCode = String(error.agentCode || error.code || 'AGENT_SERVER_STOP_FAILED');
+        lastErrorMeta = error.meta || null;
+        return reply(403, {
+          ok: false,
+          error: error.message,
+          errorCode: lastErrorCode,
+        });
+      }
     }
 
     return reply(404, { ok: false, error: 'not-found' });
