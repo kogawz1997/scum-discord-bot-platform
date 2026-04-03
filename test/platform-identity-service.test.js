@@ -10,8 +10,10 @@ process.env.PRISMA_TEST_DATABASE_PROVIDER = 'sqlite';
 
 const { prisma } = require('../src/prisma');
 const {
+  clearPlatformPlayerSteamLink,
   completeEmailVerification,
   completePasswordReset,
+  buildLinkedAccountSummary,
   ensurePlatformIdentityTables,
   ensurePlatformPlayerIdentity,
   ensurePlatformUserIdentity,
@@ -213,6 +215,11 @@ test('platform identity service can summarize linked user identities by discord 
   assert.equal(summary.identities.some((entry) => entry.provider === 'discord'), true);
   assert.equal(summary.identities.some((entry) => entry.provider === 'steam'), true);
   assert.equal(summary.memberships.some((entry) => String(entry.tenantId || '') === 'tenant-identity-test'), true);
+  assert.equal(summary.identitySummary.linkedAccounts.email.linked, true);
+  assert.equal(summary.identitySummary.linkedAccounts.discord.linked, true);
+  assert.equal(summary.identitySummary.linkedAccounts.steam.linked, true);
+  assert.equal(summary.identitySummary.activeMembership.role, 'player');
+  assert.equal(summary.identitySummary.readiness.hasActiveMembership, true);
 });
 
 test('platform identity service reuses discord-linked user when steam link has no email', async (t) => {
@@ -242,4 +249,66 @@ test('platform identity service reuses discord-linked user when steam link has n
   assert.equal(steam.ok, true);
   assert.equal(String(steam.user?.id || ''), String(discord.user?.id || ''));
   assert.equal(String(steam.profile?.discordUserId || ''), '223456789012345678');
+});
+
+test('platform identity service builds fallback linked-account summary when only legacy steam link is available', async () => {
+  const summary = buildLinkedAccountSummary({
+    user: null,
+    profile: null,
+    identities: [],
+    memberships: [],
+    tenantId: 'tenant-identity-test',
+    fallbackEmail: 'identity-test@example.com',
+    fallbackDiscordUserId: '123456789012345678',
+    legacySteamLink: {
+      linked: true,
+      steamId: '76561199012345678',
+      inGameName: 'Identity Survivor',
+    },
+  });
+
+  assert.equal(summary.linkedAccounts.email.linked, true);
+  assert.equal(summary.linkedAccounts.discord.linked, true);
+  assert.equal(summary.linkedAccounts.steam.linked, true);
+  assert.equal(summary.linkedAccounts.inGame.value, 'Identity Survivor');
+  assert.equal(summary.readiness.hasSteam, true);
+});
+
+test('platform identity service can clear steam link from a shared player profile', async (t) => {
+  await cleanupIdentityFixtures();
+  t.after(cleanupIdentityFixtures);
+
+  await ensurePlatformPlayerIdentity({
+    provider: 'discord',
+    providerUserId: '123456789012345678',
+    providerEmail: 'identity-test@example.com',
+    email: 'identity-test@example.com',
+    displayName: 'Identity Player',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    verificationState: 'discord_verified',
+  });
+
+  await ensurePlatformPlayerIdentity({
+    provider: 'steam',
+    providerUserId: '76561199012345678',
+    email: 'identity-test@example.com',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    steamId: '76561199012345678',
+    inGameName: 'Identity Survivor',
+    verificationState: 'fully_verified',
+  });
+
+  const cleared = await clearPlatformPlayerSteamLink({
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    steamId: '76561199012345678',
+  });
+
+  assert.equal(cleared.ok, true);
+  assert.equal(cleared.profile.steamId, null);
+  assert.equal(cleared.profile.verificationState, 'discord_verified');
+  assert.equal(cleared.identitySummary.linkedAccounts.steam.linked, false);
+  assert.equal(cleared.identitySummary.linkedAccounts.discord.linked, true);
 });

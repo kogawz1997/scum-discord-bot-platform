@@ -166,8 +166,6 @@ function createAdminPublicRoutes(deps) {
   }
 
   function buildPlayerPortalUrl(req, urlObj, pathname) {
-    const splitSurfaceTarget = buildSurfaceRedirectUrl('player', req, pathname, urlObj?.search || '');
-    if (splitSurfaceTarget) return splitSurfaceTarget;
     const requestHost = String(req?.headers?.host || '').trim();
     const requestHostname = extractHostname(requestHost);
     const search = String(urlObj?.search || '');
@@ -176,6 +174,9 @@ function createAdminPublicRoutes(deps) {
       const localPort = String(process.env.WEB_PORTAL_PORT || '3300').trim() || '3300';
       return `http://${localHost}:${localPort}${pathname}${search}`;
     }
+
+    const splitSurfaceTarget = buildSurfaceRedirectUrl('player', req, pathname, urlObj?.search || '');
+    if (splitSurfaceTarget) return splitSurfaceTarget;
 
     const configuredBase = String(process.env.WEB_PORTAL_BASE_URL || '').trim();
     if (!configuredBase) return null;

@@ -81,6 +81,20 @@ function createPlatformIntegrationService(deps) {
     };
   }
 
+  async function countActiveTenantApiKeys(tenantId) {
+    const id = trimText(tenantId, 120);
+    if (!id) return 0;
+    const rows = await listPlatformApiKeys({
+      tenantId: id,
+      limit: 500,
+    }).catch(() => []);
+    return rows.filter((row) => (
+      trimText(row?.tenantId, 120) === id
+      && normalizeStatus(row?.status, ['active', 'revoked', 'disabled']) === 'active'
+      && !row?.revokedAt
+    )).length;
+  }
+
   async function listPlatformApiKeyCandidates(options = {}) {
     const keyPrefix = trimText(options.keyPrefix, 120);
     if (!keyPrefix) return [];
@@ -140,9 +154,45 @@ function createPlatformIntegrationService(deps) {
         snapshot: quotaCheck.snapshot || null,
       };
     }
+    const apiKeyLimit = !quotaCheck.quota?.unlimited && Number.isFinite(Number(quotaCheck.quota?.limit))
+      ? Math.max(0, Math.trunc(Number(quotaCheck.quota.limit)))
+      : null;
+    if (apiKeyLimit != null) {
+      const visibleActiveCount = await countActiveTenantApiKeys(tenantId).catch(() => 0);
+      if (visibleActiveCount + 1 > apiKeyLimit) {
+        return {
+          ok: false,
+          reason: 'tenant-quota-exceeded',
+          quotaKey: quotaCheck.quotaKey || 'apiKeys',
+          quota: {
+            ...quotaCheck.quota,
+            used: visibleActiveCount,
+            projectedUsed: visibleActiveCount + 1,
+          },
+          snapshot: quotaCheck.snapshot || null,
+        };
+      }
+    }
     const rawKey = generateApiKey();
     const scopes = buildApiKeyScopes(input.scopes);
+    let quotaOverflow = null;
     const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+      if (apiKeyLimit != null) {
+        const activeCount = await db.platformApiKey.count({
+          where: {
+            tenantId,
+            status: 'active',
+            revokedAt: null,
+          },
+        });
+        if (activeCount + 1 > apiKeyLimit) {
+          quotaOverflow = {
+            used: activeCount,
+            projectedUsed: activeCount + 1,
+          };
+          return null;
+        }
+      }
       return db.platformApiKey.create({
         data: {
           id: trimText(input.id, 120) || createId('apikey'),
@@ -155,6 +205,18 @@ function createPlatformIntegrationService(deps) {
         },
       });
     });
+    if (quotaOverflow) {
+      return {
+        ok: false,
+        reason: 'tenant-quota-exceeded',
+        quotaKey: quotaCheck.quotaKey || 'apiKeys',
+        quota: {
+          ...quotaCheck.quota,
+          ...quotaOverflow,
+        },
+        snapshot: quotaCheck.snapshot || null,
+      };
+    }
     if (!row) return { ok: false, reason: 'tenant-not-found' };
     await emitPlatformEvent('platform.apikey.created', {
       tenantId,

@@ -144,6 +144,64 @@ function sanitizeLegacyShopItemsInPlace(config) {
   return config;
 }
 
+function normalizeCatalogEntryId(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizePlatformBillingPlansInPlace(config, defaults) {
+  if (!isPlainObject(config)) return config;
+  const defaultPlans = Array.isArray(defaults?.platform?.billing?.plans)
+    ? defaults.platform.billing.plans
+    : [];
+  if (!isPlainObject(config.platform)) config.platform = {};
+  if (!isPlainObject(config.platform.billing)) config.platform.billing = {};
+
+  const currentPlans = Array.isArray(config.platform.billing.plans)
+    ? config.platform.billing.plans
+    : [];
+  if (!currentPlans.length) {
+    config.platform.billing.plans = deepClone(defaultPlans);
+    return config;
+  }
+
+  const defaultPlanMap = new Map();
+  for (const plan of defaultPlans) {
+    const id = normalizeCatalogEntryId(plan?.id);
+    if (!id || defaultPlanMap.has(id)) continue;
+    defaultPlanMap.set(id, plan);
+  }
+
+  const normalizedPlans = [];
+  const seenPlanIds = new Set();
+
+  for (const plan of currentPlans) {
+    if (!isPlainObject(plan)) {
+      normalizedPlans.push(deepClone(plan));
+      continue;
+    }
+    const id = normalizeCatalogEntryId(plan.id);
+    const defaultPlan = id ? defaultPlanMap.get(id) : null;
+    if (!defaultPlan) {
+      normalizedPlans.push(deepClone(plan));
+      if (id) seenPlanIds.add(id);
+      continue;
+    }
+    const mergedPlan = deepClone(defaultPlan);
+    mergePatchInPlace(mergedPlan, plan);
+    normalizedPlans.push(mergedPlan);
+    if (id) seenPlanIds.add(id);
+  }
+
+  for (const defaultPlan of defaultPlans) {
+    const id = normalizeCatalogEntryId(defaultPlan?.id);
+    if (id && seenPlanIds.has(id)) continue;
+    normalizedPlans.push(deepClone(defaultPlan));
+  }
+
+  config.platform.billing.plans = normalizedPlans;
+  return config;
+}
+
 const defaultConfig = {
   economy: {
     currencySymbol: '💰',
@@ -621,13 +679,14 @@ async function hydrateConfigFromPrisma() {
       return;
     }
 
-    const merged = deepClone(defaultConfig);
-    mergePatchInPlace(merged, parsed);
-    sanitizeMojibakeInPlace(merged, defaultConfig);
-    sanitizeLegacyShopItemsInPlace(merged);
-    replaceValueInPlace(runtimeConfig, merged);
-    persistConfigToPrisma(getConfigSnapshot());
-  } catch (error) {
+      const merged = deepClone(defaultConfig);
+      mergePatchInPlace(merged, parsed);
+      sanitizeMojibakeInPlace(merged, defaultConfig);
+      sanitizeLegacyShopItemsInPlace(merged);
+      normalizePlatformBillingPlansInPlace(merged, defaultConfig);
+      replaceValueInPlace(runtimeConfig, merged);
+      persistConfigToPrisma(getConfigSnapshot());
+    } catch (error) {
     console.error('[config] failed to hydrate from prisma:', error.message);
   }
 }
@@ -655,6 +714,7 @@ function updateConfigPatch(patch) {
   mergePatchInPlace(runtimeConfig, patch);
   sanitizeMojibakeInPlace(runtimeConfig, defaultConfig);
   sanitizeLegacyShopItemsInPlace(runtimeConfig);
+  normalizePlatformBillingPlansInPlace(runtimeConfig, defaultConfig);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
   return snapshot;
@@ -669,6 +729,7 @@ function setFullConfig(nextConfig) {
   mergePatchInPlace(merged, nextConfig);
   sanitizeMojibakeInPlace(merged, defaultConfig);
   sanitizeLegacyShopItemsInPlace(merged);
+  normalizePlatformBillingPlansInPlace(merged, defaultConfig);
   replaceValueInPlace(runtimeConfig, merged);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
@@ -679,6 +740,7 @@ function resetConfigToDefault() {
   mutationVersion += 1;
   replaceValueInPlace(runtimeConfig, defaultConfig);
   sanitizeLegacyShopItemsInPlace(runtimeConfig);
+  normalizePlatformBillingPlansInPlace(runtimeConfig, defaultConfig);
   const snapshot = getConfigSnapshot();
   persistConfigToPrisma(snapshot);
   return snapshot;

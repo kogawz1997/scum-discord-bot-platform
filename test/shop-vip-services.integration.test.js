@@ -95,6 +95,7 @@ test('checkoutCart refunds only failed rows after batch debit', async () => {
     const result = await checkoutCart(userId, {
       actor: 'test-suite',
       source: 'cart-service-test',
+      requireSteamLink: false,
       createQueuedPurchaseFn: async ({ item }) => {
         callCount += 1;
         if (item.id === itemIdB) {

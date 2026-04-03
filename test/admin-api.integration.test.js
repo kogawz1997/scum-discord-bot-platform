@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const { once } = require('node:events');
-const { createPurchase, listShopItems } = require('../src/store/memoryStore');
+const { addShopItem, createPurchase, listShopItems } = require('../src/store/memoryStore');
 const { setLink } = require('../src/store/linkStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
@@ -59,6 +59,21 @@ function closeHttpServer(server) {
   });
 }
 
+async function waitForCondition(check, options = {}) {
+  const timeoutMs = Math.max(100, Number(options.timeoutMs || 3000));
+  const intervalMs = Math.max(20, Number(options.intervalMs || 100));
+  const start = Date.now();
+  let lastValue = null;
+  while (Date.now() - start < timeoutMs) {
+    lastValue = await check();
+    if (lastValue) {
+      return lastValue;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return lastValue;
+}
+
 function decodeBase32(input) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const clean = String(input || '')
@@ -92,7 +107,7 @@ function buildTotp(secretText) {
   return String(code % 1_000_000).padStart(6, '0');
 }
 
-function resetAdminIntegrationRuntimeState() {
+async function resetAdminIntegrationRuntimeState() {
   setAdminRestoreState({
     status: 'idle',
     active: false,
@@ -119,9 +134,9 @@ function resetAdminIntegrationRuntimeState() {
     previewIssuedAt: null,
     previewExpiresAt: null,
   });
-  resetPlatformOpsState();
+  await resetPlatformOpsState();
   clearAdminRequestLogs();
-  clearAdminSecurityEvents();
+  await clearAdminSecurityEvents();
   process.env.ADMIN_WEB_SSO_DISCORD_ENABLED = 'false';
   process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_ID = '';
   process.env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET = '';
@@ -136,10 +151,10 @@ function resetAdminIntegrationRuntimeState() {
   delete process.env.ADMIN_WEB_PORTAL_ENV_FILE_PATH;
 }
 
-resetAdminIntegrationRuntimeState();
+void resetAdminIntegrationRuntimeState();
 
-test('admin API auth + validation integration flow', async (t) => {
-  resetAdminIntegrationRuntimeState();
+test('admin API auth + validation integration flow', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort();
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -165,7 +180,7 @@ test('admin API auth + validation integration flow', async (t) => {
   }
 
   t.after(async () => {
-    resetAdminIntegrationRuntimeState();
+    await resetAdminIntegrationRuntimeState();
     await closeHttpServer(server);
     delete require.cache[adminWebServerPath];
   });
@@ -861,8 +876,8 @@ test('admin API auth + validation integration flow', async (t) => {
   );
 });
 
-test('admin platform APIs expose overview data while snapshot stays sanitized', async (t) => {
-  resetAdminIntegrationRuntimeState();
+test('admin platform APIs expose overview data while snapshot stays sanitized', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(39050, 600);
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -911,7 +926,7 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
   await once(captureServer, 'listening');
   const webhookTargetUrl = `http://127.0.0.1:${capturePort}/platform-webhook`;
 
-  updatePlatformOpsState({
+  await updatePlatformOpsState({
     lastMonitoringAt: '2026-03-15T10:00:00.000Z',
     lastAutoBackupAt: '2026-03-15T09:00:00.000Z',
     lastReconcileAt: '2026-03-15T08:00:00.000Z',
@@ -919,7 +934,7 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
       'platform-seed-alert': '2026-03-15T07:00:00.000Z',
     },
   });
-  resetPlatformAutomationState();
+  await resetPlatformAutomationState();
 
   const { startAdminWebServer } = freshAdminWebServerModule();
   const server = startAdminWebServer(fakeClient);
@@ -940,7 +955,7 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
     await prisma.platformLicense.deleteMany({ where: { id: licenseId } }).catch(() => null);
     await prisma.platformSubscription.deleteMany({ where: { id: subscriptionId } }).catch(() => null);
     await prisma.platformTenant.deleteMany({ where: { id: tenantId } }).catch(() => null);
-    resetAdminIntegrationRuntimeState();
+    await resetAdminIntegrationRuntimeState();
     delete require.cache[adminWebServerPath];
   });
 
@@ -1021,6 +1036,31 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
   assert.match(String(apiKeyRes.data.data?.rawKey || ''), /^sk_/);
   const rawPlatformApiKey = String(apiKeyRes.data.data?.rawKey || '');
   assert.ok(rawPlatformApiKey.length > 10);
+
+  const apiKeyListAfterFirst = await request(
+    `/admin/api/platform/apikeys?tenantId=${encodeURIComponent(tenantId)}&limit=20`,
+    'GET',
+    null,
+    cookie,
+  );
+  assert.equal(apiKeyListAfterFirst.res.status, 200);
+  assert.equal(apiKeyListAfterFirst.data.ok, true);
+  assert.ok(
+    Array.isArray(apiKeyListAfterFirst.data.data)
+      && apiKeyListAfterFirst.data.data.some((row) => String(row?.id || '') === apiKeyId),
+  );
+  const firstApiKeyVisible = await waitForCondition(async () => {
+    const tenantPrisma = getTenantScopedPrismaClient(tenantId);
+    const count = await tenantPrisma.platformApiKey.count({
+      where: {
+        tenantId,
+        status: 'active',
+        revokedAt: null,
+      },
+    }).catch(() => 0);
+    return count >= 1 ? count : 0;
+  }, { timeoutMs: 4000, intervalMs: 100 });
+  assert.ok(firstApiKeyVisible >= 1, 'expected first API key to be visible before quota overflow check');
 
   const apiKeyOverflowRes = await request('/admin/api/platform/apikey', 'POST', {
     id: apiKeyIdOverflow,
@@ -1273,7 +1313,8 @@ test('admin platform APIs expose overview data while snapshot stays sanitized', 
   );
 });
 
-test('admin API rejects malformed JSON and oversized UTF-8 body with proper status', async (t) => {
+test('admin API rejects malformed JSON and oversized UTF-8 body with proper status', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(39200, 700);
   const originalMaxBody = process.env.ADMIN_WEB_MAX_BODY_BYTES;
 
@@ -1339,8 +1380,8 @@ test('admin API rejects malformed JSON and oversized UTF-8 body with proper stat
   assert.equal(oversizedData.ok, false);
 });
 
-test('admin observability request log exposes recent request traces with request ids', async (t) => {
-  resetAdminIntegrationRuntimeState();
+test('admin observability request log exposes recent request traces with request ids', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(39800, 700);
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -1362,7 +1403,7 @@ test('admin observability request log exposes recent request traces with request
   }
 
   t.after(async () => {
-    resetAdminIntegrationRuntimeState();
+    await resetAdminIntegrationRuntimeState();
     await closeHttpServer(server);
     delete require.cache[adminWebServerPath];
   });
@@ -1404,7 +1445,7 @@ test('admin observability request log exposes recent request traces with request
   );
 });
 
-test('admin API blocks mutating writes while backup restore maintenance is active', async (t) => {
+test('admin API blocks mutating writes while backup restore maintenance is active', { concurrency: false }, async (t) => {
   const port = randomPort(39900, 700);
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -1514,7 +1555,8 @@ test('admin API blocks mutating writes while backup restore maintenance is activ
   assert.equal(restoreStatus.data.data.status, 'running');
 });
 
-test('admin API delivery detail + test send routes work with local console agent', async (t) => {
+test('admin API delivery detail + test send routes work with local console agent', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(38900, 700);
   const agentPort = randomPort(39700, 700);
   const envKeys = [
@@ -1805,9 +1847,22 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(Boolean(templateDelete.data.data?.exists), false);
 
   const initialShopItems = await listShopItems();
-  const detailShopItem = initialShopItems.find(
+  let detailShopItem = initialShopItems.find(
     (row) => String(row?.kind || 'item').trim().toLowerCase() === 'item',
   );
+  if (!detailShopItem) {
+    detailShopItem = await addShopItem(
+      `delivery-detail-item-${Date.now()}`,
+      'Delivery Detail Item',
+      50,
+      'integration fallback item',
+      {
+        kind: 'item',
+        gameItemId: 'Weapon_M1911',
+        quantity: 1,
+      },
+    );
+  }
   assert.ok(detailShopItem, 'expected at least one item-kind shop item');
   const purchase = await createPurchase(
     'admin-delivery-detail-user',
@@ -1873,8 +1928,8 @@ test('admin API delivery detail + test send routes work with local console agent
   assert.equal(Number(deadRetryManyRes.data.data?.queued || 0), 0);
 });
 
-test('admin API control panel settings, env patching, and admin user management', async (t) => {
-  resetAdminIntegrationRuntimeState();
+test('admin API control panel settings, env patching, and admin user management', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(38500, 1000);
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-admin-control-'));
   const rootEnvPath = path.join(tempDir, 'root.env');
@@ -2002,7 +2057,7 @@ test('admin API control panel settings, env patching, and admin user management'
         process.env[key] = value;
       }
     }
-    resetAdminIntegrationRuntimeState();
+    await resetAdminIntegrationRuntimeState();
     await closeHttpServer(server);
     fs.rmSync(tempDir, { recursive: true, force: true });
     delete require.cache[adminWebServerPath];
@@ -2197,8 +2252,8 @@ test('admin API control panel settings, env patching, and admin user management'
   );
 });
 
-test('admin API step-up, session revoke, and security event flow', async (t) => {
-  resetAdminIntegrationRuntimeState();
+test('admin API step-up, session revoke, and security event flow', { concurrency: false }, async (t) => {
+  await resetAdminIntegrationRuntimeState();
   const port = randomPort(39000, 1000);
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -2227,7 +2282,7 @@ test('admin API step-up, session revoke, and security event flow', async (t) => 
   }
 
   t.after(async () => {
-    resetAdminIntegrationRuntimeState();
+    await resetAdminIntegrationRuntimeState();
     await closeHttpServer(server);
     delete require.cache[adminWebServerPath];
   });

@@ -13,6 +13,7 @@ Current production/runtime standard on this workstation:
 - Primary runtime database: PostgreSQL
 - ORM and schema toolchain: Prisma
 - SQLite scope: local dev, import/compatibility paths, and offline tooling only
+- Checked-in source schema: `prisma/schema.prisma` stays on sqlite as the compatibility template; provider-specific schemas are rendered by `scripts/prisma-with-provider.js`
 
 Do not describe SQLite as the active production runtime for this repository unless the deployment actually runs that path.
 
@@ -128,6 +129,7 @@ Production/runtime path:
 
 - PostgreSQL
 - provider-aware Prisma generate / migrate / push
+- provider-rendered Prisma schema generated from the checked-in sqlite compatibility template
 - isolated provider-specific test database or schema per test run
 
 Non-production or compatibility paths:
@@ -139,10 +141,19 @@ Non-production or compatibility paths:
 Key files:
 
 - `src/prisma.js`
+- `src/prismaClientLoader.js`
 - `src/utils/dbEngine.js`
 - `scripts/prisma-with-provider.js`
 - `scripts/run-tests-with-provider.js`
 - `scripts/cutover-sqlite-to-postgres.js`
+
+Schema/provider truth rules:
+
+- `prisma/schema.prisma` is the checked-in compatibility template, not by itself the active production provider contract
+- `scripts/prisma-with-provider.js` renders `schema.postgresql.prisma`, `schema.mysql.prisma`, or `schema.sqlite.prisma` into `artifacts/prisma/`
+- active generated client selection is resolved by `src/prismaClientLoader.js`
+- runtime database truth comes from `DATABASE_URL` plus `PRISMA_SCHEMA_PROVIDER` / `DATABASE_PROVIDER`
+- `src/prisma.js` is the bootstrap layer that normalizes those inputs into the actual Prisma client used at runtime
 
 ## Tenant Boundary
 

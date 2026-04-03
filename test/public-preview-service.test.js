@@ -247,9 +247,11 @@ test('public preview service validates signup input and creates preview tenant s
 
   assert.equal(result.ok, true);
   assert.equal(result.account.email, 'demo@example.com');
-  assert.equal(result.account.accountState, 'preview');
+  assert.equal(result.account.accountState, 'trialing');
   assert.equal(result.account.verificationState, 'pending_email_verification');
   assert.equal(String(result.account.identity?.userId || ''), 'user-preview-account-1');
+  assert.equal(result.account.linkedIdentities.discordLinked, false);
+  assert.equal(result.account.linkedIdentities.steamLinked, false);
   assert.equal(result.account.verificationQueued, true);
   assert.equal(result.account.verificationTokenPreview, 'vfy_test.token');
   assert.equal(result.tenant.name, 'Demo Community');
@@ -267,8 +269,11 @@ test('public preview service validates signup input and creates preview tenant s
   const state = await service.getPreviewState(result.account.id);
   assert.equal(state.ok, true);
   assert.equal(state.state.account.email, 'demo@example.com');
+  assert.equal(state.state.account.accountState, 'trialing');
   assert.deepEqual(state.state.entitlements.enabledFeatureKeys, ['bot_log', 'shop_module']);
   assert.equal(String(state.state.identity?.userId || ''), 'user-preview-account-1');
+  assert.equal(state.state.commercial.accountState, 'trialing');
+  assert.equal(state.state.commercial.subscriptionStatus, 'trialing');
 
   const reset = await service.requestPasswordReset({
     email: 'demo@example.com',
@@ -292,6 +297,13 @@ test('public preview service validates signup input and creates preview tenant s
   });
   assert.equal(verified.ok, true);
   assert.equal(verified.account.verificationState, 'email_verified');
+
+  const verificationAgain = await service.requestEmailVerification({
+    email: 'demo@example.com',
+  });
+  assert.equal(verificationAgain.ok, true);
+  assert.equal(verificationAgain.requested, false);
+  assert.equal(verificationAgain.alreadyVerified, true);
 
   const resetComplete = await service.completePasswordReset({
     token: 'rst_test.token',
@@ -354,6 +366,8 @@ test('public preview service falls back to lightweight preview state when tenant
   const state = await service.getPreviewState(result.account.id);
   assert.equal(state.ok, true);
   assert.equal(state.state.tenant.status, 'preview');
+  assert.equal(state.state.account.accountState, 'preview');
+  assert.equal(state.state.commercial.accountState, 'preview');
   assert.ok(state.state.entitlements.enabledFeatureKeys.includes('bot_delivery'));
   assert.ok(state.state.entitlements.enabledFeatureKeys.includes('execute_agent'));
   assert.equal(String(state.state.identity?.userId || ''), 'user-preview-account-1');

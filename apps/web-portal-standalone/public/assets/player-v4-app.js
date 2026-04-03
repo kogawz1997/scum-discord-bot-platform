@@ -40,6 +40,23 @@
     window.PortalUiI18n?.apply?.(rootNode);
   }
 
+  function pageTitleLabel(pageKey) {
+    const page = PLAYER_PAGE_KEYS.includes(pageKey) ? pageKey : 'home';
+    const keyMap = {
+      home: 'common.home',
+      stats: 'player.nav.stats',
+      leaderboard: 'player.nav.leaderboard',
+      shop: 'common.shop',
+      orders: 'common.orders',
+      delivery: 'player.nav.delivery',
+      events: 'player.nav.events',
+      donations: 'player.nav.donations',
+      profile: 'common.profile',
+      support: 'player.nav.support',
+    };
+    return t(keyMap[page] || 'common.home', PAGE_TITLE_LABELS[page] || 'Home');
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -69,10 +86,13 @@
   }
 
   function buildServerOptionLabel(item) {
-    const name = String(item?.name || item?.label || item?.id || '').trim() || 'Server';
+    const name = String(item?.name || item?.label || item?.id || '').trim() || t('player.app.server.defaultName', 'Server');
     const status = String(item?.status || '').trim().toLowerCase();
     if (status === 'active') return name;
-    return `${name} (${status || 'inactive'})`;
+    return t('player.app.server.optionWithStatus', '{name} ({status})', {
+      name,
+      status: status || t('player.app.server.inactive', 'inactive'),
+    });
   }
 
   function renderServerSelector(serverScope) {
@@ -88,15 +108,15 @@
     ).trim();
 
     if (!items.length) {
-      node.innerHTML = '<option value="">No server</option>';
+      node.innerHTML = `<option value="">${escapeHtml(t('player.app.server.noneOption', 'No server'))}</option>`;
       node.disabled = true;
-      node.title = 'No server is registered for this player scope yet';
+      node.title = t('player.app.server.noneTitle', 'No server is registered for this player scope yet');
       return;
     }
 
     const parts = [];
     if (selectionRequired) {
-      parts.push('<option value="">Choose server</option>');
+      parts.push(`<option value="">${escapeHtml(t('player.app.server.chooseOption', 'Choose server'))}</option>`);
     }
     for (const item of items) {
       const id = String(item?.id || '').trim();
@@ -109,8 +129,8 @@
     node.disabled = state.refreshing || items.length === 0;
     node.value = activeServerId || (selectionRequired ? '' : String(items[0]?.id || '').trim());
     node.title = effectiveServerName
-      ? `Current server: ${effectiveServerName}`
-      : 'Select the player server scope';
+      ? t('player.app.server.currentTitle', 'Current server: {name}', { name: effectiveServerName })
+      : t('player.app.server.selectTitle', 'Select the player server scope');
   }
 
   function renderMessageCard(title, detail) {
@@ -135,17 +155,21 @@
   function extractPlayerErrorMessage(payload, response) {
     const errorCode = String(payload?.error || '').trim().toLowerCase();
     if (errorCode === 'daily-cooldown' && payload?.data?.remainingText) {
-      return `รางวัลรายวันยังติดคูลดาวน์ (${payload.data.remainingText} คงเหลือ)`;
+      return t('player.app.error.dailyCooldown', 'Daily reward is still on cooldown ({remaining})', {
+        remaining: payload.data.remainingText,
+      });
     }
     if (errorCode === 'weekly-cooldown' && payload?.data?.remainingText) {
-      return `รางวัลรายสัปดาห์ยังติดคูลดาวน์ (${payload.data.remainingText} คงเหลือ)`;
+      return t('player.app.error.weeklyCooldown', 'Weekly reward is still on cooldown ({remaining})', {
+        remaining: payload.data.remainingText,
+      });
     }
     return String(
       payload?.data?.message
       || payload?.data?.detail
       || payload?.message
       || humanizeErrorCode(payload?.error)
-      || `คำขอล้มเหลว (${response.status})`,
+      || t('player.app.error.requestFailed', 'Request failed ({status})', { status: response.status }),
     );
   }
 
@@ -190,7 +214,13 @@
       return;
     }
     if (state.payload?.serverScope?.selectionRequired) {
-      setStatus('Choose the player server you want to view before continuing with live data changes', 'warning');
+      setStatus(
+        t(
+          'player.app.status.chooseServerForChanges',
+          'Choose the player server you want to view before continuing with live data changes',
+        ),
+        'warning',
+      );
       return;
     }
     if (!state.payload || state.refreshing) return;
@@ -198,14 +228,13 @@
       ? state.payload.__loadWarnings.length
       : 0;
     if (warningCount > 0) {
-      setStatus(`พร้อมใช้งาน แต่ยังมี ${warningCount} ส่วนที่โหลดช้ากว่าปกติ`, 'warning');
+      setStatus(
+        t('player.app.status.partialWarnings', 'Player data loaded only partially ({count} sources are still unavailable)', { count: warningCount }),
+        'warning',
+      );
       return;
     }
-    if (warningCount > 0) {
-      setStatus(`โหลดข้อมูลผู้เล่นได้บางส่วน (${warningCount} แหล่งข้อมูลยังไม่พร้อม)`, 'warning');
-      return;
-    }
-    setStatus(t('player.app.status.ready', 'พร้อมใช้งาน'), 'success');
+    setStatus(t('player.app.status.ready', 'Ready'), 'success');
   }
 
   function currentPage() {
@@ -319,7 +348,9 @@
     const notice = accessEntry && accessEntry.enabled === false
       ? {
           tone: 'warning',
-          title: t('player.notice.lockedTitle', `${PAGE_TITLE_LABELS[resolvedPage] || 'This area'} is not open on this server yet`),
+          title: t('player.notice.lockedTitle', '{area} is not open on this server yet', {
+            area: PAGE_TITLE_LABELS[resolvedPage] || t('player.notice.thisArea', 'This area'),
+          }),
           detail: t(
             'player.notice.lockedDetail',
             'You can still open this page, but the current server package has not enabled the live features behind it yet.',
@@ -512,7 +543,7 @@
       : window.PlayerHomeV4.renderPlayerHomeV4(target, renderState);
     applyI18n(target);
     canonicalizePlayerLinks(target);
-    document.title = `SCUM TH Platform | Player | ${String(model?.pageTitle || PAGE_TITLE_LABELS[page] || 'หน้าแรก')}`;
+    document.title = `SCUM TH Platform | Player | ${String(model?.pageTitle || pageTitleLabel(page) || 'Home')}`;
     return surfaceState;
   }
 
@@ -522,11 +553,11 @@
       control.dataset.originalLabel = control.textContent || '';
     }
     control.disabled = Boolean(busy);
-    control.textContent = busy ? String(busyLabel || 'กำลังทำงาน...') : control.dataset.originalLabel;
+    control.textContent = busy ? String(busyLabel || t('common.working', 'Working...')) : control.dataset.originalLabel;
   }
 
   async function runPlayerAction(control, busyLabel, work) {
-    setActionBusy(control, true, busyLabel);
+    setActionBusy(control, true, busyLabel || t('common.working', 'Working...'));
     try {
       return await work();
     } finally {
@@ -535,6 +566,8 @@
   }
 
   async function completePlayerAction(message, options = {}) {
+    const resolvedMessage = String(message || t('player.app.status.done', 'Done'));
+    message = resolvedMessage;
     await refreshState({ silent: true });
     if (options?.navigateTo) {
       navigatePlayerRoute(buildCanonicalPlayerPath(resolvePlayerPageKey(options.navigateTo)));
@@ -542,14 +575,14 @@
       const surfaceState = renderCurrentPage();
       applyPlayerSurfaceStatus(surfaceState);
     }
-    setStatus(String(message || 'เสร็จแล้ว'), 'success');
+    setStatus(String(message || t('player.app.status.done', 'Done')), 'success');
   }
 
   async function handlePlayerServerSelection(selectNode) {
     if (!selectNode) return;
     const serverId = String(selectNode.value || '').trim();
     if (!serverId) {
-      setStatus('Choose a server before continuing', 'warning');
+      setStatus(t('player.app.status.chooseServer', 'Choose a server before continuing'), 'warning');
       return;
     }
     selectNode.disabled = true;
@@ -562,7 +595,7 @@
       const surfaceState = renderCurrentPage();
       applyPlayerSurfaceStatus(surfaceState);
       setStatus(
-        String(result?.message || `Now viewing ${result?.activeServerName || serverId}`),
+        String(result?.message || t('player.app.status.switchSuccess', 'Now viewing {name}', { name: result?.activeServerName || serverId })),
         'success',
       );
     } finally {
@@ -575,12 +608,12 @@
     if (button.hasAttribute('data-player-cart-add')) {
       const itemId = String(button.getAttribute('data-player-cart-add') || '').trim();
       if (!itemId) return;
-      await runPlayerAction(button, 'กำลังเพิ่ม...', async () => {
+      await runPlayerAction(button, t('player.app.action.adding', 'Adding...'), async () => {
         const result = await apiRequest('/player/api/cart/add', {
           method: 'POST',
           body: { itemId, quantity: 1 },
         }, null);
-        await completePlayerAction(result?.message || 'เพิ่มรายการลงตะกร้าแล้ว');
+        await completePlayerAction(result?.message || t('player.toast.itemAdded', 'Item added to cart.'));
       });
       return;
     }
@@ -589,7 +622,7 @@
       const itemId = String(button.getAttribute('data-player-cart-remove') || '').trim();
       const quantity = Number(button.getAttribute('data-player-cart-remove-quantity') || '1');
       if (!itemId) return;
-      await runPlayerAction(button, 'กำลังลบ...', async () => {
+      await runPlayerAction(button, t('player.app.action.removing', 'Removing...'), async () => {
         const result = await apiRequest('/player/api/cart/remove', {
           method: 'POST',
           body: {
@@ -597,32 +630,32 @@
             quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
           },
         }, null);
-        await completePlayerAction(result?.message || 'นำรายการออกจากตะกร้าแล้ว');
+        await completePlayerAction(result?.message || t('player.toast.itemRemoved', 'Item removed from cart.'));
       });
       return;
     }
 
     if (button.hasAttribute('data-player-cart-clear')) {
-      await runPlayerAction(button, 'กำลังล้าง...', async () => {
+      await runPlayerAction(button, t('player.app.action.clearingCart', 'Clearing...'), async () => {
         await apiRequest('/player/api/cart/clear', {
           method: 'POST',
           body: {},
         }, null);
-        await completePlayerAction('ล้างตะกร้าแล้ว');
+        await completePlayerAction(t('player.toast.cartCleared', 'Cart cleared.'));
       });
       return;
     }
 
     if (button.hasAttribute('data-player-cart-checkout')) {
-      await runPlayerAction(button, 'กำลังสั่งซื้อ...', async () => {
+      await runPlayerAction(button, t('player.app.action.checkingOut', 'Checking out...'), async () => {
         const result = await apiRequest('/player/api/cart/checkout', {
           method: 'POST',
           body: {},
         }, null);
         await completePlayerAction(
           Array.isArray(result?.purchases) && result.purchases.length
-            ? `สั่งซื้อเรียบร้อยแล้ว (${result.purchases.length} คำสั่งซื้อ)`
-            : (result?.message || 'สั่งซื้อเรียบร้อยแล้ว'),
+            ? t('player.app.checkout.successWithCount', 'Checkout completed ({count} orders)', { count: result.purchases.length })
+            : (result?.message || t('player.toast.checkoutDone', 'Checkout completed.')),
           { navigateTo: 'orders' },
         );
       });
@@ -632,12 +665,16 @@
     if (button.hasAttribute('data-player-reward-claim')) {
       const rewardKind = String(button.getAttribute('data-player-reward-claim') || '').trim().toLowerCase();
       if (!['daily', 'weekly'].includes(rewardKind)) return;
-      await runPlayerAction(button, rewardKind === 'weekly' ? 'กำลังรับรางวัลรายสัปดาห์...' : 'กำลังรับรางวัลรายวัน...', async () => {
-        const result = await apiRequest(`/player/api/${rewardKind}/claim`, {
+      await runPlayerAction(button, rewardKind === 'weekly'
+        ? t('player.app.action.claimingWeekly', 'Claiming weekly reward...')
+        : t('player.app.action.claimingDaily', 'Claiming daily reward...'), async () => {
+        const result = await apiRequest('/player/api/' + rewardKind + '/claim', {
           method: 'POST',
           body: {},
         }, null);
-        await completePlayerAction(result?.message || `${rewardKind === 'weekly' ? 'รับรางวัลรายสัปดาห์แล้ว' : 'รับรางวัลรายวันแล้ว'}`);
+        await completePlayerAction(result?.message || (rewardKind === 'weekly'
+          ? t('player.toast.weeklyClaimed', 'Weekly reward claimed.')
+          : t('player.toast.dailyClaimed', 'Daily reward claimed.')));
       });
     }
   }
@@ -647,17 +684,17 @@
     if (form.hasAttribute('data-player-redeem-form')) {
       const code = String(form.elements.code?.value || '').trim();
       if (!code) {
-        setStatus('กรอกโค้ดก่อนส่งแบบฟอร์ม', 'warning');
+        setStatus(t('player.status.emptyRedeemDetail', 'Enter a redeem code before submitting.'), 'warning');
         return;
       }
       const button = form.querySelector('button[type="submit"]');
-      await runPlayerAction(button, 'กำลังใช้โค้ด...', async () => {
+      await runPlayerAction(button, t('player.app.action.applyingRedeem', 'Applying code...'), async () => {
         const result = await apiRequest('/player/api/redeem', {
           method: 'POST',
           body: { code },
         }, null);
         form.reset();
-        await completePlayerAction(result?.message || 'ใช้โค้ดเรียบร้อยแล้ว');
+        await completePlayerAction(result?.message || t('player.toast.redeemApplied', 'Redeem code applied.'));
       });
       return;
     }
@@ -665,17 +702,17 @@
     if (form.hasAttribute('data-player-steam-link-form')) {
       const steamId = String(form.elements.steamId?.value || '').trim();
       if (!steamId) {
-        setStatus('กรอก SteamID ก่อนส่งแบบฟอร์ม', 'warning');
+        setStatus(t('player.status.emptySteamDetail', 'Enter a numeric SteamID before linking.'), 'warning');
         return;
       }
       const button = form.querySelector('button[type="submit"]');
-      await runPlayerAction(button, 'กำลังเชื่อม Steam...', async () => {
+      await runPlayerAction(button, t('player.app.action.linkingSteam', 'Linking Steam...'), async () => {
         const result = await apiRequest('/player/api/linksteam/set', {
           method: 'POST',
           body: { steamId },
         }, null);
         form.reset();
-        await completePlayerAction(result?.message || 'เชื่อม SteamID เรียบร้อยแล้ว');
+        await completePlayerAction(result?.message || t('player.toast.steamUpdated', 'Steam link updated.'));
       });
       return;
     }
@@ -684,11 +721,11 @@
       const requestText = String(form.elements.requestText?.value || '').trim();
       const preferredWindow = String(form.elements.preferredWindow?.value || '').trim();
       if (!requestText) {
-        setStatus('Describe the raid request before submitting the form', 'warning');
+        setStatus(t('player.app.raid.describeBeforeSubmit', 'Describe the raid request before submitting the form'), 'warning');
         return;
       }
       const button = form.querySelector('button[type="submit"]');
-      await runPlayerAction(button, 'Submitting raid request...', async () => {
+      await runPlayerAction(button, t('player.app.raid.submitting', 'Submitting raid request...'), async () => {
         const result = await apiRequest('/player/api/raids/request', {
           method: 'POST',
           body: {
@@ -697,7 +734,7 @@
           },
         }, null);
         form.reset();
-        await completePlayerAction(result?.message || 'Raid request submitted');
+        await completePlayerAction(result?.message || t('player.app.raid.submitted', 'Raid request submitted'));
       });
     }
   }
@@ -710,7 +747,7 @@
     serverSelect?.addEventListener('change', () => {
       handlePlayerServerSelection(serverSelect).catch((error) => {
         renderServerSelector(state.payload?.serverScope || null);
-        setStatus(String(error?.message || error || 'Failed to switch player server'), 'danger');
+        setStatus(String(error?.message || error || t('player.app.status.switchFailed', 'Failed to switch player server')), 'danger');
       });
     });
     document.addEventListener('submit', (event) => {
@@ -727,7 +764,7 @@
       }
       event.preventDefault();
       handlePlayerFormSubmit(form).catch((error) => {
-        setStatus(String(error?.message || error || 'ทำรายการของผู้เล่นไม่สำเร็จ'), 'danger');
+        setStatus(String(error?.message || error || t('player.status.actionFailed', 'Action failed')), 'danger');
       });
     });
     document.addEventListener('click', (event) => {
@@ -737,7 +774,7 @@
       if (!button) return;
       event.preventDefault();
       handlePlayerActionClick(button).catch((error) => {
-        setStatus(String(error?.message || error || 'ทำรายการของผู้เล่นไม่สำเร็จ'), 'danger');
+        setStatus(String(error?.message || error || t('player.status.actionFailed', 'Action failed')), 'danger');
       });
     });
     document.addEventListener('click', (event) => {

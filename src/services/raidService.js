@@ -3,8 +3,10 @@ const {
   resolveTenantStoreScope,
 } = require('../store/tenantStoreScope');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { resolveLegacyRuntimeBootstrapPolicy } = require('../utils/legacyRuntimeBootstrapPolicy');
 
 const initializedScopes = new Map();
+const PLATFORM_RAID_RUNTIME_BOOTSTRAP_ENV = 'PLATFORM_RAID_RUNTIME_BOOTSTRAP';
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -30,6 +32,15 @@ function normalizeDate(value) {
   }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isPrismaClientLike(db) {
+  return Boolean(
+    db
+    && typeof db === 'object'
+    && typeof db.$transaction === 'function'
+    && typeof db.$disconnect === 'function',
+  );
 }
 
 function toIsoString(value) {
@@ -149,11 +160,45 @@ function getRaidDelegatesOrThrow(scope) {
   throw error;
 }
 
+function resolveRaidRuntimeBootstrapPolicy(scope = {}) {
+  const runtime = resolveDatabaseRuntime();
+  return resolveLegacyRuntimeBootstrapPolicy({
+    env: process.env,
+    envName: PLATFORM_RAID_RUNTIME_BOOTSTRAP_ENV,
+    runtime,
+    prismaClientLike: isPrismaClientLike(scope?.db),
+    policy: 'platform-raid',
+  });
+}
+
+function isRaidRuntimeBootstrapAllowed(scope = {}) {
+  return resolveRaidRuntimeBootstrapPolicy(scope).allowed;
+}
+
+function buildRaidSchemaRequiredError(details = {}) {
+  const error = new Error(
+    'Platform raid schema is not ready. Run Prisma generate and database migrations before using raid tools, or explicitly enable local runtime bootstrap for compatibility only.',
+  );
+  error.code = 'PLATFORM_RAID_SCHEMA_REQUIRED';
+  error.statusCode = 500;
+  error.raidSchema = details;
+  return error;
+}
+
 async function ensureRaidTables(options = {}) {
   const scope = resolveTenantStoreScope(options);
   if (getRaidPersistenceMode(scope) === 'prisma') {
     getRaidDelegatesOrThrow(scope);
     return scope;
+  }
+  if (!isRaidRuntimeBootstrapAllowed(scope)) {
+    const bootstrapPolicy = resolveRaidRuntimeBootstrapPolicy(scope);
+    throw buildRaidSchemaRequiredError({
+      env: PLATFORM_RAID_RUNTIME_BOOTSTRAP_ENV,
+      engine: resolveDatabaseRuntime().engine,
+      datasourceKey: scope?.datasourceKey || null,
+      bootstrapPolicy,
+    });
   }
 
   const existing = initializedScopes.get(scope.datasourceKey);
@@ -725,5 +770,6 @@ module.exports = {
   listRaidRequests,
   listRaidSummaries,
   listRaidWindows,
+  resolveRaidRuntimeBootstrapPolicy,
   reviewRaidRequest,
 };

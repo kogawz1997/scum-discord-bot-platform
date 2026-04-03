@@ -1077,6 +1077,7 @@ test('admin platform checkout session route allows owner to retry checkout', asy
     pathname: '/admin/api/platform/billing/checkout-session',
     body: {
       tenantId: 'tenant-1',
+      idempotencyKey: 'idem-owner-checkout',
       invoiceId: 'inv-1',
       subscriptionId: 'sub-1',
       packageId: 'PRO',
@@ -1094,6 +1095,7 @@ test('admin platform checkout session route allows owner to retry checkout', asy
   assert.equal(calls.length, 1);
   assert.equal(calls[0].tenantId, 'tenant-1');
   assert.equal(calls[0].invoiceId, 'inv-1');
+  assert.equal(calls[0].idempotencyKey, 'idem-owner-checkout');
   assert.equal(calls[0].planId, 'pro-monthly');
 });
 
@@ -1125,6 +1127,7 @@ test('admin platform checkout session route allows tenant self-service upgrade',
     pathname: '/admin/api/platform/billing/checkout-session',
     body: {
       tenantId: 'tenant-1',
+      idempotencyKey: 'idem-tenant-upgrade',
       planId: 'platform-growth',
     },
     res,
@@ -1136,6 +1139,7 @@ test('admin platform checkout session route allows tenant self-service upgrade',
   assert.equal(calls.length, 1);
   assert.equal(calls[0].tenantId, 'tenant-1');
   assert.equal(calls[0].subscriptionId, 'sub-tenant-1');
+  assert.equal(calls[0].idempotencyKey, 'idem-tenant-upgrade');
   assert.equal(calls[0].planId, 'platform-growth');
   assert.equal(calls[0].packageId, 'FULL_OPTION');
   assert.equal(calls[0].amountCents, 1290000);

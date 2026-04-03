@@ -117,22 +117,33 @@ function buildPostgresTestRuntime() {
     provider: 'postgresql',
     tenantSchemaPrefix,
     cleanup: () => {
-      const cleanupSql = `
-        DO $cleanup$
-        DECLARE scoped_schema record;
-        BEGIN
-          FOR scoped_schema IN
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name LIKE '${escapeSqlLikePattern(tenantSchemaPrefix)}%' ESCAPE '\\'
-          LOOP
-            EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', scoped_schema.schema_name);
-          END LOOP;
-        END
-        $cleanup$;
-        DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;
+      const listSql = `
+        SELECT schema_name
+        FROM information_schema.schemata
+        WHERE schema_name LIKE '${escapeSqlLikePattern(tenantSchemaPrefix)}%' ESCAPE '\\'
+        ORDER BY schema_name ASC;
       `;
-      runCommand(path.join(pgBinDir, 'psql.exe'), ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', cleanupSql]);
+      const listResult = runCommand(
+        path.join(pgBinDir, 'psql.exe'),
+        ['-v', 'ON_ERROR_STOP=1', '-At', baseUrl.toString(), '-c', listSql],
+        {
+          stdio: 'pipe',
+        },
+      );
+      const schemaNames = String(listResult.stdout || '')
+        .split(/\r?\n/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      for (const schemaName of schemaNames) {
+        runCommand(
+          path.join(pgBinDir, 'psql.exe'),
+          ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', `DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE;`],
+        );
+      }
+      runCommand(
+        path.join(pgBinDir, 'psql.exe'),
+        ['-v', 'ON_ERROR_STOP=1', baseUrl.toString(), '-c', `DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;`],
+      );
     },
   };
 }

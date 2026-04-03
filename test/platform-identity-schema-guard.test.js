@@ -146,6 +146,13 @@ function createMockDb(options = {}) {
   };
 }
 
+function createPrismaClientLikeRawDb(options = {}) {
+  const db = createMockDb(options);
+  db.$transaction = async (work) => work(db);
+  db.$disconnect = async () => {};
+  return db;
+}
+
 function matchesWhere(row, where) {
   if (!where || typeof where !== 'object') return true;
   if (Array.isArray(where.OR) && where.OR.length > 0 && !where.OR.some((entry) => matchesWhere(row, entry))) {
@@ -620,6 +627,60 @@ test('identity schema guard skips runtime bootstrap when explicit sqlite delegat
   assert.equal(
     db.calls.some((entry) => entry.method === '$executeRawUnsafe' && /ALTER TABLE platform_verification_tokens ADD COLUMN/i.test(entry.query)),
     false,
+  );
+});
+
+test('identity schema guard requires migrated schema for sqlite Prisma client runtimes unless bootstrap is explicitly enabled', async () => {
+  const db = createPrismaClientLikeRawDb({
+    runtime: 'sqlite',
+    tables: [],
+    columns: {},
+  });
+
+  await withEnv({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'file:./identity-prisma-client-sqlite.db',
+    PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
+  }, async () => {
+    await assert.rejects(
+      ensurePlatformIdentityTables(db),
+      (error) => {
+        assert.equal(error?.code, 'PLATFORM_IDENTITY_SCHEMA_REQUIRED');
+        assert.equal(error?.identitySchema?.bootstrapPolicy?.reason, 'prisma-client-runtime');
+        assert.equal(error?.identitySchema?.bootstrapPolicy?.env, 'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP');
+        return true;
+      },
+    );
+  });
+
+  assert.equal(
+    db.calls.some((entry) => entry.method === '$executeRawUnsafe' && entry.query.includes('CREATE TABLE IF NOT EXISTS')),
+    false,
+  );
+});
+
+test('identity schema guard can still bootstrap sqlite Prisma client runtimes when explicitly enabled', async () => {
+  const db = createPrismaClientLikeRawDb({
+    runtime: 'sqlite',
+    tables: [],
+    columns: {},
+  });
+
+  await withEnv({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'file:./identity-prisma-client-bootstrap.db',
+    PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: '1',
+  }, async () => {
+    const result = await ensurePlatformIdentityTables(db);
+    assert.equal(result.ok, true);
+    assert.equal(result.bootstrapped, true);
+  });
+
+  assert.equal(
+    db.calls.some((entry) => entry.method === '$executeRawUnsafe' && entry.query.includes('CREATE TABLE IF NOT EXISTS platform_users')),
+    true,
   );
 });
 

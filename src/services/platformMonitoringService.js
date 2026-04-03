@@ -2,6 +2,7 @@ const config = require('../config');
 const { createAdminBackup } = require('./adminSnapshotService');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 const { getRuntimeSupervisorSnapshot } = require('./runtimeSupervisorService');
+const { pruneAdminNotifications } = require('../store/adminNotificationStore');
 const {
   listPlatformAgentRuntimes,
   getPlatformAnalyticsOverview,
@@ -10,6 +11,8 @@ const {
   listPlatformTenants,
   reconcileDeliveryState,
 } = require('./platformService');
+const { pruneRestartArtifacts } = require('./platformRestartOrchestrationService');
+const { createPlatformServerConfigService } = require('./platformServerConfigService');
 const {
   getPlatformOpsState,
   updatePlatformOpsState,
@@ -17,6 +20,7 @@ const {
 
 let monitorTimer = null;
 let cyclePromise = null;
+const platformServerConfigService = createPlatformServerConfigService();
 
 function nowIso() {
   return new Date().toISOString();
@@ -74,6 +78,20 @@ function getMonitoringConfig() {
       intervalMs: asInt(config.platform?.backups?.intervalMs, 6 * 60 * 60 * 1000, 5 * 60 * 1000),
       note: trimText(config.platform?.backups?.note || 'platform-auto-backup', 160) || 'platform-auto-backup',
       includeSnapshot: config.platform?.backups?.includeSnapshot !== false,
+    },
+    retention: {
+      enabled: config.platform?.monitoring?.retention?.enabled !== false,
+      cleanupEveryMs: asInt(config.platform?.monitoring?.retention?.cleanupEveryMs, 12 * 60 * 60 * 1000, 5 * 60 * 1000),
+      notificationRetentionMs: asInt(config.platform?.monitoring?.retention?.notificationRetentionMs, 30 * 24 * 60 * 60 * 1000, 60 * 60 * 1000),
+      restartRetentionMs: asInt(config.platform?.monitoring?.retention?.restartRetentionMs, 30 * 24 * 60 * 60 * 1000, 60 * 60 * 1000),
+      configJobRetentionMs: asInt(config.platform?.monitoring?.retention?.configJobRetentionMs, 30 * 24 * 60 * 60 * 1000, 60 * 60 * 1000),
+      configBackupRetentionMs: asInt(config.platform?.monitoring?.retention?.configBackupRetentionMs, 30 * 24 * 60 * 60 * 1000, 60 * 60 * 1000),
+      keepLatestNotifications: asInt(config.platform?.monitoring?.retention?.keepLatestNotifications, 100, 0),
+      keepLatestRestartPlans: asInt(config.platform?.monitoring?.retention?.keepLatestRestartPlans, 20, 0),
+      keepLatestRestartAnnouncements: asInt(config.platform?.monitoring?.retention?.keepLatestRestartAnnouncements, 20, 0),
+      keepLatestRestartExecutions: asInt(config.platform?.monitoring?.retention?.keepLatestRestartExecutions, 20, 0),
+      keepLatestConfigJobs: asInt(config.platform?.monitoring?.retention?.keepLatestConfigJobs, 20, 0),
+      keepLatestConfigBackups: asInt(config.platform?.monitoring?.retention?.keepLatestConfigBackups, 20, 0),
     },
   };
 }
@@ -199,6 +217,7 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
         total: Array.isArray(subscriptions) ? subscriptions.length : 0,
         expiring: [],
       };
+      report.retention = null;
       report.quota = {
         tenants: 0,
         exceeded: [],
@@ -351,6 +370,83 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
           });
           updatedAlertMap[alertKey] = generatedAt;
           report.alerts.push(alertKey);
+        }
+      }
+
+      const shouldRunRetentionCleanup =
+        monitoring.retention.enabled
+        && (force || shouldRunInterval(state.lastAlertAtByKey?.['platform-retention-cleanup'], monitoring.retention.cleanupEveryMs));
+      if (shouldRunRetentionCleanup) {
+        const retentionReport = {
+          ok: true,
+          notifications: null,
+          tenants: [],
+          totals: {
+            restartPlans: 0,
+            restartAnnouncements: 0,
+            restartExecutions: 0,
+            configJobs: 0,
+            configBackups: 0,
+          },
+        };
+        try {
+          retentionReport.notifications = pruneAdminNotifications({
+            now: generatedAt,
+            olderThanMs: monitoring.retention.notificationRetentionMs,
+            keepLatest: monitoring.retention.keepLatestNotifications,
+          });
+          for (const tenant of tenants) {
+            const tenantId = trimText(tenant?.id, 160) || null;
+            if (!tenantId) continue;
+            const [restartCleanup, configCleanup] = await Promise.all([
+              pruneRestartArtifacts({
+                tenantId,
+                now: generatedAt,
+                olderThanMs: monitoring.retention.restartRetentionMs,
+                keepLatestPlans: monitoring.retention.keepLatestRestartPlans,
+                keepLatestAnnouncements: monitoring.retention.keepLatestRestartAnnouncements,
+                keepLatestExecutions: monitoring.retention.keepLatestRestartExecutions,
+              }, client || undefined).catch((error) => ({ ok: false, error: trimText(error?.message || error, 240) })),
+              platformServerConfigService.pruneServerConfigArtifacts({
+                tenantId,
+                now: generatedAt,
+                jobRetentionMs: monitoring.retention.configJobRetentionMs,
+                backupRetentionMs: monitoring.retention.configBackupRetentionMs,
+                keepLatestJobs: monitoring.retention.keepLatestConfigJobs,
+                keepLatestBackups: monitoring.retention.keepLatestConfigBackups,
+              }).catch((error) => ({ ok: false, error: trimText(error?.message || error, 240) })),
+            ]);
+            retentionReport.tenants.push({
+              tenantId,
+              restart: restartCleanup,
+              config: configCleanup,
+            });
+            if (restartCleanup?.ok) {
+              retentionReport.totals.restartPlans += Number(restartCleanup.removed?.plans || 0);
+              retentionReport.totals.restartAnnouncements += Number(restartCleanup.removed?.announcements || 0);
+              retentionReport.totals.restartExecutions += Number(restartCleanup.removed?.executions || 0);
+            } else {
+              retentionReport.ok = false;
+            }
+            if (configCleanup?.ok) {
+              retentionReport.totals.configJobs += Number(configCleanup.removed?.jobs || 0);
+              retentionReport.totals.configBackups += Number(configCleanup.removed?.backups || 0);
+            } else {
+              retentionReport.ok = false;
+            }
+          }
+        } catch (error) {
+          retentionReport.ok = false;
+          retentionReport.error = trimText(error?.message || error, 240);
+        }
+        report.retention = retentionReport;
+        updatedAlertMap['platform-retention-cleanup'] = generatedAt;
+        if (!retentionReport.ok) {
+          publishAdminLiveUpdate('ops-alert', {
+            source: 'platform-monitor',
+            kind: 'platform-retention-cleanup-failed',
+            detail: retentionReport.error || 'Retention cleanup reported one or more failures',
+          });
         }
       }
 

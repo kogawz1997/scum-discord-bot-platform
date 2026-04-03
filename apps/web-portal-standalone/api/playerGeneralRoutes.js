@@ -889,6 +889,9 @@ function createPlayerGeneralRoutes(deps) {
               discordUserId: session.discordId,
               steamId: link?.steamId || null,
               tenantId: tenantOptions.tenantId || null,
+              legacySteamLink: link || null,
+              fallbackEmail: session.primaryEmail || null,
+              fallbackDiscordUserId: session.discordId || null,
             })
             : null
         ),
@@ -903,6 +906,55 @@ function createPlayerGeneralRoutes(deps) {
         || memberships.find((entry) => normalizeText(entry?.status || '').toLowerCase() === 'active')
         || memberships[0]
         || null;
+      const normalizedIdentitySummary = identity?.identitySummary || {
+        linkedProviders: identities
+          .map((entry) => normalizeText(entry?.provider).toLowerCase())
+          .filter(Boolean),
+        verificationState: normalizeText(identity?.profile?.verificationState).toLowerCase() || null,
+        memberships: memberships.map((entry) => ({
+          tenantId: entry?.tenantId || null,
+          membershipType: entry?.membershipType || null,
+          role: entry?.role || null,
+          status: entry?.status || null,
+        })),
+        linkedAccounts: {
+          email: {
+            linked: Boolean(emailIdentity || session.primaryEmail),
+            verified: Boolean(emailIdentity?.verifiedAt),
+            value: normalizeText(identity?.user?.primaryEmail)
+              || normalizeText(emailIdentity?.providerEmail)
+              || normalizeText(session.primaryEmail)
+              || null,
+          },
+          discord: {
+            linked: Boolean(discordIdentity || session.discordId),
+            verified: Boolean(discordIdentity?.verifiedAt) || Boolean(session.discordId),
+            value: normalizeText(discordIdentity?.providerUserId) || normalizeText(session.discordId) || null,
+          },
+          steam: {
+            linked: Boolean(steamIdentity || link?.linked),
+            verified: Boolean(steamIdentity?.verifiedAt)
+              || ['steam_linked', 'verified', 'fully_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
+            value: normalizeText(identity?.profile?.steamId)
+              || normalizeText(steamIdentity?.providerUserId)
+              || normalizeText(link?.steamId)
+              || null,
+          },
+          inGame: {
+            linked: Boolean(identity?.profile?.inGameName),
+            verified: ['verified', 'fully_verified', 'in_game_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
+            value: normalizeText(identity?.profile?.inGameName) || normalizeText(link?.inGameName) || null,
+          },
+        },
+        activeMembership: activeMembership
+          ? {
+              tenantId: activeMembership.tenantId || null,
+              membershipType: activeMembership.membershipType || null,
+              role: activeMembership.role || null,
+              status: activeMembership.status || null,
+            }
+          : null,
+      };
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -925,55 +977,7 @@ function createPlayerGeneralRoutes(deps) {
           steamLink: link,
           platformUserId: identity?.user?.id || session.platformUserId || null,
           platformProfileId: identity?.profile?.id || session.platformProfileId || null,
-          identitySummary: {
-            linkedProviders: identities
-              .map((entry) => normalizeText(entry?.provider).toLowerCase())
-              .filter(Boolean),
-            verificationState: normalizeText(identity?.profile?.verificationState).toLowerCase() || null,
-            memberships: memberships.map((entry) => ({
-              tenantId: entry?.tenantId || null,
-              membershipType: entry?.membershipType || null,
-              role: entry?.role || null,
-              status: entry?.status || null,
-            })),
-            linkedAccounts: {
-              email: {
-                linked: Boolean(emailIdentity || session.primaryEmail),
-                verified: Boolean(emailIdentity?.verifiedAt),
-                value: normalizeText(identity?.user?.primaryEmail)
-                  || normalizeText(emailIdentity?.providerEmail)
-                  || normalizeText(session.primaryEmail)
-                  || null,
-              },
-              discord: {
-                linked: Boolean(discordIdentity || session.discordId),
-                verified: Boolean(discordIdentity?.verifiedAt) || Boolean(session.discordId),
-                value: normalizeText(discordIdentity?.providerUserId) || normalizeText(session.discordId) || null,
-              },
-              steam: {
-                linked: Boolean(steamIdentity || link?.linked),
-                verified: Boolean(steamIdentity?.verifiedAt)
-                  || ['steam_linked', 'verified', 'fully_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
-                value: normalizeText(identity?.profile?.steamId)
-                  || normalizeText(steamIdentity?.providerUserId)
-                  || normalizeText(link?.steamId)
-                  || null,
-              },
-              inGame: {
-                linked: Boolean(identity?.profile?.inGameName),
-                verified: ['verified', 'fully_verified', 'in_game_verified'].includes(normalizeText(identity?.profile?.verificationState).toLowerCase()),
-                value: normalizeText(identity?.profile?.inGameName) || normalizeText(link?.inGameName) || null,
-              },
-            },
-            activeMembership: activeMembership
-              ? {
-                  tenantId: activeMembership.tenantId || null,
-                  membershipType: activeMembership.membershipType || null,
-                  role: activeMembership.role || null,
-                  status: activeMembership.status || null,
-                }
-              : null,
-          },
+          identitySummary: normalizedIdentitySummary,
         },
       });
       return true;

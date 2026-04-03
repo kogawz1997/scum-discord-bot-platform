@@ -12,6 +12,8 @@ function runDoctor(env, args = []) {
     cwd: projectRoot,
     env: {
       ...process.env,
+      SCUM_SYNC_AGENT_TOKEN: '',
+      PLATFORM_AGENT_TOKEN: '',
       ADMIN_WEB_SESSION_COOKIE_DOMAIN: '',
       WEB_PORTAL_COOKIE_DOMAIN: '',
       ADMIN_WEB_LOCAL_RECOVERY: 'false',

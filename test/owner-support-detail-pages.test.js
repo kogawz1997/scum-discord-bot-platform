@@ -43,7 +43,7 @@ function buildState() {
       {
         id: 'sub-1',
         tenantId: 'tenant-1',
-        status: 'active',
+        status: 'past_due',
         packageId: 'PRO',
         planId: 'pro-monthly',
         billingCycle: 'monthly',
@@ -66,14 +66,28 @@ function buildState() {
         id: 'inv-1',
         tenantId: 'tenant-1',
         subscriptionId: 'sub-1',
-        status: 'paid',
+        status: 'past_due',
         amountCents: 99000,
         currency: 'THB',
-        paidAt: '2026-03-29T08:15:00.000Z',
+        dueAt: '2026-03-29T08:15:00.000Z',
         metadata: { targetPlanId: 'pro-monthly', targetPackageId: 'PRO', targetBillingCycle: 'monthly' },
       },
     ],
-    billingPaymentAttempts: [],
+    billingPaymentAttempts: [
+      {
+        id: 'attempt-1',
+        tenantId: 'tenant-1',
+        invoiceId: 'inv-1',
+        subscriptionId: 'sub-1',
+        provider: 'stripe',
+        status: 'failed',
+        amountCents: 99000,
+        currency: 'THB',
+        attemptedAt: '2026-03-29T08:16:00.000Z',
+        errorCode: 'card_declined',
+        errorDetail: 'Customer card requires a retry.',
+      },
+    ],
     agents: [
       {
         tenantId: 'tenant-1',
@@ -206,9 +220,14 @@ test('tenant detail workspace exposes support shortcut and tenant runtime action
     supportCaseLoading: false,
   });
   const html = buildOwnerControlV4Html(model);
-  assert.match(html, /Open support case/);
-  assert.match(html, /Save customer record/);
-  assert.match(html, /Tenant runtime context/);
+  assert.match(html, /href="\/owner\/support\/tenant-1"/);
+  assert.match(html, /data-owner-form="update-tenant"/);
+  assert.match(html, /id="owner-tenant-detail-runtime-live"/);
+  assert.match(html, /id="owner-tenant-commercial-live"/);
+  assert.doesNotMatch(html, /Commercial recovery and billing context/);
+  assert.match(html, /data-owner-billing-export-actions/);
+  assert.match(html, /\/owner\/api\/platform\/billing\/export\?tenantId=tenant-1&amp;format=json/);
+  assert.match(html, /data-owner-action="retry-billing-checkout"/);
   assert.match(html, /data-owner-action="inspect-runtime"/);
 });
 
@@ -231,9 +250,15 @@ test('support workspace exposes dead-letter, alert, and request-error tools', ()
     supportDeadLettersLoading: false,
   });
   const html = buildOwnerControlV4Html(model);
-  assert.match(html, /Dead letters and delivery retries/);
+  assert.match(html, /id="owner-tenant-support-commercial-live"/);
+  assert.doesNotMatch(html, /Commercial recovery and billing context/);
+  assert.match(html, /data-owner-action="update-billing-invoice-status"/);
+  assert.match(html, /data-owner-action="retry-billing-checkout"/);
+  assert.match(html, /data-owner-action="reactivate-billing-subscription"/);
+  assert.match(html, /\/owner\/api\/platform\/billing\/export\?tenantId=tenant-1&amp;format=csv/);
+  assert.match(html, /id="owner-tenant-support-dead-letters-live"/);
   assert.match(html, /data-owner-action="retry-dead-letter"/);
   assert.match(html, /data-owner-action="clear-dead-letter"/);
   assert.match(html, /data-owner-action="acknowledge-notification"/);
-  assert.match(html, /Recent owner-side request failures/);
+  assert.match(html, /id="owner-tenant-support-request-errors-live"/);
 });

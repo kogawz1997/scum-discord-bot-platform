@@ -6,25 +6,6 @@
 
 'use strict';
 
-const {
-  getPlatformAnalyticsOverview,
-  getPlatformTenantById,
-  getTenantOperationalState,
-  getTenantQuotaSnapshot,
-  listMarketplaceOffers,
-  listPlatformAgentRuntimes,
-  listPlatformApiKeys,
-  listPlatformLicenses,
-  listPlatformSubscriptions,
-  listPlatformWebhookEndpoints,
-  reconcileDeliveryState,
-} = require('./platformService');
-const { getRuntimeSupervisorSnapshot } = require('./runtimeSupervisorService');
-const { listAdminNotifications } = require('../store/adminNotificationStore');
-const { listAdminRequestLogs } = require('../store/adminRequestLogStore');
-const { getPlatformOpsState } = require('../store/platformOpsStateStore');
-const { getPlatformAutomationState } = require('../store/platformAutomationStateStore');
-
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -125,31 +106,87 @@ function buildDiagnosticsHeadline(bundle) {
   };
 }
 
+function resolveTenantDiagnosticsDeps(overrides = {}) {
+  const resolved = {
+    ...(overrides && typeof overrides === 'object' ? overrides : {}),
+  };
+
+  const requirePlatformService = () => require('./platformService');
+  const requireRuntimeSupervisorService = () => require('./runtimeSupervisorService');
+  const requireAdminNotificationStore = () => require('../store/adminNotificationStore');
+  const requireAdminRequestLogStore = () => require('../store/adminRequestLogStore');
+  const requirePlatformOpsStateStore = () => require('../store/platformOpsStateStore');
+  const requirePlatformAutomationStateStore = () => require('../store/platformAutomationStateStore');
+
+  if (
+    !resolved.getPlatformAnalyticsOverview
+    || !resolved.getPlatformTenantById
+    || !resolved.getTenantOperationalState
+    || !resolved.getTenantQuotaSnapshot
+    || !resolved.listMarketplaceOffers
+    || !resolved.listPlatformAgentRuntimes
+    || !resolved.listPlatformApiKeys
+    || !resolved.listPlatformLicenses
+    || !resolved.listPlatformSubscriptions
+    || !resolved.listPlatformWebhookEndpoints
+    || !resolved.reconcileDeliveryState
+  ) {
+    const platformService = requirePlatformService();
+    resolved.getPlatformAnalyticsOverview =
+      resolved.getPlatformAnalyticsOverview || platformService.getPlatformAnalyticsOverview;
+    resolved.getPlatformTenantById =
+      resolved.getPlatformTenantById || platformService.getPlatformTenantById;
+    resolved.getTenantOperationalState =
+      resolved.getTenantOperationalState || platformService.getTenantOperationalState;
+    resolved.getTenantQuotaSnapshot =
+      resolved.getTenantQuotaSnapshot || platformService.getTenantQuotaSnapshot;
+    resolved.listMarketplaceOffers =
+      resolved.listMarketplaceOffers || platformService.listMarketplaceOffers;
+    resolved.listPlatformAgentRuntimes =
+      resolved.listPlatformAgentRuntimes || platformService.listPlatformAgentRuntimes;
+    resolved.listPlatformApiKeys =
+      resolved.listPlatformApiKeys || platformService.listPlatformApiKeys;
+    resolved.listPlatformLicenses =
+      resolved.listPlatformLicenses || platformService.listPlatformLicenses;
+    resolved.listPlatformSubscriptions =
+      resolved.listPlatformSubscriptions || platformService.listPlatformSubscriptions;
+    resolved.listPlatformWebhookEndpoints =
+      resolved.listPlatformWebhookEndpoints || platformService.listPlatformWebhookEndpoints;
+    resolved.reconcileDeliveryState =
+      resolved.reconcileDeliveryState || platformService.reconcileDeliveryState;
+  }
+
+  if (!resolved.getRuntimeSupervisorSnapshot) {
+    resolved.getRuntimeSupervisorSnapshot =
+      requireRuntimeSupervisorService().getRuntimeSupervisorSnapshot;
+  }
+  if (!resolved.listAdminNotifications) {
+    resolved.listAdminNotifications =
+      requireAdminNotificationStore().listAdminNotifications;
+  }
+  if (!resolved.listAdminRequestLogs) {
+    resolved.listAdminRequestLogs =
+      requireAdminRequestLogStore().listAdminRequestLogs;
+  }
+  if (!resolved.getPlatformOpsState) {
+    resolved.getPlatformOpsState =
+      requirePlatformOpsStateStore().getPlatformOpsState;
+  }
+  if (!resolved.getPlatformAutomationState) {
+    resolved.getPlatformAutomationState =
+      requirePlatformAutomationStateStore().getPlatformAutomationState;
+  }
+
+  return resolved;
+}
+
 async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
   const scopedTenantId = trimText(tenantId, 120);
   if (!scopedTenantId) {
     return null;
   }
   const sampleLimit = Math.max(5, Math.min(100, asInt(options.limit, 25, 5)));
-  const deps = {
-    getPlatformAnalyticsOverview,
-    getPlatformTenantById,
-    getTenantOperationalState,
-    getTenantQuotaSnapshot,
-    listMarketplaceOffers,
-    listPlatformAgentRuntimes,
-    listPlatformApiKeys,
-    listPlatformLicenses,
-    listPlatformSubscriptions,
-    listPlatformWebhookEndpoints,
-    reconcileDeliveryState,
-    getRuntimeSupervisorSnapshot,
-    listAdminNotifications,
-    listAdminRequestLogs,
-    getPlatformOpsState,
-    getPlatformAutomationState,
-    ...(options.deps && typeof options.deps === 'object' ? options.deps : {}),
-  };
+  const deps = resolveTenantDiagnosticsDeps(options.deps);
 
   // Keep this bundle composed from existing sources so support can trust it
   // without learning a second state model.

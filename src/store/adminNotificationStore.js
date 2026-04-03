@@ -352,6 +352,48 @@ function clearAdminNotifications(options = {}) {
   return { removed, remaining: notifications.length };
 }
 
+function pruneAdminNotifications(options = {}) {
+  const now = options.now ? new Date(options.now) : new Date();
+  const referenceNow = Number.isNaN(now.getTime()) ? new Date() : now;
+  const olderThanMs = Math.max(0, Number(options.olderThanMs || 0) || 0);
+  const keepLatest = Math.max(0, Number(options.keepLatest || 0) || 0);
+  const acknowledgedOnly = options.acknowledgedOnly === true;
+  const cutoff = olderThanMs > 0 ? referenceNow.getTime() - olderThanMs : null;
+
+  const sorted = notifications
+    .slice()
+    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+  const removableIds = new Set();
+
+  sorted.forEach((row, index) => {
+    if (index < keepLatest) return;
+    if (acknowledgedOnly && !row.acknowledgedAt) return;
+    if (cutoff != null) {
+      const createdAt = new Date(row.createdAt).getTime();
+      if (!Number.isFinite(createdAt) || createdAt > cutoff) return;
+    }
+    removableIds.add(String(row.id || ''));
+  });
+
+  if (removableIds.size === 0) {
+    return {
+      removed: 0,
+      remaining: notifications.length,
+      cutoffAt: cutoff != null ? new Date(cutoff).toISOString() : null,
+    };
+  }
+
+  const remaining = notifications.filter((row) => !removableIds.has(String(row.id || '')));
+  notifications.length = 0;
+  notifications.push(...remaining);
+  queueWrite(writeSnapshot, 'prune');
+  return {
+    removed: removableIds.size,
+    remaining: notifications.length,
+    cutoffAt: cutoff != null ? new Date(cutoff).toISOString() : null,
+  };
+}
+
 function replaceAdminNotifications(nextRows = []) {
   const deduped = dedupeNotifications(nextRows);
   notifications.length = 0;
@@ -706,6 +748,7 @@ module.exports = {
   initAdminNotificationStore,
   listAdminNotifications,
   persistAdminLiveEvent,
+  pruneAdminNotifications,
   replaceAdminNotifications,
   waitForAdminNotificationPersistence,
 };

@@ -1,3 +1,9 @@
+// Source-of-truth note:
+// This checked-in schema stays on sqlite as the repository compatibility template.
+// Provider-specific schemas for postgresql/mysql are rendered by scripts/prisma-with-provider.js.
+// Production/runtime provider truth comes from DATABASE_URL + PRISMA_SCHEMA_PROVIDER/DATABASE_PROVIDER
+// plus the rendered Prisma schema/client, not from this source file alone.
+
 generator client {
   provider = "prisma-client-js"
 }

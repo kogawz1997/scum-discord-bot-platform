@@ -1695,6 +1695,47 @@ test('dead-letter retry moves failed job back to queue and succeeds', async () =
   assert.equal(api.listDeliveryDeadLetters().length, 0);
 });
 
+test('dead-letter retry reuses existing queued job and clears stale dead-letter state', async () => {
+  const ctx = makeTestContext();
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+
+  api.replaceDeliveryQueue([
+    {
+      purchaseCode: 'P-350',
+      tenantId: 'tenant-1',
+      userId: 'u-1',
+      itemId: 'bundle-ak',
+      itemName: 'AK Bundle',
+      gameItemId: 'Weapon_AK47',
+      quantity: 1,
+      attempts: 0,
+      nextAttemptAt: Date.now(),
+      lastError: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
+  api.replaceDeliveryDeadLetters([
+    {
+      purchaseCode: 'P-350',
+      tenantId: 'tenant-1',
+      userId: 'u-1',
+      itemId: 'bundle-ak',
+      itemName: 'AK Bundle',
+      reason: 'DELIVERY_PREFLIGHT_FAILED',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
+
+  const retry = await api.retryDeliveryDeadLetter('P-350', { tenantId: 'tenant-1' });
+  assert.equal(retry.ok, true);
+  assert.equal(retry.reason, 'already-queued');
+  assert.equal(retry.reused, true);
+  assert.equal(api.listDeliveryQueue().length, 1);
+  assert.equal(api.listDeliveryDeadLetters().length, 0);
+});
+
 test('enqueue skips terminal status purchase (idempotency guard)', async () => {
   process.env.RCON_EXEC_TEMPLATE = 'echo {command}';
   const ctx = makeTestContext();
@@ -1714,9 +1755,43 @@ test('enqueue skips terminal status purchase (idempotency guard)', async () => {
 
   const api = loadRconDeliveryWithMocks(ctx.mocks);
   const queued = await api.enqueuePurchaseDeliveryByCode('P-400');
-  assert.equal(queued.ok, false);
+  assert.equal(queued.ok, true);
   assert.equal(queued.reason, 'terminal-status');
+  assert.equal(queued.noop, true);
+  assert.equal(queued.reused, true);
+  assert.equal(queued.queued, false);
   assert.equal(api.listDeliveryQueue().length, 0);
+});
+
+test('manual retry is idempotent once a job is already due immediately', async () => {
+  const ctx = makeTestContext();
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+
+  api.replaceDeliveryQueue([
+    {
+      purchaseCode: 'P-450',
+      tenantId: 'tenant-1',
+      userId: 'u-1',
+      itemId: 'bundle-ak',
+      itemName: 'AK Bundle',
+      gameItemId: 'Weapon_AK47',
+      quantity: 1,
+      attempts: 2,
+      nextAttemptAt: Date.now() + 60_000,
+      lastError: 'temporary failure',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
+
+  const first = api.retryDeliveryNow('P-450', { tenantId: 'tenant-1' });
+  assert.equal(first.reason, 'retry-scheduled');
+  assert.equal(first.reused, false);
+
+  const second = api.retryDeliveryNow('P-450', { tenantId: 'tenant-1' });
+  assert.equal(second.reason, 'already-queued');
+  assert.equal(second.noop, true);
+  assert.equal(second.reused, true);
 });
 
 test('split runtime worker hydrates queue jobs from prisma and delivers them', async () => {

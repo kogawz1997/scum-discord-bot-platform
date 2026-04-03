@@ -60,7 +60,7 @@ test('linkService enforces one-time self bind and supports admin removal', async
     assert.equal(String(getSteamLinkByUserId(userId)?.steamId || ''), steamIdA);
     assert.equal(String(getSteamLinkBySteamId(steamIdA)?.userId || ''), userId);
 
-    const removed = removeSteamLink({ userId });
+    const removed = await removeSteamLink({ userId });
     assert.equal(removed.ok, true);
     await flushLinkStoreWrites();
     assert.equal(getSteamLinkByUserId(userId), null);

@@ -1,11 +1,5 @@
 'use strict';
 
-const {
-  getDeliveryRuntimeSnapshotSync,
-  listFilteredDeliveryDeadLetters,
-  listFilteredDeliveryQueue,
-} = require('./rconDelivery');
-
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -313,6 +307,26 @@ function buildActionPlan(summary, runtime, queueWatch, deadLetterWatch, topError
   };
 }
 
+function resolveDeliveryLifecycleDeps(overrides = {}) {
+  const resolved = {
+    ...(overrides && typeof overrides === 'object' ? overrides : {}),
+  };
+  if (
+    !resolved.getDeliveryRuntimeSnapshotSync
+    || !resolved.listFilteredDeliveryQueue
+    || !resolved.listFilteredDeliveryDeadLetters
+  ) {
+    const rconDelivery = require('./rconDelivery');
+    resolved.getDeliveryRuntimeSnapshotSync =
+      resolved.getDeliveryRuntimeSnapshotSync || rconDelivery.getDeliveryRuntimeSnapshotSync;
+    resolved.listFilteredDeliveryQueue =
+      resolved.listFilteredDeliveryQueue || rconDelivery.listFilteredDeliveryQueue;
+    resolved.listFilteredDeliveryDeadLetters =
+      resolved.listFilteredDeliveryDeadLetters || rconDelivery.listFilteredDeliveryDeadLetters;
+  }
+  return resolved;
+}
+
 async function buildDeliveryLifecycleReport(options = {}) {
   const scopedTenantId = trimText(options.tenantId, 120) || null;
   const limit = Math.max(20, Math.min(500, asInt(options.limit, 120, 20)));
@@ -321,12 +335,7 @@ async function buildDeliveryLifecycleReport(options = {}) {
     retryHeavyAttempts: Math.max(2, asInt(options.retryHeavyAttempts, 3, 2)),
     poisonAttempts: Math.max(3, asInt(options.poisonAttempts, 5, 3)),
   };
-  const deps = {
-    getDeliveryRuntimeSnapshotSync,
-    listFilteredDeliveryQueue,
-    listFilteredDeliveryDeadLetters,
-    ...(options.deps && typeof options.deps === 'object' ? options.deps : {}),
-  };
+  const deps = resolveDeliveryLifecycleDeps(options.deps);
   const [runtime, rawQueueRows, rawDeadLetterRows] = await Promise.all([
     Promise.resolve(deps.getDeliveryRuntimeSnapshotSync()),
     Promise.resolve(

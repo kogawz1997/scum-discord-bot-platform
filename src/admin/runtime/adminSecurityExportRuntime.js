@@ -30,17 +30,18 @@ function matchesAdminSecurityEventQuery(event = {}, query = '') {
 }
 
 function createAdminSecurityExportRuntime(options = {}) {
-  function buildAdminSecurityEventExportRows(urlObj) {
+  async function buildAdminSecurityEventExportRows(urlObj) {
     const q = options.requiredString(urlObj.searchParams.get('q'));
     const anomalyOnly = String(urlObj.searchParams.get('anomalyOnly') || '').trim().toLowerCase() === 'true';
-    return options.listAdminSecurityEvents({
+    const rows = await options.listAdminSecurityEvents({
       limit: options.asInt(urlObj.searchParams.get('limit'), 2000) || 2000,
       type: options.requiredString(urlObj.searchParams.get('type')),
       severity: options.requiredString(urlObj.searchParams.get('severity')),
       actor: options.requiredString(urlObj.searchParams.get('actor')),
       targetUser: options.requiredString(urlObj.searchParams.get('targetUser')),
       sessionId: options.requiredString(urlObj.searchParams.get('sessionId')),
-    }).filter((row) => {
+    });
+    return rows.filter((row) => {
       if (anomalyOnly && !isAdminSecurityAnomaly(row)) return false;
       return matchesAdminSecurityEventQuery(row, q);
     });

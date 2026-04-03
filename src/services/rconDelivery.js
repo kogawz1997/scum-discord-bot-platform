@@ -4186,6 +4186,33 @@ function isRecentlyDelivered(purchaseCode, now = Date.now()) {
   return now - ts <= IDEMPOTENCY_SUCCESS_WINDOW_MS;
 }
 
+function isIdempotentDeliveryNoOpReason(reason) {
+  return new Set([
+    'already-queued',
+    'already-processing',
+    'idempotent-recent-success',
+    'terminal-status',
+  ]).has(String(reason || '').trim());
+}
+
+function toDeliveryMutationResult(result) {
+  const normalized = result && typeof result === 'object' ? { ...result } : {};
+  const noop =
+    typeof normalized.noop === 'boolean'
+      ? normalized.noop
+      : isIdempotentDeliveryNoOpReason(normalized.reason);
+  const queued = Boolean(normalized.queued);
+  return {
+    ok: queued || noop,
+    ...normalized,
+    noop,
+    reused:
+      typeof normalized.reused === 'boolean'
+        ? normalized.reused
+        : (queued || noop ? normalized.reason !== 'queued' : false),
+  };
+}
+
 function queueDbWrite(work, label) {
   dbWriteQueue = dbWriteQueue
     .then(async () => {
@@ -5901,7 +5928,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       ),
       message: `Skip enqueue because purchase status is ${purchase.status}`,
     });
-    return { queued: false, reason: 'terminal-status' };
+    return { queued: false, reason: 'terminal-status', noop: true, reused: true };
   }
   const shopItem = await getShopItemById(purchase.itemId, {
     tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
@@ -6030,13 +6057,13 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
   }
 
   if (jobs.has(purchaseCode)) {
-    return { queued: true, reason: 'already-queued' };
+    return { queued: true, reason: 'already-queued', noop: true, reused: true };
   }
   if (inFlightPurchaseCodes.has(purchaseCode)) {
-    return { queued: false, reason: 'already-processing' };
+    return { queued: false, reason: 'already-processing', noop: true, reused: true };
   }
   if (isRecentlyDelivered(purchaseCode)) {
-    return { queued: false, reason: 'idempotent-recent-success' };
+    return { queued: false, reason: 'idempotent-recent-success', noop: true, reused: true };
   }
 
   let plannedExecutionMode = settings.executionMode;
@@ -6201,7 +6228,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     commandPath: plannedCommandPath,
   });
   kickWorker(20);
-  return { queued: true, reason: 'queued' };
+  return { queued: true, reason: 'queued', noop: false, reused: false };
 }
 
 async function enqueuePurchaseDeliveryByCode(purchaseCode, context = {}) {
@@ -6212,7 +6239,7 @@ async function enqueuePurchaseDeliveryByCode(purchaseCode, context = {}) {
     return { ok: false, reason: 'purchase-not-found' };
   }
   const result = await enqueuePurchaseDelivery(purchase, context);
-  return { ok: result.queued, ...result };
+  return toDeliveryMutationResult(result);
 }
 
 function retryDeliveryNow(purchaseCode, options = {}) {
@@ -6221,6 +6248,14 @@ function retryDeliveryNow(purchaseCode, options = {}) {
   if (!job) return null;
   const tenantId = normalizeTenantId(options.tenantId);
   if (tenantId && normalizeTenantId(job.tenantId) !== tenantId) return null;
+  if (Number(job.nextAttemptAt || 0) <= Date.now() && !String(job.lastError || '').trim()) {
+    return {
+      ...job,
+      reason: 'already-queued',
+      noop: true,
+      reused: true,
+    };
+  }
   setJob({
     ...job,
     nextAttemptAt: Date.now(),
@@ -6235,7 +6270,7 @@ function retryDeliveryNow(purchaseCode, options = {}) {
     title: 'Manual retry requested',
   });
   kickWorker(20);
-  return { ...jobs.get(code) };
+  return { ...jobs.get(code), reason: 'retry-scheduled', noop: false, reused: false };
 }
 
 async function retryDeliveryDeadLetter(purchaseCode, context = {}) {
@@ -6247,6 +6282,32 @@ async function retryDeliveryDeadLetter(purchaseCode, context = {}) {
   const tenantId = normalizeTenantId(context.tenantId);
   if (tenantId && normalizeTenantId(deadLetter.tenantId) !== tenantId) {
     return { ok: false, reason: 'dead-letter-not-found' };
+  }
+
+  const existingJob = jobs.get(code);
+  if (existingJob && (!tenantId || normalizeTenantId(existingJob.tenantId) === tenantId)) {
+    removeDeliveryDeadLetter(code, { tenantId: tenantId || deadLetter.tenantId || null });
+    queueAudit('info', 'dead-letter-retry', existingJob, 'Dead-letter already requeued', {
+      step: 'dead-letter-retry',
+      stage: 'retry',
+      source: 'admin',
+      status: 'retrying',
+      title: 'Dead-letter already queued',
+      noop: true,
+      reused: true,
+    });
+    publishAdminLiveUpdate('delivery-dead-letter', {
+      action: 'retry',
+      purchaseCode: code,
+      count: deadLetters.size,
+    });
+    return {
+      ok: true,
+      reason: 'already-queued',
+      queueLength: jobs.size,
+      noop: true,
+      reused: true,
+    };
   }
 
   const result = await enqueuePurchaseDeliveryByCode(code, context);

@@ -37,7 +37,7 @@ function createAdminObservabilityRuntime(deps = {}) {
     });
     snapshot.deliveryRuntime = await getDeliveryRuntimeStatus();
     snapshot.runtimeSupervisor = getCachedRuntimeSupervisorSnapshot();
-    snapshot.platformOps = getPlatformOpsState();
+    snapshot.platformOps = await getPlatformOpsState();
     return snapshot;
   }
 

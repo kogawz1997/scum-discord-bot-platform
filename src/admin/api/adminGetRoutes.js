@@ -440,16 +440,17 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/auth/security-events') {
       const auth = ensureRole(req, urlObj, 'admin', res);
       if (!auth) return true;
+      const rows = await listAdminSecurityEvents({
+        limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
+        type: requiredString(urlObj.searchParams.get('type')),
+        severity: requiredString(urlObj.searchParams.get('severity')),
+        actor: requiredString(urlObj.searchParams.get('actor')),
+        targetUser: requiredString(urlObj.searchParams.get('targetUser')),
+        sessionId: requiredString(urlObj.searchParams.get('sessionId')),
+      });
       sendJson(res, 200, {
         ok: true,
-        data: listAdminSecurityEvents({
-          limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
-          type: requiredString(urlObj.searchParams.get('type')),
-          severity: requiredString(urlObj.searchParams.get('severity')),
-          actor: requiredString(urlObj.searchParams.get('actor')),
-          targetUser: requiredString(urlObj.searchParams.get('targetUser')),
-          sessionId: requiredString(urlObj.searchParams.get('sessionId')),
-        }),
+        data: rows,
       });
       return true;
     }
@@ -458,7 +459,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'admin', res);
       if (!auth) return true;
       const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
-      const rows = buildAdminSecurityEventExportRows(urlObj);
+      const rows = await buildAdminSecurityEventExportRows(urlObj);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       if (format === 'csv') {
         sendDownload(

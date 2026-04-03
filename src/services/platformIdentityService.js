@@ -436,6 +436,125 @@ async function findLatestPlayerProfileForUser(db, userId) {
   return normalizePlayerProfileRow(Array.isArray(rows) ? rows[0] : null);
 }
 
+function findIdentityByProviderName(identities = [], provider) {
+  const normalizedProvider = trimText(provider, 80).toLowerCase();
+  return identities.find(
+    (entry) => trimText(entry?.provider, 80).toLowerCase() === normalizedProvider,
+  ) || null;
+}
+
+function findActiveMembershipForTenant(memberships = [], tenantId = null) {
+  const normalizedTenantId = trimText(tenantId, 160) || null;
+  return memberships.find((entry) => trimText(entry?.tenantId, 160) === normalizedTenantId)
+    || memberships.find((entry) => trimText(entry?.status, 40).toLowerCase() === 'active')
+    || memberships[0]
+    || null;
+}
+
+function buildLinkedAccountSummary(input = {}) {
+  const user = input?.user || null;
+  const profile = input?.profile || null;
+  const tenantId = trimText(input?.tenantId, 160) || null;
+  const identities = Array.isArray(input?.identities) ? input.identities : [];
+  const memberships = Array.isArray(input?.memberships) ? input.memberships : [];
+  const legacySteamLink = input?.legacySteamLink && typeof input.legacySteamLink === 'object'
+    ? input.legacySteamLink
+    : null;
+  const fallbackEmail = normalizeEmail(input?.fallbackEmail);
+  const fallbackDiscordUserId = trimText(input?.fallbackDiscordUserId, 200) || null;
+
+  const emailIdentity = findIdentityByProviderName(identities, 'email_preview');
+  const discordIdentity = findIdentityByProviderName(identities, 'discord');
+  const steamIdentity = findIdentityByProviderName(identities, 'steam');
+  const activeMembership = findActiveMembershipForTenant(memberships, tenantId);
+  const profileVerificationState = trimText(profile?.verificationState, 80).toLowerCase() || null;
+  const steamLinked = profile
+    ? Boolean(profile?.steamId || legacySteamLink?.linked || legacySteamLink?.steamId)
+    : Boolean(steamIdentity || legacySteamLink?.linked || legacySteamLink?.steamId);
+
+  const linkedProviders = new Set(
+    identities
+      .map((entry) => trimText(entry?.provider, 80).toLowerCase())
+      .filter(Boolean),
+  );
+  if (!steamLinked) {
+    linkedProviders.delete('steam');
+  }
+  if (steamLinked) {
+    linkedProviders.add('steam');
+  }
+  if (profile?.discordUserId || fallbackDiscordUserId) {
+    linkedProviders.add('discord');
+  }
+  if (normalizeEmail(user?.primaryEmail) || fallbackEmail) {
+    linkedProviders.add('email_preview');
+  }
+
+  return {
+    linkedProviders: Array.from(linkedProviders.values()),
+    verificationState: profileVerificationState,
+    memberships: memberships.map((entry) => ({
+      tenantId: entry?.tenantId || null,
+      membershipType: entry?.membershipType || null,
+      role: entry?.role || null,
+      status: entry?.status || null,
+    })),
+    linkedAccounts: {
+      email: {
+        linked: Boolean(emailIdentity || user?.primaryEmail || fallbackEmail),
+        verified: Boolean(emailIdentity?.verifiedAt),
+        value: normalizeEmail(user?.primaryEmail)
+          || normalizeEmail(emailIdentity?.providerEmail)
+          || fallbackEmail
+          || null,
+      },
+      discord: {
+        linked: Boolean(discordIdentity || profile?.discordUserId || fallbackDiscordUserId),
+        verified: Boolean(discordIdentity?.verifiedAt)
+          || Boolean(profile?.discordUserId)
+          || Boolean(fallbackDiscordUserId),
+        value: trimText(discordIdentity?.providerUserId, 200)
+          || trimText(profile?.discordUserId, 200)
+          || fallbackDiscordUserId
+          || null,
+      },
+      steam: {
+        linked: steamLinked,
+        verified: steamLinked && (
+          Boolean(steamIdentity?.verifiedAt)
+          || ['steam_linked', 'verified', 'fully_verified'].includes(profileVerificationState)
+        ),
+        value: trimText(profile?.steamId, 200)
+          || trimText(legacySteamLink?.steamId, 200)
+          || (!profile ? trimText(steamIdentity?.providerUserId, 200) : null)
+          || null,
+      },
+      inGame: {
+        linked: Boolean(trimText(profile?.inGameName, 200) || trimText(legacySteamLink?.inGameName, 200)),
+        verified: ['verified', 'fully_verified', 'in_game_verified'].includes(profileVerificationState),
+        value: trimText(profile?.inGameName, 200)
+          || trimText(legacySteamLink?.inGameName, 200)
+          || null,
+      },
+    },
+    activeMembership: activeMembership
+      ? {
+          tenantId: activeMembership.tenantId || null,
+          membershipType: activeMembership.membershipType || null,
+          role: activeMembership.role || null,
+          status: activeMembership.status || null,
+        }
+      : null,
+    readiness: {
+      hasEmail: Boolean(emailIdentity || user?.primaryEmail || fallbackEmail),
+      hasDiscord: Boolean(discordIdentity || profile?.discordUserId || fallbackDiscordUserId),
+      hasSteam: steamLinked,
+      hasInGameProfile: Boolean(trimText(profile?.inGameName, 200) || trimText(legacySteamLink?.inGameName, 200)),
+      hasActiveMembership: Boolean(activeMembership && trimText(activeMembership?.status, 40).toLowerCase() === 'active'),
+    },
+  };
+}
+
 async function findPlayerProfileByExternalIds(db, input = {}) {
   const tenantId = trimText(input.tenantId, 160) || null;
   const discordUserId = trimText(input.discordUserId, 200) || null;
@@ -924,7 +1043,24 @@ async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
   }
 
   if (!user) {
-    return { ok: false, reason: 'user-not-found' };
+    return {
+      ok: false,
+      reason: 'user-not-found',
+      user: null,
+      identities: [],
+      memberships: [],
+      profile: null,
+      identitySummary: buildLinkedAccountSummary({
+        user: null,
+        profile: null,
+        identities: [],
+        memberships: [],
+        tenantId,
+        legacySteamLink: input.legacySteamLink || null,
+        fallbackEmail: email || input.fallbackEmail || null,
+        fallbackDiscordUserId: discordUserId || input.fallbackDiscordUserId || null,
+      }),
+    };
   }
 
   const [identities, memberships] = await Promise.all([
@@ -941,6 +1077,78 @@ async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
     identities,
     memberships,
     profile,
+    identitySummary: buildLinkedAccountSummary({
+      user,
+      profile,
+      identities,
+      memberships,
+      tenantId,
+      legacySteamLink: input.legacySteamLink || null,
+      fallbackEmail: email || input.fallbackEmail || null,
+      fallbackDiscordUserId: discordUserId || input.fallbackDiscordUserId || null,
+    }),
+  };
+}
+
+async function clearPlatformPlayerSteamLink(input = {}, db = prisma) {
+  const userId = trimText(input.userId, 160) || null;
+  const tenantId = trimText(input.tenantId, 160) || null;
+  const discordUserId = trimText(input.discordUserId, 200) || null;
+  const steamId = trimText(input.steamId, 200) || null;
+
+  await ensurePlatformIdentityTables(db);
+
+  let profile = null;
+  if (userId) {
+    profile = tenantId
+      ? await findPlayerProfile(db, userId, tenantId)
+      : await findLatestPlayerProfileForUser(db, userId);
+  }
+  if (!profile) {
+    profile = await findPlayerProfileByExternalIds(db, {
+      tenantId,
+      discordUserId,
+      steamId,
+    });
+  }
+  if (!profile?.id) {
+    return { ok: false, reason: 'player-profile-not-found' };
+  }
+
+  const delegates = getPlatformIdentityDelegates(db);
+  const nextVerificationState = trimText(profile.discordUserId, 200) ? 'discord_verified' : 'unverified';
+
+  if (delegates) {
+    profile = normalizePlayerProfileRow(await delegates.profiles.update({
+      where: { id: profile.id },
+      data: {
+        steamId: null,
+        verificationState: nextVerificationState,
+      },
+    }));
+  } else {
+    await db.$executeRaw`
+      UPDATE platform_player_profiles
+      SET
+        steamId = ${null},
+        verificationState = ${nextVerificationState},
+        updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ${profile.id}
+    `;
+    profile = await findPlayerProfile(db, profile.userId, profile.tenantId);
+  }
+
+  const summary = await getPlatformUserIdentitySummary({
+    userId: profile.userId,
+    tenantId: profile.tenantId,
+    discordUserId: profile.discordUserId,
+    steamId: null,
+  }, db);
+
+  return {
+    ok: true,
+    profile,
+    identitySummary: summary?.identitySummary || null,
   };
 }
 
@@ -1252,6 +1460,8 @@ async function completeEmailVerification(input = {}, db = prisma) {
 }
 
 module.exports = {
+  buildLinkedAccountSummary,
+  clearPlatformPlayerSteamLink,
   completeEmailVerification,
   completePasswordReset,
   ensurePlatformIdentityTables,

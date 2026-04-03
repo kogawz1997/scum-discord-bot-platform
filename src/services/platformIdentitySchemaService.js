@@ -2,6 +2,7 @@
 
 const { prisma } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { resolveLegacyRuntimeBootstrapPolicy } = require('../utils/legacyRuntimeBootstrapPolicy');
 
 const PLATFORM_IDENTITY_TABLES = Object.freeze([
   'platform_users',
@@ -68,6 +69,7 @@ function getIdentitySchemaCacheKey(env = process.env, db = prisma) {
     databaseUrl: env.DATABASE_URL,
     provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
   });
+  const bootstrapPolicy = resolveIdentityRuntimeBootstrapPolicy(env, db, runtime);
   const persistenceTarget = hasExplicitDelegateBackedIdentityPersistence(db, runtime)
     ? 'delegate'
     : isPrismaClientLike(db)
@@ -78,17 +80,25 @@ function getIdentitySchemaCacheKey(env = process.env, db = prisma) {
     provider: runtime.provider,
     rawUrl: runtime.rawUrl,
     nodeEnv: trimText(env.NODE_ENV, 32).toLowerCase(),
-    runtimeBootstrap: trimText(env[PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV], 32).toLowerCase(),
+    runtimeBootstrap: bootstrapPolicy.explicitValue || '',
+    runtimeBootstrapAllowed: bootstrapPolicy.allowed,
+    runtimeBootstrapReason: bootstrapPolicy.reason,
     persistenceTarget,
   });
 }
 
-function isRuntimeIdentityBootstrapAllowed(env = process.env) {
-  const explicit = trimText(env[PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV], 32).toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(explicit)) return true;
-  if (['0', 'false', 'no', 'off'].includes(explicit)) return false;
-  const nodeEnv = trimText(env.NODE_ENV, 32).toLowerCase();
-  return nodeEnv !== 'production';
+function resolveIdentityRuntimeBootstrapPolicy(env = process.env, db = prisma, runtime = null) {
+  const effectiveRuntime = runtime || resolveDatabaseRuntime({
+    databaseUrl: env.DATABASE_URL,
+    provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
+  });
+  return resolveLegacyRuntimeBootstrapPolicy({
+    env,
+    envName: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+    runtime: effectiveRuntime,
+    prismaClientLike: isPrismaClientLike(db),
+    policy: 'platform-identity-schema',
+  });
 }
 
 function buildIdentitySchemaRequiredError(details = {}) {
@@ -176,12 +186,14 @@ async function getPlatformIdentitySchemaState(db = prisma, env = process.env) {
     databaseUrl: env.DATABASE_URL,
     provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
   });
+  const runtimeBootstrapPolicy = resolveIdentityRuntimeBootstrapPolicy(env, db, runtime);
   if (hasExplicitDelegateBackedIdentityPersistence(db, runtime)) {
     const state = Object.freeze({
       runtime,
       missingTables: [],
       ready: true,
       runtimeBootstrapAllowed: false,
+      runtimeBootstrapPolicy,
       persistenceTarget: 'delegate',
     });
     cachedIdentitySchemaKey = cacheKey;
@@ -198,7 +210,8 @@ async function getPlatformIdentitySchemaState(db = prisma, env = process.env) {
     runtime,
     missingTables,
     ready: missingTables.length === 0,
-    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+    runtimeBootstrapAllowed: runtimeBootstrapPolicy.allowed,
+    runtimeBootstrapPolicy,
   });
   cachedIdentitySchemaKey = cacheKey;
   cachedIdentitySchemaState = state;
@@ -223,11 +236,13 @@ async function getPlatformUserPasswordColumnState(db = prisma, env = process.env
     databaseUrl: env.DATABASE_URL,
     provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
   });
+  const runtimeBootstrapPolicy = resolveIdentityRuntimeBootstrapPolicy(env, db, runtime);
   if (hasExplicitDelegateBackedIdentityPersistence(db, runtime)) {
     const state = Object.freeze({
       runtime,
       exists: true,
       runtimeBootstrapAllowed: false,
+      runtimeBootstrapPolicy,
       persistenceTarget: 'delegate',
     });
     cachedPlatformUserPasswordColumnKey = cacheKey;
@@ -238,7 +253,8 @@ async function getPlatformUserPasswordColumnState(db = prisma, env = process.env
   const state = Object.freeze({
     runtime,
     exists,
-    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+    runtimeBootstrapAllowed: runtimeBootstrapPolicy.allowed,
+    runtimeBootstrapPolicy,
   });
   cachedPlatformUserPasswordColumnKey = cacheKey;
   cachedPlatformUserPasswordColumnState = state;
@@ -254,12 +270,14 @@ async function getVerificationTokenColumnState(db = prisma, env = process.env) {
     databaseUrl: env.DATABASE_URL,
     provider: env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER,
   });
+  const runtimeBootstrapPolicy = resolveIdentityRuntimeBootstrapPolicy(env, db, runtime);
   if (hasExplicitDelegateBackedIdentityPersistence(db, runtime)) {
     const state = Object.freeze({
       runtime,
       missingColumns: [],
       ready: true,
       runtimeBootstrapAllowed: false,
+      runtimeBootstrapPolicy,
       persistenceTarget: 'delegate',
     });
     cachedVerificationTokenColumnKey = cacheKey;
@@ -277,7 +295,8 @@ async function getVerificationTokenColumnState(db = prisma, env = process.env) {
     runtime,
     missingColumns,
     ready: missingColumns.length === 0,
-    runtimeBootstrapAllowed: isRuntimeIdentityBootstrapAllowed(env),
+    runtimeBootstrapAllowed: runtimeBootstrapPolicy.allowed,
+    runtimeBootstrapPolicy,
   });
   cachedVerificationTokenColumnKey = cacheKey;
   cachedVerificationTokenColumnState = state;
@@ -296,6 +315,7 @@ async function ensurePlatformVerificationTokenColumns(db = prisma, options = {})
       missingColumns: columnState.missingColumns,
       runtime: columnState.runtime,
       env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+      bootstrapPolicy: columnState.runtimeBootstrapPolicy,
     });
   }
   const alterStatements = {
@@ -357,6 +377,7 @@ async function ensurePlatformUserPasswordColumn(db = prisma, options = {}) {
       column: 'platform_users.passwordHash',
       runtime: passwordColumnState.runtime,
       env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+      bootstrapPolicy: passwordColumnState.runtimeBootstrapPolicy,
     });
   }
   try {
@@ -387,6 +408,7 @@ async function ensurePlatformIdentityTables(db = prisma, options = {}) {
       missingTables: schemaState.missingTables,
       runtime: schemaState.runtime,
       env: PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP_ENV,
+      bootstrapPolicy: schemaState.runtimeBootstrapPolicy,
     });
   }
   await db.$executeRawUnsafe(`
@@ -514,4 +536,5 @@ module.exports = {
   getPlatformIdentitySchemaState,
   getPlatformUserPasswordColumnState,
   invalidateIdentitySchemaCaches,
+  resolveIdentityRuntimeBootstrapPolicy,
 };

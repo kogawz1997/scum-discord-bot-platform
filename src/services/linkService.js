@@ -6,7 +6,11 @@ const {
   unlinkByUserId,
   unlinkBySteamId,
 } = require('../store/linkStore');
-const { ensurePlatformPlayerIdentity } = require('./platformIdentityService');
+const {
+  clearPlatformPlayerSteamLink,
+  ensurePlatformPlayerIdentity,
+  getPlatformUserIdentitySummary,
+} = require('./platformIdentityService');
 const { resolveDefaultTenantId } = require('../prisma');
 
 function normalizeText(value) {
@@ -61,6 +65,7 @@ async function bindSteamLinkForUser(params = {}) {
   }
 
   let identity = null;
+  let identitySummary = null;
   try {
     identity = await ensurePlatformPlayerIdentity({
       provider: 'steam',
@@ -82,8 +87,21 @@ async function bindSteamLinkForUser(params = {}) {
         source: 'steam-link-service',
       },
     });
+    identitySummary = await getPlatformUserIdentitySummary({
+      userId: identity?.user?.id || null,
+      tenantId,
+      discordUserId: userId,
+      steamId,
+      legacySteamLink: {
+        linked: true,
+        steamId,
+        inGameName,
+      },
+      fallbackDiscordUserId: userId,
+    });
   } catch {
     identity = null;
+    identitySummary = null;
   }
 
   return {
@@ -96,6 +114,7 @@ async function bindSteamLinkForUser(params = {}) {
           profileId: identity.profile?.id || null,
         }
       : null,
+    identitySummary: identitySummary?.identitySummary || null,
   };
 }
 
@@ -111,7 +130,7 @@ function getSteamLinkBySteamId(steamId) {
   return getLinkBySteamId(normalized);
 }
 
-function removeSteamLink(params = {}) {
+async function removeSteamLink(params = {}) {
   const steamId = normalizeSteamId(params.steamId);
   const userId = normalizeText(params.userId);
   if (!steamId && !userId) {
@@ -123,9 +142,22 @@ function removeSteamLink(params = {}) {
     return { ok: false, reason: 'not-found' };
   }
 
+  let platform = null;
+  try {
+    platform = await clearPlatformPlayerSteamLink({
+      tenantId: normalizeText(params.tenantId) || resolveDefaultTenantId() || null,
+      userId: removed.userId || userId || null,
+      discordUserId: removed.userId || userId || null,
+      steamId: removed.steamId || steamId || null,
+    });
+  } catch {
+    platform = null;
+  }
+
   return {
     ok: true,
     removed,
+    identitySummary: platform?.identitySummary || null,
   };
 }
 

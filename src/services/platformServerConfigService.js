@@ -60,6 +60,12 @@ function parseJsonArray(value) {
   }
 }
 
+function parseDateValue(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function normalizeApplyMode(value, fallback = 'save_only') {
   const normalized = trimText(value, 40).toLowerCase();
   if (['save_only', 'save_apply', 'save_restart'].includes(normalized)) {
@@ -450,6 +456,37 @@ function normalizeJobRow(row) {
   };
 }
 
+function normalizeJobChangesForKey(changes = []) {
+  return (Array.isArray(changes) ? changes : []).map((entry) => ({
+    file: trimText(entry?.file, 200) || null,
+    section: trimText(entry?.section, 160) || null,
+    key: trimText(entry?.key, 160) || null,
+    value: Object.prototype.hasOwnProperty.call(entry || {}, 'value') ? entry.value : null,
+    definitionId: trimText(entry?.definitionId, 200) || null,
+  }));
+}
+
+function buildServerConfigJobRequestKey(input = {}) {
+  return JSON.stringify({
+    jobType: normalizeJobType(input.jobType, 'config_update'),
+    applyMode: normalizeApplyMode(input.applyMode, 'save_only'),
+    changes: normalizeJobChangesForKey(input.changes),
+    backupId: trimText(input.backupId, 160) || null,
+    runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
+    restartMode: trimText(input.restartMode, 80) || null,
+    controlMode: trimText(input.controlMode, 80) || null,
+    delaySeconds: Number(input.delaySeconds || 0) || 0,
+    restartReason: trimText(input.restartReason, 240) || null,
+    channel: trimText(input.channel, 120) || null,
+    displayName: trimText(input.displayName, 160) || null,
+    retryOfJobId: trimText(input.retryOfJobId, 160) || null,
+  });
+}
+
+function getJobRequestKey(job = {}) {
+  return trimText(job?.meta?.requestKey, 4000) || '';
+}
+
 function normalizeBackupRow(row) {
   if (!row) return null;
   return {
@@ -464,6 +501,32 @@ function normalizeBackupRow(row) {
     changeSummary: parseJsonArray(row.changeSummaryJson),
     meta: parseJsonObject(row.metaJson, {}),
   };
+}
+
+function getLatestArtifactDateMs(row = {}, keys = []) {
+  for (const key of Array.isArray(keys) ? keys : []) {
+    const date = parseDateValue(row?.[key]);
+    if (date) return date.getTime();
+  }
+  return Number.NEGATIVE_INFINITY;
+}
+
+function selectRetentionArtifactIds(rows = [], options = {}) {
+  const keepLatest = Math.max(0, Number(options.keepLatest || 0) || 0);
+  const cutoffMs = Number.isFinite(options.cutoffMs) ? options.cutoffMs : Number.NaN;
+  const dateKeys = Array.isArray(options.dateKeys) ? options.dateKeys : ['createdAt'];
+  const allowRow = typeof options.allowRow === 'function' ? options.allowRow : (() => true);
+  return (Array.isArray(rows) ? rows : [])
+    .slice()
+    .sort((left, right) => getLatestArtifactDateMs(right, dateKeys) - getLatestArtifactDateMs(left, dateKeys))
+    .filter((row, index) => {
+      if (index < keepLatest) return false;
+      if (!allowRow(row)) return false;
+      if (!Number.isFinite(cutoffMs)) return true;
+      return getLatestArtifactDateMs(row, dateKeys) <= cutoffMs;
+    })
+    .map((row) => trimText(row?.id, 160))
+    .filter(Boolean);
 }
 
 function normalizeSnapshotRow(row) {
@@ -637,6 +700,8 @@ function buildWorkspaceFromSnapshot(server, snapshotRow, backups = []) {
 function createPlatformServerConfigService(deps = {}) {
   const {
     listServerRegistry,
+    getTenantScopedPrismaClient: getTenantScopedPrismaClientOverride,
+    withTenantDbIsolation: withTenantDbIsolationOverride,
   } = deps;
 
   async function resolveServer(tenantId, serverId) {
@@ -654,8 +719,14 @@ function createPlatformServerConfigService(deps = {}) {
     if (!normalizedTenantId) {
       throw new Error('tenantId is required');
     }
-    const tenantPrisma = getTenantScopedPrismaClient(normalizedTenantId);
-    return withTenantDbIsolation(
+    const resolveTenantScopedDb = typeof getTenantScopedPrismaClientOverride === 'function'
+      ? getTenantScopedPrismaClientOverride
+      : getTenantScopedPrismaClient;
+    const isolateTenantDb = typeof withTenantDbIsolationOverride === 'function'
+      ? withTenantDbIsolationOverride
+      : withTenantDbIsolation;
+    const tenantPrisma = resolveTenantScopedDb(normalizedTenantId);
+    return isolateTenantDb(
       tenantPrisma,
       { tenantId: normalizedTenantId, enforce: true },
       work,
@@ -721,6 +792,31 @@ function createPlatformServerConfigService(deps = {}) {
       take: limit,
     });
     return Array.isArray(rows) ? rows.map(normalizeJobRow).filter(Boolean) : [];
+  }
+
+  async function findReusablePendingJob(db, options = {}) {
+    await ensurePlatformServerConfigTables(db);
+    const { job } = getServerConfigDelegatesOrThrow(db);
+    const serverId = normalizeServerId(options.serverId);
+    const jobType = normalizeJobType(options.jobType, '');
+    const requestKey = trimText(options.requestKey, 4000);
+    if (!serverId || !jobType || !requestKey) return null;
+    const rows = await job.findMany({
+      where: {
+        serverId,
+        jobType,
+        status: {
+          in: ['queued', 'processing'],
+        },
+      },
+      orderBy: [
+        { requestedAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: 25,
+    });
+    const normalizedRows = Array.isArray(rows) ? rows.map(normalizeJobRow).filter(Boolean) : [];
+    return normalizedRows.find((row) => getJobRequestKey(row) === requestKey) || null;
   }
 
   async function getServerConfigWorkspace(options = {}) {
@@ -862,29 +958,53 @@ function createPlatformServerConfigService(deps = {}) {
     const jobId = trimText(input.jobId, 160) || createId('cfgjob');
     const requestedBy = trimText(actor, 200) || 'admin-web';
     const requiresRestart = changes.some((entry) => findConfigSettingDefinition(entry)?.requiresRestart === true);
+    const requestKey = buildServerConfigJobRequestKey({
+      jobType: 'config_update',
+      applyMode,
+      changes,
+      runtimeKey: input.runtimeKey,
+      restartMode: input.restartMode,
+      controlMode: input.controlMode,
+      delaySeconds: input.delaySeconds,
+      restartReason: input.restartReason,
+      channel: input.channel,
+    });
     const meta = {
       requiresRestart,
       requestedApplyMode: applyMode,
+      requestKey,
     };
-    if (applyMode === 'save_restart') {
-      const restartPlan = await scheduleRestartPlan({
-        tenantId,
-        serverId,
-        guildId: trimText(server.guildId, 160) || null,
-        runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
-        delaySeconds: Number(input.delaySeconds || 0) || 0,
-        restartMode: trimText(input.restartMode, 80) || 'safe_restart',
-        controlMode: trimText(input.controlMode, 80) || 'service',
-        reason: trimText(input.restartReason, 240) || 'config-update',
-        channel: trimText(input.channel, 120) || null,
-      }, actor).catch(() => null);
-      if (restartPlan?.ok) {
-        meta.restartPlanId = restartPlan.plan?.id || null;
-        meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
-      }
-    }
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
+      const existingJob = await findReusablePendingJob(db, {
+        serverId,
+        jobType: 'config_update',
+        requestKey,
+      });
+      if (existingJob) {
+        return {
+          ok: true,
+          reused: true,
+          job: existingJob,
+        };
+      }
+      if (applyMode === 'save_restart') {
+        const restartPlan = await scheduleRestartPlan({
+          tenantId,
+          serverId,
+          guildId: trimText(server.guildId, 160) || null,
+          runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
+          delaySeconds: Number(input.delaySeconds || 0) || 0,
+          restartMode: trimText(input.restartMode, 80) || 'safe_restart',
+          controlMode: trimText(input.controlMode, 80) || 'service',
+          reason: trimText(input.restartReason, 240) || 'config-update',
+          channel: trimText(input.channel, 120) || null,
+        }, actor).catch(() => null);
+        if (restartPlan?.ok) {
+          meta.restartPlanId = restartPlan.plan?.id || null;
+          meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
+        }
+      }
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -916,26 +1036,51 @@ function createPlatformServerConfigService(deps = {}) {
     if (!server) return { ok: false, reason: 'server-not-found' };
     const applyMode = normalizeApplyMode(input.applyMode, 'save_apply');
     const jobId = trimText(input.jobId, 160) || createId('cfgjob');
-    const meta = { requestedApplyMode: applyMode };
-    if (applyMode === 'save_restart') {
-      const restartPlan = await scheduleRestartPlan({
-        tenantId,
-        serverId,
-        guildId: trimText(server.guildId, 160) || null,
-        runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
-        delaySeconds: Number(input.delaySeconds || 0) || 0,
-        restartMode: trimText(input.restartMode, 80) || 'safe_restart',
-        controlMode: trimText(input.controlMode, 80) || 'service',
-        reason: trimText(input.restartReason, 240) || 'config-apply',
-        channel: trimText(input.channel, 120) || null,
-      }, actor).catch(() => null);
-      if (restartPlan?.ok) {
-        meta.restartPlanId = restartPlan.plan?.id || null;
-        meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
-      }
-    }
+    const requestKey = buildServerConfigJobRequestKey({
+      jobType: 'apply',
+      applyMode,
+      runtimeKey: input.runtimeKey,
+      restartMode: input.restartMode,
+      controlMode: input.controlMode,
+      delaySeconds: input.delaySeconds,
+      restartReason: input.restartReason,
+      channel: input.channel,
+    });
+    const meta = {
+      requestedApplyMode: applyMode,
+      requestKey,
+    };
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
+      const existingJob = await findReusablePendingJob(db, {
+        serverId,
+        jobType: 'apply',
+        requestKey,
+      });
+      if (existingJob) {
+        return {
+          ok: true,
+          reused: true,
+          job: existingJob,
+        };
+      }
+      if (applyMode === 'save_restart') {
+        const restartPlan = await scheduleRestartPlan({
+          tenantId,
+          serverId,
+          guildId: trimText(server.guildId, 160) || null,
+          runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
+          delaySeconds: Number(input.delaySeconds || 0) || 0,
+          restartMode: trimText(input.restartMode, 80) || 'safe_restart',
+          controlMode: trimText(input.controlMode, 80) || 'service',
+          reason: trimText(input.restartReason, 240) || 'config-apply',
+          channel: trimText(input.channel, 120) || null,
+        }, actor).catch(() => null);
+        if (restartPlan?.ok) {
+          meta.restartPlanId = restartPlan.plan?.id || null;
+          meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
+        }
+      }
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -967,15 +1112,39 @@ function createPlatformServerConfigService(deps = {}) {
     const server = await resolveServer(tenantId, serverId);
     if (!server) return { ok: false, reason: 'server-not-found' };
     const applyMode = normalizeApplyMode(input.applyMode, 'save_restart');
+    const requestKey = buildServerConfigJobRequestKey({
+      jobType: 'rollback',
+      applyMode,
+      backupId,
+      runtimeKey: input.runtimeKey,
+      restartMode: input.restartMode,
+      controlMode: input.controlMode,
+      delaySeconds: input.delaySeconds,
+      restartReason: input.restartReason,
+      channel: input.channel,
+    });
     const rollbackMeta = {
       backupId,
       requestedApplyMode: applyMode,
+      requestKey,
     };
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
       const backups = await readBackupRows(db, serverId, 200);
       const backup = backups.find((entry) => entry.id === backupId) || null;
       if (!backup) return { ok: false, reason: 'server-config-backup-not-found' };
+      const existingJob = await findReusablePendingJob(db, {
+        serverId,
+        jobType: 'rollback',
+        requestKey,
+      });
+      if (existingJob) {
+        return {
+          ok: true,
+          reused: true,
+          job: existingJob,
+        };
+      }
       if (applyMode === 'save_restart') {
         const restartPlan = await scheduleRestartPlan({
           tenantId,
@@ -1037,13 +1206,32 @@ function createPlatformServerConfigService(deps = {}) {
       return { ok: false, reason: 'server-bot-action-unsupported' };
     }
     const jobId = trimText(input.jobId, 160) || createId('cfgjob');
+    const requestKey = buildServerConfigJobRequestKey({
+      jobType,
+      applyMode: 'save_only',
+      runtimeKey: input.runtimeKey,
+      displayName: input.displayName,
+    });
     const meta = {
       controlAction: jobType,
       requestedApplyMode: 'save_only',
       displayName: trimText(input.displayName, 160) || null,
+      requestKey,
     };
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
+      const existingJob = await findReusablePendingJob(db, {
+        serverId,
+        jobType,
+        requestKey,
+      });
+      if (existingJob) {
+        return {
+          ok: true,
+          reused: true,
+          job: existingJob,
+        };
+      }
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -1093,10 +1281,30 @@ function createPlatformServerConfigService(deps = {}) {
       const retryAttempt = Number.isFinite(priorRetryAttempt)
         ? Math.max(1, priorRetryAttempt + 1)
         : 1;
+      const requestKey = buildServerConfigJobRequestKey({
+        jobType: sourceJob.jobType,
+        applyMode: sourceJob.applyMode,
+        changes: sourceJob.changes,
+        retryOfJobId: sourceJob.id,
+      });
+      const existingJob = await findReusablePendingJob(db, {
+        serverId,
+        jobType: sourceJob.jobType,
+        requestKey,
+      });
+      if (existingJob) {
+        return {
+          ok: true,
+          reused: true,
+          sourceJob,
+          job: existingJob,
+        };
+      }
       const meta = {
         ...(sourceJob.meta && typeof sourceJob.meta === 'object' && !Array.isArray(sourceJob.meta)
           ? sourceJob.meta
           : {}),
+        requestKey,
         retryOfJobId: sourceJob.id,
         retryRequestedBy: requestedBy,
         retryRequestedAt: new Date().toISOString(),
@@ -1320,6 +1528,104 @@ function createPlatformServerConfigService(deps = {}) {
     });
   }
 
+  async function pruneServerConfigArtifacts(options = {}) {
+    const tenantId = normalizeTenantId(options.tenantId);
+    const serverId = normalizeServerId(options.serverId) || null;
+    if (!tenantId) return { ok: false, reason: 'tenantId-required' };
+    const now = parseDateValue(options.now) || new Date();
+    const jobRetentionMs = options.jobRetentionMs == null
+      ? 30 * 24 * 60 * 60 * 1000
+      : Number(options.jobRetentionMs);
+    const backupRetentionMs = options.backupRetentionMs == null
+      ? 30 * 24 * 60 * 60 * 1000
+      : Number(options.backupRetentionMs);
+    const keepLatestJobs = options.keepLatestJobs == null
+      ? 20
+      : Math.max(0, Number(options.keepLatestJobs) || 0);
+    const keepLatestBackups = options.keepLatestBackups == null
+      ? 20
+      : Math.max(0, Number(options.keepLatestBackups) || 0);
+    const jobCutoffMs = now.getTime() - Math.max(0, Number.isFinite(jobRetentionMs) ? jobRetentionMs : 0);
+    const backupCutoffMs = now.getTime() - Math.max(0, Number.isFinite(backupRetentionMs) ? backupRetentionMs : 0);
+
+    return withTenantConfigDb(tenantId, async (db) => {
+      await ensurePlatformServerConfigTables(db);
+      const { job, backup } = getServerConfigDelegatesOrThrow(db);
+      const [jobRows, backupRows] = await Promise.all([
+        job.findMany({
+          where: {
+            ...(serverId ? { serverId } : {}),
+          },
+          orderBy: [
+            { requestedAt: 'desc' },
+            { id: 'desc' },
+          ],
+          take: 1000,
+        }),
+        backup.findMany({
+          where: {
+            ...(serverId ? { serverId } : {}),
+          },
+          orderBy: [
+            { createdAt: 'desc' },
+            { id: 'desc' },
+          ],
+          take: 1000,
+        }),
+      ]);
+
+      const normalizedJobs = Array.isArray(jobRows) ? jobRows.map(normalizeJobRow).filter(Boolean) : [];
+      const normalizedBackups = Array.isArray(backupRows) ? backupRows.map(normalizeBackupRow).filter(Boolean) : [];
+
+      const removableJobIds = selectRetentionArtifactIds(normalizedJobs, {
+        cutoffMs: jobCutoffMs,
+        keepLatest: keepLatestJobs,
+        dateKeys: ['completedAt', 'requestedAt'],
+        allowRow: (row) => ['succeeded', 'failed', 'cancelled'].includes(normalizeJobStatus(row?.status, '')),
+      });
+      const removableBackupIds = selectRetentionArtifactIds(normalizedBackups, {
+        cutoffMs: backupCutoffMs,
+        keepLatest: keepLatestBackups,
+        dateKeys: ['createdAt'],
+      });
+
+      const [removedJobs, removedBackups] = await Promise.all([
+        removableJobIds.length > 0
+          ? job.deleteMany({
+            where: {
+              tenantId,
+              ...(serverId ? { serverId } : {}),
+              id: { in: removableJobIds },
+            },
+          }).then((result) => result?.count || 0)
+          : Promise.resolve(0),
+        removableBackupIds.length > 0
+          ? backup.deleteMany({
+            where: {
+              tenantId,
+              ...(serverId ? { serverId } : {}),
+              id: { in: removableBackupIds },
+            },
+          }).then((result) => result?.count || 0)
+          : Promise.resolve(0),
+      ]);
+
+      return {
+        ok: true,
+        tenantId,
+        serverId,
+        removed: {
+          jobs: removedJobs,
+          backups: removedBackups,
+        },
+        cutoffAt: {
+          jobs: new Date(jobCutoffMs).toISOString(),
+          backups: new Date(backupCutoffMs).toISOString(),
+        },
+      };
+    });
+  }
+
   return {
     ensurePlatformServerConfigTables,
     getServerConfigCategory,
@@ -1334,6 +1640,7 @@ function createPlatformServerConfigService(deps = {}) {
     claimNextServerConfigJob,
     completeServerConfigJob,
     retryServerConfigJob,
+    pruneServerConfigArtifacts,
     upsertServerConfigSnapshot,
   };
 }

@@ -216,6 +216,7 @@ function createAdminBillingPostRouteHandler(deps) {
         const result = await createCheckoutSession?.({
           tenantId,
           subscriptionId: subscription.id,
+          idempotencyKey: requiredString(body, 'idempotencyKey'),
           planId: plan.id,
           packageId: requestedPackageId || resolvedPackage?.id || subscription?.packageId || null,
           billingCycle: String(plan.billingCycle || 'monthly').trim() || 'monthly',
@@ -245,6 +246,7 @@ function createAdminBillingPostRouteHandler(deps) {
         invoiceId: requiredString(body, 'invoiceId'),
         subscriptionId: requiredString(body, 'subscriptionId'),
         customerId: requiredString(body, 'customerId'),
+        idempotencyKey: requiredString(body, 'idempotencyKey'),
         planId: requiredString(body, 'planId'),
         packageId: requiredString(body, 'packageId'),
         billingCycle: requiredString(body, 'billingCycle'),

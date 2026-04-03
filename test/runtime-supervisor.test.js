@@ -373,6 +373,13 @@ test('runtime supervisor does not alert optional watcher or console-agent when d
   process.env.SCUM_CONSOLE_AGENT_HOST = agent.host;
   process.env.SCUM_CONSOLE_AGENT_PORT = String(agent.port);
   delete process.env.SCUM_CONSOLE_AGENT_REQUIRED;
+  delete process.env.SCUM_SERVER_BOT_ENABLED;
+  delete process.env.SCUM_SERVER_BOT_REQUIRED;
+  delete process.env.SCUM_SERVER_BOT_HEALTH_HOST;
+  delete process.env.SCUM_SERVER_BOT_HEALTH_PORT;
+  delete process.env.SCUM_SERVER_CONFIG_ROOT;
+  delete process.env.SCUM_SERVER_SETTINGS_DIR;
+  delete process.env.SCUM_SERVER_DIR;
   delete process.env.ADMIN_WEB_HOST;
   delete process.env.ADMIN_WEB_PORT;
   delete process.env.WEB_PORTAL_HOST;

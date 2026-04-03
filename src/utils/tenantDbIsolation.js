@@ -134,20 +134,34 @@ function listTenantDbIsolationTables() {
 }
 
 async function ensureTenantDbIsolationTable(client, table) {
-  if (String(table?.tableName || '').trim() !== 'platform_tenant_configs') {
+  const tableName = trimText(table?.tableName, 160);
+  if (!tableName) {
+    throw new Error('tenant isolation table metadata is incomplete');
+  }
+  const rows = await client.$queryRawUnsafe(
+    `
+    SELECT c.relname AS "tableName"
+    FROM pg_class c
+    INNER JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = current_schema()
+      AND c.relname = $1
+    LIMIT 1
+    `,
+    tableName,
+  );
+  const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  if (row?.tableName) {
     return;
   }
-  await client.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform_tenant_configs (
-      tenant_id TEXT PRIMARY KEY,
-      config_patch_json TEXT,
-      portal_env_patch_json TEXT,
-      feature_flags_json TEXT,
-      updated_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+  const error = new Error(
+    `Tenant DB isolation cannot be installed because required table "${tableName}" is missing. Run the schema migrations first.`,
+  );
+  error.code = 'TENANT_DB_ISOLATION_TABLE_REQUIRED';
+  error.statusCode = 500;
+  error.tenantDbIsolation = {
+    tableName,
+  };
+  throw error;
 }
 
 async function configureTenantDbIsolationSession(client, options = {}) {

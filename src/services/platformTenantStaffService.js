@@ -160,53 +160,53 @@ async function findMembershipRecord(db, membershipId, tenantId, userId = null) {
     ? await db.$queryRaw`
         SELECT
           m.id AS "membershipId",
-          m.userId,
-          m.tenantId,
-          m.membershipType,
-          m.role,
-          m.status,
-          m.isPrimary,
-          m.invitedAt,
-          m.acceptedAt,
-          m.revokedAt,
-          m.metadataJson,
-          m.createdAt,
-          m.updatedAt,
-          u.primaryEmail,
-          u.displayName,
+          m."userId" AS "userId",
+          m."tenantId" AS "tenantId",
+          m."membershipType" AS "membershipType",
+          m.role AS "role",
+          m.status AS "status",
+          m."isPrimary" AS "isPrimary",
+          m."invitedAt" AS "invitedAt",
+          m."acceptedAt" AS "acceptedAt",
+          m."revokedAt" AS "revokedAt",
+          m."metadataJson" AS "metadataJson",
+          m."createdAt" AS "createdAt",
+          m."updatedAt" AS "updatedAt",
+          u."primaryEmail",
+          u."displayName",
           u.locale,
           u.status AS "userStatus"
         FROM platform_memberships m
-        LEFT JOIN platform_users u ON u.id = m.userId
+        LEFT JOIN platform_users u ON u.id = m."userId"
         WHERE m.id = ${normalizedMembershipId}
-          AND m.tenantId = ${normalizedTenantId}
+          AND m."tenantId" = ${normalizedTenantId}
         LIMIT 1
       `
     : await db.$queryRaw`
         SELECT
           m.id AS "membershipId",
-          m.userId,
-          m.tenantId,
-          m.membershipType,
-          m.role,
-          m.status,
-          m.isPrimary,
-          m.invitedAt,
-          m.acceptedAt,
-          m.revokedAt,
-          m.metadataJson,
-          m.createdAt,
-          m.updatedAt,
-          u.primaryEmail,
-          u.displayName,
+          m."userId" AS "userId",
+          m."tenantId" AS "tenantId",
+          m."membershipType" AS "membershipType",
+          m.role AS "role",
+          m.status AS "status",
+          m."isPrimary" AS "isPrimary",
+          m."invitedAt" AS "invitedAt",
+          m."acceptedAt" AS "acceptedAt",
+          m."revokedAt" AS "revokedAt",
+          m."metadataJson" AS "metadataJson",
+          m."createdAt" AS "createdAt",
+          m."updatedAt" AS "updatedAt",
+          u."primaryEmail",
+          u."displayName",
           u.locale,
           u.status AS "userStatus"
         FROM platform_memberships m
-        LEFT JOIN platform_users u ON u.id = m.userId
-        WHERE m.userId = ${normalizedUserId}
-          AND m.tenantId = ${normalizedTenantId}
-          AND m.membershipType = 'tenant'
-        ORDER BY m.updatedAt DESC
+        LEFT JOIN platform_users u ON u.id = m."userId"
+        WHERE m."userId" = ${normalizedUserId}
+          AND m."tenantId" = ${normalizedTenantId}
+          AND m."membershipType" = 'tenant'
+        ORDER BY m."updatedAt" DESC
         LIMIT 1
       `;
   return normalizeStaffRow(Array.isArray(rows) ? rows[0] : null);
@@ -218,8 +218,8 @@ async function countActiveOwners(db, tenantId) {
   const rows = await db.$queryRaw`
     SELECT COUNT(*) AS "count"
     FROM platform_memberships
-    WHERE tenantId = ${normalizedTenantId}
-      AND membershipType = 'tenant'
+    WHERE "tenantId" = ${normalizedTenantId}
+      AND "membershipType" = 'tenant'
       AND role = ${'owner'}
       AND status = ${'active'}
   `;
@@ -239,27 +239,27 @@ async function listTenantStaffMemberships(tenantId, options = {}, db = prisma) {
   const rows = await db.$queryRaw`
     SELECT
       m.id AS "membershipId",
-      m.userId,
-      m.tenantId,
-      m.membershipType,
-      m.role,
-      m.status,
-      m.isPrimary,
-      m.invitedAt,
-      m.acceptedAt,
-      m.revokedAt,
-      m.metadataJson,
-      m.createdAt,
-      m.updatedAt,
-      u.primaryEmail,
-      u.displayName,
+      m."userId" AS "userId",
+      m."tenantId" AS "tenantId",
+      m."membershipType" AS "membershipType",
+      m.role AS "role",
+      m.status AS "status",
+      m."isPrimary" AS "isPrimary",
+      m."invitedAt" AS "invitedAt",
+      m."acceptedAt" AS "acceptedAt",
+      m."revokedAt" AS "revokedAt",
+      m."metadataJson" AS "metadataJson",
+      m."createdAt" AS "createdAt",
+      m."updatedAt" AS "updatedAt",
+      u."primaryEmail",
+      u."displayName",
       u.locale,
       u.status AS "userStatus"
     FROM platform_memberships m
-    LEFT JOIN platform_users u ON u.id = m.userId
-    WHERE m.tenantId = ${normalizedTenantId}
-      AND m.membershipType = 'tenant'
-    ORDER BY m.updatedAt DESC
+    LEFT JOIN platform_users u ON u.id = m."userId"
+    WHERE m."tenantId" = ${normalizedTenantId}
+      AND m."membershipType" = 'tenant'
+    ORDER BY m."updatedAt" DESC
     LIMIT ${limit}
   `;
   const normalizedRows = Array.isArray(rows) ? rows.map((row) => normalizeStaffRow(row)).filter(Boolean) : [];
@@ -272,6 +272,7 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
   const email = normalizeEmail(input.email);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   if (!email) return { ok: false, reason: 'email-required' };
+  const now = new Date();
   const actorContext = normalizeActorContext(actor);
   const role = normalizeRole(input.role);
   const invitePolicy = canActorManageTenantMembership({
@@ -326,16 +327,16 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
     SET
       role = ${role},
       status = ${'invited'},
-      invitedAt = COALESCE(invitedAt, ${new Date().toISOString()}),
-      acceptedAt = ${null},
-      metadataJson = ${JSON.stringify({
+      "invitedAt" = COALESCE("invitedAt", ${now}),
+      "acceptedAt" = ${null},
+      "metadataJson" = ${JSON.stringify({
         ...(result.membership?.metadata || {}),
         source: 'tenant-staff-invite',
         actor: actorContext.id,
         invitedBy: actorContext.id,
         inviteState: 'pending',
       })},
-      updatedAt = ${new Date().toISOString()}
+      "updatedAt" = ${now}
     WHERE id = ${result.membership.id}
   `;
   return {
@@ -350,6 +351,7 @@ async function inviteTenantStaff(input = {}, actor = 'system', db = prisma) {
 async function updateTenantStaffRole(input = {}, actor = 'system', db = prisma) {
   const tenantId = trimText(input.tenantId, 160);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
+  const now = new Date();
   const actorContext = normalizeActorContext(actor);
   const existing = await findMembershipRecord(db, input.membershipId, tenantId, input.userId);
   if (!existing) return { ok: false, reason: 'tenant-staff-not-found' };
@@ -380,18 +382,19 @@ async function updateTenantStaffRole(input = {}, actor = 'system', db = prisma) 
       message: 'At least one active owner must remain on this tenant.',
     };
   }
+  const acceptedAt = existing.acceptedAt ? new Date(existing.acceptedAt) : now;
   await db.$executeRaw`
     UPDATE platform_memberships
     SET
       role = ${nextRole},
       status = ${nextStatus},
-      acceptedAt = ${existing.acceptedAt || new Date().toISOString()},
-      metadataJson = ${JSON.stringify({
+      "acceptedAt" = ${acceptedAt},
+      "metadataJson" = ${JSON.stringify({
         ...existing.metadata,
         source: 'tenant-staff-role-update',
         actor: actorContext.id,
       })},
-      updatedAt = ${new Date().toISOString()}
+      "updatedAt" = ${now}
     WHERE id = ${existing.membershipId}
   `;
   return {
@@ -406,6 +409,7 @@ async function updateTenantStaffRole(input = {}, actor = 'system', db = prisma) 
 async function revokeTenantStaffMembership(input = {}, actor = 'system', db = prisma) {
   const tenantId = trimText(input.tenantId, 160);
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
+  const now = new Date();
   const actorContext = normalizeActorContext(actor);
   const existing = await findMembershipRecord(db, input.membershipId, tenantId, input.userId);
   if (!existing) return { ok: false, reason: 'tenant-staff-not-found' };
@@ -432,22 +436,28 @@ async function revokeTenantStaffMembership(input = {}, actor = 'system', db = pr
     UPDATE platform_memberships
     SET
       status = 'revoked',
-      revokedAt = ${new Date().toISOString()},
-      metadataJson = ${JSON.stringify({
+      "revokedAt" = ${now},
+      "metadataJson" = ${JSON.stringify({
         ...existing.metadata,
         source: 'tenant-staff-revoke',
         actor: actorContext.id,
         revokeReason: trimText(input.revokeReason, 240) || null,
       })},
-      updatedAt = ${new Date().toISOString()}
+      "updatedAt" = ${now}
     WHERE id = ${existing.membershipId}
   `;
+  const staff = normalizeStaffRow(await findMembershipRecord(db, existing.membershipId, tenantId), {
+    actor: actorContext,
+    activeOwnerCount: await countActiveOwners(db, tenantId),
+  });
   return {
     ok: true,
-    staff: normalizeStaffRow(await findMembershipRecord(db, existing.membershipId, tenantId), {
-      actor: actorContext,
-      activeOwnerCount: await countActiveOwners(db, tenantId),
-    }),
+    staff: staff
+      ? {
+        ...staff,
+        revokedAt: staff.revokedAt || now.toISOString(),
+      }
+      : null,
   };
 }
 

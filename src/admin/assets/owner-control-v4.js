@@ -466,13 +466,16 @@
     const subscriptions = buildSubscriptionLookup(state.subscriptions);
     const quotaLookup = buildQuotaLookup(state.tenantQuotaSnapshots);
     const invoices = Array.isArray(state.billingInvoices) ? state.billingInvoices : [];
+    const paymentAttempts = Array.isArray(state.billingPaymentAttempts) ? state.billingPaymentAttempts : [];
     return tenants.map((tenant) => {
       const tenantId = trimText(tenant && tenant.id, 160);
       const subscription = subscriptions.get(tenantId) || null;
       const packageId = extractPackageId(subscription, packageCatalog);
       const quota = summarizeQuota(quotaLookup.get(tenantId));
       const tenantInvoices = invoices.filter((row) => trimText(row && row.tenantId, 160) === tenantId);
+      const tenantPaymentAttempts = paymentAttempts.filter((row) => trimText(row && row.tenantId, 160) === tenantId);
       const latestInvoice = tenantInvoices[0] || null;
+      const latestPaymentAttempt = tenantPaymentAttempts[0] || null;
       return {
         tenantId,
         tenant,
@@ -504,6 +507,12 @@
           ? `${firstNonEmpty([latestInvoice.status], 'draft')} · ${formatCurrencyCents(latestInvoice.amountCents || 0, latestInvoice.currency || 'THB')}`
           : 'ยังไม่มี invoice ล่าสุด',
         quota,
+        commercial: {
+          latestInvoice,
+          latestPaymentAttempt,
+          invoiceCount: tenantInvoices.length,
+          paymentAttemptCount: tenantPaymentAttempts.length,
+        },
       };
     });
   }
@@ -703,6 +712,95 @@
     return queue
       .sort((left, right) => (Number(right && right.weight) || 0) - (Number(left && left.weight) || 0))
       .slice(0, 6);
+  }
+
+  function buildTenantCommercialActionContext(tenantRow) {
+    const commercial = tenantRow && tenantRow.commercial && typeof tenantRow.commercial === 'object'
+      ? tenantRow.commercial
+      : {};
+    const invoice = commercial.latestInvoice && typeof commercial.latestInvoice === 'object'
+      ? commercial.latestInvoice
+      : null;
+    const paymentAttempt = commercial.latestPaymentAttempt && typeof commercial.latestPaymentAttempt === 'object'
+      ? commercial.latestPaymentAttempt
+      : null;
+    const subscription = tenantRow && tenantRow.subscription && typeof tenantRow.subscription === 'object'
+      ? tenantRow.subscription
+      : {};
+    const invoiceMetadata = parseObject(invoice && (invoice.metadata || invoice.metadataJson || invoice.meta));
+    return {
+      tenantId: trimText(tenantRow && tenantRow.tenantId, 160),
+      invoiceId: trimText(invoice && invoice.id, 160),
+      paymentAttemptId: trimText(paymentAttempt && paymentAttempt.id, 160),
+      subscriptionId: trimText(invoice && invoice.subscriptionId, 160) || trimText(subscription && subscription.id, 160),
+      planId: firstNonEmpty([invoiceMetadata.targetPlanId, invoice && invoice.planId, subscription && subscription.planId], ''),
+      packageId: firstNonEmpty([invoiceMetadata.targetPackageId, invoice && invoice.packageId, tenantRow && tenantRow.packageId, subscription && subscription.packageId], ''),
+      billingCycle: firstNonEmpty([invoiceMetadata.targetBillingCycle, invoice && invoice.billingCycle, subscription && subscription.billingCycle], 'monthly'),
+      amountCents: Number(invoice && invoice.amountCents) || Number(paymentAttempt && paymentAttempt.amountCents) || Number(subscription && subscription.amountCents) || 0,
+      currency: trimText(invoice && invoice.currency, 12) || trimText(paymentAttempt && paymentAttempt.currency, 12) || trimText(subscription && subscription.currency, 12) || 'THB',
+      externalRef: trimText(subscription && subscription.externalRef, 200),
+      invoice,
+      paymentAttempt,
+      subscription,
+      commercial,
+    };
+  }
+
+  function renderTenantCommercialRecoveryWorkspace(tenantRow, options) {
+    if (!tenantRow) return '';
+    const settings = options && typeof options === 'object' ? options : {};
+    const mode = trimText(settings.mode, 40).toLowerCase();
+    const sectionId = mode === 'support'
+      ? 'owner-tenant-support-commercial-live'
+      : 'owner-tenant-commercial-live';
+    const context = buildTenantCommercialActionContext(tenantRow);
+    const exportBase = `/owner/api/platform/billing/export?tenantId=${encodeURIComponent(context.tenantId)}`;
+    const queue = buildBillingRecoveryQueue(
+      [tenantRow],
+      context.invoice ? [context.invoice] : [],
+      context.paymentAttempt ? [context.paymentAttempt] : [],
+    );
+    const queueCards = queue.map((item) => [
+      `<article class="odvc4-metric-card odv4-tone-${escapeHtml(item && item.tone || 'muted')}">`,
+      `<span class="odv4-table-label">${escapeHtml(firstNonEmpty([item && item.label], 'Billing item'))}</span>`,
+      `<strong>${escapeHtml(firstNonEmpty([item && item.title], tenantRow && tenantRow.tenant && (tenantRow.tenant.name || tenantRow.tenant.slug) || context.tenantId || '-'))}</strong>`,
+      `<p>${escapeHtml(firstNonEmpty([item && item.detail], 'Review the latest billing signal for this tenant.'))}</p>`,
+      item && item.actions ? `<div class="odvc4-action-row">${item.actions}</div>` : '',
+      '</article>',
+    ].join('')).join('');
+    const summaryRows = [
+      context.invoiceId
+        ? `Latest invoice ${context.invoiceId} · ${trimText(context.invoice && context.invoice.status, 40) || '-'} · ${formatCurrencyCents(context.amountCents, context.currency)}`
+        : 'No invoice snapshot yet',
+      context.paymentAttemptId
+        ? `Latest payment attempt ${context.paymentAttemptId} · ${trimText(context.paymentAttempt && context.paymentAttempt.status, 40) || '-'}`
+        : 'No failed payment attempt snapshot',
+      `Subscription ${context.subscriptionId || '-'} · ${trimText(context.subscription && context.subscription.status, 40) || trimText(tenantRow && tenantRow.status, 40) || '-'}`,
+    ];
+    const ownerActions = [
+      context.invoiceId
+        ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="update-billing-invoice-status" data-tenant-id="${escapeHtml(context.tenantId)}" data-invoice-id="${escapeHtml(context.invoiceId)}" data-target-status="paid">Mark paid</button>`
+        : '',
+      context.invoiceId
+        ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="retry-billing-checkout" data-tenant-id="${escapeHtml(context.tenantId)}" data-invoice-id="${escapeHtml(context.invoiceId)}" data-subscription-id="${escapeHtml(context.subscriptionId)}" data-plan-id="${escapeHtml(context.planId)}" data-package-id="${escapeHtml(context.packageId)}" data-billing-cycle="${escapeHtml(context.billingCycle)}" data-amount-cents="${escapeHtml(String(context.amountCents))}" data-currency="${escapeHtml(context.currency)}">Retry checkout</button>`
+        : '',
+      context.subscriptionId
+        ? `<button class="odv4-button odv4-button-secondary" type="button" data-owner-action="reactivate-billing-subscription" data-tenant-id="${escapeHtml(context.tenantId)}" data-subscription-id="${escapeHtml(context.subscriptionId)}" data-plan-id="${escapeHtml(context.planId)}" data-package-id="${escapeHtml(context.packageId)}" data-billing-cycle="${escapeHtml(context.billingCycle)}" data-currency="${escapeHtml(context.currency)}" data-amount-cents="${escapeHtml(String(context.amountCents))}" data-external-ref="${escapeHtml(context.externalRef)}">Reactivate subscription</button>`
+        : '',
+    ].filter(Boolean).join('');
+    return [
+      `<section class="odv4-panel odvc4-panel" id="${escapeHtml(sectionId)}">`,
+      '<div class="odv4-section-head"><span class="odv4-section-kicker">Billing</span><h2 class="odv4-section-title">Billing recovery workspace</h2><p class="odv4-section-copy">Use the existing billing actions here before switching to deeper subscription history.</p></div>',
+      `<div class="odvc4-note-card"><strong>Commercial snapshot</strong><p>${escapeHtml(summaryRows.join(' · '))}</p></div>`,
+      ownerActions
+        ? `<div class="odvc4-action-row">${ownerActions}</div>`
+        : '<div class="odvc4-note-card"><strong>No immediate billing action</strong><p>The latest tenant snapshot does not require a billing action right now.</p></div>',
+      queueCards
+        ? `<div class="odvc4-card-grid">${queueCards}</div>`
+        : '',
+      `<div class="odvc4-note-card" data-owner-billing-export-actions><strong>Export billing evidence</strong><p>${escapeHtml(`${formatNumber(context.commercial && context.commercial.invoiceCount, '0')} invoices and ${formatNumber(context.commercial && context.commercial.paymentAttemptCount, '0')} payment attempts are available for export.`)}</p><div class="odvc4-action-row"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(`${exportBase}&format=csv`)}" download>Export CSV</a><a class="odv4-button odv4-button-secondary" href="${escapeHtml(`${exportBase}&format=json`)}" download>Export JSON</a></div></div>`,
+      '</section>',
+    ].join('');
   }
 
   function buildExpiringRows(tenantRows) {
@@ -1503,6 +1601,7 @@
         ? `<div class="odvc4-note-card"><strong>${escapeHtml(firstNonEmpty([lifecycle.label], 'โหลดบริบทงานดูแลลูกค้าแล้ว'))}</strong><p>${escapeHtml(firstNonEmpty([lifecycle.detail], 'เปิดเคสดูแลลูกค้าเพื่อจัดการงานค้างผิดพลาด การแจ้งเตือน และคำขอที่มีปัญหาของลูกค้ารายนี้'))}</p></div>`
         : `<div class="odvc4-note-card"><strong>${supportCaseLoading ? 'กำลังโหลดบริบทงานดูแลลูกค้า' : 'ยังไม่ได้โหลดบริบทงานดูแลลูกค้า'}</strong><p>${escapeHtml(supportCaseLoading ? 'กำลังรวบรวมบริบทการส่งของ การแจ้งเตือน และการเริ่มต้นใช้งานของลูกค้ารายนี้' : 'ใช้หน้าเคสดูแลลูกค้าเมื่อคุณต้องตรวจงานค้างผิดพลาด การแจ้งเตือนของลูกค้า หรือคำขอฝั่ง Owner ที่เพิ่งล้มเหลว')}</p></div>`,
       '</section>',
+      renderTenantCommercialRecoveryWorkspace(tenantRow),
       '<section class="odv4-panel odvc4-panel" id="owner-tenant-detail-runtime-live">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">บอท</span><h2 class="odv4-section-title">บริบทบอทของลูกค้า</h2><p class="odv4-section-copy">ตรวจบอทส่งของและบอทเซิร์ฟเวอร์ของลูกค้ารายนี้ แล้วออกโทเค็นใหม่หรือยกเลิกสิทธิ์ได้จากหน้านี้ทันทีเมื่อจำเป็น</p></div>',
       renderTenantRuntimeTable(tenantRuntimeRows, {
@@ -1725,6 +1824,7 @@
       bundle
         ? `<div class="odvc4-note-card"><strong>${escapeHtml(firstNonEmpty([bundle.headline && bundle.headline.tenant], tenant.name || tenant.slug || tenantRow.tenantId))}</strong><p>${escapeHtml(firstNonEmpty([lifecycle.detail], 'โหลดชุดข้อมูลช่วยเหลือสำหรับลูกค้ารายนี้แล้ว'))}</p></div>`
         : `<div class="odvc4-note-card"><strong>${loading ? 'กำลังโหลดเคสดูแลลูกค้า' : 'ยังไม่มีชุดข้อมูลช่วยเหลือ'}</strong><p>${loading ? 'กำลังรวบรวมบริบท onboarding การส่งของ บอท และการแจ้งเตือนของลูกค้ารายนี้' : 'ยังโหลดชุดข้อมูลช่วยเหลือไม่สำเร็จ แต่เมื่อข้อมูลพร้อมแล้วคุณยังใช้เครื่องมือส่งของและการแจ้งเตือนจากหน้านี้ต่อได้'}</p></div>`,
+      renderTenantCommercialRecoveryWorkspace(tenantRow, { mode: 'support' }),
       '<section class="odv4-panel odvc4-panel" id="owner-tenant-support-actions-live">',
       '<div class="odv4-section-head"><span class="odv4-section-kicker">งานหลัก</span><h2 class="odv4-section-title">งานดูแลที่ควรเริ่มก่อน</h2><p class="odv4-section-copy">เริ่มจากงานที่ระบบสรุปจากชุดข้อมูลช่วยเหลือก่อน แล้วค่อยลงลึกไปหน้า runtime หรือการเงินเมื่อจำเป็น</p></div>',
       `<div class="odvc4-card-grid">${supportActionCards || '<div class="odvc4-note-card"><strong>ยังไม่มีงานที่ต้องทำทันที</strong><p>ชุดข้อมูลช่วยเหลือปัจจุบันยังไม่มีงานติดตามที่ต้องทำทันที</p></div>'}</div>`,

@@ -233,3 +233,55 @@ test('admin notification store filters notifications by tenant id from payload d
   assert.equal(tenantOneRows[0].id, 'note-tenant-1');
   assert.equal(tenantOneRows[0].tenantId, 'tenant-1');
 });
+
+test('admin notification store prunes old notifications while keeping the newest entries', async () => {
+  const harness = createNotificationDelegateHarness();
+  const store = loadStoreWithMocks(harness.delegate);
+
+  await store.initAdminNotificationStore();
+
+  store.addAdminNotification({
+    id: 'note-old',
+    type: 'ops-alert',
+    source: 'ops',
+    kind: 'runtime-offline',
+    severity: 'warn',
+    title: 'Old',
+    message: 'old note',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  });
+  store.addAdminNotification({
+    id: 'note-mid',
+    type: 'ops-alert',
+    source: 'ops',
+    kind: 'runtime-offline',
+    severity: 'warn',
+    title: 'Mid',
+    message: 'mid note',
+    createdAt: '2026-02-01T00:00:00.000Z',
+  });
+  store.addAdminNotification({
+    id: 'note-new',
+    type: 'ops-alert',
+    source: 'ops',
+    kind: 'runtime-offline',
+    severity: 'warn',
+    title: 'New',
+    message: 'new note',
+    createdAt: '2026-03-01T00:00:00.000Z',
+  });
+  await store.waitForAdminNotificationPersistence();
+
+  const result = store.pruneAdminNotifications({
+    now: '2026-04-01T00:00:00.000Z',
+    olderThanMs: 45 * 24 * 60 * 60 * 1000,
+    keepLatest: 1,
+  });
+  assert.equal(result.removed, 2);
+  await store.waitForAdminNotificationPersistence();
+
+  const rows = store.listAdminNotifications({ limit: 10 });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'note-new');
+  assert.equal(harness.snapshot().length, 1);
+});

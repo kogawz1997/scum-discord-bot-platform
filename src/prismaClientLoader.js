@@ -24,6 +24,13 @@ function trimText(value, maxLen = 4000) {
   return text.length <= maxLen ? text : text.slice(0, maxLen);
 }
 
+function isNodeTestRuntime() {
+  if (trimText(process.env.NODE_ENV, 40).toLowerCase() === 'test') {
+    return true;
+  }
+  return process.execArgv.some((arg) => String(arg || '').startsWith('--test'));
+}
+
 function resolveClientModulePath() {
   const directPath = trimText(process.env.PRISMA_CLIENT_MODULE_PATH, 4000);
   if (directPath) {
@@ -65,8 +72,37 @@ function normalizeProvider(value) {
   return '';
 }
 
+function resolveProviderFromDatabaseUrl(databaseUrl = process.env.PRISMA_TEST_DATABASE_URL || process.env.DATABASE_URL) {
+  const raw = trimText(databaseUrl, 4000);
+  if (!raw) return '';
+  if (/^postgres(?:ql)?:\/\//i.test(raw)) return 'postgresql';
+  if (/^mysql:\/\//i.test(raw)) return 'mysql';
+  if (raw.startsWith('file:')) return 'sqlite';
+  return '';
+}
+
 function resolveRequestedProvider() {
-  return normalizeProvider(process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER);
+  const explicitProvider = normalizeProvider(
+    process.env.PRISMA_SCHEMA_PROVIDER
+      || process.env.DATABASE_PROVIDER
+      || process.env.PRISMA_TEST_DATABASE_PROVIDER,
+  );
+  const inferredProvider = resolveProviderFromDatabaseUrl();
+  if (
+    isNodeTestRuntime()
+    && explicitProvider
+    && inferredProvider
+    && explicitProvider !== inferredProvider
+  ) {
+    return inferredProvider;
+  }
+  if (explicitProvider) {
+    return explicitProvider;
+  }
+  if (inferredProvider) {
+    return inferredProvider;
+  }
+  return isNodeTestRuntime() ? 'sqlite' : '';
 }
 
 function findLatestGeneratedClientForProvider(provider) {
@@ -126,6 +162,7 @@ module.exports = {
   getGeneratedClientMetadata,
   getPrismaClientModule,
   normalizeProvider,
+  resolveProviderFromDatabaseUrl,
   resolveRequestedProvider,
   resolveClientModulePath,
 };

@@ -1,11 +1,19 @@
+const fs = require('node:fs');
 const path = require('node:path');
-const { PrismaClient } = require('./prismaClientLoader');
+const {
+  PrismaClient,
+  getGeneratedClientMetadata,
+  resolveClientModulePath,
+} = require('./prismaClientLoader');
+const { resolveDatabaseRuntime } = require('./utils/dbEngine');
 const { resolveTenantDatabaseTarget } = require('./utils/tenantDatabaseTopology');
 const {
   clearProvisionedTenantDatabaseTargets,
   ensureTenantDatabaseTargetProvisioned,
   shouldAutoProvisionTenantDatabaseTarget,
 } = require('./utils/tenantDatabaseProvisioning');
+
+const SOURCE_SCHEMA_PATH = path.join(process.cwd(), 'prisma', 'schema.prisma');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -67,6 +75,75 @@ function ensureTestDatabaseDefaults() {
   if (forceIsolatedDatabase || !normalizeText(process.env.PRISMA_SCHEMA_PROVIDER)) {
     process.env.PRISMA_SCHEMA_PROVIDER = 'sqlite';
   }
+}
+
+function readSourceSchemaProvider(schemaPath = SOURCE_SCHEMA_PATH) {
+  try {
+    const text = fs.readFileSync(schemaPath, 'utf8');
+    const match = text.match(/datasource\s+db\s*\{[\s\S]*?provider\s*=\s*"([^"]+)"/m);
+    return normalizeText(match?.[1]).toLowerCase() || 'sqlite';
+  } catch {
+    return 'sqlite';
+  }
+}
+
+function getPrismaRuntimeProfile(options = {}) {
+  const env = options.env && typeof options.env === 'object'
+    ? options.env
+    : process.env;
+  const projectRoot = options.projectRoot || process.cwd();
+  const schemaPath = options.schemaPath || path.join(projectRoot, 'prisma', 'schema.prisma');
+  const databaseUrl = options.databaseUrl == null ? env.DATABASE_URL : options.databaseUrl;
+  const requestedProvider = normalizeText(
+    options.provider
+      || env.PRISMA_SCHEMA_PROVIDER
+      || env.DATABASE_PROVIDER,
+  ).toLowerCase();
+  const runtime = resolveDatabaseRuntime({
+    projectRoot,
+    schemaPath,
+    databaseUrl,
+    provider: requestedProvider,
+  });
+  const sourceSchemaProvider = readSourceSchemaProvider(schemaPath);
+  const generatedClientMetadata = options.generatedClientMetadata === undefined
+    ? getGeneratedClientMetadata()
+    : options.generatedClientMetadata;
+  const generatedClientProvider = normalizeText(
+    options.generatedClientProvider
+      || generatedClientMetadata?.provider
+      || requestedProvider
+      || runtime.provider,
+  ).toLowerCase() || runtime.provider;
+  const generatedClientOutputPath = normalizeText(
+    options.generatedClientOutputPath
+      || generatedClientMetadata?.outputPath,
+    4000,
+  ) || null;
+  const clientModulePath = options.clientModulePath === undefined
+    ? resolveClientModulePath()
+    : options.clientModulePath;
+  const usesProviderRenderedSchema = sourceSchemaProvider !== runtime.provider;
+  const runtimeMode = usesProviderRenderedSchema
+    ? 'provider-rendered-runtime'
+    : 'sqlite-compatibility';
+
+  return {
+    sourceSchemaPath: schemaPath,
+    sourceSchemaProvider,
+    requestedProvider: requestedProvider || runtime.provider,
+    runtimeDatabaseUrl: runtime.rawUrl,
+    runtimeEngine: runtime.engine,
+    runtimeProvider: runtime.provider,
+    generatedClientProvider,
+    generatedClientOutputPath,
+    clientModulePath: clientModulePath || null,
+    usesProviderRenderedSchema,
+    runtimeMode,
+    summary: usesProviderRenderedSchema
+      ? `Checked-in source schema stays ${sourceSchemaProvider} for compatibility while runtime uses ${runtime.provider} via rendered Prisma schema/client.`
+      : `Checked-in source schema and runtime both use ${runtime.provider}.`,
+  };
 }
 
 let cachedClient = null;
@@ -315,9 +392,12 @@ const prisma = new Proxy({}, {
 
 module.exports = {
   prisma,
+  SOURCE_SCHEMA_PATH,
   getPrismaClient,
+  getPrismaRuntimeProfile,
   getDefaultTenantScopedPrismaClient,
   getTenantScopedPrismaClient,
+  readSourceSchemaProvider,
   withTenantScopedPrismaClient,
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,

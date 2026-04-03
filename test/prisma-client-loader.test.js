@@ -12,6 +12,11 @@ function clearLoader() {
 
 test.afterEach(() => {
   delete process.env.PRISMA_CLIENT_MODULE_PATH;
+  delete process.env.PRISMA_SCHEMA_PROVIDER;
+  delete process.env.DATABASE_PROVIDER;
+  delete process.env.PRISMA_TEST_DATABASE_PROVIDER;
+  delete process.env.PRISMA_TEST_DATABASE_URL;
+  delete process.env.DATABASE_URL;
   clearLoader();
 });
 
@@ -32,4 +37,16 @@ test('prisma client loader uses explicit generated client module path when provi
   assert.equal(loader.Prisma.marker, true);
 
   fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('resolveRequestedProvider infers sqlite from test database url when explicit provider is absent', () => {
+  delete process.env.PRISMA_SCHEMA_PROVIDER;
+  delete process.env.DATABASE_PROVIDER;
+  delete process.env.PRISMA_TEST_DATABASE_PROVIDER;
+  process.env.DATABASE_URL = 'file:./prisma/test.db';
+  clearLoader();
+  const loader = require(loaderPath);
+
+  assert.equal(loader.resolveProviderFromDatabaseUrl(process.env.DATABASE_URL), 'sqlite');
+  assert.equal(loader.resolveRequestedProvider(), 'sqlite');
 });

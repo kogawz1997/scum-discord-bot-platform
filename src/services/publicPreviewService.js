@@ -92,6 +92,7 @@ function verifyPasswordHash(password, passwordHash) {
 }
 
 function sanitizePreviewState(account, tenantSnapshot, featureAccess) {
+  const commercial = buildPreviewCommercialState(account, tenantSnapshot);
   return {
     account: account
       ? {
@@ -128,6 +129,106 @@ function sanitizePreviewState(account, tenantSnapshot, featureAccess) {
       features: Array.isArray(featureAccess?.features) ? featureAccess.features : [],
     },
     identity: account?.identity || null,
+    commercial,
+  };
+}
+
+function buildPreviewIdentityPayload(summary) {
+  if (!summary?.user) return null;
+  return {
+    userId: summary.user?.id || null,
+    providers: Array.isArray(summary.identities)
+      ? summary.identities.map((entry) => entry.provider).filter(Boolean)
+      : [],
+    memberships: Array.isArray(summary.memberships)
+      ? summary.memberships.map((entry) => ({
+        tenantId: entry.tenantId,
+        role: entry.role,
+        membershipType: entry.membershipType,
+      }))
+      : [],
+  };
+}
+
+function derivePreviewLinkedIdentities(account, identitySummary) {
+  const existing = account?.linkedIdentities && typeof account.linkedIdentities === 'object'
+    ? account.linkedIdentities
+    : {};
+  const identities = Array.isArray(identitySummary?.identities) ? identitySummary.identities : [];
+  const hasDiscord = identities.some((entry) => trimText(entry?.provider, 80).toLowerCase() === 'discord');
+  const hasVerifiedDiscord = identities.some(
+    (entry) => trimText(entry?.provider, 80).toLowerCase() === 'discord' && Boolean(entry?.verifiedAt),
+  );
+  const hasSteam = identities.some((entry) => trimText(entry?.provider, 80).toLowerCase() === 'steam');
+  const playerMatched = existing.playerMatched === true;
+  const emailVerified = trimText(account?.verificationState, 80).toLowerCase() === 'email_verified';
+
+  return {
+    discordLinked: hasDiscord,
+    discordVerified: hasVerifiedDiscord,
+    steamLinked: hasSteam,
+    playerMatched,
+    fullyVerified: existing.fullyVerified === true
+      || (emailVerified && hasDiscord && hasSteam && playerMatched),
+  };
+}
+
+function normalizePreviewLifecycleStatus(value) {
+  const normalized = trimText(value, 80).toLowerCase();
+  if (normalized === 'trial') return 'trialing';
+  return ['preview', 'trialing', 'active', 'past_due', 'suspended', 'canceled', 'expired'].includes(normalized)
+    ? normalized
+    : 'preview';
+}
+
+function derivePreviewAccountState(account, tenantSnapshot, explicitSubscription = null) {
+  const subscription = explicitSubscription || tenantSnapshot?.subscription || null;
+  const resolved = normalizePreviewLifecycleStatus(
+    subscription?.lifecycleStatus
+      || subscription?.status
+      || tenantSnapshot?.subscriptionStatus
+      || tenantSnapshot?.tenantStatus
+      || account?.accountState,
+  );
+  if (resolved !== 'preview') {
+    return resolved;
+  }
+  return account?.tenantId ? 'trialing' : 'preview';
+}
+
+function buildPreviewCommercialState(account, tenantSnapshot, explicitSubscription = null) {
+  const subscription = explicitSubscription || tenantSnapshot?.subscription || null;
+  const accountState = derivePreviewAccountState(account, tenantSnapshot, explicitSubscription);
+  return {
+    accountState,
+    tenantStatus: trimText(tenantSnapshot?.tenantStatus, 80).toLowerCase() || null,
+    subscriptionId: trimText(subscription?.id || account?.subscriptionId, 160) || null,
+    subscriptionStatus: normalizePreviewLifecycleStatus(
+      subscription?.lifecycleStatus
+        || subscription?.status
+        || tenantSnapshot?.subscriptionStatus
+        || tenantSnapshot?.tenantStatus
+        || account?.accountState,
+    ),
+    currentPeriodStart: subscription?.currentPeriodStart || null,
+    currentPeriodEnd: subscription?.currentPeriodEnd || null,
+    trialEndsAt: subscription?.trialEndsAt || null,
+    packageId: trimText(tenantSnapshot?.package?.id || account?.packageId, 120) || null,
+    packageName: trimText(tenantSnapshot?.package?.title || tenantSnapshot?.package?.name, 180) || null,
+  };
+}
+
+function decoratePreviewAccount(account, options = {}) {
+  if (!account) return null;
+  const identitySummary = options.identitySummary || null;
+  const tenantSnapshot = options.tenantSnapshot || null;
+  const explicitSubscription = options.subscription || null;
+  const commercial = buildPreviewCommercialState(account, tenantSnapshot, explicitSubscription);
+  return {
+    ...account,
+    accountState: commercial.accountState,
+    linkedIdentities: derivePreviewLinkedIdentities(account, identitySummary),
+    identity: buildPreviewIdentityPayload(identitySummary) || account.identity || null,
   };
 }
 
@@ -284,7 +385,7 @@ function createPublicPreviewService(deps = {}) {
       communityName,
       locale,
       packageId,
-      accountState: 'preview',
+      accountState: tenantResult?.ok ? 'trialing' : 'preview',
       verificationState: 'pending_email_verification',
       tenantId: tenantResult?.tenant?.id || null,
       subscriptionId: subscriptionResult?.subscription?.id || null,
@@ -326,19 +427,39 @@ function createPublicPreviewService(deps = {}) {
         tenantId: tenantResult?.tenant?.id || null,
       },
     }).catch(() => null);
+    const decoratedAccount = decoratePreviewAccount({
+      ...account,
+      identity: identity?.ok
+        ? {
+          userId: identity.user?.id || null,
+          providers: Array.isArray(identity.identities)
+            ? identity.identities.map((entry) => entry.provider).filter(Boolean)
+            : [],
+        }
+        : null,
+    }, {
+      identitySummary: identity?.ok
+        ? {
+          user: identity.user || null,
+          identities: Array.isArray(identity.identities) ? identity.identities : [],
+          memberships: Array.isArray(identity.memberships) ? identity.memberships : [],
+        }
+        : null,
+      subscription: subscriptionResult?.subscription || null,
+      tenantSnapshot: tenantResult?.tenant
+        ? {
+          tenantId: tenantResult.tenant.id,
+          tenantStatus: subscriptionResult?.subscription?.lifecycleStatus || 'trialing',
+          package: getPackageById(packageId) || null,
+          subscription: subscriptionResult?.subscription || null,
+        }
+        : null,
+    });
 
     return {
       ok: true,
       account: {
-        ...account,
-        identity: identity?.ok
-          ? {
-            userId: identity.user?.id || null,
-            providers: Array.isArray(identity.identities)
-              ? identity.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-          }
-          : null,
+        ...decoratedAccount,
         verificationQueued: Boolean(verification?.ok),
         verificationTokenPreview: exposeDebugTokens ? verification?.rawToken || null : null,
       },
@@ -361,6 +482,7 @@ function createPublicPreviewService(deps = {}) {
     const updated = await updatePreviewAccountImpl(account.id, {
       lastLoginAt: new Date().toISOString(),
     });
+    const identitySummary = await getIdentitySummaryForPreviewAccountImpl(updated || account).catch(() => null);
     const identity = await ensurePlatformUserIdentityImpl({
       provider: 'email_preview',
       providerUserId: account.id || email,
@@ -381,15 +503,18 @@ function createPublicPreviewService(deps = {}) {
     return {
       ok: true,
       account: {
-        ...(updated || account),
-        identity: identity?.ok
-          ? {
-            userId: identity.user?.id || null,
-            providers: Array.isArray(identity.identities)
-              ? identity.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-          }
-          : null,
+        ...decoratePreviewAccount(updated || account, {
+          identitySummary,
+        }),
+        identity: buildPreviewIdentityPayload(identitySummary)
+          || (identity?.ok
+            ? {
+              userId: identity.user?.id || null,
+              providers: Array.isArray(identity.identities)
+                ? identity.identities.map((entry) => entry.provider).filter(Boolean)
+                : [],
+            }
+            : null),
       },
     };
   }
@@ -413,24 +538,14 @@ function createPublicPreviewService(deps = {}) {
 
     return {
       ok: true,
-      state: sanitizePreviewState({
-        ...account,
-        identity: identitySummary
-          ? {
-            userId: identitySummary.user?.id || null,
-            providers: Array.isArray(identitySummary.identities)
-              ? identitySummary.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-            memberships: Array.isArray(identitySummary.memberships)
-              ? identitySummary.memberships.map((entry) => ({
-                tenantId: entry.tenantId,
-                role: entry.role,
-                membershipType: entry.membershipType,
-              }))
-              : [],
-          }
-          : null,
-      }, tenantSnapshot, featureAccess),
+      state: sanitizePreviewState(
+        decoratePreviewAccount(account, {
+          identitySummary,
+          tenantSnapshot,
+        }),
+        tenantSnapshot,
+        featureAccess,
+      ),
       packageCatalog: getPackageCatalogImpl(),
     };
   }
@@ -494,6 +609,15 @@ function createPublicPreviewService(deps = {}) {
         verificationTokenPreview: null,
       };
     }
+    if (trimText(account.verificationState, 80).toLowerCase() === 'email_verified') {
+      return {
+        ok: true,
+        requested: false,
+        alreadyVerified: true,
+        verificationTokenQueued: false,
+        verificationTokenPreview: null,
+      };
+    }
     const identity = await ensurePlatformUserIdentityImpl({
       provider: 'email_preview',
       providerUserId: account.id || email,
@@ -549,6 +673,7 @@ function createPublicPreviewService(deps = {}) {
     const updated = await updatePreviewAccountImpl(account.id, {
       verificationState: 'email_verified',
     });
+    const identitySummary = await getIdentitySummaryForPreviewAccountImpl(updated || account).catch(() => null);
     const identity = await ensurePlatformUserIdentityImpl({
       provider: 'email_preview',
       providerUserId: account.id || account.email,
@@ -567,15 +692,18 @@ function createPublicPreviewService(deps = {}) {
     return {
       ok: true,
       account: {
-        ...(updated || account),
-        identity: identity?.ok
-          ? {
-            userId: identity.user?.id || null,
-            providers: Array.isArray(identity.identities)
-              ? identity.identities.map((entry) => entry.provider).filter(Boolean)
-              : [],
-          }
-          : null,
+        ...decoratePreviewAccount(updated || account, {
+          identitySummary,
+        }),
+        identity: buildPreviewIdentityPayload(identitySummary)
+          || (identity?.ok
+            ? {
+              userId: identity.user?.id || null,
+              providers: Array.isArray(identity.identities)
+                ? identity.identities.map((entry) => entry.provider).filter(Boolean)
+                : [],
+            }
+            : null),
       },
       nextUrl: '/login',
     };
@@ -606,9 +734,12 @@ function createPublicPreviewService(deps = {}) {
     const updated = await updatePreviewAccountImpl(account.id, {
       passwordHash: createPasswordHash(nextPassword),
     });
+    const identitySummary = await getIdentitySummaryForPreviewAccountImpl(updated || account).catch(() => null);
     return {
       ok: true,
-      account: updated || account,
+      account: decoratePreviewAccount(updated || account, {
+        identitySummary,
+      }),
       nextUrl: '/login',
     };
   }

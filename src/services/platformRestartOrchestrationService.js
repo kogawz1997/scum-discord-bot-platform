@@ -7,6 +7,11 @@ const { prisma } = require('../prisma');
 const { normalizeRestartServerPayload } = require('../contracts/jobs/jobContracts');
 const { buildRestartAnnouncementPlan } = require('../domain/servers/serverControlJobService');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const {
+  getCompatibilityClientKey,
+  ensureSqliteDateTimeSchemaCompatibility,
+  reconcileSqliteDateColumns,
+} = require('../utils/sqliteDateTimeCompatibility');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
 
 function trimText(value, maxLen = 240) {
@@ -37,6 +42,20 @@ function parseDate(value) {
   }
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function stableSerialize(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function createStableHash(value) {
+  return crypto.createHash('sha256').update(stableSerialize(value)).digest('hex');
 }
 
 function asInt(value, fallback = 0, min = 0) {
@@ -70,7 +89,160 @@ function getRestartDelegatesOrThrow(db = prisma) {
   throw error;
 }
 
-function getRestartPersistenceMode() {
+function isSharedRestartPrismaClient(db = null) {
+  if (!db || !prisma) return false;
+  if (db === prisma) return true;
+  const clientOriginal = db && typeof db === 'object' ? db._originalClient : null;
+  const sharedOriginal = prisma && typeof prisma === 'object' ? prisma._originalClient : null;
+  return Boolean(clientOriginal && sharedOriginal && clientOriginal === sharedOriginal);
+}
+
+const sharedRestartSqliteCompatibilityReady = new WeakSet();
+const RESTART_SQLITE_COMPATIBILITY_TABLES = [
+  {
+    tableName: 'platform_restart_plans',
+    columns: ['id', 'tenant_id', 'server_id', 'guild_id', 'runtime_key', 'status', 'restart_mode', 'control_mode', 'requested_by', 'scheduled_for', 'delay_seconds', 'reason', 'payload_json', 'health_status', 'health_verified_at', 'created_at', 'updated_at'],
+    dateColumns: ['scheduled_for', 'health_verified_at', 'created_at', 'updated_at'],
+    createTableSql: `
+      CREATE TABLE "platform_restart_plans" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "tenant_id" TEXT NOT NULL,
+        "server_id" TEXT NOT NULL,
+        "guild_id" TEXT,
+        "runtime_key" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'scheduled',
+        "restart_mode" TEXT NOT NULL DEFAULT 'delayed',
+        "control_mode" TEXT NOT NULL DEFAULT 'service',
+        "requested_by" TEXT,
+        "scheduled_for" DATETIME NOT NULL,
+        "delay_seconds" INTEGER NOT NULL DEFAULT 0,
+        "reason" TEXT,
+        "payload_json" TEXT,
+        "health_status" TEXT,
+        "health_verified_at" DATETIME,
+        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `,
+    indexSql: [
+      'CREATE INDEX "platform_restart_plans_tenant_scheduled_idx" ON "platform_restart_plans"("tenant_id", "scheduled_for");',
+      'CREATE INDEX "platform_restart_plans_server_scheduled_idx" ON "platform_restart_plans"("server_id", "scheduled_for");',
+      'CREATE INDEX "platform_restart_plans_status_scheduled_idx" ON "platform_restart_plans"("status", "scheduled_for");',
+    ],
+  },
+  {
+    tableName: 'platform_restart_announcements',
+    columns: ['id', 'plan_id', 'tenant_id', 'server_id', 'checkpoint_seconds', 'message', 'channel', 'status', 'scheduled_for', 'sent_at', 'meta_json', 'created_at', 'updated_at'],
+    dateColumns: ['scheduled_for', 'sent_at', 'created_at', 'updated_at'],
+    createTableSql: `
+      CREATE TABLE "platform_restart_announcements" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "plan_id" TEXT NOT NULL,
+        "tenant_id" TEXT NOT NULL,
+        "server_id" TEXT NOT NULL,
+        "checkpoint_seconds" INTEGER NOT NULL,
+        "message" TEXT NOT NULL,
+        "channel" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'pending',
+        "scheduled_for" DATETIME NOT NULL,
+        "sent_at" DATETIME,
+        "meta_json" TEXT,
+        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `,
+    indexSql: [
+      'CREATE INDEX "platform_restart_announcements_plan_scheduled_idx" ON "platform_restart_announcements"("plan_id", "scheduled_for");',
+      'CREATE INDEX "platform_restart_announcements_status_scheduled_idx" ON "platform_restart_announcements"("status", "scheduled_for");',
+    ],
+  },
+  {
+    tableName: 'platform_restart_executions',
+    columns: ['id', 'plan_id', 'tenant_id', 'server_id', 'runtime_key', 'action', 'result_status', 'started_at', 'completed_at', 'exit_code', 'detail', 'meta_json', 'created_at', 'updated_at'],
+    dateColumns: ['started_at', 'completed_at', 'created_at', 'updated_at'],
+    createTableSql: `
+      CREATE TABLE "platform_restart_executions" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "plan_id" TEXT NOT NULL,
+        "tenant_id" TEXT NOT NULL,
+        "server_id" TEXT NOT NULL,
+        "runtime_key" TEXT,
+        "action" TEXT NOT NULL DEFAULT 'restart',
+        "result_status" TEXT NOT NULL DEFAULT 'pending',
+        "started_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "completed_at" DATETIME,
+        "exit_code" INTEGER,
+        "detail" TEXT,
+        "meta_json" TEXT,
+        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `,
+    indexSql: [
+      'CREATE INDEX "platform_restart_executions_plan_started_idx" ON "platform_restart_executions"("plan_id", "started_at");',
+      'CREATE INDEX "platform_restart_executions_tenant_server_started_idx" ON "platform_restart_executions"("tenant_id", "server_id", "started_at");',
+    ],
+  },
+];
+
+function hasSharedRestartSqliteCompatibility(db = null) {
+  const key = getCompatibilityClientKey(db);
+  return Boolean(key && sharedRestartSqliteCompatibilityReady.has(key));
+}
+
+async function ensureSharedRestartSqliteCompatibility(db = prisma) {
+  const runtime = resolveDatabaseRuntime();
+  if (!runtime.isSqlite) return { ok: false, reason: 'runtime-not-sqlite' };
+  if (!isSharedRestartPrismaClient(db)) return { ok: false, reason: 'shared-restart-client-unavailable' };
+  try {
+    getRestartDelegatesOrThrow(db);
+  } catch {
+    return { ok: false, reason: 'restart-delegates-unavailable' };
+  }
+  const key = getCompatibilityClientKey(db);
+  if (key && sharedRestartSqliteCompatibilityReady.has(key)) {
+    return { ok: true, reused: true, tables: [] };
+  }
+
+  if (runtime.filePath) {
+    ensureSqliteDateTimeSchemaCompatibility(runtime.filePath, RESTART_SQLITE_COMPATIBILITY_TABLES);
+  }
+
+  const tables = [];
+  tables.push(await reconcileSqliteDateColumns(db, {
+    tableName: 'platform_restart_plans',
+    idColumn: 'id',
+    dateColumns: ['scheduled_for', 'health_verified_at', 'created_at', 'updated_at'],
+  }));
+  tables.push(await reconcileSqliteDateColumns(db, {
+    tableName: 'platform_restart_announcements',
+    idColumn: 'id',
+    dateColumns: ['scheduled_for', 'sent_at', 'created_at', 'updated_at'],
+  }));
+  tables.push(await reconcileSqliteDateColumns(db, {
+    tableName: 'platform_restart_executions',
+    idColumn: 'id',
+    dateColumns: ['started_at', 'completed_at', 'created_at', 'updated_at'],
+  }));
+
+  if (key) {
+    sharedRestartSqliteCompatibilityReady.add(key);
+  }
+  return { ok: true, reused: false, tables };
+}
+
+function getRestartPersistenceMode(db = null) {
+  if (db && !isSharedRestartPrismaClient(db)) {
+    try {
+      getRestartDelegatesOrThrow(db);
+      return 'prisma';
+    } catch {
+      // Fall back to runtime engine detection for compatibility paths.
+    }
+  }
+  if (db && hasSharedRestartSqliteCompatibility(db)) {
+    return 'prisma';
+  }
   const runtime = resolveDatabaseRuntime();
   return runtime.isServerEngine ? 'prisma' : 'sql';
 }
@@ -165,6 +337,120 @@ function normalizeExecutionRow(row) {
   };
 }
 
+function getLatestArtifactDateMs(row = {}, keys = []) {
+  for (const key of Array.isArray(keys) ? keys : []) {
+    const date = parseDate(row?.[key]);
+    if (date) return date.getTime();
+  }
+  return Number.NEGATIVE_INFINITY;
+}
+
+function selectRetentionArtifactIds(rows = [], options = {}) {
+  const keepLatest = Math.max(0, asInt(options.keepLatest, 0, 0));
+  const cutoffMs = Number.isFinite(options.cutoffMs) ? options.cutoffMs : Number.NaN;
+  const dateKeys = Array.isArray(options.dateKeys) ? options.dateKeys : ['updatedAt', 'createdAt'];
+  const allowRow = typeof options.allowRow === 'function' ? options.allowRow : (() => true);
+  return (Array.isArray(rows) ? rows : [])
+    .slice()
+    .sort((left, right) => getLatestArtifactDateMs(right, dateKeys) - getLatestArtifactDateMs(left, dateKeys))
+    .filter((row, index) => {
+      if (index < keepLatest) return false;
+      if (!allowRow(row)) return false;
+      if (!Number.isFinite(cutoffMs)) return true;
+      return getLatestArtifactDateMs(row, dateKeys) <= cutoffMs;
+    })
+    .map((row) => trimText(row?.id, 160))
+    .filter(Boolean);
+}
+
+async function deleteRestartRowsRaw(db, tableName, ids = []) {
+  const wanted = (Array.isArray(ids) ? ids : []).map((entry) => trimText(entry, 160)).filter(Boolean);
+  if (wanted.length === 0) return 0;
+  const safeTable = String(tableName || '').trim();
+  if (![
+    'platform_restart_plans',
+    'platform_restart_announcements',
+    'platform_restart_executions',
+  ].includes(safeTable)) {
+    throw new Error('restart-retention-table-invalid');
+  }
+  await db.$executeRaw(
+    Prisma.sql`DELETE FROM ${Prisma.raw(safeTable)} WHERE id IN (${Prisma.join(wanted)})`,
+  );
+  return wanted.length;
+}
+
+function buildRestartPlanRequestKey(input = {}, payload = {}, announcementPlan = []) {
+  const explicitScheduledFor = parseDate(input.scheduledFor);
+  return createStableHash({
+    tenantId: trimText(payload.tenantId, 160) || null,
+    serverId: trimText(payload.serverId, 160) || null,
+    guildId: trimText(payload.guildId, 160) || null,
+    runtimeKey: trimText(payload.agentId || input.runtimeKey, 200) || null,
+    restartMode: trimText(payload.restartMode, 60) || 'delayed',
+    controlMode: trimText(payload.controlMode, 60) || 'service',
+    delaySeconds: asInt(payload.delaySeconds, 0, 0),
+    explicitScheduledFor: explicitScheduledFor ? explicitScheduledFor.toISOString() : null,
+    reason: trimText(payload.reason, 400) || null,
+    channel: trimText(input.channel, 120) || null,
+    force: Boolean(input.force),
+    announcementPlan: Array.isArray(announcementPlan)
+      ? announcementPlan.map((entry) => ({
+        delaySeconds: asInt(entry?.delaySeconds, 0, 0),
+        message: trimText(entry?.message, 320) || null,
+      }))
+      : [],
+    safetyInputs: {
+      queueDepth: input.queueDepth == null ? null : asInt(input.queueDepth, 0, 0),
+      queueItemsCount: Array.isArray(input.queueItems) ? input.queueItems.length : null,
+      deadLetterCount: input.deadLetterCount == null ? null : asInt(input.deadLetterCount, 0, 0),
+      deadLettersCount: Array.isArray(input.deadLetters) ? input.deadLetters.length : null,
+      deliveryRuntimeStatus: trimText(input.deliveryRuntimeStatus, 60) || null,
+      announcementRuntimeStatus: trimText(input.announcementRuntimeStatus, 60) || null,
+      serverBotReady: input.serverBotReady == null ? null : Boolean(input.serverBotReady),
+      serverBotStatus: trimText(input.serverBotStatus, 60) || null,
+      blockers: Array.isArray(input.blockers)
+        ? input.blockers.map((entry) => trimText(entry, 240)).filter(Boolean).sort()
+        : [],
+    },
+  });
+}
+
+function buildRestartExecutionRequestKey(input = {}) {
+  return createStableHash({
+    planId: trimText(input.planId, 160) || null,
+    tenantId: trimText(input.tenantId, 160) || null,
+    serverId: trimText(input.serverId, 160) || null,
+    runtimeKey: trimText(input.runtimeKey, 200) || null,
+    action: trimText(input.action, 80) || 'restart',
+    resultStatus: trimText(input.resultStatus, 60) || 'pending',
+    exitCode: input.exitCode == null ? null : asInt(input.exitCode, 0, 0),
+    detail: trimText(input.detail, 800) || null,
+  });
+}
+
+async function findReusableRestartPlan(filters = {}, db = prisma) {
+  const tenantId = trimText(filters.tenantId, 160) || null;
+  const serverId = trimText(filters.serverId, 160) || null;
+  const requestKey = trimText(filters.requestKey, 160) || null;
+  if (!tenantId || !serverId || !requestKey) return null;
+  const rows = await listRestartPlans({ tenantId, serverId, limit: 50 }, db);
+  return rows.find((row) => (
+    ['scheduled', 'blocked', 'running'].includes(trimText(row?.status, 60))
+    && trimText(row?.payload?.metadata?.requestKey, 160) === requestKey
+  )) || null;
+}
+
+async function findReusableRestartExecution(filters = {}, db = prisma) {
+  const tenantId = trimText(filters.tenantId, 160) || null;
+  const serverId = trimText(filters.serverId, 160) || null;
+  const planId = trimText(filters.planId, 160) || null;
+  const requestKey = trimText(filters.requestKey, 160) || null;
+  if (!tenantId || !serverId || !planId || !requestKey) return null;
+  const rows = await listRestartExecutions({ tenantId, serverId, planId, limit: 50 }, db);
+  return rows.find((row) => trimText(row?.metadata?.requestKey, 160) === requestKey) || null;
+}
+
 function isHealthyRuntimeStatus(value) {
   const normalized = trimText(value, 60).toLowerCase();
   return ['ready', 'ok', 'healthy', 'online', 'active', 'success', 'succeeded'].includes(normalized);
@@ -251,7 +537,8 @@ function evaluateRestartSafety(input = {}) {
 }
 
 async function ensurePlatformRestartTables(db = prisma) {
-  if (getRestartPersistenceMode() !== 'prisma') return { ok: true };
+  await ensureSharedRestartSqliteCompatibility(db).catch(() => null);
+  if (getRestartPersistenceMode(db) !== 'prisma') return { ok: true };
   getRestartDelegatesOrThrow(db);
   return { ok: true };
 }
@@ -259,7 +546,7 @@ async function ensurePlatformRestartTables(db = prisma) {
 async function readRestartPlan(planId, db = prisma) {
   const normalizedPlanId = trimText(planId, 160);
   if (!normalizedPlanId) return null;
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw`
       SELECT
         id,
@@ -294,7 +581,7 @@ async function readRestartPlan(planId, db = prisma) {
 async function readRestartAnnouncement(announcementId, db = prisma) {
   const normalizedAnnouncementId = trimText(announcementId, 160);
   if (!normalizedAnnouncementId) return null;
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw`
       SELECT
         id,
@@ -351,7 +638,26 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
   const announcementPlan = Array.isArray(payload.announcementPlan) && payload.announcementPlan.length > 0
     ? payload.announcementPlan
     : buildRestartAnnouncementPlan(delaySeconds);
-  if (getRestartPersistenceMode() !== 'prisma') {
+  const requestKey = buildRestartPlanRequestKey(input, payload, announcementPlan);
+  const existingPlan = await findReusableRestartPlan({
+    tenantId: payload.tenantId,
+    serverId: payload.serverId,
+    requestKey,
+  }, db);
+  if (existingPlan) {
+    return {
+      ok: true,
+      plan: existingPlan,
+      reused: true,
+      noop: true,
+      reason: 'already-scheduled',
+    };
+  }
+  const planMetadata = {
+    ...(payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {}),
+    requestKey,
+  };
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       INSERT INTO platform_restart_plans (
         id, tenant_id, server_id, guild_id, runtime_key, status, restart_mode, control_mode, requested_by, scheduled_for, delay_seconds, reason, payload_json, created_at, updated_at
@@ -370,7 +676,7 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
         ${delaySeconds},
         ${payload.reason},
         ${JSON.stringify({
-          metadata: payload.metadata || {},
+          metadata: planMetadata,
           requestedBy: payload.requestedBy,
           safety,
         })},
@@ -422,7 +728,7 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
         delaySeconds,
         reason: payload.reason || null,
         payloadJson: JSON.stringify({
-          metadata: payload.metadata || {},
+          metadata: planMetadata,
           requestedBy: payload.requestedBy,
           safety,
         }),
@@ -465,8 +771,28 @@ async function recordRestartExecution(input = {}, db = prisma) {
     return { ok: false, reason: 'restart-execution-invalid' };
   }
   await ensurePlatformRestartTables(db);
+  const requestKey = buildRestartExecutionRequestKey(input);
+  const existingExecution = await findReusableRestartExecution({
+    planId,
+    tenantId,
+    serverId,
+    requestKey,
+  }, db);
+  if (existingExecution) {
+    return {
+      ok: true,
+      execution: existingExecution,
+      reused: true,
+      noop: true,
+      reason: 'execution-already-recorded',
+    };
+  }
   const executionId = trimText(input.id, 160) || createId('rexec');
-  if (getRestartPersistenceMode() !== 'prisma') {
+  const executionMetadata = {
+    ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
+    requestKey,
+  };
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       INSERT INTO platform_restart_executions (
         id, plan_id, tenant_id, server_id, runtime_key, action, result_status, started_at, completed_at, exit_code, detail, meta_json, created_at, updated_at
@@ -483,7 +809,7 @@ async function recordRestartExecution(input = {}, db = prisma) {
         ${input.completedAt ? new Date(input.completedAt) : null},
         ${input.exitCode == null ? null : asInt(input.exitCode, 0, 0)},
         ${trimText(input.detail, 800) || null},
-        ${JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {})},
+        ${JSON.stringify(executionMetadata)},
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
@@ -516,7 +842,7 @@ async function recordRestartExecution(input = {}, db = prisma) {
         completedAt: input.completedAt ? new Date(input.completedAt) : null,
         exitCode: input.exitCode == null ? null : asInt(input.exitCode, 0, 0),
         detail: trimText(input.detail, 800) || null,
-        metaJson: JSON.stringify(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
+        metaJson: JSON.stringify(executionMetadata),
       },
     });
     await plan.updateMany({
@@ -569,7 +895,7 @@ async function markRestartPlanRunning(input = {}, db = prisma) {
       actor: trimText(input.actor, 200) || null,
     },
   };
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       UPDATE platform_restart_plans
       SET
@@ -606,7 +932,7 @@ async function completeRestartPlan(input = {}, db = prisma) {
     ...(existingPlan.payload || {}),
     ...(input.payload && typeof input.payload === 'object' ? input.payload : {}),
   };
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       UPDATE platform_restart_plans
       SET
@@ -638,7 +964,7 @@ async function listDueRestartPlans(filters = {}, db = prisma) {
   const serverId = trimText(filters.serverId, 160) || null;
   const now = parseDate(filters.now) || new Date();
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw(Prisma.sql`
       SELECT
         id,
@@ -692,7 +1018,7 @@ async function listDueRestartAnnouncements(filters = {}, db = prisma) {
   const planId = trimText(filters.planId, 160) || null;
   const now = parseDate(filters.now) || new Date();
   const limit = Math.max(1, Math.min(400, asInt(filters.limit, 40, 1)));
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw(Prisma.sql`
       SELECT
         ann.id,
@@ -765,7 +1091,7 @@ async function markRestartAnnouncementStatus(input = {}, db = prisma) {
     ...(existing.metadata || {}),
     ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
   };
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       UPDATE platform_restart_announcements
       SET
@@ -815,7 +1141,7 @@ async function verifyRestartPlanHealth(input = {}, db = prisma) {
       verifiedAt: input.healthVerifiedAt ? new Date(input.healthVerifiedAt).toISOString() : new Date().toISOString(),
     },
   };
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
       UPDATE platform_restart_plans
       SET
@@ -856,7 +1182,7 @@ async function listRestartPlans(filters = {}, db = prisma) {
   const serverId = trimText(filters.serverId, 160) || null;
   const status = trimText(filters.status, 60) || null;
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw(Prisma.sql`
       SELECT
         id,
@@ -909,7 +1235,7 @@ async function listRestartAnnouncements(filters = {}, db = prisma) {
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.status, 60) || null;
   const limit = Math.max(1, Math.min(400, asInt(filters.limit, 40, 1)));
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw(Prisma.sql`
       SELECT
         id,
@@ -960,7 +1286,7 @@ async function listRestartExecutions(filters = {}, db = prisma) {
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.resultStatus || filters.status, 60) || null;
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
-  if (getRestartPersistenceMode() !== 'prisma') {
+  if (getRestartPersistenceMode(db) !== 'prisma') {
     const rows = await db.$queryRaw(Prisma.sql`
       SELECT
         id,
@@ -1005,6 +1331,87 @@ async function listRestartExecutions(filters = {}, db = prisma) {
   return Array.isArray(rows) ? rows.map(normalizeExecutionRow).filter(Boolean) : [];
 }
 
+async function pruneRestartArtifacts(options = {}, db = prisma) {
+  await ensurePlatformRestartTables(db);
+  const tenantId = trimText(options.tenantId, 160) || null;
+  const serverId = trimText(options.serverId, 160) || null;
+  const now = parseDate(options.now) || new Date();
+  const cutoffMs = now.getTime() - Math.max(0, asInt(options.olderThanMs, 30 * 24 * 60 * 60 * 1000, 60 * 1000));
+  const keepLatestPlans = asInt(options.keepLatestPlans, 20, 0);
+  const keepLatestAnnouncements = asInt(options.keepLatestAnnouncements, 20, 0);
+  const keepLatestExecutions = asInt(options.keepLatestExecutions, 20, 0);
+
+  const [plans, announcements, executions] = await Promise.all([
+    listRestartPlans({ tenantId, serverId, limit: 1000 }, db),
+    listRestartAnnouncements({ tenantId, serverId, limit: 1000 }, db),
+    listRestartExecutions({ tenantId, serverId, limit: 1000 }, db),
+  ]);
+
+  const removableExecutionIds = selectRetentionArtifactIds(executions, {
+    cutoffMs,
+    keepLatest: keepLatestExecutions,
+    dateKeys: ['completedAt', 'startedAt', 'createdAt', 'updatedAt'],
+    allowRow: (row) => !['pending', 'running', 'processing'].includes(trimText(row?.resultStatus, 60).toLowerCase()),
+  });
+
+  const removablePlanIds = selectRetentionArtifactIds(plans, {
+    cutoffMs,
+    keepLatest: keepLatestPlans,
+    dateKeys: ['scheduledFor', 'createdAt', 'updatedAt'],
+    allowRow: (row) => ['completed', 'failed', 'executed', 'blocked', 'cancelled'].includes(trimText(row?.status, 60).toLowerCase()),
+  });
+  const removablePlanIdSet = new Set(removablePlanIds);
+
+  const removableAnnouncementIds = selectRetentionArtifactIds(announcements, {
+    cutoffMs,
+    keepLatest: keepLatestAnnouncements,
+    dateKeys: ['sentAt', 'scheduledFor', 'createdAt', 'updatedAt'],
+    allowRow: (row) => {
+      if (removablePlanIdSet.has(trimText(row?.planId, 160))) return true;
+      return !['pending'].includes(trimText(row?.status, 60).toLowerCase());
+    },
+  });
+
+  if (getRestartPersistenceMode(db) !== 'prisma') {
+    return {
+      ok: true,
+      tenantId,
+      serverId,
+      removed: {
+        executions: await deleteRestartRowsRaw(db, 'platform_restart_executions', removableExecutionIds),
+        announcements: await deleteRestartRowsRaw(db, 'platform_restart_announcements', removableAnnouncementIds),
+        plans: await deleteRestartRowsRaw(db, 'platform_restart_plans', removablePlanIds),
+      },
+      cutoffAt: new Date(cutoffMs).toISOString(),
+    };
+  }
+
+  const { plan, announcement, execution } = getRestartDelegatesOrThrow(db);
+  const [removedExecutions, removedAnnouncements, removedPlans] = await Promise.all([
+    removableExecutionIds.length > 0
+      ? execution.deleteMany({ where: { id: { in: removableExecutionIds } } }).then((result) => result?.count || 0)
+      : Promise.resolve(0),
+    removableAnnouncementIds.length > 0
+      ? announcement.deleteMany({ where: { id: { in: removableAnnouncementIds } } }).then((result) => result?.count || 0)
+      : Promise.resolve(0),
+    removablePlanIds.length > 0
+      ? plan.deleteMany({ where: { id: { in: removablePlanIds } } }).then((result) => result?.count || 0)
+      : Promise.resolve(0),
+  ]);
+
+  return {
+    ok: true,
+    tenantId,
+    serverId,
+    removed: {
+      executions: removedExecutions,
+      announcements: removedAnnouncements,
+      plans: removedPlans,
+    },
+    cutoffAt: new Date(cutoffMs).toISOString(),
+  };
+}
+
 module.exports = {
   completeRestartPlan,
   evaluateRestartSafety,
@@ -1016,6 +1423,7 @@ module.exports = {
   listRestartPlans,
   markRestartAnnouncementStatus,
   markRestartPlanRunning,
+  pruneRestartArtifacts,
   recordRestartExecution,
   scheduleRestartPlan,
   verifyRestartPlanHealth,

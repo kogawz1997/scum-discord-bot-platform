@@ -6,6 +6,17 @@
  * on request flow and gating.
  */
 
+const ADMIN_WEB_RUNTIME_BOOTSTRAP_ENV = 'ADMIN_WEB_RUNTIME_BOOTSTRAP';
+const { resolveLegacyRuntimeBootstrapPolicy } = require('../../utils/legacyRuntimeBootstrapPolicy');
+const {
+  getCompatibilityClientKey,
+  ensureSqliteDateTimeSchemaCompatibility,
+  reconcileSqliteDateColumns,
+} = require('../../utils/sqliteDateTimeCompatibility');
+
+const sharedAdminUsersSqliteCompatibilityReady = new WeakSet();
+const sharedAdminUsersSqliteCompatibilityPending = new WeakMap();
+
 function createAdminUserStoreRuntime(options = {}) {
   const {
     prisma,
@@ -24,6 +35,34 @@ function createAdminUserStoreRuntime(options = {}) {
   let adminUsersReadyPromise = null;
   let envFallbackMode = false;
   let envUserRows = null;
+  const ADMIN_USERS_SQLITE_COMPATIBILITY_TABLES = [
+    {
+      tableName: 'admin_web_users',
+      columns: ['username', 'password_hash', 'role', 'tenant_id', 'is_active', 'created_at', 'updated_at'],
+      dateColumns: ['created_at', 'updated_at'],
+      createTableSql: `
+        CREATE TABLE "admin_web_users" (
+          "username" TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+          "password_hash" TEXT NOT NULL,
+          "role" TEXT NOT NULL DEFAULT 'mod',
+          "tenant_id" TEXT,
+          "is_active" INTEGER NOT NULL DEFAULT 1,
+          "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `,
+      indexSql: [],
+    },
+  ];
+
+  function isPrismaClientLike(client) {
+    return Boolean(
+      client
+      && typeof client === 'object'
+      && typeof client.$transaction === 'function'
+      && typeof client.$disconnect === 'function',
+    );
+  }
 
   function isTruthy(value) {
     const text = String(value || '').trim().toLowerCase();
@@ -132,6 +171,30 @@ function createAdminUserStoreRuntime(options = {}) {
     return runtime.engine === 'unsupported' ? 'sqlite' : runtime.engine;
   }
 
+  function getLegacyAdminUsersRuntimeBootstrapPolicy() {
+    return resolveLegacyRuntimeBootstrapPolicy({
+      env: process.env,
+      envName: ADMIN_WEB_RUNTIME_BOOTSTRAP_ENV,
+      runtime: resolveDatabaseRuntime(),
+      prismaClientLike: isPrismaClientLike(prisma),
+      policy: 'admin-web-users',
+    });
+  }
+
+  function isLegacyAdminUsersRuntimeBootstrapAllowed() {
+    return getLegacyAdminUsersRuntimeBootstrapPolicy().allowed;
+  }
+
+  function buildAdminUsersSchemaRequiredError(details = {}) {
+    const error = new Error(
+      'Admin web user schema is not ready. Run the database migrations before enabling password-based admin auth, or explicitly enable local runtime bootstrap for compatibility only.',
+    );
+    error.code = 'ADMIN_WEB_USERS_SCHEMA_REQUIRED';
+    error.statusCode = 500;
+    error.adminUserSchema = details;
+    return error;
+  }
+
   function getAdminUserDelegate() {
     const delegate = prisma && typeof prisma === 'object' ? prisma.adminWebUser : null;
     if (!delegate || typeof delegate.findUnique !== 'function') {
@@ -171,6 +234,104 @@ function createAdminUserStoreRuntime(options = {}) {
       || message.includes('can\'t reach database server')
       || message.includes('connection refused')
       || message.includes('authentication failed');
+  }
+
+  function isSqliteCompatibilityLockError(error) {
+    const code = String(error?.code || '').trim().toUpperCase();
+    const message = String(error?.message || error || '').toLowerCase();
+    return code === 'ERR_SQLITE_ERROR'
+      && message.includes('database is locked');
+  }
+
+  function isSharedAdminUsersPrismaClient(client = prisma) {
+    if (!client || !prisma) return false;
+    if (client === prisma) return true;
+    const clientOriginal = client && typeof client === 'object' ? client._originalClient : null;
+    const sharedOriginal = prisma && typeof prisma === 'object' ? prisma._originalClient : null;
+    return Boolean(clientOriginal && sharedOriginal && clientOriginal === sharedOriginal);
+  }
+
+  function hasSharedAdminUsersSqliteCompatibility(client = prisma) {
+    const key = getCompatibilityClientKey(client);
+    return Boolean(key && sharedAdminUsersSqliteCompatibilityReady.has(key));
+  }
+
+  async function ensureSharedAdminUsersSqliteCompatibility(client = prisma) {
+    const runtime = resolveDatabaseRuntime();
+    const engine = String(runtime?.engine || '').trim().toLowerCase();
+    const isSqlite = runtime?.isSqlite === true || engine === 'sqlite' || engine === 'unsupported';
+    if (!isSqlite) return { ok: false, reason: 'runtime-not-sqlite' };
+    if (!isSharedAdminUsersPrismaClient(client)) {
+      return { ok: false, reason: 'shared-admin-users-client-unavailable' };
+    }
+    if (
+      !client
+      || typeof client.$queryRawUnsafe !== 'function'
+      || typeof client.$executeRawUnsafe !== 'function'
+    ) {
+      return { ok: false, reason: 'sqlite-compatibility-db-unavailable' };
+    }
+    const delegate = getAdminUserDelegate();
+    if (!delegate) {
+      return { ok: false, reason: 'admin-users-delegate-unavailable' };
+    }
+    const key = getCompatibilityClientKey(client);
+    if (key && sharedAdminUsersSqliteCompatibilityReady.has(key)) {
+      return { ok: true, reused: true, tables: [] };
+    }
+    if (key && sharedAdminUsersSqliteCompatibilityPending.has(key)) {
+      return sharedAdminUsersSqliteCompatibilityPending.get(key);
+    }
+    const work = (async () => {
+      if (runtime?.filePath) {
+        try {
+          ensureSqliteDateTimeSchemaCompatibility(runtime.filePath, ADMIN_USERS_SQLITE_COMPATIBILITY_TABLES);
+        } catch (error) {
+          if (isSqliteCompatibilityLockError(error)) {
+            return { ok: false, reason: 'admin-users-compatibility-locked' };
+          }
+          throw error;
+        }
+      }
+      let table = null;
+      try {
+        table = await reconcileSqliteDateColumns(client, {
+          tableName: 'admin_web_users',
+          idColumn: 'username',
+          dateColumns: ['created_at', 'updated_at'],
+        });
+      } catch (error) {
+        if (shouldFallbackToLegacyAdminUserPersistence(error)) {
+          return { ok: false, reason: 'admin-users-compatibility-unavailable' };
+        }
+        throw error;
+      }
+      if (key) {
+        sharedAdminUsersSqliteCompatibilityReady.add(key);
+      }
+      return { ok: true, reused: false, tables: [table] };
+    })().finally(() => {
+      if (key) {
+        sharedAdminUsersSqliteCompatibilityPending.delete(key);
+      }
+    });
+    if (key) {
+      sharedAdminUsersSqliteCompatibilityPending.set(key, work);
+    }
+    return work;
+  }
+
+  function assertLegacyAdminUsersRuntimeBootstrapAllowed(error) {
+    const bootstrapPolicy = getLegacyAdminUsersRuntimeBootstrapPolicy();
+    if (bootstrapPolicy.allowed) {
+      return;
+    }
+    throw buildAdminUsersSchemaRequiredError({
+      env: ADMIN_WEB_RUNTIME_BOOTSTRAP_ENV,
+      engine: getAdminUsersDatabaseEngine(),
+      reason: String(error?.message || error || '').trim() || null,
+      bootstrapPolicy,
+    });
   }
 
   function normalizeAdminUserRow(row) {
@@ -271,6 +432,7 @@ function createAdminUserStoreRuntime(options = {}) {
     const users = parseAdminUsersFromEnv();
     const delegate = getAdminUserDelegate();
     if (delegate) {
+      await ensureSharedAdminUsersSqliteCompatibility(prisma);
       try {
         for (const user of users) {
           await delegate.upsert({
@@ -290,6 +452,7 @@ function createAdminUserStoreRuntime(options = {}) {
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
+        assertLegacyAdminUsersRuntimeBootstrapAllowed(error);
       }
     }
     await ensureAdminUsersLegacyTable();
@@ -339,6 +502,7 @@ function createAdminUserStoreRuntime(options = {}) {
     const normalizedLimit = Math.max(1, Math.trunc(Number(limit || 100)));
     const delegate = getAdminUserDelegate();
     if (delegate) {
+      await ensureSharedAdminUsersSqliteCompatibility(prisma);
       try {
         const rows = await delegate.findMany({
           where: activeOnly ? { isActive: true } : undefined,
@@ -359,6 +523,7 @@ function createAdminUserStoreRuntime(options = {}) {
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
+        assertLegacyAdminUsersRuntimeBootstrapAllowed(error);
       }
     }
     const rows = activeOnly
@@ -412,6 +577,7 @@ function createAdminUserStoreRuntime(options = {}) {
     }
     const delegate = getAdminUserDelegate();
     if (delegate) {
+      await ensureSharedAdminUsersSqliteCompatibility(prisma);
       try {
         const row = await delegate.findUnique({
           where: { username: name },
@@ -421,6 +587,7 @@ function createAdminUserStoreRuntime(options = {}) {
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
+        assertLegacyAdminUsersRuntimeBootstrapAllowed(error);
       }
     }
     const rows = await prisma.$queryRaw`
@@ -443,6 +610,7 @@ function createAdminUserStoreRuntime(options = {}) {
   async function countActiveOwnerUsers() {
     const delegate = getAdminUserDelegate();
     if (delegate) {
+      await ensureSharedAdminUsersSqliteCompatibility(prisma);
       try {
         return await delegate.count({
           where: {
@@ -454,6 +622,7 @@ function createAdminUserStoreRuntime(options = {}) {
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
+        assertLegacyAdminUsersRuntimeBootstrapAllowed(error);
       }
     }
     const rows = await prisma.$queryRaw`
@@ -509,6 +678,7 @@ function createAdminUserStoreRuntime(options = {}) {
 
     const delegate = getAdminUserDelegate();
     if (delegate) {
+      await ensureSharedAdminUsersSqliteCompatibility(prisma);
       try {
         const passwordHash = password ? createAdminPasswordHash(password) : null;
         if (!existing) {
@@ -537,6 +707,7 @@ function createAdminUserStoreRuntime(options = {}) {
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
+        assertLegacyAdminUsersRuntimeBootstrapAllowed(error);
       }
     }
 

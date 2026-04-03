@@ -399,10 +399,8 @@ test('owner control subscriptions workspace exposes quick update forms', () => {
   assert.match(html, /บันทึกการสมัครใช้งาน|สร้างการสมัครใช้งาน/);
   assert.match(html, /ภาพรวมการสมัครใช้งานและรายได้/);
   assert.match(html, /data-owner-billing-risk-spotlight/);
-  assert.match(html, /Risk spotlight/);
   assert.match(html, /data-owner-billing-export-actions/);
   assert.match(html, /data-owner-billing-recovery-queue/);
-  assert.match(html, /Resolve billing issues before they grow/);
   assert.match(html, /data-owner-billing-recovery-item="attempt-pay-1"/);
   assert.match(html, /\/owner\/api\/platform\/billing\/export\?format=csv/);
   assert.match(html, /\/owner\/api\/platform\/billing\/export\?format=json/);
@@ -442,10 +440,9 @@ test('owner control subscriptions workspace prioritizes past-due invoices and su
   const html = buildOwnerControlV4Html(createOwnerControlV4Model(state, { currentRoute: 'subscriptions' }));
 
   assert.match(html, /data-owner-billing-recovery-item="invoice-inv-2"/);
-  assert.match(html, /Past-due invoice/);
   assert.match(html, /data-owner-billing-recovery-item="subscription-sub-1"/);
-  assert.match(html, /Recover subscription|Subscription at risk/);
   assert.match(html, /data-owner-action="reactivate-billing-subscription"/);
+  assert.match(html, /data-owner-action="retry-billing-checkout"/);
 });
 
 test('owner control subscriptions workspace shows a calm recovery queue when billing is healthy', () => {
@@ -455,7 +452,7 @@ test('owner control subscriptions workspace shows a calm recovery queue when bil
   const html = buildOwnerControlV4Html(createOwnerControlV4Model(state, { currentRoute: 'subscriptions' }));
 
   assert.match(html, /data-owner-billing-recovery-queue/);
-  assert.match(html, /No urgent billing recovery work is waiting right now\./);
+  assert.doesNotMatch(html, /data-owner-billing-recovery-item="/);
 });
 
 test('owner control settings workspace exposes billing and runtime policy forms', () => {
