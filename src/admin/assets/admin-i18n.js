@@ -9,13 +9,39 @@
   });
   const LOADED_EXTERNAL_LOCALES = new Set();
   const MOJIBAKE_MARKERS = ['Ã', 'Â', '\u00e0\u00b8', '\u00e0\u00b9', '\ufffd'];
+  const MOJIBAKE_REPLACEMENTS = [];
+  const CP1252_REVERSE_MAP = new Map([
+    [0x20AC, 0x80],
+    [0x201A, 0x82],
+    [0x0192, 0x83],
+    [0x201E, 0x84],
+    [0x2026, 0x85],
+    [0x2020, 0x86],
+    [0x2021, 0x87],
+    [0x02C6, 0x88],
+    [0x2030, 0x89],
+    [0x0160, 0x8A],
+    [0x2039, 0x8B],
+    [0x0152, 0x8C],
+    [0x017D, 0x8E],
+    [0x2018, 0x91],
+    [0x2019, 0x92],
+    [0x201C, 0x93],
+    [0x201D, 0x94],
+    [0x2022, 0x95],
+    [0x2013, 0x96],
+    [0x2014, 0x97],
+    [0x02DC, 0x98],
+    [0x2122, 0x99],
+    [0x0161, 0x9A],
+    [0x203A, 0x9B],
+    [0x0153, 0x9C],
+    [0x017E, 0x9E],
+    [0x0178, 0x9F],
+  ]);
   const SUPPORTED_LANGUAGES = [
     ['en', 'English'],
     ['th', 'ไทย'],
-    ['ja', '日本語'],
-    ['ko', '한국어'],
-    ['zh-CN', '简体中文'],
-    ['es', 'Español'],
   ];
 
   function looksLikeMojibake(value) {
@@ -29,8 +55,14 @@
       return original;
     }
     try {
-      const bytes = Uint8Array.from(Array.from(original, (char) => char.charCodeAt(0) & 0xff));
-      const repaired = new TextDecoder('utf-8').decode(bytes);
+      const bytes = Uint8Array.from(Array.from(original, (char) => {
+        const codePoint = char.codePointAt(0);
+        return CP1252_REVERSE_MAP.get(codePoint) ?? (codePoint & 0xff);
+      }));
+      let repaired = new TextDecoder('utf-8').decode(bytes);
+      for (const [needle, replacement] of MOJIBAKE_REPLACEMENTS) {
+        repaired = repaired.replaceAll(needle, replacement);
+      }
       return looksLikeMojibake(repaired) ? original : repaired;
     } catch {
       return original;
@@ -2987,6 +3019,9 @@
       if (element.hasAttribute('data-i18n') || element.hasAttribute('data-i18n-placeholder') || element.hasAttribute('data-i18n-title')) {
         return;
       }
+      if (element.closest('#ownerUnifiedSidebar') || element.closest('#ownerUnifiedTopbar')) {
+        return;
+      }
       const text = normalizeLiteral(element.textContent);
       if (!text) return;
       const translated = literalTable[text];
@@ -5641,11 +5676,7 @@
   });
   SUPPORTED_LANGUAGES.splice(0, SUPPORTED_LANGUAGES.length,
     ['en', 'English'],
-    ['th', 'ไทย'],
-    ['ja', '日本語'],
-    ['ko', '한국어'],
-    ['zh-CN', '简体中文'],
-    ['es', 'Español']);
+    ['th', 'ไทย']);
 
   Object.assign(DICTIONARY.en, {
     'tenant.app.status.ready': 'Ready',
@@ -5681,6 +5712,162 @@
     'tenant.app.status.loadFailed': 'โหลดไม่สำเร็จ',
     'tenant.app.card.emptyTitle': 'ยังไม่มีข้อมูลผู้เช่า',
     'tenant.app.card.emptyDetail': 'กรุณารอให้ข้อมูลล่าสุดของผู้เช่าถูกโหลดก่อน'
+  });
+
+  Object.assign(DICTIONARY.en, {
+    'owner.login.pageTitle': 'SCUM Platform | Owner Sign In',
+    'owner.login.brandEyebrow': 'Owner access',
+    'owner.login.brandTitle': 'Platform Owner Sign In',
+    'owner.login.brandDetail': 'Enter the owner control plane with the same guarded auth stack, audit trail, and session controls already used across the platform.',
+    'owner.login.routeLabel': 'Owner sign in',
+    'owner.login.publicLink': 'Public site',
+    'owner.login.heroEyebrow': 'Platform control plane',
+    'owner.login.heroTitle': 'One disciplined entry point for platform operations',
+    'owner.login.heroDetail': 'Review tenants, billing posture, incidents, security evidence, and guarded controls without blending into tenant day-to-day work.',
+    'owner.login.pillFleet': 'Tenant fleet',
+    'owner.login.pillCommercial': 'Billing and packages',
+    'owner.login.pillSecurity': 'Security and audit',
+    'owner.login.signalOpsLabel': 'First focus',
+    'owner.login.signalOpsValue': 'Platform health',
+    'owner.login.signalOpsDetail': 'Open the day with incident pressure, fleet drift, delivery risk, and service freshness in one owner-only view.',
+    'owner.login.signalEvidenceLabel': 'Second focus',
+    'owner.login.signalEvidenceValue': 'Evidence and response',
+    'owner.login.signalEvidenceDetail': 'Keep audit exports, support evidence, and security posture ready before any platform-wide change.',
+    'owner.login.signalGuardLabel': 'Guardrails',
+    'owner.login.signalGuardValue': 'Separated control lanes',
+    'owner.login.signalGuardDetail': 'Owner actions stay isolated from tenant tools. Delivery Agent and Server Bot remain separate across the whole platform.',
+    'owner.login.formEyebrow': 'Sign in',
+    'owner.login.formTitle': 'Open the owner workspace',
+    'owner.login.formDetail': 'Use an owner account only. If two-factor is enabled, the confirmation code field appears automatically after the first check.',
+    'owner.login.fieldUsername': 'Username',
+    'owner.login.placeholderUsername': 'owner',
+    'owner.login.fieldPassword': 'Password',
+    'owner.login.placeholderPassword': 'Enter your password',
+    'owner.login.fieldOtp': '2FA code',
+    'owner.login.placeholderOtp': '123456',
+    'owner.login.submit': 'Sign in to Owner',
+    'owner.login.submitBusy': 'Signing in...'
+  });
+
+  Object.assign(DICTIONARY.th, {
+    'owner.login.pageTitle': 'SCUM Platform | เข้าสู่ระบบเจ้าของแพลตฟอร์ม',
+    'owner.login.brandEyebrow': 'สิทธิ์เจ้าของระบบ',
+    'owner.login.brandTitle': 'เข้าสู่ระบบเจ้าของแพลตฟอร์ม',
+    'owner.login.brandDetail': 'เข้าสู่ศูนย์ควบคุมของเจ้าของระบบด้วยระบบยืนยันตัวตน ร่องรอยออดิท และการคุม session ชุดเดียวกับที่แพลตฟอร์มใช้อยู่จริง',
+    'owner.login.routeLabel': 'เข้าสู่ระบบเจ้าของ',
+    'owner.login.publicLink': 'เว็บสาธารณะ',
+    'owner.login.heroEyebrow': 'ศูนย์ควบคุมแพลตฟอร์ม',
+    'owner.login.heroTitle': 'จุดเข้าใช้งานเดียวที่เป็นระเบียบสำหรับงานระดับแพลตฟอร์ม',
+    'owner.login.heroDetail': 'ตรวจผู้เช่า สถานะการเงิน เหตุการณ์ ความมั่นคงปลอดภัย และคำสั่งที่มีผลกว้างได้โดยไม่ปะปนกับงานประจำของผู้เช่า',
+    'owner.login.pillFleet': 'ภาพรวมผู้เช่า',
+    'owner.login.pillCommercial': 'การเงินและแพ็กเกจ',
+    'owner.login.pillSecurity': 'ความปลอดภัยและออดิท',
+    'owner.login.signalOpsLabel': 'โฟกัสแรก',
+    'owner.login.signalOpsValue': 'สุขภาพแพลตฟอร์ม',
+    'owner.login.signalOpsDetail': 'เริ่มวันด้วยแรงกดดันจากเหตุการณ์ ความเหลื่อมของฟลีต ความเสี่ยงงานส่งของ และความสดของบริการในมุมมองเดียว',
+    'owner.login.signalEvidenceLabel': 'โฟกัสถัดไป',
+    'owner.login.signalEvidenceValue': 'หลักฐานและการตอบสนอง',
+    'owner.login.signalEvidenceDetail': 'เตรียม export ออดิท หลักฐานซัพพอร์ต และสถานะความปลอดภัยให้พร้อมก่อนเปลี่ยนแปลงระดับแพลตฟอร์ม',
+    'owner.login.signalGuardLabel': 'แนวคุมความเสี่ยง',
+    'owner.login.signalGuardValue': 'ช่องทางควบคุมที่แยกชัด',
+    'owner.login.signalGuardDetail': 'คำสั่งของเจ้าของระบบถูกแยกจากเครื่องมือผู้เช่าอย่างชัดเจน และยังคงแยก Delivery Agent กับ Server Bot เหมือนเดิมทั้งระบบ',
+    'owner.login.formEyebrow': 'เข้าสู่ระบบ',
+    'owner.login.formTitle': 'เปิดพื้นที่ทำงานของเจ้าของระบบ',
+    'owner.login.formDetail': 'ใช้บัญชีเจ้าของระบบเท่านั้น หากเปิดใช้ two-factor ไว้ ช่องรหัสยืนยันจะปรากฏอัตโนมัติหลังการตรวจครั้งแรก',
+    'owner.login.fieldUsername': 'ชื่อผู้ใช้',
+    'owner.login.placeholderUsername': 'owner',
+    'owner.login.fieldPassword': 'รหัสผ่าน',
+    'owner.login.placeholderPassword': 'กรอกรหัสผ่าน',
+    'owner.login.fieldOtp': 'รหัส 2FA',
+    'owner.login.placeholderOtp': '123456',
+    'owner.login.submit': 'เข้าสู่ระบบเจ้าของ',
+    'owner.login.submitBusy': 'กำลังลงชื่อเข้าใช้...'
+  });
+
+  Object.assign(DICTIONARY.en, {
+    'owner.login.brandTitle': 'OWNER CONTROL PLANE',
+    'owner.login.brandDetail': 'Platform oversight access protocol v4.02',
+    'owner.login.routeLabel': 'Secure node: owner_control',
+    'owner.login.heroEyebrow': 'Owner console access',
+    'owner.login.heroTitle': 'Owner authentication required',
+    'owner.login.heroDetail': 'Confirm the owner account to open the platform control plane',
+    'owner.login.featureSolo': 'Single operator',
+    'owner.login.featureLive': 'Live backend',
+    'owner.login.featureAudit': 'Audited session',
+    'owner.login.signalOpsLabel': 'Primary lane',
+    'owner.login.signalOpsValue': 'Owner access',
+    'owner.login.signalOpsDetail': 'Open the control plane through the owner-only entry lane.',
+    'owner.login.signalCommercialLabel': 'Control plane',
+    'owner.login.signalCommercialValue': 'Platform scope',
+    'owner.login.signalCommercialDetail': 'Review tenants, billing posture, incidents, and guarded controls from one place.',
+    'owner.login.signalGuardLabel': 'Guardrails',
+    'owner.login.signalGuardValue': 'Protected session',
+    'owner.login.signalGuardDetail': 'Audit trail, backend controls, and two-factor checks remain active for every owner sign-in.',
+    'owner.login.listSingleTitle': 'Single owner account',
+    'owner.login.listSingleDetail': 'This terminal is reserved for the owner route only and never mixes with tenant administration.',
+    'owner.login.listSafetyTitle': 'Guarded backend',
+    'owner.login.listSafetyDetail': 'Authentication, session control, audit trail, and 2FA remain wired into the live owner backend.',
+    'owner.login.formEyebrow': 'Owner console access',
+    'owner.login.formTitle': 'Owner console access',
+    'owner.login.formDetail': 'Use the single owner account. The same backend guardrails, session controls, and audit trail remain active here.',
+    'owner.login.fieldUsername': 'Owner account',
+    'owner.login.placeholderUsername': 'owner',
+    'owner.login.fieldPassword': 'Access key',
+    'owner.login.placeholderPassword': 'Enter the access key',
+    'owner.login.fieldOtp': 'Two-factor code',
+    'owner.login.placeholderOtp': '123456',
+    'owner.login.submit': 'Open owner console',
+    'owner.login.submitBusy': 'Opening owner console...',
+    'owner.login.usernameHelp': 'Stored only on this device so the owner account can sign in faster.',
+    'owner.login.guardTitle': 'Guarded session',
+    'owner.login.guardDetail': 'Owner access uses the same guarded session, audit trail, and backend controls already wired into the platform.',
+    'owner.login.otpHelp': 'Enter the current code from your authenticator if two-factor is enabled.',
+    'owner.login.footerLive': 'Live control plane session',
+    'owner.login.footerOwner': 'Owner lane only',
+    'owner.login.footerAudit': 'Audit protected',
+  });
+
+  Object.assign(DICTIONARY.th, {
+    'owner.login.brandTitle': 'OWNER CONTROL PLANE',
+    'owner.login.brandDetail': 'Platform oversight access protocol v4.02',
+    'owner.login.routeLabel': 'Owner sign in',
+    'owner.login.heroEyebrow': 'Owner console access',
+    'owner.login.heroTitle': 'Owner authentication required',
+    'owner.login.heroDetail': 'Confirm the owner account to open the platform control plane',
+    'owner.login.featureSolo': 'Single operator',
+    'owner.login.featureLive': 'Live backend',
+    'owner.login.featureAudit': 'Audited session',
+    'owner.login.signalOpsLabel': 'Primary lane',
+    'owner.login.signalOpsValue': 'Owner access',
+    'owner.login.signalOpsDetail': 'Open the control plane through the owner-only entry lane.',
+    'owner.login.signalCommercialLabel': 'Control plane',
+    'owner.login.signalCommercialValue': 'Platform scope',
+    'owner.login.signalCommercialDetail': 'Review tenants, billing posture, incidents, and guarded controls from one place.',
+    'owner.login.signalGuardLabel': 'Guardrails',
+    'owner.login.signalGuardValue': 'Protected session',
+    'owner.login.signalGuardDetail': 'Audit trail, backend controls, and two-factor checks remain active for every owner sign-in.',
+    'owner.login.listSingleTitle': 'Single owner account',
+    'owner.login.listSingleDetail': 'This terminal is reserved for the owner route only and never mixes with tenant administration.',
+    'owner.login.listSafetyTitle': 'Guarded backend',
+    'owner.login.listSafetyDetail': 'Authentication, session control, audit trail, and 2FA remain wired into the live owner backend.',
+    'owner.login.formEyebrow': 'Owner console access',
+    'owner.login.formTitle': 'Owner console access',
+    'owner.login.formDetail': 'Use the single owner account. The same backend guardrails, session controls, and audit trail remain active here.',
+    'owner.login.fieldUsername': 'Owner account',
+    'owner.login.placeholderUsername': 'owner',
+    'owner.login.fieldPassword': 'Access key',
+    'owner.login.placeholderPassword': 'Enter the access key',
+    'owner.login.fieldOtp': 'Two-factor code',
+    'owner.login.placeholderOtp': '123456',
+    'owner.login.submit': 'Open owner console',
+    'owner.login.submitBusy': 'Opening owner console...',
+    'owner.login.usernameHelp': 'Stored only on this device so the owner account can sign in faster.',
+    'owner.login.guardTitle': 'Guarded session',
+    'owner.login.guardDetail': 'Owner access uses the same guarded session, audit trail, and backend controls already wired into the platform.',
+    'owner.login.otpHelp': 'Enter the current code from your authenticator if two-factor is enabled.',
+    'owner.login.footerLive': 'Live control plane session',
+    'owner.login.footerOwner': 'Owner lane only',
+    'owner.login.footerAudit': 'Audit protected',
   });
 
   function initSelector(selectId) {

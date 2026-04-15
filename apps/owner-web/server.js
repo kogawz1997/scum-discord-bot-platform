@@ -44,6 +44,7 @@ function startOwnerWebServer() {
     tenantBaseUrl: process.env.TENANT_WEB_BASE_URL || `http://${process.env.TENANT_WEB_HOST || '127.0.0.1'}:${process.env.TENANT_WEB_PORT || '3202'}`,
     playerBaseUrl: process.env.WEB_PORTAL_BASE_URL || `http://${process.env.WEB_PORTAL_HOST || '127.0.0.1'}:${process.env.WEB_PORTAL_PORT || '3300'}`,
     loginHtmlPath: path.resolve(__dirname, '../../src/admin/owner-login.html'),
+    ownerLoginHtmlPath: path.resolve(__dirname, '../../src/admin/owner-login.html'),
   });
 
   const server = http.createServer((req, res) => {

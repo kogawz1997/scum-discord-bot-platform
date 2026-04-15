@@ -1,4 +1,4 @@
-(function (root, factory) {
+﻿(function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     module.exports = factory();
     return;
@@ -6,6 +6,66 @@
   root.OwnerDashboardV4 = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
+
+  const MOJIBAKE_TOKEN_PATTERN = /[\u00C3\u00C2\u00E0\u00E2][^<>"'=\s]*/g;
+  const UTF8_DECODER = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8', { fatal: false }) : null;
+  const MOJIBAKE_REPLACEMENTS = [];
+  const CP1252_REVERSE_MAP = new Map([
+    [0x20AC, 0x80],
+    [0x201A, 0x82],
+    [0x0192, 0x83],
+    [0x201E, 0x84],
+    [0x2026, 0x85],
+    [0x2020, 0x86],
+    [0x2021, 0x87],
+    [0x02C6, 0x88],
+    [0x2030, 0x89],
+    [0x0160, 0x8A],
+    [0x2039, 0x8B],
+    [0x0152, 0x8C],
+    [0x017D, 0x8E],
+    [0x2018, 0x91],
+    [0x2019, 0x92],
+    [0x201C, 0x93],
+    [0x201D, 0x94],
+    [0x2022, 0x95],
+    [0x2013, 0x96],
+    [0x2014, 0x97],
+    [0x02DC, 0x98],
+    [0x2122, 0x99],
+    [0x0161, 0x9A],
+    [0x203A, 0x9B],
+    [0x0153, 0x9C],
+    [0x017E, 0x9E],
+    [0x0178, 0x9F],
+  ]);
+
+  function decodeLatin1Utf8(text) {
+    const source = String(text ?? '');
+    try {
+      if (!UTF8_DECODER) return source;
+      const decoded = UTF8_DECODER.decode(Uint8Array.from(Array.from(source, (ch) => {
+        const codePoint = ch.codePointAt(0);
+        return CP1252_REVERSE_MAP.get(codePoint) ?? (codePoint & 0xff);
+      })));
+      return decoded.replace(/[\u0000-\u001f]/g, '');
+    } catch {
+      return source;
+    }
+  }
+
+  function repairMojibakeText(value) {
+    let output = String(value ?? '');
+    for (let index = 0; index < 3; index += 1) {
+      const next = output.replace(MOJIBAKE_TOKEN_PATTERN, (token) => decodeLatin1Utf8(token));
+      if (next === output) break;
+      output = next;
+    }
+    for (const [needle, replacement] of MOJIBAKE_REPLACEMENTS) {
+      output = output.replaceAll(needle, replacement);
+    }
+    return output;
+  }
 
   const NAV_GROUPS = [
     { label: 'แพลตฟอร์ม', items: [
@@ -64,6 +124,69 @@
     ] },
   ];
 
+  const DASHBOARD_CLASS_MENUS = [
+    {
+      id: 'commercial',
+      kicker: 'Class 01',
+      label: 'Customer & Revenue',
+      summary: 'Tenants, packages, renewals, billing, and customer follow-up.',
+      items: [
+        { label: 'Lane briefing', href: '#lane-commercial', localFocus: true },
+        { label: 'Tenant portfolio', href: '#tenants' },
+        { label: 'Packages', href: '#packages' },
+        { label: 'Subscriptions', href: '#subscriptions' },
+        { label: 'Billing', href: '#billing' },
+        { label: 'Support', href: '#support' },
+      ],
+    },
+    {
+      id: 'operations',
+      kicker: 'Class 02',
+      label: 'Operations & Governance',
+      summary: 'Runtime health, incidents, jobs, audit, security, and platform policy.',
+      items: [
+        { label: 'Lane briefing', href: '#lane-operations', localFocus: true },
+        { label: 'Runtime', href: '#runtime-health' },
+        { label: 'Incidents', href: '#incidents' },
+        { label: 'Jobs', href: '#jobs' },
+        { label: 'Audit', href: '#audit' },
+        { label: 'Security', href: '#security' },
+        { label: 'Settings', href: '#settings' },
+      ],
+    },
+  ];
+
+  const COMMERCIAL_DASHBOARD_ROUTES = new Set([
+    'overview',
+    'dashboard',
+    'commercial',
+    'tenants',
+    'packages',
+    'subscriptions',
+    'billing',
+    'support',
+    'quota',
+  ]);
+
+  const OPERATIONS_DASHBOARD_ROUTES = new Set([
+    'settings',
+    'runtime',
+    'runtime-health',
+    'agents-bots',
+    'fleet-diagnostics',
+    'incidents',
+    'jobs',
+    'audit',
+    'security',
+    'automation',
+    'recovery',
+    'control',
+    'access',
+    'diagnostics',
+    'analytics',
+    'observability',
+  ]);
+
   function cloneNavGroups(groups, currentRoute) {
     const route = String(currentRoute || 'overview').trim().toLowerCase() || 'overview';
     return (Array.isArray(groups) ? groups : []).map((group) => ({
@@ -78,8 +201,42 @@
     }));
   }
 
+  function resolveDashboardClassForRoute(currentRoute) {
+    const route = String(currentRoute || '').trim().toLowerCase();
+    if (OPERATIONS_DASHBOARD_ROUTES.has(route)) return 'operations';
+    return 'commercial';
+  }
+
+  function cloneDashboardClassMenus(groups, currentRoute, activeClass) {
+    const route = String(currentRoute || 'overview').trim().toLowerCase() || 'overview';
+    const selectedClass = String(activeClass || resolveDashboardClassForRoute(route)).trim().toLowerCase() || 'commercial';
+    return (Array.isArray(groups) ? groups : []).map((group) => {
+      const groupId = String(group && group.id || '').trim().toLowerCase();
+      const items = (Array.isArray(group.items) ? group.items : []).map((item) => {
+        const itemRoute = item && item.localFocus
+          ? ''
+          : String(item && item.href || '').replace(/^#/, '').trim().toLowerCase();
+        return {
+          ...item,
+          current: Boolean(itemRoute) && itemRoute === route,
+        };
+      });
+      return {
+        ...group,
+        current: groupId === selectedClass || items.some((item) => item.current),
+        expanded: groupId === selectedClass,
+        items,
+      };
+    });
+  }
+
   function escapeHtml(value) {
-    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return repairMojibakeText(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
   function formatNumber(value, fallback = '0') {
     const numeric = Number(value);
@@ -299,6 +456,7 @@
   function createOwnerDashboardV4Model(source, options = {}) {
     const state = source && typeof source === 'object' ? source : {};
     const currentRoute = String(options.currentRoute || 'overview').trim().toLowerCase() || 'overview';
+    const activeClass = resolveDashboardClassForRoute(currentRoute);
     const runtimeRows = normalizeRuntimeRows(state.runtimeSupervisor);
     const readyRuntimes = runtimeRows.filter((row) => toneForStatus(row.status) === 'success').length;
     const analytics = state.overview && state.overview.analytics ? state.overview.analytics : {};
@@ -384,6 +542,165 @@
         ],
       };
     }
+    const commercialCards = [
+      {
+        title: 'Renewal pressure',
+        body: expiringCount > 0
+          ? `${formatNumber(expiringCount, '0')} subscriptions need review within 14 days.`
+          : 'No urgent renewals are currently stacked against the commercial lane.',
+        meta: Number(subscriptions.mrr) > 0
+          ? `Tracked recurring revenue ฿${formatNumber(subscriptions.mrr, '0')}`
+          : 'Recurring revenue is not populated yet.',
+        tone: expiringCount > 0 ? 'warning' : 'success',
+      },
+      {
+        title: 'Customer follow-up',
+        body: attentionRows.length > 0
+          ? `${formatNumber(attentionRows.length, '0')} accounts need operator review before they drift.`
+          : 'Customer follow-up is currently quiet.',
+        meta: state.supportCase && state.supportCase.signals
+          ? `${formatNumber(state.supportCase.signals.total, '0')} support-linked signals are open.`
+          : 'Support signals are not pulling extra pressure right now.',
+        tone: attentionRows.length > 0 ? 'info' : 'muted',
+      },
+    ];
+    const operationsCards = [
+      {
+        title: 'Runtime watch',
+        body: degradedRuntimeCount > 0
+          ? `${formatNumber(degradedRuntimeCount, '0')} services need attention before platform work expands.`
+          : 'Core runtime services are currently steady.',
+        meta: runtimeRows.length > 0
+          ? `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')} runtime services are ready.`
+          : 'Runtime inventory has not been loaded yet.',
+        tone: degradedRuntimeCount > 0 ? 'warning' : 'success',
+      },
+      {
+        title: 'Signal pressure',
+        body: feed.length > 0
+          ? `${formatNumber(feed.length, '0')} open signals are waiting for triage or verification.`
+          : 'No open platform signals are currently queued.',
+        meta: hotspot
+          ? `Slowest path ${hotspot.routeGroup || hotspot.samplePath || '/'} at ${formatNumber(hotspot.p95LatencyMs, '0')} ms p95.`
+          : 'No hotspot route has been promoted into the dashboard yet.',
+        tone: feed.length > 0 || degradedRuntimeCount > 0 ? 'warning' : 'muted',
+      },
+    ];
+    const classSections = [
+      {
+        id: 'commercial',
+        anchorId: 'lane-commercial',
+        focusRoutes: 'overview dashboard tenants packages subscriptions billing support',
+        kicker: 'Class 01',
+        title: 'Customer & Revenue lane',
+        subtitle: 'Keep tenant portfolio, package fit, renewals, billing, and customer follow-up in one working lane.',
+        switchLabel: 'Open operations lane',
+        switchTarget: 'operations',
+        metrics: [
+          { label: 'Recurring revenue', value: Number(subscriptions.mrr) > 0 ? `฿${formatNumber(subscriptions.mrr, '0')}` : 'No feed', detail: 'Tracked monthly revenue baseline', tone: Number(subscriptions.mrr) > 0 ? 'success' : 'muted' },
+          { label: 'Renewals in 14 days', value: formatNumber(expiringCount, '0'), detail: expiringCount > 0 ? 'Accounts that should be handled next' : 'No near-term renewal pressure', tone: expiringCount > 0 ? 'warning' : 'success' },
+          { label: 'Accounts to review', value: formatNumber(attentionRows.length, '0'), detail: 'Portfolio items already showing friction', tone: attentionRows.length > 0 ? 'info' : 'muted' },
+        ],
+        actionGroups: [
+          {
+            tone: 'success',
+            tag: 'Portfolio',
+            title: 'Tenant portfolio',
+            detail: 'Move between the customer list, package mix, and portfolio health without leaving the lane.',
+            actions: [
+              { label: 'Open tenants', href: '#tenants', primary: true },
+              { label: 'Open packages', href: '#packages' },
+              { label: 'Open subscriptions', href: '#subscriptions' },
+            ],
+          },
+          {
+            tone: 'warning',
+            tag: 'Revenue',
+            title: 'Renewals and billing',
+            detail: 'Check expiring subscriptions, invoice pressure, and payment recovery from one block.',
+            actions: [
+              { label: 'Open billing', href: '#billing', primary: true },
+              { label: 'Review renewals', href: '#subscriptions' },
+              { label: 'Open support', href: '#support' },
+            ],
+          },
+        ],
+        primaryPanel: {
+          kicker: 'Needs review',
+          title: 'Accounts to open next',
+          copy: 'A short list of customers that are closest to needing direct owner attention.',
+          type: 'attention',
+        },
+        secondaryPanel: {
+          kicker: 'Commercial context',
+          title: 'Customer lane context',
+          copy: 'Use the side cards to see whether the commercial lane is a revenue problem, a support problem, or both.',
+          cards: commercialCards,
+        },
+      },
+      {
+        id: 'operations',
+        anchorId: 'lane-operations',
+        focusRoutes: 'settings runtime runtime-health agents-bots fleet-diagnostics incidents jobs audit security automation recovery control access diagnostics analytics observability',
+        kicker: 'Class 02',
+        title: 'Operations & Governance lane',
+        subtitle: 'Hold runtime health, incidents, audit evidence, security posture, and policy changes in a separate operator lane.',
+        switchLabel: 'Back to customer lane',
+        switchTarget: 'commercial',
+        metrics: [
+          { label: 'Runtime ready', value: `${formatNumber(readyRuntimes, '0')}/${formatNumber(runtimeRows.length, '0')}`, detail: 'Services reporting healthy state now', tone: readyRuntimes === runtimeRows.length ? 'success' : 'warning' },
+          { label: 'Open signals', value: formatNumber(openSignalCount, '0'), detail: 'Notifications, incidents, and security signals', tone: openSignalCount > 0 ? 'warning' : 'muted' },
+          { label: 'Incident feed', value: formatNumber(feed.length, '0'), detail: feed.length > 0 ? 'Signals that still need triage' : 'No new feed items in this snapshot', tone: feed.length > 0 ? 'info' : 'success' },
+        ],
+        actionGroups: [
+          {
+            tone: 'info',
+            tag: 'Runtime',
+            title: 'Runtime control',
+            detail: 'Open runtime inventory, diagnostics, and recovery without mixing it into the customer lane.',
+            actions: [
+              { label: 'Open runtime', href: '#runtime-health', primary: true },
+              { label: 'Agents & bots', href: '#agents-bots' },
+              { label: 'Fleet diagnostics', href: '#fleet-diagnostics' },
+            ],
+          },
+          {
+            tone: 'warning',
+            tag: 'Response',
+            title: 'Incidents and recovery',
+            detail: 'Use the response lane for incident triage, queued jobs, and recovery work.',
+            actions: [
+              { label: 'Open incidents', href: '#incidents', primary: true },
+              { label: 'Open jobs', href: '#jobs' },
+              { label: 'Open recovery', href: '#recovery' },
+            ],
+          },
+          {
+            tone: 'muted',
+            tag: 'Governance',
+            title: 'Audit and policy',
+            detail: 'Keep security, audit, and settings in the same governance lane.',
+            actions: [
+              { label: 'Open audit', href: '#audit', primary: true },
+              { label: 'Open security', href: '#security' },
+              { label: 'Open settings', href: '#settings' },
+            ],
+          },
+        ],
+        primaryPanel: {
+          kicker: 'Signal feed',
+          title: 'Recent incidents and alerts',
+          copy: 'A tighter feed for platform signals, incident notices, and runtime anomalies.',
+          type: 'feed',
+        },
+        secondaryPanel: {
+          kicker: 'Operations context',
+          title: 'Platform lane context',
+          copy: 'Keep the operational lane focused on service readiness, signal pressure, and route hotspots.',
+          cards: operationsCards,
+        },
+      },
+    ];
     return {
       shell: {
         brand: 'SCUM TH',
@@ -391,6 +708,8 @@
         workspaceLabel: 'ศูนย์ควบคุมแพลตฟอร์ม',
         environmentLabel: 'ระดับแพลตฟอร์ม',
         navGroups: cloneNavGroups(NAV_GROUPS, currentRoute),
+        navClasses: cloneDashboardClassMenus(DASHBOARD_CLASS_MENUS, currentRoute, activeClass),
+        activeClass,
       },
       header: {
         title: 'ภาพรวมเจ้าของระบบ',
@@ -415,6 +734,7 @@
       actionGroups: settingsRoute ? SETTINGS_ACTION_GROUPS : ACTION_GROUPS,
       attentionRows,
       incidentFeed: feed,
+      classSections,
       railCards: [
         { title: 'ภาพรวมเชิงพาณิชย์', body: expiringCount > 0 ? `${formatNumber(expiringCount, '0')} รายการใกล้ต่ออายุหรือหมดอายุ` : 'ตอนนี้ยังไม่เห็นแรงกดดันด้านการต่ออายุที่ต้องรีบจัดการ', meta: Number(subscriptions.mrr) > 0 ? `รายได้ที่ติดตามได้ ฿${formatNumber(subscriptions.mrr, '0')}` : 'ใช้หน้านี้ทบทวนแพ็กเกจและการสมัครใช้', tone: expiringCount > 0 ? 'danger' : 'success' },
         { title: 'งานดูแลลูกค้า', body: state.supportCase && state.supportCase.signals ? `${formatNumber(state.supportCase.signals.total, '0')} สัญญาณถูกผูกกับเคสที่กำลังดูอยู่` : 'ตอนนี้งานดูแลลูกค้าค่อนข้างสงบ', meta: 'เปิดดูงานดูแลลูกค้าและวินิจฉัยระบบก่อนแตะสถานะบริการหรือโควตา', tone: state.supportCase ? 'warning' : 'muted' },
@@ -434,6 +754,34 @@
       }),
       '</div></section>',
     ].join('')).join('');
+  }
+  function renderRouteLink(item) {
+    const className = item.current ? 'odv4-nav-link odv4-nav-link-current' : 'odv4-nav-link';
+    const localFocusAttr = item.localFocus ? ' data-owner-local-focus="1"' : '';
+    const localRouteAttr = item.localFocus ? ' data-ownerLocalFocus="1"' : '';
+    return `<a class="${className}" href="${escapeHtml(item.href || '#')}"${localFocusAttr}${localRouteAttr}>${escapeHtml(item.label || '')}</a>`;
+  }
+  function renderSidebarClassMenu(groups) {
+    return (Array.isArray(groups) ? groups : []).map((group) => {
+      const expanded = group.expanded ? 'true' : 'false';
+      return [
+        `<section class="odv4-nav-class" data-odv4-nav-class="${escapeHtml(group.id || '')}" data-expanded="${expanded}">`,
+        `<button class="odv4-nav-class-toggle" type="button" data-odv4-class-toggle="${escapeHtml(group.id || '')}" aria-expanded="${expanded}">`,
+        '<span class="odv4-nav-class-copy">',
+        `<span class="odv4-nav-class-kicker">${escapeHtml(group.kicker || '')}</span>`,
+        `<strong class="odv4-nav-class-title">${escapeHtml(group.label || '')}</strong>`,
+        `<span class="odv4-nav-class-summary">${escapeHtml(group.summary || '')}</span>`,
+        '</span>',
+        `<span class="odv4-nav-class-caret" aria-hidden="true"></span>`,
+        '</button>',
+        '<div class="odv4-nav-class-body-wrap">',
+        '<div class="odv4-nav-class-body">',
+        ...(Array.isArray(group.items) ? group.items.map((item) => renderRouteLink(item)) : []),
+        '</div>',
+        '</div>',
+        '</section>',
+      ].join('');
+    }).join('');
   }
   function renderChips(items) {
     return (Array.isArray(items) ? items : []).map((item) => `<span class="odv4-badge odv4-badge-${escapeHtml(item.tone || 'muted')}">${escapeHtml(item.label || '')}</span>`).join('');
@@ -521,11 +869,76 @@
       '</article>',
     ].join('')).join('');
   }
+  function renderClassChoiceCards(items, activeClass) {
+    return (Array.isArray(items) ? items : []).map((item) => {
+      const active = item.id === activeClass;
+      return [
+        `<button class="odv4-class-choice${active ? ' is-active' : ''}" type="button" data-odv4-class-filter="${escapeHtml(item.id || '')}" aria-pressed="${active ? 'true' : 'false'}">`,
+        `<span class="odv4-class-choice-kicker">${escapeHtml(item.kicker || '')}</span>`,
+        `<strong class="odv4-class-choice-title">${escapeHtml(item.title || '')}</strong>`,
+        `<p class="odv4-class-choice-copy">${escapeHtml(item.subtitle || '')}</p>`,
+        '<div class="odv4-class-choice-metrics">',
+        ...(Array.isArray(item.metrics) ? item.metrics.map((metric) => [
+          `<span class="odv4-class-choice-metric odv4-tone-${escapeHtml(metric.tone || 'muted')}">`,
+          `<strong>${escapeHtml(metric.value || '-')}</strong>`,
+          `<span>${escapeHtml(metric.label || '')}</span>`,
+          '</span>',
+        ].join('')) : []),
+        '</div>',
+        '</button>',
+      ].join('');
+    }).join('');
+  }
+  function renderClassMetrics(items) {
+    return (Array.isArray(items) ? items : []).map((item) => [
+      `<article class="odv4-class-metric odv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+      `<span class="odv4-kpi-label">${escapeHtml(item.label || '')}</span>`,
+      `<strong class="odv4-kpi-value">${escapeHtml(item.value || '-')}</strong>`,
+      `<p class="odv4-kpi-detail">${escapeHtml(item.detail || '')}</p>`,
+      '</article>',
+    ].join('')).join('');
+  }
+  function renderContextCards(items) {
+    return (Array.isArray(items) ? items : []).map((item) => [
+      `<article class="odv4-context-card odv4-tone-${escapeHtml(item.tone || 'muted')}">`,
+      `<span class="odv4-kpi-label">${escapeHtml(item.title || '')}</span>`,
+      `<strong class="odv4-context-title">${escapeHtml(item.body || '')}</strong>`,
+      `<p class="odv4-kpi-detail">${escapeHtml(item.meta || '')}</p>`,
+      '</article>',
+    ].join('')).join('');
+  }
+  function renderClassSection(section, model) {
+    if (!section) return '';
+    const primaryType = section.primaryPanel && section.primaryPanel.type;
+    const primaryContent = primaryType === 'feed'
+      ? renderFeed(model.incidentFeed)
+      : renderAttentionRows(model.attentionRows);
+    const localTarget = `#${escapeHtml(section.anchorId || '')}`;
+    return [
+      `<section id="${escapeHtml(section.anchorId || '')}" class="odv4-class-section odv4-focus-target" data-odv4-class-section="${escapeHtml(section.id || '')}" data-owner-focus-route="${escapeHtml(section.focusRoutes || '')}">`,
+      section.id === 'operations' ? '<span id="settings" class="odv4-route-anchor" aria-hidden="true"></span>' : '',
+      '<div class="odv4-class-hero">',
+      '<div class="odv4-class-header">',
+      `<span class="odv4-section-kicker">${escapeHtml(section.kicker || '')}</span>`,
+      `<h2 class="odv4-class-title">${escapeHtml(section.title || '')}</h2>`,
+      `<p class="odv4-class-copy">${escapeHtml(section.subtitle || '')}</p>`,
+      `<div class="odv4-class-actions"><a class="odv4-button odv4-button-secondary" href="${localTarget}" data-ownerLocalFocus="1">Focus section</a></div>`,
+      '</div>',
+      `<div class="odv4-class-metrics">${renderClassMetrics(section.metrics)}</div>`,
+      '</div>',
+      `<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">Workflow</span><h3 class="odv4-section-title">${escapeHtml(section.title || '')}</h3><p class="odv4-section-copy">Use this section for a focused working set inside the full Owner surface.</p></div><div class="odv4-task-grid">${renderActionGroups(section.actionGroups)}</div></section>`,
+      '<div class="odv4-split-grid">',
+      `<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">${escapeHtml(section.primaryPanel && section.primaryPanel.kicker || '')}</span><h3 class="odv4-section-title">${escapeHtml(section.primaryPanel && section.primaryPanel.title || '')}</h3><p class="odv4-section-copy">${escapeHtml(section.primaryPanel && section.primaryPanel.copy || '')}</p></div>${primaryContent}</section>`,
+      `<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">${escapeHtml(section.secondaryPanel && section.secondaryPanel.kicker || '')}</span><h3 class="odv4-section-title">${escapeHtml(section.secondaryPanel && section.secondaryPanel.title || '')}</h3><p class="odv4-section-copy">${escapeHtml(section.secondaryPanel && section.secondaryPanel.copy || '')}</p></div><div class="odv4-context-grid">${renderContextCards(section.secondaryPanel && section.secondaryPanel.cards)}</div></section>`,
+      '</div>',
+      '</section>',
+    ].join('');
+  }
 
   function buildOwnerDashboardV4Html(model) {
     const safeModel = model && typeof model === 'object' ? model : createOwnerDashboardV4Model({});
-    return [
-      '<div class="odv4-app"><header class="odv4-topbar"><div class="odv4-brand-row">',
+    return repairMojibakeText([
+      `<div class="odv4-app" data-odv4-dashboard="1" data-odv4-default-class="${escapeHtml(safeModel.shell.activeClass || 'commercial')}"><header class="odv4-topbar"><div class="odv4-brand-row">`,
       `<div class="odv4-brand-mark">${escapeHtml(safeModel.shell.brand || 'SCUM')}</div>`,
       `<div class="odv4-brand-copy"><span class="odv4-surface-label">${escapeHtml(safeModel.shell.surfaceLabel || '')}</span><strong class="odv4-workspace-label">${escapeHtml(safeModel.shell.workspaceLabel || '')}</strong></div>`,
       '</div><div class="odv4-topbar-actions">',
@@ -534,31 +947,109 @@
       '<a class="odv4-button odv4-button-secondary" href="#runtime-health">บริการ</a>',
       '</div></header>',
       '<div class="odv4-shell"><aside class="odv4-sidebar"><div class="odv4-stack"><span class="odv4-sidebar-title">เมนูเจ้าของระบบ</span><p class="odv4-sidebar-copy">ใช้หน้านี้เพื่อตัดสินใจเรื่องลูกค้า รายได้ ความปลอดภัย และความพร้อมของบริการ โดยไม่ต้องไล่เปิดหลายส่วนของระบบ</p></div>',
-      renderNavGroups(safeModel.shell.navGroups),
       '</aside><main class="odv4-main">',
       '<div id="overview" class="odv4-focus-target" data-owner-focus-route="overview dashboard">',
       '<section class="odv4-pagehead"><div class="odv4-stack"><span class="odv4-section-kicker">ศูนย์ควบคุมเจ้าของระบบ</span>',
       `<h1 class="odv4-page-title">${escapeHtml(safeModel.header.title || '')}</h1><p class="odv4-page-subtitle">${escapeHtml(safeModel.header.subtitle || '')}</p><div class="odv4-chip-row">${renderChips(safeModel.header.statusChips)}</div></div>`,
-      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-secondary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'เปิดต่อ')}</a></div></section>`,
+      `<div class="odv4-pagehead-actions"><a class="odv4-button odv4-button-primary" href="${escapeHtml(safeModel.header.primaryAction.href || '#')}">${escapeHtml(safeModel.header.primaryAction.label || 'เปิดต่อ')}</a></div></section>`,
       '</div>',
       `<section class="odv4-kpi-strip">${renderKpis(safeModel.kpis)}</section>`,
       renderDecisionPanel(safeModel.decisionPanel),
-      '<div id="settings" class="odv4-focus-target" data-owner-focus-route="settings">',
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ตัวเลือกอื่น</span><h2 class="odv4-section-title">เลือกงานที่ต้องทำต่อ</h2><p class="odv4-section-copy">เลือกเส้นทางที่ตรงกับงานที่กำลังทำได้เลย</p></div>',
-      `<div class="odv4-task-grid">${renderActionGroups(safeModel.actionGroups)}</div></section>`,
-      '</div>',
-      '<div class="odv4-split-grid"><section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">ต้องดูต่อ</span><h2 class="odv4-section-title">ลูกค้าที่ควรเปิดดูก่อน</h2><p class="odv4-section-copy">ลิสต์สั้นสำหรับเปิดงานต่อทันที</p></div>',
-      `<div class="odv4-list">${renderAttentionRows(safeModel.attentionRows)}</div></section>`,
-      '<section class="odv4-panel"><div class="odv4-section-head"><span class="odv4-section-kicker">สัญญาณล่าสุด</span><h2 class="odv4-section-title">เหตุการณ์และการแจ้งเตือนล่าสุด</h2><p class="odv4-section-copy">รวมสัญญาณหลักที่ควรรู้ก่อน</p></div>',
-      `<div class="odv4-feed">${renderFeed(safeModel.incidentFeed)}</div></section></div></main>`,
+      '<div class="odv4-class-section-stack">',
+      ...(Array.isArray(safeModel.classSections) ? safeModel.classSections.map((section) => renderClassSection(section, safeModel)) : []),
+      '</div></main>',
       `<aside class="odv4-rail"><div class="odv4-rail-sticky"><div class="odv4-rail-header">บริบทเจ้าของระบบ</div><p class="odv4-rail-copy">ดูรายได้ งานดูแลลูกค้า และจุดเสี่ยงได้จากด้านขวา</p>${renderRailCards(safeModel.railCards)}</div></aside>`,
       '</div></div>',
-    ].join('');
+    ].join(''));
+  }
+
+  function readExpandedDashboardClasses(target, fallbackClass) {
+    const raw = String(target && target.dataset && target.dataset.odv4ExpandedClasses || '').trim();
+    const expanded = new Set(raw.split(',').map((value) => String(value || '').trim().toLowerCase()).filter(Boolean));
+    if (expanded.size === 0 && fallbackClass) expanded.add(String(fallbackClass).trim().toLowerCase());
+    return expanded;
+  }
+
+  function writeExpandedDashboardClasses(target, classes) {
+    target.dataset.odv4ExpandedClasses = Array.from(classes).join(',');
+  }
+
+  function applyOwnerDashboardV4State(target) {
+    if (!target) return;
+    const dashboardRoot = target.querySelector('[data-odv4-dashboard="1"]');
+    if (!dashboardRoot) return;
+    const defaultClass = String(dashboardRoot.dataset.odv4DefaultClass || 'commercial').trim().toLowerCase() || 'commercial';
+    const activeClass = String(target.dataset.odv4ActiveClass || defaultClass).trim().toLowerCase() || defaultClass;
+    const expandedClasses = readExpandedDashboardClasses(target, defaultClass);
+    target.dataset.odv4ActiveClass = activeClass;
+    dashboardRoot.setAttribute('data-odv4-active-class', activeClass);
+    writeExpandedDashboardClasses(target, expandedClasses);
+    dashboardRoot.querySelectorAll('[data-odv4-class-section]').forEach((section) => {
+      section.hidden = false;
+      section.setAttribute('data-visible', '1');
+    });
+    dashboardRoot.querySelectorAll('[data-odv4-class-filter]').forEach((button) => {
+      const selected = String(button.getAttribute('data-odv4-class-filter') || '') === activeClass;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    dashboardRoot.querySelectorAll('[data-odv4-nav-class]').forEach((group) => {
+      const classId = String(group.getAttribute('data-odv4-nav-class') || '').trim().toLowerCase();
+      const expanded = expandedClasses.has(classId);
+      group.setAttribute('data-expanded', expanded ? 'true' : 'false');
+      const toggle = group.querySelector('[data-odv4-class-toggle]');
+      if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    });
+  }
+
+  function setupOwnerDashboardV4Interactions(target) {
+    if (!target || target.__ownerDashboardV4Bound) return;
+    target.__ownerDashboardV4Bound = true;
+    target.addEventListener('click', (event) => {
+      const trigger = event.target instanceof Element
+        ? event.target.closest('[data-odv4-class-filter], [data-odv4-class-jump], [data-odv4-class-toggle]')
+        : null;
+      if (!trigger) return;
+      const classId = String(
+        trigger.getAttribute('data-odv4-class-filter')
+        || trigger.getAttribute('data-odv4-class-jump')
+        || trigger.getAttribute('data-odv4-class-toggle')
+        || ''
+      ).trim().toLowerCase();
+      if (!classId) return;
+      event.preventDefault();
+      target.dataset.odv4ActiveClass = classId;
+      const expandedClasses = readExpandedDashboardClasses(target, classId);
+      if (trigger.hasAttribute('data-odv4-class-toggle')) {
+        if (expandedClasses.has(classId)) {
+          expandedClasses.delete(classId);
+        } else {
+          expandedClasses.add(classId);
+        }
+      } else {
+        expandedClasses.add(classId);
+      }
+      writeExpandedDashboardClasses(target, expandedClasses);
+      applyOwnerDashboardV4State(target);
+      if (!trigger.hasAttribute('data-odv4-class-toggle')) {
+        const focusTarget = target.querySelector(`#lane-${classId}`);
+        focusTarget?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      }
+    });
   }
 
   function renderOwnerDashboardV4(target, source, options) {
     if (!target) throw new Error('Owner dashboard V4 target is required');
-    target.innerHTML = buildOwnerDashboardV4Html(createOwnerDashboardV4Model(source, options));
+    const model = createOwnerDashboardV4Model(source, options);
+    const routeKey = String(options && options.currentRoute || 'overview').trim().toLowerCase() || 'overview';
+    target.innerHTML = buildOwnerDashboardV4Html(model);
+    if (target.dataset.odv4LastRoute !== routeKey || !target.dataset.odv4ActiveClass) {
+      target.dataset.odv4ActiveClass = String(model && model.shell && model.shell.activeClass || 'commercial').trim().toLowerCase() || 'commercial';
+      target.dataset.odv4ExpandedClasses = target.dataset.odv4ActiveClass;
+    }
+    target.dataset.odv4LastRoute = routeKey;
+    setupOwnerDashboardV4Interactions(target);
+    applyOwnerDashboardV4State(target);
     return target;
   }
 
@@ -568,3 +1059,4 @@
     renderOwnerDashboardV4,
   };
 });
+

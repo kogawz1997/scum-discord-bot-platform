@@ -1,4 +1,4 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -56,20 +56,22 @@ test('owner dashboard v4 model maps current owner state into command-center cont
   assert.equal(model.header.title, 'ภาพรวมเจ้าของระบบ');
   assert.equal(model.kpis.length, 6);
   assert.equal(model.actionGroups.length, 3);
+  assert.equal(model.shell.activeClass, 'commercial');
+  assert.equal(model.classSections.length, 2);
   assert.ok(model.attentionRows.length >= 1);
   assert.ok(model.decisionPanel);
   assert.ok(model.incidentFeed.some((item) => item.title.includes('/admin/api/platform/overview')));
 });
 
-test('owner dashboard v4 html includes shell, decision panel, and activity regions', () => {
+test('owner dashboard v4 html includes class lanes and grouped menu shell', () => {
   const html = buildOwnerDashboardV4Html(createOwnerDashboardV4Model({}, { currentRoute: 'settings' }));
   assert.match(html, /odv4-topbar/);
   assert.match(html, /odv4-priority-panel/);
-  assert.match(html, /odv4-task-grid/);
-  assert.match(html, /odv4-feed/);
+  assert.match(html, /data-odv4-class-section="operations"/);
   assert.match(html, /id="overview"/);
   assert.match(html, /id="settings"/);
-  assert.match(html, /odv4-nav-link odv4-nav-link-current" href="#settings"/);
+  assert.doesNotMatch(html, /odv4-class-choice-grid/);
+  assert.doesNotMatch(html, /data-odv4-class-toggle="commercial"/);
 });
 
 test('owner dashboard preview references parallel assets', () => {

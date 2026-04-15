@@ -7,6 +7,7 @@
  */
 
 const ADMIN_WEB_RUNTIME_BOOTSTRAP_ENV = 'ADMIN_WEB_RUNTIME_BOOTSTRAP';
+const { DatabaseSync } = require('node:sqlite');
 const { resolveLegacyRuntimeBootstrapPolicy } = require('../../utils/legacyRuntimeBootstrapPolicy');
 const {
   getCompatibilityClientKey,
@@ -224,6 +225,9 @@ function createAdminUserStoreRuntime(options = {}) {
   }
 
   function shouldUseEnvAdminUsersFallback(error) {
+    if (isAdminUsersDbLockedError(error)) {
+      return true;
+    }
     if (shouldFallbackToLegacyAdminUserPersistence(error)) {
       return true;
     }
@@ -236,11 +240,74 @@ function createAdminUserStoreRuntime(options = {}) {
       || message.includes('authentication failed');
   }
 
+  function isAdminUsersDbLockedError(error) {
+    if (!error) return false;
+    const code = String(error?.code || '').trim().toUpperCase();
+    const message = String(error?.message || error || '').toLowerCase();
+    return code === 'ADMIN_WEB_USERS_DB_LOCKED'
+      || code === 'SQLITE_BUSY'
+      || message.includes('database is locked')
+      || message.includes('database table is locked')
+      || message.includes('sqlite_busy');
+  }
+
   function isSqliteCompatibilityLockError(error) {
     const code = String(error?.code || '').trim().toUpperCase();
     const message = String(error?.message || error || '').toLowerCase();
-    return code === 'ERR_SQLITE_ERROR'
-      && message.includes('database is locked');
+    return (code === 'ERR_SQLITE_ERROR' || code === 'SQLITE_BUSY')
+      && (message.includes('database is locked') || message.includes('database table is locked'));
+  }
+
+  function buildAdminUsersDbLockedError(error) {
+    const lockedError = new Error(
+      'Admin web user database is temporarily locked. Falling back to env-backed admin users if configured.',
+    );
+    lockedError.code = 'ADMIN_WEB_USERS_DB_LOCKED';
+    lockedError.statusCode = 503;
+    lockedError.cause = error || null;
+    return lockedError;
+  }
+
+  function activateEnvAdminUsersFallback(error) {
+    const envUsers = getEnvAdminUserRows().filter((row) => row.isActive === true);
+    if (!envUsers.length) return false;
+    if (!envFallbackMode) {
+      logger.warn('[admin-web] falling back to env-backed admin users:', String(error?.message || error || 'database unavailable'));
+    }
+    envFallbackMode = true;
+    return true;
+  }
+
+  function throwIfSqliteAdminUsersDbLocked() {
+    const runtime = resolveDatabaseRuntime();
+    const engine = String(runtime?.engine || '').trim().toLowerCase();
+    const databaseFilePath = String(runtime?.filePath || '').trim();
+    const isSqlite = runtime?.isSqlite === true || engine === 'sqlite' || engine === 'unsupported';
+    if (!isSqlite || !databaseFilePath) return;
+
+    let db = null;
+    try {
+      db = new DatabaseSync(databaseFilePath, { open: true, readOnly: true });
+      db.exec('PRAGMA busy_timeout = 0;');
+      db.prepare('SELECT 1').get();
+    } catch (error) {
+      if (isSqliteCompatibilityLockError(error)) {
+        throw buildAdminUsersDbLockedError(error);
+      }
+    } finally {
+      try {
+        db?.close();
+      } catch {
+        // best effort close for probe handles
+      }
+    }
+  }
+
+  function assertAdminUsersSqliteCompatibilityReady(result) {
+    if (!result || result.ok !== false) return;
+    if (result.reason === 'admin-users-compatibility-locked') {
+      throw buildAdminUsersDbLockedError(new Error(result.reason));
+    }
   }
 
   function isSharedAdminUsersPrismaClient(client = prisma) {
@@ -283,6 +350,7 @@ function createAdminUserStoreRuntime(options = {}) {
       return sharedAdminUsersSqliteCompatibilityPending.get(key);
     }
     const work = (async () => {
+      throwIfSqliteAdminUsersDbLocked();
       if (runtime?.filePath) {
         try {
           ensureSqliteDateTimeSchemaCompatibility(runtime.filePath, ADMIN_USERS_SQLITE_COMPATIBILITY_TABLES);
@@ -432,23 +500,37 @@ function createAdminUserStoreRuntime(options = {}) {
     const users = parseAdminUsersFromEnv();
     const delegate = getAdminUserDelegate();
     if (delegate) {
-      await ensureSharedAdminUsersSqliteCompatibility(prisma);
+      assertAdminUsersSqliteCompatibilityReady(await ensureSharedAdminUsersSqliteCompatibility(prisma));
       try {
+        const shouldSyncBootstrapUsers = isLegacyAdminUsersRuntimeBootstrapAllowed();
         for (const user of users) {
+          const normalizedUsername = String(user.username || '').trim();
+          const passwordHash = createAdminPasswordHash(user.password);
+          const tenantId = String(user.tenantId || '').trim() || null;
           await delegate.upsert({
-            where: { username: String(user.username || '').trim() },
-            update: {},
+            where: { username: normalizedUsername },
+            update: shouldSyncBootstrapUsers
+              ? {
+                passwordHash,
+                role: normalizeRole(user.role),
+                tenantId,
+                isActive: true,
+              }
+              : {},
             create: {
-              username: String(user.username || '').trim(),
-              passwordHash: createAdminPasswordHash(user.password),
+              username: normalizedUsername,
+              passwordHash,
               role: normalizeRole(user.role),
-              tenantId: String(user.tenantId || '').trim() || null,
+              tenantId,
               isActive: true,
             },
           });
         }
         return { mode: 'delegate' };
       } catch (error) {
+        if (isAdminUsersDbLockedError(error)) {
+          throw buildAdminUsersDbLockedError(error);
+        }
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
@@ -502,7 +584,7 @@ function createAdminUserStoreRuntime(options = {}) {
     const normalizedLimit = Math.max(1, Math.trunc(Number(limit || 100)));
     const delegate = getAdminUserDelegate();
     if (delegate) {
-      await ensureSharedAdminUsersSqliteCompatibility(prisma);
+      assertAdminUsersSqliteCompatibilityReady(await ensureSharedAdminUsersSqliteCompatibility(prisma));
       try {
         const rows = await delegate.findMany({
           where: activeOnly ? { isActive: true } : undefined,
@@ -520,6 +602,9 @@ function createAdminUserStoreRuntime(options = {}) {
           }))
           : [];
       } catch (error) {
+        if (isAdminUsersDbLockedError(error) && activateEnvAdminUsersFallback(error)) {
+          return listAdminUsersFromDb(limit, options);
+        }
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
@@ -577,13 +662,18 @@ function createAdminUserStoreRuntime(options = {}) {
     }
     const delegate = getAdminUserDelegate();
     if (delegate) {
-      await ensureSharedAdminUsersSqliteCompatibility(prisma);
+      assertAdminUsersSqliteCompatibilityReady(await ensureSharedAdminUsersSqliteCompatibility(prisma));
       try {
         const row = await delegate.findUnique({
           where: { username: name },
         });
         return normalizeAdminUserRow(row);
       } catch (error) {
+        if (isAdminUsersDbLockedError(error) && activateEnvAdminUsersFallback(error)) {
+          return normalizeAdminUserRow(
+            getEnvAdminUserRows().find((row) => row.username === name) || null,
+          );
+        }
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
@@ -610,7 +700,7 @@ function createAdminUserStoreRuntime(options = {}) {
   async function countActiveOwnerUsers() {
     const delegate = getAdminUserDelegate();
     if (delegate) {
-      await ensureSharedAdminUsersSqliteCompatibility(prisma);
+      assertAdminUsersSqliteCompatibilityReady(await ensureSharedAdminUsersSqliteCompatibility(prisma));
       try {
         return await delegate.count({
           where: {
@@ -619,6 +709,11 @@ function createAdminUserStoreRuntime(options = {}) {
           },
         });
       } catch (error) {
+        if (isAdminUsersDbLockedError(error) && activateEnvAdminUsersFallback(error)) {
+          return getEnvAdminUserRows().filter(
+            (row) => row.isActive === true && String(row.role || '').trim().toLowerCase() === 'owner',
+          ).length;
+        }
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
@@ -678,7 +773,7 @@ function createAdminUserStoreRuntime(options = {}) {
 
     const delegate = getAdminUserDelegate();
     if (delegate) {
-      await ensureSharedAdminUsersSqliteCompatibility(prisma);
+      assertAdminUsersSqliteCompatibilityReady(await ensureSharedAdminUsersSqliteCompatibility(prisma));
       try {
         const passwordHash = password ? createAdminPasswordHash(password) : null;
         if (!existing) {
@@ -704,6 +799,9 @@ function createAdminUserStoreRuntime(options = {}) {
         }
         return getAdminUserByUsername(username);
       } catch (error) {
+        if (isAdminUsersDbLockedError(error)) {
+          throw buildAdminUsersDbLockedError(error);
+        }
         if (!shouldFallbackToLegacyAdminUserPersistence(error)) {
           throw error;
         }
@@ -761,23 +859,17 @@ function createAdminUserStoreRuntime(options = {}) {
 
     adminUsersReadyPromise = (async () => {
       try {
-        await seedAdminUsersFromEnv();
         envFallbackMode = false;
+        await seedAdminUsersFromEnv();
         const users = await listAdminUsersFromDb(1);
         if (!users.length) {
           throw new Error('No active admin users in database');
         }
         return;
       } catch (error) {
-        if (!shouldUseEnvAdminUsersFallback(error)) {
+        if (!shouldUseEnvAdminUsersFallback(error) || !activateEnvAdminUsersFallback(error)) {
           throw error;
         }
-        const envUsers = getEnvAdminUserRows().filter((row) => row.isActive === true);
-        if (!envUsers.length) {
-          throw error;
-        }
-        envFallbackMode = true;
-        logger.warn('[admin-web] falling back to env-backed admin users:', error.message);
       }
     })().catch((error) => {
       adminUsersReadyPromise = null;

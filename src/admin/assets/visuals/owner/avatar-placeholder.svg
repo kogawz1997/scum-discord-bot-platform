@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+<title id="title">Owner operator placeholder</title>
+<desc id="desc">Stylized owner operator portrait placeholder for the SCUM owner surface.</desc>
+<defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#111417"/>
+    <stop offset="100%" stop-color="#1b2227"/>
+  </linearGradient>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#d7b55e"/>
+    <stop offset="100%" stop-color="#658e9d"/>
+  </linearGradient>
+</defs>
+<rect width="320" height="320" rx="28" fill="url(#bg)"/>
+<circle cx="160" cy="118" r="54" fill="#20292f" stroke="#3f4f56" stroke-width="4"/>
+<path d="M94 250c18-42 45-63 66-63s48 21 66 63" fill="#1a2328" stroke="#53656d" stroke-width="4" stroke-linecap="round"/>
+<path d="M117 111c14-23 31-34 43-34 13 0 30 11 44 34" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+<circle cx="142" cy="120" r="5" fill="#d7b55e"/>
+<circle cx="178" cy="120" r="5" fill="#d7b55e"/>
+<path d="M142 145c10 9 26 9 36 0" fill="none" stroke="#7d959f" stroke-width="4" stroke-linecap="round"/>
+<rect x="34" y="32" width="92" height="28" rx="14" fill="#141b1f" stroke="#314048"/>
+<text x="80" y="51" fill="#d7b55e" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" text-anchor="middle">OWNER</text>
+</svg>

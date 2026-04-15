@@ -1,0 +1,2730 @@
+:root {
+  --owner-bg: #090b0d;
+  --owner-bg-soft: #0e1215;
+  --owner-panel: #15191d;
+  --owner-panel-2: #1b2025;
+  --owner-panel-3: #0f1317;
+  --owner-line: rgba(136, 149, 157, 0.16);
+  --owner-line-strong: rgba(24, 216, 255, 0.46);
+  --owner-text: #eef4f8;
+  --owner-soft: #9caab2;
+  --owner-muted: #61707a;
+  --owner-cyan: #15d7ff;
+  --owner-cyan-soft: rgba(21, 215, 255, 0.16);
+  --owner-gold: #e1b648;
+  --owner-danger: #ff5a6f;
+  --owner-shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+  --owner-radius: 12px;
+  --owner-sidebar-width: 196px;
+  --owner-topbar-height: 54px;
+}
+
+html:has(body.owner-stitch-polished) {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(21, 215, 255, 0.08), transparent 24%),
+    radial-gradient(rgba(97, 112, 122, 0.18) 1px, transparent 1px),
+    linear-gradient(180deg, #0a0d10, #090b0d 40%, #080a0c) !important;
+  background-size: auto, 28px 28px, auto !important;
+  background-color: var(--owner-bg) !important;
+}
+
+body.owner-stitch-polished {
+  margin: 0;
+  padding: var(--owner-topbar-height) 0 0 var(--owner-sidebar-width) !important;
+  display: block !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(21, 215, 255, 0.08), transparent 24%),
+    radial-gradient(rgba(97, 112, 122, 0.18) 1px, transparent 1px),
+    linear-gradient(180deg, #0a0d10, #090b0d 40%, #080a0c);
+  background-size: auto, 28px 28px, auto;
+  background-color: var(--owner-bg);
+  color: var(--owner-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  scroll-behavior: smooth !important;
+}
+
+body.owner-stitch-polished main[data-owner-chrome="workspace"] {
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+body.owner-stitch-polished::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: var(--owner-topbar-height) 0 0 0 !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(21, 215, 255, 0.08), transparent 24%),
+    radial-gradient(rgba(97, 112, 122, 0.18) 1px, transparent 1px),
+    linear-gradient(180deg, #0a0d10, #090b0d 40%, #080a0c) !important;
+  background-size: auto, 28px 28px, auto !important;
+  background-color: var(--owner-bg) !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="topbar"] {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: auto !important;
+  height: var(--owner-topbar-height) !important;
+  padding: 0 18px 0 22px !important;
+  background: rgba(4, 6, 7, 0.96) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px);
+  z-index: 80 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="topbar-brand"] {
+  color: var(--owner-cyan) !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: 1.02rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="topbar-route"] {
+  color: #e5f6fb !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+  border-bottom: 2px solid var(--owner-cyan) !important;
+  padding-bottom: 11px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="topnav"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+body.owner-stitch-polished .owner-topbar-tools {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished .owner-topbar-search {
+  display: none !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 180px !important;
+  width: 180px !important;
+  flex: 0 0 180px !important;
+  height: 38px !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  background: #111519 !important;
+  color: #6b7880 !important;
+}
+
+body.owner-stitch-polished .owner-topbar-search input {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="topbar"] input {
+  height: 38px !important;
+  min-height: 38px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  background: #111519 !important;
+  color: var(--owner-text) !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="topbar"] input::placeholder {
+  color: #6b7880 !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="toolbar"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #c7d4db !important;
+  box-shadow: none !important;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+body.owner-stitch-polished [data-owner-ui="toolbar"]:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #f4fbff !important;
+  transform: none !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="pill"],
+body.owner-stitch-polished .topbar__pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #111519 !important;
+  color: #d6e0e6 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="sidebar"] {
+  position: fixed !important;
+  top: var(--owner-topbar-height) !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: var(--owner-sidebar-width) !important;
+  height: auto !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  background: rgba(2, 3, 5, 0.98) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  z-index: 70 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+body.owner-stitch-polished [data-owner-chrome="sidebar"] > div:first-child {
+  padding: 0 10px 10px !important;
+  margin-bottom: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-brand-wrap"] {
+  display: block !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-title"] {
+  color: #f3f8fb !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-subtitle"] {
+  color: #7c8a93 !important;
+  font-size: 0.53rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-groups"] {
+  display: grid !important;
+  gap: 6px !important;
+  padding: 0 8px 4px !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  align-content: start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-group"] {
+  display: grid !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-group-label"],
+body.owner-stitch-polished [data-owner-slot="sidebar-group-toggle"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 18px !important;
+  padding: 0 6px !important;
+  color: #6d7b84 !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-group-toggle"] {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-group-toggle"]:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #d6e9f0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-group-state"] {
+  color: var(--owner-cyan) !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-nav-group"],
+body.owner-stitch-polished [data-owner-chrome="sidebar"] nav {
+  display: grid !important;
+  gap: 2px !important;
+  position: relative !important;
+  z-index: 1 !important;
+  padding: 0 0 0 0 !important;
+  margin: 0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-nav-group"][hidden],
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu"][hidden] {
+  display: none !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu"] {
+  display: grid !important;
+  gap: 2px !important;
+  margin: 1px 0 4px 18px !important;
+  padding: 2px 0 0 8px !important;
+  border-left: 1px solid rgba(21, 215, 255, 0.1) !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  min-height: 30px !important;
+  padding: 0 9px !important;
+  border: 1px solid transparent !important;
+  border-left-width: 2px !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: #7d8890 !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: 8.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-item-row"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-item-row"] > [data-owner-slot="sidebar-link"] {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu-toggle"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(21, 215, 255, 0.12) !important;
+  border-radius: 7px !important;
+  background: rgba(9, 12, 16, 0.9) !important;
+  color: #8ea3ad !important;
+  cursor: pointer !important;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu-toggle"]:hover,
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu-toggle"][aria-expanded="true"] {
+  border-color: rgba(21, 215, 255, 0.28) !important;
+  color: var(--owner-cyan) !important;
+  background: rgba(11, 20, 25, 0.96) !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-submenu-state"] {
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"][data-owner-nav-level="child"] {
+  min-height: 24px !important;
+  padding: 0 8px !important;
+  border-left-width: 1px !important;
+  border-radius: 8px !important;
+  color: #8d9ba4 !important;
+  font-size: 8px !important;
+  letter-spacing: 0.05em !important;
+  text-transform: none !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"] > * {
+  pointer-events: none !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link-spacer"] {
+  display: inline-flex !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 auto !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"]:hover {
+  background: rgba(18, 22, 26, 0.88) !important;
+  color: #d6e9f0 !important;
+  transform: none !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"].is-owner-active,
+body.owner-stitch-polished [data-owner-slot="sidebar-link"][data-owner-active="true"] {
+  background: #12181d !important;
+  border-color: rgba(21, 215, 255, 0.18) !important;
+  border-left-color: var(--owner-cyan) !important;
+  color: var(--owner-cyan) !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"][data-owner-nav-level="child"].is-owner-active,
+body.owner-stitch-polished [data-owner-slot="sidebar-link"][data-owner-nav-level="child"][data-owner-active="true"] {
+  background: rgba(18, 24, 29, 0.96) !important;
+  border-color: rgba(21, 215, 255, 0.12) !important;
+  border-left-color: rgba(21, 215, 255, 0.72) !important;
+}
+
+body.owner-stitch-polished .material-symbols-outlined[data-owner-svg] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1em !important;
+  height: 1em !important;
+  min-width: 1em !important;
+  min-height: 1em !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+}
+
+body.owner-stitch-polished .material-symbols-outlined[data-owner-svg] svg {
+  width: 100% !important;
+  height: 100% !important;
+  stroke: currentColor !important;
+  fill: none !important;
+}
+
+body.owner-stitch-polished .owner-shell-icon {
+  font-size: 17px !important;
+  flex: 0 0 auto !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"] .owner-shell-icon,
+body.owner-stitch-polished [data-owner-chrome="sidebar"] .owner-shell-icon {
+  font-size: 14px !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-link"] > span:last-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-page-sections"] {
+  display: grid !important;
+  gap: 4px !important;
+  margin: 4px 0 0 22px !important;
+  padding: 6px 0 0 10px !important;
+  border-left: 1px solid rgba(21, 215, 255, 0.14) !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-page-sections-label"] {
+  color: #6d7b84 !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-page-sections-nav"] {
+  display: grid !important;
+  gap: 3px !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-page-section-link"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  border-radius: 8px !important;
+  color: #9fb0b8 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1.35 !important;
+  text-decoration: none !important;
+  transition: color 120ms ease, background 120ms ease !important;
+}
+
+body.owner-stitch-polished [data-owner-slot="sidebar-page-section-link"]:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #e3f9ff !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure {
+  display: grid !important;
+  gap: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, rgba(18, 22, 26, 0.92), rgba(13, 16, 19, 0.92)) !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure summary {
+  list-style: none !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure summary::-webkit-details-marker {
+  display: none !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-summary {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  min-height: 52px !important;
+  padding: 14px 16px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-copy {
+  display: grid !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-title {
+  color: #eef4f8 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-detail {
+  color: #8fa0a9 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-state {
+  color: var(--owner-cyan) !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure[open] > .owner-live-disclosure-summary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure[open] > .owner-live-disclosure-summary .owner-live-disclosure-state::after {
+  content: " -" !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure:not([open]) > .owner-live-disclosure-summary .owner-live-disclosure-state::after {
+  content: " +" !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-body,
+body.owner-stitch-polished .owner-live-disclosure .owner-live-workspace-shell {
+  padding: 16px !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-inline {
+  margin-top: 12px !important;
+}
+
+body.owner-stitch-polished .owner-live-disclosure-inline .owner-live-disclosure-body {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+body.owner-stitch-polished main[data-owner-chrome="workspace"] {
+  display: block !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  min-height: calc(100vh - var(--owner-topbar-height)) !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  z-index: 1 !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+}
+
+body.owner-stitch-polished main[data-owner-chrome="workspace"] > :not(#ownerStitchSurface) {
+  display: none !important;
+}
+
+body.owner-stitch-polished main[data-owner-chrome="workspace"] > div:first-child {
+  padding: 0 !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished > footer {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchSurface,
+body.owner-stitch-polished #ownerStitchLiveData {
+  display: grid !important;
+  gap: 18px !important;
+  min-width: 0 !important;
+  align-content: start !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData [data-owner-section-label] {
+  scroll-margin-top: calc(var(--owner-topbar-height) + 14px) !important;
+}
+
+body.owner-stitch-polished #ownerStitchSurface {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 10px 24px 14px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr) !important;
+  gap: 18px !important;
+  align-items: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-main,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-side {
+  display: grid !important;
+  gap: 18px !important;
+  align-content: start !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-side {
+  position: sticky !important;
+  top: calc(var(--owner-topbar-height) + 14px) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-digest {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-digest-item {
+  display: grid !important;
+  gap: 5px !important;
+  padding: 14px 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: linear-gradient(180deg, rgba(27, 32, 37, 0.84), rgba(18, 22, 26, 0.84)) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-digest-item strong {
+  display: block !important;
+  color: #f4f8fb !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-chip-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(21, 215, 255, 0.18) !important;
+  background: rgba(21, 215, 255, 0.09) !important;
+  color: #d8f8ff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader {
+  padding: 4px 0 12px !important;
+}
+
+@media (max-width: 1180px) {
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-side {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+body.owner-stitch-polished [data-owner-layout="page-header"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  margin-bottom: 24px !important;
+}
+
+body.owner-stitch-polished [data-owner-role="page-heading"] {
+  margin: 0 !important;
+  color: #f3f7fa !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: clamp(1.8rem, 1.1rem + 1.2vw, 2.35rem) !important;
+  font-weight: 900 !important;
+  line-height: 1.04 !important;
+  letter-spacing: -0.04em !important;
+  text-transform: none !important;
+}
+
+body.owner-stitch-polished [data-owner-role="page-subtitle"] {
+  max-width: 76ch !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  color: #8ea1ab !important;
+  font-size: 0.94rem !important;
+  line-height: 1.5 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished [data-owner-role="section-heading"] {
+  color: #f4f8fb !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished [data-owner-layout="page-actions"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="action"],
+body.owner-stitch-polished [data-owner-ui="compact-action"],
+body.owner-stitch-polished [data-owner-ui="field"] {
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease, box-shadow 120ms ease !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="action"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="action"][data-owner-tone="primary"] {
+  background: linear-gradient(180deg, #1be0ff, #12c8ec) !important;
+  border-color: transparent !important;
+  color: #021118 !important;
+}
+
+body.owner-stitch-polished [data-owner-bridge="deferred"][data-owner-ui="action"],
+body.owner-stitch-polished [data-owner-bridge="deferred"][data-owner-ui="action"][data-owner-tone="primary"] {
+  background: #171c21 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #95a6af !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="action"][data-owner-tone="primary"]:hover {
+  background: linear-gradient(180deg, #39e5ff, #18d2f4) !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="action"]:not([data-owner-tone="primary"]) {
+  background: #1a2025 !important;
+  color: #dce6eb !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="compact-action"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 7px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: #161c20 !important;
+  color: #cad7de !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished [data-owner-bridge="deferred"][data-owner-ui="compact-action"] {
+  background: #14191d !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: #8899a2 !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="field"] {
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #101418 !important;
+  color: var(--owner-text) !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished textarea[data-owner-ui="field"] {
+  min-height: 104px !important;
+  padding: 12px !important;
+}
+
+body.owner-stitch-polished [data-owner-ui="field"]:focus {
+  border-color: var(--owner-line-strong) !important;
+  box-shadow: 0 0 0 3px rgba(21, 215, 255, 0.12) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+body.owner-stitch-polished #ownerStitchLiveData select,
+body.owner-stitch-polished #ownerStitchLiveData textarea {
+  min-height: 40px !important;
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #101418 !important;
+  color: var(--owner-text) !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData textarea {
+  min-height: 108px !important;
+  padding: 12px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+body.owner-stitch-polished #ownerStitchLiveData select:focus,
+body.owner-stitch-polished #ownerStitchLiveData textarea:focus {
+  border-color: var(--owner-line-strong) !important;
+  box-shadow: 0 0 0 3px rgba(21, 215, 255, 0.12) !important;
+  outline: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .odv4-button,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 38px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-title,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-page-title,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel h2 {
+  font-size: 1rem !important;
+  line-height: 1.28 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-copy,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-page-subtitle,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-inline-note {
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-label,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-table-label {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-stack,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel {
+  display: grid !important;
+  gap: 16px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel {
+  padding: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, rgba(25, 29, 33, 0.96), rgba(19, 23, 27, 0.96)) !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-head {
+  display: grid !important;
+  gap: 8px !important;
+  margin: 0 0 2px !important;
+  align-content: start !important;
+  position: relative !important;
+  padding-right: 132px !important;
+  min-height: 84px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel > .odv4-section-head::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel > .odv4-section-head::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: 108px !important;
+  height: 78px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    rgba(9, 14, 18, 0.8) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 30px rgba(3, 8, 12, 0.22) !important;
+  opacity: 0.96 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel > .odv4-section-head::before,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel > .odv4-section-head::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  width: 84px !important;
+  height: 58px !important;
+  border-radius: 14px !important;
+  background:
+    radial-gradient(circle at 18% 24%, var(--owner-route-glow), transparent 48%),
+    var(--owner-route-art) center / contain no-repeat !important;
+  filter: saturate(1.05) drop-shadow(0 14px 18px rgba(0, 0, 0, 0.18)) !important;
+  opacity: 0.68 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-kicker,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-table-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--owner-cyan) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-title,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-page-title {
+  margin: 0 !important;
+  color: #f3f7fa !important;
+  font-family: "Public Sans", "Segoe UI", Arial, sans-serif !important;
+  font-size: 1.12rem !important;
+  font-weight: 800 !important;
+  line-height: 1.22 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-copy,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-page-subtitle {
+  display: block !important;
+  max-width: 74ch !important;
+  margin: 0 !important;
+  color: #97a7b0 !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  align-items: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-card-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-split-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-kv {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form-grid > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-card-grid > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-grid > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-split-grid > * {
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field {
+  display: grid !important;
+  gap: 8px !important;
+  align-content: start !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-label,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-inline-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-note {
+  display: block !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-inline-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-note {
+  max-width: 70ch !important;
+  color: #90a2ab !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-inline-meta,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form-actions,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-action-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box {
+  display: grid !important;
+  gap: 10px !important;
+  align-content: start !important;
+  padding: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  background: rgba(28, 32, 36, 0.78) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card strong,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card strong {
+  display: block !important;
+  margin: 0 !important;
+  font-size: 1.08rem !important;
+  line-height: 1.3 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card p {
+  margin: 0 !important;
+  color: #96a6af !important;
+  font-size: 12px !important;
+  line-height: 1.58 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-wrap {
+  overflow: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  background: rgba(18, 22, 26, 0.86) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table {
+  width: 100% !important;
+  min-width: 680px !important;
+  border-collapse: collapse !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table th,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table td {
+  padding: 12px 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  vertical-align: top !important;
+  text-align: left !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table th {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: #6e7d87 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table td {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: #e4edf1 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 26px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished main :is(section, article, div).glass-panel,
+body.owner-stitch-polished main :is(section, article, div)[class*="bg-surface-container"],
+body.owner-stitch-polished main :is(section, article, div)[class*="bg-zinc-900/50"],
+body.owner-stitch-polished main :is(section, article, div)[class*="bg-zinc-900/80"],
+body.owner-stitch-polished main :is(section, article, div)[class*="rounded-xl"][class*="border"],
+body.owner-stitch-polished main :is(section, article, div)[class*="rounded-lg"][class*="border"] {
+  background: linear-gradient(180deg, rgba(25, 29, 33, 0.96), rgba(19, 23, 27, 0.96)) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+body.owner-stitch-polished main .panel,
+body.owner-stitch-polished main .panel--hero {
+  background: linear-gradient(180deg, rgba(25, 29, 33, 0.96), rgba(19, 23, 27, 0.96)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+
+body.owner-stitch-polished main .panel--hero {
+  position: relative;
+  overflow: hidden;
+}
+
+body.owner-stitch-polished main .panel--hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(21, 215, 255, 0.9), rgba(21, 215, 255, 0.15));
+}
+
+body.owner-stitch-polished main table {
+  border-collapse: collapse !important;
+}
+
+body.owner-stitch-polished main table th {
+  color: #64717b !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+body.owner-stitch-polished main table td {
+  color: #e6edf1 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+body.owner-stitch-polished main tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished main [class*="rounded-full"],
+body.owner-stitch-polished main span[class*="rounded"] {
+  letter-spacing: 0.06em !important;
+}
+
+body.owner-stitch-polished main [class*="text-cyan"],
+body.owner-stitch-polished main .text-primary-container {
+  color: var(--owner-cyan) !important;
+}
+
+body.owner-stitch-polished main [class*="bg-cyan-"],
+body.owner-stitch-polished main [class*="bg-primary-container"] {
+  background: rgba(21, 215, 255, 0.16) !important;
+}
+
+body.owner-stitch-polished main [class*="text-secondary"],
+body.owner-stitch-polished main [class*="text-amber"],
+body.owner-stitch-polished main [class*="text-yellow"] {
+  color: var(--owner-gold) !important;
+}
+
+body.owner-stitch-polished main [class*="text-red"],
+body.owner-stitch-polished main [class*="text-error"] {
+  color: var(--owner-danger) !important;
+}
+
+body.owner-stitch-polished main [class*="bg-red-"],
+body.owner-stitch-polished main [class*="bg-error"] {
+  background: rgba(255, 90, 111, 0.12) !important;
+}
+
+body.owner-stitch-polished main img[src*="/admin/assets/visuals/owner/"] {
+  background: linear-gradient(135deg, #101418, #171d22) !important;
+}
+
+body.owner-stitch-polished .is-owner-high-contrast main,
+body.owner-stitch-polished.is-owner-high-contrast main {
+  filter: saturate(1.08) contrast(1.04);
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item-main,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item-side,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: clip !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel {
+  display: grid !important;
+  gap: 14px !important;
+  align-content: start !important;
+  width: 100% !important;
+  padding: 22px 24px !important;
+  background:
+    linear-gradient(180deg, rgba(20, 24, 29, 0.96), rgba(14, 18, 22, 0.96)) !important;
+  border: 1px solid rgba(63, 209, 255, 0.14) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 22px 42px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+  animation: owner-panel-rise 180ms ease-out both;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData {
+  display: grid !important;
+  gap: 18px !important;
+  align-content: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData > * {
+  width: 100% !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-grid {
+  display: grid !important;
+  gap: 16px !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-metric {
+  min-height: 132px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-head {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-head [data-owner-role="section-heading"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--owner-cyan) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-head p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: #95a8b5 !important;
+  max-width: 72ch !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header {
+  display: grid !important;
+  gap: 10px !important;
+  padding: 24px 26px !important;
+  background:
+    radial-gradient(circle at top right, rgba(21, 215, 255, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(19, 24, 28, 0.97), rgba(13, 17, 21, 0.97)) !important;
+  border: 1px solid rgba(63, 209, 255, 0.18) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 24px 50px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header h1 {
+  margin: 0 !important;
+  font-size: clamp(32px, 4.6vw, 50px) !important;
+  line-height: 0.96 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.045em !important;
+  color: #f1f6fa !important;
+  text-wrap: balance !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header p {
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: #8ea4b2 !important;
+  max-width: 78ch !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card {
+  padding: 18px 18px 16px !important;
+  background:
+    linear-gradient(180deg, rgba(27, 32, 37, 0.96), rgba(21, 26, 30, 0.96)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card strong {
+  display: block !important;
+  margin: 0 !important;
+  font-size: clamp(24px, 3vw, 34px) !important;
+  line-height: 1.05 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+  color: #f4f8fb !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-note {
+  margin: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.62 !important;
+  color: #98acb8 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item {
+  align-items: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-empty {
+  position: relative !important;
+  padding: 18px 18px 18px 72px !important;
+  border: 1px dashed rgba(21, 215, 255, 0.14) !important;
+  border-radius: 12px !important;
+  background:
+    linear-gradient(180deg, rgba(11, 14, 17, 0.92), rgba(13, 18, 22, 0.92)),
+    url('/admin/assets/visuals/owner/network-placeholder.svg') no-repeat 18px center / 34px 34px !important;
+  color: #c9d5dc !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .odvc4-table-wrap {
+  overflow: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(12, 15, 19, 0.94)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table thead th {
+  padding: 13px 16px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: #6d7c87 !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table td {
+  padding: 15px 16px !important;
+  vertical-align: top !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: #e6eef3 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table tbody tr + tr td {
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table td small {
+  display: block !important;
+  margin-top: 4px !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+  color: #89a0ad !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell :is(.topbar, .sidebar, .owner-topbar-search, [aria-label="Search command"]) {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell :is([style*="position: sticky"], [style*="position:fixed"], .sticky) {
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell :is(.odv4-page-toolbar, .odvc4-toolbar, .odvc4-page-toolbar, .odvc4-toolbar-row) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item-copy,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-head p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card strong,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table td,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table td small,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header h1,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-inline-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-note,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-copy,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-page-subtitle {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-item-copy,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-head p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-header p,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card strong {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  overflow: hidden !important;
+}
+
+@keyframes owner-panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body.owner-stitch-polished #ownerStitchSurface > section,
+body.owner-stitch-polished #ownerStitchLiveData > * {
+  animation: none !important;
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --owner-sidebar-width: 188px;
+  }
+
+  body.owner-stitch-polished main[data-owner-chrome="workspace"] > div:first-child {
+    padding: 0 !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchSurface {
+    padding: 16px 10px 24px 12px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body.owner-stitch-polished {
+    padding-left: 0 !important;
+  }
+
+  body.owner-stitch-polished [data-owner-chrome="sidebar"] {
+    width: 100% !important;
+    position: relative !important;
+    top: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.owner-stitch-polished main[data-owner-chrome="workspace"] {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+  }
+
+  body.owner-stitch-polished [data-owner-layout="page-actions"] {
+    width: 100% !important;
+  }
+
+  body.owner-stitch-polished [data-owner-ui="action"] {
+    width: 100% !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form-grid,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-card-grid,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-grid,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+body.owner-stitch-polished #ownerStitchSurface {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-overview.svg');
+  --owner-route-glow: rgba(21, 215, 255, 0.18);
+  --owner-route-glow-strong: rgba(21, 215, 255, 0.26);
+  --owner-route-accent: rgba(21, 215, 255, 0.2);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="overview"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-overview.svg');
+  --owner-route-glow: rgba(21, 215, 255, 0.18);
+  --owner-route-glow-strong: rgba(21, 215, 255, 0.3);
+  --owner-route-accent: rgba(21, 215, 255, 0.18);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="commerce"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-commerce.svg');
+  --owner-route-glow: rgba(244, 197, 107, 0.16);
+  --owner-route-glow-strong: rgba(244, 197, 107, 0.28);
+  --owner-route-accent: rgba(244, 197, 107, 0.18);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="runtime"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-runtime.svg');
+  --owner-route-glow: rgba(104, 229, 255, 0.16);
+  --owner-route-glow-strong: rgba(104, 229, 255, 0.28);
+  --owner-route-accent: rgba(104, 229, 255, 0.18);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="analytics"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-analytics.svg');
+  --owner-route-glow: rgba(124, 180, 215, 0.18);
+  --owner-route-glow-strong: rgba(124, 180, 215, 0.3);
+  --owner-route-accent: rgba(124, 180, 215, 0.18);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="governance"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-governance.svg');
+  --owner-route-glow: rgba(180, 195, 214, 0.16);
+  --owner-route-glow-strong: rgba(180, 195, 214, 0.28);
+  --owner-route-accent: rgba(180, 195, 214, 0.16);
+}
+
+body.owner-stitch-polished #ownerStitchSurface[data-owner-route-visual="recovery"] {
+  --owner-route-art: url('/admin/assets/visuals/owner/route-recovery.svg');
+  --owner-route-glow: rgba(104, 229, 255, 0.14);
+  --owner-route-glow-strong: rgba(244, 197, 107, 0.24);
+  --owner-route-accent: rgba(244, 197, 107, 0.16);
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.32fr) minmax(250px, 0.86fr) !important;
+  gap: 22px !important;
+  align-items: stretch !important;
+  position: relative !important;
+  isolation: isolate !important;
+  padding: 30px 30px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.05), transparent 36%),
+    linear-gradient(145deg, rgba(12, 18, 22, 0.96), rgba(9, 13, 17, 0.98)) !important;
+  box-shadow:
+    0 26px 54px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  animation: owner-header-rise 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -12% 42% 42% -10% !important;
+  background:
+    radial-gradient(circle, var(--owner-route-glow-strong), transparent 62%),
+    radial-gradient(circle at 72% 32%, rgba(255, 255, 255, 0.06), transparent 56%) !important;
+  opacity: 0.92 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-copy,
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-side,
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-heading {
+  display: grid !important;
+  gap: 14px !important;
+  align-content: start !important;
+  min-width: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-topline {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-eyebrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  color: #eaf8ff !important;
+  font-size: 0.73rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-eyebrow::before {
+  content: "" !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #ffffff, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow: 0 0 0 6px var(--owner-route-accent) !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-badges {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  justify-content: flex-start !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #d8e8ef !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader h1 {
+  max-width: 12ch !important;
+  text-wrap: pretty !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-side {
+  justify-content: space-between !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media {
+  position: relative !important;
+  min-height: 192px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    rgba(7, 13, 17, 0.74) !important;
+  overflow: hidden !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-glow,
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-image,
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit {
+  position: absolute !important;
+  pointer-events: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-glow {
+  inset: 14% -10% auto 14% !important;
+  height: 72% !important;
+  background: radial-gradient(circle, var(--owner-route-glow), transparent 68%) !important;
+  filter: blur(24px) !important;
+  opacity: 0.95 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-image {
+  inset: 18px !important;
+  background: var(--owner-route-art) center / contain no-repeat !important;
+  filter: drop-shadow(0 22px 32px rgba(0, 0, 0, 0.24)) !important;
+  transform-origin: center !important;
+  animation: owner-route-float 12s ease-in-out infinite !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit {
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  opacity: 0.4 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit-a {
+  inset: 20px auto auto 22px !important;
+  width: 76px !important;
+  height: 76px !important;
+  animation: owner-orbit-drift 18s linear infinite !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit-b {
+  inset: auto 18px 18px auto !important;
+  width: 56px !important;
+  height: 56px !important;
+  animation: owner-orbit-drift 14s linear infinite reverse !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-actions {
+  justify-content: flex-start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData > * {
+  animation: owner-panel-reveal 420ms cubic-bezier(0.22, 0.8, 0.22, 1) both !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData > *:nth-child(2) {
+  animation-delay: 50ms !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData > *:nth-child(3) {
+  animation-delay: 100ms !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData > *:nth-child(4) {
+  animation-delay: 150ms !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  width: clamp(92px, 16vw, 150px) !important;
+  height: clamp(72px, 12vw, 112px) !important;
+  background: var(--owner-route-art) center / contain no-repeat !important;
+  opacity: 0.11 !important;
+  mix-blend-mode: screen !important;
+  filter: saturate(0.92) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card > *,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 28px 44px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button,
+body.owner-stitch-polished #ownerStitchRouteHeader [data-owner-ui="action"] {
+  position: relative !important;
+  overflow: hidden !important;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button::after,
+body.owner-stitch-polished #ownerStitchRouteHeader [data-owner-ui="action"]::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 auto 0 -120% !important;
+  width: 54% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent) !important;
+  opacity: 0 !important;
+  transition: transform 260ms ease, opacity 220ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button:hover,
+body.owner-stitch-polished #ownerStitchRouteHeader [data-owner-ui="action"]:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button:hover::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button:hover::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button:hover::after,
+body.owner-stitch-polished #ownerStitchRouteHeader [data-owner-ui="action"]:hover::after {
+  opacity: 1 !important;
+  transform: translateX(220%) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table tbody tr,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table tbody tr {
+  transition: background-color 180ms ease, transform 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table tbody tr:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+  transform: translateX(2px) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field input:not([type="hidden"]),
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field select,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field textarea,
+body.owner-stitch-polished #ownerStitchLiveData input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+body.owner-stitch-polished #ownerStitchLiveData select,
+body.owner-stitch-polished #ownerStitchLiveData textarea {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field input:not([type="hidden"]):hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field select:hover,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-field textarea:hover,
+body.owner-stitch-polished #ownerStitchLiveData input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):hover,
+body.owner-stitch-polished #ownerStitchLiveData select:hover,
+body.owner-stitch-polished #ownerStitchLiveData textarea:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(17, 22, 27, 0.96) !important;
+}
+
+@keyframes owner-header-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes owner-panel-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes owner-route-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.015);
+  }
+}
+
+@keyframes owner-orbit-drift {
+  from {
+    transform: rotate(0deg) translateZ(0);
+  }
+  to {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+@media (max-width: 1100px) {
+  body.owner-stitch-polished #ownerStitchRouteHeader {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchRouteHeader h1 {
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body.owner-stitch-polished #ownerStitchRouteHeader {
+    padding: 22px 20px !important;
+    gap: 18px !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-badges {
+    gap: 8px !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-badge {
+    min-height: 28px !important;
+    padding: 0 10px !important;
+    font-size: 0.72rem !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media {
+    min-height: 168px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.owner-stitch-polished #ownerStitchRouteHeader,
+  body.owner-stitch-polished #ownerStitchLiveData > *,
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-image,
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit-a,
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-orbit-b {
+    animation: none !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-button,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell button,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell a.odv4-button,
+  body.owner-stitch-polished #ownerStitchRouteHeader [data-owner-ui="action"] {
+    transition: none !important;
+  }
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 264px) !important;
+  gap: 20px !important;
+  align-items: stretch !important;
+  padding: 22px 24px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader::before {
+  inset: -16% 48% 36% -12% !important;
+  opacity: 0.8 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-copy {
+  gap: 12px !important;
+  max-width: 760px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-topline {
+  display: grid !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-heading {
+  gap: 8px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader h1 {
+  max-width: 13ch !important;
+  font-size: clamp(2.05rem, 3.2vw, 3.15rem) !important;
+  line-height: 0.96 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-heading p {
+  max-width: 56ch !important;
+  font-size: 0.98rem !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-side {
+  gap: 12px !important;
+  align-content: space-between !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media {
+  min-height: 148px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-media-image {
+  inset: 18px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-brief {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-focus {
+  margin: 0 !important;
+  max-width: 62ch !important;
+  color: rgba(221, 235, 242, 0.8) !important;
+  font-size: 0.92rem !important;
+  line-height: 1.55 !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-highlights {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-highlight {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  color: rgba(238, 246, 250, 0.82) !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-highlight::before {
+  content: "" !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #8bf2ff, rgba(255, 255, 255, 0.22)) !important;
+  box-shadow: 0 0 0 5px rgba(104, 229, 255, 0.08) !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader[data-owner-route-key="overview"] {
+  grid-template-columns: minmax(0, 1.08fr) minmax(240px, 280px) !important;
+  padding: 26px 28px !important;
+}
+
+body.owner-stitch-polished #ownerStitchRouteHeader[data-owner-route-key="overview"] .owner-live-route-media {
+  min-height: 170px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData {
+  gap: 22px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-grid {
+  grid-template-columns: minmax(0, 1.56fr) minmax(300px, 0.92fr) !important;
+  gap: 22px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-main,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-side,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-card-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-split-grid,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-form-grid {
+  gap: 18px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)) !important;
+  gap: 14px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-kv-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-metric-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-package-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-note-card::after,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-secret-box::after {
+  opacity: 0.07 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-wrap,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-table {
+  border-radius: 16px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-table-wrap {
+  padding: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(10, 15, 20, 0.5) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 22px !important;
+  align-items: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-menu {
+  display: grid !important;
+  gap: 18px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-switcher {
+  display: grid !important;
+  gap: 12px !important;
+  padding: 16px 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(12, 19, 24, 0.94), rgba(8, 12, 16, 0.9)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-switcher-head {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-switcher-head p {
+  margin: 0 !important;
+  color: rgba(226, 236, 242, 0.68) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-switcher-buttons {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav {
+  position: relative !important;
+  top: auto !important;
+  z-index: 1 !important;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) !important;
+  align-items: start !important;
+  gap: 16px !important;
+  padding: 14px 16px !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(180deg, rgba(13, 20, 25, 0.96), rgba(8, 13, 17, 0.92)),
+    rgba(10, 14, 18, 0.92) !important;
+  box-shadow:
+    0 22px 34px rgba(4, 8, 12, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav > .odv4-section-head {
+  padding-right: 0 !important;
+  min-height: auto !important;
+  gap: 6px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav > .odv4-section-head::before,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav > .odv4-section-head::after {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav > .odv4-section-head .odv4-section-copy {
+  max-width: 34ch !important;
+  font-size: 0.79rem !important;
+  line-height: 1.5 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card {
+  display: grid !important;
+  align-content: start !important;
+  flex: 1 1 188px !important;
+  min-height: 98px !important;
+  max-width: 260px !important;
+  gap: 5px !important;
+  padding: 12px 13px 13px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: linear-gradient(180deg, rgba(12, 19, 24, 0.9), rgba(9, 13, 17, 0.96)) !important;
+  text-decoration: none !important;
+  color: #edf7fc !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 auto auto 0 !important;
+  width: 100% !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, rgba(104, 229, 255, 0.72), rgba(244, 197, 107, 0.42)) !important;
+  opacity: 0.72 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(91, 223, 255, 0.28) !important;
+  box-shadow: 0 16px 36px rgba(8, 18, 24, 0.24) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card strong {
+  font-size: 0.95rem !important;
+  line-height: 1.28 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card p {
+  margin: 0 !important;
+  color: rgba(227, 238, 245, 0.7) !important;
+  font-size: 0.76rem !important;
+  line-height: 1.45 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card.is-current {
+  border-color: rgba(73, 221, 255, 0.44) !important;
+  background: linear-gradient(180deg, rgba(18, 39, 48, 0.9), rgba(10, 18, 23, 0.96)) !important;
+  box-shadow: 0 18px 38px rgba(9, 24, 31, 0.28), inset 0 0 0 1px rgba(73, 221, 255, 0.12) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-badge,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-action {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: fit-content !important;
+  min-height: 24px !important;
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+  font: 700 10px/1 Inter, "Segoe UI", sans-serif !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-badge {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(215, 227, 234, 0.72) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-action {
+  color: #7ee9ff !important;
+  background: rgba(73, 221, 255, 0.08) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content > .odvc4-panel:first-child,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content > .odv4-panel:first-child,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content > .odvc4-runtime-topic-nav + .odvc4-panel,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content > .odvc4-runtime-topic-nav + .odv4-panel {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.04), transparent 30%),
+    linear-gradient(180deg, rgba(18, 25, 31, 0.96), rgba(12, 17, 22, 0.96)) !important;
+  box-shadow:
+    0 18px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-button {
+  appearance: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: rgba(238, 244, 248, 0.82) !important;
+  border-radius: 999px !important;
+  padding: 10px 14px !important;
+  font: 600 12px/1.2 Inter, "Segoe UI", sans-serif !important;
+  letter-spacing: 0.01em !important;
+  cursor: pointer !important;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, color 0.18s ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-button:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(91, 223, 255, 0.34) !important;
+  color: #f4fbff !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-section-button.is-current {
+  background: linear-gradient(135deg, rgba(73, 221, 255, 0.24), rgba(73, 221, 255, 0.08)) !important;
+  border-color: rgba(73, 221, 255, 0.46) !important;
+  color: #f8fdff !important;
+  box-shadow: 0 12px 28px rgba(31, 181, 214, 0.18) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-menu {
+  position: sticky !important;
+  top: 96px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group {
+  padding: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group summary {
+  display: grid !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  list-style: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group summary::-webkit-details-marker {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group strong {
+  color: #f4f8fb !important;
+  font-size: 1rem !important;
+  line-height: 1.3 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group summary span:last-child {
+  color: rgba(223, 235, 240, 0.72) !important;
+  line-height: 1.55 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-group-kicker {
+  color: rgba(223, 235, 240, 0.52) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-links {
+  display: grid !important;
+  gap: 8px !important;
+  margin-top: 14px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 38px !important;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  border: 1px solid transparent !important;
+  color: rgba(234, 245, 250, 0.8) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  text-decoration: none !important;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, color 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-link:hover {
+  transform: translateX(2px) !important;
+  color: #f5fbff !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-link.is-current {
+  color: #f7fbff !important;
+  background: rgba(21, 215, 255, 0.1) !important;
+  border-color: rgba(21, 215, 255, 0.24) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content.owner-live-focus-mode {
+  gap: 16px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content.owner-live-focus-mode .owner-live-page-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content.owner-live-focus-mode .owner-live-page-main,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-content.owner-live-focus-mode .owner-live-page-side {
+  display: contents !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData [data-owner-filter-hidden="true"] {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .is-section-focus {
+  border-color: rgba(91, 223, 255, 0.28) !important;
+  box-shadow: 0 18px 44px rgba(6, 13, 18, 0.28), 0 0 0 1px rgba(91, 223, 255, 0.08) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-state {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 22px !important;
+  align-items: start !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-menu,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-content,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-class {
+  display: grid !important;
+  gap: 18px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-menu {
+  position: sticky !important;
+  top: 96px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group {
+  padding: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group summary {
+  display: grid !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  list-style: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group summary::-webkit-details-marker {
+  display: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group strong,
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-hero strong {
+  color: #f4f8fb !important;
+  font-size: 1rem !important;
+  line-height: 1.3 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group summary span:last-child {
+  color: rgba(223, 235, 240, 0.72) !important;
+  line-height: 1.55 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-group-kicker {
+  color: rgba(223, 235, 240, 0.52) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-links {
+  display: grid !important;
+  gap: 10px !important;
+  margin-top: 14px !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-filter {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #ecf7fb !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-filter:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-hero {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 164px !important;
+  background:
+    linear-gradient(120deg, rgba(15, 28, 34, 0.94), rgba(10, 17, 22, 0.9)) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-hero::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 0 0 auto !important;
+  width: min(36%, 280px) !important;
+  background:
+    radial-gradient(circle at top left, rgba(21, 215, 255, 0.16), transparent 48%),
+    var(--owner-route-art) center / contain no-repeat !important;
+  opacity: 0.74 !important;
+  pointer-events: none !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-hero-ops::after {
+  background:
+    radial-gradient(circle at top left, rgba(244, 197, 107, 0.14), transparent 48%),
+    url('/admin/assets/visuals/owner/route-governance.svg') center / contain no-repeat !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-hero > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-class .owner-live-page-grid {
+  grid-template-columns: minmax(0, 1.42fr) minmax(280px, 0.9fr) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-commercial:checked ~ .owner-live-overview-menu [for="owner-overview-class-commercial"],
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-operations:checked ~ .owner-live-overview-menu [for="owner-overview-class-operations"],
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-commercial:checked ~ .owner-live-overview-content [for="owner-overview-class-commercial"],
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-operations:checked ~ .owner-live-overview-content [for="owner-overview-class-operations"] {
+  background: rgba(21, 215, 255, 0.14) !important;
+  border-color: rgba(21, 215, 255, 0.26) !important;
+}
+
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-commercial:checked ~ .owner-live-overview-content .owner-live-overview-class-operations,
+body.owner-stitch-polished #ownerStitchLiveData #owner-overview-class-operations:checked ~ .owner-live-overview-content .owner-live-overview-class-commercial {
+  display: none !important;
+}
+
+@media (max-width: 1100px) {
+  body.owner-stitch-polished #ownerStitchRouteHeader {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchRouteHeader .owner-live-route-side {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-section-head {
+    padding-right: 0 !important;
+    min-height: auto !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel > .odv4-section-head::before,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-panel > .odv4-section-head::after,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel > .odv4-section-head::before,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odv4-panel > .odv4-section-head::after {
+    display: none !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-page-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-route-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-class-menu {
+    position: static !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-shell,
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-class .owner-live-page-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-overview-menu {
+    position: static !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-nav {
+    position: static !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  }
+
+  body.owner-stitch-polished #ownerStitchLiveData .owner-live-workspace-shell .odvc4-runtime-topic-card {
+    max-width: none !important;
+  }
+}

@@ -154,6 +154,58 @@ async function writeProxyResponse(res, response) {
   res.end(body);
 }
 
+async function fetchAdminJson(fetchImpl, adminOrigin, adminHostHeader, sourceHeaders, pathname, search = '', options = {}) {
+  const response = await fetchImpl(`${adminOrigin}${pathname}${search}`, {
+    method: 'GET',
+    headers: buildProxyRequestHeaders(sourceHeaders, adminHostHeader),
+    redirect: 'manual',
+  });
+  if (response.status === 401) {
+    return {
+      unauthorized: true,
+      data: options.fallback,
+    };
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    return {
+      unauthorized: false,
+      data: options.fallback,
+    };
+  }
+  return {
+    unauthorized: false,
+    data: payload?.data ?? options.fallback,
+  };
+}
+
+async function fetchAdminJsonSafe(fetchImpl, adminOrigin, adminHostHeader, sourceHeaders, pathname, search = '', options = {}) {
+  try {
+    const result = await fetchAdminJson(
+      fetchImpl,
+      adminOrigin,
+      adminHostHeader,
+      sourceHeaders,
+      pathname,
+      search,
+      options,
+    );
+    return {
+      ...result,
+      warning: null,
+    };
+  } catch (error) {
+    return {
+      unauthorized: false,
+      data: options.fallback,
+      warning: {
+        pathname: `${pathname}${search}`,
+        error: String(error?.message || error || 'owner-bootstrap-fetch-failed'),
+      },
+    };
+  }
+}
+
 function createAdminStandaloneSurfaceRuntime(options = {}) {
   const {
     surface,
@@ -169,6 +221,7 @@ function createAdminStandaloneSurfaceRuntime(options = {}) {
     assetsDirPath = path.resolve(__dirname, '..', 'assets'),
     scumItemsDirPath = path.resolve(process.cwd(), 'img', 'scum_items'),
     loginHtmlPath = path.resolve(__dirname, '..', 'login.html'),
+    ownerLoginHtmlPath = path.resolve(__dirname, '..', 'owner-login.html'),
     tenantLoginHtmlPath = path.resolve(__dirname, '..', 'tenant-login.html'),
     ownerConsoleHtmlPath = path.resolve(__dirname, '..', 'owner-console.html'),
     tenantConsoleHtmlPath = path.resolve(__dirname, '..', 'tenant-console.html'),
@@ -200,6 +253,7 @@ function createAdminStandaloneSurfaceRuntime(options = {}) {
     ownerConsoleHtmlPath,
     tenantConsoleHtmlPath,
     loginHtmlPath,
+    ownerLoginHtmlPath,
     tenantLoginHtmlPath,
     assetsDirPath,
     scumItemsDirPath,
@@ -226,6 +280,105 @@ function createAdminStandaloneSurfaceRuntime(options = {}) {
       redirect: 'manual',
     });
     await writeProxyResponse(res, response);
+  }
+
+  async function buildOwnerBootstrapState(req, pathname) {
+    const headers = req?.headers || {};
+    const loadWarnings = [];
+    const meResult = await fetchAdminJsonSafe(fetchImpl, adminOrigin, adminHostHeader, headers, '/owner/api/me', '', {
+      fallback: null,
+    });
+    if (meResult.warning) {
+      loadWarnings.push(meResult.warning);
+    }
+    if (meResult.unauthorized) {
+      return null;
+    }
+
+    async function loadOwnerBootstrapSlice(slicePathname, search, fallback) {
+      const result = await fetchAdminJsonSafe(
+        fetchImpl,
+        adminOrigin,
+        adminHostHeader,
+        headers,
+        slicePathname,
+        search,
+        { fallback },
+      );
+      if (result.warning) {
+        loadWarnings.push(result.warning);
+      }
+      return result.data;
+    }
+
+    const [
+      overview,
+      tenants,
+      subscriptions,
+      licenses,
+      billingOverview,
+      billingInvoices,
+      billingPaymentAttempts,
+      controlPanelSettings,
+      agents,
+      securityEvents,
+      requestLogs,
+      deliveryLifecycle,
+      restoreState,
+      restoreHistory,
+      backupFiles,
+    ] = await Promise.all([
+      loadOwnerBootstrapSlice('/owner/api/platform/overview', '', {}),
+      loadOwnerBootstrapSlice('/owner/api/platform/tenants', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/platform/subscriptions', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/platform/licenses', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/platform/billing/overview', '', { provider: null, summary: {} }),
+      loadOwnerBootstrapSlice('/owner/api/platform/billing/invoices', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/platform/billing/payment-attempts', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/control-panel/settings', '', {}),
+      loadOwnerBootstrapSlice('/owner/api/platform/agents', '?limit=50', []),
+      loadOwnerBootstrapSlice('/owner/api/auth/security-events', '?limit=20', []),
+      loadOwnerBootstrapSlice('/owner/api/observability/requests', '?limit=20&onlyErrors=true', { metrics: {}, items: [] }),
+      loadOwnerBootstrapSlice('/owner/api/delivery/lifecycle', '?limit=80&pendingOverdueMs=1200000', {}),
+      loadOwnerBootstrapSlice('/admin/api/backup/restore/status', '', {}),
+      loadOwnerBootstrapSlice('/admin/api/backup/restore/history', '?limit=12', []),
+      loadOwnerBootstrapSlice('/admin/api/backup/list', '', []),
+    ]);
+
+    return {
+      payload: {
+        me: meResult.data,
+        overview,
+        tenants,
+        subscriptions,
+        licenses,
+        billingOverview,
+        billingInvoices,
+        billingPaymentAttempts,
+        controlPanelSettings,
+        agents,
+        agentRegistry: [],
+        agentProvisioning: [],
+        agentDevices: [],
+        agentCredentials: [],
+        sessions: [],
+        notifications: [],
+        securityEvents,
+        runtimeSupervisor: null,
+        requestLogs,
+        deliveryLifecycle,
+        restoreState,
+        restoreHistory,
+        backupFiles,
+        tenantQuotaSnapshots: [],
+        ownerUi: {},
+        __loadWarnings: loadWarnings,
+      },
+      rawRoute: '',
+      page: '',
+      pathname: String(pathname || '/owner'),
+      updatedAt: Date.now(),
+    };
   }
 
   async function handleRequest(req, res) {
@@ -304,7 +457,7 @@ function createAdminStandaloneSurfaceRuntime(options = {}) {
       }
 
       if (activeSurface === 'owner' && isOwnerLoginPath(pathname) && String(req.method || 'GET').toUpperCase() === 'GET') {
-        httpRuntime.sendHtml(res, 200, pageRuntime.getLoginHtml());
+        httpRuntime.sendHtml(res, 200, pageRuntime.getOwnerLoginHtml());
         return;
       }
 
@@ -314,7 +467,11 @@ function createAdminStandaloneSurfaceRuntime(options = {}) {
       }
 
       if (activeSurface === 'owner' && isOwnerConsolePath(pathname) && String(req.method || 'GET').toUpperCase() === 'GET') {
-        httpRuntime.sendHtml(res, 200, pageRuntime.getOwnerConsoleHtml());
+        const bootstrapState = await buildOwnerBootstrapState(req, pathname);
+        const html = typeof pageRuntime.getOwnerSurfaceHtml === 'function'
+          ? pageRuntime.getOwnerSurfaceHtml(pathname, bootstrapState)
+          : pageRuntime.getOwnerConsoleHtml();
+        httpRuntime.sendHtml(res, 200, html);
         return;
       }
 

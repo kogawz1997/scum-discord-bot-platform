@@ -1,256 +1,1102 @@
 <!doctype html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | เข้าสู่ระบบเจ้าของแพลตฟอร์ม</title>
-  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
+  <title data-i18n="owner.login.pageTitle">SCUM Platform | Owner Sign In</title>
+  <link rel="stylesheet" href="/admin/assets/owner-stitch-shared.css?v=20260410-owner-login-5">
   <style>
-    .auth-stage {
-      width: min(1320px, calc(100% - 48px));
-      margin: 0 auto;
-      padding: 32px 0 40px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(380px, 0.76fr);
-      gap: 24px;
+    :root {
+      --login-bg: #081018;
+      --login-panel: rgba(12, 18, 24, 0.94);
+      --login-panel-2: rgba(20, 29, 37, 0.92);
+      --login-panel-3: rgba(10, 15, 20, 0.88);
+      --login-border: rgba(159, 184, 204, 0.16);
+      --login-border-strong: rgba(21, 215, 255, 0.42);
+      --login-border-soft: rgba(255, 255, 255, 0.08);
+      --login-text: #eef6fb;
+      --login-text-soft: #b3c1cc;
+      --login-text-muted: #7c8d99;
+      --login-accent: #15d7ff;
+      --login-accent-strong: #74ecff;
+      --login-accent-soft: rgba(21, 215, 255, 0.16);
+      --login-gold: #ffcc7a;
+      --login-success: #7ee6b6;
+      --login-shadow: 0 36px 96px rgba(0, 0, 0, 0.42);
+      --login-radius: 28px;
+      --login-field-radius: 18px;
     }
-    .auth-panel,
-    .auth-form-shell {
-      padding: 28px;
-      border: 1px solid rgba(191,170,112,.16);
-      border-radius: 24px;
-      background: rgba(13,20,17,.94);
-      box-shadow: 0 24px 56px rgba(0,0,0,.26);
-      display: grid;
-      gap: 18px;
+
+    * {
+      box-sizing: border-box;
     }
-    .auth-panel h1,
-    .auth-form-shell h2 {
+
+    html,
+    body {
       margin: 0;
-      font-size: clamp(2rem, 2.8vw, 3rem);
-      line-height: 1.04;
-      letter-spacing: -.04em;
-    }
-    .auth-panel p,
-    .auth-form-shell p,
-    .auth-note {
-      margin: 0;
-      color: rgba(243,237,225,.74);
-      line-height: 1.68;
-    }
-    .auth-grid,
-    .auth-card-stack,
-    .auth-visual-stack {
-      display: grid;
-      gap: 16px;
-    }
-    .auth-chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .auth-chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(191,170,112,.18);
-      background: rgba(255,255,255,.03);
-      color: rgba(243,237,225,.92);
-      font-size: .86rem;
-      font-weight: 600;
-    }
-    .auth-card,
-    .auth-visual-card {
-      padding: 18px;
-      border: 1px solid rgba(191,170,112,.14);
-      border-radius: 18px;
-      background: rgba(255,255,255,.02);
-      display: grid;
-      gap: 8px;
-    }
-    .auth-card strong,
-    .auth-visual-card strong {
-      font-size: 1rem;
-    }
-    .auth-field {
-      display: grid;
-      gap: 8px;
-    }
-    .auth-field span {
-      color: rgba(243,237,225,.78);
-      font-size: .88rem;
-    }
-    .auth-input {
-      height: 46px;
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(191,170,112,.16);
-      background: rgba(255,255,255,.03);
-      color: #f3ede1;
-      font: inherit;
-    }
-    .auth-input::placeholder {
-      color: rgba(243,237,225,.42);
-    }
-    .auth-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .auth-error {
-      min-height: 22px;
-      color: #d67f72;
-      font-size: .84rem;
-    }
-    .auth-visual {
-      position: relative;
-      min-height: 250px;
-      border-radius: 20px;
-      border: 1px solid rgba(191,170,112,.14);
+      min-height: 100%;
+      height: 100%;
       background:
-        linear-gradient(118deg, rgba(7,10,8,.18), rgba(8,10,8,.68)),
-        url('/admin/assets/owner-panel-scene.svg');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-      overflow: hidden;
-      animation: auth-float 8s ease-in-out infinite alternate;
+        radial-gradient(circle at 18% 18%, rgba(21, 215, 255, 0.22), transparent 24%),
+        radial-gradient(circle at 84% 12%, rgba(116, 236, 255, 0.12), transparent 22%),
+        radial-gradient(circle at 76% 84%, rgba(255, 204, 122, 0.12), transparent 24%),
+        linear-gradient(180deg, #071018 0%, #09141d 36%, #081018 100%);
+      background-color: var(--login-bg);
+      color: var(--login-text);
+      font-family: "IBM Plex Sans Thai", "IBM Plex Sans", "Segoe UI", sans-serif;
+      overflow-x: hidden;
     }
-    .auth-visual::after {
+
+    .login-shell {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-shell::before,
+    .login-shell::after {
       content: "";
       position: absolute;
-      inset: auto -12% -24% auto;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    .login-shell::before {
+      width: 520px;
+      height: 520px;
+      top: -120px;
+      left: -80px;
+      background: radial-gradient(circle, rgba(21, 215, 255, 0.2) 0%, rgba(21, 215, 255, 0) 70%);
+      animation: loginAmbientPulse 12s ease-in-out infinite;
+    }
+
+    .login-shell::after {
+      width: 460px;
+      height: 460px;
+      right: -100px;
+      bottom: -140px;
+      background: radial-gradient(circle, rgba(255, 204, 122, 0.14) 0%, rgba(255, 204, 122, 0) 68%);
+      animation: loginAmbientPulse 14s ease-in-out infinite reverse;
+    }
+
+    .login-panel {
+      width: min(1180px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(360px, 0.88fr);
+      border: 1px solid var(--login-border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 32%),
+        linear-gradient(135deg, rgba(12, 18, 24, 0.98), rgba(8, 12, 18, 0.94));
+      box-shadow: var(--login-shadow);
+      position: relative;
+      border-radius: var(--login-radius);
+      overflow: hidden;
+      isolation: isolate;
+      animation: loginPanelRise 620ms cubic-bezier(0.22, 0.8, 0.22, 1) both;
+    }
+
+    .login-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.06), transparent 24%, transparent 74%, rgba(255, 255, 255, 0.04)),
+        radial-gradient(circle at top right, rgba(21, 215, 255, 0.08), transparent 28%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-hero,
+    .login-form-panel {
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-hero {
+      display: grid;
+      align-content: start;
+      gap: 28px;
+      padding: 38px 38px 34px;
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      background:
+        linear-gradient(180deg, rgba(11, 17, 22, 0.76), rgba(10, 15, 20, 0.52)),
+        radial-gradient(circle at top left, rgba(21, 215, 255, 0.08), transparent 34%);
+    }
+
+    .hero-head {
+      display: grid;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .hero-brand-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-stack {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-title {
+      color: var(--login-text);
+      font-family: "Public Sans", "Segoe UI", sans-serif;
+      font-size: clamp(1.18rem, 1.75vw, 1.56rem);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: normal;
+    }
+
+    .brand-protocol {
+      color: var(--login-text-soft);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      max-width: 44rem;
+    }
+
+    .hero-pills {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .node-badge {
+      min-height: 36px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(9, 14, 20, 0.9);
+      color: var(--login-text);
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 999px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .node-badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--login-success);
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(145, 178, 111, 0.12);
+    }
+
+    .hero-chip {
+      min-height: 34px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--login-text-soft);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+      gap: 28px;
+      align-items: center;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--login-accent-strong);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero-eyebrow::before {
+      content: "";
+      width: 44px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(116, 236, 255, 0.14), rgba(116, 236, 255, 0.9));
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2.15rem, 4vw, 3.35rem);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+      font-weight: 800;
+      max-width: 14ch;
+    }
+
+    .hero-detail {
+      margin: 0;
+      color: var(--login-text-soft);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 56ch;
+    }
+
+    .hero-visual {
+      min-height: 300px;
+      display: grid;
+      align-items: stretch;
+    }
+
+    .hero-visual-frame {
+      position: relative;
+      min-height: 300px;
+      border-radius: 26px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background:
+        linear-gradient(160deg, rgba(8, 13, 19, 0.9), rgba(17, 25, 32, 0.8)),
+        radial-gradient(circle at top right, rgba(21, 215, 255, 0.12), transparent 32%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .hero-visual-glow,
+    .hero-visual-asset,
+    .hero-visual-ring {
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .hero-visual-glow {
+      inset: auto auto -26px -18px;
       width: 220px;
       height: 220px;
       border-radius: 999px;
-      background: radial-gradient(circle, rgba(207,174,101,.34) 0%, rgba(207,174,101,.08) 34%, transparent 72%);
-      filter: blur(10px);
-      animation: auth-glow 6.8s ease-in-out infinite;
+      background: radial-gradient(circle, rgba(21, 215, 255, 0.18), rgba(21, 215, 255, 0));
+      animation: loginGlowDrift 10s ease-in-out infinite;
     }
-    .auth-visual-card {
-      background: rgba(9,13,11,.72);
-      backdrop-filter: blur(10px);
+
+    .hero-visual-asset {
+      inset: 28px;
+      background:
+        radial-gradient(circle at top center, rgba(116, 236, 255, 0.12), transparent 26%),
+        url("/admin/assets/visuals/owner/route-overview.svg") center / contain no-repeat;
+      opacity: 0.95;
+      animation: loginVisualFloat 9s ease-in-out infinite;
     }
-    .auth-visual-label {
-      color: rgba(243,237,225,.58);
-      font-size: .76rem;
-      letter-spacing: .12em;
+
+    .hero-visual-ring {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      animation: loginOrbitSpin 18s linear infinite;
+    }
+
+    .hero-visual-ring.ring-a {
+      inset: 18px 26px auto auto;
+      width: 128px;
+      height: 128px;
+    }
+
+    .hero-visual-ring.ring-b {
+      inset: auto auto 22px 20px;
+      width: 92px;
+      height: 92px;
+      animation-duration: 14s;
+      animation-direction: reverse;
+    }
+
+    .hero-signals {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .signal-card {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      padding: 18px 18px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--login-border-soft);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        rgba(8, 13, 18, 0.84);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      animation: loginSignalRise 520ms cubic-bezier(0.22, 0.8, 0.22, 1) both;
+    }
+
+    .signal-card:nth-child(2) {
+      animation-delay: 70ms;
+    }
+
+    .signal-card:nth-child(3) {
+      animation-delay: 140ms;
+    }
+
+    .signal-label {
+      color: var(--login-text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
     }
-    .auth-visual-value {
-      font-size: 1.45rem;
-      font-weight: 700;
-      letter-spacing: -.03em;
+
+    .signal-value {
+      color: var(--login-text);
+      font-size: 1.08rem;
+      line-height: 1.2;
+      font-weight: 800;
     }
-    .auth-form-shell {
+
+    .signal-detail {
+      margin: 0;
+      color: var(--login-text-soft);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .login-form-panel {
+      display: grid;
       align-content: start;
+      gap: 22px;
+      padding: 34px 34px 30px;
+      background:
+        linear-gradient(180deg, rgba(16, 23, 30, 0.9), rgba(11, 16, 23, 0.96)),
+        rgba(10, 15, 20, 0.94);
     }
-    .auth-form-shell .surface-button {
-      min-width: 220px;
+
+    .form-header {
+      display: grid;
+      gap: 16px;
     }
-    @keyframes auth-float {
-      from { transform: translateY(0) scale(1.01); }
-      to { transform: translateY(-8px) scale(1.04); }
+
+    .form-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
     }
-    @keyframes auth-glow {
-      0%, 100% { transform: scale(.95); opacity: .68; }
-      50% { transform: scale(1.08); opacity: 1; }
+
+    .form-badge {
+      min-height: 34px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--login-gold);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
-    @media (max-width: 980px) {
-      .auth-stage {
-        width: min(100%, calc(100% - 32px));
-        grid-template-columns: 1fr;
+
+    .language-select {
+      min-width: 108px;
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--login-border);
+      border-radius: 999px;
+      background: rgba(18, 25, 32, 0.92);
+      color: var(--login-text);
+      outline: none;
+      appearance: none;
+      font-weight: 700;
+      font-size: 0.76rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .language-select:focus,
+    .field:focus {
+      border-color: var(--login-border-strong);
+      box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .login-heading {
+      display: grid;
+      gap: 12px;
+    }
+
+    .login-kicker {
+      color: var(--login-accent-strong);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .login-title {
+      margin: 0;
+      font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+      line-height: 1.04;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      max-width: 14ch;
+    }
+
+    .login-subtitle {
+      margin: 0;
+      color: var(--login-text-soft);
+      font-size: 0.94rem;
+      line-height: 1.7;
+    }
+
+    .form-shell {
+      display: grid;
+      gap: 16px;
+    }
+
+    .field-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .field-label {
+      color: var(--login-text-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .field-code {
+      color: rgba(133, 147, 153, 0.3);
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .field-wrap {
+      position: relative;
+    }
+
+    .field {
+      width: 100%;
+      min-height: 58px;
+      padding: 0 50px 0 18px;
+      border: 1px solid rgba(159, 184, 204, 0.18);
+      border-radius: var(--login-field-radius);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+        rgba(8, 13, 19, 0.92);
+      color: var(--login-text);
+      font-size: 0.8rem;
+      letter-spacing: 0.02em;
+      outline: none;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 14px 34px rgba(0, 0, 0, 0.16);
+      transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease,
+        background-color 180ms ease;
+    }
+
+    .field::placeholder {
+      color: rgba(239, 246, 251, 0.28);
+    }
+
+    .field-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(133, 147, 153, 0.56);
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .owner-login-error {
+      min-height: 48px;
+      padding: 12px 14px;
+      border: 1px solid rgba(159, 184, 204, 0.16);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--login-text-soft);
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }
+
+    .owner-login-error:empty::before {
+      content: " ";
+    }
+
+    .owner-login-error[data-tone="danger"] {
+      border-color: rgba(214, 127, 114, 0.24);
+      background: rgba(214, 127, 114, 0.12);
+      color: #f2b9ae;
+    }
+
+    .owner-login-error[data-tone="warning"] {
+      border-color: rgba(254, 183, 0, 0.24);
+      background: rgba(254, 183, 0, 0.1);
+      color: #ffd88e;
+    }
+
+    .owner-login-error[data-tone="info"] {
+      border-color: rgba(145, 178, 111, 0.2);
+      background: rgba(145, 178, 111, 0.1);
+      color: #c8dcaf;
+    }
+
+    .login-actions {
+      display: grid;
+      gap: 12px;
+      justify-items: stretch;
+    }
+
+    .button--primary {
+      width: 100%;
+      min-height: 60px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--login-accent) 0%, #0eb4d5 52%, #1ee0ff 100%);
+      color: #041017;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 22px 38px rgba(21, 215, 255, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    }
+
+    .button--primary::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 -40%;
+      width: 36%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+      transition: transform 280ms ease;
+    }
+
+    .button--primary:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 28px 42px rgba(21, 215, 255, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.24);
+      filter: saturate(1.06);
+    }
+
+    .button--primary:hover::before {
+      transform: translateX(260%);
+    }
+
+    #loginSubmit::after {
+      content: "→";
+      margin-left: 10px;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .panel-footer {
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .footer-block {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 16px 16px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .footer-label {
+      color: var(--login-text-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .footer-title {
+      color: var(--login-text);
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .footer-detail {
+      color: var(--login-text-soft);
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+      white-space: nowrap;
+    }
+
+    @keyframes loginPanelRise {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes loginAmbientPulse {
+      0%,
+      100% {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 0.88;
+      }
+      50% {
+        transform: translate3d(18px, -12px, 0) scale(1.06);
+        opacity: 1;
+      }
+    }
+
+    @keyframes loginVisualFloat {
+      0%,
+      100% {
+        transform: translateY(0) scale(1);
+      }
+      50% {
+        transform: translateY(-10px) scale(1.015);
+      }
+    }
+
+    @keyframes loginGlowDrift {
+      0%,
+      100% {
+        transform: translate3d(0, 0, 0);
+      }
+      50% {
+        transform: translate3d(12px, -12px, 0);
+      }
+    }
+
+    @keyframes loginOrbitSpin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes loginSignalRise {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .login-panel {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 760px;
+      }
+
+      .login-hero {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .hero-body {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-title,
+      .login-title {
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .login-shell {
+        padding: 18px;
+      }
+
+      .login-hero,
+      .login-form-panel {
+        padding: 24px 22px;
+      }
+
+      .hero-brand-row,
+      .form-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-signals,
+      .panel-footer {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-visual {
+        min-height: 240px;
+      }
+
+      .hero-visual-frame {
+        min-height: 240px;
+      }
+
+      .hero-visual-asset {
+        inset: 22px;
+      }
+
+      .language-select {
+        min-width: 92px;
+      }
+    }
+
+    @media (max-height: 900px) {
+      .login-shell {
+        align-items: stretch;
+      }
+
+      .login-panel {
+        margin-block: auto;
+      }
+    }
+
+    .login-panel {
+      grid-template-columns: minmax(0, 1.06fr) minmax(420px, 0.94fr);
+    }
+
+    .login-hero {
+      gap: 24px;
+      padding: 34px 34px 30px;
+    }
+
+    .hero-body {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 22px;
+    }
+
+    .hero-title {
+      font-size: clamp(1.95rem, 3.2vw, 2.86rem);
+      max-width: 12ch;
+    }
+
+    .hero-detail {
+      max-width: 50ch;
+      font-size: 0.96rem;
+    }
+
+    .hero-visual {
+      width: min(100%, 360px);
+      min-height: auto;
+      justify-self: end;
+    }
+
+    .hero-visual-frame {
+      min-height: 232px;
+    }
+
+    .hero-signals {
+      gap: 12px;
+    }
+
+    .signal-card {
+      min-height: 156px;
+      padding: 16px 16px 14px;
+    }
+
+    .signal-value {
+      font-size: 1rem;
+    }
+
+    .signal-detail {
+      font-size: 0.8rem;
+    }
+
+    .login-form-panel {
+      gap: 20px;
+      padding: 34px 30px 28px;
+    }
+
+    .form-header {
+      gap: 14px;
+    }
+
+    .login-title {
+      max-width: none;
+      font-size: clamp(1.58rem, 2vw, 2rem);
+    }
+
+    .login-subtitle {
+      max-width: 38ch;
+      font-size: 0.9rem;
+    }
+
+    .form-shell {
+      gap: 14px;
+    }
+
+    .field {
+      min-height: 54px;
+      font-size: 0.78rem;
+    }
+
+    .button--primary {
+      min-height: 56px;
+      font-size: 0.84rem;
+    }
+
+    .panel-footer {
+      gap: 10px;
+    }
+
+    .footer-block {
+      padding: 14px 14px 13px;
+    }
+
+    @media (max-width: 1280px) {
+      .login-panel {
+        width: min(1120px, 100%);
+      }
+
+      .hero-title {
+        max-width: 13ch;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .login-shell::before,
+      .login-shell::after,
+      .login-panel,
+      .signal-card,
+      .hero-visual-asset,
+      .hero-visual-glow,
+      .hero-visual-ring {
+        animation: none !important;
+      }
+
+      .language-select,
+      .field,
+      .button--primary {
+        transition: none !important;
       }
     }
   </style>
 </head>
-<body class="surface-body surface-owner">
-  <div class="surface-app">
-    <header class="surface-globalbar">
-      <div class="surface-globalbar-main">
-        <a class="surface-brand" href="/owner/login">
-          <span class="surface-brand-mark">SCUM</span>
-          <span class="surface-brand-copy">
-            <span class="surface-brand-eyebrow">เจ้าของระบบ</span>
-            <strong class="surface-brand-title">เข้าสู่ระบบเจ้าของแพลตฟอร์ม</strong>
-            <span class="surface-brand-detail">ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสุขภาพระบบจากจุดเดียว</span>
-          </span>
-        </a>
-      </div>
-      <div class="surface-globalbar-tools">
-        <nav class="surface-role-switch" aria-label="สลับพื้นที่">
-          <a class="surface-role-link is-active" href="/owner/login">เข้าสู่ระบบ</a>
-          <a class="surface-role-link" href="/landing">หน้าเว็บสาธารณะ</a>
-        </nav>
-      </div>
-    </header>
+<body>
+  <main class="login-shell">
+    <section class="login-panel" aria-labelledby="ownerLoginTitle">
+      <section class="login-hero" aria-labelledby="ownerHeroTitle">
+        <div class="hero-head">
+          <div class="hero-brand-row">
+            <div class="brand-stack">
+              <div class="brand-title" data-i18n="owner.login.brandTitle">OWNER CONTROL PLANE</div>
+              <div class="brand-protocol" data-i18n="owner.login.brandDetail">Platform oversight access protocol v4.02</div>
+            </div>
+            <div class="node-badge" data-i18n="owner.login.routeLabel">Secure node: owner_control</div>
+          </div>
+          <div class="hero-pills">
+            <span class="hero-chip" data-i18n="owner.login.featureSolo">Single operator</span>
+            <span class="hero-chip" data-i18n="owner.login.featureLive">Live backend</span>
+            <span class="hero-chip" data-i18n="owner.login.featureAudit">Audited session</span>
+          </div>
+        </div>
 
-    <main class="surface-stage">
-      <section class="auth-stage">
-        <article class="auth-panel">
-          <span class="surface-brand-eyebrow">ศูนย์ควบคุมแพลตฟอร์ม</span>
-          <h1>เปิดมุมมองเจ้าของระบบได้จากที่เดียว</h1>
-          <p>ดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสัญญาณสำคัญของแพลตฟอร์มจากพื้นที่เดียว โดยไม่ปะปนกับงานผู้เช่ารายวัน</p>
-          <div class="auth-chip-row">
-            <span class="auth-chip">รายได้และแพ็กเกจ</span>
-            <span class="auth-chip">สุขภาพระบบ</span>
-            <span class="auth-chip">หลักฐานและความปลอดภัย</span>
+        <div class="hero-body">
+          <div class="hero-copy">
+            <span class="hero-eyebrow" data-i18n="owner.login.heroEyebrow">Owner console access</span>
+            <h1 id="ownerHeroTitle" class="hero-title" data-i18n="owner.login.heroTitle">Owner authentication required</h1>
+            <p class="hero-detail" data-i18n="owner.login.heroDetail">Confirm the owner account to open the platform control plane</p>
           </div>
-          <div class="auth-visual"></div>
-          <div class="auth-visual-stack">
-            <div class="auth-visual-card">
-              <span class="auth-visual-label">โฟกัสแรก</span>
-              <span class="auth-visual-value">ภาพรวมธุรกิจ</span>
-              <p class="auth-note">เปิดมาแล้วเห็นลูกค้า รายได้ และเรื่องที่ต้องตัดสินใจก่อนในรอบวัน</p>
-            </div>
-            <div class="auth-visual-card">
-              <span class="auth-visual-label">โฟกัสถัดไป</span>
-              <span class="auth-visual-value">งานปฏิบัติการที่กระทบกว้าง</span>
-              <p class="auth-note">ตรวจคิวงาน บอท เหตุการณ์ และสัญญาณที่กระทบหลายผู้เช่าจากมุมเดียว</p>
+          <div class="hero-visual">
+            <div class="hero-visual-frame" aria-hidden="true">
+              <span class="hero-visual-glow"></span>
+              <span class="hero-visual-asset"></span>
+              <span class="hero-visual-ring ring-a"></span>
+              <span class="hero-visual-ring ring-b"></span>
             </div>
           </div>
-          <div class="auth-card-stack">
-            <div class="auth-card">
-              <strong>ภาพรวมธุรกิจ</strong>
-              <p>ดูรายได้ การสมัครใช้ การต่ออายุ และลูกค้าที่ต้องตามก่อนในวันนั้น</p>
-            </div>
-            <div class="auth-card">
-              <strong>งานปฏิบัติการแพลตฟอร์ม</strong>
-              <p>ดูสุขภาพระบบ คิวงาน เหตุการณ์ ความปลอดภัย และหลักฐานที่ต้องใช้ตอบทีมงาน</p>
-            </div>
-          </div>
-        </article>
+        </div>
 
-        <section class="auth-form-shell">
-          <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
-          <h2>ลงชื่อเข้าใช้ฝั่งเจ้าของระบบ</h2>
-          <p>ใช้บัญชีผู้ดูแลแพลตฟอร์มเท่านั้น ถ้าเปิด 2FA ระบบจะขอรหัสในขั้นถัดไปโดยอัตโนมัติ</p>
-          <form id="loginForm" class="auth-grid" novalidate>
-            <label class="auth-field">
-              <span>ชื่อผู้ใช้</span>
-              <input id="usernameInput" class="auth-input" name="username" autocomplete="username" placeholder="owner" required>
-            </label>
-            <label class="auth-field">
-              <span>รหัสผ่าน</span>
-              <input id="passwordInput" class="auth-input" name="password" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
-            </label>
-            <label id="otpWrap" class="auth-field" hidden>
-              <span>รหัส 2FA</span>
-              <input id="otpInput" class="auth-input" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-            </label>
-            <div id="errorBox" class="auth-error" aria-live="polite"></div>
-            <div class="auth-actions">
-              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบเจ้าของแพลตฟอร์ม</button>
-            </div>
-          </form>
-        </section>
+        <div class="hero-signals">
+          <article class="signal-card">
+            <span class="signal-label" data-i18n="owner.login.signalOpsLabel">Primary lane</span>
+            <strong class="signal-value" data-i18n="owner.login.signalOpsValue">Owner access</strong>
+            <p class="signal-detail" data-i18n="owner.login.signalOpsDetail">Open the control plane through the owner-only entry lane.</p>
+          </article>
+          <article class="signal-card">
+            <span class="signal-label" data-i18n="owner.login.signalCommercialLabel">Control plane</span>
+            <strong class="signal-value" data-i18n="owner.login.signalCommercialValue">Platform scope</strong>
+            <p class="signal-detail" data-i18n="owner.login.signalCommercialDetail">Review tenants, billing posture, incidents, and guarded controls from one place.</p>
+          </article>
+          <article class="signal-card">
+            <span class="signal-label" data-i18n="owner.login.signalGuardLabel">Guardrails</span>
+            <strong class="signal-value" data-i18n="owner.login.signalGuardValue">Protected session</strong>
+            <p class="signal-detail" data-i18n="owner.login.signalGuardDetail">Audit trail, backend controls, and two-factor checks remain active for every owner sign-in.</p>
+          </article>
+        </div>
       </section>
-    </main>
-  </div>
-  <script src="/admin/assets/admin-login-v4.js?v=20260401-owner-login-visual-1"></script>
+
+      <section class="login-form-panel">
+        <header class="form-header">
+          <div class="form-header-top">
+            <span class="form-badge" data-i18n="owner.login.routeLabel">Secure node: owner_control</span>
+            <select id="ownerLoginLanguage" class="language-select" aria-label="Language">
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="login-heading">
+            <span class="login-kicker" data-i18n="owner.login.formEyebrow">Owner console access</span>
+            <h2 id="ownerLoginTitle" class="login-title" data-i18n="owner.login.formTitle">Owner console access</h2>
+            <p class="login-subtitle" data-i18n="owner.login.formDetail">Use the single owner account. The same backend guardrails, session controls, and audit trail remain active here.</p>
+          </div>
+        </header>
+
+        <form id="loginForm" class="form-shell" novalidate>
+          <div class="field-group">
+            <div class="field-head">
+              <label class="field-label" for="usernameInput" data-i18n="owner.login.fieldUsername">Owner account</label>
+              <span class="field-code">[REQ_ALPHA]</span>
+            </div>
+            <div class="field-wrap">
+              <input id="usernameInput" class="field" name="username" autocomplete="username" placeholder="owner" data-i18n-placeholder="owner.login.placeholderUsername" required>
+              <span class="field-icon" aria-hidden="true">ID</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-head">
+              <label class="field-label" for="passwordInput" data-i18n="owner.login.fieldPassword">Access key</label>
+              <span class="field-code">[REQ_BETA]</span>
+            </div>
+            <div class="field-wrap">
+              <input id="passwordInput" class="field" name="password" type="password" autocomplete="current-password" placeholder="Enter the access key" data-i18n-placeholder="owner.login.placeholderPassword" required>
+              <span class="field-icon" aria-hidden="true">KEY</span>
+            </div>
+          </div>
+
+          <div id="otpWrap" class="field-group" hidden>
+            <div class="field-head">
+              <label class="field-label" for="otpInput" data-i18n="owner.login.fieldOtp">Two-factor code</label>
+              <span class="field-code">[REQ_GAMMA]</span>
+            </div>
+            <div class="field-wrap">
+              <input id="otpInput" class="field" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" data-i18n-placeholder="owner.login.placeholderOtp">
+              <span class="field-icon" aria-hidden="true">OTP</span>
+            </div>
+          </div>
+
+          <div id="errorBox" class="owner-login-error" aria-live="polite"></div>
+
+          <div class="login-actions">
+            <button id="loginSubmit" class="button button--primary" type="submit" data-i18n="owner.login.submit">Open owner console</button>
+          </div>
+        </form>
+
+        <footer class="panel-footer">
+          <section class="footer-block">
+            <div class="footer-label" data-i18n="owner.login.listSingleTitle">Single owner account</div>
+            <div class="footer-title" data-i18n="owner.login.footerOwner">Owner lane only</div>
+            <div class="footer-detail" data-i18n="owner.login.listSingleDetail">This terminal is reserved for the owner route only and never mixes with tenant administration.</div>
+          </section>
+          <section class="footer-block">
+            <div class="footer-label" data-i18n="owner.login.listSafetyTitle">Guarded backend</div>
+            <div class="footer-title" data-i18n="owner.login.footerLive">Live control plane session</div>
+            <div class="footer-detail" data-i18n="owner.login.listSafetyDetail">Authentication, session control, audit trail, and 2FA remain wired into the live owner backend.</div>
+          </section>
+          <section class="footer-block">
+            <div class="footer-label" data-i18n="owner.login.guardTitle">Guarded session</div>
+            <div class="footer-title" data-i18n="owner.login.footerAudit">Audit protected</div>
+            <div class="footer-detail" data-i18n="owner.login.guardDetail">Owner access uses the same guarded session, audit trail, and backend controls already wired into the platform.</div>
+          </section>
+        </footer>
+      </section>
+    </section>
+  </main>
+
+  <script src="/admin/assets/admin-i18n.js?v=20260415-owner-i18n-4"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const i18n = window.AdminUiI18n;
+      const select = document.getElementById('ownerLoginLanguage');
+      if (!i18n || !select) return;
+
+      function syncLocale(locale) {
+        document.documentElement.lang = 'en';
+        select.value = 'en';
+      }
+
+      i18n.init([]);
+      syncLocale('en');
+      if (i18n.getLocale() !== 'en') {
+        void i18n.setLocale('en');
+      }
+
+      select.addEventListener('change', () => {
+        select.value = 'en';
+        void i18n.setLocale('en');
+      });
+
+      window.addEventListener('ui-language-change', (event) => {
+        syncLocale(event?.detail?.locale || 'en');
+      });
+    })();
+  </script>
+  <script src="/admin/assets/admin-login-v4.js?v=20260410-owner-login-stitch-5"></script>
 </body>
 </html>

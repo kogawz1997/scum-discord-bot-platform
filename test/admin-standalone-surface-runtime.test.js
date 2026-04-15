@@ -78,18 +78,26 @@ test('owner standalone surface serves owner shell and redirects tenant paths to 
     tenantLoginHtmlPath: path.join(fixture.root, 'tenant-login.html'),
     ownerConsoleHtmlPath: path.join(fixture.root, 'owner-console.html'),
     tenantConsoleHtmlPath: path.join(fixture.root, 'tenant-console.html'),
-    fetchImpl: async () => new Response('proxied', { status: 200 }),
+    fetchImpl: async () => new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
   });
 
   const ownerRes = createResponse();
   await runtime.handleRequest(createReq('/owner/tenants'), ownerRes);
   assert.equal(ownerRes.statusCode, 200);
-  assert.equal(ownerRes.body, '<h1>owner-shell</h1>');
+  assert.match(ownerRes.body, /data-owner-stitched="true"/);
+  assert.match(ownerRes.body, /data-owner-route="\/owner\/tenants"/);
+  assert.match(ownerRes.body, /SCUM Owner Plane - Tenant Management/);
+  assert.match(ownerRes.body, /id="ownerStitchLiveData"/);
+  assert.match(ownerRes.body, /owner-stitch-live\.js/);
 
   const ownerLoginRes = createResponse();
   await runtime.handleRequest(createReq('/owner/login'), ownerLoginRes);
   assert.equal(ownerLoginRes.statusCode, 200);
-  assert.equal(ownerLoginRes.body, '<h1>owner-login</h1>');
+  assert.match(ownerLoginRes.body, /SCUM Platform \| Owner Sign In/);
+  assert.match(ownerLoginRes.body, /id="loginSubmit"/);
 
   const tenantRedirectRes = createResponse();
   await runtime.handleRequest(createReq('/tenant'), tenantRedirectRes);
@@ -166,6 +174,36 @@ test('owner standalone surface rewrites admin API traffic into owner surface API
   assert.equal(apiRes.statusCode, 200);
   assert.equal(proxiedUrl, 'http://127.0.0.1:3200/owner/api/platform/overview');
   assert.match(String(apiRes.headers['content-type'] || ''), /application\/json/i);
+});
+
+test('owner standalone surface still serves stitched owner routes when bootstrap APIs are unavailable', async () => {
+  const fixture = createFixtureRoot();
+  const runtime = createAdminStandaloneSurfaceRuntime({
+    surface: 'owner',
+    host: '127.0.0.1',
+    port: 3201,
+    adminBaseUrl: 'http://127.0.0.1:3200',
+    ownerBaseUrl: 'http://127.0.0.1:3201',
+    tenantBaseUrl: 'http://127.0.0.1:3202',
+    playerBaseUrl: 'http://127.0.0.1:3300',
+    assetsDirPath: fixture.assetsDir,
+    scumItemsDirPath: fixture.scumItemsDir,
+    loginHtmlPath: path.join(fixture.root, 'login.html'),
+    tenantLoginHtmlPath: path.join(fixture.root, 'tenant-login.html'),
+    ownerConsoleHtmlPath: path.join(fixture.root, 'owner-console.html'),
+    tenantConsoleHtmlPath: path.join(fixture.root, 'tenant-console.html'),
+    fetchImpl: async () => {
+      throw new Error('connect ECONNREFUSED 127.0.0.1:3200');
+    },
+  });
+
+  const ownerRes = createResponse();
+  await runtime.handleRequest(createReq('/owner/runtime'), ownerRes);
+  assert.equal(ownerRes.statusCode, 200);
+  assert.match(ownerRes.body, /data-owner-stitched="true"/);
+  assert.match(ownerRes.body, /data-owner-route="\/owner\/runtime"/);
+  assert.match(ownerRes.body, /SCUM Owner Plane - Runtime Overview/);
+  assert.match(ownerRes.body, /id="ownerStitchLiveData"/);
 });
 
 test('standalone surface returns 502 json when upstream control plane is unavailable', async () => {
