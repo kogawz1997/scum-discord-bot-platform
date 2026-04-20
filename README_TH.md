@@ -7,6 +7,10 @@ Language:
 
 อัปเดตล่าสุด: **2026-03-31**
 
+## เครดิต
+
+- `KOGA.EXE` — เครดิตโปรเจกต์
+
 SCUM TH Platform เป็น control plane สำหรับแพลตฟอร์มชุมชน SCUM ที่รวม:
 
 - Owner Panel

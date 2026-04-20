@@ -8,6 +8,10 @@
 
 Last updated: **2026-03-31**
 
+## Credits
+
+- `KOGA.EXE` — project credit.
+
 SCUM TH Platform is a control plane for a SCUM community stack built around:
 
 - a Discord bot

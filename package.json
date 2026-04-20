@@ -155,6 +155,9 @@
     "player-portal"
   ],
   "author": "Taweporn Chok (kogawz1997) <tawepornchok@gmail.com>",
+  "contributors": [
+    "KOGA.EXE"
+  ],
   "license": "SEE LICENSE IN LICENSE.md",
   "type": "commonjs",
   "engines": {
