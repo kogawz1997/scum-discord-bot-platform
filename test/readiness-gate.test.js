@@ -8,8 +8,9 @@ test('readiness production includes smoke by default', () => {
 
   assert.equal(scripts.includes('smoke:persistence'), true);
   assert.equal(scripts.includes('smoke:postdeploy'), true);
-  assert.deepEqual(scripts.slice(0, 5), [
-    'check',
+  assert.deepEqual(scripts.slice(0, 6), [
+    'lint',
+    'test:policy',
     'security:check',
     'doctor',
     'doctor:topology',

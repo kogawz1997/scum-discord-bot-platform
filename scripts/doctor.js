@@ -715,7 +715,14 @@ function addPlatformPersistenceChecks() {
     return;
   }
 
+  const forbiddenRuntimeBootstrapKeys = [
+    'ADMIN_WEB_RUNTIME_BOOTSTRAP',
+    'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP',
+    'PLATFORM_RAID_RUNTIME_BOOTSTRAP',
+  ];
+
   const requiredDbModeKeys = [
+    'ADMIN_NOTIFICATION_STORE_MODE',
     'ADMIN_SECURITY_EVENT_STORE_MODE',
     'PLATFORM_AUTOMATION_STATE_STORE_MODE',
     'PLATFORM_OPS_STATE_STORE_MODE',
@@ -753,6 +760,13 @@ function addPlatformPersistenceChecks() {
     warnings.push(
       `CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES still includes high-churn slices: ${highChurnSlices.join(', ')}`,
     );
+  }
+
+  for (const envKey of forbiddenRuntimeBootstrapKeys) {
+    const value = String(process.env[envKey] || '').trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(value)) {
+      throw new Error(`${envKey} must stay disabled when PERSIST_REQUIRE_DB=true`);
+    }
   }
 }
 

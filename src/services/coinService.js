@@ -4,6 +4,8 @@ const {
   setCoins,
   getWallet,
 } = require('../store/memoryStore');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeAmount(value) {
   const n = Number(value);
@@ -16,21 +18,39 @@ function normalizeText(value) {
   return text || null;
 }
 
+function resolveCoinScope(params = {}, operation = 'coin operation') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
+  };
+}
+
 async function creditCoins(params = {}) {
   const userId = String(params.userId || '').trim();
   const amount = normalizeAmount(params.amount);
   if (!userId || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scope = resolveCoinScope(params, 'credit coins');
 
   const balance = await addCoins(userId, amount, {
     reason: params.reason || 'credit',
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   return {
     ok: true,
@@ -46,11 +66,12 @@ async function debitCoins(params = {}) {
   if (!userId || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scope = resolveCoinScope(params, 'debit coins');
 
   const wallet = await getWallet(userId, {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   if (wallet.balance < amount) {
     return {
@@ -67,9 +88,9 @@ async function debitCoins(params = {}) {
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   return {
     ok: true,
@@ -85,15 +106,16 @@ async function setCoinsExact(params = {}) {
   if (!userId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scope = resolveCoinScope(params, 'set coin balance');
 
   const balance = await setCoins(userId, amount, {
     reason: params.reason || 'set',
     reference: normalizeText(params.reference),
     actor: normalizeText(params.actor) || 'system',
     meta: params.meta && typeof params.meta === 'object' ? params.meta : null,
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   return {
     ok: true,
@@ -110,6 +132,7 @@ async function transferCoins(params = {}) {
   if (!fromUserId || !toUserId || fromUserId === toUserId || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scope = resolveCoinScope(params, 'transfer coins');
 
   const outResult = await debitCoins({
     userId: fromUserId,
@@ -122,9 +145,9 @@ async function transferCoins(params = {}) {
       toUserId,
       ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
     },
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   if (!outResult.ok) return outResult;
 
@@ -140,9 +163,9 @@ async function transferCoins(params = {}) {
         fromUserId,
         ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
       },
-      tenantId: normalizeText(params.tenantId),
-      defaultTenantId: normalizeText(params.defaultTenantId),
-      env: params.env,
+      tenantId: scope.tenantId,
+      defaultTenantId: scope.defaultTenantId,
+      env: scope.env,
     });
     if (!inResult.ok) {
       throw new Error(inResult.reason || 'credit-failed');
@@ -167,9 +190,9 @@ async function transferCoins(params = {}) {
         toUserId,
         rollbackReason: String(error?.message || error),
       },
-      tenantId: normalizeText(params.tenantId),
-      defaultTenantId: normalizeText(params.defaultTenantId),
-      env: params.env,
+      tenantId: scope.tenantId,
+      defaultTenantId: scope.defaultTenantId,
+      env: scope.env,
     }).catch(() => null);
     return {
       ok: false,

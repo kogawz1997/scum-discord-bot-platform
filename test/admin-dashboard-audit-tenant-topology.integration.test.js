@@ -216,6 +216,7 @@ test('admin dashboard cards and audit dataset aggregate tenant topology correctl
   const globalCards = await buildAdminDashboardCards({
     prisma,
     client,
+    allowGlobal: true,
     forceRefresh: true,
   });
   assert.ok(globalCards.metrics.walletCount >= scopedCards.metrics.walletCount);
@@ -245,6 +246,7 @@ test('admin dashboard cards and audit dataset aggregate tenant topology correctl
 
   const globalWalletAudit = await buildAuditDataset({
     prisma,
+    allowGlobal: true,
     view: 'wallet',
     userId,
   });
@@ -252,6 +254,7 @@ test('admin dashboard cards and audit dataset aggregate tenant topology correctl
 
   const globalEventAudit = await buildAuditDataset({
     prisma,
+    allowGlobal: true,
     view: 'event',
     query: eventName,
   });

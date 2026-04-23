@@ -88,8 +88,40 @@ test('tenant analytics v4 model summarizes delivery, restart, billing, and commu
   assert.equal(model.deliverySignals.length, 1);
   assert.equal(model.deliveryActions.length, 1);
   assert.equal(model.topErrors.length, 1);
+  assert.equal(model.auditTimelineRows.length >= 4, true);
   assert.ok(model.links.deliveryExport.includes('/admin/api/delivery/lifecycle/export?tenantId=tenant-demo'));
   assert.equal(model.communityRows.length >= 3, true);
+});
+
+test('tenant analytics v4 audit timeline merges support, restart, sync, and billing evidence', () => {
+  const model = createTenantAnalyticsV4Model({
+    notifications: [{
+      kind: 'platform.player.identity.support',
+      createdAt: '2026-04-01T10:05:00+07:00',
+      data: {
+        eventType: 'platform.player.identity.support',
+        supportIntent: 'relink',
+        supportOutcome: 'pending-verification',
+        supportReason: 'Steam mismatch with latest order.',
+        supportSource: 'owner-support',
+        followupAction: 'bind',
+      },
+    }],
+    restartExecutions: [
+      { resultStatus: 'failed', runtimeKey: 'server-bot', finishedAt: '2026-04-01T09:40:00+07:00', detail: 'Health verification failed' },
+    ],
+    syncEvents: [
+      { kind: 'sync.completed', createdAt: '2026-04-01T09:56:00+07:00', detail: 'Fresh SCUM.log batch stored' },
+    ],
+    billingPaymentAttempts: [
+      { id: 'pay-1', status: 'failed', provider: 'stripe', amountCents: 9900, currency: 'usd', errorCode: 'card_declined', createdAt: '2026-04-01T09:50:00+07:00' },
+    ],
+  });
+
+  assert.equal(model.auditTimelineRows[0].title, 'Identity support: Relink');
+  assert.match(model.auditTimelineRows[0].meta, /Support/);
+  assert.match(model.auditTimelineRows[0].meta, /Pending Verification/);
+  assert.equal(model.auditTimelineRows[1].title, 'sync.completed');
 });
 
 test('tenant analytics v4 html includes reporting sections and export CTA', () => {
@@ -100,8 +132,10 @@ test('tenant analytics v4 html includes reporting sections and export CTA', () =
   assert.match(html, /data-tenant-analytics-delivery/);
   assert.match(html, /data-tenant-analytics-restart/);
   assert.match(html, /data-tenant-analytics-community/);
+  assert.match(html, /data-tenant-analytics-timeline/);
   assert.match(html, /Delivery and job health/);
   assert.match(html, /Restart outcomes and sync activity/);
   assert.match(html, /Billing signals/);
   assert.match(html, /Events, raids, and recent combat/);
+  assert.match(html, /Audit timeline/);
 });

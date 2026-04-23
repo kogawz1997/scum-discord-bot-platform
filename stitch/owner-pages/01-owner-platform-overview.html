@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM Owner Plane - Platform Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #343537; border-radius: 10px; }
+        .glass-panel {
+            background: rgba(31, 32, 34, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(133, 147, 153, 0.1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#1f2022",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-container": "#a10017",
+                        "inverse-surface": "#e3e2e4",
+                        "on-background": "#e3e2e4",
+                        "background": "#121315",
+                        "outline-variant": "#3c494e",
+                        "surface-tint": "#4cd6ff",
+                        "outline": "#859399",
+                        "inverse-primary": "#00677f",
+                        "surface-container-highest": "#343537",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#412d00",
+                        "surface-container-low": "#1b1c1e",
+                        "on-tertiary": "#68000b",
+                        "secondary": "#ffdb9d",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#121315",
+                        "on-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface": "#121315",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-primary-container": "#00566a",
+                        "on-tertiary-fixed": "#410004",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-variant": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "inverse-on-surface": "#303032",
+                        "tertiary": "#ffd1ce",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-bright": "#38393b",
+                        "on-primary-fixed": "#001f28",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "primary-fixed": "#b7eaff",
+                        "primary-container": "#00d1ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "primary": "#a4e6ff",
+                        "on-primary": "#003543",
+                        "tertiary-container": "#ffaaa4",
+                        "on-primary-fixed-variant": "#004e60",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-container-high": "#292a2c",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 backdrop-blur-md shadow-sm dark:shadow-none h-14 px-6 flex justify-between items-center w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-tighter text-neutral-900 dark:text-white uppercase font-public-sans">SCUM Owner Plane</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-public-sans text-sm font-semibold tracking-tight text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" href="#">Tenant List</a>
+<a class="font-public-sans text-sm font-semibold tracking-tight text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500 pb-1" href="#">Runtime</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-md gap-2">
+<span class="material-symbols-outlined text-outline text-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 w-48 text-on-surface" placeholder="Search Command..." type="text"/>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-all active:opacity-70"><span class="material-symbols-outlined" data-icon="refresh">refresh</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-all active:opacity-70"><span class="material-symbols-outlined" data-icon="language">language</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-all active:opacity-70"><span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span></button>
+<div class="relative">
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-all active:opacity-70"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-background"></span>
+</div>
+</div>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile Menu" data-alt="close-up of a high-tech biometric user interface with digital fingerprint and identification scan elements in cyan" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUkPJw88qyf48mwFlkbqA1DsNejkeDbR967AjzBLpgNcHCDytvwm1mA80Zg9rNqMo2yKP_FAXmtJTmjE9FRMeuPH1hcHSWMm7q2Cx_Rum5SwckDIf7-4uyY2JAEqf6sjCG7j85FwIsB_yoWr36d2dehLpNNtEjgR4Gd3O6PrlKs1ejRV88MnUs3CY035tVRMJcjvEdfOrqV3wQ8Yq_v1F1J7m7bkPSxnwQA9tD9X_4pdhhWIhq3mmzTaIpL5MOg4zznfVmMy8R27c"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 flex flex-col py-4 overflow-y-auto shadow-xl dark:shadow-none z-40">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-cyan-950/30 flex items-center justify-center border border-cyan-900/50">
+<span class="material-symbols-outlined text-cyan-400" data-icon="shield_person">shield_person</span>
+</div>
+<div>
+<h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 font-public-sans leading-none">Control Plane</h2>
+<p class="text-[11px] text-neutral-500 uppercase tracking-widest mt-1">Global Oversight</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-0.5">
+<a class="bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-r-4 border-cyan-500 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Overview
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span> Tenants
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="package">package</span> Packages
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="subscriptions">subscriptions</span> Subscriptions
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span> Billing
+            </a>
+<div class="h-px bg-neutral-200 dark:bg-neutral-800 my-2 mx-4"></div>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span> Runtime Health
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span> Delivery Agents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="robot_2">robot_2</span> Server Bots
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span> Incidents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span> Observability
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings_suggest">settings_suggest</span> Automation
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span> Audit
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span> Security
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span> Support
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 font-public-sans text-[13px] font-medium leading-relaxed flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings_backup_restore">settings_backup_restore</span> Recovery
+            </a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full flex items-center justify-between px-4 py-2 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-white rounded-md text-[13px] font-semibold transition-all active:scale-95">
+<span>Platform Settings</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-14 min-h-screen">
+<div class="p-8">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+<div>
+<h1 class="text-3xl font-black font-public-sans tracking-tight text-on-background">Platform Overview</h1>
+<p class="text-on-surface-variant text-sm mt-1">Real-time supervision of SCUM managed-service ecosystem.</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-md text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span> รีเฟรช
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-md text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="group">group</span> ผู้เช่า
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-md text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span> เหตุการณ์
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-md text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="payments">payments</span> การเงิน
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary-container rounded-md text-sm font-bold transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm" data-icon="monitor_heart">monitor_heart</span> สุขภาพระบบ
+                    </button>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Commercial Metrics Column (Separate Logic) -->
+<div class="md:col-span-4 space-y-6">
+<div class="p-6 glass-panel rounded-xl shadow-2xl relative overflow-hidden group">
+<div class="absolute -top-12 -right-12 w-32 h-32 bg-secondary-container/10 rounded-full blur-3xl group-hover:bg-secondary-container/20 transition-all"></div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-xs font-black uppercase tracking-widest text-on-secondary-container bg-secondary-container/20 px-2 py-1 rounded">Revenue Velocity</h3>
+<span class="material-symbols-outlined text-secondary-container" data-icon="trending_up">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black font-public-sans tracking-tighter">$42,890</span>
+<span class="text-xs font-bold text-cyan-400">+12.4%</span>
+</div>
+<p class="text-[11px] text-on-surface-variant mt-1">Daily platform subscription turnover</p>
+<div class="mt-6 h-12 w-full flex items-end gap-1">
+<div class="bg-secondary-container/20 w-full h-[40%] rounded-t-sm"></div>
+<div class="bg-secondary-container/20 w-full h-[60%] rounded-t-sm"></div>
+<div class="bg-secondary-container/20 w-full h-[50%] rounded-t-sm"></div>
+<div class="bg-secondary-container/20 w-full h-[80%] rounded-t-sm"></div>
+<div class="bg-secondary-container/40 w-full h-[70%] rounded-t-sm"></div>
+<div class="bg-secondary-container/60 w-full h-[90%] rounded-t-sm"></div>
+<div class="bg-secondary-container w-full h-[100%] rounded-t-sm"></div>
+</div>
+</div>
+<div class="p-6 glass-panel rounded-xl shadow-2xl border-l-4 border-error">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-sm font-bold font-public-sans text-on-background">Active Incidents</h3>
+<span class="text-[10px] font-black uppercase text-error tracking-tighter">Live Monitor</span>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="text-center">
+<div class="text-2xl font-black text-on-background">04</div>
+<div class="text-[10px] uppercase text-error font-bold mt-1">New</div>
+</div>
+<div class="text-center border-x border-outline-variant">
+<div class="text-2xl font-black text-on-background">12</div>
+<div class="text-[10px] uppercase text-secondary-container font-bold mt-1">Ack</div>
+</div>
+<div class="text-center">
+<div class="text-2xl font-black text-on-background">156</div>
+<div class="text-[10px] uppercase text-outline font-bold mt-1">Cleared</div>
+</div>
+</div>
+</div>
+<div class="p-6 glass-panel rounded-xl shadow-2xl">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold font-public-sans text-on-background">Security Posture</h3>
+<span class="material-symbols-outlined text-cyan-400" data-icon="verified_user">verified_user</span>
+</div>
+<div class="flex items-center gap-4 mb-4">
+<div class="relative w-16 h-16 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-highest" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-width="4"></circle>
+<circle class="text-cyan-500" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-dasharray="175.9" stroke-dashoffset="17.5" stroke-width="4"></circle>
+</svg>
+<span class="absolute text-xs font-black">94%</span>
+</div>
+<div>
+<div class="text-[13px] font-bold">Hardened</div>
+<div class="text-[11px] text-on-surface-variant">Zero critical vulnerabilities detected in last 24h scan.</div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[11px]">
+<span class="text-outline">Auth Integrity</span>
+<span class="text-on-surface font-semibold">Excellent</span>
+</div>
+<div class="flex justify-between items-center text-[11px]">
+<span class="text-outline">DDoS Mitigation</span>
+<span class="text-on-surface font-semibold">Standby</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Runtime Metrics Column (Separate Logic) -->
+<div class="md:col-span-8 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Fleet Health: Delivery Agent -->
+<div class="p-6 glass-panel rounded-xl border-t-2 border-cyan-500/50">
+<div class="flex items-center gap-3 mb-6">
+<div class="p-2 bg-cyan-950/40 rounded-lg">
+<span class="material-symbols-outlined text-cyan-400" data-icon="local_shipping">local_shipping</span>
+</div>
+<div>
+<h4 class="text-sm font-bold font-public-sans leading-none">Delivery Agents</h4>
+<p class="text-[10px] text-outline uppercase font-bold mt-1">Runtime Fleet Alpha</p>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<div class="text-4xl font-black font-public-sans leading-none">1,204</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-xs font-semibold text-cyan-400">1,198 Online</span>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xs font-bold text-error">6 Latent</div>
+<div class="text-[10px] text-outline mt-1">99.5% Readiness</div>
+</div>
+</div>
+</div>
+<!-- Fleet Health: Server Bot -->
+<div class="p-6 glass-panel rounded-xl border-t-2 border-primary-container/50">
+<div class="flex items-center gap-3 mb-6">
+<div class="p-2 bg-primary-container/10 rounded-lg">
+<span class="material-symbols-outlined text-primary-container" data-icon="robot_2">robot_2</span>
+</div>
+<div>
+<h4 class="text-sm font-bold font-public-sans leading-none">Server Bots</h4>
+<p class="text-[10px] text-outline uppercase font-bold mt-1">Control Layer Beta</p>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<div class="text-4xl font-black font-public-sans leading-none">4,812</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-xs font-semibold text-primary-container">4,790 Active</span>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xs font-bold text-on-secondary-container">22 Stale</div>
+<div class="text-[10px] text-outline mt-1">99.5% Sync Pulse</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Tactical Log Stream -->
+<div class="glass-panel rounded-xl shadow-2xl overflow-hidden flex flex-col h-[480px]">
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sm text-outline" data-icon="reorder">reorder</span>
+<h3 class="text-xs font-black uppercase tracking-widest text-on-background">Live Tactical Stream</h3>
+</div>
+<div class="flex gap-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 text-[10px] font-bold border border-cyan-800">
+<span class="w-1 h-1 rounded-full bg-cyan-400 animate-pulse"></span> LIVE
+                                </span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-0 custom-scrollbar font-mono text-[11px]">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-container-highest/90 backdrop-blur-sm z-10">
+<tr>
+<th class="px-6 py-2 text-[10px] text-outline font-bold uppercase">Timestamp</th>
+<th class="px-4 py-2 text-[10px] text-outline font-bold uppercase">Origin</th>
+<th class="px-4 py-2 text-[10px] text-outline font-bold uppercase">Action</th>
+<th class="px-6 py-2 text-[10px] text-outline font-bold uppercase">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:22:01.04</td>
+<td class="px-4 py-3 font-bold text-cyan-400">TENANT_0921</td>
+<td class="px-4 py-3">Provisioning Server Bot v2.4.1</td>
+<td class="px-6 py-3"><span class="text-cyan-400">SUCCESS</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:21:58.12</td>
+<td class="px-4 py-3 font-bold text-primary-container">AGENT_X_44</td>
+<td class="px-4 py-3">Re-connected to Fleet Node SE-01</td>
+<td class="px-6 py-3"><span class="text-primary-container">STABLE</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors bg-on-tertiary-container/5">
+<td class="px-6 py-3 text-outline">14:21:45.00</td>
+<td class="px-4 py-3 font-bold text-error">SYS_MONITOR</td>
+<td class="px-4 py-3">High Latency Detected on Frankfurt Cluster</td>
+<td class="px-6 py-3"><span class="text-error font-black">DEGRADED</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:21:32.18</td>
+<td class="px-4 py-3 font-bold text-secondary-container">BILLING_SVC</td>
+<td class="px-4 py-3">Subscription Renewed: [TENANT_GOLD_44]</td>
+<td class="px-6 py-3"><span class="text-secondary-container">REVENUE+</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:20:11.02</td>
+<td class="px-4 py-3 font-bold text-cyan-400">TENANT_1102</td>
+<td class="px-4 py-3">Global Announcement Broadcast Executed</td>
+<td class="px-6 py-3"><span class="text-cyan-400">SUCCESS</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:19:55.91</td>
+<td class="px-4 py-3 font-bold text-outline">AUTH_GATE</td>
+<td class="px-4 py-3">Owner Session Token Refresh (MFA Verified)</td>
+<td class="px-6 py-3">OK</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="px-6 py-3 text-outline">14:18:40.44</td>
+<td class="px-4 py-3 font-bold text-primary-container">BOT_RUNTIME_B</td>
+<td class="px-4 py-3">SCUM.log Integrity Check Complete</td>
+<td class="px-6 py-3"><span class="text-primary-container">VALID</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors bg-on-tertiary-container/5">
+<td class="px-6 py-3 text-outline">14:17:12.11</td>
+<td class="px-4 py-3 font-bold text-error">SECURITY_SVC</td>
+<td class="px-4 py-3">Suspicious Identity Linkage [PlayerID: 99x]</td>
+<td class="px-6 py-3"><span class="text-error font-black">FLAGGED</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Global State Footer / Status Strip -->
+<footer class="fixed bottom-0 left-64 right-0 h-8 bg-surface-container-lowest border-t border-outline-variant flex items-center px-6 justify-between z-40">
+<div class="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(76,214,255,0.6)]"></span>
+<span class="text-on-surface">Platform Operational</span>
+</div>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[12px]" data-icon="cloud_sync">cloud_sync</span>
+<span>Latency: 14ms</span>
+</div>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[12px]" data-icon="storage">storage</span>
+<span>Db Pulse: Healthy</span>
+</div>
+</div>
+<div class="flex items-center gap-4 text-[10px] font-bold text-outline">
+<span>Cluster: SCUM-EU-MAIN-01</span>
+<span class="text-on-surface-variant">Version 4.2.0-stable</span>
+</div>
+</footer>
+</body></html>

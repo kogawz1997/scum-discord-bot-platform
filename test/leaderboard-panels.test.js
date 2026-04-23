@@ -119,3 +119,24 @@ test('top killer leaderboard cards use linked in-game name and discord avatar', 
   assert.match(String(summaryEmbed.title || ''), /More/i);
   assert.match(String(summaryEmbed.description || ''), /Discord Four/);
 });
+
+test('leaderboard panels require tenant scope in strict isolation mode when scoped stores are queried', () => {
+  assert.throws(
+    () => buildTopKillerEmbed(
+      {
+        guilds: { cache: new Map() },
+        users: { cache: new Map() },
+      },
+      'guild-1',
+      {
+        env: {
+          DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+          DATABASE_PROVIDER: 'postgresql',
+          PRISMA_SCHEMA_PROVIDER: 'postgresql',
+          TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+        },
+      },
+    ),
+    /requires tenantId/i,
+  );
+});

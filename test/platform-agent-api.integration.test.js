@@ -202,15 +202,21 @@ test('platform agent routes register scoped agents and ingest sync through the c
 
   const sync = await request('/platform/api/v1/agent/sync', 'POST', {
     tenantId: 'tenant-agent-api',
+    serverId: 'server-agent-api',
     guildId: 'guild-agent-api',
     agentId: 'sync-agent-api',
     runtimeKey: 'sync-agent-runtime',
+    role: 'sync',
+    scope: 'sync_only',
+    channel: 'watch',
+    version: '1.0.1',
+    heartbeatAt: '2026-03-25T10:00:00.000Z',
     syncRunId: 'sync-run-1',
     events: [{ type: 'join', playerName: 'Tester' }],
   }, '', {
     'x-platform-api-key': rawSyncKey,
   });
-  assert.equal(sync.res.status, 200);
+  assert.equal(sync.res.status, 200, JSON.stringify(sync.data));
   assert.equal(sync.data.ok, true);
   assert.equal(sync.data.data.syncEvents.length, 1);
 

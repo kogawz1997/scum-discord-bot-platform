@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TENANT_ADMIN_SCUM_V1 - Donations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#783200",
+                        "on-secondary-container": "#bdf57d",
+                        "on-secondary-fixed": "#0f2000",
+                        "secondary-fixed": "#bbf37c",
+                        "secondary-fixed-dim": "#a0d663",
+                        "primary-fixed-dim": "#ffb690",
+                        "surface-dim": "#131313",
+                        "primary-fixed": "#ffdbca",
+                        "on-tertiary": "#690005",
+                        "on-surface": "#e5e2e1",
+                        "tertiary-fixed-dim": "#ffb4ab",
+                        "surface-bright": "#393939",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1c1b1b",
+                        "on-secondary-fixed-variant": "#2e4f00",
+                        "secondary-container": "#447200",
+                        "on-background": "#e5e2e1",
+                        "on-primary-fixed": "#341100",
+                        "outline-variant": "#584237",
+                        "surface-tint": "#ffb690",
+                        "outline": "#a78b7d",
+                        "surface-container": "#201f1f",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "primary-container": "#f97316",
+                        "on-tertiary-container": "#6c0005",
+                        "on-error": "#690005",
+                        "primary": "#ffb690",
+                        "on-primary-container": "#582200",
+                        "on-tertiary-fixed": "#410002",
+                        "on-secondary": "#1e3700",
+                        "inverse-primary": "#9d4300",
+                        "tertiary-container": "#ff6a5d",
+                        "tertiary-fixed": "#ffdad6",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "inverse-surface": "#e5e2e1",
+                        "secondary": "#a0d663",
+                        "on-surface-variant": "#e0c0b1",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface": "#131313",
+                        "background": "#131313",
+                        "on-tertiary-fixed-variant": "#93000b",
+                        "on-primary": "#552100",
+                        "tertiary": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 z-50 bg-[#131313] text-orange-600 font-['Space_Grotesk'] tracking-wider uppercase text-sm border-b-2 border-[#353534] flex justify-between items-center w-full px-6 h-16">
+<div class="text-xl font-black text-orange-600 tracking-tighter">
+            TENANT_ADMIN_SCUM_V1
+        </div>
+<div class="flex items-center gap-6">
+<div class="flex items-center bg-surface-container-lowest border-2 border-surface-variant px-3 py-1">
+<span class="material-symbols-outlined text-zinc-500 mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs w-48" placeholder="SYSTEM_SEARCH" type="text"/>
+</div>
+<div class="flex gap-4">
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-1"><span class="material-symbols-outlined">refresh</span></button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-1"><span class="material-symbols-outlined">language</span></button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-1"><span class="material-symbols-outlined">dark_mode</span></button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-1 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-orange-500"></span>
+</button>
+</div>
+<div class="flex items-center gap-3 border-l-2 border-[#353534] pl-6">
+<img alt="Administrator Profile" class="w-8 h-8 border-2 border-orange-600" data-alt="High-contrast digital avatar of a military commander in a dark tactical suit with orange glowing accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaPiTRqEPfHBOidQo8lqp80moMg_YlJgx5zP0xk3AB_GwmKFINLFfnXT7avtkX6-Lzroh_0j3XmXr2zuRJ9yqUCvm4PXZHjjHvuI3_BVoeph6UY0ywZf4A4wXia0a9ZJiPtrRjP0YY_0x6CJWZl4ssBCk4P_CnaUiEpXNDtlSbBiFCQRNwZbTa2xBjm3s05THA5qPXuw515K7abL_kK_9b42hnW19VaGED63i0XbEgwR_YVajrhQDoydTFjgK7tHVgw78oMZx4jYY"/>
+<span class="text-zinc-500 hover:text-white transition-colors cursor-pointer">Logout</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-[#201f1f] border-r-4 border-[#353534] flex flex-col pt-16 z-40">
+<div class="p-6 border-b-2 border-[#353534]">
+<h2 class="text-lg font-black text-white font-headline tracking-tighter">SECTOR_ADMIN</h2>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">OPERATIONAL_UNIT_01</p>
+</div>
+<nav class="flex-1 overflow-y-auto py-4 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest">
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">dashboard</span> Overview</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">person_add</span> Onboarding</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">dns</span> Server Status</a>
+<a class="bg-[#353534] text-orange-500 border-l-4 border-orange-500 px-4 py-3 flex items-center gap-3 translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">volunteer_activism</span> Donations
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">local_shipping</span> Delivery Agents</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">shopping_cart</span> Orders</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">event</span> Events</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">group</span> Players</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">payments</span> Billing</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">settings</span> Settings</a>
+</nav>
+<div class="p-4 border-t-2 border-[#353534]">
+<button class="w-full bg-orange-600 text-on-primary-container font-headline py-3 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 transition-colors">
+                Diagnostics &amp; Support
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-8 min-h-screen">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-8 border-l-8 border-orange-600 pl-6 py-2 bg-surface-container-low">
+<div>
+<h1 class="text-4xl font-headline font-black tracking-tight text-white uppercase">Donations Management</h1>
+<p class="text-zinc-500 font-label text-sm mt-1">MODULE_REF: SCUM_ECON_04 // การจัดการเงินบริจาค</p>
+</div>
+<div class="flex gap-4">
+<button class="bg-surface-container-highest border-2 border-surface-variant text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#353534] flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">refresh</span> Refresh donations
+                </button>
+<button class="bg-surface-container-highest border-2 border-surface-variant text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#353534] flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">ios_share</span> Export history
+                </button>
+</div>
+</div>
+<!-- Summary Cards Bento Grid -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<div class="col-span-4 bg-surface-container-high border-2 border-[#353534] p-6 relative overflow-hidden">
+<div class="absolute top-2 right-2 opacity-10">
+<span class="material-symbols-outlined text-6xl">payments</span>
+</div>
+<p class="text-xs font-bold text-zinc-500 tracking-widest uppercase mb-1">TOTAL_REVENUE / รายรับรวม</p>
+<h3 class="text-4xl font-headline font-black text-orange-500">$14,290.50</h3>
+<div class="mt-4 flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary block"></span>
+<p class="text-[10px] font-bold text-secondary uppercase">+12% FROM PREV_CYCLE</p>
+</div>
+</div>
+<div class="col-span-4 bg-surface-container-high border-2 border-[#353534] p-6 relative overflow-hidden">
+<div class="absolute top-2 right-2 opacity-10">
+<span class="material-symbols-outlined text-6xl">military_tech</span>
+</div>
+<p class="text-xs font-bold text-zinc-500 tracking-widest uppercase mb-1">ACTIVE_SUPPORTERS / ผู้สนับสนุน</p>
+<h3 class="text-4xl font-headline font-black text-white">482</h3>
+<div class="mt-4 flex items-center gap-2">
+<span class="w-2 h-2 bg-orange-500 block"></span>
+<p class="text-[10px] font-bold text-orange-500 uppercase">86 NEW THIS_MONTH</p>
+</div>
+</div>
+<div class="col-span-4 bg-surface-container-high border-2 border-[#353534] p-6 flex flex-col justify-between">
+<p class="text-xs font-bold text-zinc-500 tracking-widest uppercase">QUICK_ACTIONS / ทางลัด</p>
+<div class="flex flex-col gap-2 mt-4">
+<button class="bg-primary-container text-on-primary-container font-headline font-black py-2 px-4 uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:translate-x-1 transition-transform border-2 border-orange-600">
+<span class="material-symbols-outlined text-sm">add_box</span> Create package
+                    </button>
+</div>
+</div>
+</div>
+<!-- Packages Table Section -->
+<div class="bg-surface-container-low border-2 border-[#353534]">
+<div class="px-6 py-4 border-b-2 border-[#353534] bg-surface-container flex justify-between items-center">
+<h2 class="text-lg font-headline font-bold text-white uppercase tracking-wider">Donation Packages / รายการแพ็คเกจ</h2>
+<div class="flex gap-2">
+<button class="text-zinc-500 hover:text-white p-1"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="text-zinc-500 hover:text-white p-1"><span class="material-symbols-outlined">settings</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-highest text-zinc-400 font-label text-[10px] uppercase tracking-widest border-b-2 border-[#353534]">
+<th class="px-6 py-4 font-bold">STATUS</th>
+<th class="px-6 py-4 font-bold">PKG_ID</th>
+<th class="px-6 py-4 font-bold">PACKAGE_NAME / ชื่อแพ็คเกจ</th>
+<th class="px-6 py-4 font-bold text-right">UNIT_PRICE</th>
+<th class="px-6 py-4 font-bold text-center">TOTAL_SALES</th>
+<th class="px-6 py-4 font-bold">ACTIONS</th>
+</tr>
+</thead>
+<tbody class="text-sm font-body">
+<!-- Row 1 -->
+<tr class="border-b-2 border-surface-variant hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4">
+<span class="bg-secondary/10 text-secondary border border-secondary px-2 py-0.5 text-[10px] font-bold">OPERATIONAL</span>
+</td>
+<td class="px-6 py-4 font-mono text-zinc-400 text-xs">#DON-9921</td>
+<td class="px-6 py-4 font-bold">
+<div class="flex flex-col">
+<span>ELITE SURVIVOR KIT</span>
+<span class="text-[10px] text-zinc-500">ชุดอุปกรณ์ผู้รอดชีวิตระดับสูง</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-mono text-orange-500 font-bold">$49.99</td>
+<td class="px-6 py-4 text-center font-mono">156</td>
+<td class="px-6 py-4">
+<div class="flex gap-4">
+<button class="text-zinc-500 hover:text-orange-500 transition-colors uppercase text-[10px] font-bold">Edit</button>
+<button class="text-zinc-500 hover:text-red-500 transition-colors uppercase text-[10px] font-bold">Delete</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b-2 border-surface-variant hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4">
+<span class="bg-secondary/10 text-secondary border border-secondary px-2 py-0.5 text-[10px] font-bold">OPERATIONAL</span>
+</td>
+<td class="px-6 py-4 font-mono text-zinc-400 text-xs">#DON-4412</td>
+<td class="px-6 py-4 font-bold">
+<div class="flex flex-col">
+<span>RESOURCE DROP [BASIC]</span>
+<span class="text-[10px] text-zinc-500">แพ็คเกจเสบียงพื้นฐาน</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-mono text-orange-500 font-bold">$9.99</td>
+<td class="px-6 py-4 text-center font-mono">2,104</td>
+<td class="px-6 py-4">
+<div class="flex gap-4">
+<button class="text-zinc-500 hover:text-orange-500 transition-colors uppercase text-[10px] font-bold">Edit</button>
+<button class="text-zinc-500 hover:text-red-500 transition-colors uppercase text-[10px] font-bold">Delete</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="border-b-2 border-surface-variant hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4">
+<span class="bg-orange-500/10 text-orange-500 border border-orange-500 px-2 py-0.5 text-[10px] font-bold">MAINTENANCE</span>
+</td>
+<td class="px-6 py-4 font-mono text-zinc-400 text-xs">#DON-0122</td>
+<td class="px-6 py-4 font-bold">
+<div class="flex flex-col">
+<span>WARLORD ARSENAL</span>
+<span class="text-[10px] text-zinc-500">คลังแสงขุนศึก</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-mono text-orange-500 font-bold">$129.00</td>
+<td class="px-6 py-4 text-center font-mono">42</td>
+<td class="px-6 py-4">
+<div class="flex gap-4">
+<button class="text-zinc-500 hover:text-orange-500 transition-colors uppercase text-[10px] font-bold">Edit</button>
+<button class="text-zinc-500 hover:text-red-500 transition-colors uppercase text-[10px] font-bold">Delete</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="border-b-2 border-surface-variant hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4">
+<span class="bg-secondary/10 text-secondary border border-secondary px-2 py-0.5 text-[10px] font-bold">OPERATIONAL</span>
+</td>
+<td class="px-6 py-4 font-mono text-zinc-400 text-xs">#DON-8832</td>
+<td class="px-6 py-4 font-bold">
+<div class="flex flex-col">
+<span>VEHICLE REPAIR KIT</span>
+<span class="text-[10px] text-zinc-500">ชุดซ่อมแซมยานพาหนะ</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-mono text-orange-500 font-bold">$14.50</td>
+<td class="px-6 py-4 text-center font-mono">512</td>
+<td class="px-6 py-4">
+<div class="flex gap-4">
+<button class="text-zinc-500 hover:text-orange-500 transition-colors uppercase text-[10px] font-bold">Edit</button>
+<button class="text-zinc-500 hover:text-red-500 transition-colors uppercase text-[10px] font-bold">Delete</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-surface-container-highest border-t-2 border-[#353534] flex justify-between items-center">
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">SHOWING 1-4 OF 28 PACKAGES</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center border-2 border-surface-variant bg-surface-container text-white hover:border-orange-500">1</button>
+<button class="w-8 h-8 flex items-center justify-center border-2 border-surface-variant bg-surface-container text-zinc-400 hover:text-white">2</button>
+<button class="w-8 h-8 flex items-center justify-center border-2 border-surface-variant bg-surface-container text-zinc-400 hover:text-white">3</button>
+<button class="px-3 h-8 flex items-center justify-center border-2 border-surface-variant bg-surface-container text-zinc-400 hover:text-white"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- Transaction Feed (Secondary Data) -->
+<div class="mt-8 grid grid-cols-12 gap-8">
+<div class="col-span-8">
+<div class="bg-surface-container border-2 border-[#353534] p-6">
+<h3 class="text-sm font-headline font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-orange-500">history</span> RECENT_DONATIONS / ประวัติการบริจาค
+                    </h3>
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 border-l-4 border-secondary bg-surface-container-low">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border-2 border-[#353534]">
+<span class="material-symbols-outlined text-secondary">person</span>
+</div>
+<div>
+<p class="text-xs font-bold text-white">PLAYER: MAD_MAX_01</p>
+<p class="text-[10px] text-zinc-500 uppercase">ELITE SURVIVOR KIT // 2 MIN AGO</p>
+</div>
+</div>
+<span class="text-sm font-mono font-bold text-secondary">+$49.99</span>
+</div>
+<div class="flex items-center justify-between p-3 border-l-4 border-secondary bg-surface-container-low">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border-2 border-[#353534]">
+<span class="material-symbols-outlined text-secondary">person</span>
+</div>
+<div>
+<p class="text-xs font-bold text-white">PLAYER: VOID_STALKER</p>
+<p class="text-[10px] text-zinc-500 uppercase">RESOURCE DROP [BASIC] // 14 MIN AGO</p>
+</div>
+</div>
+<span class="text-sm font-mono font-bold text-secondary">+$9.99</span>
+</div>
+<div class="flex items-center justify-between p-3 border-l-4 border-secondary bg-surface-container-low">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border-2 border-[#353534]">
+<span class="material-symbols-outlined text-secondary">person</span>
+</div>
+<div>
+<p class="text-xs font-bold text-white">PLAYER: KRAKEN_COMMANDER</p>
+<p class="text-[10px] text-zinc-500 uppercase">WARLORD ARSENAL // 1 HOUR AGO</p>
+</div>
+</div>
+<span class="text-sm font-mono font-bold text-secondary">+$129.00</span>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-4">
+<div class="bg-surface-container border-2 border-[#353534] p-6 h-full">
+<h3 class="text-sm font-headline font-black text-white uppercase tracking-widest mb-4">SYSTEM_STATUS</h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-[10px] font-bold text-zinc-400 mb-1">
+<span>PAYMENT_GATEWAY_UPTIME</span>
+<span class="text-secondary">99.9%</span>
+</div>
+<div class="h-2 bg-surface-container-lowest border border-[#353534]">
+<div class="h-full bg-secondary w-[99.9%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[10px] font-bold text-zinc-400 mb-1">
+<span>API_RESPONSE_TIME</span>
+<span class="text-orange-500">142ms</span>
+</div>
+<div class="h-2 bg-surface-container-lowest border border-[#353534]">
+<div class="h-full bg-orange-500 w-[65%]"></div>
+</div>
+</div>
+<div class="mt-8 p-4 border-2 border-dashed border-surface-variant">
+<p class="text-[10px] text-zinc-500 leading-relaxed italic">
+                                "All transactions are logged under Sector_Audit protocols. Any discrepancies must be reported to the High Command immediately."
+                            </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Automation and Notifications</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>.placeholder-main { padding: 28px; } .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(126,230,182,.18); background: rgba(126,230,182,.08); color: var(--text-soft); font-size: 13px; }</style>
+</head>
+<body>
+  <nav class="topbar"><div class="topbar__brand"><span class="topbar__mark">SCUM</span><div><span class="topbar__title">SCUM Owner Plane</span><span class="topbar__copy">Automation and Notifications</span></div></div><div class="topbar__tools"><a class="topbar__pill" href="/owner/automation">Automation</a><button class="button">Refresh</button><button class="button">Language</button><button class="button">Notifications</button></div></nav>
+  <div class="shell">
+    <aside class="sidebar"><div class="sidebar__section"><div class="sidebar__title">Operations</div><a class="nav-item" href="/owner/analytics">Observability</a><a class="nav-item is-active" href="/owner/automation">Automation</a><a class="nav-item" href="/owner/diagnostics">Diagnostics</a><a class="nav-item" href="/owner/runtime">Runtime Health</a></div></aside>
+    <main class="main placeholder-main">
+      <header class="page-header"><div><span class="eyebrow">Automation and Notifications</span><h1 class="page-title">Operator Awareness</h1><p class="page-copy">Review automation posture, notification backlog, and channel health from one route before taking guarded execution actions.</p></div><div class="actions"><a class="button" href="/owner/analytics">Open Observability</a><a class="button" href="/owner/runtime">Open Runtime Health</a><button class="button button--primary" data-open-live-workspace="true">Open Automation Controls</button></div></header>
+      <section class="panel panel--hero"><h2 class="panel__title">Automation lane</h2><p class="panel__copy">Dry-run execution, live execution, queued notifications, and channel-health follow-up stay grouped here for faster operational review.</p><div class="list"><div class="list__item"><div class="list__title"><span>Automation runs</span><span class="status" data-tone="cyan">Tracked</span></div><div class="soft">Use guarded controls for run now and dry-run actions.</div></div><div class="list__item"><div class="list__title"><span>Notification backlog</span><span class="status" data-tone="green">Available</span></div><div class="soft">Review through the existing owner notification controls.</div></div></div><div class="placeholder-note">Read-only on this route: run-now, clear queue, channel toggles, and notification channel edits remain guarded.</div></section>
+    </main>
+  </div>
+</body>
+</html>

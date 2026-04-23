@@ -72,6 +72,9 @@ function createPlayerGeneralRoutes(deps) {
     listServerRegistry,
     getPlatformUserIdentitySummary,
     issueEmailVerificationToken,
+    createPlayerSupportTicket,
+    listSupportTicketsForUser,
+    closeSupportTicketForUser,
     createRaidRequest,
     listRaidRequests,
     listRaidWindows,
@@ -95,6 +98,9 @@ function createPlayerGeneralRoutes(deps) {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
     };
+  const safeNormalizePurchaseStatus = typeof normalizePurchaseStatus === 'function'
+    ? normalizePurchaseStatus
+    : (value) => safeNormalizeText(value).toLowerCase();
 
   async function getFeatureAccess(session) {
     return loadPlayerFeatureAccess(deps.getTenantFeatureAccess, session);
@@ -107,6 +113,147 @@ function createPlayerGeneralRoutes(deps) {
       console.warn(`[player-portal] optional player data unavailable (${label})`, error?.message || error);
       return fallback;
     }
+  }
+
+  function formatSupportLinkedAccount(label, account, fallbackValue = null) {
+    const value = safeNormalizeText(account?.value || fallbackValue) || null;
+    const linked = account?.linked === true || Boolean(value);
+    if (!linked) {
+      return `${label}: missing`;
+    }
+    const verificationLabel = account?.verified === true ? 'verified' : 'review needed';
+    return value
+      ? `${label}: linked, ${verificationLabel} (${value})`
+      : `${label}: linked, ${verificationLabel}`;
+  }
+
+  function buildPlayerSupportOrdersContext(purchases) {
+    const items = Array.isArray(purchases) ? purchases : [];
+    if (!items.length) {
+      return 'Orders: no purchase history attached';
+    }
+    const normalizedItems = items
+      .map((row) => ({
+        createdAt: row?.createdAt ? new Date(row.createdAt).getTime() : 0,
+        code: safeNormalizeText(row?.purchaseCode || row?.code) || null,
+        itemName: safeNormalizeText(row?.itemName || row?.itemId) || null,
+        status: safeNormalizeText(
+          safeNormalizePurchaseStatus(row?.status || row?.statusText || row?.latestTransition || ''),
+        ).toLowerCase() || 'unknown',
+      }))
+      .sort((left, right) => right.createdAt - left.createdAt);
+    const activeCount = normalizedItems.filter((row) => (
+      ['pending', 'queued', 'processing', 'delivering'].includes(row.status)
+    )).length;
+    const latest = normalizedItems[0] || null;
+    if (!latest) {
+      return `Orders: ${normalizedItems.length} total`;
+    }
+    const latestLabel = [latest.code, latest.itemName].filter(Boolean).join(' - ') || 'order';
+    return `Orders: ${normalizedItems.length} total, ${activeCount} active, latest ${latestLabel} [${latest.status}]`;
+  }
+
+  function buildPlayerSupportContextBlock({
+    category,
+    supportUserId,
+    tenantOptions,
+    identitySummary,
+    steamLink,
+    session,
+    purchases,
+  }) {
+    const lines = [];
+    const normalizedCategory = safeNormalizeText(category).toLowerCase();
+    if (normalizedCategory) {
+      lines.push(`Category: ${normalizedCategory}`);
+    }
+    if (safeNormalizeText(supportUserId)) {
+      lines.push(`Platform user: ${safeNormalizeText(supportUserId)}`);
+    }
+    if (safeNormalizeText(tenantOptions?.tenantId)) {
+      lines.push(`Tenant: ${safeNormalizeText(tenantOptions.tenantId)}`);
+    }
+    if (safeNormalizeText(tenantOptions?.serverId)) {
+      lines.push(`Server: ${safeNormalizeText(tenantOptions.serverId)}`);
+    }
+    if (safeNormalizeText(identitySummary?.verificationState)) {
+      lines.push(`Verification: ${safeNormalizeText(identitySummary.verificationState).toLowerCase()}`);
+    }
+
+    const linkedAccounts = identitySummary?.linkedAccounts || {};
+    lines.push(formatSupportLinkedAccount('Email', linkedAccounts.email, session?.primaryEmail || null));
+    lines.push(formatSupportLinkedAccount('Discord', linkedAccounts.discord, session?.discordId || null));
+    lines.push(formatSupportLinkedAccount('Steam', linkedAccounts.steam, steamLink?.steamId || null));
+    if (linkedAccounts?.inGame?.linked === true || safeNormalizeText(linkedAccounts?.inGame?.value || steamLink?.inGameName)) {
+      lines.push(formatSupportLinkedAccount('In-game', linkedAccounts.inGame, steamLink?.inGameName || null));
+    }
+
+    lines.push(buildPlayerSupportOrdersContext(purchases));
+    return lines
+      .map((line) => safeNormalizeText(line))
+      .filter(Boolean)
+      .map((line) => `- ${line}`)
+      .join('\n');
+  }
+
+  async function buildPlayerSupportReasonWithContext({
+    category,
+    reason,
+    session,
+    supportUserId,
+    tenantOptions,
+  }) {
+    const normalizedReason = safeNormalizeText(reason);
+    if (!normalizedReason || normalizedReason.includes('Portal context:')) {
+      return normalizedReason;
+    }
+
+    const steamLink = session?.discordId && typeof resolveSessionSteamLink === 'function'
+      ? await readOptionalPlayerData(
+        'player-support-steam-link',
+        () => resolveSessionSteamLink(session.discordId, tenantOptions),
+        null,
+      )
+      : null;
+
+    const identity = typeof getPlatformUserIdentitySummary === 'function'
+      ? await readOptionalPlayerData(
+        'player-support-identity-summary',
+        () => getPlatformUserIdentitySummary({
+          userId: session.platformUserId || null,
+          email: session.primaryEmail || null,
+          discordUserId: session.discordId || null,
+          steamId: steamLink?.steamId || null,
+          tenantId: tenantOptions.tenantId || null,
+          allowGlobal: !tenantOptions.tenantId,
+          legacySteamLink: steamLink || null,
+          fallbackEmail: session.primaryEmail || null,
+          fallbackDiscordUserId: session.discordId || null,
+        }),
+        null,
+      )
+      : null;
+
+    const purchases = typeof deps.listUserPurchases === 'function' && session?.discordId
+      ? await readOptionalPlayerData(
+        'player-support-purchases',
+        () => Promise.resolve(deps.listUserPurchases(session.discordId, tenantOptions)),
+        [],
+      )
+      : [];
+
+    const contextBlock = buildPlayerSupportContextBlock({
+      category,
+      supportUserId,
+      tenantOptions,
+      identitySummary: identity?.identitySummary || null,
+      steamLink,
+      session,
+      purchases,
+    });
+    return contextBlock
+      ? `${normalizedReason}\n\nPortal context:\n${contextBlock}`
+      : normalizedReason;
   }
 
   function normalizeEconomySnapshot(raw) {
@@ -283,38 +430,52 @@ function createPlayerGeneralRoutes(deps) {
       };
     }
 
-    const rows = await Promise.resolve(listServerRegistry({ tenantId }));
-    const items = (Array.isArray(rows) ? rows : [])
-      .map(normalizeServerRegistryEntry)
-      .filter(Boolean)
-      .sort((left, right) => {
-        const leftActive = left.status === 'active' ? 0 : 1;
-        const rightActive = right.status === 'active' ? 0 : 1;
-        if (leftActive !== rightActive) return leftActive - rightActive;
-        return left.name.localeCompare(right.name, 'en');
-      });
+    try {
+      const rows = await Promise.resolve(listServerRegistry({ tenantId }));
+      const items = (Array.isArray(rows) ? rows : [])
+        .map(normalizeServerRegistryEntry)
+        .filter(Boolean)
+        .sort((left, right) => {
+          const leftActive = left.status === 'active' ? 0 : 1;
+          const rightActive = right.status === 'active' ? 0 : 1;
+          if (leftActive !== rightActive) return leftActive - rightActive;
+          return left.name.localeCompare(right.name, 'en');
+        });
 
-    const persistedServer = preferredServerId
-      ? items.find((entry) => entry.id === preferredServerId) || null
-      : null;
-    const singleServerSelection = !persistedServer && items.length === 1 ? items[0] : null;
-    const effectiveServer = persistedServer
-      || singleServerSelection
-      || items.find((entry) => entry.status === 'active')
-      || items[0]
-      || null;
-    const activeServer = persistedServer || singleServerSelection || null;
+      const persistedServer = preferredServerId
+        ? items.find((entry) => entry.id === preferredServerId) || null
+        : null;
+      const singleServerSelection = !persistedServer && items.length === 1 ? items[0] : null;
+      const effectiveServer = persistedServer
+        || singleServerSelection
+        || items.find((entry) => entry.status === 'active')
+        || items[0]
+        || null;
+      const activeServer = persistedServer || singleServerSelection || null;
 
-    return {
-      tenantId,
-      count: items.length,
-      items,
-      activeServerId: activeServer?.id || null,
-      activeServerName: activeServer?.name || null,
-      effectiveServerId: effectiveServer?.id || preferredServerId || null,
-      effectiveServerName: effectiveServer?.name || preferredServerName || null,
-      selectionRequired: items.length > 1 && !persistedServer,
-    };
+      return {
+        tenantId,
+        count: items.length,
+        items,
+        activeServerId: activeServer?.id || null,
+        activeServerName: activeServer?.name || null,
+        effectiveServerId: effectiveServer?.id || preferredServerId || null,
+        effectiveServerName: effectiveServer?.name || preferredServerName || null,
+        selectionRequired: items.length > 1 && !persistedServer,
+      };
+    } catch (error) {
+      console.warn('[player-portal] server registry unavailable', error?.message || error);
+      return {
+        tenantId,
+        count: 0,
+        items: [],
+        activeServerId: preferredServerId,
+        activeServerName: preferredServerName,
+        effectiveServerId: preferredServerId,
+        effectiveServerName: preferredServerName,
+        selectionRequired: false,
+      };
+    }
   }
 
   return async function handlePlayerGeneralRoute(context) {
@@ -333,10 +494,19 @@ function createPlayerGeneralRoutes(deps) {
     };
 
     if (pathname === '/player/api/me' && method === 'GET') {
-      const [account, link] = await Promise.all([
-        getPlayerAccount(session.discordId, tenantOptions),
-        resolveSessionSteamLink(session.discordId, tenantOptions),
+      const [accountResult, linkResult] = await Promise.allSettled([
+        Promise.resolve().then(() => getPlayerAccount(session.discordId, tenantOptions)),
+        Promise.resolve().then(() => resolveSessionSteamLink(session.discordId, tenantOptions)),
       ]);
+      const account = accountResult.status === 'fulfilled' ? accountResult.value : null;
+      const link = linkResult.status === 'fulfilled' ? linkResult.value : null;
+      if (accountResult.status === 'rejected' || linkResult.status === 'rejected') {
+        console.warn(
+          '[player-portal] player profile summary fallback',
+          accountResult.status === 'rejected' ? accountResult.reason?.message || accountResult.reason : null,
+          linkResult.status === 'rejected' ? linkResult.reason?.message || linkResult.reason : null,
+        );
+      }
       sendJson(res, 200, {
         ok: true,
         data: {
@@ -890,6 +1060,7 @@ function createPlayerGeneralRoutes(deps) {
               discordUserId: session.discordId,
               steamId: link?.steamId || null,
               tenantId: tenantOptions.tenantId || null,
+              allowGlobal: !tenantOptions.tenantId,
               legacySteamLink: link || null,
               fallbackEmail: session.primaryEmail || null,
               fallbackDiscordUserId: session.discordId || null,
@@ -1003,6 +1174,7 @@ function createPlayerGeneralRoutes(deps) {
               email: email || session.primaryEmail || null,
               discordUserId: session.discordId,
               tenantId: tenantOptions.tenantId || null,
+              allowGlobal: !tenantOptions.tenantId,
               fallbackEmail: email || session.primaryEmail || null,
               fallbackDiscordUserId: session.discordId || null,
             })
@@ -1058,6 +1230,156 @@ function createPlayerGeneralRoutes(deps) {
         data: {
           requested: true,
           message: 'Verification email queued.',
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/support/tickets' && method === 'GET') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['support_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['support_module']);
+      }
+      const supportUserId = safeNormalizeText(
+        session.platformUserId
+        || session.discordId
+        || session.user,
+      );
+      const limit = safeAsInt(urlObj.searchParams.get('limit'), 12, 1, 50) || 12;
+      const items = typeof listSupportTicketsForUser === 'function'
+        ? listSupportTicketsForUser({
+          userId: supportUserId,
+          tenantId: tenantOptions.tenantId || null,
+          limit,
+        })
+        : [];
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          total: Array.isArray(items) ? items.length : 0,
+          items: Array.isArray(items) ? items : [],
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/support/tickets' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['support_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['support_module']);
+      }
+      const supportUserId = safeNormalizeText(
+        session.platformUserId
+        || session.discordId
+        || session.user,
+      );
+      const body = await readJsonBody(req);
+      const category = safeNormalizeText(body?.category || 'support');
+      const reason = safeNormalizeText(body?.reason || body?.message);
+      if (!reason) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'ticket-reason-required',
+          data: { message: 'Describe the support request before opening a ticket.' },
+        });
+        return true;
+      }
+      if (typeof createPlayerSupportTicket !== 'function') {
+        sendJson(res, 503, {
+          ok: false,
+          error: 'support-ticket-not-configured',
+          data: { message: 'Player support tickets are not configured right now.' },
+        });
+        return true;
+      }
+      const reasonWithContext = await buildPlayerSupportReasonWithContext({
+        category,
+        reason,
+        session,
+        supportUserId,
+        tenantOptions,
+      });
+      const result = createPlayerSupportTicket({
+        userId: supportUserId,
+        tenantId: tenantOptions.tenantId || null,
+        category,
+        reason: reasonWithContext,
+      });
+      if (!result?.ok) {
+        const statusCode = result?.reason === 'ticket-already-open' ? 409 : 400;
+        sendJson(res, statusCode, {
+          ok: false,
+          error: result?.reason || 'support-ticket-create-failed',
+          data: {
+            message: result?.reason === 'ticket-already-open'
+              ? 'There is already an open support ticket for this player.'
+              : 'Unable to open the support ticket right now.',
+            ticket: result?.ticket || null,
+          },
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          ticket: result.ticket,
+          message: 'Support ticket opened.',
+        },
+      });
+      return true;
+    }
+
+    if (pathname === '/player/api/support/tickets/close' && method === 'POST') {
+      const featureAccess = await getFeatureAccess(session);
+      if (!hasFeatureAccess(featureAccess, ['support_module'])) {
+        return sendPlayerFeatureDenied(sendJson, res, featureAccess, ['support_module']);
+      }
+      const supportUserId = safeNormalizeText(
+        session.platformUserId
+        || session.discordId
+        || session.user,
+      );
+      const body = await readJsonBody(req);
+      const channelId = safeNormalizeText(body?.channelId);
+      if (!channelId) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'ticket-channel-required',
+          data: { message: 'Choose a support ticket before closing it.' },
+        });
+        return true;
+      }
+      if (typeof closeSupportTicketForUser !== 'function') {
+        sendJson(res, 503, {
+          ok: false,
+          error: 'support-ticket-not-configured',
+          data: { message: 'Player support tickets are not configured right now.' },
+        });
+        return true;
+      }
+      const result = closeSupportTicketForUser({
+        channelId,
+        userId: supportUserId,
+        tenantId: tenantOptions.tenantId || null,
+      });
+      if (!result?.ok) {
+        const statusCode = result?.reason === 'forbidden'
+          ? 403
+          : result?.reason === 'not-found'
+            ? 404
+            : 400;
+        sendJson(res, statusCode, {
+          ok: false,
+          error: result?.reason || 'support-ticket-close-failed',
+          data: { message: 'Unable to close the support ticket right now.' },
+        });
+        return true;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          ticket: result.ticket,
+          message: 'Support ticket closed.',
         },
       });
       return true;
@@ -1559,45 +1881,174 @@ function createPlayerGeneralRoutes(deps) {
         return true;
       }
 
-      const existing = getLinkBySteamId(steamId, tenantOptions);
-      if (existing && normalizeText(existing.userId) !== session.discordId) {
-        sendJson(res, 409, {
-          ok: false,
-          error: 'steamid-already-bound',
-          data: { message: 'SteamID นี้ถูกผูกกับบัญชีอื่นอยู่แล้ว' },
+      let result = null;
+      if (typeof deps.bindSteamLinkForUser === 'function') {
+        result = await deps.bindSteamLinkForUser({
+          steamId,
+          userId: session.discordId,
+          tenantId: tenantOptions.tenantId || null,
+          serverId: tenantOptions.serverId || null,
+          inGameName: null,
         });
-        return true;
+      } else {
+        const existing = getLinkBySteamId(steamId, tenantOptions);
+        if (existing && normalizeText(existing.userId) !== session.discordId) {
+          sendJson(res, 409, {
+            ok: false,
+            error: 'steamid-already-bound',
+            data: { message: 'SteamID นี้ถูกผูกกับบัญชีอื่นอยู่แล้ว' },
+          });
+          return true;
+        }
+        result = setLink({
+          steamId,
+          userId: session.discordId,
+          inGameName: null,
+        }, tenantOptions);
       }
-      const result = setLink({
-        steamId,
-        userId: session.discordId,
-        inGameName: null,
-      }, tenantOptions);
+
       if (!result?.ok) {
+        if (result?.reason === 'user-already-linked') {
+          sendJson(res, 403, {
+            ok: false,
+            error: 'steam-link-locked',
+            data: {
+              message:
+                'บัญชีนี้ผูก SteamID ไปแล้ว เปลี่ยนไม่ได้เอง ต้องติดต่อแอดมินเท่านั้น',
+              steamId: result?.current?.steamId || userCurrentLink?.steamId || null,
+            },
+          });
+          return true;
+        }
+        if (result?.reason === 'steam-already-linked') {
+          sendJson(res, 409, {
+            ok: false,
+            error: 'steamid-already-bound',
+            data: { message: 'SteamID นี้ถูกผูกกับบัญชีอื่นอยู่แล้ว' },
+          });
+          return true;
+        }
         sendJson(res, 400, {
           ok: false,
           error: result?.reason || 'invalid-steamid',
         });
         return true;
       }
+
       sendJson(res, 200, {
         ok: true,
         data: {
           linked: true,
           steamId: result.steamId,
-          inGameName: null,
+          inGameName: result?.identitySummary?.linkedAccounts?.inGame?.value || null,
           locked: true,
+          identitySummary: result?.identitySummary || null,
         },
       });
       return true;
     }
 
     if (pathname === '/player/api/linksteam/unset' && method === 'POST') {
-      sendJson(res, 403, {
-        ok: false,
-        error: 'steam-link-locked',
+      const currentLink = await resolveSessionSteamLink(session.discordId, tenantOptions);
+      if (!currentLink?.linked || !normalizeText(currentLink?.steamId)) {
+        sendJson(res, 404, {
+          ok: false,
+          error: 'steam-link-not-found',
+          data: {
+            message: 'No Steam link is attached to this player profile right now.',
+          },
+        });
+        return true;
+      }
+
+      const identity = await readOptionalPlayerData(
+        'player-identity-summary',
+        () => (
+          typeof getPlatformUserIdentitySummary === 'function'
+            ? getPlatformUserIdentitySummary({
+              userId: session.platformUserId || null,
+              email: session.primaryEmail || null,
+              discordUserId: session.discordId,
+              steamId: currentLink.steamId,
+              tenantId: tenantOptions.tenantId || null,
+              allowGlobal: !tenantOptions.tenantId,
+              legacySteamLink: currentLink,
+              fallbackEmail: session.primaryEmail || null,
+              fallbackDiscordUserId: session.discordId || null,
+            })
+            : null
+        ),
+        null,
+      );
+      const emailAccount = identity?.identitySummary?.linkedAccounts?.email || null;
+      if (!emailAccount?.linked || !emailAccount?.verified) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'email-verification-required',
+          data: {
+            message: 'Verify the linked email before disconnecting Steam so recovery and ownership checks remain trustworthy.',
+          },
+        });
+        return true;
+      }
+
+      const purchases = typeof deps.listUserPurchases === 'function'
+        ? await Promise.resolve(deps.listUserPurchases(session.discordId, tenantOptions))
+        : [];
+      const activeOrders = (Array.isArray(purchases) ? purchases : []).filter((row) => {
+        const status = normalizeText(
+          normalizePurchaseStatus(row?.status || row?.statusText || row?.latestTransition || ''),
+        ).toLowerCase();
+        return ['pending', 'queued', 'processing', 'delivering'].includes(status);
+      });
+      if (activeOrders.length > 0) {
+        sendJson(res, 409, {
+          ok: false,
+          error: 'steam-unlink-blocked-by-orders',
+          data: {
+            message: 'Finish or review the active orders before disconnecting Steam from this player profile.',
+            activeOrders: activeOrders.length,
+          },
+        });
+        return true;
+      }
+
+      if (typeof deps.removeSteamLink !== 'function') {
+        sendJson(res, 503, {
+          ok: false,
+          error: 'steam-unlink-not-configured',
+          data: {
+            message: 'Steam unlink recovery is not configured right now.',
+          },
+        });
+        return true;
+      }
+
+      const result = await deps.removeSteamLink({
+        userId: session.discordId,
+        steamId: currentLink.steamId,
+        tenantId: tenantOptions.tenantId || null,
+        serverId: tenantOptions.serverId || null,
+      });
+      if (!result?.ok) {
+        sendJson(res, result?.reason === 'not-found' ? 404 : 400, {
+          ok: false,
+          error: result?.reason || 'steam-unlink-failed',
+          data: {
+            message: 'Unable to disconnect Steam from this player profile right now.',
+          },
+        });
+        return true;
+      }
+
+      sendJson(res, 200, {
+        ok: true,
         data: {
-          message: 'ไม่สามารถยกเลิกการผูก SteamID ด้วยตัวเองได้ กรุณาติดต่อแอดมิน',
+          linked: false,
+          steamId: null,
+          inGameName: null,
+          identitySummary: result?.identitySummary || null,
+          message: 'Steam link disconnected. You can connect a different Steam account from this profile when ready.',
         },
       });
       return true;

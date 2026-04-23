@@ -101,17 +101,19 @@ function createAdminBillingGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
       const [invoices, paymentAttempts] = await Promise.all([
         readOptionalAdminData('billing-overview-invoices', () => listBillingInvoices({
           tenantId,
+          allowGlobal: !tenantId,
           limit: asInt(urlObj.searchParams.get('invoiceLimit'), 100) || 100,
         }), []),
         readOptionalAdminData('billing-overview-payment-attempts', () => listBillingPaymentAttempts({
           tenantId,
+          allowGlobal: !tenantId,
           limit: asInt(urlObj.searchParams.get('attemptLimit'), 100) || 100,
         }), []),
       ]);
@@ -138,7 +140,7 @@ function createAdminBillingGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -146,6 +148,7 @@ function createAdminBillingGetRouteHandler(deps) {
         ok: true,
         data: await readOptionalAdminData('billing-invoices', () => listBillingInvoices({
           tenantId,
+          allowGlobal: !tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
         }), []),
@@ -157,7 +160,7 @@ function createAdminBillingGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -165,6 +168,7 @@ function createAdminBillingGetRouteHandler(deps) {
         ok: true,
         data: await readOptionalAdminData('billing-payment-attempts', () => listBillingPaymentAttempts({
           tenantId,
+          allowGlobal: !tenantId,
           provider: requiredString(urlObj.searchParams.get('provider')),
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
@@ -177,18 +181,20 @@ function createAdminBillingGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'owner', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
       const [invoices, paymentAttempts] = await Promise.all([
         readOptionalAdminData('billing-export-invoices', () => listBillingInvoices({
           tenantId,
+          allowGlobal: !tenantId,
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('invoiceLimit'), 250) || 250,
         }), []),
         readOptionalAdminData('billing-export-payment-attempts', () => listBillingPaymentAttempts({
           tenantId,
+          allowGlobal: !tenantId,
           provider: requiredString(urlObj.searchParams.get('provider')),
           status: requiredString(urlObj.searchParams.get('attemptStatus')) || requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('attemptLimit'), 250) || 250,

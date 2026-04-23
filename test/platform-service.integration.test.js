@@ -17,7 +17,12 @@ const {
   getPlatformAnalyticsOverview,
   getPlatformPublicOverview,
   issuePlatformLicense,
+  listMarketplaceOffers,
+  listPlatformAgentRuntimes,
+  listPlatformApiKeys,
+  listPlatformLicenses,
   listPlatformSubscriptions,
+  listPlatformWebhookEndpoints,
   recordPlatformAgentHeartbeat,
   reconcileDeliveryState,
   verifyPlatformApiKey,
@@ -94,6 +99,7 @@ test('platform service manages tenant lifecycle, webhook delivery, analytics, an
 
   const accepted = await acceptPlatformLicenseLegal({
     licenseId: license.license.id,
+    tenantId: tenant.tenant.id,
   }, 'test');
   assert.equal(accepted.ok, true);
   assert.ok(accepted.license.legalAcceptedAt);
@@ -299,12 +305,42 @@ test('platform service strict mode requires explicit global access for tenant-sc
     () => reconcileDeliveryState(),
     /requires tenantId/i,
   );
+  await assert.rejects(
+    () => listPlatformSubscriptions(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => listPlatformLicenses(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => listPlatformAgentRuntimes(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => listPlatformApiKeys(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => listPlatformWebhookEndpoints(),
+    /requires tenantId/i,
+  );
+  await assert.rejects(
+    () => listMarketplaceOffers(),
+    /requires tenantId/i,
+  );
 
   const analytics = await getPlatformAnalyticsOverview({ allowGlobal: true });
   assert.equal(Boolean(analytics.generatedAt), true);
 
   const reconcile = await reconcileDeliveryState({ allowGlobal: true });
   assert.equal(Boolean(reconcile.generatedAt), true);
+  assert.ok(Array.isArray(await listPlatformSubscriptions({ allowGlobal: true, limit: 10 })));
+  assert.ok(Array.isArray(await listPlatformLicenses({ allowGlobal: true, limit: 10 })));
+  assert.ok(Array.isArray(await listPlatformAgentRuntimes({ allowGlobal: true, limit: 10 })));
+  assert.ok(Array.isArray(await listPlatformApiKeys({ allowGlobal: true, limit: 10 })));
+  assert.ok(Array.isArray(await listPlatformWebhookEndpoints({ allowGlobal: true, limit: 10 })));
+  assert.ok(Array.isArray(await listMarketplaceOffers({ allowGlobal: true, limit: 10 })));
 });
 
 test('platform service prefers tenant-scoped rows over stale shared copies', async (t) => {

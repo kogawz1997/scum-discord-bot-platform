@@ -4,6 +4,17 @@ const {
 } = require('../store/tenantStoreScope');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const { resolveLegacyRuntimeBootstrapPolicy } = require('../utils/legacyRuntimeBootstrapPolicy');
+const {
+  createRaidRequestLegacy,
+  createRaidSummaryLegacy,
+  createRaidWindowLegacy,
+  ensureRaidLegacyTables,
+  getRaidRequestByIdLegacy,
+  listRaidRequestsLegacy,
+  listRaidSummariesLegacy,
+  listRaidWindowsLegacy,
+  reviewRaidRequestLegacy,
+} = require('./raidLegacyCompatibilityService');
 
 const initializedScopes = new Map();
 const PLATFORM_RAID_RUNTIME_BOOTSTRAP_ENV = 'PLATFORM_RAID_RUNTIME_BOOTSTRAP';
@@ -48,11 +59,6 @@ function toIsoString(value) {
   return date ? date.toISOString() : null;
 }
 
-function sqlString(value) {
-  if (value == null) return 'NULL';
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
 function readRowValue(row, keys, fallback = null) {
   if (!row || typeof row !== 'object') return fallback;
   for (const key of keys) {
@@ -69,6 +75,13 @@ function normalizeRequestStatus(value) {
     return normalized;
   }
   return 'pending';
+}
+
+function withRaidOperation(options = {}, operation = 'raid service operation') {
+  return {
+    ...options,
+    operation: normalizeText(options.operation) || operation,
+  };
 }
 
 function normalizeWindowStatus(value) {
@@ -186,7 +199,7 @@ function buildRaidSchemaRequiredError(details = {}) {
 }
 
 async function ensureRaidTables(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantStoreScope(withRaidOperation(options, 'raid persistence'));
   if (getRaidPersistenceMode(scope) === 'prisma') {
     getRaidDelegatesOrThrow(scope);
     return scope;
@@ -200,100 +213,7 @@ async function ensureRaidTables(options = {}) {
       bootstrapPolicy,
     });
   }
-
-  const existing = initializedScopes.get(scope.datasourceKey);
-  if (existing) {
-    await existing;
-    return scope;
-  }
-
-  const initPromise = (async () => {
-    await scope.db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_raid_requests (
-        id INTEGER PRIMARY KEY,
-        requester_user_id TEXT NOT NULL,
-        requester_name TEXT NOT NULL,
-        request_text TEXT NOT NULL,
-        preferred_window TEXT,
-        status TEXT NOT NULL,
-        decision_note TEXT,
-        reviewed_by TEXT,
-        reviewed_at TEXT,
-        server_id TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-    await scope.db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_raid_windows (
-        id INTEGER PRIMARY KEY,
-        request_id INTEGER,
-        title TEXT NOT NULL,
-        starts_at TEXT NOT NULL,
-        ends_at TEXT,
-        status TEXT NOT NULL,
-        notes TEXT,
-        actor TEXT,
-        server_id TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-    await scope.db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS platform_raid_summaries (
-        id INTEGER PRIMARY KEY,
-        request_id INTEGER,
-        window_id INTEGER,
-        outcome TEXT NOT NULL,
-        notes TEXT,
-        created_by TEXT,
-        server_id TEXT,
-        created_at TEXT NOT NULL
-      )
-    `);
-    await scope.db.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS idx_platform_raid_requests_status_updated
-      ON platform_raid_requests (status, updated_at)
-    `);
-    await scope.db.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS idx_platform_raid_windows_status_starts
-      ON platform_raid_windows (status, starts_at)
-    `);
-    await scope.db.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS idx_platform_raid_summaries_created
-      ON platform_raid_summaries (created_at)
-    `);
-  })().catch((error) => {
-    initializedScopes.delete(scope.datasourceKey);
-    throw error;
-  });
-
-  initializedScopes.set(scope.datasourceKey, initPromise);
-  await initPromise;
-  return scope;
-}
-
-async function readNextId(scope, tableName) {
-  const rows = await scope.db.$queryRawUnsafe(`SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM ${tableName}`);
-  const value = readRowValue(Array.isArray(rows) ? rows[0] : null, ['next_id', 'NEXT_ID'], 1);
-  return Math.max(1, normalizeId(value) || 1);
-}
-
-function buildWhereClause(filters = {}) {
-  const clauses = [];
-  const serverId = normalizeServerScopeId(filters.serverId);
-  const requesterUserId = normalizeText(filters.requesterUserId);
-  const requestId = normalizeId(filters.requestId);
-  const windowId = normalizeId(filters.windowId);
-  const status = normalizeText(filters.status).toLowerCase();
-
-  if (serverId) clauses.push(`server_id = ${sqlString(serverId)}`);
-  if (requesterUserId) clauses.push(`requester_user_id = ${sqlString(requesterUserId)}`);
-  if (requestId) clauses.push(`request_id = ${requestId}`);
-  if (windowId) clauses.push(`window_id = ${windowId}`);
-  if (status) clauses.push(`status = ${sqlString(status)}`);
-
-  return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+  return ensureRaidLegacyTables(scope, initializedScopes);
 }
 
 function sortRaidRequests(rows = []) {
@@ -309,7 +229,7 @@ function sortRaidRequests(rows = []) {
 }
 
 async function listRaidRequests(options = {}) {
-  const scope = await ensureRaidTables(options);
+  const scope = await ensureRaidTables(withRaidOperation(options, 'list raid requests'));
   const limit = normalizeLimit(options.limit, 20, 100);
   const delegates = getRaidDelegates(scope);
   if (delegates) {
@@ -329,22 +249,12 @@ async function listRaidRequests(options = {}) {
     return sortRaidRequests((Array.isArray(rows) ? rows : []).map(mapRaidRequest).filter(Boolean)).slice(0, limit);
   }
 
-  const rows = await scope.db.$queryRawUnsafe(`
-    SELECT *
-    FROM platform_raid_requests
-    ${buildWhereClause({
-      serverId: options.serverId,
-      requesterUserId: options.requesterUserId,
-      status: options.status,
-    })}
-    ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, updated_at DESC, id DESC
-    LIMIT ${limit}
-  `);
+  const rows = await listRaidRequestsLegacy(scope, options, limit);
   return (Array.isArray(rows) ? rows : []).map(mapRaidRequest);
 }
 
 async function listRaidWindows(options = {}) {
-  const scope = await ensureRaidTables(options);
+  const scope = await ensureRaidTables(withRaidOperation(options, 'list raid windows'));
   const limit = normalizeLimit(options.limit, 20, 100);
   const delegates = getRaidDelegates(scope);
   if (delegates) {
@@ -364,22 +274,12 @@ async function listRaidWindows(options = {}) {
     return (Array.isArray(rows) ? rows : []).map(mapRaidWindow).filter(Boolean);
   }
 
-  const rows = await scope.db.$queryRawUnsafe(`
-    SELECT *
-    FROM platform_raid_windows
-    ${buildWhereClause({
-      serverId: options.serverId,
-      requestId: options.requestId,
-      status: options.status,
-    })}
-    ORDER BY starts_at ASC, id ASC
-    LIMIT ${limit}
-  `);
+  const rows = await listRaidWindowsLegacy(scope, options, limit);
   return (Array.isArray(rows) ? rows : []).map(mapRaidWindow);
 }
 
 async function listRaidSummaries(options = {}) {
-  const scope = await ensureRaidTables(options);
+  const scope = await ensureRaidTables(withRaidOperation(options, 'list raid summaries'));
   const limit = normalizeLimit(options.limit, 20, 100);
   const delegates = getRaidDelegates(scope);
   if (delegates) {
@@ -399,22 +299,12 @@ async function listRaidSummaries(options = {}) {
     return (Array.isArray(rows) ? rows : []).map(mapRaidSummary).filter(Boolean);
   }
 
-  const rows = await scope.db.$queryRawUnsafe(`
-    SELECT *
-    FROM platform_raid_summaries
-    ${buildWhereClause({
-      serverId: options.serverId,
-      requestId: options.requestId,
-      windowId: options.windowId,
-    })}
-    ORDER BY created_at DESC, id DESC
-    LIMIT ${limit}
-  `);
+  const rows = await listRaidSummariesLegacy(scope, options, limit);
   return (Array.isArray(rows) ? rows : []).map(mapRaidSummary);
 }
 
 async function getRaidRequestById(id, options = {}) {
-  const scope = await ensureRaidTables(options);
+  const scope = await ensureRaidTables(withRaidOperation(options, 'get raid request'));
   const requestId = normalizeId(id);
   if (!requestId) return null;
   const delegates = getRaidDelegates(scope);
@@ -425,17 +315,11 @@ async function getRaidRequestById(id, options = {}) {
     return mapRaidRequest(row);
   }
 
-  const rows = await scope.db.$queryRawUnsafe(`
-    SELECT *
-    FROM platform_raid_requests
-    WHERE id = ${requestId}
-    LIMIT 1
-  `);
-  return Array.isArray(rows) && rows[0] ? mapRaidRequest(rows[0]) : null;
+  return mapRaidRequest(await getRaidRequestByIdLegacy(scope, requestId));
 }
 
 async function createRaidRequest(params = {}) {
-  const scope = await ensureRaidTables(params);
+  const scope = await ensureRaidTables(withRaidOperation(params, 'create raid request'));
   const requesterUserId = normalizeText(params.requesterUserId);
   const requesterName = normalizeText(params.requesterName) || requesterUserId || 'Player';
   const requestText = normalizeText(params.requestText);
@@ -464,60 +348,20 @@ async function createRaidRequest(params = {}) {
     };
   }
 
-  const id = await readNextId(scope, 'platform_raid_requests');
-  const now = new Date().toISOString();
-  await scope.db.$executeRawUnsafe(`
-    INSERT INTO platform_raid_requests (
-      id,
-      requester_user_id,
-      requester_name,
-      request_text,
-      preferred_window,
-      status,
-      decision_note,
-      reviewed_by,
-      reviewed_at,
-      server_id,
-      created_at,
-      updated_at
-    ) VALUES (
-      ${id},
-      ${sqlString(requesterUserId)},
-      ${sqlString(requesterName)},
-      ${sqlString(requestText)},
-      ${sqlString(preferredWindow)},
-      'pending',
-      NULL,
-      NULL,
-      NULL,
-      ${sqlString(serverId)},
-      ${sqlString(now)},
-      ${sqlString(now)}
-    )
-  `);
-
   return {
     ok: true,
-    request: {
-      id,
-      tenantId: scope.tenantId || null,
+    request: await createRaidRequestLegacy(scope, {
       requesterUserId,
       requesterName,
       requestText,
       preferredWindow,
-      status: 'pending',
-      decisionNote: null,
-      reviewedBy: null,
-      reviewedAt: null,
       serverId,
-      createdAt: now,
-      updatedAt: now,
-    },
+    }),
   };
 }
 
 async function reviewRaidRequest(params = {}) {
-  const scope = await ensureRaidTables(params);
+  const scope = await ensureRaidTables(withRaidOperation(params, 'review raid request'));
   const requestId = normalizeId(params.id);
   const nextStatus = normalizeRequestStatus(params.status);
   const decisionNote = normalizeText(params.decisionNote) || null;
@@ -526,7 +370,7 @@ async function reviewRaidRequest(params = {}) {
     return { ok: false, reason: 'invalid-input' };
   }
 
-  const existing = await getRaidRequestById(requestId, params);
+  const existing = await getRaidRequestById(requestId, withRaidOperation(params, 'review raid request'));
   if (!existing) {
     return { ok: false, reason: 'not-found' };
   }
@@ -548,33 +392,20 @@ async function reviewRaidRequest(params = {}) {
     };
   }
 
-  const now = new Date().toISOString();
-  await scope.db.$executeRawUnsafe(`
-    UPDATE platform_raid_requests
-    SET
-      status = ${sqlString(nextStatus)},
-      decision_note = ${sqlString(decisionNote)},
-      reviewed_by = ${sqlString(reviewedBy)},
-      reviewed_at = ${sqlString(now)},
-      updated_at = ${sqlString(now)}
-    WHERE id = ${requestId}
-  `);
-
   return {
     ok: true,
-    request: {
-      ...existing,
+    request: await reviewRaidRequestLegacy(scope, {
+      requestId,
       status: nextStatus,
       decisionNote,
       reviewedBy,
-      reviewedAt: now,
-      updatedAt: now,
-    },
+      existing,
+    }),
   };
 }
 
 async function createRaidWindow(params = {}) {
-  const scope = await ensureRaidTables(params);
+  const scope = await ensureRaidTables(withRaidOperation(params, 'create raid window'));
   const requestId = normalizeId(params.requestId);
   const title = normalizeText(params.title);
   const startsAt = normalizeText(params.startsAt);
@@ -608,41 +439,9 @@ async function createRaidWindow(params = {}) {
     };
   }
 
-  const id = await readNextId(scope, 'platform_raid_windows');
-  const now = new Date().toISOString();
-  await scope.db.$executeRawUnsafe(`
-    INSERT INTO platform_raid_windows (
-      id,
-      request_id,
-      title,
-      starts_at,
-      ends_at,
-      status,
-      notes,
-      actor,
-      server_id,
-      created_at,
-      updated_at
-    ) VALUES (
-      ${id},
-      ${requestId || 'NULL'},
-      ${sqlString(title)},
-      ${sqlString(startsAt)},
-      ${sqlString(endsAt)},
-      ${sqlString(status)},
-      ${sqlString(notes)},
-      ${sqlString(actor)},
-      ${sqlString(serverId)},
-      ${sqlString(now)},
-      ${sqlString(now)}
-    )
-  `);
-
   return {
     ok: true,
-    window: {
-      id,
-      tenantId: scope.tenantId || null,
+    window: await createRaidWindowLegacy(scope, {
       requestId,
       title,
       startsAt,
@@ -651,14 +450,12 @@ async function createRaidWindow(params = {}) {
       notes,
       actor,
       serverId,
-      createdAt: now,
-      updatedAt: now,
-    },
+    }),
   };
 }
 
 async function createRaidSummary(params = {}) {
-  const scope = await ensureRaidTables(params);
+  const scope = await ensureRaidTables(withRaidOperation(params, 'create raid summary'));
   const requestId = normalizeId(params.requestId);
   const windowId = normalizeId(params.windowId);
   const outcome = normalizeText(params.outcome);
@@ -698,61 +495,24 @@ async function createRaidSummary(params = {}) {
     };
   }
 
-  const id = await readNextId(scope, 'platform_raid_summaries');
-  const now = new Date().toISOString();
-  await scope.db.$executeRawUnsafe(`
-    INSERT INTO platform_raid_summaries (
-      id,
-      request_id,
-      window_id,
-      outcome,
-      notes,
-      created_by,
-      server_id,
-      created_at
-    ) VALUES (
-      ${id},
-      ${requestId || 'NULL'},
-      ${windowId || 'NULL'},
-      ${sqlString(outcome)},
-      ${sqlString(notes)},
-      ${sqlString(createdBy)},
-      ${sqlString(serverId)},
-      ${sqlString(now)}
-    )
-  `);
-
-  if (windowId) {
-    await scope.db.$executeRawUnsafe(`
-      UPDATE platform_raid_windows
-      SET
-        status = 'completed',
-        updated_at = ${sqlString(now)}
-      WHERE id = ${windowId}
-    `);
-  }
-
   return {
     ok: true,
-    summary: {
-      id,
-      tenantId: scope.tenantId || null,
+    summary: await createRaidSummaryLegacy(scope, {
       requestId,
       windowId,
       outcome,
       notes,
       createdBy,
       serverId,
-      createdAt: now,
-    },
+    }),
   };
 }
 
 async function listRaidActivitySnapshot(options = {}) {
   const [requests, windows, summaries] = await Promise.all([
-    listRaidRequests(options),
-    listRaidWindows(options),
-    listRaidSummaries(options),
+    listRaidRequests(withRaidOperation(options, 'list raid activity snapshot requests')),
+    listRaidWindows(withRaidOperation(options, 'list raid activity snapshot windows')),
+    listRaidSummaries(withRaidOperation(options, 'list raid activity snapshot summaries')),
   ]);
   return {
     requests,

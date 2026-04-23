@@ -69,6 +69,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
       WEB_PORTAL_LEGACY_ADMIN_URL: legacyAdminUrl,
       WEB_PORTAL_DISCORD_CLIENT_ID: 'test-client-id',
       WEB_PORTAL_DISCORD_CLIENT_SECRET: 'test-client-secret',
+      WEB_PORTAL_GOOGLE_CLIENT_ID: 'test-google-client-id',
+      WEB_PORTAL_GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
       WEB_PORTAL_PLAYER_OPEN_ACCESS: 'true',
       WEB_PORTAL_SECURE_COOKIE: 'false',
       WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
@@ -113,6 +115,8 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
       landingHtml,
       /Delivery Agent \+ Server Bot|Delivery Agent, Server Bot|แยก Delivery Agent กับ Server Bot|Delivery Agent และ Server Bot/i,
     );
+    assert.match(landingHtml, /href="\/status"/i);
+    assert.match(landingHtml, /href="\/changes"/i);
 
     const trial = await request('/trial', baseUrl);
     assert.equal(trial.status, 302);
@@ -124,6 +128,18 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     assert.equal(publicOverviewBody?.ok, true);
     assert.ok(Array.isArray(publicOverviewBody?.data?.billing?.plans));
     assert.ok(Array.isArray(publicOverviewBody?.data?.legal?.docs));
+
+    const publicStatus = await request('/status', baseUrl);
+    assert.equal(publicStatus.status, 200);
+    const publicStatusHtml = await publicStatus.text();
+    assert.match(publicStatusHtml, /Platform Status/i);
+    assert.match(publicStatusHtml, /Public status for runtimes, delivery, and operator pressure/i);
+
+    const publicChanges = await request('/changes', baseUrl);
+    assert.equal(publicChanges.status, 200);
+    const publicChangesHtml = await publicChanges.text();
+    assert.match(publicChangesHtml, /Change Feed/i);
+    assert.match(publicChangesHtml, /Release Notes v1\.0\.0/i);
 
     const legalDoc = await request('/docs/LEGAL_TERMS_TH.md', baseUrl);
     assert.equal(legalDoc.status, 200);
@@ -146,6 +162,7 @@ test('web-portal-standalone player-only mode: routes and api behavior', async ()
     assert.equal(login.status, 200);
     const loginHtml = await login.text();
     assert.match(loginHtml, /Discord/i);
+    assert.match(loginHtml, /Google/i);
 
     for (const path of [
       '/player/api/dashboard',
@@ -188,6 +205,8 @@ test('web-portal-standalone routes local /admin traffic to legacy admin before p
       WEB_PORTAL_LEGACY_ADMIN_URL: legacyAdminUrl,
       WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
       WEB_PORTAL_DISCORD_CLIENT_SECRET: 'test-client-secret-1234567890',
+      WEB_PORTAL_GOOGLE_CLIENT_ID: 'google-client-id-123.apps.googleusercontent.com',
+      WEB_PORTAL_GOOGLE_CLIENT_SECRET: 'google-client-secret-1234567890',
       WEB_PORTAL_PLAYER_OPEN_ACCESS: 'true',
       WEB_PORTAL_SECURE_COOKIE: 'true',
       WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',

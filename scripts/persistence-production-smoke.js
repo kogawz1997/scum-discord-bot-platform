@@ -2,7 +2,7 @@
 
 const path = require('node:path');
 
-const { prisma } = require('../src/prisma');
+const { prisma, getPrismaRuntimeProfile } = require('../src/prisma');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
 const {
@@ -22,13 +22,24 @@ loadMergedEnvFiles({
 });
 
 const REQUIRED_DB_MODE_KEYS = Object.freeze([
+  'ADMIN_NOTIFICATION_STORE_MODE',
   'ADMIN_SECURITY_EVENT_STORE_MODE',
   'PLATFORM_AUTOMATION_STATE_STORE_MODE',
   'PLATFORM_OPS_STATE_STORE_MODE',
   'CONTROL_PLANE_REGISTRY_STORE_MODE',
 ]);
 
+const FORBIDDEN_RUNTIME_BOOTSTRAP_KEYS = Object.freeze([
+  'ADMIN_WEB_RUNTIME_BOOTSTRAP',
+  'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP',
+  'PLATFORM_RAID_RUNTIME_BOOTSTRAP',
+]);
+
 const TABLE_PROBES = Object.freeze([
+  {
+    name: 'platform admin notification table',
+    run: (client) => client.platformAdminNotification.count(),
+  },
   {
     name: 'platform admin security event table',
     run: (client) => client.platformAdminSecurityEvent.count(),
@@ -60,6 +71,54 @@ const TABLE_PROBES = Object.freeze([
   {
     name: 'control-plane sync run table',
     run: (client) => client.controlPlaneSyncRun.count(),
+  },
+  {
+    name: 'platform identity user table',
+    run: (client) => client.platformUser.count(),
+  },
+  {
+    name: 'platform identity verification token table',
+    run: (client) => client.platformVerificationToken.count(),
+  },
+  {
+    name: 'platform identity player profile table',
+    run: (client) => client.platformPlayerProfile.count(),
+  },
+  {
+    name: 'platform restart plan table',
+    run: (client) => client.platformRestartPlan.count(),
+  },
+  {
+    name: 'platform restart announcement table',
+    run: (client) => client.platformRestartAnnouncement.count(),
+  },
+  {
+    name: 'platform restart execution table',
+    run: (client) => client.platformRestartExecution.count(),
+  },
+  {
+    name: 'platform server config snapshot table',
+    run: (client) => client.platformServerConfigSnapshot.count(),
+  },
+  {
+    name: 'platform server config job table',
+    run: (client) => client.platformServerConfigJob.count(),
+  },
+  {
+    name: 'platform server config backup table',
+    run: (client) => client.platformServerConfigBackup.count(),
+  },
+  {
+    name: 'platform raid request table',
+    run: (client) => client.platformRaidRequest.count(),
+  },
+  {
+    name: 'platform raid window table',
+    run: (client) => client.platformRaidWindow.count(),
+  },
+  {
+    name: 'platform raid summary table',
+    run: (client) => client.platformRaidSummary.count(),
   },
 ]);
 
@@ -103,6 +162,12 @@ async function buildPersistenceSmokeReport(options = {}) {
   });
   const requireDb = envFlag(env.PERSIST_REQUIRE_DB, false)
     || String(env.NODE_ENV || '').trim().toLowerCase() === 'production';
+  const runtimeProfile = typeof getPrismaRuntimeProfile === 'function'
+    ? getPrismaRuntimeProfile({
+      env,
+      projectRoot: process.cwd(),
+    })
+    : null;
 
   checks.push(createValidationCheck('database runtime', {
     status: requireDb && runtime.engine === 'sqlite' ? 'warning' : 'pass',
@@ -112,6 +177,33 @@ async function buildPersistenceSmokeReport(options = {}) {
     warnings.push(
       'PERSIST_REQUIRE_DB is enabled while DATABASE_URL resolves to sqlite; production should use PostgreSQL',
     );
+  }
+
+  if (runtimeProfile) {
+    const runtimeDetail = `${runtimeProfile.runtimeMode} | source=${runtimeProfile.sourceSchemaProvider} | runtime=${runtimeProfile.runtimeProvider} | client=${runtimeProfile.generatedClientProvider}`;
+    const providerMismatch = requireDb
+      && runtime.isServerEngine
+      && runtimeProfile.generatedClientProvider
+      && runtimeProfile.generatedClientProvider !== runtime.provider;
+    checks.push(createValidationCheck('prisma runtime profile', {
+      status: providerMismatch ? 'failed' : 'pass',
+      detail: runtimeDetail,
+    }));
+    if (providerMismatch) {
+      errors.push(`Generated Prisma client provider (${runtimeProfile.generatedClientProvider}) does not match runtime provider (${runtime.provider})`);
+    }
+  }
+
+  for (const envKey of FORBIDDEN_RUNTIME_BOOTSTRAP_KEYS) {
+    const raw = String(env[envKey] || '').trim().toLowerCase();
+    const enabled = ['1', 'true', 'yes', 'on'].includes(raw);
+    checks.push(createValidationCheck(envKey, {
+      status: enabled ? 'failed' : 'pass',
+      detail: raw ? `explicit=${raw}` : 'explicit=unset',
+    }));
+    if (enabled) {
+      errors.push(`${envKey} must stay disabled for production db-only posture`);
+    }
   }
 
   for (const envKey of REQUIRED_DB_MODE_KEYS) {

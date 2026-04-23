@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM COMMAND - Audit &amp; Security</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#38393b",
+                        "tertiary": "#ffd1ce",
+                        "surface-container": "#1f2022",
+                        "outline-variant": "#3c494e",
+                        "surface-tint": "#4cd6ff",
+                        "on-surface-variant": "#bbc9cf",
+                        "inverse-surface": "#e3e2e4",
+                        "on-surface": "#e3e2e4",
+                        "on-primary": "#003543",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-fixed": "#410004",
+                        "on-tertiary-container": "#a10017",
+                        "primary": "#a4e6ff",
+                        "secondary-fixed-dim": "#ffba20",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface": "#121315",
+                        "secondary-fixed": "#ffdea8",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-highest": "#343537",
+                        "on-primary-fixed-variant": "#004e60",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#292a2c",
+                        "primary-fixed": "#b7eaff",
+                        "background": "#121315",
+                        "on-primary-fixed": "#001f28",
+                        "outline": "#859399",
+                        "on-background": "#e3e2e4",
+                        "surface-dim": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#271900",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "surface-variant": "#343537",
+                        "on-tertiary": "#68000b",
+                        "on-secondary": "#412d00",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#ffaaa4",
+                        "secondary": "#ffdb9d",
+                        "on-primary-container": "#00566a",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-container-low": "#1b1c1e",
+                        "primary-container": "#00d1ff",
+                        "inverse-primary": "#00677f",
+                        "inverse-on-surface": "#303032",
+                        "tertiary-fixed-dim": "#ffb3ae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b bg-gray-950/90 backdrop-blur-md border-gray-800 shadow-2xl flex justify-between items-center h-14 px-6 font-public-sans tracking-tight text-sm">
+<div class="flex items-center gap-4">
+<span class="text-lg font-bold tracking-tighter text-cyan-400 uppercase">SCUM COMMAND</span>
+<div class="hidden md:flex items-center bg-surface-container px-3 py-1 rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-outline text-lg" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs w-48 text-on-surface placeholder-outline" placeholder="ค้นหาการดำเนินการ..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-gray-400 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+<button class="p-2 text-gray-400 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded flex items-center gap-1">
+<span class="material-symbols-outlined" data-icon="language">language</span>
+<span class="text-[10px] font-bold">TH</span>
+</button>
+<button class="p-2 text-gray-400 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="p-2 text-gray-400 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-secondary-container rounded-full"></span>
+</button>
+<div class="ml-4 flex items-center gap-3 pl-4 border-l border-gray-800">
+<div class="text-right hidden sm:block">
+<p class="text-[10px] font-bold text-on-surface uppercase leading-none">Operator #042</p>
+<p class="text-[9px] text-cyan-400 uppercase tracking-widest">Root Access</p>
+</div>
+<div class="w-8 h-8 rounded border border-cyan-400/30 overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" data-alt="close-up of a high-tech tactical operator profile picture with subtle blue ambient lighting and digital overlays" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRSycACSMJ4yJGUFuKZWPxPtPE0SFZCIbf_efc4F476McNKXheomWwV1gJgkLJ2tKN6RDpI6Y5HYThZV0_IK_lsQ0jkZbgnmBNNm_nqJBCLm-8rYpR8F_c4N-NgC_UNU3I_-f67hvvtM5kGZnp2t3nNvBIYczF-AMwo5XpUBAQhqAnIpYtreez31RZnhbX0xCOeF3QI0a1pk1kBIdoKdtb1n0RVrZC9J1V13ckdiOFLOvo_YLHt9f_S2P8ow2TXDbB2nz272lRYdw"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r bg-gray-950 border-gray-900 shadow-none flex flex-col pt-16 pb-4 z-40">
+<div class="px-6 mb-6">
+<p class="text-gray-200 font-black text-xs tracking-widest uppercase">PLATFORM OWNER</p>
+<p class="text-gray-500 text-[10px] font-medium uppercase tracking-tighter leading-none">Operational Control</p>
+</div>
+<nav class="flex-1 overflow-y-auto space-y-1">
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="groups">groups</span>
+                Tenants
+            </a>
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="inventory_2">inventory_2</span>
+                Packages
+            </a>
+<div class="pt-4 pb-2 px-6 text-[10px] font-bold text-gray-600 uppercase tracking-widest">Security &amp; Governance</div>
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="history_edu">history_edu</span>
+                Audit
+            </a>
+<a class="bg-gray-900 text-cyan-400 border-l-2 border-cyan-400 px-6 py-2.5 flex items-center gap-3 font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+                Security
+            </a>
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="terminal">terminal</span>
+                Fleet
+            </a>
+<a class="text-gray-500 px-6 py-2.5 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="warning">warning</span>
+                Incidents
+            </a>
+</nav>
+<div class="mt-auto px-4 space-y-1">
+<button class="w-full bg-cyan-600/10 border border-cyan-500/20 text-cyan-400 py-2 rounded text-[10px] font-bold tracking-widest hover:bg-cyan-600/20 transition-all uppercase mb-4">
+                NEW TENANT
+            </button>
+<a class="text-gray-500 px-4 py-2 flex items-center gap-3 hover:text-gray-200 text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="help">help</span>
+                Support
+            </a>
+<a class="text-gray-500 px-4 py-2 flex items-center gap-3 hover:text-error text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="logout">logout</span>
+                Sign Out
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 pt-14 min-h-screen">
+<div class="p-8 max-w-[1600px] mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 border-b border-gray-900 pb-6">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+<h1 class="text-2xl font-black text-on-surface tracking-tight uppercase">การตรวจสอบและความปลอดภัย</h1>
+</div>
+<p class="text-gray-500 text-sm max-w-2xl">ดูแลความสมบูรณ์ของแพลตฟอร์ม ตรวจสอบบันทึกการใช้งาน และจัดการเหตุการณ์ความปลอดภัยแบบเรียลไทม์</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded text-xs font-bold text-on-surface transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+                        Export Audit
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary-container hover:opacity-90 rounded text-xs font-black text-on-primary-container transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="shield">shield</span>
+                        SECURITY DASHBOARD
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-6">
+<!-- Security Events Section (Left Column) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-surface-container border border-outline-variant rounded-lg overflow-hidden flex flex-col h-full shadow-lg">
+<div class="p-4 bg-gray-900/50 border-b border-outline-variant flex justify-between items-center">
+<h3 class="text-xs font-black text-on-surface uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container" data-icon="report" style="font-variation-settings: 'FILL' 1;">report</span>
+                                เหตุการณ์ความปลอดภัยล่าสุด
+                            </h3>
+<span class="bg-error-container text-on-error-container text-[10px] font-bold px-2 py-0.5 rounded-full">3 วิกฤต</span>
+</div>
+<div class="p-2 space-y-2 overflow-y-auto max-h-[700px]">
+<!-- Security Item 1 -->
+<div class="p-4 bg-surface-container-high border border-error-container/30 rounded-lg hover:border-error transition-all group">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-error uppercase">Unauthorized API Access</span>
+<span class="text-[9px] text-gray-500">2 นาทีที่แล้ว</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-4">ตรวจพบการพยายามเข้าถึง API ล้มเหลวหลายครั้งจาก IP 182.21.44.92 (UK)</p>
+<div class="flex flex-wrap gap-2">
+<button class="flex-1 px-3 py-1.5 bg-error-container text-on-error-container hover:bg-error hover:text-on-error text-[10px] font-bold rounded uppercase transition-colors">
+                                        Revoke Session
+                                    </button>
+<button class="flex-1 px-3 py-1.5 bg-surface-container-highest text-on-surface hover:bg-outline-variant text-[10px] font-bold rounded uppercase transition-colors">
+                                        Review Identity
+                                    </button>
+</div>
+</div>
+<!-- Security Item 2 -->
+<div class="p-4 bg-surface-container-high border border-outline-variant rounded-lg hover:border-secondary-container/50 transition-all group">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-secondary-container uppercase">Brute Force Detected</span>
+<span class="text-[9px] text-gray-500">14 นาทีที่แล้ว</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-4">ผู้เช่า 'SurvivalZone' มียอดล็อกอินล้มเหลว 45 ครั้งใน 5 นาที</p>
+<div class="flex flex-wrap gap-2">
+<button class="flex-1 px-3 py-1.5 bg-secondary-container text-on-secondary-container hover:opacity-90 text-[10px] font-bold rounded uppercase transition-colors">
+                                        Open Access View
+                                    </button>
+<button class="flex-1 px-3 py-1.5 bg-surface-container-highest text-on-surface hover:bg-outline-variant text-[10px] font-bold rounded uppercase transition-colors">
+                                        Review Identity
+                                    </button>
+</div>
+</div>
+<!-- Security Item 3 -->
+<div class="p-4 bg-surface-container-high border border-outline-variant rounded-lg opacity-80 hover:opacity-100 transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-cyan-400 uppercase">Suspicious Login Location</span>
+<span class="text-[9px] text-gray-500">1 ชม. ที่แล้ว</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-4">Operator #012 ล็อกอินจากพิกัดที่ไม่คุ้นเคย (Bangkok, TH)</p>
+<div class="flex flex-wrap gap-2">
+<button class="flex-1 px-3 py-1.5 bg-surface-container-highest text-on-surface hover:bg-outline-variant text-[10px] font-bold rounded uppercase transition-colors">
+                                        Verify Operator
+                                    </button>
+</div>
+</div>
+</div>
+<div class="mt-auto p-4 border-t border-outline-variant text-center">
+<button class="text-[10px] font-black text-cyan-400 uppercase hover:underline tracking-widest">
+                                ดูประวัติเหตุการณ์ทั้งหมด
+                            </button>
+</div>
+</div>
+</div>
+<!-- Audit Log Section (Right Column) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<div class="bg-surface-container border border-outline-variant rounded-lg shadow-lg">
+<div class="p-4 bg-gray-900/50 border-b border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+<h3 class="text-xs font-black text-on-surface uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="history">history</span>
+                                บันทึกการตรวจสอบ (Audit Log)
+                            </h3>
+<div class="flex gap-2">
+<select class="bg-surface-container-lowest border-outline-variant text-[10px] text-on-surface rounded focus:ring-primary focus:border-primary px-2 py-1">
+<option>ทุกการกระทำ</option>
+<option>แก้ไขข้อมูล</option>
+<option>ลบข้อมูล</option>
+<option>การเข้าถึง</option>
+</select>
+<button class="p-1.5 hover:bg-surface-variant rounded text-outline transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter">Timestamp</th>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter">Actor</th>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter">Action</th>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter">Target</th>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter">IP Address</th>
+<th class="px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-tighter text-right">Controls</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30 text-xs">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-4 py-3 font-mono text-[10px] text-gray-400">2023-11-24 14:02:11</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-cyan-900/30 rounded-full flex items-center justify-center border border-cyan-400/20">
+<span class="text-[8px] font-bold text-cyan-400">42</span>
+</div>
+<span class="font-bold text-on-surface">Operator #042</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded border border-outline-variant text-[9px] font-bold uppercase">TENANT_CONFIG_CHANGE</span>
+</td>
+<td class="px-4 py-3 text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 cursor-pointer">ScumOps_DE</td>
+<td class="px-4 py-3 text-gray-500 font-mono">192.168.1.44</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-cyan-400" title="Inspect Actor"><span class="material-symbols-outlined text-base" data-icon="person_search">person_search</span></button>
+<button class="p-1 hover:text-cyan-400" title="Inspect Target"><span class="material-symbols-outlined text-base" data-icon="target">target</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-4 py-3 font-mono text-[10px] text-gray-400">2023-11-24 13:58:45</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-amber-900/30 rounded-full flex items-center justify-center border border-amber-400/20">
+<span class="text-[8px] font-bold text-amber-400">SYS</span>
+</div>
+<span class="font-bold text-on-surface">AutoAutomation</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded border border-outline-variant text-[9px] font-bold uppercase">RESTART_BOT</span>
+</td>
+<td class="px-4 py-3 text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 cursor-pointer">BotServer_02</td>
+<td class="px-4 py-3 text-gray-500 font-mono">INTERNAL_SVC</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-cyan-400" title="Inspect Actor"><span class="material-symbols-outlined text-base" data-icon="person_search">person_search</span></button>
+<button class="p-1 hover:text-cyan-400" title="Inspect Target"><span class="material-symbols-outlined text-base" data-icon="target">target</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-error-container/10 transition-colors bg-error-container/5">
+<td class="px-4 py-3 font-mono text-[10px] text-gray-400">2023-11-24 13:45:01</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2 text-error">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+<span class="font-bold">UNKNOWN_USR</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded border border-error/20 text-[9px] font-bold uppercase">AUTH_FAILED_LIMIT</span>
+</td>
+<td class="px-4 py-3 text-error underline decoration-error/30 underline-offset-2 cursor-pointer">RootAccess_01</td>
+<td class="px-4 py-3 text-gray-500 font-mono">182.21.44.92</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-1 opacity-100">
+<button class="p-1 hover:text-error" title="Inspect Actor"><span class="material-symbols-outlined text-base" data-icon="person_search">person_search</span></button>
+<button class="p-1 hover:text-error" title="Inspect Target"><span class="material-symbols-outlined text-base" data-icon="target">target</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-4 py-3 font-mono text-[10px] text-gray-400">2023-11-24 13:30:12</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-cyan-900/30 rounded-full flex items-center justify-center border border-cyan-400/20">
+<span class="text-[8px] font-bold text-cyan-400">12</span>
+</div>
+<span class="font-bold text-on-surface">Operator #012</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded border border-outline-variant text-[9px] font-bold uppercase">PASSWORD_RESET</span>
+</td>
+<td class="px-4 py-3 text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 cursor-pointer">SupportLead_01</td>
+<td class="px-4 py-3 text-gray-500 font-mono">1.10.224.5</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-cyan-400" title="Inspect Actor"><span class="material-symbols-outlined text-base" data-icon="person_search">person_search</span></button>
+<button class="p-1 hover:text-cyan-400" title="Inspect Target"><span class="material-symbols-outlined text-base" data-icon="target">target</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-4 py-3 font-mono text-[10px] text-gray-400">2023-11-24 13:12:44</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 bg-cyan-900/30 rounded-full flex items-center justify-center border border-cyan-400/20">
+<span class="text-[8px] font-bold text-cyan-400">42</span>
+</div>
+<span class="font-bold text-on-surface">Operator #042</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded border border-outline-variant text-[9px] font-bold uppercase">DELIVERY_AGENT_PROVISION</span>
+</td>
+<td class="px-4 py-3 text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 cursor-pointer">Agent_9921</td>
+<td class="px-4 py-3 text-gray-500 font-mono">192.168.1.44</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-cyan-400" title="Inspect Actor"><span class="material-symbols-outlined text-base" data-icon="person_search">person_search</span></button>
+<button class="p-1 hover:text-cyan-400" title="Inspect Target"><span class="material-symbols-outlined text-base" data-icon="target">target</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-outline-variant flex justify-between items-center bg-surface-container-low">
+<span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">แสดง 5 จาก 1,240 รายการ</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-gray-500 hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-cyan-400/50 text-cyan-400 bg-cyan-900/10 text-[10px] font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-gray-400 hover:bg-gray-800 text-[10px] font-bold">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-gray-400 hover:bg-gray-800 text-[10px] font-bold">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-gray-500 hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Tactical Bento Widgets -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container border border-outline-variant rounded-lg p-5 shadow-lg relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="fingerprint">fingerprint</span>
+</div>
+<h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">การยืนยันตัวตน</h4>
+<div class="flex items-end justify-between">
+<div class="text-3xl font-black text-on-surface">99.8%</div>
+<div class="text-[10px] font-bold text-cyan-400 uppercase">MFA Active</div>
+</div>
+<div class="mt-4 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[99.8%]"></div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-lg p-5 shadow-lg relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="key">key</span>
+</div>
+<h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">API Key Health</h4>
+<div class="flex items-end justify-between">
+<div class="text-3xl font-black text-on-surface">12</div>
+<div class="text-[10px] font-bold text-amber-400 uppercase">Expiring Soon</div>
+</div>
+<div class="mt-4 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-amber-400 h-full w-[40%]"></div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-lg p-5 shadow-lg relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="hub">hub</span>
+</div>
+<h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Active Sessions</h4>
+<div class="flex items-end justify-between">
+<div class="text-3xl font-black text-on-surface">1,042</div>
+<div class="text-[10px] font-bold text-cyan-400 uppercase">+12% vs last hr</div>
+</div>
+<div class="mt-4 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[75%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Context Rail (Collapsed or Background Elements) -->
+<div class="fixed right-0 top-14 bottom-0 w-12 border-l border-gray-900 bg-gray-950 flex flex-col items-center py-4 gap-4 z-30">
+<button class="w-8 h-8 rounded bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="search">search</span>
+</button>
+<button class="w-8 h-8 rounded bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="chat_bubble">chat_bubble</span>
+</button>
+<div class="mt-auto">
+<button class="w-8 h-8 rounded bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</body></html>

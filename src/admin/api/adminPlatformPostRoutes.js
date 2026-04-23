@@ -654,7 +654,10 @@ function createAdminPlatformPostRoutes(deps) {
           return true;
         }
       }
+      const requestedTenantId = trimText(body?.tenantId, 160) || getAuthTenantId(auth) || null;
       const result = await acceptPlatformLicenseLegal({
+        tenantId: requestedTenantId,
+        allowGlobal: !requestedTenantId,
         licenseId: requiredString(body, 'licenseId'),
         legalDocVersion: requiredString(body, 'legalDocVersion'),
         metadata: body.metadata,

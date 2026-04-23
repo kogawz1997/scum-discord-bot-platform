@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Support Context</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>
+    .placeholder-main { padding: 28px; }
+    .placeholder-grid { display: grid; gap: 18px; grid-template-columns: 1.1fr 0.9fr; }
+    .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(126,230,182,.18); background: rgba(126,230,182,.08); color: var(--text-soft); font-size: 13px; }
+    @media (max-width: 860px) { .placeholder-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="topbar__brand"><span class="topbar__mark">SCUM</span><div><span class="topbar__title">SCUM Owner Plane</span><span class="topbar__copy">Support Context</span></div></div>
+    <div class="topbar__tools"><a class="topbar__pill" href="/owner/support">Support</a><button class="button">Refresh</button><button class="button">Language</button><button class="button">Notifications</button></div>
+  </nav>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar__section"><div class="sidebar__title">Platform</div><a class="nav-item" href="/owner">Overview</a><a class="nav-item" href="/owner/tenants">Tenants</a><a class="nav-item is-active" href="/owner/support">Support</a><a class="nav-item" href="/owner/audit">Audit</a></div>
+      <div class="sidebar__section"><div class="sidebar__title">Operations</div><a class="nav-item" href="/owner/runtime">Runtime Health</a><a class="nav-item" href="/owner/incidents">Incidents</a><a class="nav-item" href="/owner/recovery">Recovery</a></div>
+    </aside>
+    <main class="main placeholder-main">
+      <header class="page-header">
+        <div><span class="eyebrow">Support Context</span><h1 class="page-title">Case Evidence</h1><p class="page-copy">Review case evidence, runtime impact, and customer history from one owner route before taking guarded case actions.</p></div>
+        <div class="actions"><a class="button" href="/owner/support">Back to Support</a><a class="button" href="/owner/tenants/context">Tenant Dossier</a><button class="button button--primary" data-open-live-workspace="true">Open Live Support Workspace</button></div>
+      </header>
+      <div class="placeholder-grid">
+        <section class="panel panel--hero">
+          <h2 class="panel__title">Support evidence lane</h2>
+          <p class="panel__copy">Customer evidence, dead-letter context, delivery replay decisions, and export-ready diagnostics stay grouped under this route for faster review.</p>
+          <div class="list">
+            <div class="list__item"><div class="list__title"><span>Evidence</span><span class="status" data-tone="cyan">Ready</span></div><div class="soft">Case notes, diagnostics, and recent runtime signals.</div></div>
+            <div class="list__item"><div class="list__title"><span>Dead letters</span><span class="status" data-tone="amber">Review</span></div><div class="soft">Replay and clear actions remain guarded until you enter the owner control lane.</div></div>
+            <div class="list__item"><div class="list__title"><span>Follow-through</span><span class="status" data-tone="green">Tracked</span></div><div class="soft">Hand the case back to tenant operations only after review.</div></div>
+          </div>
+          <div class="placeholder-note">Read-only on this route: direct replay, dead-letter mutation, and inline diagnostics actions remain on guarded owner controls.</div>
+        </section>
+        <aside class="stack">
+          <section class="panel"><h2 class="panel__title">Guarded actions</h2><p class="panel__copy">Use guarded owner controls for replay, diagnostics export, notification follow-up, and runtime evidence actions.</p></section>
+          <section class="panel"><h2 class="panel__title">Related routes</h2><div class="list"><a class="list__item" href="/owner/support"><strong>Support Overview</strong><div class="soft">All cases and diagnostics.</div></a><a class="list__item" href="/owner/recovery"><strong>Recovery</strong><div class="soft">Restore and backup posture.</div></a><a class="list__item" href="/owner/runtime"><strong>Runtime Health</strong><div class="soft">Delivery Agent and Server Bot state.</div></a></div></section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

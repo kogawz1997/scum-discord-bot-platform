@@ -5,6 +5,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { URL } = require('node:url');
 require('dotenv').config();
+const {
+  getEngineFromDatabaseUrl,
+  normalizeProvider,
+} = require('../src/utils/dbEngine');
 
 const PROJECT_ROOT = process.cwd();
 const GENERATED_SCHEMA_PATH = path.join(PROJECT_ROOT, 'node_modules', '.prisma', 'client', 'schema.prisma');
@@ -36,6 +40,43 @@ function readGeneratedProvider() {
   return String(match?.[1] || process.env.PRISMA_SCHEMA_PROVIDER || process.env.DATABASE_PROVIDER || 'sqlite')
     .trim()
     .toLowerCase();
+}
+
+function resolveRequestedTestProvider(env = process.env) {
+  const explicitTestProvider = normalizeProvider(
+    String(env.PRISMA_TEST_DATABASE_PROVIDER || '').trim(),
+    '',
+  );
+  if (explicitTestProvider) {
+    return explicitTestProvider;
+  }
+
+  const explicitTestUrl = String(env.PRISMA_TEST_DATABASE_URL || '').trim();
+  if (explicitTestUrl) {
+    const explicitTestUrlProvider = normalizeProvider(
+      getEngineFromDatabaseUrl(explicitTestUrl),
+      '',
+    );
+    if (explicitTestUrlProvider) {
+      return explicitTestUrlProvider;
+    }
+  }
+
+  const useRuntimeDb = ['1', 'true', 'yes', 'on'].includes(
+    String(env.RUN_TESTS_WITH_PROVIDER_USE_RUNTIME_DB || '').trim().toLowerCase(),
+  );
+  if (useRuntimeDb) {
+    const runtimeProvider = normalizeProvider(
+      String(env.PRISMA_SCHEMA_PROVIDER || env.DATABASE_PROVIDER || '').trim()
+        || getEngineFromDatabaseUrl(String(env.DATABASE_URL || '').trim()),
+      '',
+    );
+    if (runtimeProvider) {
+      return runtimeProvider;
+    }
+  }
+
+  return 'sqlite';
 }
 
 function findPgBinDir() {
@@ -88,9 +129,13 @@ function quoteIdentifier(value) {
 }
 
 function buildPostgresTestRuntime() {
-  const rawUrl = String(process.env.DATABASE_URL || '').trim();
+  const rawUrl = String(
+    process.env.PRISMA_TEST_DATABASE_URL
+      || process.env.DATABASE_URL
+      || '',
+  ).trim();
   if (!/^postgres(?:ql)?:\/\//i.test(rawUrl)) {
-    throw new Error('DATABASE_URL must be a PostgreSQL URL when generated client provider is postgresql');
+    throw new Error('PRISMA_TEST_DATABASE_URL or DATABASE_URL must be a PostgreSQL URL when PostgreSQL test runtime is requested');
   }
   const url = new URL(rawUrl);
   const schema = `test_runtime_${Date.now()}`;
@@ -149,7 +194,7 @@ function buildPostgresTestRuntime() {
 }
 
 function buildTestRuntime() {
-  const provider = readGeneratedProvider();
+  const provider = resolveRequestedTestProvider();
   if (provider === 'postgresql') {
     return buildPostgresTestRuntime();
   }
@@ -158,6 +203,29 @@ function buildTestRuntime() {
     provider: 'sqlite',
     cleanup: null,
   };
+}
+
+function buildTestProcessEnv(testRuntime, baseEnv = process.env) {
+  const env = {
+    ...baseEnv,
+    NODE_ENV: 'test',
+    DATABASE_URL: testRuntime.databaseUrl,
+    PRISMA_TEST_DATABASE_URL: testRuntime.databaseUrl,
+    PRISMA_TEST_DATABASE_PROVIDER: testRuntime.provider,
+    TENANT_DB_SCHEMA_PREFIX: testRuntime.tenantSchemaPrefix || baseEnv.TENANT_DB_SCHEMA_PREFIX || 'tenant_',
+    PLATFORM_DEFAULT_TENANT_ID: '',
+    DEFAULT_TENANT_ID: '',
+  };
+
+  if (testRuntime.provider === 'postgresql' || testRuntime.provider === 'mysql') {
+    env.DATABASE_PROVIDER = testRuntime.provider;
+    env.PRISMA_SCHEMA_PROVIDER = testRuntime.provider;
+  } else {
+    delete env.DATABASE_PROVIDER;
+    delete env.PRISMA_SCHEMA_PROVIDER;
+  }
+
+  return env;
 }
 
 function shouldIncludeTestFile(entryPath, rootDir = TEST_ROOT) {
@@ -199,18 +267,7 @@ function main() {
   try {
     result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...args], {
       cwd: PROJECT_ROOT,
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        DATABASE_URL: testRuntime.databaseUrl,
-        DATABASE_PROVIDER: testRuntime.provider,
-        PRISMA_SCHEMA_PROVIDER: testRuntime.provider,
-        PRISMA_TEST_DATABASE_URL: testRuntime.databaseUrl,
-        PRISMA_TEST_DATABASE_PROVIDER: testRuntime.provider,
-        TENANT_DB_SCHEMA_PREFIX: testRuntime.tenantSchemaPrefix || process.env.TENANT_DB_SCHEMA_PREFIX || 'tenant_',
-        PLATFORM_DEFAULT_TENANT_ID: '',
-        DEFAULT_TENANT_ID: '',
-      },
+      env: buildTestProcessEnv(testRuntime),
       stdio: 'inherit',
     });
   } finally {
@@ -226,7 +283,10 @@ function main() {
 }
 
 module.exports = {
+  buildTestProcessEnv,
   collectTestFiles,
+  readGeneratedProvider,
+  resolveRequestedTestProvider,
   shouldIncludeTestFile,
 };
 

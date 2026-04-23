@@ -100,12 +100,16 @@ function normalizeAuditTimestamp(value) {
 }
 
 function shouldAggregateAuditAcrossTopology(options = {}) {
-  return !normalizeTenantId(options.tenantId)
+  return options.allowGlobal === true
+    && !normalizeTenantId(options.tenantId)
     && getTenantDatabaseTopologyMode() !== 'shared';
 }
 
 function getAuditScopedPrisma(options = {}) {
   const tenantId = normalizeTenantId(options.tenantId);
+  if (!tenantId && options.allowGlobal !== true) {
+    throw createPresetError('admin-audit-global-scope-required', 400);
+  }
   if (!tenantId) return options.prisma;
   return getTenantScopedPrismaClient(tenantId);
 }
@@ -658,7 +662,10 @@ async function buildWalletLikeDataset(prisma, view, options, { rewardOnly = fals
 
   if (aggregateAcrossTopology) {
     const allRows = dedupeAuditRows(
-      await readAcrossDeliveryPersistenceScopes((db) => db.walletLedger.findMany({ where })),
+      await readAcrossDeliveryPersistenceScopes((db) => db.walletLedger.findMany({ where }), {
+        allowGlobal: true,
+        operation: 'admin audit wallet aggregation',
+      }),
       ['id'],
     );
     const sortedRows = sortAuditRows(allRows, view, sortBy, sortOrder);
@@ -769,7 +776,10 @@ async function buildEventDataset(prisma, options) {
           include: {
             participants: { select: { userId: true } },
           },
-        })),
+        }), {
+        allowGlobal: true,
+        operation: 'admin audit event aggregation',
+      }),
       ['id'],
     );
     const normalizedRows = allRows.map(normalizeEventRow);
@@ -790,7 +800,10 @@ async function buildEventDataset(prisma, options) {
         db.walletLedger.findMany({
           where: combineWhere(rewardWhere, buildRewardOnlyWhere()),
           select: { id: true, reason: true },
-        })),
+        }), {
+        allowGlobal: true,
+        operation: 'admin audit reward aggregation',
+      }),
       ['id'],
     );
 

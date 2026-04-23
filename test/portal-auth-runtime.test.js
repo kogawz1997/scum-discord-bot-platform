@@ -24,13 +24,38 @@ function createRuntime(overrides = {}) {
     discordApiBase: 'https://discord.com/api/v10',
     discordClientId: 'client-id',
     discordClientSecret: 'client-secret',
+    googleClientId: 'google-client-id',
+    googleClientSecret: 'google-client-secret',
     discordGuildId: '',
     discordRedirectPath: '/auth/discord/callback',
+    googleRedirectPath: '/auth/google/callback',
     sendJson(_res, _status, payload) {
       return payload;
     },
     upsertPlayerAccount: async () => {},
     ensurePlatformPlayerIdentity: async () => ({ ok: true, user: { id: 'platform-user-1' }, profile: { id: 'player-profile-1' } }),
+    getPlatformUserIdentitySummary: async () => ({
+      ok: true,
+      user: {
+        id: 'platform-user-1',
+        primaryEmail: 'player@example.com',
+      },
+      profile: {
+        id: 'player-profile-1',
+        tenantId: 'tenant-1',
+        discordUserId: '123456789012345678',
+      },
+      identitySummary: {
+        linkedAccounts: {
+          discord: {
+            value: '123456789012345678',
+          },
+        },
+        activeMembership: {
+          tenantId: 'tenant-1',
+        },
+      },
+    }),
     buildDiscordAvatarUrl: () => null,
     normalizeText(value) {
       return String(value || '').trim();
@@ -310,6 +335,199 @@ test('portal auth runtime syncs platform identity during discord callback', asyn
     });
     assert.equal(session.platformUserId, 'platform-user-42');
     assert.equal(session.platformProfileId, 'platform-profile-42');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('portal auth runtime syncs platform identity during google callback and resolves linked discord session', async () => {
+  const calls = [];
+  const runtime = createRuntime({
+    ensurePlatformPlayerIdentity: async (payload) => {
+      calls.push(payload);
+      return {
+        ok: true,
+        user: { id: 'platform-user-99', primaryEmail: 'player@example.com' },
+        profile: { id: 'player-profile-99', tenantId: 'tenant-prod-1' },
+      };
+    },
+    getPlatformUserIdentitySummary: async () => ({
+      ok: true,
+      user: { id: 'platform-user-99', primaryEmail: 'player@example.com' },
+      profile: {
+        id: 'player-profile-99',
+        tenantId: 'tenant-prod-1',
+        discordUserId: '123456789012345678',
+      },
+      identitySummary: {
+        linkedAccounts: {
+          discord: {
+            value: '123456789012345678',
+          },
+        },
+        activeMembership: {
+          tenantId: 'tenant-prod-1',
+        },
+      },
+    }),
+  });
+
+  const startRes = {
+    statusCode: 200,
+    headers: {},
+    writeHead(statusCode, headers = {}) {
+      this.statusCode = statusCode;
+      this.headers = { ...this.headers, ...headers };
+    },
+    end() {},
+  };
+  await runtime.handleGoogleStart({}, startRes);
+  const location = String(startRes.headers.Location || '');
+  const state = new URL(location).searchParams.get('state');
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    const target = String(url || '');
+    if (target.includes('oauth2.googleapis.com/token')) {
+      return {
+        ok: true,
+        json: async () => ({ access_token: 'google-token' }),
+      };
+    }
+    if (target.includes('openidconnect.googleapis.com/v1/userinfo')) {
+      return {
+        ok: true,
+        json: async () => ({
+          sub: 'google-user-123',
+          email: 'player@example.com',
+          email_verified: true,
+          name: 'Player Example',
+          picture: 'https://images.example.com/player.png',
+        }),
+      };
+    }
+    throw new Error(`Unexpected fetch ${target}`);
+  };
+
+  try {
+    const callbackRes = {
+      statusCode: 200,
+      headers: {},
+      writeHead(statusCode, headers = {}) {
+        this.statusCode = statusCode;
+        this.headers = { ...this.headers, ...headers };
+      },
+      end() {},
+    };
+    await runtime.handleGoogleCallback(
+      {
+        headers: {
+          host: 'player.example.com',
+        },
+      },
+      callbackRes,
+      new URL(`https://player.example.com/auth/google/callback?state=${encodeURIComponent(state)}&code=oauth-code`),
+    );
+
+    assert.equal(callbackRes.statusCode, 302);
+    assert.equal(callbackRes.headers.Location, '/player');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].provider, 'google');
+    assert.equal(calls[0].providerUserId, 'google-user-123');
+
+    const cookieHeader = String(callbackRes.headers['Set-Cookie'] || '');
+    const sessionCookie = cookieHeader.split(';')[0];
+    const session = runtime.getSession({
+      headers: {
+        cookie: sessionCookie,
+      },
+    });
+    assert.equal(session.discordId, '123456789012345678');
+    assert.equal(session.authMethod, 'google-oauth');
+    assert.equal(session.primaryEmail, 'player@example.com');
+    assert.equal(session.platformUserId, 'platform-user-99');
+    assert.equal(session.platformProfileId, 'player-profile-99');
+    assert.equal(session.tenantId, 'tenant-prod-1');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('portal auth runtime rejects google callback when linked discord identity is missing', async () => {
+  const runtime = createRuntime({
+    getPlatformUserIdentitySummary: async () => ({
+      ok: true,
+      user: { id: 'platform-user-7', primaryEmail: 'player@example.com' },
+      profile: { id: 'player-profile-7', tenantId: 'tenant-prod-1', discordUserId: null },
+      identitySummary: {
+        linkedAccounts: {
+          discord: {
+            value: null,
+          },
+        },
+        activeMembership: {
+          tenantId: 'tenant-prod-1',
+        },
+      },
+    }),
+  });
+
+  const startRes = {
+    statusCode: 200,
+    headers: {},
+    writeHead(statusCode, headers = {}) {
+      this.statusCode = statusCode;
+      this.headers = { ...this.headers, ...headers };
+    },
+    end() {},
+  };
+  await runtime.handleGoogleStart({}, startRes);
+  const state = new URL(String(startRes.headers.Location || '')).searchParams.get('state');
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    const target = String(url || '');
+    if (target.includes('oauth2.googleapis.com/token')) {
+      return {
+        ok: true,
+        json: async () => ({ access_token: 'google-token' }),
+      };
+    }
+    if (target.includes('openidconnect.googleapis.com/v1/userinfo')) {
+      return {
+        ok: true,
+        json: async () => ({
+          sub: 'google-user-456',
+          email: 'player@example.com',
+          email_verified: true,
+          name: 'Player Example',
+        }),
+      };
+    }
+    throw new Error(`Unexpected fetch ${target}`);
+  };
+
+  try {
+    const callbackRes = {
+      statusCode: 200,
+      headers: {},
+      writeHead(statusCode, headers = {}) {
+        this.statusCode = statusCode;
+        this.headers = { ...this.headers, ...headers };
+      },
+      end() {},
+    };
+    await runtime.handleGoogleCallback(
+      { headers: { host: 'player.example.com' } },
+      callbackRes,
+      new URL(`https://player.example.com/auth/google/callback?state=${encodeURIComponent(state)}&code=oauth-code`),
+    );
+
+    assert.equal(callbackRes.statusCode, 302);
+    assert.equal(
+      callbackRes.headers.Location,
+      '/player/login?error=Google%20account%20must%20be%20linked%20to%20a%20Discord%20player%20identity',
+    );
   } finally {
     global.fetch = originalFetch;
   }

@@ -4,11 +4,13 @@ const crypto = require('node:crypto');
 
 const { prisma } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
 const {
   ensurePlatformIdentityTables,
   ensurePlatformUserPasswordColumn,
   getPlatformUserPasswordColumnState,
   invalidateIdentitySchemaCaches,
+  resolveIdentityRuntimeBootstrapPolicy,
 } = require('./platformIdentitySchemaService');
 
 function trimText(value, maxLen = 240) {
@@ -98,15 +100,17 @@ function getPlatformIdentityDelegates(db = prisma, env = process.env) {
     }
     return delegates;
   }
-  if (!runtime.isServerEngine) {
+  const bootstrapPolicy = resolveIdentityRuntimeBootstrapPolicy(env, db, runtime);
+  if (!runtime.isServerEngine && bootstrapPolicy.allowed) {
     return null;
   }
   const error = new Error(
-    'Platform identity delegates are unavailable for the active server-engine runtime. Run Prisma generate and database migrations before using identity flows.',
+    'Platform identity delegates are unavailable for the active runtime. Run Prisma generate and database migrations before using identity flows.',
   );
   error.code = 'PLATFORM_IDENTITY_DELEGATES_REQUIRED';
   error.statusCode = 500;
   error.identityRuntime = runtime;
+  error.bootstrapPolicy = bootstrapPolicy;
   throw error;
 }
 
@@ -402,9 +406,15 @@ async function findPlayerProfile(db, userId, tenantId = null) {
   return normalizePlayerProfileRow(Array.isArray(rows) ? rows[0] : null);
 }
 
-async function findLatestPlayerProfileForUser(db, userId) {
+async function findLatestPlayerProfileForUser(db, userId, options = {}) {
   const normalizedUserId = trimText(userId, 160);
   if (!normalizedUserId) return null;
+  assertTenantDbIsolationScope({
+    tenantId: null,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform identity latest profile lookup',
+    env: options.env || process.env,
+  });
   await ensurePlatformIdentityTables(db);
   const delegates = getPlatformIdentityDelegates(db);
   if (delegates) {
@@ -459,6 +469,21 @@ function findActiveMembershipForTenant(memberships = [], tenantId = null) {
 }
 
 function buildLinkedAccountSummary(input = {}) {
+  function buildIdentitySupportAction(reason, primary = false) {
+    return {
+      label: 'Open identity ticket',
+      primary,
+      data: {
+        'data-player-identity-support': true,
+        'data-player-support-category': 'identity',
+        'data-player-support-reason': trimText(
+          reason,
+          500,
+        ) || 'Identity recovery help is needed for this player profile.',
+      },
+    };
+  }
+
   const user = input?.user || null;
   const profile = input?.profile || null;
   const tenantId = trimText(input?.tenantId, 160) || null;
@@ -478,6 +503,37 @@ function buildLinkedAccountSummary(input = {}) {
   const steamLinked = profile
     ? Boolean(profile?.steamId || legacySteamLink?.linked || legacySteamLink?.steamId)
     : Boolean(steamIdentity || legacySteamLink?.linked || legacySteamLink?.steamId);
+  const emailValue = normalizeEmail(user?.primaryEmail)
+    || normalizeEmail(emailIdentity?.providerEmail)
+    || fallbackEmail
+    || null;
+  const discordValue = trimText(discordIdentity?.providerUserId, 200)
+    || trimText(profile?.discordUserId, 200)
+    || fallbackDiscordUserId
+    || null;
+  const steamValue = trimText(profile?.steamId, 200)
+    || trimText(legacySteamLink?.steamId, 200)
+    || (!profile ? trimText(steamIdentity?.providerUserId, 200) : null)
+    || null;
+  const inGameValue = trimText(profile?.inGameName, 200)
+    || trimText(legacySteamLink?.inGameName, 200)
+    || null;
+  const hasActiveMembership = Boolean(
+    activeMembership
+    && trimText(activeMembership?.status, 40).toLowerCase() === 'active',
+  );
+  const emailLinked = Boolean(emailIdentity || user?.primaryEmail || fallbackEmail);
+  const emailVerified = Boolean(emailIdentity?.verifiedAt);
+  const discordLinked = Boolean(discordIdentity || profile?.discordUserId || fallbackDiscordUserId);
+  const discordVerified = Boolean(discordIdentity?.verifiedAt)
+    || Boolean(profile?.discordUserId)
+    || Boolean(fallbackDiscordUserId);
+  const steamVerified = steamLinked && (
+    Boolean(steamIdentity?.verifiedAt)
+    || ['steam_linked', 'verified', 'fully_verified'].includes(profileVerificationState)
+  );
+  const inGameLinked = Boolean(inGameValue);
+  const inGameVerified = ['verified', 'fully_verified', 'in_game_verified'].includes(profileVerificationState);
 
   const linkedProviders = new Set(
     identities
@@ -497,6 +553,132 @@ function buildLinkedAccountSummary(input = {}) {
     linkedProviders.add('email_preview');
   }
 
+  const conflicts = [];
+  if (
+    trimText(discordIdentity?.providerUserId, 200)
+    && trimText(profile?.discordUserId, 200)
+    && trimText(discordIdentity?.providerUserId, 200) !== trimText(profile?.discordUserId, 200)
+  ) {
+    conflicts.push({
+      key: 'discord-mismatch',
+      tone: 'warning',
+      title: 'Discord identity does not match the player profile',
+      detail: 'The linked Discord identity and the player profile are pointing at different Discord IDs.',
+      actions: [
+        { label: 'Open profile', href: '/player/profile' },
+        buildIdentitySupportAction(
+          'Identity conflict: the linked Discord identity and the player profile are pointing at different Discord IDs.',
+          true,
+        ),
+        { label: 'Open support', href: '/player/support' },
+      ],
+    });
+  }
+  if (
+    trimText(steamIdentity?.providerUserId, 200)
+    && trimText(profile?.steamId, 200)
+    && trimText(steamIdentity?.providerUserId, 200) !== trimText(profile?.steamId, 200)
+  ) {
+    const steamMismatchActions = [
+      { label: 'Open profile', href: '/player/profile' },
+    ];
+    if (emailLinked && emailVerified) {
+      steamMismatchActions.push({
+        label: 'Disconnect Steam link',
+        primary: true,
+        data: {
+          'data-player-steam-unlink': true,
+        },
+      });
+    } else if (emailLinked && emailValue) {
+      steamMismatchActions.push({
+        label: 'Send verification email',
+        primary: true,
+        data: {
+          'data-player-email-verification-request': true,
+          'data-player-email-value': emailValue,
+        },
+      });
+    }
+    steamMismatchActions.push(buildIdentitySupportAction(
+      'Identity conflict: the linked Steam identity and the player profile are pointing at different Steam IDs.',
+      !emailLinked || !emailVerified,
+    ));
+    steamMismatchActions.push({ label: 'Open support', href: '/player/support' });
+    conflicts.push({
+      key: 'steam-mismatch',
+      tone: 'warning',
+      title: 'Steam identity does not match the player profile',
+      detail: 'The linked Steam identity and the player profile are pointing at different Steam IDs.',
+      actions: steamMismatchActions,
+    });
+  }
+
+  const attention = [];
+  if (emailLinked && !emailVerified) {
+    attention.push({
+      key: 'verify-email',
+      tone: 'warning',
+      title: 'Verify email before recovery or support',
+      detail: 'This email is linked already, but it still needs verification before recovery and higher-trust support flows should rely on it.',
+      actions: emailValue
+        ? [
+            {
+              label: 'Send verification email',
+              primary: true,
+              data: {
+                'data-player-email-verification-request': true,
+                'data-player-email-value': emailValue,
+              },
+            },
+            buildIdentitySupportAction(
+              'Identity recovery: the linked email still needs verification before recovery and higher-trust support flows can continue.',
+            ),
+          ]
+        : [],
+    });
+  }
+  if (!steamLinked) {
+    attention.push({
+      key: 'link-steam',
+      tone: 'warning',
+      title: 'Link Steam before expecting in-game delivery',
+      detail: 'Orders can be placed already, but delivery into the game world remains weaker until Steam is linked from this profile.',
+      actions: [
+        { label: 'Open profile', href: '/player/profile', primary: true },
+        buildIdentitySupportAction(
+          'Identity recovery: Steam is not linked yet and the player needs help preparing the profile for in-game delivery.',
+        ),
+        { label: 'Open support', href: '/player/support' },
+      ],
+    });
+  } else if (!inGameLinked) {
+    attention.push({
+      key: 'in-game-pending',
+      tone: 'info',
+      title: 'In-game profile match is still pending',
+      detail: 'Steam is linked already, but the latest in-game profile match has not appeared in this profile summary yet.',
+      actions: [
+        { label: 'Open profile', href: '/player/profile', primary: true },
+        buildIdentitySupportAction(
+          'Identity recovery: Steam is linked already, but the latest in-game profile match has not appeared in the player profile summary yet.',
+        ),
+        { label: 'Open events', href: '/player/events' },
+      ],
+    });
+  }
+  if (!hasActiveMembership) {
+    attention.push({
+      key: 'membership-required',
+      tone: 'info',
+      title: 'No active membership was found',
+      detail: 'The account is linked, but no active tenant membership is visible in this view yet.',
+      actions: [
+        { label: 'Open home', href: '/player/home', primary: true },
+      ],
+    });
+  }
+
   return {
     linkedProviders: Array.from(linkedProviders.values()),
     verificationState: profileVerificationState,
@@ -508,40 +690,24 @@ function buildLinkedAccountSummary(input = {}) {
     })),
     linkedAccounts: {
       email: {
-        linked: Boolean(emailIdentity || user?.primaryEmail || fallbackEmail),
-        verified: Boolean(emailIdentity?.verifiedAt),
-        value: normalizeEmail(user?.primaryEmail)
-          || normalizeEmail(emailIdentity?.providerEmail)
-          || fallbackEmail
-          || null,
+        linked: emailLinked,
+        verified: emailVerified,
+        value: emailValue,
       },
       discord: {
-        linked: Boolean(discordIdentity || profile?.discordUserId || fallbackDiscordUserId),
-        verified: Boolean(discordIdentity?.verifiedAt)
-          || Boolean(profile?.discordUserId)
-          || Boolean(fallbackDiscordUserId),
-        value: trimText(discordIdentity?.providerUserId, 200)
-          || trimText(profile?.discordUserId, 200)
-          || fallbackDiscordUserId
-          || null,
+        linked: discordLinked,
+        verified: discordVerified,
+        value: discordValue,
       },
       steam: {
         linked: steamLinked,
-        verified: steamLinked && (
-          Boolean(steamIdentity?.verifiedAt)
-          || ['steam_linked', 'verified', 'fully_verified'].includes(profileVerificationState)
-        ),
-        value: trimText(profile?.steamId, 200)
-          || trimText(legacySteamLink?.steamId, 200)
-          || (!profile ? trimText(steamIdentity?.providerUserId, 200) : null)
-          || null,
+        verified: steamVerified,
+        value: steamValue,
       },
       inGame: {
-        linked: Boolean(trimText(profile?.inGameName, 200) || trimText(legacySteamLink?.inGameName, 200)),
-        verified: ['verified', 'fully_verified', 'in_game_verified'].includes(profileVerificationState),
-        value: trimText(profile?.inGameName, 200)
-          || trimText(legacySteamLink?.inGameName, 200)
-          || null,
+        linked: inGameLinked,
+        verified: inGameVerified,
+        value: inGameValue,
       },
     },
     activeMembership: activeMembership
@@ -553,12 +719,14 @@ function buildLinkedAccountSummary(input = {}) {
         }
       : null,
     readiness: {
-      hasEmail: Boolean(emailIdentity || user?.primaryEmail || fallbackEmail),
-      hasDiscord: Boolean(discordIdentity || profile?.discordUserId || fallbackDiscordUserId),
+      hasEmail: emailLinked,
+      hasDiscord: discordLinked,
       hasSteam: steamLinked,
-      hasInGameProfile: Boolean(trimText(profile?.inGameName, 200) || trimText(legacySteamLink?.inGameName, 200)),
-      hasActiveMembership: Boolean(activeMembership && trimText(activeMembership?.status, 40).toLowerCase() === 'active'),
+      hasInGameProfile: inGameLinked,
+      hasActiveMembership: hasActiveMembership,
     },
+    conflicts,
+    attention,
   };
 }
 
@@ -567,6 +735,12 @@ async function findPlayerProfileByExternalIds(db, input = {}) {
   const discordUserId = trimText(input.discordUserId, 200) || null;
   const steamId = trimText(input.steamId, 200) || null;
   if (!discordUserId && !steamId) return null;
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: input.allowGlobal === true,
+    operation: 'platform identity profile lookup by external ids',
+    env: input.env || process.env,
+  });
   await ensurePlatformIdentityTables(db);
   const delegates = getPlatformIdentityDelegates(db);
   if (delegates) {
@@ -579,7 +753,7 @@ async function findPlayerProfileByExternalIds(db, input = {}) {
     }
     const row = await delegates.profiles.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        ...(scope.tenantId ? { tenantId: scope.tenantId } : {}),
         OR: filters,
       },
       orderBy: { updatedAt: 'desc' },
@@ -601,7 +775,7 @@ async function findPlayerProfileByExternalIds(db, input = {}) {
       createdAt,
       updatedAt
     FROM platform_player_profiles
-    WHERE (CAST(${tenantId} AS TEXT) IS NULL OR tenantId = CAST(${tenantId} AS TEXT))
+    WHERE (CAST(${scope.tenantId} AS TEXT) IS NULL OR tenantId = CAST(${scope.tenantId} AS TEXT))
       AND (
         (CAST(${discordUserId} AS TEXT) IS NOT NULL AND discordUserId = CAST(${discordUserId} AS TEXT))
         OR (CAST(${steamId} AS TEXT) IS NOT NULL AND steamId = CAST(${steamId} AS TEXT))
@@ -964,7 +1138,11 @@ async function upsertPlatformPlayerProfile(input = {}, db = prisma) {
 }
 
 async function ensurePlatformPlayerIdentity(input = {}, db = prisma) {
-  const existingProfile = await findPlayerProfileByExternalIds(db, input);
+  const existingProfile = await findPlayerProfileByExternalIds(db, {
+    ...input,
+    allowGlobal: input.allowGlobal === true,
+    env: input.env || process.env,
+  });
   const discordIdentity = !existingProfile && input.provider !== 'discord' && input.discordUserId
     ? await findIdentityByProvider(db, 'discord', input.discordUserId)
     : null;
@@ -1029,7 +1207,10 @@ async function getIdentitySummaryForPreviewAccount(account = {}, db = prisma) {
   ]);
   const profile = tenantId
     ? await findPlayerProfile(db, user.id, tenantId)
-    : await findLatestPlayerProfileForUser(db, user.id);
+    : await findLatestPlayerProfileForUser(db, user.id, {
+      allowGlobal: true,
+      env: account.env || process.env,
+    });
   return {
     user,
     identities,
@@ -1099,7 +1280,10 @@ async function getPlatformUserIdentitySummary(input = {}, db = prisma) {
   ]);
   const profile = tenantId
     ? await findPlayerProfile(db, user.id, tenantId)
-    : await findLatestPlayerProfileForUser(db, user.id);
+    : await findLatestPlayerProfileForUser(db, user.id, {
+      allowGlobal: input.allowGlobal === true,
+      env: input.env || process.env,
+    });
 
   return {
     ok: true,
@@ -1132,13 +1316,18 @@ async function clearPlatformPlayerSteamLink(input = {}, db = prisma) {
   if (userId) {
     profile = tenantId
       ? await findPlayerProfile(db, userId, tenantId)
-      : await findLatestPlayerProfileForUser(db, userId);
+      : await findLatestPlayerProfileForUser(db, userId, {
+        allowGlobal: input.allowGlobal === true,
+        env: input.env || process.env,
+      });
   }
   if (!profile) {
     profile = await findPlayerProfileByExternalIds(db, {
       tenantId,
       discordUserId,
       steamId,
+      allowGlobal: input.allowGlobal === true,
+      env: input.env || process.env,
     });
   }
   if (!profile?.id) {

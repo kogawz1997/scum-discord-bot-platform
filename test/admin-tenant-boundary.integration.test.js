@@ -16,6 +16,10 @@ const {
   waitForAdminSecurityEventPersistence,
 } = require('../src/store/adminSecurityEventStore');
 const {
+  mutateRegistry,
+  waitForControlPlaneRegistryPersistence,
+} = require('../src/data/repositories/controlPlaneRegistryRepository');
+const {
   resetPlatformOpsState,
 } = require('../src/store/platformOpsStateStore');
 const {
@@ -23,6 +27,10 @@ const {
   replaceDeliveryDeadLetters,
   flushDeliveryPersistenceWrites,
 } = require('../src/services/rconDelivery');
+const {
+  recordRestartExecution,
+  scheduleRestartPlan,
+} = require('../src/services/platformRestartOrchestrationService');
 
 const adminWebServerPath = path.resolve(__dirname, '../src/adminWebServer.js');
 
@@ -69,6 +77,37 @@ function resetAdminIntegrationRuntimeState() {
   process.env.ADMIN_WEB_2FA_ENABLED = 'false';
 }
 
+async function replaceControlPlaneRegistryFixtures(rowsBySlice = {}) {
+  mutateRegistry((registry) => ({
+    ...registry,
+    ...rowsBySlice,
+  }));
+  await waitForControlPlaneRegistryPersistence().catch(() => null);
+}
+
+async function clearControlPlaneRegistryTenantFixtures(tenantIds) {
+  const scopedTenantIds = new Set(
+    Array.isArray(tenantIds)
+      ? tenantIds.map((value) => String(value || '').trim()).filter(Boolean)
+      : [],
+  );
+  if (scopedTenantIds.size === 0) return;
+  mutateRegistry((registry) => ({
+    ...registry,
+    servers: (registry.servers || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    serverDiscordLinks: (registry.serverDiscordLinks || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agents: (registry.agents || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agentTokenBindings: (registry.agentTokenBindings || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agentProvisioningTokens: (registry.agentProvisioningTokens || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agentDevices: (registry.agentDevices || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agentCredentials: (registry.agentCredentials || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    agentSessions: (registry.agentSessions || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    syncRuns: (registry.syncRuns || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+    syncEvents: (registry.syncEvents || []).filter((row) => !scopedTenantIds.has(String(row?.tenantId || '').trim())),
+  }));
+  await waitForControlPlaneRegistryPersistence().catch(() => null);
+}
+
 test('tenant-scoped admin cannot cross tenant boundaries on platform read/write routes', async (t) => {
   resetAdminIntegrationRuntimeState();
   const port = randomPort();
@@ -100,6 +139,7 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   }
 
   t.after(async () => {
+    await clearControlPlaneRegistryTenantFixtures([tenantId, otherTenantId]).catch(() => null);
     replaceDeliveryQueue([]);
     replaceDeliveryDeadLetters([]);
     await flushDeliveryPersistenceWrites().catch(() => null);
@@ -146,6 +186,37 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
     });
     const data = await res.json().catch(() => ({}));
     return { res, data };
+  }
+
+  async function assertTenantScopedPlatformList(pathname, cookie, expectedTenantId) {
+    const scoped = await request(pathname, 'GET', null, cookie);
+    assert.equal(scoped.res.status, 200);
+    assert.ok(Array.isArray(scoped.data.data));
+    assert.ok(scoped.data.data.length >= 1);
+    assert.ok(
+      scoped.data.data.every((row) => String(row?.tenantId || '') === expectedTenantId),
+    );
+  }
+
+  async function assertCrossTenantPlatformListForbidden(pathname, cookie, scopedTenantId) {
+    const crossTenant = await request(
+      `${pathname}?tenantId=${encodeURIComponent(scopedTenantId)}`,
+      'GET',
+      null,
+      cookie,
+    );
+    assert.equal(crossTenant.res.status, 403);
+    assert.equal(String(crossTenant.data.error || ''), 'Forbidden: tenant scope mismatch');
+  }
+
+  async function assertOwnerGlobalPlatformList(pathname, cookie, expectedTenantIds) {
+    const ownerList = await request(pathname, 'GET', null, cookie);
+    assert.equal(ownerList.res.status, 200);
+    assert.ok(Array.isArray(ownerList.data.data));
+    assert.deepEqual(
+      Array.from(new Set(ownerList.data.data.map((row) => String(row?.tenantId || '')))).sort(),
+      expectedTenantIds.slice().sort(),
+    );
   }
 
   const ownerLogin = await request('/admin/api/login', 'POST', {
@@ -325,8 +396,243 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   ]);
   await flushDeliveryPersistenceWrites();
 
+  const registrySeedTimestamp = new Date().toISOString();
+  await replaceControlPlaneRegistryFixtures({
+    servers: [
+      {
+        id: `srv-${tenantId}`,
+        tenantId,
+        slug: `srv-${tenantId}`,
+        name: 'Scoped Server',
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `srv-${otherTenantId}`,
+        tenantId: otherTenantId,
+        slug: `srv-${otherTenantId}`,
+        name: 'Other Server',
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    serverDiscordLinks: [
+      {
+        id: `link-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        guildId: `guild-${tenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `link-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        guildId: `guild-${otherTenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    agents: [
+      {
+        id: `agent-row-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        runtimeKey: `runtime-${tenantId}`,
+        role: 'execute_only',
+        scope: 'tenant',
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `agent-row-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        runtimeKey: `runtime-${otherTenantId}`,
+        role: 'sync_only',
+        scope: 'tenant',
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    agentProvisioningTokens: [
+      {
+        id: `token-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        tokenPrefix: `pref-${tenantId}`,
+        tokenHash: `hash-${tenantId}`,
+        role: 'execute_only',
+        scope: 'tenant',
+        status: 'pending_activation',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `token-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        tokenPrefix: `pref-${otherTenantId}`,
+        tokenHash: `hash-${otherTenantId}`,
+        role: 'sync_only',
+        scope: 'tenant',
+        status: 'pending_activation',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    agentDevices: [
+      {
+        id: `device-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `device-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    agentCredentials: [
+      {
+        id: `cred-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        apiKeyId: `api-${tenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `cred-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        apiKeyId: `api-${otherTenantId}`,
+        status: 'active',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    agentSessions: [
+      {
+        id: `session-${tenantId}`,
+        sessionId: `session-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        heartbeatAt: registrySeedTimestamp,
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `session-${otherTenantId}`,
+        sessionId: `session-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        heartbeatAt: registrySeedTimestamp,
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    syncRuns: [
+      {
+        id: `sync-run-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        status: 'completed',
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `sync-run-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        status: 'completed',
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+    syncEvents: [
+      {
+        id: `sync-event-${tenantId}`,
+        syncRunId: `sync-run-${tenantId}`,
+        tenantId,
+        serverId: `srv-${tenantId}`,
+        agentId: `agent-${tenantId}`,
+        kind: 'sync.completed',
+        createdAt: registrySeedTimestamp,
+        updatedAt: registrySeedTimestamp,
+      },
+      {
+        id: `sync-event-${otherTenantId}`,
+        syncRunId: `sync-run-${otherTenantId}`,
+        tenantId: otherTenantId,
+        serverId: `srv-${otherTenantId}`,
+        agentId: `agent-${otherTenantId}`,
+        kind: 'sync.completed',
+        createdAt: registrySeedTimestamp,
+        updatedAt: registrySeedTimestamp,
+      },
+    ],
+  });
+
+  const sameTenantRestartPlan = await scheduleRestartPlan({
+    tenantId,
+    serverId: `srv-${tenantId}`,
+    restartMode: 'delayed',
+    delaySeconds: 0,
+    serverBotReady: true,
+    deliveryRuntimeStatus: 'online',
+  }, 'boundary-test');
+  assert.equal(sameTenantRestartPlan.ok, true);
+  const otherTenantRestartPlan = await scheduleRestartPlan({
+    tenantId: otherTenantId,
+    serverId: `srv-${otherTenantId}`,
+    restartMode: 'delayed',
+    delaySeconds: 0,
+    serverBotReady: true,
+    deliveryRuntimeStatus: 'online',
+  }, 'boundary-test');
+  assert.equal(otherTenantRestartPlan.ok, true);
+  const sameTenantRestartExecution = await recordRestartExecution({
+    planId: sameTenantRestartPlan.plan.id,
+    tenantId,
+    serverId: `srv-${tenantId}`,
+    runtimeKey: `runtime-${tenantId}`,
+    resultStatus: 'succeeded',
+    action: 'restart',
+  });
+  assert.equal(sameTenantRestartExecution.ok, true);
+  const otherTenantRestartExecution = await recordRestartExecution({
+    planId: otherTenantRestartPlan.plan.id,
+    tenantId: otherTenantId,
+    serverId: `srv-${otherTenantId}`,
+    runtimeKey: `runtime-${otherTenantId}`,
+    resultStatus: 'succeeded',
+    action: 'restart',
+  });
+  assert.equal(otherTenantRestartExecution.ok, true);
+
   const scopedQuota = await request(`/admin/api/platform/quota?tenantId=${encodeURIComponent(tenantId)}`, 'GET', null, tenantCookie);
   assert.equal(scopedQuota.res.status, 200);
+
+  const scopedQuotaNoQuery = await request('/admin/api/platform/quota', 'GET', null, tenantCookie);
+  assert.equal(scopedQuotaNoQuery.res.status, 200);
+
+  const scopedTenants = await request('/admin/api/platform/tenants', 'GET', null, tenantCookie);
+  assert.equal(scopedTenants.res.status, 200);
+  assert.deepEqual(
+    Array.isArray(scopedTenants.data.data) ? scopedTenants.data.data.map((row) => String(row?.id || '')) : [],
+    [tenantId],
+  );
 
   const scopedPurchaseList = await request(
     `/admin/api/purchase/list?userId=${encodeURIComponent(scopedPurchaseUserId)}`,
@@ -509,6 +815,139 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   assert.deepEqual(scopedControlPanel.data.data?.env?.root || {}, {});
   assert.deepEqual(scopedControlPanel.data.data?.envCatalog?.root || [], []);
 
+  const scopedOverview = await request('/admin/api/platform/overview', 'GET', null, tenantCookie);
+  assert.equal(scopedOverview.res.status, 200);
+  assert.equal(String(scopedOverview.data.data?.analytics?.scope?.tenantId || ''), tenantId);
+  assert.equal(Number(scopedOverview.data.data?.analytics?.tenants?.total || 0), 1);
+
+  const scopedTenantFeatureAccess = await request('/admin/api/platform/tenant-feature-access', 'GET', null, tenantCookie);
+  assert.equal(scopedTenantFeatureAccess.res.status, 200);
+  assert.equal(String(scopedTenantFeatureAccess.data.data?.tenantId || ''), tenantId);
+
+  const crossTenantFeatureAccess = await request(
+    `/admin/api/platform/tenant-feature-access?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantFeatureAccess.res.status, 403);
+  assert.equal(String(crossTenantFeatureAccess.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedTenantStaff = await request('/admin/api/platform/tenant-staff', 'GET', null, tenantCookie);
+  assert.equal(scopedTenantStaff.res.status, 200);
+  assert.ok(Array.isArray(scopedTenantStaff.data.data));
+
+  const crossTenantStaff = await request(
+    `/admin/api/platform/tenant-staff?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossTenantStaff.res.status, 403);
+  assert.equal(String(crossTenantStaff.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedDiagnostics = await request('/admin/api/platform/tenant-diagnostics', 'GET', null, tenantCookie);
+  assert.equal(scopedDiagnostics.res.status, 200);
+  assert.equal(String(scopedDiagnostics.data.data?.tenantId || ''), tenantId);
+
+  const crossDiagnostics = await request(
+    `/admin/api/platform/tenant-diagnostics?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossDiagnostics.res.status, 403);
+  assert.equal(String(crossDiagnostics.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedDeliveryLifecycle = await request('/admin/api/delivery/lifecycle', 'GET', null, tenantCookie);
+  assert.equal(scopedDeliveryLifecycle.res.status, 200);
+  assert.equal(String(scopedDeliveryLifecycle.data.data?.tenantId || ''), tenantId);
+
+  const crossDeliveryLifecycle = await request(
+    `/admin/api/delivery/lifecycle?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossDeliveryLifecycle.res.status, 403);
+  assert.equal(String(crossDeliveryLifecycle.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedDonationOverview = await request('/admin/api/donations/overview', 'GET', null, tenantCookie);
+  assert.equal(scopedDonationOverview.res.status, 200);
+  assert.equal(String(scopedDonationOverview.data.data?.tenantId || ''), tenantId);
+
+  const crossDonationOverview = await request(
+    `/admin/api/donations/overview?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossDonationOverview.res.status, 403);
+  assert.equal(String(crossDonationOverview.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedModuleOverview = await request('/admin/api/modules/overview', 'GET', null, tenantCookie);
+  assert.equal(scopedModuleOverview.res.status, 200);
+  assert.equal(String(scopedModuleOverview.data.data?.tenantId || ''), tenantId);
+
+  const crossModuleOverview = await request(
+    `/admin/api/modules/overview?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossModuleOverview.res.status, 403);
+  assert.equal(String(crossModuleOverview.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const crossOverview = await request(
+    `/admin/api/platform/overview?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossOverview.res.status, 403);
+  assert.equal(String(crossOverview.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedBillingOverview = await request('/admin/api/platform/billing/overview', 'GET', null, tenantCookie);
+  assert.equal(scopedBillingOverview.res.status, 200);
+  assert.equal(scopedBillingOverview.data.ok, true);
+
+  const crossBillingOverview = await request(
+    `/admin/api/platform/billing/overview?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossBillingOverview.res.status, 403);
+  assert.equal(String(crossBillingOverview.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedBillingInvoices = await request('/admin/api/platform/billing/invoices', 'GET', null, tenantCookie);
+  assert.equal(scopedBillingInvoices.res.status, 200);
+  assert.equal(scopedBillingInvoices.data.ok, true);
+  assert.ok(Array.isArray(scopedBillingInvoices.data.data));
+
+  const crossBillingInvoices = await request(
+    `/admin/api/platform/billing/invoices?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossBillingInvoices.res.status, 403);
+  assert.equal(String(crossBillingInvoices.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  const scopedBillingAttempts = await request('/admin/api/platform/billing/payment-attempts', 'GET', null, tenantCookie);
+  assert.equal(scopedBillingAttempts.res.status, 200);
+  assert.equal(scopedBillingAttempts.data.ok, true);
+  assert.ok(Array.isArray(scopedBillingAttempts.data.data));
+
+  const crossBillingAttempts = await request(
+    `/admin/api/platform/billing/payment-attempts?tenantId=${encodeURIComponent(otherTenantId)}`,
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(crossBillingAttempts.res.status, 403);
+  assert.equal(String(crossBillingAttempts.data.error || ''), 'Forbidden: tenant scope mismatch');
+
   const crossControlPanel = await request(
     `/admin/api/control-panel/settings?tenantId=${encodeURIComponent(otherTenantId)}`,
     'GET',
@@ -560,6 +999,15 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   assert.equal(scopedTenantConfig.res.status, 200);
   assert.equal(String(scopedTenantConfig.data.data?.tenantId || ''), tenantId);
 
+  const scopedTenantConfigNoQuery = await request(
+    '/admin/api/platform/tenant-config',
+    'GET',
+    null,
+    tenantCookie,
+  );
+  assert.equal(scopedTenantConfigNoQuery.res.status, 200);
+  assert.equal(String(scopedTenantConfigNoQuery.data.data?.tenantId || ''), tenantId);
+
   const crossTenantConfig = await request(
     `/admin/api/platform/tenant-config?tenantId=${encodeURIComponent(otherTenantId)}`,
     'GET',
@@ -584,6 +1032,11 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   );
   assert.equal(crossTenantConfigList.res.status, 403);
   assert.equal(String(crossTenantConfigList.data.error || ''), 'Forbidden: tenant scope mismatch');
+
+  await assertTenantScopedPlatformList('/admin/api/platform/restart-plans', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/restart-executions', tenantCookie, tenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/restart-plans', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/restart-executions', tenantCookie, otherTenantId);
 
   const sameTenantWebhookList = await request(
     `/admin/api/platform/webhooks?tenantId=${encodeURIComponent(tenantId)}`,
@@ -714,6 +1167,46 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   assert.equal(crossTenantAgentList.res.status, 403);
   assert.equal(String(crossTenantAgentList.data.error || ''), 'Forbidden: tenant scope mismatch');
 
+  await assertTenantScopedPlatformList('/admin/api/platform/subscriptions', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/licenses', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/apikeys', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/webhooks', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agents', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-runtimes', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/marketplace', tenantCookie, tenantId);
+
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-runtimes', tenantCookie, otherTenantId);
+
+  await assertTenantScopedPlatformList('/admin/api/platform/servers', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/server-discord-links', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-registry', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-provisioning', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-devices', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-credentials', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/agent-sessions', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/sync-runs', tenantCookie, tenantId);
+  await assertTenantScopedPlatformList('/admin/api/platform/sync-events', tenantCookie, tenantId);
+
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/servers', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/server-discord-links', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-registry', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-provisioning', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-devices', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-credentials', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/agent-sessions', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/sync-runs', tenantCookie, otherTenantId);
+  await assertCrossTenantPlatformListForbidden('/admin/api/platform/sync-events', tenantCookie, otherTenantId);
+
+  await assertOwnerGlobalPlatformList('/admin/api/platform/servers', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/server-discord-links', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/agent-registry', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/agent-provisioning', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/agent-devices', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/agent-credentials', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/agent-sessions', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/sync-runs', ownerCookie, [tenantId, otherTenantId]);
+  await assertOwnerGlobalPlatformList('/admin/api/platform/sync-events', ownerCookie, [tenantId, otherTenantId]);
+
   const sameTenantMarketplaceList = await request(
     `/admin/api/platform/marketplace?tenantId=${encodeURIComponent(tenantId)}`,
     'GET',
@@ -743,6 +1236,10 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
   );
   assert.equal(sameTenantReconcile.res.status, 200);
   assert.equal(String(sameTenantReconcile.data.data?.scope?.tenantId || ''), tenantId);
+
+  const scopedReconcile = await request('/admin/api/platform/reconcile', 'GET', null, tenantCookie);
+  assert.equal(scopedReconcile.res.status, 200);
+  assert.equal(String(scopedReconcile.data.data?.scope?.tenantId || ''), tenantId);
 
   const crossTenantReconcile = await request(
     `/admin/api/platform/reconcile?tenantId=${encodeURIComponent(otherTenantId)}`,

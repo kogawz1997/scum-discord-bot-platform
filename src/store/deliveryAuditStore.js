@@ -121,7 +121,10 @@ async function hydrateFromPrisma() {
         where: scope.whereTenant,
         orderBy: { createdAt: 'asc' },
         take: MAX_AUDIT_ITEMS,
-      })))
+      }), {
+      allowGlobal: true,
+      operation: 'delivery audit store hydration',
+    }))
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
       .slice(-MAX_AUDIT_ITEMS);
     if (rows.length === 0) {

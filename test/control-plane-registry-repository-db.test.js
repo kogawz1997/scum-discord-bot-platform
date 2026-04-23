@@ -175,6 +175,8 @@ test('control plane registry mirrors core server, agent, session, and sync slice
     guildId: 'guild-a',
     agentId: 'agent-a',
     apiKeyId: 'api-key-a',
+    role: 'execute',
+    scope: 'execute_only',
   }).ok, true);
 
   assert.equal(repository.recordAgentSession({
@@ -183,6 +185,8 @@ test('control plane registry mirrors core server, agent, session, and sync slice
     guildId: 'guild-a',
     agentId: 'agent-a',
     runtimeKey: 'runtime-a',
+    role: 'execute',
+    scope: 'execute_only',
     sessionId: 'session-a',
     heartbeatAt: '2026-03-28T05:00:00.000Z',
     baseUrl: 'http://127.0.0.1:3211',
@@ -194,6 +198,8 @@ test('control plane registry mirrors core server, agent, session, and sync slice
     guildId: 'guild-a',
     agentId: 'agent-a',
     runtimeKey: 'runtime-a',
+    role: 'sync',
+    scope: 'sync_only',
     syncRunId: 'sync-a',
     freshnessAt: '2026-03-28T05:01:00.000Z',
     events: [{ type: 'join', playerName: 'Tester' }],
@@ -273,6 +279,8 @@ test('control plane registry file mirror can exclude volatile slices while keepi
     serverId: 'server-a',
     agentId: 'agent-a',
     runtimeKey: 'runtime-a',
+    role: 'sync',
+    scope: 'sync_only',
     sessionId: 'session-a',
     heartbeatAt: '2026-03-28T05:00:00.000Z',
   }).ok, true);

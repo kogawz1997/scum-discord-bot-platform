@@ -238,6 +238,9 @@ function createPlatformDeliveryReconcileService(deps) {
             orderBy: { createdAt: 'desc' },
             take: 2000,
           }),
+        }, {
+          allowGlobal: true,
+          operation: 'platform delivery reconcile aggregation',
         });
         return [
           rows.purchases,
@@ -297,7 +300,10 @@ function createPlatformDeliveryReconcileService(deps) {
             id: true,
             kind: true,
           },
-        }))
+        }), {
+          allowGlobal: true,
+          operation: 'platform delivery reconcile item-kind aggregation',
+        })
         : await prisma.shopItem.findMany({
           where: {
             id: {

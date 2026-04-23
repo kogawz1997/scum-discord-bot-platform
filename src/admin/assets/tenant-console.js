@@ -3041,12 +3041,22 @@
     }
     if (!window.confirm(t('tenant.confirm.steamLinkAction', 'Run {action} steam link support action for {userId}?', { action, userId }))) return;
     try {
+      const tenantId = getScopedTenantIdValue();
+      const identityRoute = action === 'remove'
+        ? '/admin/api/player/steam/unbind'
+        : '/admin/api/player/steam/bind';
+      const supportIntent = action === 'remove' ? 'unlink' : 'bind';
+      const supportOutcome = 'reviewing';
+      const supportSource = 'tenant-console';
+      const supportReason = action === 'remove'
+        ? 'Legacy tenant console requested Steam unlink.'
+        : 'Legacy tenant console requested Steam bind.';
       setBusy(button, true, t('common.applying', 'Applying...'));
-      await api(action === 'remove' ? '/admin/api/link/remove' : '/admin/api/link/set', {
+      await api(identityRoute, {
         method: 'POST',
         body: action === 'remove'
-          ? { userId, steamId }
-          : { userId, steamId, inGameName },
+          ? { tenantId, userId, steamId, supportIntent, supportOutcome, supportReason, supportSource }
+          : { tenantId, userId, steamId, inGameName, supportIntent, supportOutcome, supportReason, supportSource },
       });
       form.reset();
       form.elements.action.value = 'set';

@@ -52,6 +52,39 @@ function createDeps() {
     }),
     listAdminNotifications: () => ([
       { id: 'n-1', tenantId: 'tenant-1', kind: 'queue-pressure' },
+      {
+        id: 'n-support-open',
+        tenantId: 'tenant-1',
+        kind: 'platform.player.identity.support',
+        createdAt: '2026-03-20T10:08:00.000Z',
+        data: {
+          eventType: 'platform.player.identity.support',
+          userId: '222222222222222222',
+          supportIntent: 'conflict',
+          supportOutcome: 'pending-player-reply',
+          supportReason: 'Player still needs to confirm the correct Steam account.',
+          supportSource: 'owner',
+          followupAction: 'relink',
+          actor: 'owner-user',
+        },
+      },
+      {
+        id: 'n-support-ack',
+        tenantId: 'tenant-1',
+        kind: 'platform.player.identity.support',
+        createdAt: '2026-03-20T10:05:00.000Z',
+        acknowledgedAt: '2026-03-20T10:06:00.000Z',
+        data: {
+          eventType: 'platform.player.identity.support',
+          userId: '222222222222222222',
+          supportIntent: 'review',
+          supportOutcome: 'pending-verification',
+          supportReason: 'Owner already acknowledged the previous review handoff.',
+          supportSource: 'owner',
+          followupAction: 'review',
+          actor: 'owner-user',
+        },
+      },
       { id: 'n-2', tenantId: 'tenant-2', kind: 'ignore-me' },
     ]),
     listAdminRequestLogs: () => ([
@@ -66,6 +99,20 @@ function createDeps() {
       lastAutomationAt: '2026-03-20T09:57:00.000Z',
       lastForcedMonitoringAt: '2026-03-20T09:58:00.000Z',
     }),
+    listPlayerAccounts: async () => ([
+      {
+        discordId: '111111111111111111',
+        displayName: 'Linked Player',
+        steamId: '76561198000000001',
+        isActive: true,
+      },
+      {
+        discordId: '222222222222222222',
+        displayName: 'Needs Help',
+        steamId: null,
+        isActive: true,
+      },
+    ]),
   };
 }
 
@@ -78,10 +125,20 @@ test('buildTenantDiagnosticsBundle aggregates tenant support context', async () 
   assert.equal(bundle.tenantId, 'tenant-1');
   assert.equal(bundle.tenant.name, 'Demo Tenant');
   assert.equal(bundle.notifications.length, 1);
+  assert.equal(bundle.notifications[0].id, 'n-1');
   assert.equal(bundle.requestErrors.summary.total, 2);
   assert.equal(bundle.delivery.anomalies, 3);
   assert.equal(bundle.runtime.degraded, 1);
   assert.equal(bundle.headline.deadLetters, 1);
+  assert.equal(bundle.identity.total, 2);
+  assert.equal(bundle.identity.missingSteam, 1);
+  assert.equal(bundle.identity.needsSupport, 1);
+  assert.equal(bundle.identity.trailTotal, 2);
+  assert.equal(bundle.identity.trail[0].notificationId, 'n-support-open');
+  assert.equal(bundle.identity.trail[0].acknowledged, false);
+  assert.equal(bundle.identity.trail[1].notificationId, 'n-support-ack');
+  assert.equal(bundle.identity.trail[1].acknowledged, true);
+  assert.equal(bundle.identity.trail[1].acknowledgedAt, '2026-03-20T10:06:00.000Z');
 });
 
 test('buildTenantDiagnosticsCsv flattens the diagnostics headline', () => {
@@ -101,4 +158,19 @@ test('buildTenantDiagnosticsCsv flattens the diagnostics headline', () => {
   assert.match(csv, /tenantId,tenant-1/);
   assert.match(csv, /deliveryAnomalies,2/);
   assert.match(csv, /requestErrors,4/);
+});
+
+test('buildTenantDiagnosticsBundle requires tenant scope in strict isolation mode', async () => {
+  await assert.rejects(
+    () => buildTenantDiagnosticsBundle('', {
+      deps: createDeps(),
+      env: {
+        DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+        DATABASE_PROVIDER: 'postgresql',
+        PRISMA_SCHEMA_PROVIDER: 'postgresql',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }),
+    /requires tenantId/i,
+  );
 });

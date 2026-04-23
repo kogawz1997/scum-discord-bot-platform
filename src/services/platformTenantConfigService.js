@@ -3,7 +3,10 @@
 const { prisma, getTenantScopedPrismaClient } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
-const { withTenantDbIsolation } = require('../utils/tenantDbIsolation');
+const {
+  assertTenantDbIsolationScope,
+  withTenantDbIsolation,
+} = require('../utils/tenantDbIsolation');
 
 function normalizeTenantId(value) {
   const text = String(value || '').trim();
@@ -93,26 +96,58 @@ function getTenantConfigDelegateOrThrow(client = null) {
 }
 
 function getTenantConfigPersistenceMode() {
+  const requireDb = ['1', 'true', 'yes', 'on'].includes(String(process.env.PERSIST_REQUIRE_DB || '').trim().toLowerCase());
+  if (requireDb) return 'prisma';
   const runtime = resolveDatabaseRuntime();
+  if (runtime.isSqlite) {
+    // Keep tenant-config persistence on the SQL compatibility path for SQLite.
+    // Legacy local databases can carry INTEGER-backed created_at/updated_at values
+    // that Prisma DateTime delegates reject, while the raw SQL path continues to
+    // preserve the existing API contract safely.
+    return 'sql';
+  }
   return runtime.isServerEngine
     ? 'prisma'
     : 'sql';
 }
 
-async function listTenantConfigRowsViaSql(db, limit) {
-  const rows = await db.$queryRaw`
-    SELECT
-      tenant_id AS "tenantId",
-      config_patch_json AS "configPatchJson",
-      portal_env_patch_json AS "portalEnvPatchJson",
-      feature_flags_json AS "featureFlagsJson",
-      updated_by AS "updatedBy",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-    FROM platform_tenant_configs
-    ORDER BY tenant_id ASC
-    LIMIT ${limit}
-  `;
+function isTenantConfigDateCompatibilityError(error) {
+  if (!error) return false;
+  if (String(error.code || '').trim().toUpperCase() === 'P2023') return true;
+  const message = String(error.message || '').toLowerCase();
+  return message.includes('created_at') || message.includes('updated_at') || message.includes('type `datetime`');
+}
+
+async function listTenantConfigRowsViaSql(db, limit, options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
+  const rows = tenantId
+    ? await db.$queryRaw`
+      SELECT
+        tenant_id AS "tenantId",
+        config_patch_json AS "configPatchJson",
+        portal_env_patch_json AS "portalEnvPatchJson",
+        feature_flags_json AS "featureFlagsJson",
+        updated_by AS "updatedBy",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM platform_tenant_configs
+      WHERE tenant_id = ${tenantId}
+      ORDER BY tenant_id ASC
+      LIMIT ${limit}
+    `
+    : await db.$queryRaw`
+      SELECT
+        tenant_id AS "tenantId",
+        config_patch_json AS "configPatchJson",
+        portal_env_patch_json AS "portalEnvPatchJson",
+        feature_flags_json AS "featureFlagsJson",
+        updated_by AS "updatedBy",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM platform_tenant_configs
+      ORDER BY tenant_id ASC
+      LIMIT ${limit}
+    `;
   return Array.isArray(rows) ? rows.map(normalizeRow).filter(Boolean) : [];
 }
 
@@ -146,17 +181,25 @@ async function upsertTenantConfigRowViaSql(db, input) {
   `;
 }
 
-async function listTenantConfigRows(db, limit) {
+async function listTenantConfigRows(db, limit, options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
   const persistenceMode = getTenantConfigPersistenceMode();
   if (persistenceMode === 'prisma') {
-    const delegate = getTenantConfigDelegateOrThrow(db);
-    const rows = await delegate.findMany({
-      orderBy: { tenantId: 'asc' },
-      take: limit,
-    });
-    return Array.isArray(rows) ? rows.map(normalizeRow).filter(Boolean) : [];
+    try {
+      const delegate = getTenantConfigDelegateOrThrow(db);
+      const rows = await delegate.findMany({
+        ...(tenantId ? { where: { tenantId } } : {}),
+        orderBy: { tenantId: 'asc' },
+        take: limit,
+      });
+      return Array.isArray(rows) ? rows.map(normalizeRow).filter(Boolean) : [];
+    } catch (error) {
+      if (!isTenantConfigDateCompatibilityError(error)) {
+        throw error;
+      }
+    }
   }
-  return listTenantConfigRowsViaSql(db, limit);
+  return listTenantConfigRowsViaSql(db, limit, { tenantId });
 }
 
 async function getSharedTenantRegistryRow(tenantId) {
@@ -178,14 +221,20 @@ async function getPlatformTenantConfig(tenantId) {
     tenantPrisma,
     { tenantId: id, enforce: true },
     async (db) => {
-      const rows = await listTenantConfigRows(db, 1);
-      return rows.find((row) => row.tenantId === id) || null;
+      const rows = await listTenantConfigRows(db, 1, { tenantId: id });
+      return rows[0] || null;
     },
   );
 }
 
 async function listPlatformTenantConfigs(options = {}) {
   const tenantId = normalizeTenantId(options.tenantId);
+  assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'platform tenant config listing',
+    env: options.env || process.env,
+  });
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200) || 200));
   if (tenantId) {
     const tenant = await getSharedTenantRegistryRow(tenantId);
@@ -194,8 +243,7 @@ async function listPlatformTenantConfigs(options = {}) {
       getTenantScopedPrismaClient(tenantId),
       { tenantId, enforce: true },
       async (db) => {
-        const rows = await listTenantConfigRows(db, limit);
-        return rows.filter((row) => row.tenantId === tenantId);
+        return listTenantConfigRows(db, limit, { tenantId });
       },
     );
   }
@@ -251,24 +299,30 @@ async function upsertPlatformTenantConfig(input = {}) {
     { tenantId, enforce: true },
     async (db) => {
       if (getTenantConfigPersistenceMode() === 'prisma') {
-        const delegate = getTenantConfigDelegateOrThrow(db);
-        await delegate.upsert({
-          where: { tenantId },
-          create: {
-            tenantId,
-            configPatchJson: JSON.stringify(configPatch),
-            portalEnvPatchJson: JSON.stringify(portalEnvPatch),
-            featureFlagsJson: JSON.stringify(featureFlags),
-            updatedBy,
-          },
-          update: {
-            configPatchJson: JSON.stringify(configPatch),
-            portalEnvPatchJson: JSON.stringify(portalEnvPatch),
-            featureFlagsJson: JSON.stringify(featureFlags),
-            updatedBy,
-          },
-        });
-        return;
+        try {
+          const delegate = getTenantConfigDelegateOrThrow(db);
+          await delegate.upsert({
+            where: { tenantId },
+            create: {
+              tenantId,
+              configPatchJson: JSON.stringify(configPatch),
+              portalEnvPatchJson: JSON.stringify(portalEnvPatch),
+              featureFlagsJson: JSON.stringify(featureFlags),
+              updatedBy,
+            },
+            update: {
+              configPatchJson: JSON.stringify(configPatch),
+              portalEnvPatchJson: JSON.stringify(portalEnvPatch),
+              featureFlagsJson: JSON.stringify(featureFlags),
+              updatedBy,
+            },
+          });
+          return;
+        } catch (error) {
+          if (!isTenantConfigDateCompatibilityError(error)) {
+            throw error;
+          }
+        }
       }
 
       await upsertTenantConfigRowViaSql(db, {

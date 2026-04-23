@@ -13,6 +13,7 @@ function createPortalAuthRuntime(options = {}) {
   const oauthStates = options.oauthStates;
   const sessionSecret = String(options.sessionSecret || '').trim()
     || String(options.discordClientSecret || '').trim()
+    || String(options.googleClientSecret || '').trim()
     || String(options.baseUrl || '').trim()
     || 'player-portal-dev-session-secret';
 
@@ -345,18 +346,37 @@ function createPortalAuthRuntime(options = {}) {
     return true;
   }
 
-  function startOauthState() {
+  function startOauthState(provider) {
     cleanupRuntimeState();
     const state = crypto.randomBytes(24).toString('hex');
     oauthStates.set(state, {
+      provider: String(provider || '').trim().toLowerCase() || null,
       createdAt: Date.now(),
       expiresAt: Date.now() + options.oauthStateTtlMs,
     });
     return state;
   }
 
+  function consumeOauthState(state, provider) {
+    const normalizedState = options.normalizeText(state);
+    if (!normalizedState) return null;
+    const row = oauthStates.get(normalizedState);
+    if (!row) return null;
+    oauthStates.delete(normalizedState);
+    const expectedProvider = String(provider || '').trim().toLowerCase() || null;
+    const actualProvider = String(row?.provider || '').trim().toLowerCase() || null;
+    if (expectedProvider && actualProvider && expectedProvider !== actualProvider) {
+      return null;
+    }
+    return row;
+  }
+
   function getDiscordRedirectUri() {
     return new URL(options.discordRedirectPath, options.baseUrl).toString();
+  }
+
+  function getGoogleRedirectUri() {
+    return new URL(options.googleRedirectPath, options.baseUrl).toString();
   }
 
   function buildDiscordAuthorizeUrl(state) {
@@ -371,6 +391,19 @@ function createPortalAuthRuntime(options = {}) {
     }
     url.searchParams.set('scope', scopes.join(' '));
     url.searchParams.set('state', state);
+    return url.toString();
+  }
+
+  function buildGoogleAuthorizeUrl(state) {
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id', options.googleClientId);
+    url.searchParams.set('redirect_uri', getGoogleRedirectUri());
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', 'openid email profile');
+    url.searchParams.set('state', state);
+    url.searchParams.set('access_type', 'online');
+    url.searchParams.set('include_granted_scopes', 'true');
+    url.searchParams.set('prompt', 'select_account');
     return url.toString();
   }
 
@@ -440,6 +473,107 @@ function createPortalAuthRuntime(options = {}) {
     }
   }
 
+  async function exchangeGoogleCode(code) {
+    const body = new URLSearchParams({
+      client_id: options.googleClientId,
+      client_secret: options.googleClientSecret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: getGoogleRedirectUri(),
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.access_token) {
+        throw new Error(`Google token exchange failed (${res.status})`);
+      }
+      return data;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function fetchGoogleProfile(accessToken) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.sub) {
+        throw new Error('Google profile fetch failed');
+      }
+      return data;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function resolveLinkedPlayerAccess(platformIdentity, fallback = {}) {
+    const primaryEmail = options.normalizeText(
+      platformIdentity?.user?.primaryEmail
+      || platformIdentity?.identity?.providerEmail
+      || fallback.primaryEmail,
+    ) || null;
+    const platformUserId = platformIdentity?.user?.id || null;
+    const platformProfileId = platformIdentity?.profile?.id || null;
+    const tenantId = platformIdentity?.profile?.tenantId
+      || platformIdentity?.membership?.tenantId
+      || options.identityTenantId
+      || null;
+    let discordId = options.normalizeText(platformIdentity?.profile?.discordUserId) || null;
+
+    if (typeof options.getPlatformUserIdentitySummary === 'function' && (platformUserId || primaryEmail)) {
+      try {
+        const summary = await options.getPlatformUserIdentitySummary({
+          platformUserId,
+          email: primaryEmail,
+          tenantId,
+          allowGlobal: !tenantId,
+          fallbackEmail: primaryEmail,
+        });
+        if (summary?.ok) {
+          discordId = options.normalizeText(
+            summary?.profile?.discordUserId
+            || summary?.identitySummary?.linkedAccounts?.discord?.value,
+          ) || discordId;
+          return {
+            discordId,
+            primaryEmail: options.normalizeText(summary?.user?.primaryEmail) || primaryEmail,
+            platformUserId: summary?.user?.id || platformUserId,
+            platformProfileId: summary?.profile?.id || platformProfileId,
+            tenantId: summary?.profile?.tenantId
+              || summary?.identitySummary?.activeMembership?.tenantId
+              || tenantId,
+          };
+        }
+      } catch (error) {
+        options.logger.warn(
+          '[web-portal-standalone] platform identity summary lookup failed:',
+          error?.message || error,
+        );
+      }
+    }
+
+    return {
+      discordId,
+      primaryEmail,
+      platformUserId,
+      platformProfileId,
+      tenantId,
+    };
+  }
+
   async function handleDiscordStart(_req, res) {
     if (!options.discordClientId || !options.discordClientSecret) {
       return options.sendJson(res, 500, {
@@ -448,7 +582,7 @@ function createPortalAuthRuntime(options = {}) {
       });
     }
 
-    const state = startOauthState();
+    const state = startOauthState('discord');
     res.writeHead(302, { Location: buildDiscordAuthorizeUrl(state) });
     res.end();
   }
@@ -468,13 +602,12 @@ function createPortalAuthRuntime(options = {}) {
         return res.end();
       }
 
-      if (!state || !oauthStates.has(state)) {
+      if (!state || !consumeOauthState(state, 'discord')) {
         res.writeHead(302, {
           Location: '/player/login?error=Invalid%20OAuth%20state',
         });
         return res.end();
       }
-      oauthStates.delete(state);
 
       if (!code) {
         res.writeHead(302, {
@@ -597,6 +730,142 @@ function createPortalAuthRuntime(options = {}) {
     }
   }
 
+  async function handleGoogleStart(_req, res) {
+    if (!options.googleClientId || !options.googleClientSecret) {
+      return options.sendJson(res, 500, {
+        ok: false,
+        error: 'Google OAuth env is not configured',
+      });
+    }
+
+    const state = startOauthState('google');
+    res.writeHead(302, { Location: buildGoogleAuthorizeUrl(state) });
+    res.end();
+  }
+
+  async function handleGoogleCallback(_req, res, urlObj) {
+    try {
+      cleanupRuntimeState();
+
+      const state = options.normalizeText(urlObj.searchParams.get('state'));
+      const code = options.normalizeText(urlObj.searchParams.get('code'));
+      const errorText = options.normalizeText(urlObj.searchParams.get('error'));
+
+      if (errorText) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Google%20authorization%20denied',
+        });
+        return res.end();
+      }
+
+      if (!state || !consumeOauthState(state, 'google')) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Invalid%20OAuth%20state',
+        });
+        return res.end();
+      }
+
+      if (!code) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Missing%20OAuth%20code',
+        });
+        return res.end();
+      }
+
+      const token = await exchangeGoogleCode(code);
+      const profile = await fetchGoogleProfile(token.access_token);
+      const googleUserId = options.normalizeText(profile.sub);
+      if (!googleUserId) {
+        throw new Error('Google profile missing subject');
+      }
+
+      const primaryEmail = options.normalizeText(profile.email) || null;
+      if (!primaryEmail || profile.email_verified !== true) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Google%20account%20must%20have%20a%20verified%20email',
+        });
+        return res.end();
+      }
+
+      const user = [
+        options.normalizeText(profile.name),
+        options.normalizeText(profile.given_name),
+        primaryEmail,
+        googleUserId,
+      ].find(Boolean) || googleUserId;
+      const avatarUrl = options.normalizeText(profile.picture) || null;
+
+      let platformIdentity = null;
+      if (typeof options.ensurePlatformPlayerIdentity === 'function') {
+        platformIdentity = await options.ensurePlatformPlayerIdentity({
+          provider: 'google',
+          providerUserId: googleUserId,
+          email: primaryEmail,
+          providerEmail: primaryEmail,
+          displayName: user,
+          locale: options.identityLocale || 'en',
+          tenantId: options.identityTenantId || null,
+          role: 'player',
+          membershipType: options.identityTenantId ? 'tenant' : 'player',
+          verifiedAt: new Date().toISOString(),
+          avatarUrl,
+          verificationState: 'email_verified',
+          lastSeenAt: new Date().toISOString(),
+          identityMetadata: {
+            source: 'portal-google-oauth',
+            emailVerified: true,
+            hostedDomain: options.normalizeText(profile.hd) || null,
+          },
+          profileMetadata: {
+            source: 'portal-google-oauth',
+            authMethod: 'google-oauth',
+          },
+        });
+      }
+
+      if (!platformIdentity?.ok || !platformIdentity?.user?.id) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Google%20login%20requires%20a%20linked%20player%20identity',
+        });
+        return res.end();
+      }
+
+      const linkedAccess = await resolveLinkedPlayerAccess(platformIdentity, {
+        primaryEmail,
+      });
+      if (!options.isDiscordId(linkedAccess?.discordId)) {
+        res.writeHead(302, {
+          Location: '/player/login?error=Google%20account%20must%20be%20linked%20to%20a%20Discord%20player%20identity',
+        });
+        return res.end();
+      }
+
+      const sessionId = createSession({
+        user,
+        role: 'player',
+        discordId: linkedAccess.discordId,
+        authMethod: 'google-oauth',
+        primaryEmail: linkedAccess.primaryEmail || primaryEmail,
+        avatarUrl,
+        platformUserId: linkedAccess.platformUserId || null,
+        platformProfileId: linkedAccess.platformProfileId || null,
+        tenantId: linkedAccess.tenantId || null,
+      });
+
+      res.writeHead(302, {
+        Location: '/player',
+        'Set-Cookie': buildSessionCookie(sessionId, _req),
+      });
+      res.end();
+    } catch (error) {
+      options.logger.error('[web-portal-standalone] google callback failed:', error);
+      res.writeHead(302, {
+        Location: '/player/login?error=Google%20login%20failed',
+      });
+      res.end();
+    }
+  }
+
   return {
     buildClearSessionCookie,
     buildSessionCookie,
@@ -606,6 +875,8 @@ function createPortalAuthRuntime(options = {}) {
     getSession,
     handleDiscordCallback,
     handleDiscordStart,
+    handleGoogleCallback,
+    handleGoogleStart,
     removeSession,
     updateSession,
     verifyOrigin,

@@ -40,21 +40,39 @@ function createSyncIngestionService(deps = {}) {
       tenantId: normalized.tenantId,
     })[0] || null;
     if (!binding) return { ok: false, reason: 'agent-token-binding-not-found' };
+    if (!resolvedServerId && trimText(binding.serverId, 120)) {
+      resolvedServerId = trimText(binding.serverId, 120);
+    }
+    if (!resolvedGuildId && trimText(binding.guildId, 120)) {
+      resolvedGuildId = trimText(binding.guildId, 120);
+    }
 
     const agent = listAgents({
       tenantId: normalized.tenantId,
       serverId: resolvedServerId || binding.serverId,
       agentId: normalized.agentId || binding.agentId,
     })[0] || null;
-    const server = listServers({
+    const serverRow = listServers({
       tenantId: normalized.tenantId,
       serverId: resolvedServerId || binding.serverId,
     })[0] || null;
-    if (!server) return { ok: false, reason: 'server-not-found' };
     if (!agent) return { ok: false, reason: 'agent-not-registered' };
     if (String(agent.role || '') !== 'sync' || String(agent.scope || '') !== 'sync_only') {
       return { ok: false, reason: 'agent-sync-role-required' };
     }
+    const server = serverRow || (() => {
+      const fallbackServerId = trimText(
+        resolvedServerId || binding.serverId || agent.serverId,
+        120,
+      );
+      if (!fallbackServerId) return null;
+      return {
+        id: fallbackServerId,
+        tenantId: normalized.tenantId,
+        guildId: resolvedGuildId || binding.guildId || agent.guildId || null,
+      };
+    })();
+    if (!server) return { ok: false, reason: 'server-not-found' };
     const result = recordSyncPayload({
       ...normalized,
       tenantId: normalized.tenantId,

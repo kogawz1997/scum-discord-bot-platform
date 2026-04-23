@@ -68,6 +68,8 @@ test('agent execution routing resolves the correct execute agent per tenant/serv
       guildId: 'guild-a',
       agentId: 'agent-exec',
       runtimeKey: 'exec-runtime',
+      role: 'execute',
+      scope: 'execute_only',
       sessionId: 'session-exec',
       heartbeatAt: '2026-03-25T10:00:00.000Z',
       baseUrl: 'http://127.0.0.1:3211',

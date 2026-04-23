@@ -1,5 +1,7 @@
 'use strict';
 
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
+
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -34,6 +36,18 @@ function escapeCsvCell(value) {
 
 function buildScopeLabel(tenantId) {
   return trimText(tenantId, 120) || 'global';
+}
+
+function resolveDeliveryLifecycleScope(options = {}) {
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(options.tenantId, 120) || null,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'delivery lifecycle report',
+    env: options.env || process.env,
+  });
+  return {
+    tenantId,
+  };
 }
 
 function classifyQueueEntry(row, thresholds, nowMs) {
@@ -328,7 +342,8 @@ function resolveDeliveryLifecycleDeps(overrides = {}) {
 }
 
 async function buildDeliveryLifecycleReport(options = {}) {
-  const scopedTenantId = trimText(options.tenantId, 120) || null;
+  const scope = resolveDeliveryLifecycleScope(options);
+  const scopedTenantId = trimText(scope.tenantId, 120) || null;
   const limit = Math.max(20, Math.min(500, asInt(options.limit, 120, 20)));
   const thresholds = {
     pendingOverdueMs: Math.max(60 * 1000, asInt(options.pendingOverdueMs, 20 * 60 * 1000, 60 * 1000)),

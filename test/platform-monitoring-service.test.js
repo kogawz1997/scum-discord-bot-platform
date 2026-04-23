@@ -42,6 +42,7 @@ test.afterEach(() => {
 
 test('platform monitoring emits subscription-expiring alerts for near-term subscriptions', async () => {
   const published = [];
+  const tenantCalls = [];
   let state = {
     lastAlertAtByKey: {},
     lastMonitoringAt: null,
@@ -94,7 +95,10 @@ test('platform monitoring emits subscription-expiring alerts for near-term subsc
     listPlatformAgentRuntimes: async () => ([]),
     getPlatformAnalyticsOverview: async () => ({}),
     getTenantQuotaSnapshot: async () => ({ quotas: {} }),
-    listPlatformTenants: async () => ([]),
+    listPlatformTenants: async (options = {}) => {
+      tenantCalls.push(options);
+      return [];
+    },
     listPlatformSubscriptions: async () => ([
       {
         id: 'sub-expiring-1',
@@ -141,6 +145,8 @@ test('platform monitoring emits subscription-expiring alerts for near-term subsc
   const report = await runPlatformMonitoringCycle({ force: true });
 
   assert.equal(report.ok, true);
+  assert.equal(tenantCalls.length, 1);
+  assert.equal(tenantCalls[0]?.allowGlobal, true);
   assert.equal(Array.isArray(report.subscriptions?.expiring), true);
   assert.equal(report.subscriptions.expiring.length, 1);
   assert.equal(String(report.subscriptions.expiring[0]?.subscriptionId || ''), 'sub-expiring-1');
@@ -153,6 +159,7 @@ test('platform monitoring emits subscription-expiring alerts for near-term subsc
 
 test('platform monitoring runs retention cleanup and reports removed artifact totals', async () => {
   const published = [];
+  const tenantCalls = [];
   let state = {
     lastAlertAtByKey: {},
     lastMonitoringAt: null,
@@ -227,10 +234,13 @@ test('platform monitoring runs retention cleanup and reports removed artifact to
     listPlatformAgentRuntimes: async () => ([]),
     getPlatformAnalyticsOverview: async () => ({}),
     getTenantQuotaSnapshot: async () => ({ quotas: {} }),
-    listPlatformTenants: async () => ([
-      { id: 'tenant-a', slug: 'tenant-a' },
-      { id: 'tenant-b', slug: 'tenant-b' },
-    ]),
+    listPlatformTenants: async (options = {}) => {
+      tenantCalls.push(options);
+      return [
+        { id: 'tenant-a', slug: 'tenant-a' },
+        { id: 'tenant-b', slug: 'tenant-b' },
+      ];
+    },
     listPlatformSubscriptions: async () => ([]),
     reconcileDeliveryState: async () => ({
       summary: {
@@ -258,6 +268,8 @@ test('platform monitoring runs retention cleanup and reports removed artifact to
   const report = await runPlatformMonitoringCycle({ force: true });
 
   assert.equal(report.ok, true);
+  assert.equal(tenantCalls.length, 1);
+  assert.equal(tenantCalls[0]?.allowGlobal, true);
   assert.equal(report.retention?.ok, true);
   assert.equal(report.retention?.notifications?.removed, 6);
   assert.equal(report.retention?.totals?.restartPlans, 2);

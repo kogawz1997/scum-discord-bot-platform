@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#0e0e0e",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#ff6a5d",
+                        "inverse-surface": "#e5e2e1",
+                        "surface-container": "#201f1f",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb4ab",
+                        "primary": "#ffb690",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary-fixed": "#ffdad6",
+                        "on-secondary": "#1e3700",
+                        "primary-fixed-dim": "#ffb690",
+                        "surface-container-low": "#1c1b1b",
+                        "inverse-primary": "#9d4300",
+                        "surface-bright": "#393939",
+                        "secondary-container": "#447200",
+                        "on-tertiary-fixed-variant": "#93000b",
+                        "on-surface": "#e5e2e1",
+                        "on-secondary-container": "#bdf57d",
+                        "secondary": "#a0d663",
+                        "outline": "#a78b7d",
+                        "surface": "#131313",
+                        "on-tertiary": "#690005",
+                        "tertiary": "#ffb4ab",
+                        "on-primary-container": "#582200",
+                        "outline-variant": "#584237",
+                        "surface-container-highest": "#353534",
+                        "primary-container": "#f97316",
+                        "on-primary-fixed-variant": "#783200",
+                        "surface-tint": "#ffb690",
+                        "background": "#131313",
+                        "on-secondary-fixed": "#0f2000",
+                        "on-tertiary-container": "#6c0005",
+                        "secondary-fixed-dim": "#a0d663",
+                        "on-secondary-fixed-variant": "#2e4f00",
+                        "on-surface-variant": "#e0c0b1",
+                        "on-background": "#e5e2e1",
+                        "surface-variant": "#353534",
+                        "on-tertiary-fixed": "#410002",
+                        "on-primary-fixed": "#341100",
+                        "on-primary": "#552100",
+                        "on-error": "#690005",
+                        "inverse-on-surface": "#313030",
+                        "surface-dim": "#131313",
+                        "secondary-fixed": "#bbf37c",
+                        "primary-fixed": "#ffdbca",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Public Sans', sans-serif;
+        }
+        /* Custom scrollbar for industrial feel */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #353534; border: 2px solid #131313; }
+        ::-webkit-scrollbar-thumb:hover { background: #f97316; }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 overflow-y-auto bg-[#201f1f] h-screen w-64 border-r-4 border-[#353534]">
+<div class="p-6 border-b-4 border-[#353534]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-orange-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#131313] font-bold" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<div class="text-orange-600 font-black font-headline uppercase text-sm tracking-widest">SECTOR_ADMIN</div>
+<div class="text-[#353534] font-bold text-[10px] tracking-tighter">LEVEL_5_CLEARANCE</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4">
+<!-- Active: Fleet_Status -->
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight bg-orange-600 text-[#131313] border-l-4 border-white cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">dataset</span>
+<span>Fleet_Status</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span>Tenant_Control</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">security</span>
+<span>Security_Grid</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span>Protocol_Logs</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">lan</span>
+<span>Active_Sectors</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span>Neural_Link</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">conveyor_belt</span>
+<span>Resource_Mgmt</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">key</span>
+<span>Auth_Vault</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600 cursor-pointer transition-all duration-100" href="#">
+<span class="material-symbols-outlined">monitor_heart</span>
+<span>System_Health</span>
+</a>
+</nav>
+<div class="mt-auto border-t-4 border-[#353534] bg-[#1c1b1b]">
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-[#353534] hover:text-orange-500 hover:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>System_Settings</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-tight text-tertiary hover:bg-error-container transition-all" href="#">
+<span class="material-symbols-outlined">power_settings_new</span>
+<span>Terminal_Exit</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 flex-1 flex flex-col min-w-0 bg-surface overflow-x-hidden">
+<!-- TopAppBar (Shared Component) -->
+<header class="bg-[#131313] w-full border-b-2 border-[#353534] flex justify-between items-center px-6 py-3 sticky top-0 z-30">
+<div class="flex items-center gap-4">
+<div class="text-xl font-black tracking-tighter text-orange-600 font-headline uppercase">SCUM_OPS_V1</div>
+<div class="h-4 w-px bg-[#353534] mx-2"></div>
+<div class="font-['Space_Grotesk'] uppercase tracking-wider text-sm text-orange-500 font-bold">
+                    FLEET_MGMT / ส่วนจัดการยานพาหนะ
+                </div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-[#353534] hover:text-orange-600 transition-colors">refresh</button>
+<button class="material-symbols-outlined text-[#353534] hover:text-orange-600 transition-colors">translate</button>
+<button class="material-symbols-outlined text-[#353534] hover:text-orange-600 transition-colors">dark_mode</button>
+<div class="relative">
+<button class="material-symbols-outlined text-[#353534] hover:text-orange-600 transition-colors">notifications</button>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-orange-600"></span>
+</div>
+</div>
+<button class="bg-primary-container text-on-primary-container px-4 py-1 font-headline font-black text-xs uppercase tracking-widest hover:outline-2 outline-orange-600 transition-all active:scale-95">
+                    Logout
+                </button>
+</div>
+</header>
+<!-- Dynamic Content -->
+<div class="p-8 space-y-8">
+<!-- Page Header Section -->
+<section class="flex justify-between items-end gap-8">
+<div class="space-y-2">
+<h1 class="text-4xl font-headline font-black tracking-tighter uppercase leading-none">
+                        Delivery Agents <span class="text-orange-600">/ ตัวแทนส่งของ</span>
+</h1>
+<p class="text-on-surface-variant font-label text-sm uppercase tracking-tight max-w-xl">
+                        Monitor and manage active deployment nodes across all sectors. Real-time latency tracking and security token rotation for Level 4 field agents.
+                    </p>
+</div>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 border-2 border-orange-600 px-6 py-3 font-headline font-bold uppercase text-sm text-orange-600 hover:border-4 transition-all">
+<span class="material-symbols-outlined">add_box</span>
+                        Provision New Node / ลงทะเบียนโหนดใหม่
+                    </button>
+</div>
+</section>
+<!-- Metrics Bar -->
+<div class="grid grid-cols-4 gap-0 border-4 border-[#353534]">
+<div class="bg-surface-container p-4 border-r-4 border-[#353534]">
+<div class="text-[10px] font-bold text-[#353534] uppercase tracking-widest mb-1">Active_Fleet</div>
+<div class="text-3xl font-headline font-black text-orange-600">1,248</div>
+</div>
+<div class="bg-surface-container p-4 border-r-4 border-[#353534]">
+<div class="text-[10px] font-bold text-[#353534] uppercase tracking-widest mb-1">System_Uptime</div>
+<div class="text-3xl font-headline font-black text-secondary">99.98%</div>
+</div>
+<div class="bg-surface-container p-4 border-r-4 border-[#353534]">
+<div class="text-[10px] font-bold text-[#353534] uppercase tracking-widest mb-1">Avg_Latency</div>
+<div class="text-3xl font-headline font-black text-primary">42ms</div>
+</div>
+<div class="bg-surface-container p-4">
+<div class="text-[10px] font-bold text-[#353534] uppercase tracking-widest mb-1">Security_Risk</div>
+<div class="text-3xl font-headline font-black text-tertiary">LOW</div>
+</div>
+</div>
+<!-- Main Table Section -->
+<div class="border-4 border-[#353534] bg-surface-container-lowest overflow-hidden">
+<div class="bg-surface-container-highest px-6 py-3 flex justify-between items-center">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-orange-600">dns</span>
+<h2 class="font-headline font-bold uppercase tracking-widest text-sm">Deployment_Registry // ทะเบียนการติดตั้ง</h2>
+</div>
+<div class="flex gap-2">
+<div class="relative">
+<input class="bg-surface border-none text-xs font-label p-2 w-64 uppercase tracking-tighter focus:ring-2 focus:ring-orange-600" placeholder="FILTER_NODES..." type="text"/>
+<span class="material-symbols-outlined absolute right-2 top-1.5 text-[#353534] text-sm">search</span>
+</div>
+<button class="bg-surface-container p-2 hover:bg-orange-600 group transition-colors">
+<span class="material-symbols-outlined text-[#353534] group-hover:text-black">filter_list</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container border-b-4 border-[#353534]">
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Status / สถานะ</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Name / ชื่อตัวแทน</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Runtime Key / คีย์</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Device ID / ไอดีอุปกรณ์</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Latency / ล่าช้า</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest border-r-2 border-[#353534]">Version / เวอร์ชัน</th>
+<th class="px-6 py-4 text-[10px] font-black text-[#a78b7d] uppercase tracking-widest">Actions / คำสั่ง</th>
+</tr>
+</thead>
+<tbody class="divide-y-2 divide-[#353534]">
+<!-- Row 1: Online -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-secondary"></div>
+<span class="text-[10px] font-bold uppercase tracking-tight text-secondary">Online</span>
+</div>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-sm tracking-tight border-r-2 border-[#353534]">
+                                    ALPHA_STRIKER_01
+                                </td>
+<td class="px-6 py-4 font-body text-xs text-on-surface-variant border-r-2 border-[#353534]">
+<code class="bg-surface px-2 py-1">RT-X882-990-K</code>
+</td>
+<td class="px-6 py-4 font-body text-xs border-r-2 border-[#353534]">
+                                    DEV_001_HQ_BKR
+                                </td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-black text-secondary">12ms</span>
+</td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-mono">v4.2.0-stable</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534] transition-all" title="Issue Setup Token">key</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534] transition-all" title="Download Scripts">download</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534] transition-all" title="Rotate Token">sync</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-tertiary hover:bg-error-container transition-all" title="Revoke">block</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Degraded -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-orange-600 animate-pulse"></div>
+<span class="text-[10px] font-bold uppercase tracking-tight text-orange-600">Degraded</span>
+</div>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-sm tracking-tight border-r-2 border-[#353534]">
+                                    OMEGA_HAULER_42
+                                </td>
+<td class="px-6 py-4 font-body text-xs text-on-surface-variant border-r-2 border-[#353534]">
+<code class="bg-surface px-2 py-1">RT-P221-551-M</code>
+</td>
+<td class="px-6 py-4 font-body text-xs border-r-2 border-[#353534]">
+                                    DEV_114_OUT_SEC
+                                </td>
+<td class="px-6 py-4 border-r-2 border-[#353434]">
+<span class="text-xs font-black text-orange-600">245ms</span>
+</td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-mono">v4.1.8-legacy</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">key</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">download</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">sync</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-tertiary hover:bg-error-container">block</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Offline -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-tertiary"></div>
+<span class="text-[10px] font-bold uppercase tracking-tight text-tertiary">Offline</span>
+</div>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-sm tracking-tight border-r-2 border-[#353534] text-[#353534]">
+                                    VOID_RUNNER_EX
+                                </td>
+<td class="px-6 py-4 font-body text-xs text-on-surface-variant border-r-2 border-[#353534]">
+<code class="bg-surface px-2 py-1 opacity-30">RT-0000-000-0</code>
+</td>
+<td class="px-6 py-4 font-body text-xs border-r-2 border-[#353534] text-[#353534]">
+                                    UNKNOWN_HOST
+                                </td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-black text-tertiary">∞</span>
+</td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-mono text-[#353534]">N/A</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-xs p-1 text-orange-600 hover:bg-orange-600 hover:text-black">key</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534]" disabled="">download</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534]" disabled="">sync</button>
+<button class="material-symbols-outlined text-xs p-1 text-tertiary hover:bg-tertiary hover:text-black">block</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Online -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-secondary"></div>
+<span class="text-[10px] font-bold uppercase tracking-tight text-secondary">Online</span>
+</div>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-sm tracking-tight border-r-2 border-[#353534]">
+                                    BETA_RECON_09
+                                </td>
+<td class="px-6 py-4 font-body text-xs text-on-surface-variant border-r-2 border-[#353534]">
+<code class="bg-surface px-2 py-1">RT-A112-009-L</code>
+</td>
+<td class="px-6 py-4 font-body text-xs border-r-2 border-[#353534]">
+                                    DEV_009_SUB_NET
+                                </td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-black text-secondary">28ms</span>
+</td>
+<td class="px-6 py-4 border-r-2 border-[#353534]">
+<span class="text-xs font-mono">v4.2.1-stable</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">key</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">download</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-orange-600 hover:bg-[#353534]">sync</button>
+<button class="material-symbols-outlined text-xs p-1 text-[#353534] hover:text-tertiary hover:bg-error-container">block</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Pagination Control -->
+<div class="bg-surface-container px-6 py-3 flex justify-between items-center border-t-4 border-[#353534]">
+<div class="text-[10px] font-bold uppercase text-[#353534]">Showing 4 of 1,248 Nodes Registered</div>
+<div class="flex items-center gap-1">
+<button class="bg-[#131313] p-1 border-2 border-[#353534] text-[#353534] hover:border-orange-600 hover:text-orange-600"><span class="material-symbols-outlined">first_page</span></button>
+<button class="bg-[#131313] p-1 border-2 border-[#353534] text-[#353534] hover:border-orange-600 hover:text-orange-600"><span class="material-symbols-outlined">chevron_left</span></button>
+<div class="px-4 py-1 border-2 border-orange-600 text-orange-600 text-xs font-black">1</div>
+<button class="bg-[#131313] p-1 border-2 border-[#353534] text-[#353534] hover:border-orange-600 hover:text-orange-600"><span class="material-symbols-outlined">chevron_right</span></button>
+<button class="bg-[#131313] p-1 border-2 border-[#353534] text-[#353534] hover:border-orange-600 hover:text-orange-600"><span class="material-symbols-outlined">last_page</span></button>
+</div>
+</div>
+</div>
+<!-- Contextual Action Panel -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Deployment Script Card -->
+<div class="bg-surface-container border-4 border-[#353534] p-6 space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-orange-600">terminal</span>
+<h3 class="font-headline font-bold uppercase text-sm">Deployment_Binary // สคริปต์การติดตั้ง</h3>
+</div>
+<p class="text-[10px] text-on-surface-variant font-body leading-tight">
+                        Fetch latest security-hardened deployment shell scripts. Compatible with RHEL, Ubuntu, and custom Sector-OS kernels.
+                    </p>
+<div class="flex flex-col gap-2">
+<button class="w-full bg-[#131313] border-2 border-orange-600 text-orange-600 px-4 py-2 font-headline font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 hover:text-black transition-all">
+                            DOWNLOAD_LINUX_X64
+                        </button>
+<button class="w-full bg-[#131313] border-2 border-[#353534] text-[#353534] px-4 py-2 font-headline font-black text-[10px] uppercase tracking-widest hover:border-orange-600 hover:text-orange-600 transition-all">
+                            DOWNLOAD_ARM_V8
+                        </button>
+</div>
+</div>
+<!-- Global Token Policy Card -->
+<div class="bg-surface-container border-4 border-[#353534] p-6 space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-orange-600">verified_user</span>
+<h3 class="font-headline font-bold uppercase text-sm">Token_Lifecycle // นโยบายความปลอดภัย</h3>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px]">
+<span class="text-[#353534] font-black uppercase">Auto-Rotation</span>
+<span class="text-secondary font-black">ENABLED [24H]</span>
+</div>
+<div class="w-full bg-[#131313] h-2">
+<div class="bg-secondary h-full w-[65%]"></div>
+</div>
+<div class="flex justify-between text-[10px]">
+<span class="text-[#353534] font-black uppercase">Next Rotation In:</span>
+<span class="text-on-surface font-black">08:24:12</span>
+</div>
+</div>
+<button class="w-full bg-tertiary-container text-on-primary-container px-4 py-2 font-headline font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all">
+                        FORCE_GLOBAL_ROTATE
+                    </button>
+</div>
+<!-- Sector Map Snapshot -->
+<div class="relative bg-surface-container border-4 border-[#353534] overflow-hidden group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 grayscale brightness-50 group-hover:scale-105 transition-transform duration-1000" data-alt="industrial dark map interface with orange glowing points showing network node locations across a city grid" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9vW5wR6mXOF3UCmjxpCE4dZ3oiagjfcAXbgGhH3VyT9SYc0V9Ferby6zpES-DzfsP4j74a_ozsXggvK8XwsSnjtxNeEqjz-iMbLkkl5AwsnpxCO-ga4XJ-uyMrMta4znQ9YoIe4a3hwnMl2Hi4wpxsO4GZ7bLJFqVjsRFZljD0U3y3_G_3lIplvoB93Bb7Y1dhOLKVzFdckHboH7wWXF_9RZllNSZHXtwCLwYmfqjAd1chNAYItmQ90Dic52DI2Fejh4FQPeT8pY"/>
+<div class="relative p-6 h-full flex flex-col justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-orange-600">location_on</span>
+<h3 class="font-headline font-bold uppercase text-sm">Sector_Coverage // แผนที่ครอบคลุม</h3>
+</div>
+<div class="space-y-2">
+<div class="bg-[#131313]/80 backdrop-blur-sm p-3 border-l-4 border-orange-600">
+<div class="text-[10px] font-black text-orange-600 uppercase">Sector_04_Alert</div>
+<div class="text-[9px] text-on-surface-variant uppercase">3 Nodes showing critical latency issues.</div>
+</div>
+<button class="w-full bg-[#131313] border-2 border-white text-white px-4 py-2 font-headline font-black text-[10px] uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                                OPEN_TACTICAL_MAP
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB for Critical Quick Action (Only on Dashboard context) -->
+<button class="fixed bottom-8 right-8 bg-orange-600 text-black w-14 h-14 flex items-center justify-center border-4 border-white shadow-2xl hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined font-black" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+</body></html>

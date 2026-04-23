@@ -60,6 +60,12 @@ function createPortalEnvRuntime(deps = {}) {
       || processEnv.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
       || '',
   ).trim();
+  const googleClientId = String(
+    processEnv.WEB_PORTAL_GOOGLE_CLIENT_ID || '',
+  ).trim();
+  const googleClientSecret = String(
+    processEnv.WEB_PORTAL_GOOGLE_CLIENT_SECRET || '',
+  ).trim();
   const discordGuildId = String(
     processEnv.WEB_PORTAL_DISCORD_GUILD_ID || processEnv.DISCORD_GUILD_ID || '',
   ).trim();
@@ -76,6 +82,9 @@ function createPortalEnvRuntime(deps = {}) {
   const discordRedirectPath = String(
     processEnv.WEB_PORTAL_DISCORD_REDIRECT_PATH || '/auth/discord/callback',
   ).trim() || '/auth/discord/callback';
+  const googleRedirectPath = String(
+    processEnv.WEB_PORTAL_GOOGLE_REDIRECT_PATH || '/auth/google/callback',
+  ).trim() || '/auth/google/callback';
   const cleanupIntervalMs = asInt(
     processEnv.WEB_PORTAL_CLEANUP_INTERVAL_MS,
     60_000,
@@ -126,11 +135,14 @@ function createPortalEnvRuntime(deps = {}) {
     enforceOriginCheck,
     discordClientId,
     discordClientSecret,
+    googleClientId,
+    googleClientSecret,
     discordGuildId,
     playerOpenAccess,
     requireGuildMember,
     oauthStateTtlMs,
     discordRedirectPath,
+    googleRedirectPath,
     cleanupIntervalMs,
     publicAssetsDirPath,
     discordApiBase: 'https://discord.com/api/v10',

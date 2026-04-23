@@ -137,7 +137,11 @@ function createPlatformAgentRuntimeService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformAgentRuntime.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform agent runtime global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformAgentRuntime.findMany({

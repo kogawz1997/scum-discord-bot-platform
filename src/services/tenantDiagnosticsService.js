@@ -6,6 +6,8 @@
 
 'use strict';
 
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
+
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -91,6 +93,115 @@ function summarizeDeliveryDiagnostics(reconcile) {
   };
 }
 
+function summarizeIdentityDiagnostics(accounts = []) {
+  const rows = Array.isArray(accounts) ? accounts : [];
+  const items = rows.slice(0, 12).map((row) => {
+    const linked = Boolean(trimText(row?.steamId, 120));
+    const active = row?.isActive !== false;
+    const status = !linked
+      ? 'missing-steam'
+      : !active
+        ? 'inactive'
+        : 'linked';
+    return {
+      discordId: trimText(row?.discordId, 120),
+      displayName: trimText(row?.displayName || row?.username || row?.discordId, 160) || 'player',
+      steamId: trimText(row?.steamId, 120) || null,
+      isActive: active,
+      status,
+      detail: !linked
+        ? 'Steam link is still missing for this player account.'
+        : !active
+          ? 'Player account exists but is currently marked inactive.'
+          : 'Steam link is present and ready for support follow-up.',
+      updatedAt: row?.updatedAt || row?.createdAt || null,
+    };
+  });
+  const linkedCount = rows.filter((row) => Boolean(trimText(row?.steamId, 120))).length;
+  const missingSteamCount = rows.filter((row) => !trimText(row?.steamId, 120)).length;
+  const inactiveCount = rows.filter((row) => row?.isActive === false).length;
+  return {
+    total: rows.length,
+    linked: linkedCount,
+    missingSteam: missingSteamCount,
+    inactive: inactiveCount,
+    needsSupport: items.filter((item) => item.status !== 'linked').length,
+    items,
+  };
+}
+
+function normalizeIdentitySupportIntent(value, fallback = 'review') {
+  const normalized = trimText(value, 80).toLowerCase();
+  if (normalized === 'set') return 'bind';
+  if (normalized === 'remove' || normalized === 'unbind') return 'unlink';
+  if (['bind', 'unlink', 'relink', 'conflict', 'review'].includes(normalized)) {
+    return normalized;
+  }
+  return trimText(fallback, 80).toLowerCase() || 'review';
+}
+
+function normalizeIdentitySupportOutcome(value, fallback = 'reviewing') {
+  const normalized = trimText(value, 80).toLowerCase().replace(/\s+/g, '-');
+  if (['resolved', 'pending-verification', 'pending-player-reply', 'reviewing'].includes(normalized)) {
+    return normalized;
+  }
+  return trimText(fallback, 80).toLowerCase() || 'reviewing';
+}
+
+function isIdentitySupportNotification(row) {
+  return trimText(row?.data?.eventType || row?.kind, 160).toLowerCase() === 'platform.player.identity.support';
+}
+
+function isNotificationAcknowledged(row) {
+  return row?.acknowledged === true || Boolean(row?.acknowledgedAt);
+}
+
+function summarizeIdentitySupportTrail(notifications = [], identity = {}) {
+  const identityItems = Array.isArray(identity?.items) ? identity.items : [];
+  const playerLookup = new Map(
+    identityItems
+      .filter((row) => trimText(row?.discordId, 120))
+      .map((row) => [trimText(row.discordId, 120), row]),
+  );
+  const rows = (Array.isArray(notifications) ? notifications : [])
+    .filter((row) => isIdentitySupportNotification(row))
+    .slice()
+    .sort((left, right) => {
+      const leftTime = parseDateOrNull(left?.createdAt || left?.updatedAt || left?.data?.occurredAt)?.getTime() || 0;
+      const rightTime = parseDateOrNull(right?.createdAt || right?.updatedAt || right?.data?.occurredAt)?.getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+  return {
+    total: rows.length,
+    items: rows.slice(0, 8).map((row) => {
+      const userId = trimText(row?.data?.userId, 120);
+      const player = playerLookup.get(userId) || null;
+      return {
+        notificationId: trimText(row?.id, 160) || null,
+        userId: userId || null,
+        displayName: trimText(
+          row?.data?.displayName
+          || player?.displayName
+          || player?.discordId
+          || userId,
+          160,
+        ) || 'player',
+        steamId: trimText(row?.data?.steamId || player?.steamId, 120) || null,
+        supportIntent: normalizeIdentitySupportIntent(row?.data?.supportIntent || row?.data?.action || 'review'),
+        supportOutcome: normalizeIdentitySupportOutcome(row?.data?.supportOutcome || row?.severity || 'reviewing'),
+        supportSource: trimText(row?.data?.supportSource || row?.source, 80) || 'tenant',
+        supportReason: trimText(row?.data?.supportReason || row?.detail || row?.message, 400) || null,
+        followupAction: normalizeIdentitySupportIntent(row?.data?.followupAction || 'review'),
+        actor: trimText(row?.data?.actor, 160) || 'admin-web',
+        createdAt: row?.createdAt || row?.updatedAt || row?.data?.occurredAt || null,
+        acknowledged: isNotificationAcknowledged(row),
+        acknowledgedAt: row?.acknowledgedAt || null,
+      };
+    }),
+  };
+}
+
 function buildDiagnosticsHeadline(bundle) {
   const tenantName = bundle?.tenant?.name || bundle?.tenant?.slug || bundle?.tenantId || 'tenant';
   const delivery = bundle?.delivery || {};
@@ -117,6 +228,7 @@ function resolveTenantDiagnosticsDeps(overrides = {}) {
   const requireAdminRequestLogStore = () => require('../store/adminRequestLogStore');
   const requirePlatformOpsStateStore = () => require('../store/platformOpsStateStore');
   const requirePlatformAutomationStateStore = () => require('../store/platformAutomationStateStore');
+  const requirePlayerAccountStore = () => require('../store/playerAccountStore');
 
   if (
     !resolved.getPlatformAnalyticsOverview
@@ -176,12 +288,21 @@ function resolveTenantDiagnosticsDeps(overrides = {}) {
     resolved.getPlatformAutomationState =
       requirePlatformAutomationStateStore().getPlatformAutomationState;
   }
+  if (!resolved.listPlayerAccounts) {
+    resolved.listPlayerAccounts =
+      requirePlayerAccountStore().listPlayerAccounts;
+  }
 
   return resolved;
 }
 
 async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
-  const scopedTenantId = trimText(tenantId, 120);
+  const scope = assertTenantDbIsolationScope({
+    tenantId: trimText(tenantId, 120) || null,
+    operation: 'tenant diagnostics bundle',
+    env: options.env || process.env,
+  });
+  const scopedTenantId = trimText(scope.tenantId, 120);
   if (!scopedTenantId) {
     return null;
   }
@@ -205,6 +326,7 @@ async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
     runtimeSupervisor,
     platformOps,
     automation,
+    playerAccounts,
   ] = await Promise.all([
     deps.getPlatformTenantById(scopedTenantId),
     deps.getTenantOperationalState(scopedTenantId).catch(() => null),
@@ -225,16 +347,27 @@ async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
     deps.getRuntimeSupervisorSnapshot().catch(() => null),
     Promise.resolve(deps.getPlatformOpsState()),
     Promise.resolve(deps.getPlatformAutomationState()),
+    deps.listPlayerAccounts(sampleLimit, {
+      tenantId: scopedTenantId,
+      allowGlobal: false,
+      env: options.env || process.env,
+    }).catch(() => []),
   ]);
 
-  const notificationRows = filterRowsByTenant(
+  const allNotificationRows = filterRowsByTenant(
     deps.listAdminNotifications({
-      limit: sampleLimit * 4,
-      acknowledged: false,
+      limit: sampleLimit * 6,
       tenantId: scopedTenantId,
     }),
     scopedTenantId,
-  ).slice(0, sampleLimit);
+  );
+  const notificationRows = allNotificationRows
+    .filter((row) => !isNotificationAcknowledged(row))
+    .filter((row) => !isIdentitySupportNotification(row))
+    .slice(0, sampleLimit);
+
+  const identity = summarizeIdentityDiagnostics(playerAccounts);
+  const identityTrail = summarizeIdentitySupportTrail(allNotificationRows, identity);
 
   const requestErrorRows = deps.listAdminRequestLogs({
     tenantId: scopedTenantId,
@@ -266,6 +399,11 @@ async function buildTenantDiagnosticsBundle(tenantId, options = {}) {
       items: requestErrorRows,
     },
     runtime: summarizeRuntimeSupervisor(runtimeSupervisor || {}),
+    identity: {
+      ...identity,
+      trail: identityTrail.items,
+      trailTotal: identityTrail.total,
+    },
     platform: {
       lastMonitoringAt: platformOps?.lastMonitoringAt || null,
       lastReconcileAt: platformOps?.lastReconcileAt || null,
@@ -323,6 +461,7 @@ function buildSupportPhase(bundle) {
   const anomalies = asInt(bundle?.delivery?.anomalies, 0);
   const notifications = Array.isArray(bundle?.notifications) ? bundle.notifications.length : 0;
   const degradedRuntime = asInt(bundle?.runtime?.degraded, 0);
+  const identityNeedsSupport = asInt(bundle?.identity?.needsSupport, 0);
 
   if (tenantStatus === 'suspended' || tenantStatus === 'inactive') {
     return {
@@ -354,6 +493,14 @@ function buildSupportPhase(bundle) {
       tone: 'warning',
       label: 'needs attention',
       detail: 'Support or runtime signals need follow-up before the tenant is considered quiet.',
+    };
+  }
+  if (identityNeedsSupport > 0) {
+    return {
+      key: 'identity-attention',
+      tone: 'warning',
+      label: 'identity attention',
+      detail: 'Player identity issues still need follow-up before player-facing support is quiet.',
     };
   }
   if (subscriptionStatus === 'active' && (licenseStatus === 'active' || licenseStatus === 'trialing')) {
@@ -516,6 +663,14 @@ function buildSupportSignals(bundle) {
       detail: 'Anti-abuse signals were raised for this tenant.',
     });
   }
+  if (asInt(bundle?.identity?.needsSupport, 0) > 0) {
+    items.push({
+      key: 'identity-gaps',
+      tone: 'warning',
+      count: asInt(bundle?.identity?.needsSupport, 0),
+      detail: 'Some player identities are missing Steam links or still need account recovery follow-up.',
+    });
+  }
   return items;
 }
 
@@ -544,6 +699,9 @@ function buildSupportActions(bundle, signals) {
   if (signals.some((item) => item.key === 'open-alerts')) {
     pushAction('clear-alerts', 'info', 'Review and acknowledge tenant-tagged notifications so the support context is quiet again.');
   }
+  if (signals.some((item) => item.key === 'identity-gaps')) {
+    pushAction('review-player-identity', 'warning', 'Open the player identity workspace and confirm Steam linking or recovery status before retrying player-facing steps.');
+  }
   if (!Array.isArray(bundle?.integrations?.apiKeys) || bundle.integrations.apiKeys.length === 0) {
     pushAction('confirm-integrations', 'info', 'Only provision API keys or webhooks if the tenant actually needs an integration path.');
   }
@@ -554,6 +712,11 @@ function buildSupportActions(bundle, signals) {
 }
 
 async function buildTenantSupportCaseBundle(tenantId, options = {}) {
+  assertTenantDbIsolationScope({
+    tenantId: trimText(tenantId, 120) || null,
+    operation: 'tenant support case bundle',
+    env: options.env || process.env,
+  });
   const diagnostics = await buildTenantDiagnosticsBundle(tenantId, options);
   if (!diagnostics) return null;
 
@@ -587,6 +750,7 @@ async function buildTenantSupportCaseBundle(tenantId, options = {}) {
       total: signals.length,
       items: signals,
     },
+    identity: diagnostics.identity || null,
     actions,
     diagnostics,
   };
@@ -608,6 +772,10 @@ function buildTenantSupportCaseCsv(bundle) {
     ['requiredOnboardingTotal', asInt(bundle?.onboarding?.requiredTotal, 0)],
     ['signals', asInt(bundle?.signals?.total, 0)],
     ['actions', Array.isArray(bundle?.actions) ? bundle.actions.length : 0],
+    ['identityPlayers', asInt(bundle?.identity?.total, 0)],
+    ['identityNeedsSupport', asInt(bundle?.identity?.needsSupport, 0)],
+    ['identityMissingSteam', asInt(bundle?.identity?.missingSteam, 0)],
+    ['identitySupportTrail', asInt(bundle?.identity?.trailTotal, Array.isArray(bundle?.identity?.trail) ? bundle.identity.trail.length : 0)],
     ['deliveryAnomalies', asInt(bundle?.diagnostics?.delivery?.anomalies, 0)],
     ['deadLetters', asInt(bundle?.diagnostics?.delivery?.deadLetters, 0)],
     ['requestErrors', asInt(bundle?.diagnostics?.requestErrors?.summary?.total, 0)],

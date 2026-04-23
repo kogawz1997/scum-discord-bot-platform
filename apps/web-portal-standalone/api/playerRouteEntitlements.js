@@ -25,10 +25,17 @@ async function loadPlayerFeatureAccess(getTenantFeatureAccess, session) {
       enabledFeatureKeys: [],
     });
   }
-  const raw = await getTenantFeatureAccess(session.tenantId, {
-    allowFallback: true,
-  });
-  return normalizeFeatureAccess(raw);
+  try {
+    const raw = await getTenantFeatureAccess(session.tenantId, {
+      allowFallback: true,
+    });
+    return normalizeFeatureAccess(raw);
+  } catch {
+    return normalizeFeatureAccess({
+      tenantId: session?.tenantId || null,
+      enabledFeatureKeys: [],
+    });
+  }
 }
 
 function toFeatureList(requiredFeatures) {

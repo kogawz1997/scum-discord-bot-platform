@@ -1,0 +1,27 @@
+{
+  "name": "owner-ui-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5177",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4177",
+    "test": "vitest run",
+    "verify:browser": "npx --yes -p playwright node scripts/verify-owner-flow.cjs",
+    "verify:live": "node scripts/verify-owner-live-backend.cjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.468.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  },
+  "devDependencies": {}
+}

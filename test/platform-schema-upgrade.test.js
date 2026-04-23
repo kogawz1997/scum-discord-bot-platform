@@ -11,6 +11,7 @@ const {
 } = require('../scripts/postgres-platform-schema-upgrade');
 const {
   buildSqliteCompatibleMigrationSql,
+  stripLegacyHybridDefaultsFromSqliteDatabase,
 } = require('../scripts/platform-schema-upgrade');
 
 test('buildPostgresCompatibleMigrationSql converts SQLite datetime and boolean defaults', () => {
@@ -50,6 +51,14 @@ test('buildLegacyPlatformReconciliationSql includes representative legacy backfi
     sql,
     /ALTER TABLE IF EXISTS public\."platform_billing_invoices" ALTER COLUMN "amountCents" SET DEFAULT 0;/,
   );
+  assert.match(
+    sql,
+    /ALTER TABLE IF EXISTS public\."ControlPlaneAgent" ALTER COLUMN "role" DROP DEFAULT;/,
+  );
+  assert.match(
+    sql,
+    /ALTER TABLE IF EXISTS public\."ControlPlaneSyncRun" ALTER COLUMN "scope" DROP DEFAULT;/,
+  );
 });
 
 test('buildSqliteCompatibleMigrationSql rewrites ADD COLUMN IF NOT EXISTS for missing columns', () => {
@@ -79,4 +88,58 @@ test('buildSqliteCompatibleMigrationSql skips ADD COLUMN IF NOT EXISTS when the 
   });
 
   assert.match(rendered, /skipped existing column platform_users\.passwordHash/);
+});
+
+test('buildSqliteCompatibleMigrationSql strips legacy hybrid control-plane defaults', () => {
+  const migrationSql = [
+    'CREATE TABLE "ControlPlaneAgent" (',
+    '  "role" TEXT NOT NULL DEFAULT \'hybrid\',',
+    '  "scope" TEXT NOT NULL DEFAULT \'sync_execute\'',
+    ');',
+  ].join('\n');
+
+  const rendered = buildSqliteCompatibleMigrationSql(migrationSql, {
+    databaseFilePath: path.join(os.tmpdir(), `codex-default-strip-${process.pid}.db`),
+  });
+
+  assert.doesNotMatch(rendered, /DEFAULT 'hybrid'/);
+  assert.doesNotMatch(rendered, /DEFAULT 'sync_execute'/);
+  assert.match(rendered, /"role" TEXT NOT NULL,/);
+  assert.match(rendered, /"scope" TEXT NOT NULL/);
+});
+
+test('stripLegacyHybridDefaultsFromSqliteDatabase scrubs tracked sqlite artifacts in place', async (t) => {
+  const dbPath = path.join(os.tmpdir(), `codex-runtime-defaults-${process.pid}-${Date.now()}.db`);
+  const db = new DatabaseSync(dbPath);
+  db.exec([
+    'CREATE TABLE "ControlPlaneAgent" (',
+    '  "id" TEXT PRIMARY KEY,',
+    '  "role" TEXT NOT NULL DEFAULT \'hybrid\',',
+    '  "scope" TEXT NOT NULL DEFAULT \'sync_execute\'',
+    ');',
+    'INSERT INTO "ControlPlaneAgent" ("id", "role", "scope") VALUES (\'agent-1\', \'delivery\', \'execute_only\');',
+  ].join('\n'));
+  db.close();
+  t.after(() => {
+    fs.rmSync(dbPath, { force: true });
+  });
+
+  const result = stripLegacyHybridDefaultsFromSqliteDatabase(dbPath);
+
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.updatedTables, ['ControlPlaneAgent']);
+
+  const verifyDb = new DatabaseSync(dbPath, { readOnly: true });
+  const schemaRow = verifyDb.prepare(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'ControlPlaneAgent'
+  `).get();
+  const dataRow = verifyDb.prepare('SELECT "role", "scope" FROM "ControlPlaneAgent" WHERE "id" = ?').get('agent-1');
+  verifyDb.close();
+
+  assert.equal(dataRow.role, 'delivery');
+  assert.equal(dataRow.scope, 'execute_only');
+  assert.doesNotMatch(String(schemaRow?.sql || ''), /DEFAULT 'hybrid'/);
+  assert.doesNotMatch(String(schemaRow?.sql || ''), /DEFAULT 'sync_execute'/);
 });

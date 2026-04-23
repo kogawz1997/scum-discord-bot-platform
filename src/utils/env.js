@@ -476,22 +476,50 @@ function getPortalRuntimeErrors(env = process.env) {
 
   const portalMode = String(env.WEB_PORTAL_MODE || 'player').trim().toLowerCase() || 'player';
   if (portalMode === 'player') {
-    const portalClientId = String(
+    const portalDiscordClientId = String(
       env.WEB_PORTAL_DISCORD_CLIENT_ID
         || env.ADMIN_WEB_SSO_DISCORD_CLIENT_ID
         || env.DISCORD_CLIENT_ID
         || '',
     ).trim();
-    const portalClientSecret = String(
+    const portalDiscordClientSecret = String(
       env.WEB_PORTAL_DISCORD_CLIENT_SECRET
         || env.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
         || '',
     ).trim();
-    if (!portalClientId || isLikelyPlaceholder(portalClientId)) {
-      errors.push('Production player portal requires WEB_PORTAL_DISCORD_CLIENT_ID (or ADMIN_WEB_SSO_DISCORD_CLIENT_ID / DISCORD_CLIENT_ID fallback).');
+    const portalGoogleClientId = String(
+      env.WEB_PORTAL_GOOGLE_CLIENT_ID || '',
+    ).trim();
+    const portalGoogleClientSecret = String(
+      env.WEB_PORTAL_GOOGLE_CLIENT_SECRET || '',
+    ).trim();
+    const discordConfigured = Boolean(
+      portalDiscordClientId
+      && !isLikelyPlaceholder(portalDiscordClientId)
+      && portalDiscordClientSecret
+      && !isLikelyPlaceholder(portalDiscordClientSecret),
+    );
+    const googleConfigured = Boolean(
+      portalGoogleClientId
+      && !isLikelyPlaceholder(portalGoogleClientId)
+      && portalGoogleClientSecret
+      && !isLikelyPlaceholder(portalGoogleClientSecret),
+    );
+    const discordPartial = Boolean(portalDiscordClientId || portalDiscordClientSecret)
+      && !discordConfigured;
+    const googlePartial = Boolean(portalGoogleClientId || portalGoogleClientSecret)
+      && !googleConfigured;
+
+    if (discordPartial) {
+      errors.push('Production player portal Discord OAuth requires both WEB_PORTAL_DISCORD_CLIENT_ID and WEB_PORTAL_DISCORD_CLIENT_SECRET.');
     }
-    if (!portalClientSecret || isLikelyPlaceholder(portalClientSecret)) {
-      errors.push('Production player portal requires WEB_PORTAL_DISCORD_CLIENT_SECRET (or ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET fallback).');
+
+    if (googlePartial) {
+      errors.push('Production player portal Google OAuth requires both WEB_PORTAL_GOOGLE_CLIENT_ID and WEB_PORTAL_GOOGLE_CLIENT_SECRET.');
+    }
+
+    if (!discordConfigured && !googleConfigured) {
+      errors.push('Production player portal requires at least one OAuth provider: Discord or Google.');
     }
   }
 

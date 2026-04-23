@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AEGIS COMMAND - Observability &amp; Jobs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#a4e6ff",
+                        "secondary-fixed": "#ffdea8",
+                        "inverse-primary": "#00677f",
+                        "on-secondary": "#412d00",
+                        "on-primary-container": "#00566a",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#271900",
+                        "on-secondary-container": "#6b4b00",
+                        "on-tertiary": "#68000b",
+                        "on-primary-fixed-variant": "#004e60",
+                        "primary-container": "#00d1ff",
+                        "on-surface": "#e3e2e4",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface-container-high": "#292a2c",
+                        "surface-dim": "#121315",
+                        "secondary": "#ffdb9d",
+                        "surface-variant": "#343537",
+                        "on-primary": "#003543",
+                        "surface-bright": "#38393b",
+                        "surface-container-low": "#1b1c1e",
+                        "surface-tint": "#4cd6ff",
+                        "surface-container": "#1f2022",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#3c494e",
+                        "outline": "#859399",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-tertiary-container": "#a10017",
+                        "tertiary": "#ffd1ce",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-surface-variant": "#bbc9cf",
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "surface-container-highest": "#343537",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "secondary-container": "#feb700",
+                        "inverse-surface": "#e3e2e4",
+                        "on-tertiary-fixed": "#410004",
+                        "background": "#121315",
+                        "on-background": "#e3e2e4",
+                        "inverse-on-surface": "#303032",
+                        "primary-fixed": "#b7eaff",
+                        "tertiary-container": "#ffaaa4",
+                        "surface": "#121315"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .log-line:hover {
+            background: rgba(0, 209, 255, 0.05);
+        }
+        .pulse-indicator {
+            box-shadow: 0 0 0 0 rgba(0, 209, 255, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 209, 255, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 4px rgba(0, 209, 255, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 209, 255, 0); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body selection:bg-primary-container selection:text-on-primary-container">
+<div class="flex min-h-screen">
+<!-- SideNavBar Component -->
+<aside class="h-screen w-72 flex flex-col border-r sticky left-0 top-0 bg-gray-950 border-zinc-800/80 font-['Public_Sans'] text-sm font-medium select-none cursor-pointer">
+<div class="p-6 flex items-center gap-3">
+<div class="w-8 h-8 bg-cyan-500 flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-gray-950" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-zinc-100 tracking-tight">AEGIS COMMAND</h1>
+<p class="text-[10px] uppercase tracking-widest text-cyan-500 font-black">Platform Authority</p>
+</div>
+</div>
+<nav class="flex-col gap-1 py-4 overflow-y-auto flex-1">
+<!-- Navigation Mapping: Overview, Tenants, etc. -->
+<div class="px-4 py-2 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Core Systems</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg">dashboard</span> Overview
+                </div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg">groups</span> Tenants
+                </div>
+<div class="px-4 py-2 mt-4 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Fleet &amp; Runtime</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg">monitor_heart</span> Runtime Health
+                </div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg">local_shipping</span> Fleet: Agents
+                </div>
+<div class="px-4 py-2 mt-4 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Operations</div>
+<!-- Active Navigation: Observability -->
+<div class="bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500 rounded-r-lg py-3 px-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">analytics</span> Observability
+                </div>
+<!-- Active Navigation: Jobs (Grouped) -->
+<div class="bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500 rounded-r-lg py-3 px-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">terminal</span> Jobs
+                </div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 flex items-center gap-3">
+<span class="material-symbols-outlined text-lg">warning</span> Incidents
+                </div>
+</nav>
+<div class="p-4 border-t border-zinc-800/80">
+<div class="flex items-center gap-3 p-2 bg-zinc-900/50 rounded-lg">
+<div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="portrait of a professional male tech executive in a dark suit with a focused expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrs9CQ8vC_2Kx-NPbZunvTzmZhhOxSYJ9lsqCH0WShTZTaf2950szrpe8-nz6TdXV77_mmRZJ3qhf5Un-R0sdLL-bGXTGzrl3ftnVJ0A_0Z7mJpyy34W0yksh1GvMtZk9LDQvdsn-CNqsXqSb0T5DffBTgdKI2kUpUlyVErLICEJjXhHA-XvTSaE7RUfvNQQeyYYZoHlAjhgB3S3ma6-fJri_-haTpjIhOZdi3ievAhrrmvIUhj_EAuMVfhQKjv4S9_l6iBqkyb4s"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold text-zinc-200 truncate">Owner Admin</p>
+<p class="text-[10px] text-zinc-500 truncate">Authority Level 5</p>
+</div>
+<span class="material-symbols-outlined text-zinc-500 text-sm">settings</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+<!-- TopNavBar Component -->
+<header class="bg-gray-950/95 border-b border-zinc-800 font-['Public_Sans'] font-semibold tracking-tight z-50 sticky top-0 shadow-xl shadow-black/20 flex justify-between items-center w-full px-6 py-3 backdrop-blur-md">
+<div class="flex items-center gap-6">
+<span class="text-xl font-black tracking-tighter text-cyan-500 uppercase">AEGIS COMMAND</span>
+<div class="h-6 w-[1px] bg-zinc-800"></div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-2 text-zinc-400 text-xs">
+<span class="w-2 h-2 rounded-full bg-cyan-500 pulse-indicator"></span>
+                            PLATFORM: STABLE
+                        </span>
+<span class="flex items-center gap-2 text-zinc-400 text-xs">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            AGENTS: 1,240 ONLINE
+                        </span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-zinc-900 border border-zinc-800 rounded px-3 py-1 gap-2">
+<span class="material-symbols-outlined text-zinc-500 text-sm">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 text-zinc-300 w-48 placeholder:text-zinc-600" placeholder="Search resources..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 transition-colors duration-200 cursor-pointer rounded active:scale-95 transition-transform material-symbols-outlined">refresh</button>
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 transition-colors duration-200 cursor-pointer rounded active:scale-95 transition-transform material-symbols-outlined">language</button>
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 transition-colors duration-200 cursor-pointer rounded active:scale-95 transition-transform material-symbols-outlined">notifications</button>
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 transition-colors duration-200 cursor-pointer rounded active:scale-95 transition-transform material-symbols-outlined">logout</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area: Observability & Jobs Bento -->
+<div class="p-6 overflow-y-auto space-y-6">
+<!-- Page Header & Global Filters -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-2xl font-bold text-zinc-100 tracking-tight flex items-center gap-3">
+                            Observability Control <span class="text-cyan-500 font-mono text-xs border border-cyan-500/30 px-2 py-0.5 rounded">LIVE_FEED</span>
+</h2>
+<p class="text-zinc-500 text-sm mt-1">Real-time system telemetry and automated task execution pipeline.</p>
+</div>
+<div class="flex gap-3">
+<div class="flex bg-zinc-900 rounded border border-zinc-800 p-1">
+<button class="px-3 py-1.5 text-xs font-semibold text-cyan-400 bg-cyan-500/10 rounded">SYSTEM_LOGS</button>
+<button class="px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-300">BOT_TELEMETRY</button>
+<button class="px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-300">AGENT_POSTURE</button>
+</div>
+<button class="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-cyan-900/20 active:scale-95">
+<span class="material-symbols-outlined text-sm">play_arrow</span> Run Automation
+                        </button>
+</div>
+</div>
+<!-- Control Room Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- LEFT COLUMN: LIVE TACTICAL STREAM (Logs) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col h-[600px] bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden shadow-inner">
+<div class="bg-zinc-900/50 px-4 py-2 flex items-center justify-between border-b border-zinc-800">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-2 text-[10px] font-bold text-cyan-400 tracking-widest uppercase">
+<span class="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span> Stream Active
+                                </span>
+<div class="h-4 w-[1px] bg-zinc-800"></div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] text-zinc-500 uppercase font-bold">Filter:</span>
+<button class="px-2 py-0.5 rounded bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20">ERRORS</button>
+<button class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-bold border border-amber-500/20">SLOW_REQ</button>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-zinc-500 hover:text-zinc-300 material-symbols-outlined text-sm">pause</button>
+<button class="text-zinc-500 hover:text-zinc-300 material-symbols-outlined text-sm">download</button>
+<button class="text-zinc-500 hover:text-zinc-300 material-symbols-outlined text-sm">settings</button>
+</div>
+</div>
+<!-- Log Feed -->
+<div class="flex-1 overflow-y-auto p-4 font-mono text-xs space-y-1 bg-black/40">
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:01.04</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">FLEET_MGR:</span>
+<span class="text-zinc-200 truncate flex-1">Agent AD-9012 established secure tunnel (Latency: 14ms)</span>
+<span class="text-zinc-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-cyan-400">INSPECT</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:02.11</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">COMMERCE:</span>
+<span class="text-zinc-200 truncate flex-1">Order processed successfully for Tenant: BRAVO_COMPANY</span>
+<span class="text-zinc-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-cyan-400">INSPECT</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded bg-red-500/5 group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:04.55</span>
+<span class="text-red-500 font-bold shrink-0">[ERROR]</span>
+<span class="text-zinc-400 shrink-0">SV_BOT_22:</span>
+<span class="text-red-200 truncate flex-1">Heartbeat timed out. Attempting reconnection protocol...</span>
+<button class="text-red-400 px-2 py-0 bg-red-500/20 rounded border border-red-500/20 text-[10px] font-bold opacity-0 group-hover:opacity-100">DEBUG</button>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:06.12</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">CORE:</span>
+<span class="text-zinc-200 truncate flex-1">Global state sync complete in 42ms.</span>
+<span class="text-zinc-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-cyan-400">INSPECT</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:08.89</span>
+<span class="text-amber-500 font-bold shrink-0">[WARN]</span>
+<span class="text-zinc-400 shrink-0">AGENT_04:</span>
+<span class="text-amber-200 truncate flex-1">Slow response detected (480ms) for path /api/deliver/payload</span>
+<span class="text-zinc-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-cyan-400">INSPECT</span>
+</div>
+<!-- Mock lines -->
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:10.02</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">AUTOMA:</span>
+<span class="text-zinc-200 truncate flex-1">Triggering backup job 'CRON_BACKUP_S3' for all critical databases</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:12.34</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">SV_BOT_01:</span>
+<span class="text-zinc-200 truncate flex-1">Configuration applied. Delta: 12 bytes. System state valid.</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded bg-red-500/5 group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:15.91</span>
+<span class="text-red-500 font-bold shrink-0">[FATAL]</span>
+<span class="text-zinc-400 shrink-0">ROUTING:</span>
+<span class="text-red-200 truncate flex-1">Dead-Letter Queue threshold exceeded for Server Bot cluster ALPHA</span>
+<button class="text-red-400 px-2 py-0 bg-red-500/20 rounded border border-red-500/20 text-[10px] font-bold opacity-0 group-hover:opacity-100">CLEAR_DLQ</button>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:17.02</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">PLATFORM:</span>
+<span class="text-zinc-200 truncate flex-1">Cleaning up stale sessions (Total: 42)</span>
+</div>
+<div class="log-line flex gap-4 p-1 rounded transition-colors group">
+<span class="text-zinc-600 w-24 shrink-0">14:22:19.44</span>
+<span class="text-emerald-500 font-bold shrink-0">[INFO]</span>
+<span class="text-zinc-400 shrink-0">AGENT_FL:</span>
+<span class="text-zinc-200 truncate flex-1">Rolling update started for version v1.4.2-stable</span>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: JOBS QUEUE & DLQ -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Automation Job Queue -->
+<div class="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex flex-col shadow-lg">
+<div class="bg-zinc-900/80 px-4 py-3 border-b border-zinc-800 flex justify-between items-center">
+<h3 class="text-xs font-bold text-zinc-200 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-cyan-400">list_alt</span> Job Queue
+                                </h3>
+<span class="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded text-[10px] font-bold">12 TOTAL</span>
+</div>
+<div class="p-0 overflow-y-auto max-h-[300px]">
+<!-- Executing -->
+<div class="px-4 py-3 border-b border-zinc-900 hover:bg-zinc-900/30 transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-500 text-lg animate-spin">sync</span>
+</div>
+<div>
+<p class="text-xs font-bold text-zinc-200">Database Indexing</p>
+<p class="text-[10px] text-zinc-500 font-mono italic">TaskID: Job_A291</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-[10px] font-bold text-cyan-400">72%</span>
+<div class="w-16 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-cyan-500" style="width: 72%"></div>
+</div>
+</div>
+</div>
+<!-- Pending -->
+<div class="px-4 py-3 border-b border-zinc-900 hover:bg-zinc-900/30 transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-zinc-500 text-lg">hourglass_empty</span>
+</div>
+<div>
+<p class="text-xs font-bold text-zinc-200">Log Compression</p>
+<p class="text-[10px] text-zinc-500 font-mono italic">TaskID: Job_F112</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-zinc-500 uppercase">Pending</span>
+</div>
+<!-- Failed -->
+<div class="px-4 py-3 border-b border-zinc-900 bg-red-500/5 hover:bg-red-500/10 transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-red-500 text-lg">error</span>
+</div>
+<div>
+<p class="text-xs font-bold text-red-200">Agent Version Sync</p>
+<p class="text-[10px] text-red-400/60 font-mono italic">TaskID: Job_X008</p>
+</div>
+</div>
+<button class="text-[10px] font-bold text-red-400 uppercase border border-red-400/30 px-2 py-1 rounded hover:bg-red-400 hover:text-red-950 transition-colors">Retry</button>
+</div>
+<!-- Finished -->
+<div class="px-4 py-3 border-b border-zinc-900 hover:bg-zinc-900/30 transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500 text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<p class="text-xs font-bold text-zinc-400">Daily Report Gen</p>
+<p class="text-[10px] text-zinc-600 font-mono italic">TaskID: Job_Z991</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-emerald-500 uppercase">Success</span>
+</div>
+</div>
+<div class="p-3 bg-zinc-900/50">
+<button class="w-full text-center text-zinc-500 hover:text-zinc-200 text-[10px] font-bold uppercase tracking-widest py-1 border border-dashed border-zinc-800 rounded">View History (24h)</button>
+</div>
+</div>
+<!-- DLQ Section -->
+<div class="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex flex-col shadow-lg border-l-4 border-l-red-500">
+<div class="bg-zinc-900/80 px-4 py-3 border-b border-zinc-800 flex justify-between items-center">
+<h3 class="text-xs font-bold text-red-400 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">move_to_inbox</span> Dead-Letter Queue
+                                </h3>
+<button class="text-[10px] font-bold text-zinc-500 hover:text-red-400 uppercase tracking-tighter">Clear All</button>
+</div>
+<div class="p-4 space-y-4">
+<!-- Delivery Agents DLQ -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Delivery Agents</span>
+<span class="text-[10px] font-mono text-red-500 font-bold">14 MSGS</span>
+</div>
+<div class="bg-black/50 border border-zinc-900 rounded p-2 text-[10px] font-mono text-zinc-500 space-y-1">
+<div class="flex justify-between hover:text-zinc-300 cursor-pointer">
+<span>MSG_ID: 0x9a2f...</span>
+<span class="text-zinc-600">TIMEOUT</span>
+</div>
+<div class="flex justify-between hover:text-zinc-300 cursor-pointer">
+<span>MSG_ID: 0x21bd...</span>
+<span class="text-zinc-600">MALFORMED</span>
+</div>
+</div>
+<button class="w-full py-1.5 text-[10px] font-bold text-zinc-400 hover:text-cyan-400 bg-zinc-900 rounded border border-zinc-800 transition-colors uppercase tracking-widest">Inspect Delivery DLQ</button>
+</div>
+<div class="h-[1px] bg-zinc-800"></div>
+<!-- Server Bots DLQ -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Server Bots</span>
+<span class="text-[10px] font-mono text-red-500 font-bold">08 MSGS</span>
+</div>
+<div class="bg-black/50 border border-zinc-900 rounded p-2 text-[10px] font-mono text-zinc-500 space-y-1">
+<div class="flex justify-between hover:text-zinc-300 cursor-pointer">
+<span>MSG_ID: 0xb441...</span>
+<span class="text-zinc-600">AUTH_FAIL</span>
+</div>
+<div class="flex justify-between hover:text-zinc-300 cursor-pointer">
+<span>MSG_ID: 0xc982...</span>
+<span class="text-zinc-600">STALE_CFG</span>
+</div>
+</div>
+<button class="w-full py-1.5 text-[10px] font-bold text-zinc-400 hover:text-cyan-400 bg-zinc-900 rounded border border-zinc-800 transition-colors uppercase tracking-widest">Inspect Bot DLQ</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Summary Strip -->
+<div class="grid grid-cols-4 gap-4">
+<div class="bg-zinc-900/50 border border-zinc-800 rounded p-4 flex items-center justify-between">
+<div>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">P99 Latency</p>
+<p class="text-lg font-bold text-zinc-100 font-mono">142ms</p>
+</div>
+<span class="material-symbols-outlined text-zinc-700 text-3xl">speed</span>
+</div>
+<div class="bg-zinc-900/50 border border-zinc-800 rounded p-4 flex items-center justify-between">
+<div>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Error Rate</p>
+<p class="text-lg font-bold text-red-400 font-mono">0.04%</p>
+</div>
+<span class="material-symbols-outlined text-zinc-700 text-3xl">query_stats</span>
+</div>
+<div class="bg-zinc-900/50 border border-zinc-800 rounded p-4 flex items-center justify-between">
+<div>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Queue Backlog</p>
+<p class="text-lg font-bold text-amber-500 font-mono">2,411</p>
+</div>
+<span class="material-symbols-outlined text-zinc-700 text-3xl">data_usage</span>
+</div>
+<div class="bg-zinc-900/50 border border-zinc-800 rounded p-4 flex items-center justify-between">
+<div>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Healthy Nodes</p>
+<p class="text-lg font-bold text-emerald-500 font-mono">99.8%</p>
+</div>
+<span class="material-symbols-outlined text-zinc-700 text-3xl">cloud_done</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Detail Rail -->
+<aside class="w-80 border-l border-zinc-800 bg-zinc-950 p-6 hidden xl:flex flex-col gap-6 sticky right-0 top-0 h-screen overflow-y-auto">
+<div>
+<h4 class="text-xs font-bold text-zinc-200 uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-sm">troubleshoot</span> Inspector
+                </h4>
+<div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-4">
+<div class="text-center py-8">
+<span class="material-symbols-outlined text-zinc-700 text-4xl mb-2">find_in_page</span>
+<p class="text-xs text-zinc-500">Select a log line or job to inspect metadata and request headers.</p>
+</div>
+</div>
+</div>
+<div class="flex-1">
+<h4 class="text-xs font-bold text-zinc-200 uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-sm">history</span> Operator Logs
+                </h4>
+<div class="space-y-3">
+<div class="relative pl-6 border-l border-zinc-800 space-y-1">
+<div class="absolute -left-1 top-0 w-2 h-2 rounded-full bg-cyan-500 shadow-lg shadow-cyan-500/50"></div>
+<p class="text-[10px] text-zinc-500 uppercase font-bold">14:10:02</p>
+<p class="text-[11px] text-zinc-300">Admin_Zero initiated Job_A291 (DB Indexing)</p>
+</div>
+<div class="relative pl-6 border-l border-zinc-800 space-y-1">
+<div class="absolute -left-1 top-0 w-2 h-2 rounded-full bg-zinc-700"></div>
+<p class="text-[10px] text-zinc-500 uppercase font-bold">13:45:11</p>
+<p class="text-[11px] text-zinc-300">System auto-cleared Delivery DLQ (42 stale msgs)</p>
+</div>
+<div class="relative pl-6 border-l border-zinc-800 space-y-1">
+<div class="absolute -left-1 top-0 w-2 h-2 rounded-full bg-zinc-700"></div>
+<p class="text-[10px] text-zinc-500 uppercase font-bold">12:30:59</p>
+<p class="text-[11px] text-zinc-300">Maintenance mode: DISABLED</p>
+</div>
+</div>
+</div>
+<div class="pt-6 border-t border-zinc-800">
+<button class="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors border border-zinc-700">
+<span class="material-symbols-outlined text-sm">export_notes</span> Export Diagnostics
+                </button>
+</div>
+</aside>
+</div>
+</body></html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#434b18",
+                    "inverse-on-surface": "#313030",
+                    "on-secondary-fixed-variant": "#434b18",
+                    "on-error": "#690005",
+                    "inverse-primary": "#9d4300",
+                    "on-background": "#e5e2e1",
+                    "on-tertiary-container": "#6c0007",
+                    "primary-fixed-dim": "#ffb690",
+                    "surface-container-low": "#1c1b1b",
+                    "on-secondary-fixed": "#191e00",
+                    "on-surface-variant": "#e0c0b1",
+                    "error": "#ffb4ab",
+                    "on-error-container": "#ffdad6",
+                    "surface-container": "#201f1f",
+                    "primary-fixed": "#ffdbca",
+                    "on-surface": "#e5e2e1",
+                    "error-container": "#93000a",
+                    "surface-tint": "#ffb690",
+                    "on-tertiary-fixed-variant": "#8e1214",
+                    "on-tertiary": "#690007",
+                    "surface-bright": "#393939",
+                    "inverse-surface": "#e5e2e1",
+                    "on-primary-fixed": "#341100",
+                    "surface": "#131313",
+                    "secondary": "#c3cc8c",
+                    "primary": "#ffb690",
+                    "tertiary-fixed-dim": "#ffb4ac",
+                    "on-tertiary-fixed": "#410002",
+                    "outline-variant": "#584237",
+                    "tertiary-fixed": "#ffdad6",
+                    "on-primary-fixed-variant": "#783200",
+                    "on-secondary-container": "#b1bb7c",
+                    "secondary-fixed": "#dfe8a6",
+                    "tertiary": "#ffb4ac",
+                    "surface-dim": "#131313",
+                    "tertiary-container": "#ff6a60",
+                    "on-secondary": "#2d3404",
+                    "outline": "#a78b7d",
+                    "secondary-fixed-dim": "#c3cc8c",
+                    "on-primary-container": "#582200",
+                    "surface-container-highest": "#353534",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-container": "#f97316",
+                    "surface-container-lowest": "#0e0e0e",
+                    "on-primary": "#552100",
+                    "surface-variant": "#353534",
+                    "background": "#131313"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Public Sans"],
+                    "label": ["Public Sans"]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Public Sans', sans-serif; }
+        h1, h2, h3, .brand { font-family: 'Space Grotesk', sans-serif; }
+        .thai-text { font-size: 110%; line-height: 1.6; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-screen overflow-y-auto bg-[#1C1B1B] border-r border-[#2A2A2A] docked left-0 w-64 shrink-0 no-scrollbar">
+<div class="p-6">
+<div class="text-lg font-bold text-[#F97316] brand">SCUM COMMAND</div>
+<div class="text-[10px] text-[#A0A0A0] tracking-[0.2em] font-medium">OPERATIONAL UNIT</div>
+</div>
+<nav class="flex-1">
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">dashboard</span> Overview
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">person_add</span> Onboarding
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">analytics</span> Server Status
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">settings_input_component</span> Server Config
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">sync</span> Logs Sync
+            </div>
+<!-- Active Navigation -->
+<div class="bg-[#2A2A2A] text-[#F97316] border-l-4 border-[#F97316] px-4 py-3 font-['Public_Sans'] font-medium text-xs flex items-center gap-3">
+<span class="material-symbols-outlined">restart_alt</span> Restart Control
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">local_shipping</span> Delivery Agents
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">smart_toy</span> Server Bots
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">shopping_cart</span> Orders
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">volunteer_activism</span> Donations
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">event</span> Events
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">extension</span> Modules
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">group</span> Players
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">shield_person</span> Staff
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">badge</span> Roles
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">payments</span> Billing
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">settings</span> Settings
+            </div>
+</nav>
+<div class="mt-auto border-t border-[#2A2A2A] bg-[#131313]">
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">biotech</span> Diagnostics
+            </div>
+<div class="text-[#A0A0A0] px-4 py-3 font-['Public_Sans'] font-medium text-xs hover:bg-[#201F1F] hover:text-white transition-none flex items-center gap-3">
+<span class="material-symbols-outlined">logout</span> Logout
+            </div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center w-full px-6 h-16 bg-[#131313] border-b border-[#2A2A2A] docked full-width top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="text-xl font-black text-[#F97316] tracking-widest brand">SCUM COMMAND</div>
+<nav class="hidden lg:flex items-center gap-6">
+<button class="font-['Space_Grotesk'] uppercase tracking-tighter text-sm text-[#F97316] border-b-2 border-[#F97316] pb-1">Refresh</button>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-[#201F1F] px-3 py-1 text-xs font-mono text-[#F97316]">
+<span class="opacity-50 mr-2">TENANT:</span> AS-OFFICIAL-701
+                </div>
+<div class="h-4 w-[1px] bg-[#2A2A2A]"></div>
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-[#A0A0A0] hover:text-white">notifications</button>
+<button class="material-symbols-outlined text-[#A0A0A0] hover:text-white">contrast</button>
+<div class="flex items-center gap-2 ml-2">
+<span class="text-[10px] font-bold text-white tracking-widest">TH/EN</span>
+<div class="w-8 h-8 bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+<!-- Page Header Asymmetry -->
+<div class="flex justify-between items-end border-l-4 border-primary-container pl-6">
+<div>
+<h1 class="text-4xl font-black tracking-tighter uppercase brand">Restart Control</h1>
+<p class="text-on-surface-variant font-medium mt-1">
+<span class="thai-text">ระบบควบคุมการรีสตาร์ทเซิร์ฟเวอร์</span> / SERVER REBOOT OPERATIONS
+                    </p>
+</div>
+<div class="text-right flex flex-col items-end">
+<div class="text-xs font-mono text-on-surface-variant opacity-60 mb-1 uppercase tracking-widest">Uptime Signature</div>
+<div class="text-2xl font-mono text-primary leading-none">241:12:09</div>
+</div>
+</div>
+<!-- Warning Banner -->
+<div class="bg-error-container/10 border-l-4 border-error p-6 flex gap-6 items-start">
+<span class="material-symbols-outlined text-error text-3xl shrink-0">warning</span>
+<div class="space-y-2">
+<h3 class="text-error font-bold tracking-tight uppercase font-headline">Consequence Warning / <span class="thai-text">คำเตือนผลกระทบ</span></h3>
+<p class="text-on-surface text-sm max-w-3xl leading-relaxed">
+                        Execution of restart commands will terminate all 42 active player sessions. Unsaved world data since the last sync (4 minutes ago) will be purged. This action is logged under audit ID <span class="font-mono bg-surface-container px-1">#SCUM-8821</span>.
+                        <br/>
+<span class="thai-text block mt-1">การดำเนินการรีสตาร์ทจะตัดการเชื่อมต่อผู้เล่นทั้งหมด 42 คน ข้อมูลโลกที่ยังไม่ได้บันทึกจะถูกลบออก</span>
+</p>
+</div>
+</div>
+<!-- Main Control Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-1">
+<!-- Safe Restart -->
+<div class="bg-surface-container p-8 space-y-6 group hover:bg-surface-container-high transition-colors">
+<div class="flex justify-between">
+<span class="material-symbols-outlined text-secondary text-4xl">verified_user</span>
+<span class="text-xs font-mono text-on-surface-variant">LVL 01 SAFETY</span>
+</div>
+<div>
+<h4 class="text-xl font-bold brand uppercase tracking-tight">Safe Restart</h4>
+<p class="text-xs text-on-surface-variant mt-1 thai-text">รีสตาร์ทแบบปลอดภัย (รอเซฟข้อมูล)</p>
+</div>
+<p class="text-sm text-on-surface/70 leading-relaxed">
+                        Performs a full data sync before shutdown. Broadcasts a 10-minute countdown to all active players.
+                    </p>
+<button class="w-full py-4 bg-secondary-container text-on-secondary-container font-bold uppercase text-xs tracking-widest hover:brightness-110">Execute Safe</button>
+</div>
+<!-- Delayed Restart -->
+<div class="bg-surface-container p-8 space-y-6 group hover:bg-surface-container-high transition-colors border-x border-[#2A2A2A]">
+<div class="flex justify-between">
+<span class="material-symbols-outlined text-primary text-4xl">timer</span>
+<span class="text-xs font-mono text-on-surface-variant">LVL 02 SCHEDULED</span>
+</div>
+<div>
+<h4 class="text-xl font-bold brand uppercase tracking-tight">Delayed Restart</h4>
+<p class="text-xs text-on-surface-variant mt-1 thai-text">ตั้งเวลารีสตาร์ทล่วงหน้า</p>
+</div>
+<p class="text-sm text-on-surface/70 leading-relaxed">
+                        Set a custom countdown timer. Useful for maintenance windows or event transitions.
+                    </p>
+<button class="w-full py-4 bg-primary-container text-on-primary-container font-bold uppercase text-xs tracking-widest hover:brightness-110">Configure Timer</button>
+</div>
+<!-- Immediate Restart -->
+<div class="bg-surface-container p-8 space-y-6 group hover:bg-surface-container-high transition-colors">
+<div class="flex justify-between">
+<span class="material-symbols-outlined text-tertiary-container text-4xl">bolt</span>
+<span class="text-xs font-mono text-on-surface-variant">LVL 03 CRITICAL</span>
+</div>
+<div>
+<h4 class="text-xl font-bold brand uppercase tracking-tight">Immediate Restart</h4>
+<p class="text-xs text-on-surface-variant mt-1 thai-text">รีสตาร์ททันที (ไม่บันทึกข้อมูล)</p>
+</div>
+<p class="text-sm text-on-surface/70 leading-relaxed text-tertiary">
+                        Force kill process without saving. High risk of database corruption and player data loss.
+                    </p>
+<button class="w-full py-4 bg-error-container text-on-error-container font-bold uppercase text-xs tracking-widest hover:bg-error hover:text-on-error">Force Reboot</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+<!-- Secondary Actions Panel -->
+<div class="lg:col-span-1 space-y-4">
+<div class="text-xs font-bold text-on-surface-variant uppercase tracking-widest pb-2 border-b border-outline-variant/30">System Tasks / <span class="thai-text">งานระบบ</span></div>
+<button class="w-full flex items-center justify-between p-4 bg-surface-container hover:bg-surface-container-high text-sm group">
+<span class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">calendar_month</span> Schedule Restart</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-4 bg-surface-container hover:bg-surface-container-high text-sm group">
+<span class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">history</span> View History</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-4 bg-surface-container hover:bg-surface-container-high text-sm group">
+<span class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">settings_backup_restore</span> Snapshot Backup</span>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</button>
+</div>
+<!-- Risky Actions & History -->
+<div class="lg:col-span-3 space-y-8">
+<section>
+<div class="text-xs font-bold text-error uppercase tracking-widest pb-2 border-b border-error/30 mb-4">Termination Zone / <span class="thai-text">โซนอันตราย</span></div>
+<div class="flex flex-wrap gap-4">
+<button class="px-6 py-3 border border-error text-error text-xs font-bold uppercase tracking-widest hover:bg-error hover:text-on-error transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">dangerous</span> Restart Now (Red)
+                            </button>
+<button class="px-6 py-3 border border-error text-error text-xs font-bold uppercase tracking-widest hover:bg-error hover:text-on-error transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">stop_circle</span> Stop Server
+                            </button>
+<button class="px-6 py-3 bg-surface-container-high text-on-surface text-xs font-bold uppercase tracking-widest hover:bg-surface-bright transition-colors">
+                                Cancel Pending Action
+                            </button>
+</div>
+</section>
+<section>
+<div class="text-xs font-bold text-on-surface-variant uppercase tracking-widest pb-2 border-b border-outline-variant/30 mb-4">Recent Reboot Logs / <span class="thai-text">บันทึกประวัติ</span></div>
+<div class="space-y-1">
+<div class="grid grid-cols-5 p-4 bg-surface-container-low text-[10px] uppercase font-mono text-on-surface-variant">
+<div>Timestamp</div>
+<div>Type</div>
+<div>Operator</div>
+<div>Players Affected</div>
+<div class="text-right">Status</div>
+</div>
+<div class="grid grid-cols-5 p-4 bg-surface-container text-xs items-center">
+<div class="font-mono">2023.10.24 04:00</div>
+<div class="text-secondary font-bold">SAFE</div>
+<div>SYSTEM_CRON</div>
+<div>0</div>
+<div class="text-right text-secondary-fixed flex items-center justify-end gap-1"><span class="w-1 h-1 bg-secondary-fixed rounded-full"></span> SUCCESS</div>
+</div>
+<div class="grid grid-cols-5 p-4 bg-surface-container-low text-xs items-center">
+<div class="font-mono">2023.10.23 21:15</div>
+<div class="text-tertiary-container font-bold">IMMEDIATE</div>
+<div>ADMIN_REX</div>
+<div>54</div>
+<div class="text-right text-secondary-fixed flex items-center justify-end gap-1"><span class="w-1 h-1 bg-secondary-fixed rounded-full"></span> SUCCESS</div>
+</div>
+<div class="grid grid-cols-5 p-4 bg-surface-container text-xs items-center opacity-60">
+<div class="font-mono">2023.10.23 18:00</div>
+<div class="text-primary font-bold">SCHEDULED</div>
+<div>SYSTEM</div>
+<div>12</div>
+<div class="text-right text-error flex items-center justify-end gap-1"><span class="w-1 h-1 bg-error rounded-full"></span> ABORTED</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Status Bar (Replacement for FAB in this Industrial UI) -->
+<div class="fixed bottom-0 right-0 left-64 bg-surface-container-lowest border-t border-[#2A2A2A] px-6 py-2 flex justify-between items-center z-40">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-secondary rounded-full animate-pulse"></div>
+<span class="text-[10px] font-mono text-on-surface-variant">WS_RESTART_READY</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-on-surface-variant">database</span>
+<span class="text-[10px] font-mono text-on-surface-variant">LAST_SYNC: 4M AGO</span>
+</div>
+</div>
+<div class="text-[10px] font-mono text-primary uppercase tracking-widest">
+            Ready for instructions <span class="animate-[blink_1s_step-end_infinite]">_</span>
+</div>
+</div>
+<style>
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</body></html>

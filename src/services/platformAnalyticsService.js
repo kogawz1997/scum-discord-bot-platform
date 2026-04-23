@@ -137,6 +137,9 @@ function createPlatformAnalyticsService(deps) {
           webhookRows: (db) => db.platformWebhookEndpoint.findMany({ where: tenantWhere }),
           agentRows: (db) => db.platformAgentRuntime.findMany({ where: tenantWhere }),
           offerRows: (db) => db.platformMarketplaceOffer.findMany({ where: tenantWhere }),
+        }, {
+          allowGlobal: true,
+          operation: 'platform analytics control-plane aggregation',
         });
         return [
           dedupePlatformRows(rows.subscriptionRows, (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId'])),
@@ -193,6 +196,9 @@ function createPlatformAnalyticsService(deps) {
           auditRows: (db) => db.deliveryAudit.findMany({
             select: { id: true, tenantId: true },
           }),
+        }, {
+          allowGlobal: true,
+          operation: 'platform analytics delivery aggregation',
         });
         return [
           rows.purchaseRows30d,

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM COMMAND - การกู้คืนระบบ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "surface-bright": "#38393b",
+                "tertiary": "#ffd1ce",
+                "surface-container": "#1f2022",
+                "outline-variant": "#3c494e",
+                "surface-tint": "#4cd6ff",
+                "on-surface-variant": "#bbc9cf",
+                "inverse-surface": "#e3e2e4",
+                "on-surface": "#e3e2e4",
+                "on-primary": "#003543",
+                "secondary-container": "#feb700",
+                "on-tertiary-fixed": "#410004",
+                "on-tertiary-container": "#a10017",
+                "primary": "#a4e6ff",
+                "secondary-fixed-dim": "#ffba20",
+                "tertiary-fixed": "#ffdad7",
+                "surface": "#121315",
+                "secondary-fixed": "#ffdea8",
+                "on-tertiary-fixed-variant": "#930014",
+                "on-error-container": "#ffdad6",
+                "surface-container-highest": "#343537",
+                "on-primary-fixed-variant": "#004e60",
+                "primary-fixed-dim": "#4cd6ff",
+                "error": "#ffb4ab",
+                "surface-container-high": "#292a2c",
+                "primary-fixed": "#b7eaff",
+                "background": "#121315",
+                "on-primary-fixed": "#001f28",
+                "outline": "#859399",
+                "on-background": "#e3e2e4",
+                "surface-dim": "#121315",
+                "on-secondary-container": "#6b4b00",
+                "on-error": "#690005",
+                "on-secondary-fixed": "#271900",
+                "on-secondary-fixed-variant": "#5e4200",
+                "surface-variant": "#343537",
+                "on-tertiary": "#68000b",
+                "on-secondary": "#412d00",
+                "error-container": "#93000a",
+                "tertiary-container": "#ffaaa4",
+                "secondary": "#ffdb9d",
+                "on-primary-container": "#00566a",
+                "surface-container-lowest": "#0d0e10",
+                "surface-container-low": "#1b1c1e",
+                "primary-container": "#00d1ff",
+                "inverse-primary": "#00677f",
+                "inverse-on-surface": "#303032",
+                "tertiary-fixed-dim": "#ffb3ae"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "fontFamily": {
+                "headline": ["Public Sans"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 border-b bg-gray-950/90 backdrop-blur-md border-gray-800 shadow-2xl flex justify-between items-center h-14 px-6 font-public-sans tracking-tight text-sm">
+<div class="flex items-center gap-4">
+<span class="text-lg font-bold tracking-tighter text-cyan-400 uppercase">SCUM COMMAND</span>
+<div class="h-4 w-px bg-gray-800 mx-2"></div>
+<span class="text-gray-400 uppercase tracking-widest text-[10px]">RECOVERY_CONTROL_UNIT</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="language">language</span>
+<span>TH</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="relative flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="flex items-center gap-3 ml-4 pl-4 border-l border-gray-800">
+<div class="text-right">
+<p class="text-xs font-bold text-gray-200 leading-none">PLATFORM_OWNER</p>
+<p class="text-[10px] text-cyan-400 leading-none mt-1">OPERATIONAL_CONTROL</p>
+</div>
+<div class="w-8 h-8 rounded-full bg-gray-800 border border-cyan-400/30 overflow-hidden">
+<img alt="Operator Profile" class="w-full h-full object-cover" data-alt="Operator profile avatar with high-tech facial lighting in a dark room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFoLgDIMVOBXsnjPaooA_sg0kaUbKYqGkznFi1MU6s7GoxHRO8g7uyJTDrTQH_KpVCwrhW9wJYmMXnNi34JASmyv44huXUnd-n2bt1Zn1mi0fSVV22szA5FIEIvrWoLjoS3QAA5QddooHjKbqCwH3TFJLqdEPAWPWgyiUBCSbY4U6ANuCzcglJgZSN_K6o0ZqncFYRZs7CXY13tnb1tPg0grb5uvpzw0S7nE5ck_b-AZr1jj3l7nnAfR7ak0Z_hsIx-i93sSOPskM"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r bg-gray-950 border-gray-900 shadow-none flex flex-col pt-16 pb-4 z-40">
+<div class="px-6 mb-8">
+<div class="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+<div>
+<p class="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">System Status</p>
+<p class="text-xs text-cyan-400 font-mono">SECURE_ACTIVE</p>
+</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="groups">groups</span>
+                Tenants
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="inventory_2">inventory_2</span>
+                Packages
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="terminal">terminal</span>
+                Fleet
+            </a>
+<a class="bg-gray-900 text-cyan-400 border-l-2 border-cyan-400 px-4 py-3 flex items-center gap-3 font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings_backup_restore">settings_backup_restore</span>
+                Recovery
+            </a>
+<div class="h-px bg-gray-900 my-4 mx-4"></div>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all font-public-sans text-xs font-medium tracking-wide" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 py-2 text-[10px] font-bold tracking-widest hover:bg-cyan-500/20 transition-all uppercase rounded">
+                NEW TENANT
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 pt-20 p-8">
+<!-- Header -->
+<header class="mb-8 flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-extrabold tracking-tight text-white mb-2">การบำรุงรักษาและการกู้คืนระบบ</h1>
+<p class="text-gray-400 text-sm max-w-2xl">แผงควบคุมหลักสำหรับการจัดการข้อมูลสำรอง การย้อนคืนสถานะ และการตรวจสอบความถูกต้องของระบบแพลตฟอร์มทั้งหมด</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-primary-container text-on-primary font-bold text-xs tracking-widest rounded-sm hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20">
+<span class="material-symbols-outlined text-sm" data-icon="add_circle">add_circle</span>
+                    สร้างข้อมูลสำรอง (CREATE BACKUP)
+                </button>
+<button class="px-6 py-2.5 bg-error-container text-white font-bold text-xs tracking-widest rounded-sm hover:bg-error transition-all flex items-center gap-2 border border-error/50">
+<span class="material-symbols-outlined text-sm" data-icon="history_restore">restore</span>
+                    กู้คืนข้อมูล (RESTORE BACKUP)
+                </button>
+</div>
+</header>
+<!-- Bento Grid for Recovery Overview -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<!-- Backup Status Card -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-cyan-400"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-[10px] font-black text-cyan-400 tracking-widest uppercase">Last Backup Integrity</span>
+<span class="material-symbols-outlined text-cyan-400/30 group-hover:text-cyan-400 transition-colors" data-icon="verified_user">verified_user</span>
+</div>
+<div class="flex items-end gap-3 mb-4">
+<span class="text-4xl font-bold text-white">99.8%</span>
+<span class="text-xs text-green-400 mb-1 flex items-center">
+<span class="material-symbols-outlined text-xs mr-1" data-icon="arrow_upward">arrow_upward</span>
+                        +0.2%
+                    </span>
+</div>
+<p class="text-xs text-gray-500 leading-relaxed mb-6">ตรวจสอบความสมบูรณ์ล่าสุดเมื่อ: <span class="text-gray-300">2024-05-20 04:00:12 UTC</span></p>
+<div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[99.8%] shadow-[0_0_10px_rgba(0,209,255,0.5)]"></div>
+</div>
+</div>
+<!-- Health Summary -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container border border-gray-800 p-6 rounded-lg">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xs font-black text-gray-400 tracking-widest uppercase flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                        View Restore Status
+                    </h3>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 text-[10px] text-gray-400 rounded">PLATFORM-WIDE</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<div class="border-l border-gray-800 pl-4">
+<p class="text-[10px] text-gray-500 uppercase font-bold mb-1">Active Restores</p>
+<p class="text-xl font-bold text-white">0</p>
+</div>
+<div class="border-l border-gray-800 pl-4">
+<p class="text-[10px] text-gray-500 uppercase font-bold mb-1">Restore Rate (24h)</p>
+<p class="text-xl font-bold text-white">14</p>
+</div>
+<div class="border-l border-gray-800 pl-4">
+<p class="text-[10px] text-gray-500 uppercase font-bold mb-1">Average Time</p>
+<p class="text-xl font-bold text-white">4m 22s</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Restore History Table -->
+<div class="bg-surface-container border border-gray-800 rounded-lg overflow-hidden">
+<div class="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-950/30">
+<div class="flex items-center gap-4">
+<h2 class="text-sm font-black text-white tracking-widest uppercase">View Restore History</h2>
+<div class="flex bg-gray-900 rounded border border-gray-800 p-0.5">
+<button class="px-3 py-1 text-[10px] font-bold text-cyan-400 bg-gray-800 rounded-sm">ALL_EVENTS</button>
+<button class="px-3 py-1 text-[10px] font-bold text-gray-500 hover:text-gray-300">SUCCESS</button>
+<button class="px-3 py-1 text-[10px] font-bold text-gray-500 hover:text-gray-300">FAILURE</button>
+</div>
+</div>
+<button class="text-xs text-cyan-400 font-bold flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-sm" data-icon="file_download">file_download</span>
+                    EXPORT_LOGS
+                </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-900/50 text-gray-500 text-[10px] font-black tracking-widest uppercase border-b border-gray-800">
+<th class="px-6 py-4">Date &amp; Time</th>
+<th class="px-6 py-4">Source Snapshot</th>
+<th class="px-6 py-4">Destination Target</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Evidence Hash</th>
+<th class="px-6 py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-800 text-xs">
+<!-- Success Row -->
+<tr class="hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4 text-gray-300 font-mono">2024-05-20 02:15:44</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-500" data-icon="database">database</span>
+<span class="text-white font-medium">BKP_SYS_ROOT_092</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-[10px] font-bold">PLATFORM_CORE</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-green-400 font-bold uppercase text-[10px]">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                                    Success
+                                </span>
+</td>
+<td class="px-6 py-4 text-gray-500 font-mono">sha256:7a92...f302</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 hover:bg-gray-700 rounded text-gray-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Failure Row -->
+<tr class="hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4 text-gray-300 font-mono">2024-05-19 23:59:10</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-500" data-icon="database">database</span>
+<span class="text-white font-medium">BKP_TENANT_ALPHA_01</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 text-gray-400 rounded text-[10px] font-bold">TENANT:ALPHA</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-error font-bold uppercase text-[10px]">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+                                    Failure
+                                </span>
+</td>
+<td class="px-6 py-4 text-gray-500 font-mono">sha256:4d1a...008e</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 hover:bg-gray-700 rounded text-gray-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Success Row -->
+<tr class="hover:bg-gray-800/30 transition-colors group">
+<td class="px-6 py-4 text-gray-300 font-mono">2024-05-19 18:30:22</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-500" data-icon="database">database</span>
+<span class="text-white font-medium">BKP_SYS_CFG_088</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-[10px] font-bold">PLATFORM_CORE</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-green-400 font-bold uppercase text-[10px]">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                                    Success
+                                </span>
+</td>
+<td class="px-6 py-4 text-gray-500 font-mono">sha256:b391...ee41</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 hover:bg-gray-700 rounded text-gray-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-gray-800 flex justify-center">
+<button class="text-[10px] font-black text-gray-500 tracking-widest hover:text-white uppercase transition-colors">Load More History</button>
+</div>
+</div>
+</main>
+<!-- Right Side Backup Detail Drawer (Simulated Open) -->
+<div class="fixed right-0 top-0 h-full w-[400px] bg-surface-container border-l border-gray-800 z-50 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] flex flex-col pt-14">
+<div class="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-950/20">
+<div>
+<h2 class="text-sm font-black text-white tracking-widest uppercase mb-1">Backup Detail</h2>
+<p class="text-[10px] text-cyan-400 font-mono uppercase tracking-tighter">ID: BKP_SYS_ROOT_092</p>
+</div>
+<button class="w-8 h-8 rounded hover:bg-gray-800 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Details List -->
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Created By</p>
+<p class="text-xs text-white">SYSTEM_AUTO_EXEC</p>
+</div>
+<div>
+<p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Size</p>
+<p class="text-xs text-white">12.4 GB</p>
+</div>
+</div>
+<div class="h-px bg-gray-900"></div>
+<div>
+<p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Scope &amp; Entities</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-gray-900 border border-gray-800 rounded text-[10px] text-gray-300">CORE_AUTH</span>
+<span class="px-2 py-1 bg-gray-900 border border-gray-800 rounded text-[10px] text-gray-300">DATABASE_RELATIONAL</span>
+<span class="px-2 py-1 bg-gray-900 border border-gray-800 rounded text-[10px] text-gray-300">FLEET_REGISTRY</span>
+<span class="px-2 py-1 bg-gray-900 border border-gray-800 rounded text-[10px] text-gray-300">BLOB_STORAGE_REF</span>
+</div>
+</div>
+</div>
+<!-- Evidence / Verification Card -->
+<div class="bg-gray-950 border border-gray-800 rounded-lg p-4">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-green-400 text-sm" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+<h3 class="text-[10px] font-black text-white tracking-widest uppercase">Verification Evidence</h3>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-gray-500 uppercase">Integrity Check</span>
+<span class="text-green-400 font-bold">PASSED</span>
+</div>
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-gray-500 uppercase">Checksum (MD5)</span>
+<span class="text-gray-300 font-mono">f8a...3e2</span>
+</div>
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-gray-500 uppercase">Encryption</span>
+<span class="text-gray-300 font-mono">AES-256-GCM</span>
+</div>
+</div>
+</div>
+<!-- Warning Panel -->
+<div class="bg-error/5 border border-error/20 p-4 rounded flex gap-4">
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+<div>
+<h4 class="text-[10px] font-bold text-error uppercase mb-1">Attention Required</h4>
+<p class="text-[10px] text-error/80 leading-relaxed">การกู้คืนข้อมูลนี้จะทำการเขียนทับข้อมูลปัจจุบันของระบบ Core ทั้งหมด การเชื่อมต่อของ Tenant อาจถูกตัดการเชื่อมต่อชั่วคราวระหว่างดำเนินการ</p>
+</div>
+</div>
+</div>
+<div class="p-6 border-t border-gray-800 bg-gray-950/20">
+<button class="w-full bg-error text-white py-3 text-xs font-black tracking-widest rounded-sm hover:bg-error-container transition-all flex items-center justify-center gap-2 shadow-lg shadow-error/10">
+<span class="material-symbols-outlined text-sm" data-icon="history_restore">restore</span>
+                CONFIRM_RESTORE
+            </button>
+<p class="text-center text-[10px] text-gray-600 mt-4 uppercase font-bold tracking-tighter">Operation requires Level 4 Clearance</p>
+</div>
+</div>
+<!-- Status Strip -->
+<div class="fixed bottom-0 left-64 right-0 h-8 bg-gray-950 border-t border-gray-900 px-6 flex items-center justify-between text-[10px] font-bold tracking-widest z-40">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-gray-500">PLATFORM: <span class="text-gray-200">OPTIMAL</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+<span class="text-gray-500">AUTOBACKUP: <span class="text-gray-200">ENABLED</span></span>
+</div>
+</div>
+<div class="text-gray-500">
+            SYSTEM_TIME: <span class="text-gray-200 font-mono">2024-05-20 04:35:12 UTC</span>
+</div>
+</div>
+</body></html>

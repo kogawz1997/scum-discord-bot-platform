@@ -47,7 +47,8 @@ function runNpm(commandArgs, options = {}) {
 
 function buildScriptSequence(options = {}) {
   const scripts = [
-    'check',
+    'lint',
+    'test:policy',
     'security:check',
     'doctor',
     'doctor:topology',

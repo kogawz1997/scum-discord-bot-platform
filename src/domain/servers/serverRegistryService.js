@@ -59,8 +59,9 @@ function createServerRegistryService() {
 
   async function listServerRegistry(options = {}) {
     const tenantId = trimText(options.tenantId, 120);
-    const servers = listServers({ tenantId, serverId: options.serverId });
-    const links = listServerDiscordLinks({ tenantId });
+    const allowGlobal = options.allowGlobal === true;
+    const servers = listServers({ tenantId, allowGlobal, serverId: options.serverId });
+    const links = listServerDiscordLinks({ tenantId, allowGlobal });
     return servers.map((server) => ({
       ...server,
       guildLinks: links.filter((row) => String(row?.serverId || '') === String(server.id)),
@@ -70,6 +71,7 @@ function createServerRegistryService() {
   async function listServerLinks(options = {}) {
     return listServerDiscordLinks({
       tenantId: options.tenantId,
+      allowGlobal: options.allowGlobal === true,
       serverId: options.serverId,
       guildId: options.guildId,
     });

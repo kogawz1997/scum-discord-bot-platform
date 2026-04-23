@@ -8,11 +8,13 @@ const { normalizeRestartServerPayload } = require('../contracts/jobs/jobContract
 const { buildRestartAnnouncementPlan } = require('../domain/servers/serverControlJobService');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const {
-  getCompatibilityClientKey,
-  ensureSqliteDateTimeSchemaCompatibility,
-  reconcileSqliteDateColumns,
-} = require('../utils/sqliteDateTimeCompatibility');
+  assertTenantDbIsolationScope,
+} = require('../utils/tenantDbIsolation');
 const { publishAdminLiveUpdate } = require('./adminLiveBus');
+const {
+  ensureSharedRestartSqliteCompatibility,
+  hasSharedRestartSqliteCompatibility,
+} = require('./platformRestartCompatibilityService');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -97,141 +99,8 @@ function isSharedRestartPrismaClient(db = null) {
   return Boolean(clientOriginal && sharedOriginal && clientOriginal === sharedOriginal);
 }
 
-const sharedRestartSqliteCompatibilityReady = new WeakSet();
-const RESTART_SQLITE_COMPATIBILITY_TABLES = [
-  {
-    tableName: 'platform_restart_plans',
-    columns: ['id', 'tenant_id', 'server_id', 'guild_id', 'runtime_key', 'status', 'restart_mode', 'control_mode', 'requested_by', 'scheduled_for', 'delay_seconds', 'reason', 'payload_json', 'health_status', 'health_verified_at', 'created_at', 'updated_at'],
-    dateColumns: ['scheduled_for', 'health_verified_at', 'created_at', 'updated_at'],
-    createTableSql: `
-      CREATE TABLE "platform_restart_plans" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "tenant_id" TEXT NOT NULL,
-        "server_id" TEXT NOT NULL,
-        "guild_id" TEXT,
-        "runtime_key" TEXT,
-        "status" TEXT NOT NULL DEFAULT 'scheduled',
-        "restart_mode" TEXT NOT NULL DEFAULT 'delayed',
-        "control_mode" TEXT NOT NULL DEFAULT 'service',
-        "requested_by" TEXT,
-        "scheduled_for" DATETIME NOT NULL,
-        "delay_seconds" INTEGER NOT NULL DEFAULT 0,
-        "reason" TEXT,
-        "payload_json" TEXT,
-        "health_status" TEXT,
-        "health_verified_at" DATETIME,
-        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `,
-    indexSql: [
-      'CREATE INDEX "platform_restart_plans_tenant_scheduled_idx" ON "platform_restart_plans"("tenant_id", "scheduled_for");',
-      'CREATE INDEX "platform_restart_plans_server_scheduled_idx" ON "platform_restart_plans"("server_id", "scheduled_for");',
-      'CREATE INDEX "platform_restart_plans_status_scheduled_idx" ON "platform_restart_plans"("status", "scheduled_for");',
-    ],
-  },
-  {
-    tableName: 'platform_restart_announcements',
-    columns: ['id', 'plan_id', 'tenant_id', 'server_id', 'checkpoint_seconds', 'message', 'channel', 'status', 'scheduled_for', 'sent_at', 'meta_json', 'created_at', 'updated_at'],
-    dateColumns: ['scheduled_for', 'sent_at', 'created_at', 'updated_at'],
-    createTableSql: `
-      CREATE TABLE "platform_restart_announcements" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "plan_id" TEXT NOT NULL,
-        "tenant_id" TEXT NOT NULL,
-        "server_id" TEXT NOT NULL,
-        "checkpoint_seconds" INTEGER NOT NULL,
-        "message" TEXT NOT NULL,
-        "channel" TEXT,
-        "status" TEXT NOT NULL DEFAULT 'pending',
-        "scheduled_for" DATETIME NOT NULL,
-        "sent_at" DATETIME,
-        "meta_json" TEXT,
-        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `,
-    indexSql: [
-      'CREATE INDEX "platform_restart_announcements_plan_scheduled_idx" ON "platform_restart_announcements"("plan_id", "scheduled_for");',
-      'CREATE INDEX "platform_restart_announcements_status_scheduled_idx" ON "platform_restart_announcements"("status", "scheduled_for");',
-    ],
-  },
-  {
-    tableName: 'platform_restart_executions',
-    columns: ['id', 'plan_id', 'tenant_id', 'server_id', 'runtime_key', 'action', 'result_status', 'started_at', 'completed_at', 'exit_code', 'detail', 'meta_json', 'created_at', 'updated_at'],
-    dateColumns: ['started_at', 'completed_at', 'created_at', 'updated_at'],
-    createTableSql: `
-      CREATE TABLE "platform_restart_executions" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "plan_id" TEXT NOT NULL,
-        "tenant_id" TEXT NOT NULL,
-        "server_id" TEXT NOT NULL,
-        "runtime_key" TEXT,
-        "action" TEXT NOT NULL DEFAULT 'restart',
-        "result_status" TEXT NOT NULL DEFAULT 'pending',
-        "started_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "completed_at" DATETIME,
-        "exit_code" INTEGER,
-        "detail" TEXT,
-        "meta_json" TEXT,
-        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `,
-    indexSql: [
-      'CREATE INDEX "platform_restart_executions_plan_started_idx" ON "platform_restart_executions"("plan_id", "started_at");',
-      'CREATE INDEX "platform_restart_executions_tenant_server_started_idx" ON "platform_restart_executions"("tenant_id", "server_id", "started_at");',
-    ],
-  },
-];
-
-function hasSharedRestartSqliteCompatibility(db = null) {
-  const key = getCompatibilityClientKey(db);
-  return Boolean(key && sharedRestartSqliteCompatibilityReady.has(key));
-}
-
-async function ensureSharedRestartSqliteCompatibility(db = prisma) {
-  const runtime = resolveDatabaseRuntime();
-  if (!runtime.isSqlite) return { ok: false, reason: 'runtime-not-sqlite' };
-  if (!isSharedRestartPrismaClient(db)) return { ok: false, reason: 'shared-restart-client-unavailable' };
-  try {
-    getRestartDelegatesOrThrow(db);
-  } catch {
-    return { ok: false, reason: 'restart-delegates-unavailable' };
-  }
-  const key = getCompatibilityClientKey(db);
-  if (key && sharedRestartSqliteCompatibilityReady.has(key)) {
-    return { ok: true, reused: true, tables: [] };
-  }
-
-  if (runtime.filePath) {
-    ensureSqliteDateTimeSchemaCompatibility(runtime.filePath, RESTART_SQLITE_COMPATIBILITY_TABLES);
-  }
-
-  const tables = [];
-  tables.push(await reconcileSqliteDateColumns(db, {
-    tableName: 'platform_restart_plans',
-    idColumn: 'id',
-    dateColumns: ['scheduled_for', 'health_verified_at', 'created_at', 'updated_at'],
-  }));
-  tables.push(await reconcileSqliteDateColumns(db, {
-    tableName: 'platform_restart_announcements',
-    idColumn: 'id',
-    dateColumns: ['scheduled_for', 'sent_at', 'created_at', 'updated_at'],
-  }));
-  tables.push(await reconcileSqliteDateColumns(db, {
-    tableName: 'platform_restart_executions',
-    idColumn: 'id',
-    dateColumns: ['started_at', 'completed_at', 'created_at', 'updated_at'],
-  }));
-
-  if (key) {
-    sharedRestartSqliteCompatibilityReady.add(key);
-  }
-  return { ok: true, reused: false, tables };
-}
-
 function getRestartPersistenceMode(db = null) {
+  const requireDb = ['1', 'true', 'yes', 'on'].includes(String(process.env.PERSIST_REQUIRE_DB || '').trim().toLowerCase());
   if (db && !isSharedRestartPrismaClient(db)) {
     try {
       getRestartDelegatesOrThrow(db);
@@ -241,6 +110,9 @@ function getRestartPersistenceMode(db = null) {
     }
   }
   if (db && hasSharedRestartSqliteCompatibility(db)) {
+    return 'prisma';
+  }
+  if (requireDb) {
     return 'prisma';
   }
   const runtime = resolveDatabaseRuntime();
@@ -537,7 +409,12 @@ function evaluateRestartSafety(input = {}) {
 }
 
 async function ensurePlatformRestartTables(db = prisma) {
-  await ensureSharedRestartSqliteCompatibility(db).catch(() => null);
+  await ensureSharedRestartSqliteCompatibility({
+    db,
+    prisma,
+    getRestartDelegatesOrThrow,
+    isSharedRestartPrismaClient,
+  }).catch(() => null);
   if (getRestartPersistenceMode(db) !== 'prisma') return { ok: true };
   getRestartDelegatesOrThrow(db);
   return { ok: true };
@@ -960,7 +837,12 @@ async function completeRestartPlan(input = {}, db = prisma) {
 
 async function listDueRestartPlans(filters = {}, db = prisma) {
   await ensurePlatformRestartTables(db);
-  const tenantId = trimText(filters.tenantId, 160) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(filters.tenantId, 160) || null,
+    allowGlobal: filters.allowGlobal === true,
+    operation: 'platform due restart plan listing',
+    env: filters.env || process.env,
+  });
   const serverId = trimText(filters.serverId, 160) || null;
   const now = parseDate(filters.now) || new Date();
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
@@ -1013,7 +895,12 @@ async function listDueRestartPlans(filters = {}, db = prisma) {
 
 async function listDueRestartAnnouncements(filters = {}, db = prisma) {
   await ensurePlatformRestartTables(db);
-  const tenantId = trimText(filters.tenantId, 160) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(filters.tenantId, 160) || null,
+    allowGlobal: filters.allowGlobal === true,
+    operation: 'platform due restart announcement listing',
+    env: filters.env || process.env,
+  });
   const serverId = trimText(filters.serverId, 160) || null;
   const planId = trimText(filters.planId, 160) || null;
   const now = parseDate(filters.now) || new Date();
@@ -1178,7 +1065,12 @@ async function verifyRestartPlanHealth(input = {}, db = prisma) {
 
 async function listRestartPlans(filters = {}, db = prisma) {
   await ensurePlatformRestartTables(db);
-  const tenantId = trimText(filters.tenantId, 160) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(filters.tenantId, 160) || null,
+    allowGlobal: filters.allowGlobal === true,
+    operation: 'platform restart plan listing',
+    env: filters.env || process.env,
+  });
   const serverId = trimText(filters.serverId, 160) || null;
   const status = trimText(filters.status, 60) || null;
   const limit = Math.max(1, Math.min(200, asInt(filters.limit, 20, 1)));
@@ -1230,7 +1122,12 @@ async function listRestartPlans(filters = {}, db = prisma) {
 
 async function listRestartAnnouncements(filters = {}, db = prisma) {
   await ensurePlatformRestartTables(db);
-  const tenantId = trimText(filters.tenantId, 160) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(filters.tenantId, 160) || null,
+    allowGlobal: filters.allowGlobal === true,
+    operation: 'platform restart announcement listing',
+    env: filters.env || process.env,
+  });
   const serverId = trimText(filters.serverId, 160) || null;
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.status, 60) || null;
@@ -1281,7 +1178,12 @@ async function listRestartAnnouncements(filters = {}, db = prisma) {
 
 async function listRestartExecutions(filters = {}, db = prisma) {
   await ensurePlatformRestartTables(db);
-  const tenantId = trimText(filters.tenantId, 160) || null;
+  const { tenantId } = assertTenantDbIsolationScope({
+    tenantId: trimText(filters.tenantId, 160) || null,
+    allowGlobal: filters.allowGlobal === true,
+    operation: 'platform restart execution listing',
+    env: filters.env || process.env,
+  });
   const serverId = trimText(filters.serverId, 160) || null;
   const planId = trimText(filters.planId, 160) || null;
   const status = trimText(filters.resultStatus || filters.status, 60) || null;

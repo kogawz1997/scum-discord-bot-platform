@@ -62,13 +62,24 @@ function buildRoutes(overrides = {}) {
     getPlayerHtml: () => '<player/>',
     getLegacyPlayerHtml: () => '<legacy-player/>',
     getPlatformPublicOverview: async () => ({ tenantCount: 1 }),
+    getReleaseFeedEntries: () => [],
     isDiscordStartPath: (pathname) => pathname === '/auth/discord/start',
     isDiscordCallbackPath: (pathname) => pathname === '/auth/discord/callback',
+    isGoogleStartPath: (pathname) => pathname === '/auth/google/start',
+    isGoogleCallbackPath: (pathname) => pathname === '/auth/google/callback',
     handleDiscordStart: async (req, res) => {
       res.writeHead(302, { Location: 'https://discord.com/oauth2/authorize' });
       res.end();
     },
     handleDiscordCallback: async (req, res) => {
+      res.writeHead(302, { Location: '/player' });
+      res.end();
+    },
+    handleGoogleStart: async (_req, res) => {
+      res.writeHead(302, { Location: 'https://accounts.google.com/o/oauth2/v2/auth' });
+      res.end();
+    },
+    handleGoogleCallback: async (_req, res) => {
       res.writeHead(302, { Location: '/player' });
       res.end();
     },
@@ -202,6 +213,128 @@ test('portal page routes serve pricing html directly', async () => {
   assert.equal(res.body, '<pricing/>');
 });
 
+test('portal page routes serve public status page and normalize trailing slash', async () => {
+  const handler = buildRoutes({
+    getPlatformPublicOverview: async () => ({
+      generatedAt: '2026-04-07T10:00:00.000Z',
+      brand: {
+        name: 'SCUM TH Platform',
+        description: 'Public platform posture',
+      },
+      analytics: {
+        overview: {
+          activeTenants: 3,
+          activeSubscriptions: 2,
+          activeLicenses: 4,
+          totalAgentRuntimes: 5,
+          onlineAgentRuntimes: 4,
+          currency: 'THB',
+        },
+        delivery: {
+          successRate: 0.99,
+          queueJobs: 2,
+          deadLetters: 0,
+        },
+        posture: {
+          unresolvedTickets: [],
+          failedWebhooks: [],
+          offlineAgentRuntimes: [],
+        },
+      },
+      billing: {
+        currency: 'THB',
+        packages: [{ id: 'pkg-1' }],
+        plans: [{ id: 'plan-1' }],
+        features: [{ id: 'feature-1' }],
+      },
+      legal: {
+        docs: [{ title: 'Terms', url: '/docs/LEGAL_TERMS_TH.md' }],
+      },
+      trial: { enabled: true },
+      marketplace: { enabled: true, offers: [{ id: 'offer-1' }] },
+    }),
+  });
+  const slashRes = createMockRes();
+  const pageRes = createMockRes();
+
+  const slashHandled = await handler({
+    req: { headers: {} },
+    res: slashRes,
+    urlObj: new URL('https://player.example.com/status/'),
+    pathname: '/status/',
+    method: 'GET',
+  });
+  const pageHandled = await handler({
+    req: { headers: {} },
+    res: pageRes,
+    urlObj: new URL('https://player.example.com/status'),
+    pathname: '/status',
+    method: 'GET',
+  });
+
+  assert.equal(slashHandled, true);
+  assert.equal(slashRes.statusCode, 302);
+  assert.equal(slashRes.headers.Location, '/status');
+  assert.equal(pageHandled, true);
+  assert.equal(pageRes.statusCode, 200);
+  assert.match(pageRes.body, /Platform Status/i);
+  assert.match(pageRes.body, /Public status for runtimes, delivery, and operator pressure/i);
+});
+
+test('portal page routes serve public change feed and normalize aliases', async () => {
+  const handler = buildRoutes({
+    getReleaseFeedEntries: () => ([
+      {
+        version: 'v1.0.0',
+        title: 'Release Notes v1.0.0',
+        referenceDate: '2026-03-15',
+        summary: 'This release established the current split-runtime layout.',
+        highlights: ['Runtime', 'Operations'],
+        operatorImpact: ['Runtime responsibilities are clearer'],
+        knownLimitations: ['Visual evidence is still limited'],
+        url: '/docs/releases/v1.0.0.md',
+      },
+    ]),
+  });
+  const aliasRes = createMockRes();
+  const slashRes = createMockRes();
+  const pageRes = createMockRes();
+
+  const aliasHandled = await handler({
+    req: { headers: {} },
+    res: aliasRes,
+    urlObj: new URL('https://player.example.com/releases'),
+    pathname: '/releases',
+    method: 'GET',
+  });
+  const slashHandled = await handler({
+    req: { headers: {} },
+    res: slashRes,
+    urlObj: new URL('https://player.example.com/changes/'),
+    pathname: '/changes/',
+    method: 'GET',
+  });
+  const pageHandled = await handler({
+    req: { headers: {} },
+    res: pageRes,
+    urlObj: new URL('https://player.example.com/changes'),
+    pathname: '/changes',
+    method: 'GET',
+  });
+
+  assert.equal(aliasHandled, true);
+  assert.equal(aliasRes.statusCode, 302);
+  assert.equal(aliasRes.headers.Location, '/changes');
+  assert.equal(slashHandled, true);
+  assert.equal(slashRes.statusCode, 302);
+  assert.equal(slashRes.headers.Location, '/changes');
+  assert.equal(pageHandled, true);
+  assert.equal(pageRes.statusCode, 200);
+  assert.match(pageRes.body, /Change Feed/i);
+  assert.match(pageRes.body, /Release Notes v1\.0\.0/i);
+  assert.match(pageRes.body, /split-runtime layout/i);
+});
+
 test('portal page routes redirect /preview into tenant onboarding on the admin origin', async () => {
   const handler = buildRoutes();
   const redirectRes = createMockRes();
@@ -243,6 +376,48 @@ test('portal page routes serve auth login and player login separately', async ()
   assert.equal(playerHandled, true);
   assert.equal(authRes.body, '<auth-login/>');
   assert.equal(playerRes.body, '<player-login message="denied"/>');
+});
+
+test('portal page routes dispatch google oauth start and callback handlers', async () => {
+  let started = 0;
+  let completed = 0;
+  const handler = buildRoutes({
+    handleGoogleStart: async (_req, res) => {
+      started += 1;
+      res.writeHead(302, { Location: 'https://accounts.google.com/o/oauth2/v2/auth?state=test' });
+      res.end();
+    },
+    handleGoogleCallback: async (_req, res) => {
+      completed += 1;
+      res.writeHead(302, { Location: '/player' });
+      res.end();
+    },
+  });
+  const startRes = createMockRes();
+  const callbackRes = createMockRes();
+
+  const startHandled = await handler({
+    req: { headers: {} },
+    res: startRes,
+    urlObj: new URL('https://player.example.com/auth/google/start'),
+    pathname: '/auth/google/start',
+    method: 'GET',
+  });
+  const callbackHandled = await handler({
+    req: { headers: {} },
+    res: callbackRes,
+    urlObj: new URL('https://player.example.com/auth/google/callback?code=test&state=abc'),
+    pathname: '/auth/google/callback',
+    method: 'GET',
+  });
+
+  assert.equal(startHandled, true);
+  assert.equal(callbackHandled, true);
+  assert.equal(started, 1);
+  assert.equal(completed, 1);
+  assert.equal(startRes.statusCode, 302);
+  assert.equal(callbackRes.statusCode, 302);
+  assert.equal(callbackRes.headers.Location, '/player');
 });
 
 test('portal page routes allow capture-only dashboard auth with a valid token', async () => {

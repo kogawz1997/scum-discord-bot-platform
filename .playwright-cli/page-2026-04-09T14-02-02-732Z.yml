@@ -1,0 +1,58 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "SCUM เจ้าของระบบ เข้าสู่ระบบเจ้าของแพลตฟอร์ม ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสุขภาพระบบจากจุดเดียว" [ref=e5] [cursor=pointer]:
+      - /url: /owner/login
+      - generic [ref=e6]: SCUM
+      - generic [ref=e7]:
+        - generic [ref=e8]: เจ้าของระบบ
+        - strong [ref=e9]: เข้าสู่ระบบเจ้าของแพลตฟอร์ม
+        - generic [ref=e10]: ใช้บัญชีผู้ดูแลแพลตฟอร์มเพื่อดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสุขภาพระบบจากจุดเดียว
+    - navigation "สลับพื้นที่" [ref=e12]:
+      - link "เข้าสู่ระบบ" [ref=e13] [cursor=pointer]:
+        - /url: /owner/login
+      - link "หน้าเว็บสาธารณะ" [ref=e14] [cursor=pointer]:
+        - /url: /landing
+  - main [ref=e15]:
+    - generic [ref=e16]:
+      - article [ref=e17]:
+        - generic [ref=e18]: ศูนย์ควบคุมแพลตฟอร์ม
+        - heading "เปิดมุมมองเจ้าของระบบได้จากที่เดียว" [level=1] [ref=e19]
+        - paragraph [ref=e20]: ดูรายได้ ลูกค้า แพ็กเกจ ความปลอดภัย และสัญญาณสำคัญของแพลตฟอร์มจากพื้นที่เดียว โดยไม่ปะปนกับงานผู้เช่ารายวัน
+        - generic [ref=e21]:
+          - generic [ref=e22]: รายได้และแพ็กเกจ
+          - generic [ref=e23]: สุขภาพระบบ
+          - generic [ref=e24]: หลักฐานและความปลอดภัย
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]: โฟกัสแรก
+            - generic [ref=e29]: ภาพรวมธุรกิจ
+            - paragraph [ref=e30]: เปิดมาแล้วเห็นลูกค้า รายได้ และเรื่องที่ต้องตัดสินใจก่อนในรอบวัน
+          - generic [ref=e31]:
+            - generic [ref=e32]: โฟกัสถัดไป
+            - generic [ref=e33]: งานปฏิบัติการที่กระทบกว้าง
+            - paragraph [ref=e34]: ตรวจคิวงาน บอท เหตุการณ์ และสัญญาณที่กระทบหลายผู้เช่าจากมุมเดียว
+        - generic [ref=e35]:
+          - generic [ref=e36]:
+            - strong [ref=e37]: ภาพรวมธุรกิจ
+            - paragraph [ref=e38]: ดูรายได้ การสมัครใช้ การต่ออายุ และลูกค้าที่ต้องตามก่อนในวันนั้น
+          - generic [ref=e39]:
+            - strong [ref=e40]: งานปฏิบัติการแพลตฟอร์ม
+            - paragraph [ref=e41]: ดูสุขภาพระบบ คิวงาน เหตุการณ์ ความปลอดภัย และหลักฐานที่ต้องใช้ตอบทีมงาน
+      - generic [ref=e42]:
+        - generic [ref=e43]: เข้าสู่ระบบ
+        - heading "ลงชื่อเข้าใช้ฝั่งเจ้าของระบบ" [level=2] [ref=e44]
+        - paragraph [ref=e45]: ใช้บัญชีผู้ดูแลแพลตฟอร์มเท่านั้น ถ้าเปิด 2FA ระบบจะขอรหัสในขั้นถัดไปโดยอัตโนมัติ
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: ชื่อผู้ใช้
+            - textbox "ชื่อผู้ใช้" [ref=e49]:
+              - /placeholder: owner
+          - generic [ref=e50]:
+            - generic [ref=e51]: รหัสผ่าน
+            - textbox "รหัสผ่าน" [ref=e52]:
+              - /placeholder: กรอกรหัสผ่าน
+          - generic [ref=e53]:
+            - generic [ref=e54]: รหัส 2FA
+            - textbox "รหัส 2FA" [ref=e55]:
+              - /placeholder: "123456"
+          - button "เข้าสู่ระบบเจ้าของแพลตฟอร์ม" [ref=e58] [cursor=pointer]

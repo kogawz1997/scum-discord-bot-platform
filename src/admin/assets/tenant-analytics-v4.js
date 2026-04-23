@@ -58,6 +58,17 @@
       : fallback;
   }
 
+  function parseTimestamp(value) {
+    const date = parseDate(value);
+    return date ? date.getTime() : 0;
+  }
+
+  function joinParts(parts) {
+    return (Array.isArray(parts) ? parts : [])
+      .filter(function (part) { return String(part || '').trim(); })
+      .join(' · ');
+  }
+
   function formatRelative(value, fallback = 'No timestamp yet') {
     const date = parseDate(value);
     if (!date) return fallback;
@@ -104,7 +115,8 @@
   function toneForStatus(value) {
     const normalized = normalizeStatus(value);
     if (['active', 'online', 'healthy', 'ready', 'completed', 'succeeded', 'sent', 'success'].includes(normalized)) return 'success';
-    if (['scheduled', 'running', 'pending', 'trial', 'processing', 'queued', 'warning', 'degraded', 'past_due'].includes(normalized)) return 'warning';
+    if (['scheduled', 'running', 'pending', 'trial', 'processing', 'queued', 'warning', 'degraded', 'past_due', 'reviewing', 'pending-verification', 'pending-player-reply'].includes(normalized)) return 'warning';
+    if (['resolved'].includes(normalized)) return 'success';
     if (['failed', 'error', 'blocked', 'offline', 'canceled', 'cancelled', 'disputed', 'void', 'refunded'].includes(normalized)) return 'danger';
     return 'muted';
   }
@@ -115,6 +127,16 @@
       .replace(/[_-]+/g, ' ')
       .replace(/\s+/g, ' ')
       .replace(/\b\w/g, function (match) { return match.toUpperCase(); }) || 'Unknown';
+  }
+
+  function formatSupportIntentLabel(value) {
+    const normalized = normalizeStatus(value, '');
+    if (normalized === 'bind') return 'Bind';
+    if (normalized === 'unlink') return 'Unlink';
+    if (normalized === 'relink') return 'Relink';
+    if (normalized === 'conflict') return 'Conflict';
+    if (normalized === 'review') return 'Review';
+    return humanizeKey(normalized || 'review');
   }
 
   function normalizeList(value) {
@@ -161,6 +183,8 @@
         detail: `${firstNonEmpty([row && row.status], 'unknown')} · ${formatDateTime(row && (row.scheduledFor || row.createdAt), 'No schedule')}`,
         meta: firstNonEmpty([row && row.reason, row && row.healthStatus], 'Restart plan'),
         tone: toneForStatus(row && row.status),
+        sortAt: firstNonEmpty([row && row.scheduledFor, row && row.createdAt], ''),
+        sourceLabel: 'Restart',
       };
     });
     const executions = normalizeList(state && state.restartExecutions).slice(0, 4).map(function (row) {
@@ -169,6 +193,8 @@
         detail: `${firstNonEmpty([row && row.runtimeKey], 'runtime')} · ${formatDateTime(row && (row.finishedAt || row.startedAt || row.createdAt), 'No execution time')}`,
         meta: firstNonEmpty([row && row.detail, row && row.actor], 'Restart execution'),
         tone: toneForStatus(row && row.resultStatus),
+        sortAt: firstNonEmpty([row && row.finishedAt, row && row.startedAt, row && row.createdAt], ''),
+        sourceLabel: 'Restart',
       };
     });
     return plans.concat(executions).slice(0, 8);
@@ -181,6 +207,8 @@
         detail: formatDateTime(row && (row.finishedAt || row.startedAt || row.createdAt), 'No sync timestamp'),
         meta: firstNonEmpty([row && row.scope, row && row.serverId, row && row.runtimeKey], 'Sync run'),
         tone: toneForStatus(row && row.status),
+        sortAt: firstNonEmpty([row && row.finishedAt, row && row.startedAt, row && row.createdAt], ''),
+        sourceLabel: 'Sync',
       };
     });
     const events = normalizeList(state && state.syncEvents).slice(0, 4).map(function (row) {
@@ -189,6 +217,8 @@
         detail: formatDateTime(row && (row.createdAt || row.occurredAt), 'No event timestamp'),
         meta: firstNonEmpty([row && row.detail, row && row.summary, row && row.serverId], 'Sync event'),
         tone: toneForStatus(row && row.status),
+        sortAt: firstNonEmpty([row && row.createdAt, row && row.occurredAt], ''),
+        sourceLabel: 'Sync',
       };
     });
     return runs.concat(events).slice(0, 8);
@@ -201,6 +231,8 @@
         detail: `${firstNonEmpty([row && row.status], 'unknown')} · ${formatMoney(row && row.amountCents, row && row.currency)}`,
         meta: `Due ${formatDateTime(row && row.dueAt, 'No due date')}`,
         tone: toneForStatus(row && row.status),
+        sortAt: firstNonEmpty([row && row.updatedAt, row && row.createdAt, row && row.dueAt], ''),
+        sourceLabel: 'Billing',
       };
     });
     const attempts = normalizeList(state && state.billingPaymentAttempts)
@@ -212,6 +244,8 @@
           detail: `${firstNonEmpty([row && row.provider], 'provider')} · ${formatMoney(row && row.amountCents, row && row.currency)}`,
           meta: firstNonEmpty([row && row.errorCode, row && row.detail], 'Payment attempt'),
           tone: toneForStatus(row && row.status),
+          sortAt: firstNonEmpty([row && row.updatedAt, row && row.createdAt, row && row.attemptedAt], ''),
+          sourceLabel: 'Billing',
         };
       });
     return invoices.concat(attempts).slice(0, 8);
@@ -250,11 +284,34 @@
 
   function buildNotificationRows(state) {
     const notifications = normalizeList(state && state.notifications).slice(0, 4).map(function (row) {
+      const eventType = normalizeStatus(firstNonEmpty([row && row.data && row.data.eventType, row && row.kind], ''));
+      if (eventType === 'platform.player.identity.support') {
+        const supportSource = firstNonEmpty([row && row.data && row.data.supportSource, row && row.source], 'tenant');
+        const followupAction = firstNonEmpty([row && row.data && row.data.followupAction], '');
+        const supportOutcome = firstNonEmpty([row && row.data && row.data.supportOutcome, row && row.severity], 'reviewing');
+        return {
+          title: `Identity support: ${formatSupportIntentLabel(firstNonEmpty([row && row.data && row.data.supportIntent, row && row.data && row.data.action], 'review'))}`,
+          detail: joinParts([
+            firstNonEmpty([row && row.data && row.data.supportReason, row && row.detail, row && row.message], 'Identity support action recorded'),
+            supportSource ? `Source ${supportSource}` : '',
+            followupAction ? `Next ${formatSupportIntentLabel(followupAction)}` : '',
+          ]),
+          meta: joinParts([
+            humanizeKey(supportOutcome),
+            formatDateTime(row && (row.createdAt || row.updatedAt || row.data && row.data.occurredAt), 'No notification time'),
+          ]),
+          tone: toneForStatus(supportOutcome),
+          sortAt: firstNonEmpty([row && row.createdAt, row && row.updatedAt, row && row.data && row.data.occurredAt], ''),
+          sourceLabel: 'Support',
+        };
+      }
       return {
         title: firstNonEmpty([row && row.title, row && row.kind], 'Notification'),
         detail: firstNonEmpty([row && row.detail, row && row.message], 'Operational notification'),
         meta: formatDateTime(row && row.createdAt, 'No notification time'),
         tone: toneForStatus(row && row.severity),
+        sortAt: firstNonEmpty([row && row.createdAt, row && row.updatedAt], ''),
+        sourceLabel: 'Alert',
       };
     });
     const auditRows = normalizeList(state && state.audit && state.audit.items).slice(0, 4).map(function (row) {
@@ -263,9 +320,29 @@
         detail: firstNonEmpty([row && row.detail, row && row.summary], 'Audit evidence'),
         meta: formatDateTime(row && row.createdAt, 'No audit timestamp'),
         tone: 'info',
+        sortAt: firstNonEmpty([row && row.createdAt, row && row.updatedAt], ''),
+        sourceLabel: 'Audit',
       };
     });
     return notifications.concat(auditRows).slice(0, 8);
+  }
+
+  function buildAuditTimelineRows(rows) {
+    return normalizeList(rows)
+      .filter(function (row) { return row && (row.sortAt || row.meta || row.title); })
+      .sort(function (left, right) {
+        return parseTimestamp(right && right.sortAt) - parseTimestamp(left && left.sortAt);
+      })
+      .slice(0, 8)
+      .map(function (row) {
+        return {
+          title: firstNonEmpty([row && row.title], 'Timeline item'),
+          detail: firstNonEmpty([row && row.detail], 'Operational timeline item'),
+          meta: joinParts([row && row.sourceLabel, row && row.meta]) || '-',
+          tone: row && row.tone ? row.tone : 'info',
+          sortAt: firstNonEmpty([row && row.sortAt], ''),
+        };
+      });
   }
 
   function renderInsightList(rows, emptyTitle, emptyDetail) {
@@ -340,6 +417,20 @@
     const deliveryExportHref = tenantId
       ? `/admin/api/delivery/lifecycle/export?tenantId=${encodeURIComponent(tenantId)}&limit=80&pendingOverdueMs=1200000&format=csv`
       : '/admin/api/delivery/lifecycle/export?format=csv';
+    const deliverySignals = buildDeliverySignalRows(deliveryLifecycle);
+    const deliveryActions = buildActionPlanRows(deliveryLifecycle);
+    const topErrors = buildTopErrorRows(deliveryLifecycle);
+    const restartRows = buildRestartRows(state);
+    const syncRows = buildSyncRows(state);
+    const billingRows = buildBillingRows(state);
+    const communityRows = buildCommunityRows(state);
+    const notificationRows = buildNotificationRows(state);
+    const auditTimelineRows = buildAuditTimelineRows(
+      notificationRows
+        .concat(restartRows)
+        .concat(syncRows)
+        .concat(billingRows),
+    );
 
     return {
       shell: {
@@ -372,14 +463,15 @@
         { label: 'Open invoices', value: formatNumber(openInvoiceCount, '0'), detail: `${formatNumber(failedAttemptCount, '0')} payment attempts need attention`, tone: openInvoiceCount > 0 || failedAttemptCount > 0 ? 'warning' : 'success' },
         { label: 'Community activity', value: formatNumber(communityActivityCount, '0'), detail: `${formatNumber(killfeed.length, '0')} kill feed · ${formatNumber(events.length, '0')} events · ${formatNumber(raidWindows.length, '0')} raid windows`, tone: communityActivityCount > 0 ? 'info' : 'muted' },
       ],
-      deliverySignals: buildDeliverySignalRows(deliveryLifecycle),
-      deliveryActions: buildActionPlanRows(deliveryLifecycle),
-      topErrors: buildTopErrorRows(deliveryLifecycle),
-      restartRows: buildRestartRows(state),
-      syncRows: buildSyncRows(state),
-      billingRows: buildBillingRows(state),
-      communityRows: buildCommunityRows(state),
-      notificationRows: buildNotificationRows(state),
+      deliverySignals: deliverySignals,
+      deliveryActions: deliveryActions,
+      topErrors: topErrors,
+      restartRows: restartRows,
+      syncRows: syncRows,
+      billingRows: billingRows,
+      communityRows: communityRows,
+      notificationRows: notificationRows,
+      auditTimelineRows: auditTimelineRows,
       links: {
         orders: '/tenant/orders',
         billing: '/tenant/billing',
@@ -467,10 +559,10 @@
       '<div class="tdv4-action-list"><a class="tdv4-button tdv4-button-secondary" href="' + escapeHtml(safe.links.events) + '">Open events</a></div>',
       '</section>',
       '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">Notifications and audit</div>',
-      '<h2 class="tdv4-section-title">Follow-up queue</h2>',
-      '<p class="tdv4-section-copy">Keep the latest notifications and audit evidence close to the analytics view so the operator can validate what changed without leaving the page.</p>',
-      renderInsightList(safe.notificationRows, 'No notifications or audit rows yet', 'Notifications and audit evidence will appear here after the first alert or operator action is recorded.'),
+      '<div class="tdv4-section-kicker">Audit timeline</div>',
+      '<h2 class="tdv4-section-title" data-tenant-analytics-timeline>Audit timeline</h2>',
+      '<p class="tdv4-section-copy">Merge support trails, alerts, restart evidence, sync activity, and billing friction into one newest-first timeline so follow-up work stays obvious.</p>',
+      renderInsightList(safe.auditTimelineRows, 'No audit timeline yet', 'Support trails, alerts, restarts, sync activity, and billing evidence will appear here after the first timestamped event is recorded.'),
       '</section>',
       '</section>',
       '</main>',

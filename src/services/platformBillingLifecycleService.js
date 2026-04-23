@@ -5,6 +5,7 @@ const { Prisma } = require('@prisma/client');
 
 const { prisma, getTenantScopedPrismaClient } = require('../prisma');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
 const {
   getCompatibilityClientKey,
   ensureSqliteDateTimeSchemaCompatibility,
@@ -717,11 +718,17 @@ async function listBillingInvoices(options = {}, db = prisma) {
   const tenantId = trimText(options.tenantId, 160) || null;
   const status = trimText(options.status, 40) || null;
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
-  const scopedDb = getScopedBillingDb(tenantId, db);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'billing invoice listing',
+    env: options.env || process.env,
+  });
+  const scopedDb = getScopedBillingDb(scope.tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
   if (getBillingPersistenceMode(scopedDb) !== 'prisma') {
     const filters = [];
-    if (tenantId) filters.push(Prisma.sql`tenantId = ${tenantId}`);
+    if (scope.tenantId) filters.push(Prisma.sql`tenantId = ${scope.tenantId}`);
     if (status) filters.push(Prisma.sql`status = ${status}`);
     const whereSql = filters.length > 0
       ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
@@ -738,7 +745,7 @@ async function listBillingInvoices(options = {}, db = prisma) {
   const { invoice } = getBillingDelegatesOrThrow(scopedDb);
   const rows = await invoice.findMany({
     where: {
-      ...(tenantId ? { tenantId } : {}),
+      ...(scope.tenantId ? { tenantId: scope.tenantId } : {}),
       ...(status ? { status } : {}),
     },
     orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
@@ -752,14 +759,20 @@ async function listBillingPaymentAttempts(options = {}, db = prisma) {
   const status = trimText(options.status, 40) || null;
   const provider = trimText(options.provider, 80) || null;
   const limit = Math.max(1, Math.min(500, asInt(options.limit, 50, 1)));
-  const scopedDb = getScopedBillingDb(tenantId, db);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'billing payment attempt listing',
+    env: options.env || process.env,
+  });
+  const scopedDb = getScopedBillingDb(scope.tenantId, db);
   await ensurePlatformBillingLifecycleTables(scopedDb);
   if (getBillingPersistenceMode(scopedDb) !== 'prisma') {
     const rows = await scopedDb.$queryRaw(Prisma.sql`
       SELECT id, invoiceId, tenantId, provider, status, amountCents, currency, externalRef, errorCode, errorDetail, attemptedAt, completedAt, metadataJson, createdAt, updatedAt
       FROM platform_billing_payment_attempts
-      ${tenantId || status || provider ? Prisma.sql`WHERE 1 = 1` : Prisma.empty}
-      ${tenantId ? Prisma.sql`AND tenantId = ${tenantId}` : Prisma.empty}
+      ${scope.tenantId || status || provider ? Prisma.sql`WHERE 1 = 1` : Prisma.empty}
+      ${scope.tenantId ? Prisma.sql`AND tenantId = ${scope.tenantId}` : Prisma.empty}
       ${status ? Prisma.sql`AND status = ${status}` : Prisma.empty}
       ${provider ? Prisma.sql`AND provider = ${provider}` : Prisma.empty}
       ORDER BY updatedAt DESC, createdAt DESC
@@ -770,7 +783,7 @@ async function listBillingPaymentAttempts(options = {}, db = prisma) {
   const { paymentAttempt } = getBillingDelegatesOrThrow(scopedDb);
   const rows = await paymentAttempt.findMany({
     where: {
-      ...(tenantId ? { tenantId } : {}),
+      ...(scope.tenantId ? { tenantId: scope.tenantId } : {}),
       ...(status ? { status } : {}),
       ...(provider ? { provider } : {}),
     },

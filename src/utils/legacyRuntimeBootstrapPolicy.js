@@ -47,6 +47,7 @@ function resolveLegacyRuntimeBootstrapPolicy(options = {}) {
 
   const explicit = parseExplicitBootstrapValue(envName ? env?.[envName] : '');
   const nodeEnv = trimText(env?.NODE_ENV, 32).toLowerCase();
+  const requireDb = ['1', 'true', 'yes', 'on'].includes(trimText(env?.PERSIST_REQUIRE_DB, 16).toLowerCase());
   const details = {
     policy,
     env: envName || null,
@@ -57,6 +58,7 @@ function resolveLegacyRuntimeBootstrapPolicy(options = {}) {
     provider: trimText(runtime?.provider, 32).toLowerCase() || null,
     isServerEngine: runtime?.isServerEngine === true,
     prismaClientLike: prismaClientLike === true,
+    requireDb,
   };
 
   if (explicit.explicit) {
@@ -73,6 +75,15 @@ function resolveLegacyRuntimeBootstrapPolicy(options = {}) {
       ...details,
       allowed: false,
       reason: 'prisma-client-runtime',
+      source: 'default',
+    });
+  }
+
+  if (requireDb) {
+    return Object.freeze({
+      ...details,
+      allowed: false,
+      reason: 'persist-require-db',
       source: 'default',
     });
   }

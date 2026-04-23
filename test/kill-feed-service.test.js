@@ -79,3 +79,21 @@ test('listKillFeedEntries rethrows unexpected database failures', async (t) => {
     /database temporarily unavailable/,
   );
 });
+
+test('listKillFeedEntries requires tenant scope in strict isolation mode', async (t) => {
+  t.after(restoreModules);
+  restoreModules();
+  const killFeedService = require(servicePath);
+
+  await assert.rejects(
+    () => killFeedService.listKillFeedEntries({
+      env: {
+        DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/app?schema=public',
+        DATABASE_PROVIDER: 'postgresql',
+        PRISMA_SCHEMA_PROVIDER: 'postgresql',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }),
+    /requires tenantId/i,
+  );
+});

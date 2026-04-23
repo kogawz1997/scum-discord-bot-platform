@@ -399,6 +399,96 @@ test('platform billing lifecycle service records customer, invoice, payment, and
   assert.equal(providerSummary.provider, 'platform_local');
 });
 
+test('platform billing lifecycle service requires explicit allowGlobal for global reads in strict postgres mode', async () => {
+  const { prisma: mockPrisma } = createMockBillingDelegatePrisma();
+
+  await assert.rejects(
+    () => listBillingInvoices({
+      limit: 10,
+      env: {
+        DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }, mockPrisma),
+    /billing invoice listing requires tenantId/i,
+  );
+
+  await assert.rejects(
+    () => listBillingPaymentAttempts({
+      limit: 10,
+      env: {
+        DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }, mockPrisma),
+    /billing payment attempt listing requires tenantId/i,
+  );
+});
+
+test('platform billing lifecycle service allows explicit global billing reads in strict postgres mode', async () => {
+  const { prisma: mockPrisma } = createMockBillingDelegatePrisma();
+  const now = new Date('2026-04-04T10:00:00.000Z');
+
+  await mockPrisma.platformBillingInvoice.create({
+    data: {
+      id: 'inv-global-1',
+      tenantId: 'tenant-a',
+      subscriptionId: 'sub-a',
+      customerId: 'cust-a',
+      status: 'open',
+      currency: 'THB',
+      amountCents: 1000,
+      dueAt: now,
+      paidAt: null,
+      externalRef: 'inv-global-1',
+      metadataJson: '{}',
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await mockPrisma.platformBillingPaymentAttempt.create({
+    data: {
+      id: 'pay-global-1',
+      invoiceId: 'inv-global-1',
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      status: 'failed',
+      amountCents: 1000,
+      currency: 'THB',
+      externalRef: 'pay-global-1',
+      errorCode: 'retry_later',
+      errorDetail: 'Retry later',
+      attemptedAt: now,
+      completedAt: null,
+      metadataJson: '{}',
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
+  const invoices = await listBillingInvoices({
+    allowGlobal: true,
+    limit: 10,
+    env: {
+      DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+      TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+    },
+  }, mockPrisma);
+  const attempts = await listBillingPaymentAttempts({
+    allowGlobal: true,
+    limit: 10,
+    env: {
+      DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+      TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+    },
+  }, mockPrisma);
+
+  assert.equal(invoices.length, 1);
+  assert.equal(String(invoices[0]?.id || ''), 'inv-global-1');
+  assert.equal(attempts.length, 1);
+  assert.equal(String(attempts[0]?.id || ''), 'pay-global-1');
+});
+
 test('platform billing lifecycle service creates and finalizes a checkout session', async (t) => {
   await cleanupBillingFixtures();
   t.after(cleanupBillingFixtures);

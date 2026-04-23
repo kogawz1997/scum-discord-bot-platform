@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payment Attempt Detail - SCUM CONTROL PLANE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bbc9cf",
+                        "on-tertiary-container": "#a10017",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0d0e10",
+                        "inverse-primary": "#00677f",
+                        "on-primary-container": "#00566a",
+                        "on-tertiary": "#68000b",
+                        "tertiary": "#ffd1ce",
+                        "on-primary": "#003543",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#ffba20",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-tint": "#4cd6ff",
+                        "primary": "#a4e6ff",
+                        "on-background": "#e3e2e4",
+                        "primary-container": "#00d1ff",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "inverse-on-surface": "#303032",
+                        "surface-container-high": "#292a2c",
+                        "outline": "#859399",
+                        "on-surface": "#e3e2e4",
+                        "tertiary-container": "#ffaaa4",
+                        "surface-container": "#1f2022",
+                        "surface-bright": "#38393b",
+                        "surface-variant": "#343537",
+                        "on-secondary-fixed": "#271900",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-primary-fixed": "#001f28",
+                        "background": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-dim": "#121315",
+                        "outline-variant": "#3c494e",
+                        "surface": "#121315",
+                        "primary-fixed": "#b7eaff",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-low": "#1b1c1e",
+                        "inverse-surface": "#e3e2e4",
+                        "surface-container-highest": "#343537",
+                        "secondary": "#ffdb9d",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "on-secondary": "#412d00",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121315;
+            color: #e3e2e4;
+        }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #121315; }
+        ::-webkit-scrollbar-thumb { background: #343537; border-radius: 10px; }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+<!-- TopNavBar Execution -->
+<header class="bg-slate-900/95 dark:bg-zinc-950/95 backdrop-blur-md fixed top-0 w-full z-50 border-b border-slate-800 dark:border-zinc-800 shadow-2xl">
+<div class="flex justify-between items-center h-16 px-6 w-full">
+<div class="flex items-center gap-8">
+<div class="text-lg font-black tracking-tighter text-slate-100 dark:text-white uppercase font-public-sans">
+                    SCUM CONTROL PLANE
+                </div>
+<nav class="hidden md:flex items-center gap-6 font-public-sans tracking-tight text-sm">
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Platform</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Incidents</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Fleet</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Support</a>
+<a class="text-cyan-400 border-b-2 border-cyan-400 pb-2" href="#">Billing</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-2">
+<button class="material-symbols-outlined p-2 text-slate-400 hover:bg-slate-800/50 transition-all rounded">language</button>
+<button class="material-symbols-outlined p-2 text-slate-400 hover:bg-slate-800/50 transition-all rounded">contrast</button>
+<button class="material-symbols-outlined p-2 text-slate-400 hover:bg-slate-800/50 transition-all rounded">notifications</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+<img alt="Owner Profile" data-alt="close-up portrait of a professional operator in a dark tactical environment with soft cyan rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMvuTJfEdE5TsHb2GvtY8cL0-y9yQgPPZPpb9GWL2ChzKk1gyFd9osXJggE1RY1Ku2ym-hUiBL7KWRmNFdyOpdqwPRxreD8138oIANDjLRtdjXL4k-LByPEQ7B9WG3lKARu4XrkyElWJxfAK1fq79z4pVetk_xK4tPlr2zfbQc6bH-Lm38x9EM8ghrz90DZy4vnQj4cgRhNIJy-ssMp5BIGpxJWcMqLWPW2L1Q3MdqXt-etjjNL6So2Fn9kB9giqbbXKsWoCNHKD8"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar Execution -->
+<aside class="fixed left-0 h-full w-64 pt-16 border-r border-slate-800 dark:border-zinc-900 bg-slate-950 dark:bg-black z-40">
+<div class="flex flex-col h-full">
+<div class="p-4 border-b border-slate-900">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 bg-cyan-500/10 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-500">admin_panel_settings</span>
+</div>
+<div>
+<div class="text-cyan-500 font-bold text-xs font-public-sans uppercase tracking-widest">OPERATOR-01</div>
+<div class="text-[10px] text-slate-500 font-semibold uppercase">Global Owner Permissions</div>
+</div>
+</div>
+</div>
+<nav class="flex flex-col gap-1 py-4 overflow-y-auto flex-grow">
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">dashboard</span> Overview
+                </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">corporate_fare</span> Tenants
+                </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">inventory_2</span> Packages
+                </a>
+<a class="bg-slate-900 dark:bg-zinc-900 text-cyan-400 border-l-4 border-cyan-400 flex items-center px-4 py-3 ml-0 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">payments</span> Billing
+                </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">developer_board</span> Delivery Agents
+                </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">dns</span> Server Bots
+                </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3 text-lg">security</span> Security Audit
+                </a>
+</nav>
+<div class="p-4 bg-slate-900/50">
+<button class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded text-[10px] tracking-widest uppercase transition-colors">
+                    SYSTEM RECOVERY
+                </button>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen bg-surface-dim">
+<!-- Page Header Strip -->
+<div class="px-8 py-6 border-b border-outline-variant/30 flex justify-between items-end bg-surface-container-low/50 backdrop-blur-sm">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<a class="text-cyan-500 text-xs font-bold flex items-center gap-1 hover:underline" href="#">
+<span class="material-symbols-outlined text-sm">arrow_back</span> Back to Billing
+                    </a>
+</div>
+<h1 class="text-2xl font-black font-public-sans tracking-tight flex items-center gap-3">
+                    TXN_99283_REJECTED
+                    <span class="px-2 py-0.5 bg-error-container text-error text-[10px] font-black uppercase rounded tracking-wider border border-error/20">REJECTED</span>
+</h1>
+<p class="text-on-surface-variant text-sm mt-1 font-mono">Attempted: 2023-11-24 14:02:55 UTC • /owner/api/platform/billing/payment-attempts/99283</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline/30 hover:bg-surface-container-high text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-sm">edit</span> อัปเดตสถานะ
+                </button>
+<button class="px-4 py-2 bg-primary-container text-on-primary-fixed font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-cyan-400 transition-all">
+<span class="material-symbols-outlined text-sm">refresh</span> ลองใหม่
+                </button>
+</div>
+</div>
+<!-- Transaction Content Grid -->
+<div class="p-8 grid grid-cols-12 gap-6">
+<!-- Left Column: Core Observability -->
+<div class="col-span-8 flex flex-col gap-6">
+<!-- Bento Card: Transaction Context -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container p-5 rounded-lg border border-outline-variant/20 shadow-lg relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl">payments</span>
+</div>
+<h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-4">Financial Summary</h3>
+<div class="flex justify-between items-end">
+<div>
+<div class="text-3xl font-black font-public-sans text-cyan-400">฿1,450.00</div>
+<div class="text-xs text-on-surface-variant mt-1 uppercase">Monthly Advanced Tier</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] uppercase text-on-surface-variant">Currency</div>
+<div class="text-sm font-mono font-bold">THB</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 rounded-lg border border-outline-variant/20 shadow-lg relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl">account_balance</span>
+</div>
+<h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-4">Provider Metadata</h3>
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 bg-white/5 rounded flex items-center justify-center border border-outline/10">
+<span class="material-symbols-outlined text-2xl">credit_card</span>
+</div>
+<div>
+<div class="text-sm font-bold font-public-sans">Stripe Terminal 04</div>
+<div class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tight">METHOD: card_visa_9901</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Tactical Log Section -->
+<div class="bg-surface-container-low rounded-lg border border-outline-variant/30 flex flex-col shadow-xl">
+<div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-high/30 flex justify-between items-center">
+<h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-cyan-500">terminal</span> Error Code Logs
+                        </h3>
+<div class="flex gap-2">
+<span class="h-2 w-2 rounded-full bg-red-500"></span>
+<span class="h-2 w-2 rounded-full bg-amber-500"></span>
+<span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+</div>
+</div>
+<div class="p-6 font-mono text-[13px] leading-relaxed bg-black/40 min-h-[300px] max-h-[500px] overflow-y-auto">
+<div class="flex gap-4 mb-2 opacity-60">
+<span class="text-cyan-700">14:02:55.001</span>
+<span class="text-blue-500">[INFO]</span>
+<span>Initiating payment attempt for Tenant: T-8829-SCUM</span>
+</div>
+<div class="flex gap-4 mb-2 opacity-60">
+<span class="text-cyan-700">14:02:55.122</span>
+<span class="text-blue-500">[INFO]</span>
+<span>Communicating with Stripe API Endpoint: v1/charges</span>
+</div>
+<div class="flex gap-4 mb-2 opacity-60">
+<span class="text-cyan-700">14:02:56.405</span>
+<span class="text-blue-500">[DEBUG]</span>
+<span>Payload Hash: 0x88fc...9921</span>
+</div>
+<div class="flex gap-4 mb-2 text-red-400 font-bold bg-red-400/10 p-1 rounded">
+<span class="text-cyan-700">14:02:56.882</span>
+<span class="text-red-500">[ERROR]</span>
+<span>provider_response: card_declined</span>
+</div>
+<div class="flex gap-4 mb-2 text-red-400 bg-red-400/10 p-1 rounded">
+<span class="text-cyan-700">14:02:56.883</span>
+<span class="text-red-500">[ERROR]</span>
+<span>code: 402 | sub_code: insufficient_funds</span>
+</div>
+<div class="flex gap-4 mb-2 opacity-60">
+<span class="text-cyan-700">14:02:56.901</span>
+<span class="text-amber-500">[WARN]</span>
+<span>Triggering Aegis Fallback: No secondary method found.</span>
+</div>
+<div class="flex gap-4 mb-2 opacity-60">
+<span class="text-cyan-700">14:02:57.005</span>
+<span class="text-blue-500">[INFO]</span>
+<span>Closing connection. Final Status: REJECTED</span>
+</div>
+<div class="mt-8 pt-4 border-t border-outline-variant/10">
+<div class="text-[10px] text-on-surface-variant uppercase mb-2 tracking-widest">Full JSON Payload</div>
+<pre class="bg-surface-container-highest p-3 rounded text-[11px] text-cyan-200/80 overflow-x-auto">{
+  "id": "ch_3OFu...",
+  "object": "charge",
+  "amount": 145000,
+  "billing_details": {
+    "address": { "city": "Bangkok", "country": "TH" },
+    "email": "ops@tenant8829.scum.srv",
+    "name": "Operator Alpha"
+  },
+  "failure_code": "card_declined",
+  "failure_message": "Your card has insufficient funds.",
+  "outcome": {
+    "network_status": "declined_by_network",
+    "reason": "insufficient_funds",
+    "type": "issuer_declined"
+  }
+}
+                            </pre>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Metadata & Context -->
+<div class="col-span-4 flex flex-col gap-6">
+<!-- Tenant Overview Card -->
+<div class="bg-surface-container p-5 rounded-lg border border-outline-variant/20 shadow-lg">
+<h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-4">Affected Tenant</h3>
+<div class="flex gap-4 items-start mb-6">
+<div class="h-12 w-12 bg-surface-container-high rounded flex items-center justify-center border border-outline/20">
+<span class="material-symbols-outlined text-3xl text-primary">domain</span>
+</div>
+<div>
+<div class="text-lg font-black font-public-sans leading-tight">RED SECTOR OMEGA</div>
+<div class="text-[11px] font-mono text-cyan-500 uppercase">T-8829-SCUM</div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant">Fleet Health</span>
+<span class="text-emerald-400 font-bold uppercase">98.2%</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant">Delivery Agents</span>
+<span class="font-mono">14/14</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-on-surface-variant">Server Bots</span>
+<span class="font-mono">02/02</span>
+</div>
+<div class="pt-3 border-t border-outline-variant/20">
+<button class="w-full py-2 bg-surface-container-highest hover:bg-surface-bright text-[10px] font-black uppercase tracking-widest transition-all">View Tenant Dashboard</button>
+</div>
+</div>
+</div>
+<!-- Incident Association -->
+<div class="bg-error-container/10 p-5 rounded-lg border border-error/20">
+<h3 class="text-xs font-black uppercase text-error tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">warning</span> Linked Incidents
+                    </h3>
+<div class="bg-surface-container-low p-3 border border-outline-variant/20 mb-3 rounded">
+<div class="flex justify-between items-start mb-2">
+<span class="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-black rounded uppercase">CRITICAL</span>
+<span class="text-[10px] text-on-surface-variant font-mono">INC-4002</span>
+</div>
+<p class="text-xs font-bold leading-tight">Recursive billing failure: Cluster SE-Asia</p>
+<p class="text-[10px] text-on-surface-variant mt-1">Status: Active Investigation</p>
+</div>
+<button class="text-[10px] text-error font-black uppercase hover:underline">Link to new incident</button>
+</div>
+<!-- Action History -->
+<div class="bg-surface-container p-5 rounded-lg border border-outline-variant/20">
+<h3 class="text-xs font-black uppercase text-on-surface-variant tracking-widest mb-4">Event Timeline</h3>
+<div class="space-y-6 relative before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[1px] before:bg-outline/20">
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 h-6 w-6 rounded-full bg-error-container flex items-center justify-center border-2 border-surface-container">
+<span class="material-symbols-outlined text-[14px] text-error font-bold">close</span>
+</div>
+<div class="text-[11px] font-bold">Transaction Rejected</div>
+<div class="text-[10px] text-on-surface-variant font-mono">2023-11-24 14:02:57</div>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 h-6 w-6 rounded-full bg-surface-container-highest flex items-center justify-center border-2 border-surface-container">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">sync</span>
+</div>
+<div class="text-[11px] font-bold">Payment Attempted</div>
+<div class="text-[10px] text-on-surface-variant font-mono">2023-11-24 14:02:55</div>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 h-6 w-6 rounded-full bg-surface-container-highest flex items-center justify-center border-2 border-surface-container">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">calendar_today</span>
+</div>
+<div class="text-[11px] font-bold">Billing Cycle Triggered</div>
+<div class="text-[10px] text-on-surface-variant font-mono">2023-11-24 14:00:00</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Global Footer / System State -->
+<footer class="fixed bottom-0 left-64 right-0 h-8 bg-black/80 backdrop-blur-sm border-t border-outline-variant/20 flex items-center justify-between px-6 z-50">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5">
+<span class="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+<span class="text-[9px] font-black uppercase tracking-widest text-emerald-500">Aegis Core: Stable</span>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<div class="text-[9px] font-mono text-on-surface-variant">Cluster: TH-BK-02 | v4.9.1-prod</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[9px] font-mono text-on-surface-variant">Latency: 24ms</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">description</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">cloud_done</span>
+</div>
+</div>
+</footer>
+</body></html>

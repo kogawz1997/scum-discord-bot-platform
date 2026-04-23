@@ -1252,7 +1252,7 @@ async function buildAdminSnapshot(options = {}) {
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      : listPlatformTenants({ limit: 500 }),
+      : listPlatformTenants({ limit: 500, allowGlobal: true }),
     includePlatformSecrets
       ? prisma.platformSubscription.findMany({
         orderBy: { updatedAt: 'desc' },

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Platform Controls</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>.placeholder-main { padding: 28px; } .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(254,183,0,.18); background: rgba(254,183,0,.08); color: var(--text-soft); font-size: 13px; }</style>
+</head>
+<body>
+  <nav class="topbar"><div class="topbar__brand"><span class="topbar__mark">SCUM</span><div><span class="topbar__title">SCUM Owner Plane</span><span class="topbar__copy">Platform Controls</span></div></div><div class="topbar__tools"><a class="topbar__pill" href="/owner/control">Platform Controls</a><button class="button">Refresh</button><button class="button">Language</button><button class="button">Notifications</button></div></nav>
+  <div class="shell">
+    <aside class="sidebar"><div class="sidebar__section"><div class="sidebar__title">Governance</div><a class="nav-item" href="/owner/settings">Settings</a><a class="nav-item is-active" href="/owner/control">Platform Controls</a><a class="nav-item" href="/owner/recovery">Recovery</a><a class="nav-item" href="/owner/diagnostics">Diagnostics</a></div></aside>
+    <main class="main placeholder-main">
+      <header class="page-header"><div><span class="eyebrow">Platform Controls</span><h1 class="page-title">Live Platform Operations</h1><p class="page-copy">Use this route to review service impact, control risk, and operational readiness before opening guarded platform actions.</p></div><div class="actions"><a class="button" href="/owner/settings">Open Settings</a><a class="button" href="/owner/recovery">Open Recovery</a><button class="button button--primary" data-open-live-workspace="true">Open Platform Controls</button></div></header>
+      <section class="panel panel--hero"><h2 class="panel__title">Control lane</h2><p class="panel__copy">Service restart, admin-user management, automation execution, and environment policy changes stay on the guarded owner control lane.</p><div class="list"><div class="list__item"><div class="list__title"><span>Restart-capable services</span><span class="status" data-tone="amber">Guarded</span></div><div class="soft">Destructive actions stay behind the owner control lane.</div></div><div class="list__item"><div class="list__title"><span>Shared automation</span><span class="status" data-tone="cyan">Available</span></div><div class="soft">Open guarded controls for execution and review.</div></div></div><div class="placeholder-note">Read-only on this route: restart now, create admin user, save environment values, and apply automation changes remain guarded.</div></section>
+    </main>
+  </div>
+</body>
+</html>

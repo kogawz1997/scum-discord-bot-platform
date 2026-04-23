@@ -65,7 +65,7 @@ function createAgentRegistryService(deps = {}) {
     if (!token) return null;
     const tokenPrefix = token.slice(0, 16);
     const tokenHash = sha256(token);
-    const matches = listAgentProvisioningTokens({ tokenPrefix });
+    const matches = listAgentProvisioningTokens({ tokenPrefix, allowGlobal: true });
     return matches.find((row) => String(row?.tokenHash || '') === tokenHash) || null;
   }
 
@@ -359,8 +359,8 @@ function createAgentRegistryService(deps = {}) {
   async function revokeAgentToken(input = {}, actor = 'system') {
     const apiKeyId = trimText(input.apiKeyId, 120);
     if (!apiKeyId) return { ok: false, reason: 'invalid-api-key-id' };
-    const credential = listAgentCredentials({ apiKeyId })[0] || null;
-    const binding = listAgentTokenBindings({ apiKeyId })[0] || null;
+    const credential = listAgentCredentials({ apiKeyId, allowGlobal: true })[0] || null;
+    const binding = listAgentTokenBindings({ apiKeyId, allowGlobal: true })[0] || null;
     const scopedTenantId = trimText(input.tenantId, 120);
     const bindingTenantId = trimText(binding?.tenantId, 120);
     const credentialTenantId = trimText(credential?.tenantId, 120);
@@ -369,7 +369,11 @@ function createAgentRegistryService(deps = {}) {
       return { ok: false, reason: 'tenant-scope-mismatch' };
     }
     if (typeof revokePlatformApiKey === 'function') {
-      const result = await revokePlatformApiKey(apiKeyId, actor);
+      const result = await revokePlatformApiKey(
+        apiKeyId,
+        actor,
+        effectiveTenantId ? { tenantId: effectiveTenantId } : { allowGlobal: true },
+      );
       if (!result.ok) return result;
     }
     const bindingResult = revokeAgentTokenBinding(apiKeyId, actor);
@@ -385,7 +389,7 @@ function createAgentRegistryService(deps = {}) {
   async function rotateAgentToken(input = {}, actor = 'system') {
     const apiKeyId = trimText(input.apiKeyId, 120);
     if (!apiKeyId) return { ok: false, reason: 'invalid-api-key-id' };
-    const binding = listAgentTokenBindings({ apiKeyId })[0] || null;
+    const binding = listAgentTokenBindings({ apiKeyId, allowGlobal: true })[0] || null;
     if (!binding) return { ok: false, reason: 'agent-token-binding-not-found' };
     const scopedTenantId = trimText(input.tenantId, 120);
     if (scopedTenantId && String(binding.tenantId || '') !== scopedTenantId) {
@@ -405,7 +409,7 @@ function createAgentRegistryService(deps = {}) {
         status: 'active',
         revokedAt: null,
       }, actor);
-      const previousCredential = listAgentCredentials({ apiKeyId })[0] || null;
+      const previousCredential = listAgentCredentials({ apiKeyId, allowGlobal: true })[0] || null;
       upsertAgentCredential({
         id: rotated.apiKey?.id,
         tenantId: binding.tenantId,
@@ -452,7 +456,7 @@ function createAgentRegistryService(deps = {}) {
       status: 'active',
       revokedAt: null,
     }, actor);
-    const previousCredential = listAgentCredentials({ apiKeyId })[0] || null;
+    const previousCredential = listAgentCredentials({ apiKeyId, allowGlobal: true })[0] || null;
     upsertAgentCredential({
       id: created.apiKey?.id,
       tenantId: binding.tenantId,
@@ -472,7 +476,9 @@ function createAgentRegistryService(deps = {}) {
       },
     }, actor);
     if (typeof revokePlatformApiKey === 'function') {
-      await revokePlatformApiKey(apiKeyId, actor).catch(() => null);
+      await revokePlatformApiKey(apiKeyId, actor, {
+        tenantId: binding.tenantId,
+      }).catch(() => null);
     }
     if (previousCredential?.id) {
       revokeAgentCredential(previousCredential.id, actor, {
@@ -491,7 +497,7 @@ function createAgentRegistryService(deps = {}) {
   async function revokeProvisioningToken(input = {}, actor = 'system') {
     const tokenId = trimText(input.tokenId || input.id, 120);
     if (!tokenId) return { ok: false, reason: 'invalid-agent-provisioning-token-id' };
-    const token = listAgentProvisioningTokens({ tokenId })[0] || null;
+    const token = listAgentProvisioningTokens({ tokenId, allowGlobal: true })[0] || null;
     if (!token) return { ok: false, reason: 'agent-provisioning-token-not-found' };
     const scopedTenantId = trimText(input.tenantId, 120);
     if (scopedTenantId && String(token.tenantId || '') !== scopedTenantId) {
@@ -505,7 +511,7 @@ function createAgentRegistryService(deps = {}) {
   async function revokeManagedAgentDevice(input = {}, actor = 'system') {
     const deviceId = trimText(input.deviceId || input.id, 120);
     if (!deviceId) return { ok: false, reason: 'invalid-agent-device-id' };
-    const device = listAgentDevices({ deviceId })[0] || null;
+    const device = listAgentDevices({ deviceId, allowGlobal: true })[0] || null;
     if (!device) return { ok: false, reason: 'agent-device-not-found' };
     const scopedTenantId = trimText(input.tenantId, 120);
     if (scopedTenantId && String(device.tenantId || '') !== scopedTenantId) {
@@ -529,7 +535,10 @@ function createAgentRegistryService(deps = {}) {
       if (row.apiKeyId) {
         revokeAgentTokenBinding(row.apiKeyId, actor);
         if (typeof revokePlatformApiKey === 'function') {
-          await revokePlatformApiKey(row.apiKeyId, actor).catch(() => null);
+          await revokePlatformApiKey(row.apiKeyId, actor, {
+            tenantId: trimText(device.tenantId, 120) || trimText(row.tenantId, 120) || undefined,
+            allowGlobal: !trimText(device.tenantId, 120) && !trimText(row.tenantId, 120),
+          }).catch(() => null);
         }
       }
     }
@@ -659,9 +668,9 @@ function createAgentRegistryService(deps = {}) {
       scope: strictAgentProfile.scope,
       guildId: normalized.guildId || agent.guildId || null,
     }, actor);
-    const credential = listAgentCredentials({ apiKeyId: auth.apiKeyId })[0] || null;
+    const credential = listAgentCredentials({ apiKeyId: auth.apiKeyId, allowGlobal: true })[0] || null;
     const currentDevice = credential?.deviceId
-      ? listAgentDevices({ deviceId: credential.deviceId })[0] || null
+      ? listAgentDevices({ deviceId: credential.deviceId, allowGlobal: true })[0] || null
       : null;
     if (credential?.deviceId && currentDevice?.machineFingerprintHash) {
       upsertAgentDevice({

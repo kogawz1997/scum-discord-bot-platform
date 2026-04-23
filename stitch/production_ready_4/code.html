@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM_OPERATOR_v1.0 - Fleet Health</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700;900&amp;family=Public+Sans:wght@400;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#ffd1ce",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-container-high": "#292a2c",
+                        "surface-container-highest": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "inverse-primary": "#00677f",
+                        "inverse-surface": "#e3e2e4",
+                        "on-tertiary": "#68000b",
+                        "surface-dim": "#121315",
+                        "primary-container": "#00d1ff",
+                        "on-primary": "#003543",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface-variant": "#343537",
+                        "primary": "#a4e6ff",
+                        "surface-container-lowest": "#0d0e10",
+                        "tertiary-container": "#ffaaa4",
+                        "surface-bright": "#38393b",
+                        "on-primary-fixed-variant": "#004e60",
+                        "on-surface": "#e3e2e4",
+                        "tertiary-fixed": "#ffdad7",
+                        "secondary-container": "#feb700",
+                        "on-background": "#e3e2e4",
+                        "outline-variant": "#3c494e",
+                        "on-secondary-fixed": "#271900",
+                        "on-primary-container": "#00566a",
+                        "secondary": "#ffdb9d",
+                        "primary-fixed": "#b7eaff",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#6b4b00",
+                        "background": "#121315",
+                        "surface-tint": "#4cd6ff",
+                        "outline": "#859399",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-surface-variant": "#bbc9cf",
+                        "surface-container": "#1f2022",
+                        "surface-container-low": "#1b1c1e",
+                        "on-tertiary-container": "#a10017",
+                        "on-secondary": "#412d00",
+                        "on-primary-fixed": "#001f28",
+                        "inverse-on-surface": "#303032",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-tertiary-fixed": "#410004",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface": "#121315"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "prompt": ["Prompt"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    },
+                    "boxShadow": {
+                        "high-fidelity": "0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2)",
+                        "cyan-glow": "0 0 15px rgba(0, 209, 255, 0.15)"
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', 'Prompt', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+        
+        .dark body { background-color: #121315; color: #e3e2e4; }
+        .light body { background-color: #f8fafc; color: #0f172a; }
+
+        /* Custom Theme Overrides for Light Mode */
+        .light header { background-color: #ffffff; border-bottom: 1px solid #e2e8f0; }
+        .light aside { background-color: #ffffff; border-right: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .light .bg-surface-container { background-color: #ffffff; border: 1px solid #e2e8f0; }
+        .light .bg-surface-container-low { background-color: #f1f5f9; }
+        .light .bg-surface-container-highest { background-color: #e2e8f0; }
+        .light .text-on-surface { color: #0f172a; }
+        .light .text-slate-400 { color: #64748b; }
+        .light .text-slate-500 { color: #475569; }
+        .light .text-on-surface-variant { color: #334155; }
+        .light #technical-stream { background-color: #ffffff; border: 1px solid #e2e8f0; }
+        .light .bg-black\/40 { background-color: #f8fafc; }
+        .light .bg-\[\#1B1C1E\] { background-color: #ffffff; border-color: #e2e8f0; }
+        .light .bg-\[\#292A2C\] { background-color: #f1f5f9; }
+        .light .bg-\[\#0A0B0D\] { background-color: #ffffff; }
+        .light .border-outline-variant\/10, .light .border-outline-variant\/20, .light .border-outline-variant\/30 { border-color: #e2e8f0; }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #343537; border-radius: 10px; }
+        .light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+        ::-webkit-scrollbar-thumb:hover { background: #4cd6ff; }
+
+        .hover-card-state { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-card-state:hover { transform: translateY(-2px); box-shadow: 0 12px 20px -10px rgba(0,0,0,0.5); border-color: rgba(0, 209, 255, 0.3); }
+        
+        #technical-stream-content div:hover { background: rgba(0, 209, 255, 0.05); }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-14 bg-[#0A0B0D] transition-colors border-b border-outline-variant/10">
+<div class="flex items-center gap-8">
+<span class="font-black text-xl text-[#00D1FF] tracking-tighter cursor-default">SCUM_OPERATOR_v1.0</span>
+<nav class="hidden md:flex items-center gap-6 font-['Prompt'] tracking-tight text-sm uppercase">
+<a class="text-slate-400 hover:text-white transition-colors relative group py-4" href="#">
+                แพลตฟอร์ม
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+</a>
+<a class="text-slate-400 hover:text-white transition-colors relative group py-4" href="#">
+                ผู้เช่า
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+</a>
+<a class="text-slate-400 hover:text-white transition-colors relative group py-4" href="#">
+                การเรียกเก็บเงิน
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+</a>
+<a class="text-[#00D1FF] border-b-2 border-[#00D1FF] py-4" href="#">การตรวจสอบ</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center bg-[#1B1C1E] px-3 py-1.5 rounded-sm border border-outline-variant/30 font-['Prompt'] text-[10px] text-[#00D1FF] tracking-widest uppercase shadow-sm">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+            สุขภาพระบบรวม: 98.2% OPS/OK
+        </div>
+<div class="flex items-center gap-2 border-l border-outline-variant/30 pl-4">
+<!-- Language Switcher -->
+<div class="relative group">
+<button class="flex items-center gap-1 text-slate-400 hover:text-[#00D1FF] hover:bg-[#292A2C] px-2 py-1.5 rounded transition-all text-[10px] font-bold uppercase font-['Prompt'] active:scale-95">
+<span class="material-symbols-outlined text-base">language</span>
+<span>TH</span>
+<span class="material-symbols-outlined text-[10px]">expand_more</span>
+</button>
+<div class="absolute right-0 top-full mt-2 w-32 bg-surface-container border border-outline-variant/30 rounded shadow-high-fidelity hidden group-hover:block overflow-hidden z-50">
+<a class="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-on-surface hover:bg-primary/10 hover:text-[#00D1FF] transition-colors" href="#">
+<img alt="EN" class="w-4 h-3 object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5k-9aWm4RS8_NRAwuJz3gSWYaiBGxRVhTnSfWNCe1N4n1U7OV2F8M4UXOjgWUpCqR3PBOyDOLqB2nhAWpCw1_ShEeMi_gJdC-RbmZVev7UOILGhAm9jo-bQ-z0-vOYOUOqsSICESdtyMopy2oe1YWGZ6c2SwyA1FkHXt1ZygTQSy9JQQTVmmpBXyWoMYyRicsmfd1Fs4pyQ2y3I3c-wVsf-t_GLnpHb9ASt1L68fSlsJ_bdoNsV0UGLxnE_ldtZo2ozSKX6UcEyQ"/> ENGLISH
+                    </a>
+<a class="flex items-center gap-2 px-3 py-2 text-[10px] font-bold bg-primary/10 text-[#00D1FF]" href="#">
+<img alt="TH" class="w-4 h-3 object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuCdfxhjXDRasXmoTnIKotMKDRBuzYfem0NhCmEjmEa5nS91Nj43b_Zn5CE9JBSMeym9cFSzpZdBjn0nYNR7Y5WLL_1Ewziljxi7I45-2eZTsqvLCfvQIAA6ygLT8wfeONRmmJCAYQJuJtMqXrvbtSSfazmMbANIGq7B06r1Htt3T75TnODw9hzAzUZJ53dI84jdvEr_z7Vm39QDKpZTl3nKnQtuZIJuqmQaG0phYCypDTwJUwXWr6xD4ik7ibX-7BYWZX7Ea3078"/> ภาษาไทย
+                    </a>
+</div>
+</div>
+<!-- Theme Toggle -->
+<button class="text-slate-400 hover:text-[#00D1FF] hover:bg-[#292A2C] p-1.5 rounded transition-all active:scale-90" id="theme-toggle" title="สลับโหมดสี">
+<span class="material-symbols-outlined text-xl dark:hidden">dark_mode</span>
+<span class="material-symbols-outlined text-xl hidden dark:block">light_mode</span>
+</button>
+</div>
+<div class="flex items-center gap-3">
+<button class="relative text-slate-400 hover:bg-[#292A2C] p-1.5 rounded transition-colors group">
+<span class="material-symbols-outlined text-xl group-hover:rotate-12 transition-transform">notifications_active</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full border-2 border-[#0A0B0D]"></span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest flex items-center justify-center border border-primary/20 overflow-hidden hover:border-primary transition-all cursor-pointer">
+<img alt="โปรไฟล์" class="hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7oXPpBfaM4OGs5xSk2Q0jWetE7AZV-9s8H2wT-kW4p7MQVJ_WccBawusvAaSo9AXRPlPn5cWGYM6Cptp5LjLvdaDDFSHGevF8WRjoH_adqESjlzUjm4Ke7v44UR-MXqhPxaLUiI4t0_QgR0yrij8R-e-DaTQLVMUQtu2Ky76ymXEHpjj79rVwnsg1mPe9dI30PvGnu3K2Uocgf_93yLH9ZaB5yfnB_c9kHhS2MVnQRsX0iPipSHhMRbsp1qyEzlUhlfGpdMRtrM8"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 bg-[#1B1C1E] flex flex-col z-40 border-r border-outline-variant/10 shadow-[4px_0_24px_-10px_rgba(0,0,0,0.5)] transition-colors">
+<div class="p-4 border-b border-outline-variant/10">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 rounded bg-[#292A2C] border border-[#00D1FF]/20 flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-[#00D1FF] text-sm">terminal</span>
+</div>
+<div>
+<div class="font-['Prompt'] text-xs font-bold text-on-surface uppercase tracking-wider">OP_SESSION_08</div>
+<div class="font-['Prompt'] text-[9px] text-slate-500 uppercase">/เจ้าของ/api/ฉัน</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4 overflow-y-auto">
+<div class="px-5 mb-2 font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-60">เมนูควบคุม</div>
+<a class="flex items-center gap-3 px-5 py-3 text-slate-500 hover:bg-[#292A2C]/50 hover:text-[#00D1FF] transition-all font-['Prompt'] text-xs uppercase group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">emergency</span>
+<span>เหตุการณ์ความขัดแย้ง</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-3 text-slate-500 hover:bg-[#292A2C]/50 hover:text-[#00D1FF] transition-all font-['Prompt'] text-xs uppercase group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">terminal</span>
+<span>บันทึกระบบ</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-3 bg-[#292A2C] text-[#00D1FF] border-l-4 border-[#00D1FF] transition-all font-['Prompt'] text-xs uppercase group shadow-cyan-glow" href="#">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+<span>สุขภาพฟลีท</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-3 text-slate-500 hover:bg-[#292A2C]/50 hover:text-[#00D1FF] transition-all font-['Prompt'] text-xs uppercase group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">package_2</span>
+<span>การติดตามแพ็กเกจ</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-3 text-slate-500 hover:bg-[#292A2C]/50 hover:text-[#00D1FF] transition-all font-['Prompt'] text-xs uppercase group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">verified_user</span>
+<span>ทะเบียนใบอนุญาต</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant/10 bg-[#121315]/30">
+<button class="w-full py-2.5 bg-[#292A2C] hover:bg-[#343537] active:bg-[#00D1FF] active:text-black text-[#00D1FF] font-['Prompt'] text-[10px] uppercase tracking-tighter border border-[#00D1FF]/20 rounded transition-all active:scale-95 shadow-sm">
+            ปรับใช้ตัวแก้ไขด่วน
+        </button>
+<div class="mt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-2 py-1.5 text-slate-500 hover:text-white transition-all font-['Prompt'] text-[10px] uppercase group" href="#">
+<span class="material-symbols-outlined text-base group-hover:text-[#00D1FF] transition-colors">developer_board</span>
+<span>เทอร์มินัล</span>
+</a>
+<a class="flex items-center gap-3 px-2 py-1.5 text-red-400/70 hover:text-red-400 transition-all font-['Prompt'] text-[10px] uppercase group" href="#">
+<span class="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">logout</span>
+<span>ออกจากระบบ</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-14 p-8 min-h-[calc(100vh-3.5rem)] transition-colors">
+<!-- Header Section -->
+<header class="mb-10 border-l-4 border-[#00D1FF] pl-6 py-2">
+<h1 class="font-headline font-black text-4xl uppercase tracking-tighter text-on-surface">Fleet Runtime Diagnostics</h1>
+<p class="font-['Prompt'] text-sm text-on-surface-variant max-w-2xl mt-2 leading-relaxed">การตรวจสอบสุขภาพแบบเรียลไทม์ของ ตัวแทนจัดส่ง (Delivery Agent) และ บอตเซิร์ฟเวอร์ (Server Bot) ทั่วทั้งระบบแพลตฟอร์ม</p>
+</header>
+<!-- Bento Grid: Health Summary -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<div class="bg-surface-container border border-outline-variant/10 p-6 rounded-xl hover-card-state">
+<div class="flex items-center justify-between mb-3">
+<span class="font-['Prompt'] text-[10px] uppercase text-slate-500 tracking-wider font-bold">สถานะการทำงานรวม</span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#00D1FF] shadow-[0_0_10px_rgba(0,209,255,0.8)] animate-pulse"></span>
+</div>
+<div class="text-4xl font-black font-headline text-on-surface tracking-tight">99.4%</div>
+<div class="font-['Prompt'] text-[10px] text-[#00D1FF] mt-2 font-mono flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>
+                Uptime_24h_Metric_Stable
+            </div>
+</div>
+<div class="bg-surface-container border border-outline-variant/10 p-6 rounded-xl hover-card-state">
+<div class="flex items-center justify-between mb-3">
+<span class="font-['Prompt'] text-[10px] uppercase text-slate-500 tracking-wider font-bold">ตัวแทนจัดส่งออนไลน์</span>
+<span class="material-symbols-outlined text-slate-600 text-sm">sensors</span>
+</div>
+<div class="text-4xl font-black font-headline text-on-surface tracking-tight">1,240</div>
+<div class="font-['Prompt'] text-[10px] text-green-500 mt-2 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">add_circle</span>
+                +12 Active_New_Session
+            </div>
+</div>
+<div class="bg-surface-container border border-outline-variant/10 p-6 rounded-xl hover-card-state">
+<div class="flex items-center justify-between mb-3">
+<span class="font-['Prompt'] text-[10px] uppercase text-slate-500 tracking-wider font-bold">บอตเซิร์ฟเวอร์ตอบสนอง</span>
+<span class="material-symbols-outlined text-slate-600 text-sm">dns</span>
+</div>
+<div class="text-4xl font-black font-headline text-on-surface tracking-tight">412</div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 mt-2 font-mono">Sync_Log_Frequency: 1.2s</div>
+</div>
+<div class="bg-surface-container border border-outline-variant/10 p-6 rounded-xl ring-1 ring-error/30 hover-card-state bg-error/[0.02]">
+<div class="flex items-center justify-between mb-3">
+<span class="font-['Prompt'] text-[10px] uppercase text-error tracking-wider font-bold">ตรวจพบความผิดปกติ</span>
+<span class="material-symbols-outlined text-error text-sm animate-bounce">warning</span>
+</div>
+<div class="text-4xl font-black font-headline text-error tracking-tight">03</div>
+<div class="font-['Prompt'] text-[10px] text-error mt-2 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">gpp_maybe</span>
+                Action_Required: High_Risk
+            </div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+<!-- Delivery Agents (ตัวแทนจัดส่ง) Section -->
+<section class="space-y-6">
+<div class="flex items-center justify-between border-b-2 border-primary-container/30 pb-3">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-primary-container/10 rounded-lg shadow-inner">
+<span class="material-symbols-outlined text-primary-container text-2xl">hail</span>
+</div>
+<h2 class="font-['Prompt'] text-xl font-black uppercase tracking-tight text-on-surface">ตัวแทนจัดส่ง (Delivery Agents)</h2>
+</div>
+<span class="bg-primary-container/20 text-primary-container text-[9px] px-2.5 py-1 rounded-full font-mono uppercase font-bold border border-primary-container/30">Role: Runtime_GameClient</span>
+</div>
+<!-- Agent Status Cards -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Agent 1 -->
+<div class="bg-[#1B1C1E] border border-outline-variant/20 rounded-xl p-5 hover:border-primary-container/50 hover:bg-[#222326] transition-all group shadow-sm hover:shadow-high-fidelity relative overflow-hidden">
+<div class="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary/20 text-4xl">ads_click</span>
+</div>
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center border border-outline-variant/30 shadow-inner group-hover:border-primary-container/40 transition-colors">
+<span class="material-symbols-outlined text-primary-container text-2xl">person_play</span>
+</div>
+<div>
+<div class="font-headline font-black text-base tracking-tight text-on-surface group-hover:text-primary-container transition-colors">AGENT_TX_0082</div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Tenant: RU_SERVER_MOSCOW_01</div>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-green-500/10 text-green-500 text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-widest border border-green-500/20 shadow-sm">เชื่อมต่อแล้ว</div>
+<div class="text-[9px] text-slate-500 mt-2 font-mono flex items-center justify-end gap-1">
+<span class="w-1 h-1 bg-green-500 rounded-full"></span>
+                                LATENCY: 42ms
+                            </div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4 border-t border-outline-variant/10 pt-4">
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">เวอร์ชันฟลีท</div>
+<div class="text-[12px] text-on-surface font-mono font-medium">v2.4.1-STABLE</div>
+</div>
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">การแจ้งเตือนในเกม</div>
+<div class="text-[12px] text-[#00D1FF] font-['Prompt'] font-black">เปิดใช้งาน</div>
+</div>
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">รหัสโทเค็น</div>
+<div class="text-[12px] text-on-surface font-mono opacity-80 uppercase">****-A92J</div>
+</div>
+</div>
+</div>
+<!-- Agent 2 (Warning) -->
+<div class="bg-[#1B1C1E] border border-outline-variant/20 rounded-xl p-5 transition-all group shadow-sm hover:border-secondary-container/50 hover:bg-[#222326] relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 w-1.5 bg-secondary-container shadow-[2px_0_10px_rgba(254,183,0,0.3)]"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center border border-outline-variant/30 shadow-inner group-hover:border-secondary-container/40 transition-colors">
+<span class="material-symbols-outlined text-secondary-container text-2xl">person_play</span>
+</div>
+<div>
+<div class="font-headline font-black text-base tracking-tight text-on-surface">AGENT_TX_0419</div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Tenant: US_WEST_S1_OFFICIAL</div>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-secondary-container/10 text-secondary-container text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-widest border border-secondary-container/20">รุ่นล้าสมัย</div>
+<div class="text-[9px] text-secondary-container/80 mt-2 font-mono flex items-center justify-end gap-1">
+<span class="material-symbols-outlined text-[10px]">sync_problem</span>
+                                DRIFT: 2 VERSIONS
+                            </div>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-outline-variant/10 pt-4">
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">เวอร์ชันปัจจุบัน</div>
+<div class="text-[12px] text-secondary-container font-mono font-bold">v2.2.0-STALE</div>
+</div>
+<div class="sm:col-span-2">
+<button class="w-full h-full flex items-center justify-center gap-2 bg-secondary-container/10 border border-secondary-container/30 text-secondary-container text-[11px] font-['Prompt'] font-black uppercase rounded-lg hover:bg-secondary-container hover:text-black active:scale-[0.98] transition-all py-2.5 shadow-sm">
+<span class="material-symbols-outlined text-sm">system_update_alt</span>
+                                บังคับอัปเดตระยะไกล
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Server Bots (บอตเซิร์ฟเวอร์) Section -->
+<section class="space-y-6">
+<div class="flex items-center justify-between border-b-2 border-secondary-container/30 pb-3">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-secondary-container/10 rounded-lg shadow-inner">
+<span class="material-symbols-outlined text-secondary-container text-2xl">smart_toy</span>
+</div>
+<h2 class="font-['Prompt'] text-xl font-black uppercase tracking-tight text-on-surface">บอตเซิร์ฟเวอร์ (Server Bots)</h2>
+</div>
+<span class="bg-secondary-container/20 text-secondary-container text-[9px] px-2.5 py-1 rounded-full font-mono uppercase font-bold border border-secondary-container/30">Role: Runtime_ServerSide</span>
+</div>
+<!-- Bot Status Cards -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Bot 1 -->
+<div class="bg-[#1B1C1E] border border-outline-variant/20 rounded-xl p-5 hover:border-secondary-container/50 hover:bg-[#222326] transition-all group shadow-sm hover:shadow-high-fidelity relative overflow-hidden">
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center border border-outline-variant/30 shadow-inner group-hover:border-secondary-container/40 transition-colors">
+<span class="material-symbols-outlined text-secondary-container text-2xl">storage</span>
+</div>
+<div>
+<div class="font-headline font-black text-base tracking-tight text-on-surface group-hover:text-secondary-container transition-colors">BOT_CORE_SV_99</div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Tenant: EU_WAR_ZONE_PREMIUM</div>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-green-500/10 text-green-500 text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-widest border border-green-500/20">LOG_SYNC: ACTIVE</div>
+<div class="text-[9px] text-slate-500 mt-2 font-mono flex items-center justify-end gap-1">
+<span class="material-symbols-outlined text-[10px] animate-spin">refresh</span>
+                                LAST: 0.8s AGO
+                            </div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4 border-t border-outline-variant/10 pt-4">
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">คอนฟิก</div>
+<div class="text-[12px] text-on-surface font-['Prompt'] font-medium">ตรงตามกำหนด</div>
+</div>
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">สำรองข้อมูล</div>
+<div class="text-[12px] text-[#00D1FF] font-bold">สำเร็จ (1h ago)</div>
+</div>
+<div class="space-y-1">
+<div class="text-[9px] text-slate-500 uppercase font-['Prompt'] font-bold">การเข้าถึง</div>
+<div class="text-[12px] text-on-surface font-mono font-black">ADMIN_OK</div>
+</div>
+</div>
+</div>
+<!-- Bot 2 (Critical) -->
+<div class="bg-[#1B1C1E] border border-outline-variant/20 rounded-xl p-5 transition-all group shadow-sm hover:border-error/50 hover:bg-[#222326] relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 w-1.5 bg-error shadow-[2px_0_10px_rgba(255,180,171,0.3)]"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center border border-outline-variant/30 shadow-inner group-hover:border-error/40 transition-colors">
+<span class="material-symbols-outlined text-error text-2xl">dangerous</span>
+</div>
+<div>
+<div class="font-headline font-black text-base tracking-tight text-on-surface">BOT_CORE_SV_12</div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Tenant: ASIA_PACIFIC_S4_HARDCORE</div>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-error/10 text-error text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-widest border border-error/20">ขาดการเชื่อมต่อ</div>
+<div class="text-[9px] text-error mt-2 font-mono font-bold">OFFLINE: 12m 4s</div>
+</div>
+</div>
+<div class="p-3 bg-error/10 rounded-lg border border-error/20 mb-4 shadow-inner">
+<div class="flex items-start gap-2 text-error text-[11px] font-['Prompt'] leading-tight">
+<span class="material-symbols-outlined text-sm mt-0.5">history</span>
+<span>สาเหตุ: ล้มเหลวระหว่างการรีสตาร์ทอัตโนมัติ (Verification_Failed) - กรุณาตรวจสอบสิทธิ์การเข้าถึงไฟล์ระบบ</span>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-2.5 bg-error text-white text-[11px] font-['Prompt'] font-black uppercase rounded-lg hover:bg-error-container hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+                            สั่งรีสตาร์ทใหม่
+                        </button>
+<button class="px-4 py-2.5 bg-surface-container-highest text-on-surface border border-outline-variant/30 text-[11px] font-['Prompt'] font-bold uppercase rounded-lg hover:bg-surface-variant hover:text-[#00D1FF] active:scale-95 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">pageview</span>
+                            ดูบันทึก
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- System Stream Information -->
+<div class="mt-12 bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden shadow-high-fidelity transition-colors" id="technical-stream">
+<div class="bg-surface-container px-6 py-5 border-b border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="p-1.5 bg-[#00D1FF]/10 rounded shadow-inner">
+<span class="material-symbols-outlined text-[#00D1FF] text-xl">troubleshoot</span>
+</div>
+<h3 class="font-headline font-black text-lg uppercase tracking-tighter text-on-surface">Technical Execution Stream</h3>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-full border border-outline-variant/30 shadow-sm">
+<div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></div>
+<span class="font-['Prompt'] text-[10px] text-slate-300 uppercase font-bold tracking-tight">THAILAND_CENTRAL_01</span>
+</div>
+<button class="p-2 hover:bg-[#292A2C] rounded-full transition-colors text-slate-500 hover:text-[#00D1FF]">
+<span class="material-symbols-outlined text-xl">settings_ethernet</span>
+</button>
+</div>
+</div>
+<div class="p-6 font-mono text-[12px] text-slate-400 space-y-3 leading-relaxed h-64 overflow-y-auto bg-[#0d0e10] custom-scroll scroll-smooth" id="technical-stream-content">
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-transparent transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:01]</span>
+<span class="text-[#00D1FF] font-bold w-24">[SYS_MON]</span>
+<span class="text-on-surface/80">เริ่มการตรวจสอบสถานะ AgentTX ทั่วโลก... สภาวะปกติ (200 OK)</span>
+</div>
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-transparent transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:05]</span>
+<span class="text-secondary-container font-bold w-24">[BOT_SVC]</span>
+<span class="text-on-surface/80">BotCoreSV_99 ยืนยันการซิงค์ <span class="text-secondary-container/80 underline decoration-dotted">SCUM.log</span> (Block: #A82-X9) สำเร็จ</span>
+</div>
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-error/50 bg-error/5 transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:08]</span>
+<span class="text-error font-bold w-24">[CRIT_ALRT]</span>
+<span class="text-error font-medium">BotCoreSV_12 ส่งรหัสความผิดพลาด 0xDE402 (Connection_Timeout_Remote_Host)</span>
+</div>
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-transparent transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:12]</span>
+<span class="text-[#00D1FF] font-bold w-24">[AUTH_SVC]</span>
+<span class="text-on-surface/80">ต่ออายุใบรับรองความปลอดภัยสำหรับ 142 Delivery Agents ในคลัสเตอร์ THA-01</span>
+</div>
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-transparent transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:15]</span>
+<span class="text-slate-500 font-bold w-24">[STBY_RUN]</span>
+<span class="text-on-surface/60">รอลำดับการรันไทม์ถัดไป... โหลดซีพียูแพลตฟอร์ม: 14% | RAM: 4.2GB</span>
+</div>
+<div class="flex gap-6 py-1 px-2 rounded border-l-2 border-transparent transition-all cursor-default group">
+<span class="text-slate-600 font-bold opacity-60 group-hover:opacity-100">[14:32:18]</span>
+<span class="text-[#00D1FF] font-bold w-24">[SYS_MON]</span>
+<span class="text-on-surface/80">อัปเดตสถานะพาเนลควบคุม: ผู้ดำเนินการเข้าสู่โหมด "ตรวจสอบเชิงลึก"</span>
+</div>
+</div>
+</div>
+<!-- Detail Drawer / Right Rail (Contextual Preview) -->
+<div class="fixed top-14 right-0 h-[calc(100vh-3.5rem)] w-80 bg-surface-container-low border-l border-outline-variant/10 p-7 hidden xl:block shadow-[-15px_0_30px_-10px_rgba(0,0,0,0.6)] transition-colors">
+<h4 class="font-headline font-black text-xl uppercase tracking-tight text-on-surface mb-6 border-b border-outline-variant/20 pb-2">Quick Diagnostics</h4>
+<div class="space-y-8">
+<div>
+<div class="font-['Prompt'] text-[10px] text-slate-500 uppercase tracking-widest mb-4 font-black flex items-center justify-between">
+<span>Cluster Distribution</span>
+<span class="material-symbols-outlined text-sm">public</span>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-['Prompt'] text-on-surface font-bold">เอเชียแปซิฟิก</span>
+<span class="font-mono text-[#00D1FF]">65%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+<div class="w-[65%] h-full bg-[#00D1FF] shadow-[0_0_8px_rgba(0,209,255,0.4)]"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-['Prompt'] text-on-surface font-bold">ยุโรปเหนือ</span>
+<span class="font-mono text-[#00D1FF]">42%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+<div class="w-[42%] h-full bg-[#00D1FF] shadow-[0_0_8px_rgba(0,209,255,0.4)]"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-['Prompt'] text-on-surface font-bold">อเมริกาตะวันตก</span>
+<span class="font-mono text-[#00D1FF]">28%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+<div class="w-[28%] h-full bg-[#00D1FF] shadow-[0_0_8px_rgba(0,209,255,0.4)]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 border border-outline-variant/20 rounded-xl shadow-inner relative group overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl text-error">security</span>
+</div>
+<div class="flex items-center gap-3 mb-3 relative z-10">
+<div class="p-1.5 bg-error/10 rounded">
+<span class="material-symbols-outlined text-error text-xl">security</span>
+</div>
+<span class="font-['Prompt'] text-[11px] font-black text-error uppercase tracking-wider">Security Posture</span>
+</div>
+<div class="font-['Prompt'] text-[11px] text-slate-400 leading-relaxed relative z-10">
+                    โทเค็นการเข้าถึงฟลีททั้งหมดอยู่ภายใต้การตรวจสอบอัตโนมัติ ไม่พบการพยายามบุกรุกใน 48 ชั่วโมงที่ผ่านมา ระบบอยู่ในสถานะ <span class="text-green-500 font-bold">ป้องกันสูงสุด</span>
+</div>
+</div>
+<div class="pt-6 border-t border-outline-variant/10">
+<button class="w-full py-3.5 bg-surface-container-highest hover:bg-surface-variant hover:text-white text-[#00D1FF] font-['Prompt'] text-xs font-black uppercase rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-md border border-outline-variant/30">
+<span class="material-symbols-outlined text-xl">download_for_offline</span>
+                    ดาวน์โหลดรายงานสุขภาพ
+                </button>
+</div>
+</div>
+<div class="absolute bottom-8 left-7 right-7">
+<div class="p-4 bg-primary-container/5 rounded-xl border border-primary-container/20 shadow-inner flex flex-col gap-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-primary-container text-sm">hub</span>
+<div class="text-[10px] text-primary-container uppercase font-black tracking-widest">Data Center Status</div>
+</div>
+<div class="font-['Prompt'] text-[11px] text-on-surface font-medium">Location: BKK-01-IDC</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+<span class="font-mono text-[10px] text-slate-400">STATUS: ON_LINE_STABLE</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+    const themeToggle = document.getElementById('theme-toggle');
+    const htmlElement = document.documentElement;
+
+    themeToggle.addEventListener('click', () => {
+        htmlElement.classList.toggle('dark');
+        htmlElement.classList.toggle('light');
+    });
+
+    // Initialize theme if not set
+    if (!htmlElement.classList.contains('dark') && !htmlElement.classList.contains('light')) {
+        htmlElement.classList.add('dark');
+    }
+
+    // Auto-scroll stream content
+    const streamContent = document.getElementById('technical-stream-content');
+    setInterval(() => {
+        if (streamContent.scrollHeight - streamContent.scrollTop === streamContent.clientHeight) {
+            // If already at bottom, stay there when content added (simulated)
+        }
+    }, 1000);
+
+    // Interactive button state simulation
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.classList.add('scale-95');
+            setTimeout(() => this.classList.remove('scale-95'), 100);
+        });
+    });
+</script>
+</body></html>

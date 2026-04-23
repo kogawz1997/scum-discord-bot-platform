@@ -22,6 +22,7 @@ function buildScopeOptions(params = {}) {
     tenantId: normalizeText(params.tenantId),
     defaultTenantId: normalizeText(params.defaultTenantId),
     env: params.env,
+    operation: normalizeText(params.operation) || 'giveaway operation',
   };
 }
 
@@ -62,14 +63,14 @@ function startGiveawayForMessage(params = {}) {
   return { ok: true, giveaway };
 }
 
-function getGiveawayByMessageId(messageId) {
+function getGiveawayByMessageId(messageId, options = {}) {
   const normalized = normalizeText(messageId);
   if (!normalized) return null;
-  return getGiveaway(normalized);
+  return getGiveaway(normalized, buildScopeOptions(options));
 }
 
 function listGiveawayMessages(options = {}) {
-  return listGiveaways(options);
+  return listGiveaways(buildScopeOptions(options));
 }
 
 function enterGiveawayForUser(params = {}) {

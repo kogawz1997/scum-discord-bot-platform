@@ -4,12 +4,25 @@ const {
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,
 } = require('../prisma');
+const {
+  assertTenantDbIsolationScope,
+  getTenantDbIsolationRuntime,
+} = require('../utils/tenantDbIsolation');
 
 const SERVER_SCOPED_USER_KEY_PREFIX = '__scum_server__';
 
 function resolveTenantStoreScope(options = {}) {
-  const tenantId = resolveDefaultTenantId(options);
-  if (!tenantId) {
+  const env = options.env || process.env;
+  const explicitTenantId = String(options.tenantId || options.defaultTenantId || '').trim() || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: String(options.operation || '').trim() || 'tenant store scope',
+    env,
+  });
+  if (!scope.tenantId) {
     return {
       tenantId: null,
       datasourceKey: '__default__',
@@ -18,9 +31,9 @@ function resolveTenantStoreScope(options = {}) {
   }
 
   return {
-    tenantId,
-    datasourceKey: resolveTenantScopedDatasourceUrl(tenantId, options) || tenantId,
-    db: getTenantScopedPrismaClient(tenantId, options),
+    tenantId: scope.tenantId,
+    datasourceKey: resolveTenantScopedDatasourceUrl(scope.tenantId, options) || scope.tenantId,
+    db: getTenantScopedPrismaClient(scope.tenantId, options),
   };
 }
 

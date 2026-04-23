@@ -83,6 +83,9 @@ async function queryAdminDashboardMetrics(options = {}) {
   }
 
   const tenantId = normalizeTenantId(options.tenantId);
+  if (!tenantId && options.allowGlobal !== true) {
+    throw new Error('admin-dashboard-global-scope-required');
+  }
   const guildCount = client?.guilds?.cache?.size || 0;
   const tenantTopologyMode = getTenantDatabaseTopologyMode();
   const usesTenantTopology = tenantTopologyMode !== 'shared';
@@ -187,7 +190,9 @@ async function queryAdminDashboardMetrics(options = {}) {
   );
   const batchRows = await readAcrossDeliveryPersistenceScopeBatch(
     batchTasks,
-    tenantId ? { tenantId } : {},
+    tenantId
+      ? { tenantId, operation: 'admin dashboard tenant metrics aggregation' }
+      : { allowGlobal: true, operation: 'admin dashboard global metrics aggregation' },
   );
   const counts = Object.fromEntries(
     globalModels.map(([metricKey, modelName, selectKey]) => {

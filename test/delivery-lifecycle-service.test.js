@@ -122,3 +122,43 @@ test('buildDeliveryLifecycleCsv flattens summary and error signatures', () => {
   assert.match(csv, /topErrors,AGENT_PREFLIGHT_FAILED:3/);
   assert.match(csv, /recommendedActions,hold-poison-candidates:2/);
 });
+
+test('buildDeliveryLifecycleReport requires tenant scope in strict postgres mode unless global access is explicit', async () => {
+  await assert.rejects(
+    () => buildDeliveryLifecycleReport({
+      env: {
+        DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+      deps: {
+        getDeliveryRuntimeSnapshotSync: () => ({}),
+        listFilteredDeliveryQueue: () => ([]),
+        listFilteredDeliveryDeadLetters: () => ([]),
+      },
+    }),
+    /delivery lifecycle report requires tenantId/i,
+  );
+});
+
+test('buildDeliveryLifecycleReport allows explicit global access in strict postgres mode', async () => {
+  const report = await buildDeliveryLifecycleReport({
+    allowGlobal: true,
+    env: {
+      DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+      TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+    },
+    deps: {
+      getDeliveryRuntimeSnapshotSync: () => ({
+        enabled: true,
+        executionMode: 'worker',
+        workerStarted: true,
+      }),
+      listFilteredDeliveryQueue: () => ([]),
+      listFilteredDeliveryDeadLetters: () => ([]),
+    },
+  });
+
+  assert.equal(report.tenantId, null);
+  assert.equal(report.scope, 'global');
+  assert.equal(report.summary.queueCount, 0);
+});

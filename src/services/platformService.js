@@ -367,11 +367,31 @@ function sortRowsByTimestampDesc(rows, fields = ['updatedAt', 'createdAt']) {
   });
 }
 
+function assertPlatformTenantReadScope(options = {}, fallbackOperation = 'platform tenant scope aggregation') {
+  return assertTenantDbIsolationScope({
+    tenantId: trimText(options.tenantId, 120) || null,
+    allowGlobal: options.allowGlobal === true,
+    operation: trimText(options.operation, 160) || fallbackOperation,
+  });
+}
+
 async function readAcrossPlatformTenantScopes(readWork, options = {}) {
   if (typeof readWork !== 'function') {
     throw new TypeError('readAcrossPlatformTenantScopes requires a callback');
   }
+  const { tenantId } = assertPlatformTenantReadScope(options, 'platform tenant scope aggregation');
   const rows = [];
+  if (tenantId) {
+    const scopedRows = await runWithOptionalTenantDbIsolation(
+      tenantId,
+      (db) => readWork(db, tenantId),
+      { cache: false },
+    ).catch(() => []);
+    if (Array.isArray(scopedRows)) {
+      rows.push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
+    }
+    return dedupePlatformRows(rows, options.buildKey);
+  }
   if (options.includeShared !== false) {
     const sharedRows = await readWork(prisma, null).catch(() => []);
     if (Array.isArray(sharedRows)) rows.push(...sharedRows.map((row) => annotatePlatformScopeRow(row, null)));
@@ -402,6 +422,32 @@ async function readAcrossPlatformTenantScopesBatch(taskEntries, options = {}) {
     .filter(([key, task]) => trimText(key, 120) && typeof task === 'function');
   const results = Object.fromEntries(entries.map(([key]) => [key, []]));
   if (entries.length === 0) {
+    return results;
+  }
+  const { tenantId } = assertPlatformTenantReadScope(options, 'platform tenant scope batch aggregation');
+
+  if (tenantId) {
+    const scopedResults = await runWithOptionalTenantDbIsolation(
+      tenantId,
+      async (db) => {
+        const rowsByKey = {};
+        for (const [key, task] of entries) {
+          const rows = await task(db, tenantId);
+          rowsByKey[key] = Array.isArray(rows) ? rows : [];
+        }
+        return rowsByKey;
+      },
+      { cache: false },
+    ).catch(() => null);
+    if (!scopedResults || typeof scopedResults !== 'object') {
+      return results;
+    }
+    for (const [key] of entries) {
+      const scopedRows = Array.isArray(scopedResults[key]) ? scopedResults[key] : [];
+      if (scopedRows.length > 0) {
+        results[key].push(...scopedRows.map((row) => annotatePlatformScopeRow(row, tenantId)));
+      }
+    }
     return results;
   }
 
@@ -807,6 +853,7 @@ const platformTenantRegistryService = createPlatformTenantRegistryService({
   normalizeLocale,
   stringifyMeta,
   sanitizeTenantRow,
+  assertTenantDbIsolationScope,
   getTenantDatabaseTopologyMode,
   ensureTenantDatabaseTargetProvisioned,
   emitPlatformEvent,
@@ -1022,8 +1069,8 @@ async function listPlatformApiKeys(options = {}) {
   return platformIntegrationService.listPlatformApiKeys(options);
 }
 
-async function revokePlatformApiKey(apiKeyId, actor = 'system') {
-  return platformIntegrationService.revokePlatformApiKey(apiKeyId, actor);
+async function revokePlatformApiKey(apiKeyId, actor = 'system', options = {}) {
+  return platformIntegrationService.revokePlatformApiKey(apiKeyId, actor, options);
 }
 
 async function rotatePlatformApiKey(input = {}, actor = 'system') {

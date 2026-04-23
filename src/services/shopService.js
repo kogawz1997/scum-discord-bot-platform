@@ -20,6 +20,33 @@ const { debitCoins, creditCoins } = require('./coinService');
 const { enqueuePurchaseDelivery } = require('./rconDelivery');
 const { assertTenantQuotaAvailable } = require('./platformService');
 const { getVipPlan } = require('./vipService');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
+
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
+function resolveShopScope(params = {}, operation = 'shop operation', fallbackTenantId = null) {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId)
+    || normalizeText(params.defaultTenantId)
+    || normalizeText(fallbackTenantId)
+    || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    serverId: normalizeText(params.serverId) || null,
+    env,
+  };
+}
 
 function normalizeShopKind(value) {
   const raw = String(value || 'item').trim().toLowerCase();
@@ -156,7 +183,8 @@ function getDeliveryStatusText(result) {
 async function findShopItemByQuery(query, options = {}) {
   const text = String(query || '').trim();
   if (!text) return null;
-  return (await getShopItemById(text, options)) || (await getShopItemByName(text, options));
+  const scopeOptions = resolveShopScope(options, 'find shop item');
+  return (await getShopItemById(text, scopeOptions)) || (await getShopItemByName(text, scopeOptions));
 }
 
 async function createQueuedPurchase(params = {}) {
@@ -170,8 +198,9 @@ async function createQueuedPurchase(params = {}) {
   const enqueuePurchaseDeliveryFn =
     params.enqueuePurchaseDeliveryFn || enqueuePurchaseDelivery;
 
-  const tenantId = params.tenantId || item?.tenantId || null;
-  const serverId = String(params.serverId || '').trim() || null;
+  const scopeOptions = resolveShopScope(params, 'create queued purchase', item?.tenantId || null);
+  const tenantId = scopeOptions.tenantId;
+  const serverId = scopeOptions.serverId;
   const purchase = await createPurchaseFn(userId, item, { tenantId, serverId });
   const delivery = await enqueuePurchaseDeliveryFn(purchase, {
     guildId: params.guildId || null,
@@ -212,14 +241,9 @@ async function createVipPurchase(params = {}) {
     throw new Error('vip-plan-not-found');
   }
 
-  const tenantId = params.tenantId || item?.tenantId || null;
-  const serverId = String(params.serverId || '').trim() || null;
-  const scopeOptions = {
-    tenantId,
-    serverId,
-    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
-    env: params.env,
-  };
+  const scopeOptions = resolveShopScope(params, 'create vip purchase', item?.tenantId || null);
+  const tenantId = scopeOptions.tenantId;
+  const serverId = scopeOptions.serverId;
   const purchase = await createPurchaseFn(userId, item, { tenantId, serverId });
 
   const previousMembership = getMembershipFn(userId, scopeOptions);
@@ -286,15 +310,23 @@ async function purchaseShopItemForUser(params = {}) {
   if (!userId) {
     return { ok: false, reason: 'invalid-user-id' };
   }
+  const requestedScope = resolveShopScope(
+    params,
+    'purchase shop item',
+    params.item?.tenantId || null,
+  );
 
   const item = params.item || (await findShopItemByQuery(params.query, {
-    tenantId: params.tenantId || null,
+    tenantId: requestedScope.tenantId,
+    defaultTenantId: requestedScope.defaultTenantId,
+    env: requestedScope.env,
   }));
   if (!item) {
     return { ok: false, reason: 'item-not-found' };
   }
-  const tenantId = String(params.tenantId || item?.tenantId || '').trim() || null;
-  const serverId = String(params.serverId || '').trim() || null;
+  const scopeOptions = resolveShopScope(params, 'purchase shop item', item?.tenantId || null);
+  const tenantId = scopeOptions.tenantId;
+  const serverId = scopeOptions.serverId;
   if (String(item?.status || '').trim().toLowerCase() === 'disabled') {
     return {
       ok: false,
@@ -357,7 +389,10 @@ async function purchaseShopItemForUser(params = {}) {
         itemName: item.name,
         ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
       },
+      tenantId,
+      defaultTenantId: scopeOptions.defaultTenantId,
       serverId,
+      env: scopeOptions.env,
     });
     if (!debit.ok) {
       return {
@@ -372,7 +407,12 @@ async function purchaseShopItemForUser(params = {}) {
     balance = Number(debit.balance || 0);
     debitApplied = price;
   } else {
-    balance = Number((await getWallet(userId, { serverId }))?.balance || 0);
+    balance = Number((await getWallet(userId, {
+      tenantId,
+      defaultTenantId: scopeOptions.defaultTenantId,
+      serverId,
+      env: scopeOptions.env,
+    }))?.balance || 0);
   }
 
   try {
@@ -396,6 +436,8 @@ async function purchaseShopItemForUser(params = {}) {
       removeMembershipFn: params.removeMembershipFn,
       vipPlan: params.vipPlan,
       now: params.now,
+      defaultTenantId: scopeOptions.defaultTenantId,
+      env: scopeOptions.env,
     });
     return {
       ok: true,
@@ -417,7 +459,10 @@ async function purchaseShopItemForUser(params = {}) {
           itemName: item.name,
           rollbackReason: String(error?.message || error),
         },
+        tenantId,
+        defaultTenantId: scopeOptions.defaultTenantId,
         serverId,
+        env: scopeOptions.env,
       }).catch(() => null);
     }
     return {
@@ -459,6 +504,7 @@ async function addShopItemForAdmin(params = {}) {
   if (isGameItemShopKind(kind) && !gameItemId && deliveryItems.length === 0) {
     return { ok: false, reason: 'game-item-required' };
   }
+  const scopeOptions = resolveShopScope(params, 'add shop item');
 
   try {
     const item = await addShopItem(id, name, Math.trunc(price), description, {
@@ -474,7 +520,9 @@ async function addShopItemForAdmin(params = {}) {
       deliveryPostCommands: isGameItemShopKind(kind) ? deliveryPostCommands : [],
       deliveryReturnTarget: isGameItemShopKind(kind) ? deliveryReturnTarget : null,
     }, {
-      tenantId: params.tenantId || null,
+      tenantId: scopeOptions.tenantId,
+      defaultTenantId: scopeOptions.defaultTenantId,
+      env: scopeOptions.env,
     });
     return { ok: true, item };
   } catch (error) {
@@ -492,8 +540,11 @@ async function setShopItemPriceForAdmin(params = {}) {
   if (!idOrName || !Number.isFinite(price) || price <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolveShopScope(params, 'set shop item price');
   const item = await setShopItemPrice(idOrName, Math.trunc(price), {
-    tenantId: params.tenantId || null,
+    tenantId: scopeOptions.tenantId,
+    defaultTenantId: scopeOptions.defaultTenantId,
+    env: scopeOptions.env,
   });
   if (!item) {
     return { ok: false, reason: 'not-found' };
@@ -510,6 +561,7 @@ async function updateShopItemForAdmin(params = {}) {
   if (!idOrName || !name || !description || !Number.isFinite(price) || price <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolveShopScope(params, 'update shop item');
   try {
     const item = await updateShopItem(idOrName, {
       name,
@@ -528,7 +580,9 @@ async function updateShopItemForAdmin(params = {}) {
       deliveryReturnTarget: params.deliveryReturnTarget,
       status: params.status,
     }, {
-      tenantId: params.tenantId || null,
+      tenantId: scopeOptions.tenantId,
+      defaultTenantId: scopeOptions.defaultTenantId,
+      env: scopeOptions.env,
     });
     if (!item) {
       return { ok: false, reason: 'not-found' };
@@ -549,8 +603,11 @@ async function setShopItemStatusForAdmin(params = {}) {
   if (!idOrName || !status) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolveShopScope(params, 'set shop item status');
   const item = await setShopItemStatus(idOrName, status, {
-    tenantId: params.tenantId || null,
+    tenantId: scopeOptions.tenantId,
+    defaultTenantId: scopeOptions.defaultTenantId,
+    env: scopeOptions.env,
   });
   if (!item) {
     return { ok: false, reason: 'not-found' };
@@ -563,8 +620,11 @@ async function deleteShopItemForAdmin(params = {}) {
   if (!idOrName) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolveShopScope(params, 'delete shop item');
   const item = await deleteShopItem(idOrName, {
-    tenantId: params.tenantId || null,
+    tenantId: scopeOptions.tenantId,
+    defaultTenantId: scopeOptions.defaultTenantId,
+    env: scopeOptions.env,
   });
   if (!item) {
     return { ok: false, reason: 'not-found' };

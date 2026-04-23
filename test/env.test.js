@@ -198,6 +198,8 @@ test('getPortalRuntimeErrors blocks insecure production portal config', () => {
     WEB_PORTAL_MODE: 'player',
     WEB_PORTAL_DISCORD_CLIENT_ID: '',
     WEB_PORTAL_DISCORD_CLIENT_SECRET: '',
+    WEB_PORTAL_GOOGLE_CLIENT_ID: '',
+    WEB_PORTAL_GOOGLE_CLIENT_SECRET: '',
     PUBLIC_PREVIEW_DEBUG_TOKENS: 'true',
     PLAYER_MAGIC_LINK_DEBUG_TOKENS: 'true',
     PLATFORM_BILLING_PROVIDER: 'stripe',
@@ -211,6 +213,7 @@ test('getPortalRuntimeErrors blocks insecure production portal config', () => {
   assert.match(combined, /WEB_PORTAL_SESSION_SECRET/i);
   assert.match(combined, /WEB_PORTAL_SECURE_COOKIE=true/i);
   assert.match(combined, /WEB_PORTAL_ENFORCE_ORIGIN_CHECK=true/i);
+  assert.match(combined, /at least one OAuth provider: Discord or Google/i);
   assert.match(combined, /PUBLIC_PREVIEW_DEBUG_TOKENS=false/i);
   assert.match(combined, /PLAYER_MAGIC_LINK_DEBUG_TOKENS=false/i);
   assert.match(combined, /PLATFORM_BILLING_WEBHOOK_SECRET/i);

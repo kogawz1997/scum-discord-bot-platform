@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM Owner Plane - Fleet Oversight</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#1f2022",
+                    "secondary-container": "#feb700",
+                    "on-tertiary-container": "#a10017",
+                    "inverse-surface": "#e3e2e4",
+                    "on-background": "#e3e2e4",
+                    "background": "#121315",
+                    "outline-variant": "#3c494e",
+                    "surface-tint": "#4cd6ff",
+                    "outline": "#859399",
+                    "inverse-primary": "#00677f",
+                    "surface-container-highest": "#343537",
+                    "error": "#ffb4ab",
+                    "on-secondary": "#412d00",
+                    "surface-container-low": "#1b1c1e",
+                    "on-tertiary": "#68000b",
+                    "secondary": "#ffdb9d",
+                    "on-secondary-fixed-variant": "#5e4200",
+                    "on-error-container": "#ffdad6",
+                    "surface-dim": "#121315",
+                    "on-surface": "#e3e2e4",
+                    "primary-fixed-dim": "#4cd6ff",
+                    "surface": "#121315",
+                    "on-surface-variant": "#bbc9cf",
+                    "tertiary-fixed-dim": "#ffb3ae",
+                    "on-primary-container": "#00566a",
+                    "on-tertiary-fixed": "#410004",
+                    "secondary-fixed": "#ffdea8",
+                    "surface-container-lowest": "#0d0e10",
+                    "surface-variant": "#343537",
+                    "secondary-fixed-dim": "#ffba20",
+                    "inverse-on-surface": "#303032",
+                    "tertiary": "#ffd1ce",
+                    "on-secondary-container": "#6b4b00",
+                    "surface-bright": "#38393b",
+                    "on-primary-fixed": "#001f28",
+                    "error-container": "#93000a",
+                    "on-error": "#690005",
+                    "primary-fixed": "#b7eaff",
+                    "primary-container": "#00d1ff",
+                    "tertiary-fixed": "#ffdad7",
+                    "primary": "#a4e6ff",
+                    "on-primary": "#003543",
+                    "tertiary-container": "#ffaaa4",
+                    "on-primary-fixed-variant": "#004e60",
+                    "on-tertiary-fixed-variant": "#930014",
+                    "surface-container-high": "#292a2c",
+                    "on-secondary-fixed": "#271900"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b bg-neutral-50/80 dark:bg-neutral-900/80 backdrop-blur-md border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-none">
+<div class="flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-tighter text-neutral-900 dark:text-white uppercase font-public-sans">SCUM Owner Plane</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="font-public-sans text-sm font-semibold tracking-tight text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" href="#">Tenant List</a>
+<a class="font-public-sans text-sm font-semibold tracking-tight text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500 pb-1" href="#">Runtime</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-md border border-outline-variant">
+<span class="material-symbols-outlined text-primary text-sm">monitor_heart</span>
+<span class="text-[11px] font-bold uppercase tracking-widest text-primary">Fleet Stable</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors active:opacity-70">
+<span class="material-symbols-outlined text-on-surface-variant">refresh</span>
+</button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors active:opacity-70">
+<span class="material-symbols-outlined text-on-surface-variant">language</span>
+</button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors active:opacity-70">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-neutral-800 border border-outline-variant flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile Menu" class="w-full h-full object-cover" data-alt="minimalist professional male avatar in a suit for a high-level system administrator profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0F4fubsJVFnz6pZ6IL98YgMNXbqB1ynfKHzPakfKafhVhkejQv1WkAz7EZea-9j0pWMbc3qNo8UR96TxTMJSnLfbXgBv0pGz711Mhv0MF0xCCefaB7GB72dDh8f0Uh6LsF6t_stwylIrZ0MbV_7Zi0c_Pj83MvRSihLBkxy8R15dylTasTIOtHxPacU0SZYnO2RG5d33o5DWS5sc4exvwy7kKQbmjHO-eGZ2-EI-tPaPq3Nayyg_uqlgKTXX9J7LsNbVThPWXu7s"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-xl dark:shadow-none flex flex-col py-4 overflow-y-auto">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 font-public-sans leading-none">Control Plane</h3>
+<p class="text-[11px] text-neutral-500 uppercase tracking-tighter">Global Oversight</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-0.5 px-2">
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span> Overview
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span> Tenants
+            </a>
+<div class="pt-4 pb-2 px-4">
+<span class="text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em]">Fleet Systems</span>
+</div>
+<a class="bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-r-4 border-cyan-500 flex items-center gap-3 px-4 py-2.5 font-public-sans text-[13px] font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span> Delivery Agents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">robot_2</span> Server Bots
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">monitor_heart</span> Runtime Health
+            </a>
+<div class="pt-4 pb-2 px-4">
+<span class="text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em]">Operational</span>
+</div>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">warning</span> Incidents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">history</span> Audit
+            </a>
+</nav>
+<div class="mt-auto px-4 py-4 space-y-2">
+<button class="w-full py-2 bg-surface-container border border-outline-variant text-[12px] font-bold text-on-surface uppercase tracking-tight rounded hover:bg-surface-container-high transition-colors">
+                Platform Settings
+            </button>
+<div class="flex items-center gap-3 px-4 py-2.5 text-neutral-500 dark:text-neutral-400">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-public-sans text-[13px] font-medium">Settings</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-14 p-8 min-h-[calc(100vh-3.5rem)]">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-8 border-b border-neutral-800 pb-6">
+<div>
+<nav class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-neutral-500 mb-2">
+<span>Fleet Oversight</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary">Runtime Control</span>
+</nav>
+<h1 class="text-4xl font-black tracking-tight text-white font-public-sans">Fleet Operations</h1>
+<p class="text-neutral-400 mt-1 max-w-xl text-sm">Monitor and manage all globally deployed runtime assets. Actions are recorded in the audit log.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container border border-outline-variant text-white text-[13px] font-bold uppercase tracking-tight rounded hover:bg-surface-container-high transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">refresh</span> Refresh Fleet
+                </button>
+<button class="flex items-center gap-2 px-4 py-2.5 bg-primary-container text-on-primary-container text-[13px] font-black uppercase tracking-tight rounded hover:opacity-90 transition-all active:scale-95 shadow-[0_0_15px_-3px_rgba(0,209,255,0.4)]">
+<span class="material-symbols-outlined text-[18px]">add</span> Provision Fleet
+                </button>
+</div>
+</div>
+<!-- Tactical Metrics Bento -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col justify-between">
+<span class="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Active Delivery Agents</span>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="text-3xl font-black text-white font-public-sans">1,402</span>
+<span class="text-primary text-[11px] font-bold">+12 Today</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[94%]"></div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col justify-between">
+<span class="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Active Server Bots</span>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="text-3xl font-black text-white font-public-sans">894</span>
+<span class="text-secondary text-[11px] font-bold">Stable</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[82%]"></div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col justify-between">
+<span class="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Version Drift</span>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="text-3xl font-black text-white font-public-sans">4.2%</span>
+<span class="text-on-tertiary-container text-[11px] font-bold">Critical</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container w-[14%]"></div>
+</div>
+</div>
+<div class="p-4 bg-primary-container/10 border border-primary/20 rounded-xl flex flex-col justify-between">
+<span class="text-[10px] font-bold text-primary uppercase tracking-widest">Provisioning Capacity</span>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="text-3xl font-black text-primary font-public-sans">98%</span>
+<span class="text-primary-container text-[11px] font-bold">Optimal</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[98%]"></div>
+</div>
+</div>
+</div>
+<!-- Section 1: Delivery Agents -->
+<section class="mb-12">
+<div class="flex items-center justify-between mb-4 px-1">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-primary rounded-full"></div>
+<div>
+<h2 class="text-lg font-bold text-white font-public-sans">Delivery Agent Fleet</h2>
+<p class="text-[11px] text-neutral-500 uppercase tracking-tighter">Machine Binding &amp; Announce Capabilities</p>
+</div>
+</div>
+<button class="px-3 py-1.5 border border-primary/30 text-primary text-[11px] font-black uppercase tracking-widest rounded hover:bg-primary/10 transition-colors">
+                    + Provision Delivery Agent
+                </button>
+</div>
+<div class="overflow-hidden border border-outline-variant bg-surface-container-lowest rounded-xl">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-high border-b border-outline-variant">
+<tr>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Agent ID / Name</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Activation State</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Version Drift</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Tenant Association</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest text-right">Operational Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-neutral-800">
+<tr class="hover:bg-surface-container transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">sensors</span>
+<div>
+<p class="text-sm font-bold text-white leading-none">DA-EU-FRANKFURT-01</p>
+<p class="text-[10px] text-neutral-500 mt-1">Bound to 172.18.92.144</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase rounded border border-primary/20">Active / Online</span>
+</td>
+<td class="px-6 py-4 text-sm text-neutral-400">v1.4.12 <span class="text-[10px] text-neutral-600">(Latest)</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-sm bg-neutral-700"></div>
+<span class="text-sm font-medium text-neutral-300">SCUM_OFFICIAL_EU</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white" title="Open Detail">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Restart Service">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Revoke Provision">
+<span class="material-symbols-outlined text-[18px]">link_off</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500">sensors_off</span>
+<div>
+<p class="text-sm font-bold text-white leading-none">DA-NA-EAST-04</p>
+<p class="text-[10px] text-neutral-500 mt-1">Connection Lost (3m ago)</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-on-tertiary-container/10 text-on-tertiary-container text-[10px] font-black uppercase rounded border border-on-tertiary-container/20">Degraded / Stale</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-tertiary-container font-bold">v1.3.09 <span class="material-symbols-outlined text-[12px]">warning</span></td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-sm bg-neutral-700"></div>
+<span class="text-sm font-medium text-neutral-300">SURVIVAL_CORP</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white" title="Open Detail">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Restart Service">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Revoke Provision">
+<span class="material-symbols-outlined text-[18px]">link_off</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Section 2: Server Bots -->
+<section>
+<div class="flex items-center justify-between mb-4 px-1">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-secondary rounded-full"></div>
+<div>
+<h2 class="text-lg font-bold text-white font-public-sans">Server Bot Fleet</h2>
+<p class="text-[11px] text-neutral-500 uppercase tracking-tighter">Log Sync &amp; Config Management Posture</p>
+</div>
+</div>
+<button class="px-3 py-1.5 border border-secondary/30 text-secondary text-[11px] font-black uppercase tracking-widest rounded hover:bg-secondary/10 transition-colors">
+                    + Provision Server Bot
+                </button>
+</div>
+<div class="overflow-hidden border border-outline-variant bg-surface-container-lowest rounded-xl">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-high border-b border-outline-variant">
+<tr>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Bot Entity / Cluster</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Log Freshness</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Config Posture</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest">Tenant Association</th>
+<th class="px-6 py-4 text-[11px] font-black text-neutral-400 uppercase tracking-widest text-right">Operational Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-neutral-800">
+<tr class="hover:bg-surface-container transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+<div>
+<p class="text-sm font-bold text-white leading-none">SB-GLOBAL-CLUSTER-A</p>
+<p class="text-[10px] text-neutral-500 mt-1">Instance: bot-prod-001</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="text-sm text-neutral-300">0.4s (Real-time)</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-black uppercase rounded border border-secondary/20">Synced / Hardened</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-sm bg-neutral-700"></div>
+<span class="text-sm font-medium text-neutral-300">PVE_REBORN</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white" title="Open Detail">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Restart Service">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Revoke Provision">
+<span class="material-symbols-outlined text-[18px]">link_off</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+<div>
+<p class="text-sm font-bold text-white leading-none">SB-GLOBAL-CLUSTER-B</p>
+<p class="text-[10px] text-neutral-500 mt-1">Instance: bot-prod-102</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-on-tertiary-container">
+<span class="material-symbols-outlined text-[16px]">hourglass_empty</span>
+<span class="text-sm font-bold">42.8s (Lagging)</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-secondary-container/10 text-secondary-container text-[10px] font-black uppercase rounded border border-secondary-container/20">Config Drift Detected</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-sm bg-neutral-700"></div>
+<span class="text-sm font-medium text-neutral-300">SCUM_OFFICIAL_NA</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white" title="Open Detail">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Restart Service">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+<button class="p-1.5 hover:bg-on-tertiary-container/20 rounded text-on-tertiary-container hover:text-error" title="Revoke Provision">
+<span class="material-symbols-outlined text-[18px]">link_off</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Audit Trace / i18n Note -->
+<footer class="mt-12 flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-neutral-600 border-t border-neutral-900 pt-6">
+<div class="flex gap-6">
+<span>System Health: 100%</span>
+<span>Audit Latency: 12ms</span>
+<span>Region: Global Cluster</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">translate</span>
+<span class="text-neutral-500">Language: English</span>
+<span class="text-neutral-700 ml-2">/</span>
+<button class="hover:text-primary transition-colors ml-2">ภาษาไทย (TH)</button>
+</div>
+</footer>
+</main>
+<!-- FAB Action (Contextual Suppression Logic applied - only showing primary provision) -->
+<div class="fixed bottom-8 right-8 flex flex-col items-end gap-4 z-40">
+<div class="hidden group-hover:flex flex-col gap-2 mb-2 items-end">
+<button class="px-4 py-2 bg-surface-container-high border border-outline-variant rounded text-[11px] font-black uppercase text-white shadow-xl hover:bg-neutral-800">
+                Bulk Agent Restart
+            </button>
+<button class="px-4 py-2 bg-surface-container-high border border-outline-variant rounded text-[11px] font-black uppercase text-white shadow-xl hover:bg-neutral-800">
+                Log Pipeline Diagnostics
+            </button>
+</div>
+<button class="w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</button>
+</div>
+</body></html>

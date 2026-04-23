@@ -357,6 +357,7 @@ test('identity schema guard allows runtime bootstrap outside production for loca
     NODE_ENV: 'test',
     DATABASE_URL: 'file:./identity-test-bootstrap.db',
     PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: null,
     PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
   }, async () => {
     const result = await ensurePlatformIdentityTables(db);
@@ -432,6 +433,7 @@ test('identity schema guard can add verification token compatibility columns out
     NODE_ENV: 'test',
     DATABASE_URL: 'file:./identity-verification-test.db',
     PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: null,
     PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
   }, async () => {
     const result = await ensurePlatformIdentityTables(db);
@@ -457,6 +459,7 @@ test('workspace auth can add platform_users.passwordHash outside production when
     NODE_ENV: 'test',
     DATABASE_URL: 'file:./identity-password-test.db',
     PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: null,
     PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
   }, async () => {
     const result = await ensurePlatformUserPasswordColumn(db);
@@ -713,6 +716,47 @@ test('identity service refuses server-engine CRUD when prisma delegates are unav
         tenantId: 'tenant-required-test',
       }, db),
       (error) => String(error?.code || '') === 'PLATFORM_IDENTITY_DELEGATES_REQUIRED',
+    );
+  });
+
+  assert.equal(db.calls.some((entry) => entry.method === '$executeRaw'), false);
+  assert.equal(db.calls.some((entry) => entry.method === '$queryRaw'), false);
+});
+
+test('identity service refuses raw-sql CRUD when db-only posture is enabled without delegates', async () => {
+  const db = createMockDb({
+    runtime: 'sqlite',
+    tables: REQUIRED_TABLES,
+    columns: {
+      platform_users: ['id', 'primaryEmail', 'displayName', 'passwordHash', 'locale', 'status', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_user_identities: ['id', 'userId', 'provider', 'providerUserId', 'providerEmail', 'displayName', 'avatarUrl', 'verifiedAt', 'linkedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_memberships: ['id', 'userId', 'tenantId', 'membershipType', 'role', 'status', 'isPrimary', 'acceptedAt', 'revokedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_password_reset_tokens: ['id', 'userId', 'previewAccountId', 'email', 'tokenPrefix', 'tokenHash', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_verification_tokens: ['id', 'userId', 'previewAccountId', 'email', 'purpose', 'tokenType', 'tokenPrefix', 'tokenHash', 'target', 'expiresAt', 'consumedAt', 'metadataJson', 'createdAt', 'updatedAt'],
+      platform_player_profiles: ['id', 'userId', 'tenantId', 'discordUserId', 'steamId', 'inGameName', 'verificationState', 'linkedAt', 'lastSeenAt', 'metadataJson', 'createdAt', 'updatedAt'],
+    },
+  });
+
+  await withEnv({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'file:./identity-db-only-required.db',
+    PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: 'true',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
+  }, async () => {
+    await assert.rejects(
+      () => ensurePlatformUserIdentity({
+        provider: 'email_preview',
+        providerUserId: 'db-only-required-test',
+        email: 'db-only-required@example.com',
+        displayName: 'DB Only Required',
+        tenantId: 'tenant-required-test',
+      }, db),
+      (error) => {
+        assert.equal(String(error?.code || ''), 'PLATFORM_IDENTITY_DELEGATES_REQUIRED');
+        assert.equal(error?.bootstrapPolicy?.reason, 'persist-require-db');
+        return true;
+      },
     );
   });
 

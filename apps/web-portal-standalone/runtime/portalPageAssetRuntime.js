@@ -32,6 +32,100 @@ function getVisualAssetContentType(ext) {
   return 'application/octet-stream';
 }
 
+function parseSemverLabel(value) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(String(value || '').trim());
+  if (!match) return null;
+  return match.slice(1).map((segment) => Number(segment) || 0);
+}
+
+function compareReleaseNamesDesc(left, right) {
+  const leftParsed = parseSemverLabel(left);
+  const rightParsed = parseSemverLabel(right);
+  if (leftParsed && rightParsed) {
+    for (let index = 0; index < 3; index += 1) {
+      if (rightParsed[index] !== leftParsed[index]) {
+        return rightParsed[index] - leftParsed[index];
+      }
+    }
+    return String(right).localeCompare(String(left));
+  }
+  return String(right).localeCompare(String(left));
+}
+
+function stripMarkdown(value) {
+  return String(value || '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    .replace(/^>\s?/gm, '')
+    .replace(/[*_~#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractMarkdownSection(markdown, headingPattern) {
+  const lines = String(markdown || '').split(/\r?\n/);
+  const headingRegex = new RegExp(`^##\\s+${headingPattern}\\s*$`, 'i');
+  let startIndex = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (headingRegex.test(lines[index].trim())) {
+      startIndex = index + 1;
+      break;
+    }
+  }
+  if (startIndex < 0) {
+    return '';
+  }
+  let endIndex = lines.length;
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (/^##\s+/i.test(lines[index].trim())) {
+      endIndex = index;
+      break;
+    }
+  }
+  return lines.slice(startIndex, endIndex).join('\n').trim();
+}
+
+function extractMarkdownList(section) {
+  return String(section || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .map((line) => stripMarkdown(line.slice(2)))
+    .filter(Boolean);
+}
+
+function extractReleaseSummary(markdown) {
+  const summarySection = extractMarkdownSection(markdown, 'Summary');
+  if (!summarySection) return '';
+  const paragraph = summarySection
+    .split(/\r?\n\r?\n/)
+    .map((block) => stripMarkdown(block))
+    .find(Boolean);
+  return paragraph || '';
+}
+
+function extractReleaseHighlights(markdown) {
+  const mainChanges = extractMarkdownSection(markdown, '(?:Main Changes|What Changed)');
+  const headingHighlights = String(mainChanges || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('### '))
+    .map((line) => stripMarkdown(line.slice(4)))
+    .filter(Boolean);
+  if (headingHighlights.length) {
+    return headingHighlights;
+  }
+  return extractMarkdownList(mainChanges)
+    .map((line) => stripMarkdown(line.split(':')[0] || line))
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function extractReferenceDate(markdown) {
+  const match = /^Reference date:\s*\*\*(.+?)\*\*/im.exec(String(markdown || ''));
+  return String(match?.[1] || '').trim() || '';
+}
+
 function createPortalPageAssetRuntime(options = {}) {
   const {
     isProduction,
@@ -50,6 +144,8 @@ function createPortalPageAssetRuntime(options = {}) {
     previewHtmlPath,
     trialHtmlPath,
     showcaseHtmlPath,
+    discordOAuthConfigured = false,
+    googleOAuthConfigured = false,
     publicAssetsDirPath,
     docsDirPath,
     scumItemsDirPath,
@@ -83,6 +179,8 @@ function createPortalPageAssetRuntime(options = {}) {
   let cachedPreviewHtml = null;
   let cachedTrialHtml = null;
   let cachedShowcaseHtml = null;
+  let cachedReleaseFeedEntries = null;
+  let cachedReleaseFeedMtimeMs = 0;
   let cachedAuthLoginHtmlMtimeMs = 0;
   let cachedPlayerLoginHtmlMtimeMs = 0;
   let cachedPlayerHtmlMtimeMs = 0;
@@ -110,6 +208,93 @@ function createPortalPageAssetRuntime(options = {}) {
 
   function loadHtmlTemplate(filePath) {
     return fs.readFileSync(filePath, 'utf8');
+  }
+
+  function injectNavLinkBeforePattern(source, href, label, pattern) {
+    if (!source || source.includes(`href="${href}"`)) {
+      return source;
+    }
+    return source.replace(
+      pattern,
+      `          <a class="site-nav-link" href="${href}">${label}</a>\n$1`,
+    );
+  }
+
+  function injectPublicNavLinks(html, page) {
+    const source = String(html || '');
+    if (!source) {
+      return source;
+    }
+
+    if (page === 'dashboard') {
+      let updated = injectNavLinkBeforePattern(
+        source,
+        '/status',
+        'Status',
+        /(\s*<a class="site-nav-link" href="\/player\/login">Player Portal<\/a>)/,
+      );
+      updated = injectNavLinkBeforePattern(
+        updated,
+        '/changes',
+        'Changes',
+        /(\s*<a class="site-nav-link" href="\/player\/login">Player Portal<\/a>)/,
+      );
+      return updated;
+    }
+
+    let updated = injectNavLinkBeforePattern(
+      source,
+      '/status',
+      'Status',
+      /(\s*<a class="site-nav-link" href="\/signup"[^>]*>[\s\S]*?<\/a>)/,
+    );
+    updated = injectNavLinkBeforePattern(
+      updated,
+      '/changes',
+      'Changes',
+      /(\s*<a class="site-nav-link" href="\/signup"[^>]*>[\s\S]*?<\/a>)/,
+    );
+    return updated;
+  }
+
+  function getReleaseFeedEntries() {
+    const releasesDirPath = path.join(docsDirPath, 'releases');
+    const baseMtimeMs = getFileMtimeMs(releasesDirPath);
+    const releaseFiles = fs.existsSync(releasesDirPath)
+      ? fs.readdirSync(releasesDirPath)
+        .filter((name) => /\.md$/i.test(name))
+        .filter((name) => /^v.+\.md$/i.test(name))
+      : [];
+    const latestMtimeMs = releaseFiles.reduce((maxValue, fileName) => {
+      const filePath = path.join(releasesDirPath, fileName);
+      return Math.max(maxValue, getFileMtimeMs(filePath));
+    }, baseMtimeMs);
+
+    if (cachedReleaseFeedEntries && latestMtimeMs <= cachedReleaseFeedMtimeMs) {
+      return cachedReleaseFeedEntries;
+    }
+
+    cachedReleaseFeedEntries = releaseFiles
+      .map((fileName) => {
+        const filePath = path.join(releasesDirPath, fileName);
+        const markdown = fs.readFileSync(filePath, 'utf8');
+        const titleMatch = /^#\s+(.+)$/m.exec(markdown);
+        const version = fileName.replace(/\.md$/i, '');
+        return {
+          id: version,
+          version,
+          title: stripMarkdown(titleMatch?.[1] || version),
+          url: `/docs/releases/${encodeURIComponent(fileName)}`,
+          referenceDate: extractReferenceDate(markdown),
+          summary: extractReleaseSummary(markdown),
+          highlights: extractReleaseHighlights(markdown).slice(0, 6),
+          operatorImpact: extractMarkdownList(extractMarkdownSection(markdown, 'Operator Impact')).slice(0, 4),
+          knownLimitations: extractMarkdownList(extractMarkdownSection(markdown, '(?:Known Limitations|Known Limits In This Release)')).slice(0, 4),
+        };
+      })
+      .sort((left, right) => compareReleaseNamesDesc(left.version, right.version));
+    cachedReleaseFeedMtimeMs = latestMtimeMs;
+    return cachedReleaseFeedEntries;
   }
 
   function sendFavicon(res) {
@@ -307,7 +492,7 @@ function createPortalPageAssetRuntime(options = {}) {
   function getLandingHtml() {
     const mtimeMs = getFileMtimeMs(landingHtmlPath);
     if (!cachedLandingHtml || !isProduction || mtimeMs > cachedLandingHtmlMtimeMs) {
-      cachedLandingHtml = loadHtmlTemplate(landingHtmlPath);
+      cachedLandingHtml = injectPublicNavLinks(loadHtmlTemplate(landingHtmlPath), 'landing');
       cachedLandingHtmlMtimeMs = mtimeMs;
     }
     return cachedLandingHtml;
@@ -316,7 +501,7 @@ function createPortalPageAssetRuntime(options = {}) {
   function getDashboardHtml() {
     const mtimeMs = getFileMtimeMs(dashboardHtmlPath);
     if (!cachedDashboardHtml || !isProduction || mtimeMs > cachedDashboardHtmlMtimeMs) {
-      cachedDashboardHtml = loadHtmlTemplate(dashboardHtmlPath);
+      cachedDashboardHtml = injectPublicNavLinks(loadHtmlTemplate(dashboardHtmlPath), 'dashboard');
       cachedDashboardHtmlMtimeMs = mtimeMs;
     }
     return cachedDashboardHtml;
@@ -384,10 +569,115 @@ function createPortalPageAssetRuntime(options = {}) {
   function getAuthLoginHtml() {
     const mtimeMs = getFileMtimeMs(authLoginHtmlPath);
     if (!cachedAuthLoginHtml || !isProduction || mtimeMs > cachedAuthLoginHtmlMtimeMs) {
-      cachedAuthLoginHtml = loadHtmlTemplate(authLoginHtmlPath);
+      cachedAuthLoginHtml = injectPublicNavLinks(loadHtmlTemplate(authLoginHtmlPath), 'login');
       cachedAuthLoginHtmlMtimeMs = mtimeMs;
     }
     return cachedAuthLoginHtml;
+  }
+
+  function buildPlayerAuthProviderModel() {
+    const providers = [];
+    if (discordOAuthConfigured) {
+      providers.push({
+        key: 'discord',
+        label: 'Discord',
+        buttonTone: 'site-button-primary',
+        href: '/auth/discord/start',
+        title: 'Discord เป็นทางเข้าหลัก',
+        detail: 'ถ้าบัญชี Discord ของคุณอยู่ในชุมชนของเซิร์ฟเวอร์แล้ว มักเข้าใช้งานได้เร็วที่สุดจากทางนี้',
+      });
+    }
+    if (googleOAuthConfigured) {
+      providers.push({
+        key: 'google',
+        label: 'Google',
+        buttonTone: '',
+        href: '/auth/google/start',
+        title: 'Google ใช้เป็นทางเข้าที่สะดวกสำหรับบัญชีเว็บ',
+        detail: 'ระบบจะตรวจสอบอีเมลที่ยืนยันแล้วและจับคู่กับ player identity ที่ผูกไว้ก่อนสร้าง session',
+      });
+    }
+    return {
+      providers,
+      providerNames: providers.map((provider) => provider.label),
+    };
+  }
+
+  function buildPlayerAuthProviderLabelList(labels = []) {
+    const safeLabels = labels.filter(Boolean);
+    if (!safeLabels.length) {
+      return 'เมจิกลิงก์ทางอีเมล';
+    }
+    if (safeLabels.length === 1) {
+      return safeLabels[0];
+    }
+    if (safeLabels.length === 2) {
+      return `${safeLabels[0]} หรือ ${safeLabels[1]}`;
+    }
+    return `${safeLabels.slice(0, -1).join(', ')} หรือ ${safeLabels[safeLabels.length - 1]}`;
+  }
+
+  function buildPlayerOauthButtonsHtml(model = buildPlayerAuthProviderModel()) {
+    const buttons = [];
+    for (const provider of model.providers) {
+      const toneClass = provider.buttonTone ? ` ${provider.buttonTone}` : '';
+      buttons.push(`<a class="site-button${toneClass}" href="${provider.href}">เข้าสู่ระบบด้วย ${provider.label}</a>`);
+    }
+    if (!buttons.length) {
+      buttons.push('<span class="form-status">OAuth sign-in is not configured on this portal.</span>');
+    }
+    return buttons.join('');
+  }
+
+  function buildPlayerAuthBrandDetail(model = buildPlayerAuthProviderModel()) {
+    const providerText = buildPlayerAuthProviderLabelList(model.providerNames);
+    return `ใช้ ${providerText} หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ และกิจกรรมของคุณ`;
+  }
+
+  function buildPlayerAuthProviderCopy(model = buildPlayerAuthProviderModel()) {
+    const providerText = buildPlayerAuthProviderLabelList(model.providerNames);
+    return `ใช้ ${providerText} หรือเมจิกลิงก์ทางอีเมลเพื่อเข้าโปรไฟล์ผู้เล่น คำสั่งซื้อ การส่งของ กิจกรรม และการสนับสนุนเซิร์ฟเวอร์ โดยไม่ต้องแยกบัญชีอีกชุด`;
+  }
+
+  function buildPlayerAuthNotesHtml(model = buildPlayerAuthProviderModel()) {
+    const noteCards = model.providers.map((provider) => [
+      '<div class="player-auth-note">',
+      `<strong>${provider.title}</strong>`,
+      `<p>${provider.detail}</p>`,
+      '</div>',
+    ].join(''));
+
+    noteCards.push([
+      '<div class="player-auth-note">',
+      '<strong>เมจิกลิงก์ใช้กับบัญชีที่ผูกไว้แล้ว</strong>',
+      '<p>ระบบจะส่งลิงก์เข้าใช้งานให้อีเมลที่เชื่อมกับบัญชีผู้เล่น ไม่ต้องตั้งรหัสผ่านใหม่</p>',
+      '</div>',
+    ].join(''));
+
+    noteCards.push([
+      '<div class="player-auth-note">',
+      '<strong>งานดูแลเซิร์ฟเวอร์ไม่อยู่ในพอร์ทัลนี้</strong>',
+      '<p>หน้าผู้เล่นจะโฟกัสที่โปรไฟล์ สถิติ ร้านค้า คำสั่งซื้อ การส่งของ และกิจกรรมเท่านั้น</p>',
+      '</div>',
+    ].join(''));
+
+    return noteCards.join('');
+  }
+
+  function localizePlayerLoginError(message) {
+    const normalized = String(message || '').trim();
+    const mapping = {
+      'Discord authorization denied': 'ยกเลิกการอนุญาต Discord แล้ว',
+      'Discord login failed': 'เข้าสู่ระบบด้วย Discord ไม่สำเร็จ',
+      'Google authorization denied': 'ยกเลิกการอนุญาต Google แล้ว',
+      'Google login failed': 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ',
+      'Google account must have a verified email': 'บัญชี Google นี้ยังไม่มีอีเมลที่ยืนยันแล้ว',
+      'Google login requires a linked player identity': 'บัญชี Google นี้ยังไม่เชื่อมกับ player identity ในระบบ',
+      'Google account must be linked to a Discord player identity': 'บัญชี Google นี้ยังไม่เชื่อมกับบัญชีผู้เล่นที่มี Discord identity',
+      'Invalid OAuth state': 'สถานะการเข้าสู่ระบบหมดอายุหรือไม่ถูกต้อง',
+      'Missing OAuth code': 'ไม่ได้รับรหัสยืนยันจากผู้ให้บริการเข้าสู่ระบบ',
+    };
+    return mapping[normalized] || normalized;
   }
 
   function renderPlayerLoginPage(message) {
@@ -396,14 +686,20 @@ function createPortalPageAssetRuntime(options = {}) {
       cachedPlayerLoginHtml = loadHtmlTemplate(playerLoginHtmlPath);
       cachedPlayerLoginHtmlMtimeMs = mtimeMs;
     }
-    const safe = escapeHtml(String(message || ''));
-    return cachedPlayerLoginHtml.replace('__ERROR_MESSAGE__', safe);
+    const model = buildPlayerAuthProviderModel();
+    const safe = escapeHtml(localizePlayerLoginError(String(message || '')));
+    return cachedPlayerLoginHtml
+      .replace('__PLAYER_AUTH_BRAND_DETAIL__', escapeHtml(buildPlayerAuthBrandDetail(model)))
+      .replace('__PLAYER_AUTH_PROVIDER_COPY__', escapeHtml(buildPlayerAuthProviderCopy(model)))
+      .replace('__PLAYER_OAUTH_BUTTONS__', buildPlayerOauthButtonsHtml(model))
+      .replace('__PLAYER_AUTH_NOTES__', buildPlayerAuthNotesHtml(model))
+      .replace('__ERROR_MESSAGE__', safe);
   }
 
   function getPricingHtml() {
     const mtimeMs = getFileMtimeMs(pricingHtmlPath);
     if (!cachedPricingHtml || !isProduction || mtimeMs > cachedPricingHtmlMtimeMs) {
-      cachedPricingHtml = loadHtmlTemplate(pricingHtmlPath);
+      cachedPricingHtml = injectPublicNavLinks(loadHtmlTemplate(pricingHtmlPath), 'pricing');
       cachedPricingHtmlMtimeMs = mtimeMs;
     }
     return cachedPricingHtml;
@@ -482,6 +778,7 @@ function createPortalPageAssetRuntime(options = {}) {
     getPreviewHtml,
     getTrialHtml,
     getShowcaseHtml,
+    getReleaseFeedEntries,
     tryServePublicDoc,
   };
 }

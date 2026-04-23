@@ -18,7 +18,10 @@ function createScopeState() {
 }
 
 function ensureScumScope(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantStoreScope({
+    ...options,
+    operation: String(options.operation || '').trim() || 'scum status store operation',
+  });
   if (!scopeStateByDatasource.has(scope.datasourceKey)) {
     scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }

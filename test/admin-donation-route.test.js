@@ -94,3 +94,34 @@ test('donation overview route validates tenant scope', async () => {
   assert.equal(payload.ok, false);
   assert.equal(payload.error, 'tenantId is required');
 });
+
+test('donation overview route falls back to auth tenant when tenantId query is omitted', async () => {
+  const seen = {
+    requestedTenantId: null,
+    overviewTenantId: null,
+  };
+  const handler = buildRoutes({
+    resolveScopedTenantId: (_req, _res, _auth, requestedTenantId) => {
+      seen.requestedTenantId = requestedTenantId;
+      return requestedTenantId || null;
+    },
+    buildTenantDonationOverview: async ({ tenantId }) => {
+      seen.overviewTenantId = tenantId;
+      return { tenantId };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/admin/api/donations/overview'),
+    pathname: '/admin/api/donations/overview',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(seen.requestedTenantId, 'tenant-1');
+  assert.equal(seen.overviewTenantId, 'tenant-1');
+});

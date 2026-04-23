@@ -534,6 +534,37 @@
     }
   }
 
+  function readTenantScopeFromUrl() {
+    const url = new URL(window.location.href);
+    return String(url.searchParams.get('tenantId') || '').trim();
+  }
+
+  function buildCanonicalTenantHref(pageKey, extraParams = {}) {
+    const canonicalPath = buildCanonicalTenantPath(pageKey);
+    const url = new URL(window.location.href);
+    url.pathname = canonicalPath;
+    url.hash = '';
+
+    const authTenantId = String(state.payload?.me?.tenantId || '').trim();
+    const scopedTenantId = String(state.payload?.tenantId || readTenantScopeFromUrl() || '').trim();
+    if (!authTenantId && scopedTenantId) {
+      url.searchParams.set('tenantId', scopedTenantId);
+    } else {
+      url.searchParams.delete('tenantId');
+    }
+
+    Object.entries(extraParams && typeof extraParams === 'object' ? extraParams : {}).forEach(([key, value]) => {
+      const normalizedValue = String(value || '').trim();
+      if (normalizedValue) {
+        url.searchParams.set(key, normalizedValue);
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+
+    return `${url.pathname}${url.search}`;
+  }
+
   function resolveTenantPageKeyFromPath(pathname) {
     const path = String(pathname || '').trim().toLowerCase();
     if (!path.startsWith('/tenant')) return '';
@@ -552,8 +583,7 @@
     const rawHash = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
     if (!rawHash || !Object.prototype.hasOwnProperty.call(PAGE_ALIASES, rawHash)) return;
     const pageKey = resolveTenantPageKey(rawHash);
-    const canonicalPath = buildCanonicalTenantPath(pageKey);
-    const nextUrl = `${canonicalPath}${window.location.search || ''}`;
+    const nextUrl = buildCanonicalTenantHref(pageKey);
     window.history.replaceState({}, '', nextUrl);
   }
 
@@ -571,7 +601,7 @@
         pageKey = resolveTenantPageKey(rawHash);
       }
       if (!pageKey) return;
-      const canonicalPath = buildCanonicalTenantPath(pageKey);
+      const canonicalPath = buildCanonicalTenantHref(pageKey);
       if (canonicalPath && target !== canonicalPath) {
         link.setAttribute('href', canonicalPath);
       }
@@ -590,6 +620,11 @@
     });
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   }
+
+  const tenantPlayerWorkflow = window.TenantPlayerWorkflowV4?.createTenantPlayerWorkflowV4?.({
+    getCurrentUrl: () => new URL(window.location.href),
+    writeTenantUrlState,
+  }) || null;
 
   function buildTenantLoginRedirectUrl(options = {}) {
     const params = new URLSearchParams();
@@ -632,9 +667,9 @@
     } else {
       pageKey = resolveTenantPageKey(rawTarget.replace(/^#/, ''));
     }
-    const canonicalPath = buildCanonicalTenantPath(pageKey);
-    if (window.location.pathname !== canonicalPath) {
-      window.history.pushState({}, '', canonicalPath);
+    const canonicalHref = buildCanonicalTenantHref(pageKey);
+    if (`${window.location.pathname}${window.location.search}` !== canonicalHref) {
+      window.history.pushState({}, '', canonicalHref);
       const surfaceState = renderCurrentPage();
       if (!surfaceState?.notice && state.payload && !state.refreshing) {
         setStatus(t('tenant.app.status.ready', 'Ready'), 'success');
@@ -728,12 +763,12 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.dashboard, 'ภาพรวมงานประจำวัน'), pageAccess.dashboard),
-            href: buildCanonicalTenantPath('dashboard'),
+            href: buildCanonicalTenantHref('dashboard'),
             current: resolvedPage === 'dashboard',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.onboarding, 'ตั้งค่าเริ่มต้น'), pageAccess.onboarding),
-            href: buildCanonicalTenantPath('onboarding'),
+            href: buildCanonicalTenantHref('onboarding'),
             current: resolvedPage === 'onboarding',
           },
         ],
@@ -743,17 +778,17 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-status'], 'สถานะเซิร์ฟเวอร์'), pageAccess['server-status']),
-            href: buildCanonicalTenantPath('server-status'),
+            href: buildCanonicalTenantHref('server-status'),
             current: resolvedPage === 'server-status',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-config'], 'ตั้งค่าเซิร์ฟเวอร์'), pageAccess['server-config']),
-            href: buildCanonicalTenantPath('server-config'),
+            href: buildCanonicalTenantHref('server-config'),
             current: resolvedPage === 'server-config',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['restart-control'], 'ควบคุมการรีสตาร์ต'), pageAccess['restart-control']),
-            href: buildCanonicalTenantPath('restart-control'),
+            href: buildCanonicalTenantHref('restart-control'),
             current: resolvedPage === 'restart-control',
           },
         ],
@@ -763,22 +798,22 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['logs-sync'], 'บันทึกและการซิงก์'), pageAccess['logs-sync']),
-            href: buildCanonicalTenantPath('logs-sync'),
+            href: buildCanonicalTenantHref('logs-sync'),
             current: resolvedPage === 'logs-sync',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.orders, 'คำสั่งซื้อและการส่งของ'), pageAccess.orders),
-            href: buildCanonicalTenantPath('orders'),
+            href: buildCanonicalTenantHref('orders'),
             current: resolvedPage === 'orders',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.analytics, 'การวิเคราะห์และรายงาน'), pageAccess.analytics),
-            href: buildCanonicalTenantPath('analytics'),
+            href: buildCanonicalTenantHref('analytics'),
             current: resolvedPage === 'analytics',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.players, 'ผู้เล่นและการช่วยเหลือ'), pageAccess.players),
-            href: buildCanonicalTenantPath('players'),
+            href: buildCanonicalTenantHref('players'),
             current: resolvedPage === 'players',
           },
         ],
@@ -788,17 +823,17 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.donations, 'แพ็กเกจสนับสนุน'), pageAccess.donations),
-            href: buildCanonicalTenantPath('donations'),
+            href: buildCanonicalTenantHref('donations'),
             current: resolvedPage === 'donations',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.events, 'กิจกรรม'), pageAccess.events),
-            href: buildCanonicalTenantPath('events'),
+            href: buildCanonicalTenantHref('events'),
             current: resolvedPage === 'events',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.modules, 'โมดูลบอต'), pageAccess.modules),
-            href: buildCanonicalTenantPath('modules'),
+            href: buildCanonicalTenantHref('modules'),
             current: resolvedPage === 'modules',
           },
         ],
@@ -808,12 +843,12 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['delivery-agents'], 'บอตส่งของ'), pageAccess['delivery-agents']),
-            href: buildCanonicalTenantPath('delivery-agents'),
+            href: buildCanonicalTenantHref('delivery-agents'),
             current: resolvedPage === 'delivery-agents',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS['server-bots'], 'บอตเซิร์ฟเวอร์'), pageAccess['server-bots']),
-            href: buildCanonicalTenantPath('server-bots'),
+            href: buildCanonicalTenantHref('server-bots'),
             current: resolvedPage === 'server-bots',
           },
         ],
@@ -823,12 +858,12 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.staff, 'ทีมงาน'), pageAccess.staff),
-            href: buildCanonicalTenantPath('staff'),
+            href: buildCanonicalTenantHref('staff'),
             current: resolvedPage === 'staff',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.roles, 'บทบาทและสิทธิ์'), pageAccess.roles),
-            href: buildCanonicalTenantPath('roles'),
+            href: buildCanonicalTenantHref('roles'),
             current: resolvedPage === 'roles',
           },
         ],
@@ -838,12 +873,12 @@
         items: [
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.settings, 'ตั้งค่า'), pageAccess.settings),
-            href: buildCanonicalTenantPath('settings'),
+            href: buildCanonicalTenantHref('settings'),
             current: resolvedPage === 'settings',
           },
           {
             label: buildNavItemLabel(t(PAGE_TITLE_KEYS.billing, 'แพ็กเกจและการชำระเงิน'), pageAccess.billing),
-            href: buildCanonicalTenantPath('billing'),
+            href: buildCanonicalTenantHref('billing'),
             current: resolvedPage === 'billing',
           },
         ],
@@ -884,8 +919,23 @@
   }
 
   function readUserIdFromUrl() {
-    const url = new URL(window.location.href);
-    return String(url.searchParams.get('userId') || '').trim();
+    return tenantPlayerWorkflow?.readUserIdFromUrl?.() || String(new URL(window.location.href).searchParams.get('userId') || '').trim();
+  }
+
+  function readIdentityActionFromUrl() {
+    return tenantPlayerWorkflow?.readIdentityActionFromUrl?.() || String(new URL(window.location.href).searchParams.get('identityAction') || '').trim();
+  }
+
+  function readSupportReasonFromUrl() {
+    return tenantPlayerWorkflow?.readSupportReasonFromUrl?.() || String(new URL(window.location.href).searchParams.get('supportReason') || '').trim();
+  }
+
+  function readSupportSourceFromUrl() {
+    return tenantPlayerWorkflow?.readSupportSourceFromUrl?.() || String(new URL(window.location.href).searchParams.get('supportSource') || '').trim();
+  }
+
+  function readSupportOutcomeFromUrl() {
+    return tenantPlayerWorkflow?.readSupportOutcomeFromUrl?.() || String(new URL(window.location.href).searchParams.get('supportOutcome') || '').trim();
   }
 
   function readPurchaseCodeFromUrl() {
@@ -899,10 +949,65 @@
   }
 
   function writeUserIdToUrl(userId) {
+    if (tenantPlayerWorkflow?.writeUserIdToUrl) {
+      tenantPlayerWorkflow.writeUserIdToUrl(userId);
+      return;
+    }
     writeTenantUrlState({
       userId,
+      identityAction: '',
+      supportReason: '',
+      supportSource: '',
+      supportOutcome: '',
       code: '',
     });
+  }
+
+  function writePlayerIdentityWorkflowToUrl(userId, identityAction, supportReason, supportSource, supportOutcome) {
+    if (tenantPlayerWorkflow?.writePlayerIdentityWorkflowToUrl) {
+      tenantPlayerWorkflow.writePlayerIdentityWorkflowToUrl(userId, identityAction, supportReason, supportSource, supportOutcome);
+      return;
+    }
+    writeTenantUrlState({
+      userId,
+      identityAction,
+      supportReason,
+      supportSource,
+      supportOutcome,
+      code: '',
+    });
+  }
+
+  function normalizeIdentitySupportIntent(value, fallbackIntent = 'review') {
+    return tenantPlayerWorkflow?.normalizeIdentitySupportIntent?.(value, fallbackIntent)
+      || String(fallbackIntent || 'review').trim().toLowerCase()
+      || 'review';
+  }
+
+  function resolveIdentitySupportFormAction(intent) {
+    return tenantPlayerWorkflow?.resolveIdentitySupportFormAction?.(intent)
+      || 'review';
+  }
+
+  function describeIdentitySupportIntent(intent) {
+    return tenantPlayerWorkflow?.describeIdentitySupportIntent?.(intent)
+      || 'ตรวจทาน identity handoff';
+  }
+
+  function resolveIdentityFollowupAction(intent, submittedAction, requestedFollowupAction) {
+    return tenantPlayerWorkflow?.resolveIdentityFollowupAction?.(intent, submittedAction, requestedFollowupAction)
+      || 'review';
+  }
+
+  function buildIdentitySupportSuccessMessage(intent, submittedAction, userId, followupAction) {
+    return tenantPlayerWorkflow?.buildIdentitySupportSuccessMessage?.(intent, submittedAction, userId, followupAction)
+      || `บันทึก identity action ของผู้เล่น ${userId} แล้ว`;
+  }
+
+  function normalizeIdentitySupportOutcome(value, fallback = 'reviewing') {
+    return tenantPlayerWorkflow?.normalizeIdentitySupportOutcome?.(value, fallback)
+      || String(fallback || 'reviewing').trim().toLowerCase()
+      || 'reviewing';
   }
 
   function writePurchaseSelectionToUrl(userId, code) {
@@ -949,7 +1054,9 @@
     }
     try {
       const me = await api('/tenant/api/me', null);
-      const scopedTenantId = String(me?.tenantId || '').trim();
+      const requestedTenantId = readTenantScopeFromUrl();
+      const scopedTenantId = String(me?.tenantId || (me ? requestedTenantId : '') || '').trim();
+      const requestedPage = currentPage();
 
       if (!scopedTenantId) {
         redirectForMissingTenantScope(me);
@@ -1132,6 +1239,10 @@
 
       const playerRows = Array.isArray(players?.items) ? players.items : [];
       const selectedUserId = readUserIdFromUrl() || pickFirstPlayerId(playerRows);
+      const selectedIdentityAction = readIdentityActionFromUrl();
+      const selectedSupportReason = readSupportReasonFromUrl();
+      const selectedSupportSource = readSupportSourceFromUrl();
+      const selectedSupportOutcome = readSupportOutcomeFromUrl();
       const selectedStatus = readPurchaseStatusFromUrl();
       const purchaseLookup = selectedUserId
         ? await api(
@@ -1139,6 +1250,12 @@
           { items: [], userId: selectedUserId, status: selectedStatus },
         ).catch(() => ({ items: [], userId: selectedUserId, status: selectedStatus }))
         : { items: [], userId: '', status: '' };
+      const selectedPlayerIdentity = requestedPage === 'players' && selectedUserId
+        ? await api(
+          `/admin/api/player/identity?tenantId=${encodeURIComponent(scopedTenantId)}&userId=${encodeURIComponent(selectedUserId)}`,
+          null,
+        ).catch(() => null)
+        : null;
       const selectedCode = readPurchaseCodeFromUrl() || pickFirstPurchaseCode(purchaseLookup?.items);
       const deliveryCase = selectedCode
         ? await api(`/admin/api/delivery/detail?tenantId=${encodeURIComponent(scopedTenantId)}&code=${encodeURIComponent(selectedCode)}&limit=80`, null).catch(() => null)
@@ -1205,6 +1322,11 @@
         purchaseLookup,
         deliveryCase,
         selectedUserId,
+        selectedPlayerIdentity,
+        selectedIdentityAction,
+        selectedSupportReason,
+        selectedSupportSource,
+        selectedSupportOutcome,
         selectedPurchaseCode: selectedCode,
         selectedPurchaseStatus: selectedStatus,
       };
@@ -5034,6 +5156,19 @@
 
   function wirePlayersPage(renderState, surfaceState) {
     const previewMode = isSurfacePreview(surfaceState, renderState);
+    const managePlayersLocked = Boolean(getTenantActionEntitlement(renderState, 'can_manage_players')?.locked)
+      || !hasTenantPermission(renderState, 'manage_players');
+    const managePlayersLockReason = !hasTenantPermission(renderState, 'manage_players')
+      ? getTenantPermissionLockReason(
+        renderState,
+        'manage_players',
+        'Your tenant role cannot run player management actions.',
+      )
+      : getTenantActionLockReason(
+        renderState,
+        'can_manage_players',
+        'Player management tools are locked in the current package.',
+      );
     const manageStaffLocked = Boolean(getTenantActionEntitlement(renderState, 'can_manage_staff')?.locked)
       || !hasTenantPermission(renderState, 'manage_staff');
     const manageStaffLockReason = !hasTenantPermission(renderState, 'manage_staff')
@@ -5052,6 +5187,14 @@
     const inviteButton = inviteForm?.querySelector('[data-tenant-staff-invite-submit]');
     const playerSelectButtons = Array.from(document.querySelectorAll('[data-tenant-player-select]'));
     const playerOrderButtons = Array.from(document.querySelectorAll('[data-tenant-player-open-orders]'));
+    const playerSupportButtons = Array.from(document.querySelectorAll('[data-tenant-player-identity-action]'));
+    const playerSupportForm = document.querySelector('[data-tenant-player-support-form]');
+    const playerSupportSubmit = playerSupportForm?.querySelector('[data-tenant-player-support-submit]');
+    const playerSupportActionField = playerSupportForm?.querySelector('[data-tenant-player-support-action]');
+    const playerSupportIntentField = playerSupportForm?.querySelector('[name="supportIntent"]');
+    const playerSupportOutcomeField = playerSupportForm?.querySelector('[name="supportOutcome"]');
+    const playerSupportFollowupField = playerSupportForm?.querySelector('[name="followupAction"]');
+    const playerSupportSteamField = playerSupportForm?.querySelector('[data-tenant-player-support-steam]');
 
     playerSelectButtons.forEach((button) => {
       button.addEventListener('click', async () => {
@@ -5068,8 +5211,200 @@
         const userId = String(button.getAttribute('data-tenant-player-open-orders') || '').trim();
         if (!userId) return;
         writePurchaseFiltersToUrl(userId, '');
-        window.location.assign(`/tenant/orders?userId=${encodeURIComponent(userId)}`);
+        window.location.assign(buildCanonicalTenantHref('orders', { userId }));
       });
+    });
+
+    playerSupportButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const requestedAction = String(button.getAttribute('data-tenant-player-identity-action') || '').trim().toLowerCase();
+        const userId = String(
+          button.getAttribute('data-tenant-player-user-id')
+          || renderState?.selectedUserId
+          || '',
+        ).trim();
+        const reason = String(
+          button.getAttribute('data-tenant-player-support-reason')
+          || renderState?.selectedSupportReason
+          || '',
+        ).trim();
+        const source = String(
+          button.getAttribute('data-tenant-player-support-source')
+          || renderState?.selectedSupportSource
+          || 'tenant',
+        ).trim();
+        const outcome = normalizeIdentitySupportOutcome(
+          button.getAttribute('data-tenant-player-support-outcome')
+          || renderState?.selectedSupportOutcome
+          || 'reviewing',
+        );
+        if (!userId) return;
+        writePlayerIdentityWorkflowToUrl(userId, requestedAction, reason, source, outcome);
+        const normalizedIntent = normalizeIdentitySupportIntent(
+          requestedAction,
+          renderState?.selectedIdentityAction,
+        );
+        if (playerSupportActionField) {
+          playerSupportActionField.value = resolveIdentitySupportFormAction(normalizedIntent);
+        }
+        if (playerSupportIntentField) {
+          playerSupportIntentField.value = normalizedIntent;
+        }
+        if (playerSupportOutcomeField) {
+          playerSupportOutcomeField.value = outcome;
+        }
+        if (playerSupportFollowupField) {
+          playerSupportFollowupField.value = resolveIdentityFollowupAction(
+            normalizedIntent,
+            resolveIdentitySupportFormAction(normalizedIntent),
+          );
+        }
+        if (playerSupportSteamField && resolveIdentitySupportFormAction(normalizedIntent) === 'set') {
+          playerSupportSteamField.focus();
+          playerSupportSteamField.select?.();
+        } else {
+          scrollToNode('[data-tenant-player-support-form]');
+        }
+        const nextLabel = describeIdentitySupportIntent(normalizedIntent);
+        setStatus(`${nextLabel} สำหรับ ${userId}`, 'info');
+      });
+    });
+
+    playerSupportActionField?.addEventListener('change', () => {
+      const selectedAction = String(playerSupportActionField.value || 'review').trim().toLowerCase();
+      const currentIntent = normalizeIdentitySupportIntent(
+        playerSupportIntentField?.value,
+        renderState?.selectedIdentityAction,
+      );
+      const nextIntent = ['relink', 'conflict'].includes(currentIntent)
+        ? currentIntent
+        : (selectedAction === 'remove' ? 'unlink' : selectedAction === 'set' ? 'bind' : 'review');
+      if (playerSupportIntentField) {
+        playerSupportIntentField.value = nextIntent;
+      }
+      if (playerSupportFollowupField) {
+        playerSupportFollowupField.value = resolveIdentityFollowupAction(nextIntent, selectedAction);
+      }
+      if (selectedAction === 'set') {
+        playerSupportSteamField?.focus();
+        playerSupportSteamField?.select?.();
+      }
+    });
+
+    if (previewMode || managePlayersLocked) {
+      disableActionNodes(
+        [
+          playerSupportSubmit,
+          ...Array.from(document.querySelectorAll('[data-tenant-player-support-form] input, [data-tenant-player-support-form] select, [data-tenant-player-support-form] textarea')),
+          ...playerSupportButtons,
+        ],
+        previewMode ? 'Preview tenants cannot change player identity yet.' : managePlayersLockReason,
+      );
+    }
+
+    playerSupportForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (previewMode || managePlayersLocked) {
+        setStatus(previewMode ? 'Preview tenants cannot change player identity yet.' : managePlayersLockReason, 'warning');
+        return;
+      }
+      const formData = new FormData(playerSupportForm);
+      const action = String(formData.get('action') || 'review').trim().toLowerCase();
+      const userId = String(formData.get('userId') || '').trim();
+      const steamId = String(formData.get('steamId') || '').trim();
+      const inGameName = String(formData.get('inGameName') || '').trim();
+      const supportIntent = normalizeIdentitySupportIntent(
+        formData.get('supportIntent'),
+        action === 'remove' ? 'unlink' : action === 'set' ? 'bind' : 'review',
+      );
+      const followupAction = resolveIdentityFollowupAction(
+        supportIntent,
+        action,
+        formData.get('followupAction'),
+      );
+      const supportReason = String(formData.get('supportReason') || '').trim();
+      const supportSource = String(
+        formData.get('supportSource')
+        || renderState?.selectedSupportSource
+        || 'tenant',
+      ).trim() || 'tenant';
+      const supportOutcome = normalizeIdentitySupportOutcome(
+        formData.get('supportOutcome')
+        || renderState?.selectedSupportOutcome
+        || 'reviewing',
+      );
+      if (!userId) {
+        setStatus('เลือกผู้เล่นก่อนทำ identity support action', 'warning');
+        return;
+      }
+      if (action === 'set' && !steamId) {
+        setStatus('ต้องกรอก Steam ID ก่อนผูกบัญชีให้ผู้เล่น', 'warning');
+        playerSupportSteamField?.focus();
+        return;
+      }
+      const identityRoute = action === 'remove'
+        ? '/admin/api/player/steam/unbind'
+        : action === 'set'
+          ? '/admin/api/player/steam/bind'
+          : '/admin/api/player/identity/review';
+      setActionButtonBusy(
+        playerSupportSubmit,
+        true,
+        action === 'remove' ? 'Unlinking...' : action === 'set' ? 'Binding...' : 'Recording...',
+      );
+      try {
+        await apiRequest(identityRoute, {
+          method: 'POST',
+          body: action === 'remove'
+            ? {
+              tenantId,
+              userId,
+              steamId,
+              supportIntent,
+              supportOutcome,
+              supportReason,
+              supportSource,
+              followupAction,
+            }
+            : action === 'set'
+              ? {
+              tenantId,
+              userId,
+              steamId,
+              inGameName,
+              supportIntent,
+              supportOutcome,
+              supportReason,
+              supportSource,
+              followupAction,
+            }
+              : {
+              tenantId,
+              userId,
+              steamId,
+              inGameName,
+              supportIntent,
+              supportOutcome,
+              supportReason,
+              supportSource,
+              followupAction,
+            },
+        });
+        const nextIdentityAction = resolveIdentityFollowupAction(supportIntent, action, followupAction);
+        writePlayerIdentityWorkflowToUrl(
+          userId,
+          nextIdentityAction,
+          supportReason,
+          supportSource,
+          supportOutcome,
+        );
+        setStatus(buildIdentitySupportSuccessMessage(supportIntent, action, userId, followupAction), 'success');
+        await refreshState({ silent: true });
+      } catch (error) {
+        setStatus(String(error?.message || error), 'danger');
+      } finally {
+        setActionButtonBusy(playerSupportSubmit, false);
+      }
     });
 
     if (previewMode || manageStaffLocked) {

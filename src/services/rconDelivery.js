@@ -4247,7 +4247,11 @@ async function readPersistedQueueRows(options = {}) {
     db.deliveryQueueJob.findMany({
       where: scope.whereTenant,
       orderBy: [{ nextAttemptAt: 'asc' }, { createdAt: 'asc' }],
-    }), options);
+    }), {
+    ...options,
+    allowGlobal: options.allowGlobal === true,
+    operation: options.operation || 'delivery queue persistence read',
+  });
   return rows.sort(
     (left, right) =>
       new Date(left?.nextAttemptAt || 0) - new Date(right?.nextAttemptAt || 0)
@@ -4260,7 +4264,11 @@ async function readPersistedDeadLetterRows(options = {}) {
     db.deliveryDeadLetter.findMany({
       where: scope.whereTenant,
       orderBy: [{ createdAt: 'desc' }],
-    }), options);
+    }), {
+    ...options,
+    allowGlobal: options.allowGlobal === true,
+    operation: options.operation || 'delivery dead-letter persistence read',
+  });
   return rows.sort((left, right) => new Date(right?.createdAt || 0) - new Date(left?.createdAt || 0));
 }
 
@@ -4496,8 +4504,8 @@ async function hydrateDeliveryPersistenceFromPrisma() {
   const startVersion = mutationVersion;
   try {
     const [queueRows, deadLetterRows] = await Promise.all([
-      readPersistedQueueRows(),
-      readPersistedDeadLetterRows(),
+      readPersistedQueueRows({ allowGlobal: true }),
+      readPersistedDeadLetterRows({ allowGlobal: true }),
     ]);
 
     if (queueRows.length === 0) {

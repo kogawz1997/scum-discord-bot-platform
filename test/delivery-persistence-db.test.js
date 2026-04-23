@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   buildScopedRowKey,
   dedupeScopedRows,
+  listDeliveryPersistenceScopes,
 } = require('../src/services/deliveryPersistenceDb');
 
 function scopedRow(row, scopeTenantId) {
@@ -45,4 +46,34 @@ test('buildScopedRowKey maps shared rows onto the default tenant when requested'
   );
 
   assert.equal(sharedKey, tenantKey);
+});
+
+test('delivery persistence scope enumeration requires allowGlobal in strict postgres mode', async () => {
+  const env = {
+    DATABASE_URL: 'postgresql://scum:test@localhost:5432/scum',
+    TENANT_DB_ISOLATION_MODE: 'strict',
+    TENANT_DB_TOPOLOGY_MODE: 'shared',
+  };
+
+  await assert.rejects(
+    () => listDeliveryPersistenceScopes({ env }),
+    (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+  );
+});
+
+test('delivery persistence scope enumeration allows explicit global reads in strict postgres mode', async () => {
+  const env = {
+    DATABASE_URL: 'postgresql://scum:test@localhost:5432/scum',
+    TENANT_DB_ISOLATION_MODE: 'strict',
+    TENANT_DB_TOPOLOGY_MODE: 'shared',
+  };
+
+  const scopes = await listDeliveryPersistenceScopes({
+    env,
+    allowGlobal: true,
+    operation: 'delivery persistence test',
+  });
+
+  assert.equal(scopes.length, 1);
+  assert.equal(scopes[0].tenantId, null);
 });

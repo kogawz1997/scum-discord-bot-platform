@@ -1181,8 +1181,8 @@ model ControlPlaneAgent {
   agentId        String
   runtimeKey     String
   displayName    String?
-  role           String   @default("hybrid")
-  scope          String   @default("sync_execute")
+  role           String
+  scope          String
   channel        String?
   version        String?
   minimumVersion String?
@@ -1208,8 +1208,8 @@ model ControlPlaneAgentTokenBinding {
   guildId    String?
   agentId    String
   apiKeyId   String   @unique
-  role       String   @default("hybrid")
-  scope      String   @default("sync_execute")
+  role       String
+  scope      String
   minVersion String?
   status     String   @default("active")
   actor      String?
@@ -1228,8 +1228,8 @@ model ControlPlaneAgentProvisioningToken {
   guildId               String?
   agentId               String
   runtimeKey            String?
-  role                  String   @default("hybrid")
-  scope                 String   @default("sync_execute")
+  role                  String
+  scope                 String
   status                String   @default("pending_activation")
   tokenPrefix           String   @unique
   tokenHash             String
@@ -1278,8 +1278,8 @@ model ControlPlaneAgentCredential {
   agentId       String
   apiKeyId      String   @unique
   keyPrefix     String?
-  role          String   @default("hybrid")
-  scope         String   @default("sync_execute")
+  role          String
+  scope         String
   status        String   @default("active")
   minVersion    String?
   deviceId      String?
@@ -1303,8 +1303,8 @@ model ControlPlaneAgentSession {
   agentId        String
   runtimeKey     String
   displayName    String?
-  role           String   @default("hybrid")
-  scope          String   @default("sync_execute")
+  role           String
+  scope          String
   channel        String?
   version        String?
   minimumVersion String?
@@ -1331,8 +1331,8 @@ model ControlPlaneSyncRun {
   guildId      String?
   agentId      String
   runtimeKey   String
-  role         String   @default("hybrid")
-  scope        String   @default("sync_execute")
+  role         String
+  scope        String
   sourceType   String   @default("log")
   sourcePath   String?
   version      String?

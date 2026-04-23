@@ -10,6 +10,40 @@ const {
   requireTenantPermission,
 } = require('./tenantRoutePermissions');
 
+function normalizeIdentitySupportIntent(value, fallback = 'review') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'set') return 'bind';
+  if (normalized === 'remove' || normalized === 'unbind') return 'unlink';
+  if (['bind', 'unlink', 'relink', 'conflict', 'review'].includes(normalized)) {
+    return normalized;
+  }
+  return String(fallback || 'review').trim().toLowerCase() || 'review';
+}
+
+function normalizeIdentitySupportOutcome(value, fallback = 'reviewing') {
+  const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '-');
+  if (['resolved', 'pending-verification', 'pending-player-reply', 'reviewing'].includes(normalized)) {
+    return normalized;
+  }
+  return String(fallback || 'reviewing').trim().toLowerCase() || 'reviewing';
+}
+
+function resolveIdentityFollowupAction(intent, action, requestedFollowupAction) {
+  const normalizedRequested = String(requestedFollowupAction || '').trim();
+  if (normalizedRequested) {
+    return normalizeIdentitySupportIntent(normalizedRequested, 'review');
+  }
+  const normalizedIntent = normalizeIdentitySupportIntent(
+    intent,
+    action === 'remove' ? 'unlink' : action === 'set' ? 'bind' : 'review',
+  );
+  if (normalizedIntent === 'relink') return 'bind';
+  if (normalizedIntent === 'conflict') return 'conflict';
+  if (normalizedIntent === 'bind') return 'bind';
+  if (normalizedIntent === 'unlink') return 'unlink';
+  return 'review';
+}
+
 function createAdminEntityPostRoutes(deps) {
   const {
     sendJson,
@@ -32,8 +66,6 @@ function createAdminEntityPostRoutes(deps) {
     bindSteamLinkForUser,
     removeSteamLink,
     upsertPlayerAccount,
-    bindPlayerSteamId,
-    unbindPlayerSteamId,
     grantVipForUser,
     revokeVipForUser,
     createRedeemCodeForAdmin,
@@ -46,6 +78,7 @@ function createAdminEntityPostRoutes(deps) {
     addDeathsForUser,
     addPlaytimeForUser,
     queueLeaderboardRefreshForAllGuilds,
+    emitPlatformEvent,
     getTenantFeatureAccess,
     buildTenantProductEntitlements,
   } = deps;
@@ -107,6 +140,46 @@ function createAdminEntityPostRoutes(deps) {
         actionKey: 'can_manage_events',
         message,
       });
+    }
+
+    async function recordIdentitySupportTrail(params = {}) {
+      if (typeof emitPlatformEvent !== 'function') return;
+      try {
+        const normalizedIntent = normalizeIdentitySupportIntent(
+          requiredString(params, 'supportIntent') || 'review',
+        );
+        const normalizedOutcome = normalizeIdentitySupportOutcome(
+          requiredString(params, 'supportOutcome') || 'reviewing',
+        );
+        const normalizedFollowupAction = resolveIdentityFollowupAction(
+          normalizedIntent,
+          requiredString(params, 'action') || 'review',
+          requiredString(params, 'followupAction'),
+        );
+        await emitPlatformEvent('platform.player.identity.support', {
+          tenantId: scopedTenantId || null,
+          source: 'admin-web',
+          actor: auth?.user || 'admin-web',
+          actorRole: auth?.role || null,
+          userId: requiredString(params, 'userId') || null,
+          steamId: requiredString(params, 'steamId') || null,
+          inGameName: requiredString(params, 'inGameName') || null,
+          action: requiredString(params, 'action') || null,
+          supportIntent: normalizedIntent,
+          supportOutcome: normalizedOutcome,
+          supportReason: requiredString(params, 'supportReason') || null,
+          supportSource: requiredString(params, 'supportSource') || null,
+          followupAction: normalizedFollowupAction,
+          route: pathname,
+          alreadyLinked: params?.result?.alreadyLinked === true,
+          identitySummary: params?.result?.identitySummary || null,
+        }, {
+          tenantId: scopedTenantId,
+          allowGlobal: !scopedTenantId,
+        });
+      } catch {
+        // Do not fail the primary identity action when audit/event emission is unavailable.
+      }
     }
 
     if (pathname === '/admin/api/ticket/claim') {
@@ -445,7 +518,25 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: `ไม่สามารถบันทึกลิงก์ได้ (${result.reason})` });
         return true;
       }
+      const supportIntent = normalizeIdentitySupportIntent(requiredString(body, 'supportIntent') || 'bind');
+      const supportOutcome = normalizeIdentitySupportOutcome(requiredString(body, 'supportOutcome') || 'resolved');
       sendJson(res, 200, { ok: true, data: result });
+      await recordIdentitySupportTrail({
+        userId,
+        steamId,
+        inGameName: inGameName || null,
+        action: 'bind',
+        supportIntent,
+        supportOutcome,
+        supportReason: requiredString(body, 'supportReason') || null,
+        supportSource: requiredString(body, 'supportSource') || null,
+        followupAction: resolveIdentityFollowupAction(
+          supportIntent,
+          'set',
+          requiredString(body, 'followupAction'),
+        ),
+        result,
+      });
       return true;
     }
 
@@ -460,12 +551,29 @@ function createAdminEntityPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = removeSteamLink({ steamId, userId, tenantId: scopedTenantId });
+      const result = await removeSteamLink({ steamId, userId, tenantId: scopedTenantId });
       if (!result.ok) {
         sendJson(res, 404, { ok: false, error: 'Resource not found' });
         return true;
       }
+      const supportIntent = normalizeIdentitySupportIntent(requiredString(body, 'supportIntent') || 'unlink');
+      const supportOutcome = normalizeIdentitySupportOutcome(requiredString(body, 'supportOutcome') || 'resolved');
       sendJson(res, 200, { ok: true, data: result.removed });
+      await recordIdentitySupportTrail({
+        userId,
+        steamId,
+        action: 'unlink',
+        supportIntent,
+        supportOutcome,
+        supportReason: requiredString(body, 'supportReason') || null,
+        supportSource: requiredString(body, 'supportSource') || null,
+        followupAction: resolveIdentityFollowupAction(
+          supportIntent,
+          'remove',
+          requiredString(body, 'followupAction'),
+        ),
+        result,
+      });
       return true;
     }
 
@@ -503,16 +611,42 @@ function createAdminEntityPostRoutes(deps) {
       if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
       const steamId = requiredString(body, 'steamId');
+      const inGameName = requiredString(body, 'inGameName');
       if (!userId || !steamId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await bindPlayerSteamId(userId, steamId, { tenantId: scopedTenantId });
+      const result = await bindSteamLinkForUser({
+        steamId,
+        userId,
+        inGameName: inGameName || null,
+        allowReplace: true,
+        allowSteamReuse: true,
+        tenantId: scopedTenantId,
+      });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: result.data });
+      const supportIntent = normalizeIdentitySupportIntent(requiredString(body, 'supportIntent') || 'bind');
+      const supportOutcome = normalizeIdentitySupportOutcome(requiredString(body, 'supportOutcome') || 'resolved');
+      await recordIdentitySupportTrail({
+        userId,
+        steamId,
+        inGameName: inGameName || null,
+        action: 'bind',
+        supportIntent,
+        supportOutcome,
+        supportReason: requiredString(body, 'supportReason') || null,
+        supportSource: requiredString(body, 'supportSource') || null,
+        followupAction: resolveIdentityFollowupAction(
+          supportIntent,
+          'set',
+          requiredString(body, 'followupAction'),
+        ),
+        result,
+      });
+      sendJson(res, 200, { ok: true, data: result });
       return true;
     }
 
@@ -522,16 +656,71 @@ function createAdminEntityPostRoutes(deps) {
       );
       if (!playerCheck.allowed) return true;
       const userId = requiredString(body, 'userId');
-      if (!userId) {
+      const steamId = requiredString(body, 'steamId');
+      if (!userId && !steamId) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
-      const result = await unbindPlayerSteamId(userId, { tenantId: scopedTenantId });
+      const result = await removeSteamLink({
+        steamId,
+        userId,
+        tenantId: scopedTenantId,
+      });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      sendJson(res, 200, { ok: true, data: result.data });
+      const supportIntent = normalizeIdentitySupportIntent(requiredString(body, 'supportIntent') || 'unlink');
+      const supportOutcome = normalizeIdentitySupportOutcome(requiredString(body, 'supportOutcome') || 'resolved');
+      await recordIdentitySupportTrail({
+        userId,
+        steamId,
+        action: 'unlink',
+        supportIntent,
+        supportOutcome,
+        supportReason: requiredString(body, 'supportReason') || null,
+        supportSource: requiredString(body, 'supportSource') || null,
+        followupAction: resolveIdentityFollowupAction(
+          supportIntent,
+          'remove',
+          requiredString(body, 'followupAction'),
+        ),
+        result,
+      });
+      sendJson(res, 200, { ok: true, data: result });
+      return true;
+    }
+
+    if (pathname === '/admin/api/player/identity/review') {
+      const playerCheck = await requirePlayerManagement(
+        'Identity review is locked until the current package includes player management.',
+      );
+      if (!playerCheck.allowed) return true;
+      const userId = requiredString(body, 'userId');
+      if (!userId) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const supportIntent = normalizeIdentitySupportIntent(requiredString(body, 'supportIntent') || 'review');
+      const supportOutcome = normalizeIdentitySupportOutcome(requiredString(body, 'supportOutcome') || 'reviewing');
+      const reviewRecord = {
+        userId,
+        steamId: requiredString(body, 'steamId') || null,
+        inGameName: requiredString(body, 'inGameName') || null,
+        action: 'review',
+        supportIntent,
+        supportOutcome,
+        supportReason: requiredString(body, 'supportReason') || null,
+        supportSource: requiredString(body, 'supportSource') || null,
+        followupAction: resolveIdentityFollowupAction(
+          supportIntent,
+          'review',
+          requiredString(body, 'followupAction'),
+        ),
+        recordedAt: new Date().toISOString(),
+      };
+      await recordIdentitySupportTrail(reviewRecord);
+      sendJson(res, 200, { ok: true, data: reviewRecord });
       return true;
     }
 

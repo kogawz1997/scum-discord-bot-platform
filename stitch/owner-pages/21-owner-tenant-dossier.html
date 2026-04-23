@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Tenant Dossier</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>
+    .placeholder-main { padding: 28px; }
+    .placeholder-grid { display: grid; gap: 18px; grid-template-columns: 1.15fr 0.85fr; }
+    .placeholder-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(0,209,255,.18); background: rgba(0,209,255,.08); color: var(--text-soft); font-size: 13px; }
+    @media (max-width: 860px) { .placeholder-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="topbar__brand"><span class="topbar__mark">SCUM</span><div><span class="topbar__title">SCUM Owner Plane</span><span class="topbar__copy">Tenant Dossier</span></div></div>
+    <div class="topbar__tools"><a class="topbar__pill" href="/owner/tenants">Tenants</a><button class="button">Refresh</button><button class="button">Language</button><button class="button">Notifications</button></div>
+  </nav>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar__section"><div class="sidebar__title">Platform</div><a class="nav-item" href="/owner">Overview</a><a class="nav-item is-active" href="/owner/tenants">Tenants</a><a class="nav-item" href="/owner/packages">Packages</a><a class="nav-item" href="/owner/subscriptions">Subscriptions</a><a class="nav-item" href="/owner/billing">Billing</a></div>
+      <div class="sidebar__section"><div class="sidebar__title">Operations</div><a class="nav-item" href="/owner/runtime">Runtime Health</a><a class="nav-item" href="/owner/support">Support</a><a class="nav-item" href="/owner/audit">Audit</a></div>
+    </aside>
+    <main class="main placeholder-main">
+      <header class="page-header">
+        <div><span class="eyebrow">Tenant Dossier</span><h1 class="page-title">Tenant Context</h1><p class="page-copy">Review package posture, runtime readiness, commercial risk, and support context from one owner route before taking guarded follow-up actions.</p></div>
+        <div class="actions"><a class="button" href="/owner/tenants">Back to Tenants</a><a class="button" href="/owner/support/context">Support Context</a><button class="button button--primary" data-open-live-workspace="true">Open Live Tenant Workspace</button></div>
+      </header>
+      <div class="placeholder-grid">
+        <section class="panel panel--hero">
+          <h2 class="panel__title">Tenant overview lane</h2>
+          <p class="panel__copy">Keep package posture, subscription posture, quota pressure, and support risk in one route before handing off into guarded owner controls.</p>
+          <div class="list">
+            <div class="list__item"><div class="list__title"><span>Commercial posture</span><span class="status" data-tone="amber">Review</span></div><div class="soft">Package assignment, renewal status, invoice follow-up.</div></div>
+            <div class="list__item"><div class="list__title"><span>Runtime posture</span><span class="status" data-tone="cyan">Tracked</span></div><div class="soft">Delivery Agent and Server Bot stay clearly separated in every follow-up flow.</div></div>
+            <div class="list__item"><div class="list__title"><span>Support posture</span><span class="status" data-tone="green">Available</span></div><div class="soft">Support evidence and diagnostics can be opened without leaving the Owner surface.</div></div>
+          </div>
+          <div class="placeholder-note">Read-only on this route: inline tenant edits, package save, subscription save, and direct status mutations still require guarded owner controls.</div>
+        </section>
+        <aside class="stack">
+          <section class="panel"><h2 class="panel__title">Guarded actions</h2><p class="panel__copy">Edit tenant metadata, assign packages, create checkout sessions, and review diagnostics in the guarded owner control lane.</p></section>
+          <section class="panel"><h2 class="panel__title">Fast links</h2><div class="list"><a class="list__item" href="/owner/packages"><strong>Package Management</strong><div class="soft">Plan definitions and entitlements.</div></a><a class="list__item" href="/owner/subscriptions"><strong>Billing & Subscriptions</strong><div class="soft">Commercial follow-through.</div></a><a class="list__item" href="/owner/support/context"><strong>Support Context</strong><div class="soft">Case evidence and diagnostics.</div></a></div></section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

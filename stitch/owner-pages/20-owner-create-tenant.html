@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Create Tenant</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>
+    .placeholder-main { padding: 28px; }
+    .placeholder-grid { display: grid; gap: 18px; grid-template-columns: 1.2fr 0.8fr; }
+    .placeholder-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(254,183,0,.18); background: rgba(254,183,0,.08); color: var(--text-soft); font-size: 13px; }
+    .placeholder-kv { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+    .placeholder-kv .list__item { min-height: 92px; }
+    @media (max-width: 860px) { .placeholder-grid, .placeholder-kv { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__mark">SCUM</span>
+      <div>
+        <span class="topbar__title">SCUM Owner Plane</span>
+        <span class="topbar__copy">Tenant Provisioning</span>
+      </div>
+    </div>
+    <div class="topbar__tools">
+      <a class="topbar__pill" href="/owner/tenants">Tenant List</a>
+      <button class="button">Refresh</button>
+      <button class="button">Language</button>
+      <button class="button">Notifications</button>
+    </div>
+  </nav>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar__section">
+        <div class="sidebar__title">Platform</div>
+        <a class="nav-item" href="/owner">Overview</a>
+        <a class="nav-item is-active" href="/owner/tenants">Tenants</a>
+        <a class="nav-item" href="/owner/packages">Packages</a>
+        <a class="nav-item" href="/owner/subscriptions">Subscriptions</a>
+        <a class="nav-item" href="/owner/billing">Billing</a>
+      </div>
+      <div class="sidebar__section">
+        <div class="sidebar__title">Operations</div>
+        <a class="nav-item" href="/owner/runtime">Runtime Health</a>
+        <a class="nav-item" href="/owner/incidents">Incidents</a>
+        <a class="nav-item" href="/owner/support">Support</a>
+      </div>
+    </aside>
+    <main class="main placeholder-main">
+      <header class="page-header">
+        <div>
+          <span class="eyebrow">Tenant Provisioning</span>
+          <h1 class="page-title">Create Tenant</h1>
+          <p class="page-copy">Review tenant setup, commercial readiness, and activation checkpoints from one owner route before opening guarded provisioning controls.</p>
+        </div>
+        <div class="actions">
+          <a class="button" href="/owner/tenants">Back to Tenants</a>
+          <button class="button button--primary" data-open-live-workspace="true">Open Live Create Workspace</button>
+        </div>
+      </header>
+      <div class="placeholder-grid">
+        <section class="panel panel--hero">
+          <h2 class="panel__title">Provisioning checklist</h2>
+          <p class="panel__copy">Keep account metadata, initial package selection, and activation follow-through aligned before you issue the actual provisioning actions.</p>
+          <div class="placeholder-kv">
+            <div class="list__item"><div class="metric__label">Step 1</div><strong>Account record</strong><div class="soft">Name, slug, owner contact, locale.</div></div>
+            <div class="list__item"><div class="metric__label">Step 2</div><strong>Commercial setup</strong><div class="soft">Package, subscription state, billing cycle.</div></div>
+            <div class="list__item"><div class="metric__label">Step 3</div><strong>Runtime handoff</strong><div class="soft">Delivery Agent and Server Bot remain separate after activation.</div></div>
+            <div class="list__item"><div class="metric__label">Step 4</div><strong>Support readiness</strong><div class="soft">Diagnostics and onboarding follow-up remain in the Owner workspace.</div></div>
+          </div>
+          <div class="placeholder-note">Read-only on this route: inline field editing, submit, activation review, and token issuance still require guarded owner controls.</div>
+        </section>
+        <aside class="stack">
+          <section class="panel">
+            <h2 class="panel__title">Guarded actions</h2>
+            <p class="panel__copy">Create, save, activate, package assignment, and owner-contact actions stay on the guarded owner control lane.</p>
+          </section>
+          <section class="panel">
+            <h2 class="panel__title">Related routes</h2>
+            <div class="list">
+              <a class="list__item" href="/owner/tenants"><strong>Tenant Management</strong><div class="soft">Return to the registry.</div></a>
+              <a class="list__item" href="/owner/packages"><strong>Package Management</strong><div class="soft">Review plan definitions first.</div></a>
+              <a class="list__item" href="/owner/subscriptions"><strong>Billing & Subscriptions</strong><div class="soft">Confirm commercial follow-through after activation.</div></a>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

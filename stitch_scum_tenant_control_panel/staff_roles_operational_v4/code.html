@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#783200",
+                    "on-secondary-container": "#bdf57d",
+                    "on-secondary-fixed": "#0f2000",
+                    "secondary-fixed": "#bbf37c",
+                    "secondary-fixed-dim": "#a0d663",
+                    "primary-fixed-dim": "#ffb690",
+                    "surface-dim": "#131313",
+                    "primary-fixed": "#ffdbca",
+                    "on-tertiary": "#690005",
+                    "on-surface": "#e5e2e1",
+                    "tertiary-fixed-dim": "#ffb4ab",
+                    "surface-bright": "#393939",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#1c1b1b",
+                    "on-secondary-fixed-variant": "#2e4f00",
+                    "secondary-container": "#447200",
+                    "on-background": "#e5e2e1",
+                    "on-primary-fixed": "#341100",
+                    "outline-variant": "#584237",
+                    "surface-tint": "#ffb690",
+                    "outline": "#a78b7d",
+                    "surface-container": "#201f1f",
+                    "surface-variant": "#353534",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-container": "#f97316",
+                    "on-tertiary-container": "#6c0005",
+                    "on-error": "#690005",
+                    "primary": "#ffb690",
+                    "on-primary-container": "#582200",
+                    "on-tertiary-fixed": "#410002",
+                    "on-secondary": "#1e3700",
+                    "inverse-primary": "#9d4300",
+                    "tertiary-container": "#ff6a5d",
+                    "tertiary-fixed": "#ffdad6",
+                    "surface-container-highest": "#353534",
+                    "inverse-on-surface": "#313030",
+                    "inverse-surface": "#e5e2e1",
+                    "secondary": "#a0d663",
+                    "on-surface-variant": "#e0c0b1",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface": "#131313",
+                    "background": "#131313",
+                    "on-tertiary-fixed-variant": "#93000b",
+                    "on-primary": "#552100",
+                    "tertiary": "#ffb4ab"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Public Sans"],
+                    "label": ["Public Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Public Sans', sans-serif;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+        .stagger-border {
+            border: 2px solid #353534;
+        }
+        .heavy-border {
+            border: 4px solid #353534;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopNavBar Execution -->
+<nav class="bg-[#131313] dark:bg-[#131313] fixed top-0 w-full h-16 px-6 flex justify-between items-center z-50 border-b-2 border-[#353534] font-['Space_Grotesk'] tracking-wider uppercase text-sm">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black text-orange-600 dark:text-orange-500 tracking-tighter">TENANT_ADMIN_SCUM_V1</span>
+<div class="hidden md:flex gap-6 items-center h-full">
+<a class="text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1" href="#">Overview</a>
+<a class="text-orange-500 font-bold border-b-2 border-orange-500 px-2 py-1" href="#">Staff</a>
+<a class="text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1" href="#">Server Status</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container-lowest border-b-2 border-outline px-3 h-10">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs placeholder:text-zinc-600 font-body" placeholder="SEARCH_SYSTEM..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-[#201f1f] transition-colors duration-150 text-orange-600"><span class="material-symbols-outlined">refresh</span></button>
+<button class="p-2 hover:bg-[#201f1f] transition-colors duration-150 text-orange-600"><span class="material-symbols-outlined">language</span></button>
+<button class="p-2 hover:bg-[#201f1f] transition-colors duration-150 text-orange-600"><span class="material-symbols-outlined">notifications</span></button>
+</div>
+<div class="h-8 w-[2px] bg-[#353534] mx-2"></div>
+<button class="text-orange-600 font-bold hover:bg-[#201f1f] px-3 py-1 transition-colors">Logout</button>
+</div>
+</nav>
+<!-- SideNavBar Execution -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-[#201f1f] dark:bg-[#201f1f] flex flex-col pt-16 border-r-4 border-[#353534] z-40 hidden lg:flex">
+<div class="p-6 border-b-4 border-[#353534]">
+<h2 class="text-lg font-black text-white font-headline tracking-tighter">SECTOR_ADMIN</h2>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">OPERATIONAL_UNIT_01</p>
+</div>
+<div class="flex-1 overflow-y-auto py-4">
+<nav class="font-['Public_Sans'] text-xs font-bold uppercase tracking-widest">
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">dashboard</span> Overview</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">dns</span> Server Status</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">group</span> Players</a>
+<div class="bg-[#353534] text-orange-500 border-l-4 border-orange-500 px-4 py-3 flex items-center gap-3 translate-x-1 transition-transform">
+<span class="material-symbols-outlined">shield_person</span> Staff &amp; Roles
+                </div>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">badge</span> Roles</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">payments</span> Billing</a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 hover:bg-[#353534] hover:text-white transition-all" href="#"><span class="material-symbols-outlined">settings</span> Settings</a>
+</nav>
+</div>
+<div class="p-4 border-t-4 border-[#353534]">
+<button class="w-full py-3 bg-primary-container text-on-primary-container font-headline font-bold text-xs uppercase tracking-widest border-2 border-primary-container hover:border-4 transition-all">
+                Diagnostics &amp; Support
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-16 min-h-screen">
+<div class="p-8 max-w-[1600px] mx-auto">
+<!-- Page Header -->
+<header class="mb-12 flex justify-between items-end">
+<div>
+<h1 class="text-5xl font-headline font-black tracking-tighter uppercase mb-2">Staff &amp; Access Control</h1>
+<p class="font-body text-outline uppercase tracking-widest text-sm flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary block"></span> 
+                        การจัดการบุคลากรและสิทธิ์การเข้าถึง (Operational V4)
+                    </p>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-3 bg-surface-container-highest border-2 border-outline-variant font-headline font-bold uppercase tracking-widest hover:border-white transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">person_add</span> Invite Staff
+                    </button>
+</div>
+</header>
+<!-- Grid Layout -->
+<div class="bento-grid">
+<!-- Active Staff Table (Column 1-8) -->
+<section class="col-span-12 xl:col-span-8 bg-surface-container-high heavy-border p-0">
+<div class="p-4 bg-surface-container-highest border-b-4 border-[#353534] flex justify-between items-center">
+<h3 class="font-headline font-bold text-lg uppercase tracking-wider">ACTIVE_PERSONNEL [รายชื่อพนักงาน]</h3>
+<span class="bg-secondary text-on-secondary px-2 py-1 text-[10px] font-bold">STABLE_CONNECTION</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body text-sm border-collapse">
+<thead>
+<tr class="border-b-2 border-[#353534] bg-surface-container-lowest">
+<th class="p-4 font-bold uppercase tracking-widest text-outline">Personnel</th>
+<th class="p-4 font-bold uppercase tracking-widest text-outline">Role</th>
+<th class="p-4 font-bold uppercase tracking-widest text-outline">Status</th>
+<th class="p-4 font-bold uppercase tracking-widest text-outline text-right">Actions</th>
+</tr>
+</thead>
+<tbody>
+<!-- Row 1 -->
+<tr class="border-b-2 border-[#353534] hover:bg-surface-container transition-colors">
+<td class="p-4 flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-lowest border-2 border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div>
+<div class="font-bold">K. Worrawit</div>
+<div class="text-xs text-zinc-500 uppercase">worrawit.adm@sector.sys</div>
+</div>
+</td>
+<td class="p-4"><span class="px-2 py-1 bg-primary-container/20 text-primary font-bold text-[10px] border border-primary">SUPER_ADMIN</span></td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary animate-pulse"></span>
+<span class="text-[10px] font-bold uppercase">Online</span>
+</div>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 border-2 border-outline-variant hover:border-white transition-all" title="Edit Access">
+<span class="material-symbols-outlined text-sm">edit_square</span>
+</button>
+<button class="p-2 border-2 border-error hover:bg-error hover:text-on-error transition-all" title="Revoke Access">
+<span class="material-symbols-outlined text-sm">gavel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b-2 border-[#353534] hover:bg-surface-container transition-colors">
+<td class="p-4 flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-lowest border-2 border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-zinc-500">person</span>
+</div>
+<div>
+<div class="font-bold">A. Siriphon</div>
+<div class="text-xs text-zinc-500 uppercase">siriphon.mod@sector.sys</div>
+</div>
+</td>
+<td class="p-4"><span class="px-2 py-1 bg-zinc-800 text-zinc-300 font-bold text-[10px] border border-zinc-600">MODERATOR</span></td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-zinc-600"></span>
+<span class="text-[10px] font-bold uppercase text-zinc-500">Offline</span>
+</div>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 border-2 border-outline-variant hover:border-white transition-all">
+<span class="material-symbols-outlined text-sm">edit_square</span>
+</button>
+<button class="p-2 border-2 border-error hover:bg-error hover:text-on-error transition-all">
+<span class="material-symbols-outlined text-sm">gavel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 (Pending) -->
+<tr class="border-b-2 border-[#353534] bg-primary/5 hover:bg-primary/10 transition-colors">
+<td class="p-4 flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-lowest border-2 border-primary border-dashed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary/50">hourglass_top</span>
+</div>
+<div>
+<div class="font-bold text-primary italic">Pending Invitation...</div>
+<div class="text-xs text-zinc-500 uppercase">new_recruit_04@sys.mail</div>
+</div>
+</td>
+<td class="p-4"><span class="px-2 py-1 border border-primary/40 text-primary/70 font-bold text-[10px]">OPERATOR</span></td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold uppercase text-primary">Awaiting_Ack</span>
+</div>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="px-3 py-2 bg-primary text-on-primary-container font-bold text-[10px] uppercase hover:bg-primary-fixed transition-colors">
+                                                Resend Invite
+                                            </button>
+<button class="p-2 border-2 border-outline-variant hover:border-white transition-all">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Role Matrix Editor (Column 9-12) -->
+<section class="col-span-12 xl:col-span-4 bg-surface-container heavy-border p-6 flex flex-col gap-6">
+<div>
+<h3 class="font-headline font-bold text-lg uppercase tracking-wider mb-2">Role Matrix Editor</h3>
+<p class="font-body text-xs text-outline uppercase tracking-widest">การตั้งค่าสิทธิ์การเข้าถึงระดับบทบาท</p>
+</div>
+<div class="space-y-4 flex-1">
+<!-- Role Select -->
+<div class="space-y-2">
+<label class="font-label text-[10px] font-bold uppercase tracking-widest text-outline">Target Role [เลือกบทบาท]</label>
+<select class="w-full bg-surface-container-lowest border-b-2 border-outline text-white font-body text-sm px-4 py-3 focus:border-primary ring-0 focus:ring-0">
+<option>MODERATOR (LEVEL 02)</option>
+<option>SERVER_TECH (LEVEL 03)</option>
+<option>BILLING_AGENT (LEVEL 01)</option>
+</select>
+</div>
+<!-- Permissions Checklist -->
+<div class="space-y-3 bg-surface-container-lowest p-4 border-2 border-outline-variant">
+<div class="flex justify-between items-center border-b border-[#353534] pb-2 mb-2">
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Permissions</span>
+<span class="text-[10px] font-bold text-primary uppercase">Read/Write</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold uppercase">Console Access</span>
+<input checked="" class="w-4 h-4 bg-transparent border-2 border-primary text-primary focus:ring-0" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold uppercase">Log Extraction</span>
+<input checked="" class="w-4 h-4 bg-transparent border-2 border-primary text-primary focus:ring-0" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold uppercase">Server Restart</span>
+<input class="w-4 h-4 bg-transparent border-2 border-outline text-primary focus:ring-0" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold uppercase">Player Ban Control</span>
+<input checked="" class="w-4 h-4 bg-transparent border-2 border-primary text-primary focus:ring-0" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold uppercase">Billing View</span>
+<input class="w-4 h-4 bg-transparent border-2 border-outline text-primary focus:ring-0" type="checkbox"/>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t-2 border-[#353534] flex flex-col gap-3">
+<button class="w-full py-4 bg-primary text-on-primary-container font-headline font-bold uppercase tracking-widest hover:border-4 border-primary transition-all">
+                            Save Configuration [บันทึก]
+                        </button>
+<button class="w-full py-2 bg-transparent text-error border-2 border-error font-headline font-bold text-xs uppercase tracking-widest hover:bg-error/10 transition-all">
+                            Delete Role Entity
+                        </button>
+</div>
+</section>
+<!-- Data Visualizers (Bottom Row) -->
+<section class="col-span-12 md:col-span-6 bg-surface-container-high stagger-border p-6">
+<div class="flex items-center gap-4 mb-4">
+<span class="material-symbols-outlined text-secondary text-4xl">security</span>
+<div>
+<h4 class="font-headline font-bold uppercase">Security Protocol</h4>
+<p class="text-[10px] text-zinc-500 font-bold uppercase">Current Integrity Level: High</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="bg-surface-container-lowest p-3 border-b-2 border-secondary">
+<div class="text-[10px] text-zinc-500 font-bold uppercase">Logins</div>
+<div class="text-xl font-headline font-black">104</div>
+</div>
+<div class="bg-surface-container-lowest p-3 border-b-2 border-primary">
+<div class="text-[10px] text-zinc-500 font-bold uppercase">Denials</div>
+<div class="text-xl font-headline font-black">02</div>
+</div>
+<div class="bg-surface-container-lowest p-3 border-b-2 border-outline">
+<div class="text-[10px] text-zinc-500 font-bold uppercase">Tokens</div>
+<div class="text-xl font-headline font-black">ACTIVE</div>
+</div>
+</div>
+</section>
+<section class="col-span-12 md:col-span-6 bg-surface-container-high stagger-border p-0 overflow-hidden relative group">
+<img class="w-full h-full object-cover opacity-30 group-hover:scale-105 transition-transform duration-700" data-alt="high-tech computer server room with neon orange and white lighting dramatic shadows industrial machinery aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBe9-y3eG2CPfzaJZUy9qJeUiyosYHBtIHMy-C0mDBs9h_QGXAdsRiq7Wk6jwpVklpWE4QPOLAkZ1GsubnNhu28loICoB285bQJsKc7kBcwTxWwQeboLnCItDUdC3Njn65Lrb-BtdAEMZUs9Tvo5QTRk-PywRQdXVa9LDLW8jhtybjpCxYiI9d_0B9e8O44HrZfyJO-EuPuvCO7v2o0GJT2PBowVfkgnZiIGd6ClNz15mF52hKQKudHLYFHg4xMkNwV2P1pWclx47U"/>
+<div class="absolute inset-0 p-6 flex flex-col justify-end bg-gradient-to-t from-surface to-transparent">
+<h4 class="font-headline font-bold text-xl uppercase tracking-tighter">Sector Node [01] Status</h4>
+<div class="flex items-center gap-2 mt-2">
+<div class="h-1 flex-1 bg-secondary"></div>
+<div class="h-1 flex-1 bg-secondary"></div>
+<div class="h-1 flex-1 bg-zinc-700"></div>
+<span class="text-[10px] font-bold uppercase ml-2">72% LOAD</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) Execution -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-high flex justify-around items-center h-16 border-t-4 border-[#353534] z-50">
+<button class="flex flex-col items-center gap-1 text-zinc-500">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[8px] font-bold uppercase">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-orange-500 font-bold">
+<span class="material-symbols-outlined">shield_person</span>
+<span class="text-[8px] font-bold uppercase tracking-tighter">Staff</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-zinc-500">
+<span class="material-symbols-outlined">dns</span>
+<span class="text-[8px] font-bold uppercase">Server</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-zinc-500">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[8px] font-bold uppercase">Config</span>
+</button>
+</nav>
+</body></html>

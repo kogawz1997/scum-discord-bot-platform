@@ -90,6 +90,7 @@ module.exports = {
         inGameName: name || null,
         allowReplace: false,
         allowSteamReuse: false,
+        guildId: interaction.guildId || interaction.guild?.id || null,
       });
 
       if (!result.ok && result.reason === 'user-already-linked') {
@@ -126,7 +127,9 @@ module.exports = {
     }
 
     if (sub === 'me') {
-      const link = getSteamLinkByUserId(interaction.user.id);
+      const link = getSteamLinkByUserId(interaction.user.id, {
+        guildId: interaction.guildId || interaction.guild?.id || null,
+      });
       if (!link) {
         return interaction.reply({
           content: 'คุณยังไม่ได้ลิงก์ SteamID ใช้ `/linksteam set` ก่อน',
@@ -166,7 +169,9 @@ module.exports = {
         });
       }
 
-      const link = getSteamLinkBySteamId(steamId);
+      const link = getSteamLinkBySteamId(steamId, {
+        guildId: interaction.guildId || interaction.guild?.id || null,
+      });
       if (!link) {
         return interaction.reply({
           content: 'ไม่พบลิงก์นี้ในระบบ',
@@ -206,6 +211,7 @@ module.exports = {
         inGameName: name || null,
         allowReplace: true,
         allowSteamReuse: true,
+        guildId: interaction.guildId || interaction.guild?.id || null,
       });
       if (!result.ok) {
         return interaction.reply({

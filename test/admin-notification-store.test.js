@@ -100,6 +100,7 @@ function loadStoreWithStrictDbMocks(delegate) {
 }
 
 test.afterEach(() => {
+  delete process.env.ADMIN_NOTIFICATION_STORE_MODE;
   clearModule(storePath);
   clearModule(prismaPath);
   clearModule(persistPath);
@@ -196,6 +197,46 @@ test('admin notification store does not fall back to file mode when db persisten
     () => store.initAdminNotificationStore(),
     /missing-table/,
   );
+});
+
+test('admin notification store does not silently fall back to file mode when db delegate is unavailable', async () => {
+  const store = loadStoreWithMocks(null);
+
+  await assert.rejects(
+    () => store.initAdminNotificationStore(),
+    /admin-notification-db-delegate-unavailable/,
+  );
+});
+
+test('admin notification store still supports explicit file mode', async () => {
+  process.env.ADMIN_NOTIFICATION_STORE_MODE = 'file';
+  let wroteSnapshot = false;
+  clearModule(storePath);
+  installMock(prismaPath, {
+    prisma: {},
+  });
+  installMock(persistPath, {
+    atomicWriteJson() {
+      wroteSnapshot = true;
+    },
+    getFilePath(name) {
+      return path.join(process.cwd(), 'tmp', name);
+    },
+    isDbPersistenceEnabled() {
+      return false;
+    },
+  });
+  const store = require(storePath);
+
+  await store.initAdminNotificationStore();
+  store.addAdminNotification({
+    id: 'note-file-1',
+    kind: 'notice',
+    title: 'File mode',
+  });
+  await store.waitForAdminNotificationPersistence();
+
+  assert.equal(wroteSnapshot, true);
 });
 
 test('admin notification store filters notifications by tenant id from payload data', async () => {

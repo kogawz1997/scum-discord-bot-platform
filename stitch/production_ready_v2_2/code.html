@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM Owner Plane - Tenant Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#1f2022",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-container": "#a10017",
+                        "inverse-surface": "#e3e2e4",
+                        "on-background": "#e3e2e4",
+                        "background": "#121315",
+                        "outline-variant": "#3c494e",
+                        "surface-tint": "#4cd6ff",
+                        "outline": "#859399",
+                        "inverse-primary": "#00677f",
+                        "surface-container-highest": "#343537",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#412d00",
+                        "surface-container-low": "#1b1c1e",
+                        "on-tertiary": "#68000b",
+                        "secondary": "#ffdb9d",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#121315",
+                        "on-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface": "#121315",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-primary-container": "#00566a",
+                        "on-tertiary-fixed": "#410004",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-variant": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "inverse-on-surface": "#303032",
+                        "tertiary": "#ffd1ce",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-bright": "#38393b",
+                        "on-primary-fixed": "#001f28",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "primary-fixed": "#b7eaff",
+                        "primary-container": "#00d1ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "primary": "#a4e6ff",
+                        "on-primary": "#003543",
+                        "tertiary-container": "#ffaaa4",
+                        "on-primary-fixed-variant": "#004e60",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-container-high": "#292a2c",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121315;
+            color: #e3e2e4;
+        }
+        .public-sans {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #343537;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 backdrop-blur-md shadow-sm dark:shadow-none">
+<div class="flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-tighter text-neutral-900 dark:text-white uppercase font-headline">SCUM Owner Plane</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="font-public-sans text-sm font-semibold tracking-tight text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500 pb-1" href="#">Tenant List</a>
+<a class="font-public-sans text-sm font-semibold tracking-tight text-neutral-500 dark:hover:text-white transition-colors" href="#">Runtime</a>
+</nav>
+</div>
+<div class="flex items-center gap-2">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="bg-surface-container-low border-none rounded-lg text-xs w-64 pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary-container" placeholder="Search Tenants..." type="text"/>
+</div>
+<div class="flex items-center gap-1 ml-4 border-l border-outline-variant pl-4">
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors"><span class="material-symbols-outlined text-[20px]">refresh</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors"><span class="material-symbols-outlined text-[20px]">language</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors"><span class="material-symbols-outlined text-[20px]">dark_mode</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-on-tertiary-container rounded-full"></span>
+</button>
+<div class="ml-2 w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="professional male portrait for user profile menu avatar dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZCwCEcyU4wy0acIclgxIwcDTj_Xo9Zw2424AMsesDYLfDcevo0aIgrhCbjC2wBvDEPkZWFqCAf01v-u3oaYaB5TfQyGZiH1MRUpeme7TsuRl5xWmNfTsBi8DgGyYCS5cW2ShqGfTVn75fRn6ynL5ijriVCiKdcryKl3qX611J2oKluzZPGVHV9AzRD_XRWcjfMW9I7xOmzJo7r6_u12Si3znTRcGWOXuHKA50f8BNL2DnIHrCFmu_Wjy15j8NCXsqqVpZRxdt0SM"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 flex flex-col py-4 overflow-y-auto custom-scrollbar shadow-xl dark:shadow-none z-40">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container/20 rounded-lg flex items-center justify-center text-primary-container border border-primary-container/30">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+<div>
+<h2 class="text-neutral-900 dark:text-neutral-100 font-bold text-sm leading-tight font-headline">Control Plane</h2>
+<p class="text-[11px] text-neutral-500 font-medium">Global Oversight</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>Overview
+            </a>
+<a class="bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-r-4 border-cyan-500 flex items-center gap-3 px-4 py-2.5 transition-all font-public-sans text-[13px] font-medium leading-relaxed" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">group</span>Tenants
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">package</span>Packages
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">subscriptions</span>Subscriptions
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>Billing
+            </a>
+<div class="h-[1px] bg-outline-variant/30 my-4 mx-4"></div>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">monitor_heart</span>Runtime Health
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>Delivery Agents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">robot_2</span>Server Bots
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">warning</span>Incidents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all font-public-sans text-[13px] font-medium leading-relaxed hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>Observability
+            </a>
+</nav>
+<div class="px-2 mt-auto border-t border-outline-variant/30 pt-4">
+<button class="w-full flex items-center gap-3 px-4 py-3 text-cyan-500 bg-cyan-500/5 hover:bg-cyan-500/10 rounded-lg transition-all font-public-sans text-[13px] font-bold">
+<span class="material-symbols-outlined text-[20px]">settings_suggest</span>Platform Settings
+            </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 pt-14 h-screen bg-background overflow-hidden flex flex-col">
+<!-- Dashboard Header Strip -->
+<div class="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest/50 border-b border-outline-variant/20">
+<div>
+<h1 class="text-xl font-bold font-headline tracking-tight flex items-center gap-2">
+                    จัดการผู้เช่า (Tenant Management)
+                    <span class="bg-primary-container/10 text-primary-container text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-primary-container/20">Owner Only</span>
+</h1>
+<p class="text-sm text-outline mt-1 font-body">Global supervision of all active tenants, subscription health, and resource quotas.</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex bg-surface-container rounded-lg p-1 border border-outline-variant/30">
+<button class="px-4 py-1.5 text-xs font-bold bg-surface-container-highest rounded text-on-surface">รายการ (Table View)</button>
+<button class="px-4 py-1.5 text-xs font-bold text-outline hover:text-on-surface transition-colors">สรุป (Dashboard View)</button>
+</div>
+<button class="bg-primary-container text-on-primary-container hover:bg-primary-container/90 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-primary-container/10">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    สร้างผู้เช่าใหม่
+                </button>
+</div>
+</div>
+<!-- Filters & Stats Bento -->
+<div class="px-6 py-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 flex flex-col gap-1">
+<span class="text-[11px] font-bold text-outline uppercase tracking-wider">Total Tenants</span>
+<span class="text-2xl font-black font-headline text-on-surface">1,428</span>
+<div class="flex items-center gap-1.5 mt-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="text-[10px] font-bold text-primary-container">+12 this week</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 flex flex-col gap-1">
+<span class="text-[11px] font-bold text-outline uppercase tracking-wider">Active Runtime</span>
+<span class="text-2xl font-black font-headline text-on-surface">94.2%</span>
+<div class="flex items-center gap-1.5 mt-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+<span class="text-[10px] font-bold text-secondary-container">28 Critical Nodes</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 flex flex-col gap-1">
+<span class="text-[11px] font-bold text-outline uppercase tracking-wider">Platform Revenue</span>
+<span class="text-2xl font-black font-headline text-on-surface">$248.5K</span>
+<div class="flex items-center gap-1.5 mt-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="text-[10px] font-bold text-primary-container">MRR Growth 4.2%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/20 flex flex-col gap-1">
+<span class="text-[11px] font-bold text-outline uppercase tracking-wider">Open Incidents</span>
+<span class="text-2xl font-black font-headline text-on-tertiary-container">03</span>
+<div class="flex items-center gap-1.5 mt-2">
+<span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+<span class="text-[10px] font-bold text-on-tertiary-container">2 High Priority</span>
+</div>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="px-6 mb-2">
+<div class="bg-surface-container rounded-xl p-2 border border-outline-variant/20 flex items-center gap-4">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-background/50 border border-outline-variant/50 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary-container transition-all" placeholder="Filter by Tenant ID, Discord ID, or Server IP..." type="text"/>
+</div>
+<div class="flex items-center gap-2 pr-2">
+<select class="bg-background/50 border-outline-variant/50 text-xs rounded-lg py-2 px-4 focus:ring-1 focus:ring-primary-container">
+<option>Status: All</option>
+<option>Active</option>
+<option>Suspended</option>
+<option>Provisioning</option>
+</select>
+<select class="bg-background/50 border-outline-variant/50 text-xs rounded-lg py-2 px-4 focus:ring-1 focus:ring-primary-container">
+<option>Package: All</option>
+<option>Legendary</option>
+<option>Survivor</option>
+<option>Rookie</option>
+</select>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-colors border border-outline-variant/30">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dense Table Area -->
+<div class="flex-1 overflow-hidden px-6 pb-6">
+<div class="h-full bg-surface-container-low border border-outline-variant/20 rounded-xl overflow-hidden flex flex-col shadow-2xl">
+<div class="overflow-y-auto custom-scrollbar flex-1">
+<table class="w-full border-collapse">
+<thead class="sticky top-0 bg-surface-container-high z-10">
+<tr class="text-left border-b border-outline-variant/30">
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline">Tenant Entity</th>
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline text-center">Status</th>
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline">Package Tier</th>
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline">Fleet Health</th>
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline text-right">Quota (RAM/CPU)</th>
+<th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-outline text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10 text-xs">
+<!-- Tenant Row 1 -->
+<tr class="hover:bg-primary-container/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center font-black text-outline">K1</div>
+<div>
+<div class="font-bold text-on-surface flex items-center gap-1.5">
+                                                Killzone Alpha
+                                                <span class="material-symbols-outlined text-[12px] text-primary-container" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div class="text-[10px] text-outline font-mono">TN-8492-XPA</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-center">
+<span class="bg-primary-container/10 text-primary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase border border-primary-container/20">Active</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary-container">workspace_premium</span>
+<span class="font-bold">Legendary Tier</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Agents</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Bots</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+<div class="w-3 h-1 bg-outline-variant rounded-full"></div>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex flex-col items-end">
+<span class="font-mono text-on-surface">12.4GB / 4 Core</span>
+<div class="w-20 h-1 bg-outline-variant/30 rounded-full mt-1">
+<div class="w-[65%] h-full bg-primary-container rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all" title="Edit Tenant"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all" title="View Quota"><span class="material-symbols-outlined text-[18px]">equalizer</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all" title="Support Case"><span class="material-symbols-outlined text-[18px]">contact_support</span></button>
+<button class="p-1.5 bg-primary-container/10 text-primary-container hover:bg-primary-container/20 rounded ml-1 transition-all" title="Open Dashboard"><span class="material-symbols-outlined text-[18px]">open_in_new</span></button>
+</div>
+</td>
+</tr>
+<!-- Tenant Row 2 (Degraded State) -->
+<tr class="hover:bg-primary-container/5 transition-colors group cursor-pointer bg-on-tertiary-container/5 border-l-2 border-on-tertiary-container">
+<td class="py-3 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center font-black text-outline">S3</div>
+<div>
+<div class="font-bold text-on-surface flex items-center gap-1.5">
+                                                Survivor Island S3
+                                            </div>
+<div class="text-[10px] text-outline font-mono">TN-1022-LPR</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-center">
+<span class="bg-on-tertiary-container/20 text-on-tertiary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase border border-on-tertiary-container/30">Degraded</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">military_tech</span>
+<span class="font-bold">Survivor Tier</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Agents</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-on-tertiary-container rounded-full animate-pulse"></div>
+<div class="w-3 h-1 bg-outline-variant rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Bots</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex flex-col items-end">
+<span class="font-mono text-on-tertiary-container font-bold">7.8GB / 2 Core</span>
+<div class="w-20 h-1 bg-outline-variant/30 rounded-full mt-1">
+<div class="w-[98%] h-full bg-on-tertiary-container rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all"><span class="material-symbols-outlined text-[18px]">equalizer</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-on-tertiary-container transition-all"><span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">error</span></button>
+<button class="p-1.5 bg-primary-container/10 text-primary-container hover:bg-primary-container/20 rounded ml-1 transition-all"><span class="material-symbols-outlined text-[18px]">open_in_new</span></button>
+</div>
+</td>
+</tr>
+<!-- Tenant Row 3 -->
+<tr class="hover:bg-primary-container/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center font-black text-outline">BS</div>
+<div>
+<div class="font-bold text-on-surface flex items-center gap-1.5">Bangkok Survival [TH]</div>
+<div class="text-[10px] text-outline font-mono">TN-0012-THB</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-center">
+<span class="bg-primary-container/10 text-primary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase border border-primary-container/20">Active</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary-container">workspace_premium</span>
+<span class="font-bold">Legendary Tier</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Agents</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[9px] uppercase font-bold text-outline">Bots</span>
+<div class="flex gap-0.5">
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+<div class="w-3 h-1 bg-primary-container rounded-full"></div>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex flex-col items-end">
+<span class="font-mono text-on-surface">4.2GB / 2 Core</span>
+<div class="w-20 h-1 bg-outline-variant/30 rounded-full mt-1">
+<div class="w-[32%] h-full bg-primary-container rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all"><span class="material-symbols-outlined text-[18px]">equalizer</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-outline hover:text-on-surface transition-all"><span class="material-symbols-outlined text-[18px]">contact_support</span></button>
+<button class="p-1.5 bg-primary-container/10 text-primary-container hover:bg-primary-container/20 rounded ml-1 transition-all"><span class="material-symbols-outlined text-[18px]">open_in_new</span></button>
+</div>
+</td>
+</tr>
+<!-- Adding dummy rows for density -->
+<tr class="hover:bg-primary-container/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded bg-surface-container-highest"></div><div><div class="w-24 h-2.5 bg-outline-variant/30 rounded mb-1"></div><div class="w-16 h-2 bg-outline-variant/10 rounded"></div></div></div></td>
+<td class="py-3 px-4 text-center"><span class="w-12 h-4 bg-outline-variant/20 inline-block rounded"></span></td>
+<td class="py-3 px-4"><div class="w-20 h-3 bg-outline-variant/20 rounded"></div></td>
+<td class="py-3 px-4"><div class="w-16 h-4 bg-outline-variant/10 rounded"></div></td>
+<td class="py-3 px-4 text-right"><div class="w-12 h-3 bg-outline-variant/10 inline-block rounded"></div></td>
+<td class="py-3 px-4 text-right"><div class="flex justify-end gap-1"><div class="w-6 h-6 bg-outline-variant/10 rounded"></div><div class="w-6 h-6 bg-outline-variant/10 rounded"></div></div></td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded bg-surface-container-highest"></div><div><div class="w-24 h-2.5 bg-outline-variant/30 rounded mb-1"></div><div class="w-16 h-2 bg-outline-variant/10 rounded"></div></div></div></td>
+<td class="py-3 px-4 text-center"><span class="w-12 h-4 bg-outline-variant/20 inline-block rounded"></span></td>
+<td class="py-3 px-4"><div class="w-20 h-3 bg-outline-variant/20 rounded"></div></td>
+<td class="py-3 px-4"><div class="w-16 h-4 bg-outline-variant/10 rounded"></div></td>
+<td class="py-3 px-4 text-right"><div class="w-12 h-3 bg-outline-variant/10 inline-block rounded"></div></td>
+<td class="py-3 px-4 text-right"><div class="flex justify-end gap-1"><div class="w-6 h-6 bg-outline-variant/10 rounded"></div><div class="w-6 h-6 bg-outline-variant/10 rounded"></div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-surface-container p-3 border-t border-outline-variant/30 flex items-center justify-between text-[11px] font-bold text-outline">
+<div class="flex items-center gap-4">
+<span>Showing 1-15 of 1,428</span>
+<div class="flex items-center gap-2">
+                            Rows per page:
+                            <select class="bg-background/50 border-none text-[10px] py-1 px-2 rounded">
+<option>15</option>
+<option>50</option>
+<option>100</option>
+</select>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1 hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>
+<div class="flex gap-1">
+<button class="w-6 h-6 bg-primary-container text-on-primary-container rounded">1</button>
+<button class="w-6 h-6 hover:bg-surface-container-highest rounded">2</button>
+<button class="w-6 h-6 hover:bg-surface-container-highest rounded">3</button>
+<span class="px-1 self-end">...</span>
+<button class="w-6 h-6 hover:bg-surface-container-highest rounded">96</button>
+</div>
+<button class="p-1 hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Side Drawer: Diagnostic View -->
+<div class="fixed right-0 top-14 h-[calc(100vh-3.5rem)] w-96 bg-surface-container border-l border-outline-variant/30 shadow-2xl z-50 transform translate-x-0 transition-transform duration-300">
+<div class="h-full flex flex-col">
+<div class="p-6 border-b border-outline-variant/30 flex items-center justify-between">
+<div>
+<span class="text-[10px] font-bold text-primary-container uppercase tracking-widest">Diagnostic View</span>
+<h2 class="text-lg font-bold font-headline mt-1">Survivor Island S3</h2>
+</div>
+<button class="p-2 hover:bg-surface-container-highest rounded-full transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+<!-- Health Status Card -->
+<div class="bg-on-tertiary-container/10 border border-on-tertiary-container/30 rounded-xl p-4">
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-bold text-on-tertiary-container flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">warning</span> 
+                            Critical Degradation detected
+                        </span>
+<span class="text-[10px] text-on-tertiary-container/60 font-mono">14:28:01 UTC</span>
+</div>
+<p class="text-[11px] text-on-tertiary-container/80">Memory exhaustion in Delivery Agent (Node-X4). Provisioning of new player tokens is delayed.</p>
+</div>
+<!-- Subsystem Grid -->
+<div>
+<h3 class="text-[11px] font-black uppercase tracking-wider text-outline mb-3">System Health</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-background/40 border border-outline-variant/20 p-3 rounded-lg">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] text-outline">Log Sync</span>
+<span class="w-2 h-2 rounded-full bg-primary-container shadow-sm shadow-primary-container/20"></span>
+</div>
+<span class="text-sm font-bold">Stable</span>
+</div>
+<div class="bg-background/40 border border-outline-variant/20 p-3 rounded-lg">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] text-outline">Bot Heartbeat</span>
+<span class="w-2 h-2 rounded-full bg-primary-container shadow-sm shadow-primary-container/20"></span>
+</div>
+<span class="text-sm font-bold">12ms Latency</span>
+</div>
+<div class="bg-background/40 border border-outline-variant/20 p-3 rounded-lg">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] text-outline">Config Drift</span>
+<span class="w-2 h-2 rounded-full bg-secondary-container shadow-sm shadow-secondary-container/20"></span>
+</div>
+<span class="text-sm font-bold">Out of Sync</span>
+</div>
+<div class="bg-background/40 border border-outline-variant/20 p-3 rounded-lg">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] text-outline">Disk Usage</span>
+<span class="w-2 h-2 rounded-full bg-primary-container shadow-sm shadow-primary-container/20"></span>
+</div>
+<span class="text-sm font-bold">42% (Normal)</span>
+</div>
+</div>
+</div>
+<!-- Active Sessions / Live Activity -->
+<div>
+<h3 class="text-[11px] font-black uppercase tracking-wider text-outline mb-3">Recent Activity</h3>
+<div class="space-y-3">
+<div class="flex gap-3 relative">
+<div class="w-1 h-full absolute left-[15px] top-4 bg-outline-variant/20"></div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/30 flex-shrink-0 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+</div>
+<div class="pb-4">
+<div class="text-[11px] font-bold">Server Restart Initiated</div>
+<div class="text-[10px] text-outline">System Automation • 12m ago</div>
+</div>
+</div>
+<div class="flex gap-3 relative">
+<div class="w-1 h-full absolute left-[15px] top-4 bg-outline-variant/20"></div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/30 flex-shrink-0 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm">key</span>
+</div>
+<div class="pb-4">
+<div class="text-[11px] font-bold">Token Provision Failure</div>
+<div class="text-[10px] text-on-tertiary-container font-bold">Security Violation • 48m ago</div>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/30 flex-shrink-0 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm">account_balance_wallet</span>
+</div>
+<div>
+<div class="text-[11px] font-bold">Subscription Renewed</div>
+<div class="text-[10px] text-primary-container font-bold">Billing Cycle 12 • 2h ago</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Resource Usage Chart Visualization Placeholder -->
+<div class="mt-4">
+<h3 class="text-[11px] font-black uppercase tracking-wider text-outline mb-3">Resource Load (Last 1h)</h3>
+<div class="w-full h-24 bg-background/50 rounded-lg border border-outline-variant/20 flex items-end p-2 gap-1 overflow-hidden">
+<div class="flex-1 bg-primary-container/20 h-[30%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/20 h-[45%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/20 h-[35%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/20 h-[55%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/40 h-[70%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/60 h-[85%] rounded-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[95%] rounded-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[98%] rounded-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[94%] rounded-sm"></div>
+<div class="flex-1 bg-secondary-container h-[75%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/40 h-[60%] rounded-sm"></div>
+<div class="flex-1 bg-primary-container/20 h-[40%] rounded-sm"></div>
+</div>
+</div>
+</div>
+<div class="p-6 border-t border-outline-variant/30 grid grid-cols-2 gap-3 bg-surface-container-low">
+<button class="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-outline-variant/50 text-xs font-bold hover:bg-surface-container-highest transition-all">
+<span class="material-symbols-outlined text-[18px]">history</span> History
+                </button>
+<button class="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-on-tertiary-container text-white text-xs font-bold hover:bg-on-tertiary-container/90 transition-all">
+<span class="material-symbols-outlined text-[18px]">terminal</span> SSH Console
+                </button>
+</div>
+</div>
+</div>
+</body></html>

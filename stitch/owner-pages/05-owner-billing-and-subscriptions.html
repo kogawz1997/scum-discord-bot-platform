@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Owner Panel - Billing &amp; Subscriptions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#1f2022",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-container": "#a10017",
+                        "inverse-surface": "#e3e2e4",
+                        "on-background": "#e3e2e4",
+                        "background": "#121315",
+                        "outline-variant": "#3c494e",
+                        "surface-tint": "#4cd6ff",
+                        "outline": "#859399",
+                        "inverse-primary": "#00677f",
+                        "surface-container-highest": "#343537",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#412d00",
+                        "surface-container-low": "#1b1c1e",
+                        "on-tertiary": "#68000b",
+                        "secondary": "#ffdb9d",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#121315",
+                        "on-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface": "#121315",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-primary-container": "#00566a",
+                        "on-tertiary-fixed": "#410004",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-variant": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "inverse-on-surface": "#303032",
+                        "tertiary": "#ffd1ce",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-bright": "#38393b",
+                        "on-primary-fixed": "#001f28",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "primary-fixed": "#b7eaff",
+                        "primary-container": "#00d1ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "primary": "#a4e6ff",
+                        "on-primary": "#003543",
+                        "tertiary-container": "#ffaaa4",
+                        "on-primary-fixed-variant": "#004e60",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-container-high": "#292a2c",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 border-b bg-neutral-50/80 dark:bg-neutral-900/80 backdrop-blur-md border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-none flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-tighter text-neutral-900 dark:text-white uppercase">SCUM Owner Plane</span>
+<nav class="hidden md:flex items-center gap-6 font-public-sans text-sm font-semibold tracking-tight">
+<a class="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" href="#">Tenant List</a>
+<a class="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" href="#">Runtime</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-lg border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary-container text-[18px]">payments</span>
+<span class="text-xs font-bold tracking-widest text-on-surface uppercase tracking-wider">Commercial Mode</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors"><span class="material-symbols-outlined text-on-surface">refresh</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors flex items-center gap-1 text-sm font-bold">TH <span class="material-symbols-outlined text-on-surface">language</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors"><span class="material-symbols-outlined text-on-surface">dark_mode</span></button>
+<button class="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors relative">
+<span class="material-symbols-outlined text-on-surface">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary-container rounded-full"></span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile Menu" data-alt="Close-up of a high-tech minimalist profile avatar placeholder with sleek grey tones and thin borders" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR8DLv78s2z-OJPUlX8WuUSk6-037wujep21H8r41Za9aigSl4I0w3jU7jjAgaIbY5DwxI2viNNm5w3rRslBP_MTvZwlB4LMdo96xLWg2q6_eFUk3Bclg5f_NzapMylnRpHz42Dc-HHD1df8aBqFyStTS9aVrL6Vuqo_mPL4rF82fkpOPaLSQdCq3_nUcpFOgXgrGG59ToiIj8gRj0ff8U2nMG0MQrFepxmAn5pnYt_hlk-rz9zxQW1v1JZF8K1TJLjkYb1Xsq168"/>
+</div>
+</div>
+</header>
+<!-- Side Navigation -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-xl dark:shadow-none flex flex-col py-4 overflow-y-auto font-public-sans text-[13px] font-medium leading-relaxed no-scrollbar">
+<div class="px-6 mb-6">
+<h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">Control Plane</h2>
+<p class="text-[11px] text-neutral-500 dark:text-neutral-400 uppercase tracking-[0.2em] font-bold">Global Oversight</p>
+</div>
+<nav class="flex-1">
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span> Overview
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">group</span> Tenants
+            </a>
+<a class="bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-r-4 border-cyan-500 flex items-center gap-3 px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined">payments</span> Billing
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">subscriptions</span> Subscriptions
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">monitor_heart</span> Runtime Health
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">local_shipping</span> Delivery Agents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">robot_2</span> Server Bots
+            </a>
+<div class="border-t border-neutral-200 dark:border-neutral-800 my-2"></div>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-on-tertiary-container">warning</span> Incidents
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">history</span> Audit
+            </a>
+<a class="text-neutral-500 dark:text-neutral-400 flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">security</span> Security
+            </a>
+</nav>
+<div class="mt-auto px-4 pb-4">
+<button class="w-full flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2.5 rounded-lg font-bold hover:bg-outline-variant transition-colors border border-outline-variant/30">
+<span class="material-symbols-outlined text-[18px]">settings</span> Platform Settings
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-14 min-h-screen bg-background p-6">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div>
+<nav class="flex items-center gap-2 text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-2">
+<span>Admin</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span>Finance</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span class="text-primary-container">Billing &amp; Subscriptions</span>
+</nav>
+<h1 class="text-3xl font-black text-on-surface tracking-tighter">Billing &amp; Subscriptions</h1>
+<p class="text-neutral-400 text-sm mt-1 max-w-2xl font-body">Manage global monetization, analyze transaction flows, and supervise subscription lifecycles across the SCUM ecosystem.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-surface-container-high border border-outline-variant/30 text-on-surface px-4 py-2 rounded font-bold text-xs flex items-center gap-2 hover:bg-surface-container-highest transition-all uppercase tracking-wider">
+<span class="material-symbols-outlined text-[18px]">file_download</span> Export Ledger
+                </button>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded font-black text-xs flex items-center gap-2 shadow-lg shadow-primary-container/20 hover:scale-105 active:scale-95 transition-all uppercase tracking-wider">
+<span class="material-symbols-outlined text-[18px]">add_circle</span> Create Checkout Session
+                </button>
+</div>
+</div>
+<!-- Financial Intelligence Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+<!-- Main Revenue KPI -->
+<div class="md:col-span-2 p-6 rounded-xl bg-surface-container-low border border-outline-variant/30 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4">
+<span class="material-symbols-outlined text-primary-container/20 text-[80px] group-hover:scale-110 transition-transform duration-500">payments</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<p class="text-xs font-bold text-neutral-400 uppercase tracking-widest">Total Managed Revenue (30d)</p>
+</div>
+<div class="flex items-baseline gap-3">
+<h2 class="text-5xl font-black text-on-surface tracking-tighter">฿1,428,200</h2>
+<span class="text-primary-container text-sm font-bold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[18px]">trending_up</span> +12.4%
+                        </span>
+</div>
+<div class="mt-8 flex gap-2">
+<div class="flex-1 h-1 rounded-full bg-primary-container"></div>
+<div class="flex-1 h-1 rounded-full bg-primary-container/30"></div>
+<div class="flex-1 h-1 rounded-full bg-primary-container/10"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">
+<span>Tier 1: 65%</span>
+<span>Tier 2: 25%</span>
+<span>Custom: 10%</span>
+</div>
+</div>
+</div>
+<!-- Subscription Health -->
+<div class="p-5 rounded-xl bg-surface-container-low border border-outline-variant/30">
+<p class="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4">Active Subscriptions</p>
+<div class="flex flex-col gap-1">
+<div class="text-3xl font-black text-on-surface">3,842</div>
+<div class="text-[10px] text-neutral-500 font-bold uppercase">72 Expiring in 48h</div>
+</div>
+<div class="mt-6 space-y-3">
+<div class="flex justify-between items-center text-xs">
+<span class="text-neutral-400">Churn Rate</span>
+<span class="text-on-tertiary-container font-bold">1.2%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[98.8%]"></div>
+</div>
+</div>
+</div>
+<!-- Payment Health -->
+<div class="p-5 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between">
+<div>
+<p class="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4">Payment Success</p>
+<div class="flex items-center gap-4">
+<div class="relative w-14 h-14">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-highest" cx="28" cy="28" fill="transparent" r="24" stroke="currentColor" stroke-width="4"></circle>
+<circle class="text-secondary-container" cx="28" cy="28" fill="transparent" r="24" stroke="currentColor" stroke-dasharray="150" stroke-dashoffset="15" stroke-width="4"></circle>
+</svg>
+<span class="absolute inset-0 flex items-center justify-center text-[10px] font-black">99.4%</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface">Operational</div>
+<div class="text-[10px] text-neutral-500 font-bold uppercase">Stripe: Live</div>
+</div>
+</div>
+</div>
+<button class="w-full py-2 bg-surface-container-highest rounded text-[10px] font-black uppercase tracking-wider hover:bg-outline-variant transition-colors border border-outline-variant/20">
+                    Open Payment Attempt
+                </button>
+</div>
+</div>
+<!-- Ledger & Commercial Risk Section -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Main Transaction Ledger -->
+<div class="lg:col-span-9 bg-surface-container-low border border-outline-variant/20 rounded-xl overflow-hidden shadow-2xl">
+<div class="p-4 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-low/50">
+<div class="flex items-center gap-4">
+<h3 class="text-sm font-black uppercase tracking-widest text-on-surface">Global Revenue Ledger</h3>
+<div class="flex bg-background p-1 rounded-lg border border-outline-variant/20">
+<button class="px-3 py-1 text-[10px] font-bold rounded bg-surface-container-highest text-primary-container">All</button>
+<button class="px-3 py-1 text-[10px] font-bold rounded text-neutral-500 hover:text-on-surface">Paid</button>
+<button class="px-3 py-1 text-[10px] font-bold rounded text-neutral-500 hover:text-on-surface">Failed</button>
+<button class="px-3 py-1 text-[10px] font-bold rounded text-neutral-500 hover:text-on-surface">Draft</button>
+</div>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-neutral-500 text-[16px]">search</span>
+<input class="bg-background border-outline-variant/30 text-xs rounded pl-8 pr-4 py-1.5 w-64 focus:ring-1 focus:ring-primary-container outline-none transition-all" placeholder="Search Tenant or ID..." type="text"/>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse font-body">
+<thead>
+<tr class="bg-surface-container-high/30 border-b border-outline-variant/20">
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Invoice ID</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Tenant</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Date</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Status</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Amount</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-500">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-high/20 transition-colors group">
+<td class="px-6 py-4">
+<div class="text-xs font-mono font-bold text-primary-container">INV-8921-SCUM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] border border-outline-variant/40">Z</div>
+<span class="text-xs font-bold">Zone-Omega-Thai</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs text-neutral-400">12 Oct 2023, 14:22</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container text-[10px] font-black uppercase">
+<span class="w-1 h-1 rounded-full bg-primary-container"></span> Paid
+                                    </span>
+</td>
+<td class="px-6 py-4 text-xs font-bold text-on-surface">฿12,500.00</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-primary-container transition-colors" title="Open Invoice"><span class="material-symbols-outlined text-[18px]">receipt_long</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-on-surface transition-colors" title="Update Invoice"><span class="material-symbols-outlined text-[18px]">edit_document</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-high/20 transition-colors group">
+<td class="px-6 py-4">
+<div class="text-xs font-mono font-bold text-primary-container">INV-8919-SCUM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] border border-outline-variant/40">G</div>
+<span class="text-xs font-bold">Global-Surv-HQ</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs text-neutral-400">12 Oct 2023, 12:05</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container/20 text-error text-[10px] font-black uppercase">
+<span class="w-1 h-1 rounded-full bg-error"></span> Failed
+                                    </span>
+</td>
+<td class="px-6 py-4 text-xs font-bold text-on-surface">฿45,200.00</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-primary-container transition-colors" title="Open Invoice"><span class="material-symbols-outlined text-[18px]">receipt_long</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-on-surface transition-colors" title="Update Invoice"><span class="material-symbols-outlined text-[18px]">edit_document</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-high/20 transition-colors group">
+<td class="px-6 py-4">
+<div class="text-xs font-mono font-bold text-primary-container">INV-8918-SCUM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] border border-outline-variant/40">A</div>
+<span class="text-xs font-bold">Apex-SCUM-RP</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs text-neutral-400">11 Oct 2023, 23:59</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container text-[10px] font-black uppercase">
+<span class="w-1 h-1 rounded-full bg-secondary-container"></span> Draft
+                                    </span>
+</td>
+<td class="px-6 py-4 text-xs font-bold text-on-surface">฿8,900.00</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-primary-container transition-colors" title="Open Invoice"><span class="material-symbols-outlined text-[18px]">receipt_long</span></button>
+<button class="p-1.5 hover:bg-surface-container-highest rounded text-neutral-400 hover:text-on-surface transition-colors" title="Update Invoice"><span class="material-symbols-outlined text-[18px]">edit_document</span></button>
+</div>
+</td>
+</tr>
+<!-- More rows as needed... -->
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-surface-container-high/20 flex items-center justify-between">
+<div class="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Showing 15 of 2,410 transactions</div>
+<div class="flex items-center gap-2">
+<button class="p-1 rounded hover:bg-surface-container-highest text-neutral-400 transition-all disabled:opacity-30"><span class="material-symbols-outlined">chevron_left</span></button>
+<span class="text-[10px] font-black text-on-surface">PAGE 1 / 161</span>
+<button class="p-1 rounded hover:bg-surface-container-highest text-neutral-400 transition-all"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- Right Rail: Commercial Risk & Technical Link -->
+<div class="lg:col-span-3 space-y-6">
+<!-- Commercial Risk Panel -->
+<div class="p-5 rounded-xl bg-surface-container-high border border-on-tertiary-container/30 shadow-lg relative overflow-hidden">
+<div class="absolute -top-4 -right-4 opacity-10">
+<span class="material-symbols-outlined text-[100px] text-on-tertiary-container">emergency_home</span>
+</div>
+<h3 class="text-xs font-black uppercase tracking-widest text-error mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">report</span> High Commercial Risk
+                    </h3>
+<div class="space-y-4 relative z-10">
+<div class="p-3 bg-error-container/20 rounded border border-error/20">
+<div class="text-xs font-bold text-on-surface mb-1">Failed Payment: Surv-Zone</div>
+<div class="text-[10px] text-neutral-500 mb-2">3 failed attempts in 24h</div>
+<button class="text-[10px] font-black text-primary-container uppercase hover:underline">Notify Tenant</button>
+</div>
+<div class="p-3 bg-secondary-container/10 rounded border border-secondary-container/20">
+<div class="text-xs font-bold text-on-surface mb-1">Expiring: Custom Tier-A</div>
+<div class="text-[10px] text-neutral-500 mb-2">Renews in 18 hours (No Auto-pay)</div>
+<button class="text-[10px] font-black text-primary-container uppercase hover:underline">Manual Renewal</button>
+</div>
+</div>
+</div>
+<!-- Technical Runtime Correlation -->
+<div class="p-5 rounded-xl bg-surface-container border border-outline-variant/30">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-4">Runtime Resource Usage</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-neutral-500 text-[18px]">local_shipping</span>
+<span class="text-xs font-medium text-neutral-300">Delivery Fleet</span>
+</div>
+<span class="text-xs font-bold text-on-surface">142/250</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[56%]"></div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-neutral-500 text-[18px]">robot_2</span>
+<span class="text-xs font-medium text-neutral-300">Server Bots</span>
+</div>
+<span class="text-xs font-bold text-on-surface">892/1000</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full w-[89.2%]"></div>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-outline-variant/20">
+<a class="text-[10px] font-black text-primary-container uppercase flex items-center justify-between hover:translate-x-1 transition-transform" href="#">
+                            View technical health <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Billing History Summary -->
+<div class="p-5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-3">System Updates</h3>
+<div class="space-y-3">
+<div class="flex gap-3">
+<div class="w-1 h-8 bg-primary-container/30 rounded-full mt-1"></div>
+<div>
+<div class="text-[10px] font-bold text-on-surface">Stripe Webhook Verified</div>
+<div class="text-[10px] text-neutral-500">2 minutes ago</div>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="w-1 h-8 bg-secondary-container/30 rounded-full mt-1"></div>
+<div>
+<div class="text-[10px] font-bold text-on-surface">Auto-invoice Batch Executed</div>
+<div class="text-[10px] text-neutral-500">4 hours ago</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Bar for focused navigation on mobile -->
+<nav class="md:hidden fixed bottom-0 w-full h-16 bg-surface-container border-t border-outline-variant/30 flex justify-around items-center z-50">
+<button class="flex flex-col items-center text-neutral-500">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold uppercase">Home</span>
+</button>
+<button class="flex flex-col items-center text-primary-container">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-[10px] font-bold uppercase">Billing</span>
+</button>
+<button class="flex flex-col items-center text-neutral-500">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px] font-bold uppercase">Tenants</span>
+</button>
+<button class="flex flex-col items-center text-neutral-500">
+<span class="material-symbols-outlined">monitor_heart</span>
+<span class="text-[10px] font-bold uppercase">Health</span>
+</button>
+</nav>
+<!-- Contextual FAB for Transactional Screens -->
+<button class="fixed bottom-24 right-8 bg-primary-container text-on-primary-container w-14 h-14 rounded-full shadow-2xl shadow-primary-container/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 lg:hidden">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</button>
+</body></html>

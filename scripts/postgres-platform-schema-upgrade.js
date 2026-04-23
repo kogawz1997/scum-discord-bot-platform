@@ -846,6 +846,18 @@ UPDATE public."platform_verification_tokens"
 SET "target" = COALESCE("target", "email")
 WHERE "target" IS NULL
   AND "email" IS NOT NULL;`);
+  statements.push('-- Remove legacy hybrid control-plane runtime defaults');
+  for (const tableName of [
+    'ControlPlaneAgent',
+    'ControlPlaneAgentTokenBinding',
+    'ControlPlaneAgentProvisioningToken',
+    'ControlPlaneAgentCredential',
+    'ControlPlaneAgentSession',
+    'ControlPlaneSyncRun',
+  ]) {
+    statements.push(`ALTER TABLE IF EXISTS public."${tableName}" ALTER COLUMN "role" DROP DEFAULT;`);
+    statements.push(`ALTER TABLE IF EXISTS public."${tableName}" ALTER COLUMN "scope" DROP DEFAULT;`);
+  }
   return `${statements.join('\n')}\n`;
 }
 

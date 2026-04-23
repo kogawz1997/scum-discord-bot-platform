@@ -30,6 +30,7 @@
   const state = {
     payload: null,
     refreshing: false,
+    pendingSupportDraft: null,
   };
 
   function t(key, fallback, params) {
@@ -131,6 +132,25 @@
     node.title = effectiveServerName
       ? t('player.app.server.currentTitle', 'Current server: {name}', { name: effectiveServerName })
       : t('player.app.server.selectTitle', 'Select the player server scope');
+  }
+
+  function applyPendingSupportDraft() {
+    if (!state.pendingSupportDraft) return false;
+    const form = document.querySelector('[data-player-support-ticket-form]');
+    if (!(form instanceof HTMLFormElement)) return false;
+    const categoryField = form.elements.category;
+    const reasonField = form.elements.reason;
+    if (categoryField && typeof categoryField.value === 'string') {
+      categoryField.value = String(state.pendingSupportDraft.category || 'identity').trim().toLowerCase() || 'identity';
+    }
+    if (reasonField && typeof reasonField.value === 'string') {
+      reasonField.value = String(state.pendingSupportDraft.reason || '').trim();
+      reasonField.focus?.();
+      reasonField.setSelectionRange?.(reasonField.value.length, reasonField.value.length);
+    }
+    setStatus('Identity support context loaded from your profile. Review it and submit when ready.', 'info');
+    state.pendingSupportDraft = null;
+    return true;
   }
 
   function renderMessageCard(title, detail) {
@@ -427,6 +447,7 @@
         raids,
         killfeed,
         supporters,
+        supportTickets,
       ] = await Promise.all([
         hasAnyFeature(featureAccess, ['wallet_module'])
           ? safePlayerRead('/player/api/wallet/ledger?limit=20', { wallet: {}, items: [] }, loadWarnings, 'wallet-ledger')
@@ -467,6 +488,9 @@
         isSectionEnabled(featureAccess, 'donations')
           ? safePlayerRead('/player/api/supporters?limit=10', { items: [], summary: null }, loadWarnings, 'supporters')
           : Promise.resolve({ items: [], summary: null, locked: true }),
+        isSectionEnabled(featureAccess, 'support')
+          ? safePlayerRead('/player/api/support/tickets?limit=10', { items: [], total: 0 }, loadWarnings, 'support-tickets')
+          : Promise.resolve({ items: [], total: 0, locked: true }),
       ]);
 
       state.payload = {
@@ -492,6 +516,7 @@
         raids,
         killfeed: Array.isArray(killfeed?.items) ? killfeed.items : (Array.isArray(killfeed) ? killfeed : []),
         supporters,
+        supportTickets: Array.isArray(supportTickets?.items) ? supportTickets.items : (Array.isArray(supportTickets) ? supportTickets : []),
         party,
         lastRefreshedAt: new Date().toISOString(),
         __loadWarnings: loadWarnings,
@@ -543,6 +568,9 @@
       : window.PlayerHomeV4.renderPlayerHomeV4(target, renderState);
     applyI18n(target);
     canonicalizePlayerLinks(target);
+    if (page === 'support') {
+      applyPendingSupportDraft();
+    }
     document.title = `SCUM TH Platform | Player | ${String(model?.pageTitle || pageTitleLabel(page) || 'Home')}`;
     return surfaceState;
   }
@@ -692,6 +720,62 @@
         }, null);
         await completePlayerAction(result?.message || t('player.toast.verificationQueued', 'Verification email queued.'));
       });
+      return;
+    }
+
+    if (button.hasAttribute('data-player-steam-unlink')) {
+      await runPlayerAction(button, t('player.app.action.unlinkingSteam', 'Disconnecting Steam link...'), async () => {
+        const result = await apiRequest('/player/api/linksteam/unset', {
+          method: 'POST',
+          body: {},
+        }, null);
+        await completePlayerAction(result?.message || t('player.toast.steamUnlinked', 'Steam link disconnected.'), { navigateTo: 'profile' });
+      });
+      return;
+    }
+
+    if (button.hasAttribute('data-player-identity-support')) {
+      const reason = String(button.getAttribute('data-player-support-reason') || '').trim();
+      const category = String(button.getAttribute('data-player-support-category') || 'identity').trim().toLowerCase() || 'identity';
+      if (!reason) {
+        setStatus(t('player.status.identitySupportMissing', 'Identity recovery details are missing for this action.'), 'warning');
+        return;
+      }
+      await runPlayerAction(button, t('player.app.action.openingIdentityTicket', 'Opening identity support ticket...'), async () => {
+        const result = await apiRequest('/player/api/support/tickets', {
+          method: 'POST',
+          body: { category, reason },
+        }, null);
+        await completePlayerAction(result?.message || t('player.toast.identityTicketOpened', 'Identity support ticket opened.'), { navigateTo: 'support' });
+      });
+      return;
+    }
+
+    if (button.hasAttribute('data-player-support-prefill')) {
+      const reason = String(button.getAttribute('data-player-support-reason') || '').trim();
+      const category = String(button.getAttribute('data-player-support-category') || button.getAttribute('data-player-support-prefill') || 'identity').trim().toLowerCase() || 'identity';
+      if (!reason) {
+        setStatus(t('player.status.identitySupportMissing', 'Identity recovery details are missing for this action.'), 'warning');
+        return;
+      }
+      state.pendingSupportDraft = {
+        category,
+        reason,
+      };
+      navigatePlayerRoute(buildCanonicalPlayerPath('support'));
+      return;
+    }
+
+    if (button.hasAttribute('data-player-support-ticket-close')) {
+      const channelId = String(button.getAttribute('data-player-support-ticket-close') || '').trim();
+      if (!channelId) return;
+      await runPlayerAction(button, 'Closing ticket...', async () => {
+        const result = await apiRequest('/player/api/support/tickets/close', {
+          method: 'POST',
+          body: { channelId },
+        }, null);
+        await completePlayerAction(result?.message || 'Support ticket closed.', { navigateTo: 'support' });
+      });
     }
   }
 
@@ -752,6 +836,25 @@
         form.reset();
         await completePlayerAction(result?.message || t('player.app.raid.submitted', 'Raid request sent'));
       });
+      return;
+    }
+
+    if (form.hasAttribute('data-player-support-ticket-form')) {
+      const category = String(form.elements.category?.value || 'support').trim().toLowerCase();
+      const reason = String(form.elements.reason?.value || '').trim();
+      if (!reason) {
+        setStatus('Describe the support request before sending it.', 'warning');
+        return;
+      }
+      const button = form.querySelector('button[type="submit"]');
+      await runPlayerAction(button, 'Opening support ticket...', async () => {
+        const result = await apiRequest('/player/api/support/tickets', {
+          method: 'POST',
+          body: { category, reason },
+        }, null);
+        form.reset();
+        await completePlayerAction(result?.message || 'Support ticket opened.', { navigateTo: 'support' });
+      });
     }
   }
 
@@ -771,23 +874,24 @@
         ? event.target
         : null;
       if (!form) return;
-      if (
-        !form.hasAttribute('data-player-redeem-form')
-        && !form.hasAttribute('data-player-steam-link-form')
-        && !form.hasAttribute('data-player-raid-request-form')
-      ) {
-        return;
-      }
+        if (
+          !form.hasAttribute('data-player-redeem-form')
+          && !form.hasAttribute('data-player-steam-link-form')
+          && !form.hasAttribute('data-player-raid-request-form')
+          && !form.hasAttribute('data-player-support-ticket-form')
+        ) {
+          return;
+        }
       event.preventDefault();
       handlePlayerFormSubmit(form).catch((error) => {
         setStatus(String(error?.message || error || t('player.status.actionFailed', 'Action failed')), 'danger');
       });
     });
-    document.addEventListener('click', (event) => {
-      const button = event.target instanceof Element
-        ? event.target.closest('[data-player-cart-add],[data-player-cart-remove],[data-player-cart-clear],[data-player-cart-checkout],[data-player-reward-claim],[data-player-email-verification-request]')
-        : null;
-      if (!button) return;
+      document.addEventListener('click', (event) => {
+        const button = event.target instanceof Element
+          ? event.target.closest('[data-player-cart-add],[data-player-cart-remove],[data-player-cart-clear],[data-player-cart-checkout],[data-player-reward-claim],[data-player-email-verification-request],[data-player-steam-unlink],[data-player-identity-support],[data-player-support-prefill],[data-player-support-ticket-close]')
+          : null;
+        if (!button) return;
       event.preventDefault();
       handlePlayerActionClick(button).catch((error) => {
         setStatus(String(error?.message || error || t('player.status.actionFailed', 'Action failed')), 'danger');

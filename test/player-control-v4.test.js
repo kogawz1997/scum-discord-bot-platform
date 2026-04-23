@@ -130,6 +130,16 @@ function buildSampleState() {
         createdAt: '2026-03-27T13:10:00+07:00',
       },
     ],
+    supportTickets: [
+      {
+        channelId: 'portal-ticket-1',
+        category: 'identity',
+        reason: 'Need help linking Steam',
+        status: 'open',
+        createdAt: '2026-03-27T13:25:00+07:00',
+        updatedAt: '2026-03-27T13:26:00+07:00',
+      },
+    ],
     stats: {
       kills: 128,
       deaths: 54,
@@ -276,7 +286,113 @@ test('player control v4 profile page shows actionable identity attention when em
   assert.match(profileModel.mainHtml, /data-player-identity-attention/);
   assert.match(profileModel.mainHtml, /Verify email before recovery or support/);
   assert.match(profileModel.mainHtml, /data-player-email-verification-request/);
+  assert.match(profileModel.mainHtml, /data-player-support-prefill="identity"/);
   assert.match(profileModel.mainHtml, /Send verification email/);
+});
+
+test('player control v4 profile page routes missing steam recovery into support prefill', () => {
+  const state = buildSampleState();
+  state.steamLink = {
+    linked: false,
+    steamId: '',
+    inGameName: '',
+  };
+  state.profile.identitySummary.verificationState = 'discord_verified';
+  state.profile.identitySummary.linkedAccounts.steam = {
+    linked: false,
+    verified: false,
+    value: null,
+  };
+  state.profile.identitySummary.linkedAccounts.inGame = {
+    linked: false,
+    verified: false,
+    value: null,
+  };
+  state.profile.identitySummary.attention = [];
+  state.profile.identitySummary.conflicts = [];
+
+  const profileModel = createPlayerControlV4Model(state, 'profile');
+
+  assert.match(profileModel.mainHtml, /Link Steam before expecting in-game delivery/);
+  assert.match(profileModel.mainHtml, /data-player-support-prefill="identity"/);
+  assert.match(profileModel.mainHtml, /Open identity support/);
+});
+
+test('player control v4 profile page renders identity conflicts from centralized summary', () => {
+  const state = buildSampleState();
+  state.profile.identitySummary.conflicts = [
+    {
+      key: 'steam-mismatch',
+      tone: 'warning',
+      title: 'Steam identity does not match the player profile',
+      detail: 'The linked Steam identity and the player profile are pointing at different Steam IDs.',
+      actions: [
+        { label: 'Open profile', href: '/player/profile' },
+        { label: 'Open support', href: '/player/support', primary: true },
+      ],
+    },
+  ];
+  state.profile.identitySummary.attention = [];
+
+  const profileModel = createPlayerControlV4Model(state, 'profile');
+
+  assert.match(profileModel.mainHtml, /data-player-identity-attention/);
+  assert.match(profileModel.mainHtml, /Steam identity does not match the player profile/);
+  assert.match(profileModel.mainHtml, /Open support/);
+  assert.match(profileModel.mainHtml, /Open profile/);
+});
+
+test('player control v4 profile page renders direct steam disconnect actions from centralized conflicts', () => {
+  const state = buildSampleState();
+  state.orders = state.orders.map((row) => ({ ...row, status: 'delivered' }));
+  state.profile.identitySummary.conflicts = [
+    {
+      key: 'steam-mismatch',
+      tone: 'warning',
+      title: 'Steam identity does not match the player profile',
+      detail: 'The linked Steam identity and the player profile are pointing at different Steam IDs.',
+      actions: [
+        { label: 'Disconnect Steam link', primary: true, data: { 'data-player-steam-unlink': true } },
+        {
+          label: 'Open identity ticket',
+          data: {
+            'data-player-identity-support': true,
+            'data-player-support-category': 'identity',
+            'data-player-support-reason': 'Identity conflict: the linked Steam identity and the player profile are pointing at different Steam IDs.',
+          },
+        },
+        { label: 'Open support', href: '/player/support' },
+      ],
+    },
+  ];
+  state.profile.identitySummary.attention = [];
+
+  const profileModel = createPlayerControlV4Model(state, 'profile');
+
+  assert.match(profileModel.mainHtml, /data-player-steam-unlink/);
+  assert.match(profileModel.mainHtml, /Disconnect Steam link/);
+  assert.match(profileModel.mainHtml, /data-player-identity-support/);
+  assert.match(profileModel.mainHtml, /Open identity ticket/);
+});
+
+test('player control v4 profile page exposes steam disconnect when recovery guards are satisfied', () => {
+  const state = buildSampleState();
+  state.orders = state.orders.map((row) => ({ ...row, status: 'delivered' }));
+
+  const profileModel = createPlayerControlV4Model(state, 'profile');
+
+  assert.match(profileModel.mainHtml, /data-player-steam-unlink/);
+  assert.match(profileModel.mainHtml, /Disconnect Steam link/);
+});
+
+test('player control v4 support page exposes ticket form and close actions', () => {
+  const supportModel = createPlayerControlV4Model(buildSampleState(), 'support');
+
+  assert.equal(supportModel.header.title, 'Support');
+  assert.match(supportModel.mainHtml, /data-player-support-ticket-form/);
+  assert.match(supportModel.mainHtml, /data-player-support-ticket-close="portal-ticket-1"/);
+  assert.match(supportModel.mainHtml, /Open support ticket/);
+  assert.match(supportModel.mainHtml, /Support history and active cases/);
 });
 
 test('player control v4 donations page exposes supporter summary, readiness, and history', () => {

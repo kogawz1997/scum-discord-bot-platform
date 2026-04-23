@@ -386,6 +386,66 @@ test('admin platform restart execution route exposes filtered execution history'
   assert.equal(payload.data[0].resultStatus, 'succeeded');
 });
 
+test('tenant-scoped admin restart plan route falls back to auth tenant without query tenantId', async () => {
+  let observedFilters = null;
+  const handler = buildGetRoutes({
+    ensureRole: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
+    listRestartPlans: async (filters) => {
+      observedFilters = filters;
+      return [{
+        id: 'rplan-tenant-1',
+        tenantId: filters.tenantId,
+        serverId: 'server-1',
+        status: 'scheduled',
+      }];
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/admin/api/platform/restart-plans?serverId=server-1'),
+    pathname: '/admin/api/platform/restart-plans',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(String(observedFilters?.tenantId || ''), 'tenant-1');
+  assert.equal(observedFilters?.allowGlobal, false);
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(String(payload.data[0]?.tenantId || ''), 'tenant-1');
+});
+
+test('tenant-scoped admin tenant-config route falls back to auth tenant without query tenantId', async () => {
+  let observedTenantId = null;
+  const handler = buildGetRoutes({
+    ensureRole: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),
+    getPlatformTenantConfig: async (tenantId) => {
+      observedTenantId = tenantId;
+      return { tenantId, featureFlags: { test: true } };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'GET', headers: {} },
+    res,
+    urlObj: new URL('https://admin.example.com/admin/api/platform/tenant-config'),
+    pathname: '/admin/api/platform/tenant-config',
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(String(observedTenantId || ''), 'tenant-1');
+  const payload = JSON.parse(String(res.body || '{}'));
+  assert.equal(payload.ok, true);
+  assert.equal(String(payload.data?.tenantId || ''), 'tenant-1');
+});
+
 test('admin platform server config jobs route exposes filtered config jobs', async () => {
   const handler = buildGetRoutes({
     listServerConfigJobs: async (filters) => ([{
@@ -1187,6 +1247,66 @@ test('admin platform agent provision route allows owner without tenant entitleme
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(called, true);
+});
+
+test('admin platform license legal route passes allowGlobal for owner scope', async () => {
+  const calls = [];
+  const handler = buildPostRoutes({
+    acceptPlatformLicenseLegal: async (input) => {
+      calls.push(input);
+      return { ok: true, license: { id: input.licenseId } };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/platform/license/accept-legal',
+    body: {
+      licenseId: 'license-owner-1',
+      legalDocVersion: '2026-04',
+    },
+    res,
+    auth: { user: 'owner', role: 'owner', tenantId: null },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].licenseId, 'license-owner-1');
+  assert.equal(calls[0].tenantId, null);
+  assert.equal(calls[0].allowGlobal, true);
+});
+
+test('admin platform license legal route passes tenant scope for tenant admins', async () => {
+  const calls = [];
+  const handler = buildPostRoutes({
+    listPlatformLicenses: async () => ([{ id: 'license-tenant-1', tenantId: 'tenant-1' }]),
+    acceptPlatformLicenseLegal: async (input) => {
+      calls.push(input);
+      return { ok: true, license: { id: input.licenseId, tenantId: input.tenantId } };
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: { method: 'POST', headers: {} },
+    pathname: '/admin/api/platform/license/accept-legal',
+    body: {
+      licenseId: 'license-tenant-1',
+      legalDocVersion: '2026-04',
+    },
+    res,
+    auth: { user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].tenantId, 'tenant-1');
+  assert.equal(calls[0].allowGlobal, false);
 });
 
 test('admin platform tenant role matrix route returns fixed tenant role definitions', async () => {

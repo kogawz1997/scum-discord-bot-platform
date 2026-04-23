@@ -112,18 +112,20 @@ function createAdminRuntimeConfigGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/restart-plans') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listRestartPlans({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           status: requiredString(urlObj.searchParams.get('status')),
           limit: asInt(urlObj.searchParams.get('limit'), 20) || 20,
@@ -135,18 +137,20 @@ function createAdminRuntimeConfigGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/restart-executions') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listRestartExecutions({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           planId: requiredString(urlObj.searchParams.get('planId')),
           status: requiredString(urlObj.searchParams.get('status')),
@@ -159,11 +163,12 @@ function createAdminRuntimeConfigGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/tenant-config') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -178,7 +183,7 @@ function createAdminRuntimeConfigGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -186,6 +191,7 @@ function createAdminRuntimeConfigGetRouteHandler(deps) {
         ok: true,
         data: await listPlatformTenantConfigs({
           tenantId,
+          allowGlobal: !tenantId,
           limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
         }),
       });

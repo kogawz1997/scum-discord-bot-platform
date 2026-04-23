@@ -1,6 +1,9 @@
 'use strict';
 
-const { withTenantDbIsolation } = require('../utils/tenantDbIsolation');
+const {
+  assertTenantDbIsolationScope,
+  withTenantDbIsolation,
+} = require('../utils/tenantDbIsolation');
 const { getTenantDatabaseTopologyMode } = require('../utils/tenantDatabaseTopology');
 
 function getPrismaModule() {
@@ -157,6 +160,18 @@ function resolvePersistenceScope(tenantId, options = {}) {
   };
 }
 
+function assertDeliveryPersistenceScope(options = {}, fallbackOperation = 'delivery persistence scope enumeration') {
+  const env = options.env || process.env;
+  const tenantId = normalizeTenantId(options.tenantId);
+  const operation = String(options.operation || fallbackOperation).trim() || fallbackOperation;
+  return assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation,
+    env,
+  });
+}
+
 async function runWithDeliveryPersistenceScope(tenantId, work, options = {}) {
   if (typeof work !== 'function') {
     throw new TypeError('runWithDeliveryPersistenceScope requires a callback');
@@ -195,7 +210,10 @@ async function runWithDeliveryPersistenceScope(tenantId, work, options = {}) {
 
 async function listDeliveryPersistenceScopes(options = {}) {
   const env = options.env || process.env;
-  const tenantId = normalizeTenantId(options.tenantId);
+  const { tenantId } = assertDeliveryPersistenceScope(
+    options,
+    'delivery persistence scope enumeration',
+  );
   if (tenantId) {
     return [resolvePersistenceScope(tenantId, options)];
   }

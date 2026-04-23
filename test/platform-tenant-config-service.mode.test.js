@@ -44,6 +44,14 @@ function loadServiceWithRuntime(runtime) {
     async withTenantDbIsolation(_db, _scope, work) {
       return work({});
     },
+    assertTenantDbIsolationScope({ tenantId, allowGlobal }) {
+      if (!tenantId && !allowGlobal) {
+        const error = new Error('platform tenant config listing requires tenantId');
+        error.code = 'TENANT_DB_SCOPE_REQUIRED';
+        throw error;
+      }
+      return { tenantId: tenantId || null, allowGlobal };
+    },
   });
   return require(servicePath);
 }
@@ -54,6 +62,7 @@ test.afterEach(() => {
   clearModule(dbEnginePath);
   clearModule(topologyPath);
   clearModule(isolationPath);
+  delete process.env.PERSIST_REQUIRE_DB;
 });
 
 test('platform tenant config persistence mode uses prisma on PostgreSQL runtimes', () => {
@@ -81,4 +90,48 @@ test('platform tenant config persistence mode keeps SQL compatibility on SQLite 
     isServerEngine: false,
   });
   assert.equal(service.__test.getTenantConfigPersistenceMode(), 'sql');
+});
+
+test('platform tenant config persistence mode keeps SQL compatibility on SQLite server runtimes', () => {
+  const service = loadServiceWithRuntime({
+    engine: 'sqlite',
+    provider: 'sqlite',
+    isServerEngine: true,
+    isSqlite: true,
+  });
+  assert.equal(service.__test.getTenantConfigPersistenceMode(), 'sql');
+});
+
+test('platform tenant config persistence mode enforces prisma when db-only posture is required', () => {
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  const service = loadServiceWithRuntime({
+    engine: 'sqlite',
+    provider: 'sqlite',
+    isServerEngine: false,
+  });
+  assert.equal(service.__test.getTenantConfigPersistenceMode(), 'prisma');
+});
+
+test('platform tenant config listing requires explicit allowGlobal for global reads', async () => {
+  const service = loadServiceWithRuntime({
+    engine: 'postgresql',
+    provider: 'postgresql',
+    isServerEngine: true,
+  });
+
+  await assert.rejects(
+    () => service.listPlatformTenantConfigs({ limit: 20 }),
+    (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+  );
+});
+
+test('platform tenant config listing accepts explicit allowGlobal for global reads', async () => {
+  const service = loadServiceWithRuntime({
+    engine: 'postgresql',
+    provider: 'postgresql',
+    isServerEngine: true,
+  });
+
+  const rows = await service.listPlatformTenantConfigs({ allowGlobal: true, limit: 20 });
+  assert.deepEqual(rows, []);
 });

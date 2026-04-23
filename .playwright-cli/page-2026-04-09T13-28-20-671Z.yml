@@ -1,0 +1,282 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "SCUM เจ้าของระบบ ศูนย์ควบคุมแพลตฟอร์ม ดูลูกค้า แพ็กเกจ รายได้ สถานะบริการ และเหตุการณ์สำคัญจากจุดเดียว" [ref=e5] [cursor=pointer]:
+        - /url: /owner
+        - generic [ref=e6]: SCUM
+        - generic [ref=e7]:
+          - generic [ref=e8]: เจ้าของระบบ
+          - strong [ref=e9]: ศูนย์ควบคุมแพลตฟอร์ม
+          - generic [ref=e10]: ดูลูกค้า แพ็กเกจ รายได้ สถานะบริการ และเหตุการณ์สำคัญจากจุดเดียว
+      - navigation "เมนูเจ้าของระบบ" [ref=e11]:
+        - link "ภาพรวม" [ref=e12] [cursor=pointer]:
+          - /url: /owner
+        - link "ลูกค้า" [ref=e13] [cursor=pointer]:
+          - /url: /owner/tenants
+        - link "ระบบ" [ref=e14] [cursor=pointer]:
+          - /url: /owner/runtime
+    - generic [ref=e15]:
+      - generic [ref=e16]: พร้อมใช้งาน
+      - generic [ref=e17]:
+        - combobox "ภาษา" [ref=e18]:
+          - option "อังกฤษ"
+          - option "ไทย" [selected]
+          - option "日本語"
+          - option "한국어"
+          - option "简体中文"
+          - option "สเปน"
+        - link "เปิดรายชื่อลูกค้า" [ref=e19] [cursor=pointer]:
+          - /url: /owner/tenants
+        - button "รีเฟรชข้อมูล" [ref=e20] [cursor=pointer]
+  - main [ref=e21]:
+    - generic [ref=e242]:
+      - complementary [ref=e243]:
+        - generic [ref=e244]:
+          - generic [ref=e245]: เจ้าของระบบ control plane
+          - heading "SCUM Operator" [level=2] [ref=e246]
+          - generic [ref=e247]: Production-safe frontend layer over the existing เจ้าของระบบ routes, auth, and API contracts.
+        - generic [ref=e248]:
+          - generic [ref=e249]: Platform
+          - navigation [ref=e250]:
+            - link "Overview" [ref=e251] [cursor=pointer]:
+              - /url: /owner
+              - generic [ref=e252]: Overview
+            - link "Tenants 28" [ref=e254] [cursor=pointer]:
+              - /url: /owner/tenants
+              - generic [ref=e255]: Tenants
+              - generic [ref=e256]: "28"
+            - link "Packages 4" [ref=e257] [cursor=pointer]:
+              - /url: /owner/packages
+              - generic [ref=e258]: Packages
+              - generic [ref=e259]: "4"
+            - link "Subscriptions 28" [ref=e260] [cursor=pointer]:
+              - /url: /owner/subscriptions
+              - generic [ref=e261]: Subscriptions
+              - generic [ref=e262]: "28"
+        - generic [ref=e263]:
+          - generic [ref=e264]: Operations
+          - navigation [ref=e265]:
+            - link "บอท health 0" [ref=e266] [cursor=pointer]:
+              - /url: /owner/runtime
+              - generic [ref=e267]: บอท health
+              - generic [ref=e268]: "0"
+            - link "Incidents 24" [ref=e269] [cursor=pointer]:
+              - /url: /owner/incidents
+              - generic [ref=e270]: Incidents
+              - generic [ref=e271]: "24"
+            - link "Observability 0" [ref=e272] [cursor=pointer]:
+              - /url: /owner/analytics
+              - generic [ref=e273]: Observability
+              - generic [ref=e274]: "0"
+            - link "Queues & jobs 0" [ref=e275] [cursor=pointer]:
+              - /url: /owner/jobs
+              - generic [ref=e276]: Queues & jobs
+              - generic [ref=e277]: "0"
+            - link "Support 20" [ref=e278] [cursor=pointer]:
+              - /url: /owner/support
+              - generic [ref=e279]: Support
+              - generic [ref=e280]: "20"
+        - generic [ref=e281]:
+          - generic [ref=e282]: Governance
+          - navigation [ref=e283]:
+            - link "Audit 4" [ref=e284] [cursor=pointer]:
+              - /url: /owner/audit
+              - generic [ref=e285]: Audit
+              - generic [ref=e286]: "4"
+            - link "Security 20" [ref=e287] [cursor=pointer]:
+              - /url: /owner/security
+              - generic [ref=e288]: Security
+              - generic [ref=e289]: "20"
+            - link "ตั้งค่า" [ref=e290] [cursor=pointer]:
+              - /url: /owner/settings
+            - link "Recovery 1,253" [ref=e291] [cursor=pointer]:
+              - /url: /owner/recovery
+              - generic [ref=e292]: Recovery
+              - generic [ref=e293]: 1,253
+        - generic [ref=e294]:
+          - generic [ref=e295]: บอท split
+          - generic [ref=e296]: 0 บอทส่งของs · 0 บอทเซิร์ฟเวอร์s
+          - generic [ref=e297]:
+            - generic [ref=e298]: 20 open notifications
+            - generic [ref=e299]: 0 คำขอผิดพลาด
+      - generic [ref=e300]:
+        - generic [ref=e302]:
+          - generic [ref=e303]:
+            - generic [ref=e304]: เหตุการณ์และสัญญาณ
+            - generic [ref=e305]: เหตุการณ์และสัญญาณ
+            - heading "เหตุการณ์และสัญญาณ" [level=1] [ref=e306]
+            - paragraph [ref=e307]: เปิดดูสัญญาณที่ใหม่และรุนแรงที่สุดก่อน เพื่อไม่ให้พลาดเรื่องที่กระทบกว้างกว่า
+          - link "เปิดทะเบียนบริการ" [ref=e309] [cursor=pointer]:
+            - /url: "#owner-runtime-workspace"
+        - generic [ref=e310]:
+          - article [ref=e311]:
+            - generic [ref=e312]: บอทส่งของs
+            - generic [ref=e313]: "0"
+            - generic [ref=e315]: Execution runtimes
+          - article [ref=e316]:
+            - generic [ref=e317]: บอทเซิร์ฟเวอร์s
+            - generic [ref=e318]: "0"
+            - generic [ref=e320]: Server-side runtimes
+          - article [ref=e321]:
+            - generic [ref=e322]: Open signals
+            - generic [ref=e323]: "24"
+            - generic [ref=e325]: Incident feed entries
+          - article [ref=e326]:
+            - generic [ref=e327]: Request errors
+            - generic [ref=e328]: "0"
+            - generic [ref=e330]: Current telemetry errors
+        - generic [ref=e332]:
+          - generic [ref=e333]:
+            - generic [ref=e334]: ภาพรวมบริการ
+            - heading "ทะเบียนบริการและการควบคุมโทเค็น" [level=2] [ref=e335]
+            - paragraph [ref=e336]: เจ้าของระบบมองเห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุมทะเบียนบริการ การผูกเครื่อง และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน
+          - table [ref=e338]:
+            - rowgroup [ref=e339]:
+              - row "บริการ ประเภท สถานะ เวอร์ชัน พบล่าสุด การทำงาน" [ref=e340]:
+                - columnheader "บริการ" [ref=e341]
+                - columnheader "ประเภท" [ref=e342]
+                - columnheader "สถานะ" [ref=e343]
+                - columnheader "เวอร์ชัน" [ref=e344]
+                - columnheader "พบล่าสุด" [ref=e345]
+                - columnheader "การทำงาน" [ref=e346]
+            - rowgroup [ref=e347]:
+              - row "ยังไม่มีรายการบริการ" [ref=e348]:
+                - cell "ยังไม่มีรายการบริการ" [ref=e349]
+        - generic [ref=e350]:
+          - generic [ref=e352]:
+            - generic [ref=e353]: Incident feed
+            - heading "Recent platform anomalies" [level=2] [ref=e354]
+            - paragraph [ref=e355]: Request errors, notifications, and security events are grouped here to keep triage fast.
+          - generic [ref=e356]:
+            - generic [ref=e357]:
+              - generic [ref=e358]:
+                - generic [ref=e359]: Operational Alert
+                - generic [ref=e360]: 1 min ago
+              - strong [ref=e361]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-f43ebaef-c084-4277-a8a0-f4c21de3f3e5\",\"tenantSlug\":\"capture-community-20260407001627\",\"quotaKey\":\"agentRuntimes\",\"used\":0,\"limit\":1,\"remaining\":1}"
+            - generic [ref=e362]:
+              - generic [ref=e363]:
+                - generic [ref=e364]: Operational Alert
+                - generic [ref=e365]: 1 min ago
+              - strong [ref=e366]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-f43ebaef-c084-4277-a8a0-f4c21de3f3e5\",\"tenantSlug\":\"capture-community-20260407001627\",\"quotaKey\":\"apiKeys\",\"used\":0,\"limit\":1,\"remaining\":1}"
+            - generic [ref=e367]:
+              - generic [ref=e368]:
+                - generic [ref=e369]: Operational Alert
+                - generic [ref=e370]: 1 min ago
+              - strong [ref=e371]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-c5e39426-636c-4b25-b94b-24cbf5374b37\",\"tenantSlug\":\"capture-community-20260407005620\",\"quotaKey\":\"agentRuntimes\",\"used\":0,\"limit\":1,\"remaining\":1}"
+            - generic [ref=e372]:
+              - generic [ref=e373]:
+                - generic [ref=e374]: Operational Alert
+                - generic [ref=e375]: 1 min ago
+              - strong [ref=e376]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-c5e39426-636c-4b25-b94b-24cbf5374b37\",\"tenantSlug\":\"capture-community-20260407005620\",\"quotaKey\":\"apiKeys\",\"used\":0,\"limit\":1,\"remaining\":1}"
+            - generic [ref=e377]:
+              - generic [ref=e378]:
+                - generic [ref=e379]: เซสชัน-created
+                - generic [ref=e380]: 1 min ago
+              - strong [ref=e381]: Admin เซสชัน created
+            - generic [ref=e382]:
+              - generic [ref=e383]:
+                - generic [ref=e384]: login-succeeded
+                - generic [ref=e385]: 1 min ago
+              - strong [ref=e386]: Admin login succeeded
+            - generic [ref=e387]:
+              - generic [ref=e388]:
+                - generic [ref=e389]: Operational Alert
+                - generic [ref=e390]: 1 min ago
+              - strong [ref=e391]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-c527090f-101d-4553-96bb-d6eb792c6fad\",\"tenantSlug\":\"capture-community-20260406234553\",\"quotaKey\":\"apiKeys\",\"used\":0,\"limit\":1,\"remaining\":1}"
+            - generic [ref=e392]:
+              - generic [ref=e393]:
+                - generic [ref=e394]: Operational Alert
+                - generic [ref=e395]: 1 min ago
+              - strong [ref=e396]: "{\"source\":\"platform-monitor\",\"kind\":\"tenant-quota-near-limit\",\"tenantId\":\"tenant-c527090f-101d-4553-96bb-d6eb792c6fad\",\"tenantSlug\":\"capture-community-20260406234553\",\"quotaKey\":\"agentRuntimes\",\"used\":0,\"limit\":1,\"remaining\":1}"
+        - generic [ref=e397]:
+          - generic [ref=e399]:
+            - generic [ref=e400]: Queues and jobs
+            - heading "Provisioning, queue pressure, and งานค้างผิดพลาด" [level=2] [ref=e401]
+            - paragraph [ref=e402]: Use this page for lifecycle pressure, retry posture, and provisioning-related drift without blending บอทส่งของ and บอทเซิร์ฟเวอร์ responsibilities.
+          - generic [ref=e403]:
+            - generic [ref=e404]:
+              - generic [ref=e405]: Queue depth
+              - strong [ref=e406]: "0"
+              - generic [ref=e407]: 0 overdue
+            - generic [ref=e408]:
+              - generic [ref=e409]: Dead letters
+              - strong [ref=e410]: "0"
+              - generic [ref=e411]: 0 retryable
+            - generic [ref=e412]:
+              - generic [ref=e413]: In flight
+              - strong [ref=e414]: "0"
+              - generic [ref=e415]: 0 recent ปกติ
+          - article [ref=e417]:
+            - generic [ref=e418]: review-บอท-before-retry
+            - strong [ref=e419]: "0"
+            - generic [ref=e420]:
+              - generic [ref=e421]: No top error
+              - generic [ref=e422]: No codes
+          - generic [ref=e423]:
+            - strong [ref=e424]: No data
+            - generic [ref=e425]: No queue watch rows are currently loaded.
+          - generic [ref=e426]:
+            - strong [ref=e427]: No data
+            - generic [ref=e428]: No dead-letter rows are currently loaded.
+        - generic [ref=e429]:
+          - generic [ref=e431]:
+            - generic [ref=e432]: บอท split
+            - heading "บอทส่งของs vs บอทเซิร์ฟเวอร์s" [level=2] [ref=e433]
+            - paragraph [ref=e434]: These roles remain separate in every table and action path even though they share the same เจ้าของระบบ surface.
+          - generic [ref=e435]:
+            - generic [ref=e436]:
+              - generic [ref=e437]: บอทส่งของs
+              - strong [ref=e438]: "0"
+              - generic [ref=e439]:
+                - generic [ref=e440]: 0 healthy
+                - generic [ref=e441]: 0 ออฟไลน์
+            - generic [ref=e442]:
+              - generic [ref=e443]: บอทเซิร์ฟเวอร์s
+              - strong [ref=e444]: "0"
+              - generic [ref=e445]:
+                - generic [ref=e446]: 0 healthy
+                - generic [ref=e447]: 0 ออฟไลน์
+        - generic [ref=e448]:
+          - generic [ref=e450]:
+            - generic [ref=e451]: บอทส่งของ fleet
+            - heading "Execution-side บอท posture" [level=2] [ref=e452]
+            - paragraph [ref=e453]: These rows stay focused on delivery execution, game-client-side readiness, and token / device actionability.
+          - generic [ref=e454]:
+            - strong [ref=e455]: No data
+            - generic [ref=e456]: No บอทส่งของ records are loaded.
+        - generic [ref=e457]:
+          - generic [ref=e459]:
+            - generic [ref=e460]: บอทเซิร์ฟเวอร์ fleet
+            - heading "Server-side บอท posture" [level=2] [ref=e461]
+            - paragraph [ref=e462]: These rows stay focused on server-side บอท health, การผูกเครื่อง state, and restart / sync readiness.
+          - generic [ref=e463]:
+            - strong [ref=e464]: No data
+            - generic [ref=e465]: No บอทเซิร์ฟเวอร์ records are loaded.
+        - generic [ref=e466]:
+          - generic [ref=e468]:
+            - generic [ref=e469]: Telemetry
+            - heading "Requests and error hotspots" [level=2] [ref=e470]
+            - paragraph [ref=e471]: Optional observability reads hydrate this section without blocking the rest of the เจ้าของระบบ surface.
+          - article [ref=e473]:
+            - generic [ref=e474]: healthy
+            - strong [ref=e475]: "0"
+            - generic [ref=e476]: No overdue, poison-candidate, or dead-letter pressure was detected in the sampled lifecycle state.
+          - generic [ref=e477]:
+            - strong [ref=e478]: No data
+            - generic [ref=e479]: No request telemetry is loaded.
+          - generic [ref=e480]:
+            - strong [ref=e481]: No data
+            - generic [ref=e482]: No aggregated delivery errors are currently loaded.
+      - complementary [ref=e483]:
+        - generic [ref=e484]:
+          - generic [ref=e485]:
+            - generic [ref=e486]: บริบทเหตุการณ์
+            - paragraph [ref=e487]: ให้เหตุการณ์ หลักฐาน และบริการที่เกี่ยวกันอยู่ในมุมเดียวเพื่อช่วยตัดสินใจได้เร็ว
+          - generic [ref=e488]:
+            - generic [ref=e489]: Platform watch
+            - strong [ref=e490]: 20 open notifications
+            - generic [ref=e491]: 0 คำขอผิดพลาด / 20 security events currently loaded.
+          - generic [ref=e492]:
+            - generic [ref=e493]: บอท split
+            - strong [ref=e494]: 0 บอทส่งของs
+            - generic [ref=e495]: 0 บอทเซิร์ฟเวอร์s remain separate in every table and action path.

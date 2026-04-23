@@ -56,9 +56,9 @@ test('admin dashboard cards uses cache window and refresh override', async () =>
     },
   };
 
-  const first = await buildAdminDashboardCards({ prisma, client });
-  const second = await buildAdminDashboardCards({ prisma, client });
-  const refreshed = await buildAdminDashboardCards({ prisma, client, forceRefresh: true });
+  const first = await buildAdminDashboardCards({ prisma, client, allowGlobal: true });
+  const second = await buildAdminDashboardCards({ prisma, client, allowGlobal: true });
+  const refreshed = await buildAdminDashboardCards({ prisma, client, allowGlobal: true, forceRefresh: true });
 
   assert.equal(first.cache.cached, false);
   assert.equal(second.cache.cached, true);
@@ -78,6 +78,30 @@ test('admin dashboard cards uses cache window and refresh override', async () =>
       process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS = previousCacheWindow;
     } else {
       delete process.env.ADMIN_DASHBOARD_CARDS_CACHE_WINDOW_MS;
+    }
+  }
+});
+
+test('admin dashboard cards rejects global reads without explicit allowGlobal', async () => {
+  const previousTopologyMode = process.env.TENANT_DB_TOPOLOGY_MODE;
+  process.env.TENANT_DB_TOPOLOGY_MODE = 'shared';
+  try {
+    clearAdminDashboardCardsCache();
+    await assert.rejects(
+      () => buildAdminDashboardCards({
+        prisma: {
+          userWallet: { count: async () => 0 },
+        },
+        client: { guilds: { cache: new Map() } },
+      }),
+      /admin-dashboard-global-scope-required/,
+    );
+  } finally {
+    clearAdminDashboardCardsCache();
+    if (previousTopologyMode) {
+      process.env.TENANT_DB_TOPOLOGY_MODE = previousTopologyMode;
+    } else {
+      delete process.env.TENANT_DB_TOPOLOGY_MODE;
     }
   }
 });

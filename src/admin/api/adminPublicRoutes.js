@@ -19,6 +19,7 @@ function createAdminPublicRoutes(deps) {
     isAuthorized,
     getAuthContext,
     getLoginHtml,
+    getOwnerLoginHtml,
     getTenantLoginHtml,
     getOwnerConsoleHtml,
     getTenantConsoleHtml,
@@ -537,9 +538,11 @@ function createAdminPublicRoutes(deps) {
           return true;
         }
       }
-      const loginHtml = pathname.startsWith('/tenant/login')
-        ? (typeof getTenantLoginHtml === 'function' ? getTenantLoginHtml() : getLoginHtml())
-        : getLoginHtml();
+      const loginHtml = pathname.startsWith('/owner/login')
+        ? (typeof getOwnerLoginHtml === 'function' ? getOwnerLoginHtml() : getLoginHtml())
+        : pathname.startsWith('/tenant/login')
+          ? (typeof getTenantLoginHtml === 'function' ? getTenantLoginHtml() : getLoginHtml())
+          : getLoginHtml();
       sendHtml(res, 200, loginHtml);
       return true;
     }

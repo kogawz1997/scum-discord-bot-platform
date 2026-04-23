@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SECTOR_ADMIN | Events Operational V4</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#783200",
+                    "on-secondary-container": "#bdf57d",
+                    "on-secondary-fixed": "#0f2000",
+                    "secondary-fixed": "#bbf37c",
+                    "secondary-fixed-dim": "#a0d663",
+                    "primary-fixed-dim": "#ffb690",
+                    "surface-dim": "#131313",
+                    "primary-fixed": "#ffdbca",
+                    "on-tertiary": "#690005",
+                    "on-surface": "#e5e2e1",
+                    "tertiary-fixed-dim": "#ffb4ab",
+                    "surface-bright": "#393939",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#1c1b1b",
+                    "on-secondary-fixed-variant": "#2e4f00",
+                    "secondary-container": "#447200",
+                    "on-background": "#e5e2e1",
+                    "on-primary-fixed": "#341100",
+                    "outline-variant": "#584237",
+                    "surface-tint": "#ffb690",
+                    "outline": "#a78b7d",
+                    "surface-container": "#201f1f",
+                    "surface-variant": "#353534",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-container": "#f97316",
+                    "on-tertiary-container": "#6c0005",
+                    "on-error": "#690005",
+                    "primary": "#ffb690",
+                    "on-primary-container": "#582200",
+                    "on-tertiary-fixed": "#410002",
+                    "on-secondary": "#1e3700",
+                    "inverse-primary": "#9d4300",
+                    "tertiary-container": "#ff6a5d",
+                    "tertiary-fixed": "#ffdad6",
+                    "surface-container-highest": "#353534",
+                    "inverse-on-surface": "#313030",
+                    "inverse-surface": "#e5e2e1",
+                    "secondary": "#a0d663",
+                    "on-surface-variant": "#e0c0b1",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface": "#131313",
+                    "background": "#131313",
+                    "on-tertiary-fixed-variant": "#93000b",
+                    "on-primary": "#552100",
+                    "tertiary": "#ffb4ab"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Public Sans"],
+                    "label": ["Public Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-6 bg-[#131313] border-b-2 border-[#353534] z-50">
+<div class="flex items-center gap-8">
+<div class="text-xl font-black text-orange-600 tracking-tighter font-headline uppercase">TENANT_ADMIN_SCUM_V1</div>
+<div class="hidden md:flex gap-6 items-center">
+<div class="bg-surface-container-lowest border-b-2 border-outline px-3 py-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs font-label text-on-surface w-48 uppercase tracking-widest" placeholder="QUERY_SYSTEM..." type="text"/>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-2 text-zinc-500">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-2 text-zinc-500">
+<span class="material-symbols-outlined">language</span>
+</button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-2 text-zinc-500">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="hover:bg-[#201f1f] transition-colors duration-150 p-2 text-zinc-500 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary-container"></span>
+</button>
+<div class="h-8 w-[2px] bg-[#353534] mx-2"></div>
+<button class="font-['Space_Grotesk'] tracking-wider uppercase text-sm text-zinc-500 hover:text-white transition-colors">Logout</button>
+<img alt="Administrator Profile" class="w-8 h-8 border-2 border-orange-600" data-alt="Close up portrait of a digital security administrator avatar with sharp focus and orange industrial highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxKDaCeyRIJhYIZXGtB2oZ0CYV9tEam_Wb7QWvmw-qvvwVGfqvdntJDupHcoZBOMOMPuyLml3NqIWwxrA9vdKNl5Xyv2Ez1YkIaLiRFUL3IcceDvs1_vMdBcOeSlcFY0yMrwk4olxIa9VFRJS9-nRanzCmsRZ1u5PYVtaSdCv04Y71ooh5j2jEYAECkW5LGse3Wszc9MWTSXg90IUdfP3cIqF2hwM6WUJEnKmJtHQZpyfZUrNmmUunP4vffijsmxfyeKp96FL9E9o"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 flex flex-col pt-16 bg-[#201f1f] border-r-4 border-[#353534] z-40">
+<div class="p-6 border-b-2 border-[#353534]">
+<div class="text-lg font-black text-white font-headline">SECTOR_ADMIN</div>
+<div class="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-500">OPERATIONAL_UNIT_01</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-4 scrollbar-hide">
+<!-- Nav Item: Overview -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">dashboard</span>
+<span>Overview</span>
+</a>
+<!-- Nav Item: Events (ACTIVE) -->
+<a class="bg-[#353534] text-orange-500 border-l-4 border-orange-500 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest translate-x-1" href="#">
+<span class="material-symbols-outlined text-lg">event</span>
+<span>Events</span>
+</a>
+<!-- Nav Item: Server Status -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined text-lg">dns</span>
+<span>Server Status</span>
+</a>
+<!-- Nav Item: Players -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined text-lg">group</span>
+<span>Players</span>
+</a>
+<!-- Nav Item: Delivery Agents -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined text-lg">local_shipping</span>
+<span>Delivery Agents</span>
+</a>
+<!-- Nav Item: Logs Sync -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined text-lg">sync</span>
+<span>Logs Sync</span>
+</a>
+<!-- Nav Item: Settings -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t-2 border-[#353534]">
+<button class="w-full bg-primary-container text-on-primary-container font-headline font-bold py-3 text-xs uppercase tracking-tighter hover:ring-2 hover:ring-orange-500 transition-all">
+                Diagnostics &amp; Support
+            </button>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="pl-64 pt-16 min-h-screen bg-surface">
+<div class="p-8 max-w-7xl mx-auto space-y-8">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between border-b-4 border-surface-container-highest pb-6 gap-6">
+<div>
+<h1 class="font-headline text-5xl font-extrabold tracking-tighter uppercase text-on-surface">EVENTS_CORE_V4</h1>
+<p class="font-label text-sm text-outline mt-2 tracking-widest">SECTOR CONTROL / การจัดการกิจกรรมเซกเตอร์</p>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="bg-primary-container text-on-primary-container font-headline font-bold px-6 py-3 text-sm uppercase tracking-widest border-2 border-primary-container hover:border-4 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">add_box</span>
+                        Create event / สร้างกิจกรรม
+                    </button>
+</div>
+</div>
+<!-- Dashboard Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-high p-4 border-2 border-surface-container-highest">
+<div class="text-[10px] text-outline font-bold uppercase tracking-widest">Active Units / กำลังดำเนินการ</div>
+<div class="text-3xl font-headline font-bold text-secondary">04</div>
+</div>
+<div class="bg-surface-container-high p-4 border-2 border-surface-container-highest">
+<div class="text-[10px] text-outline font-bold uppercase tracking-widest">Queued Events / กิจกรรมที่รอ</div>
+<div class="text-3xl font-headline font-bold text-primary-container">12</div>
+</div>
+<div class="bg-surface-container-high p-4 border-2 border-surface-container-highest">
+<div class="text-[10px] text-outline font-bold uppercase tracking-widest">Raid Status / สถานะเรด</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-secondary"></div>
+<span class="text-xl font-headline font-bold text-secondary">OPEN</span>
+</div>
+</div>
+<div class="bg-surface-container-high p-4 border-2 border-surface-container-highest">
+<div class="text-[10px] text-outline font-bold uppercase tracking-widest">System Load / ภาระระบบ</div>
+<div class="text-3xl font-headline font-bold text-on-surface">24%</div>
+</div>
+</div>
+<!-- Main Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left: Active & Upcoming Events -->
+<div class="lg:col-span-8 space-y-6">
+<h2 class="font-headline text-xl font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="w-2 h-6 bg-orange-600"></span>
+                        Event Registry / ทะเบียนกิจกรรม
+                    </h2>
+<!-- Event Card 01: Active -->
+<div class="bg-surface-container-high border-2 border-secondary overflow-hidden">
+<div class="flex flex-col md:flex-row">
+<div class="w-full md:w-48 h-48 md:h-auto bg-surface-container-lowest">
+<img class="w-full h-full object-cover grayscale opacity-50 contrast-125" data-alt="Atmospheric shot of a brutalist industrial facility at night with dim orange security lighting and metallic textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJH4vyf8xShtZiaMyXWU2FeWWAHVzG9La9SJGXjmjTf4adfsWHBnzx1M3OdkAAittlN7bDMoqxcszcdC6SFvErUvzJmeePynz3gJmJqGJj-SwlptxwzTfHBBUk5CUXzg6OTGGzSa2XlUoj94tu3WSmbukpVFB_BMOs7Jrqi2FDob5Sp_ihgi9WT5eXoqT7l-TQCb6r1nPKOj2rEeMTWydqHpBIWiEWENTDS8OGSEbI2NUXuUrW_LxboxadVyJ18GOVYVYcpP7ezDM"/>
+</div>
+<div class="flex-1 p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="bg-secondary text-on-secondary px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">Status: ACTIVE_NOW</span>
+<h3 class="text-2xl font-headline font-bold mt-1 uppercase">SQUAD_WIPE_EXTREME_V2</h3>
+<p class="text-xs text-outline font-label">B1 SECTOR / พื้นที่ B1 — ENDS IN 02:14:55</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border-2 border-outline hover:border-on-surface transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="p-2 border-2 border-outline hover:border-on-surface transition-all">
+<span class="material-symbols-outlined text-sm">settings_input_component</span>
+</button>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="flex-1 bg-surface-container-lowest border-2 border-error text-error font-headline font-bold py-2 text-xs uppercase tracking-widest hover:bg-error hover:text-white transition-all">
+                                        End event / สิ้นสุด
+                                    </button>
+<button class="flex-1 bg-secondary text-on-secondary font-headline font-bold py-2 text-xs uppercase tracking-widest border-2 border-secondary hover:bg-transparent hover:text-secondary transition-all">
+                                        Publish results / ประกาศผล
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Event Card 02: Upcoming -->
+<div class="bg-surface-container-high border-2 border-surface-container-highest overflow-hidden">
+<div class="flex flex-col md:flex-row">
+<div class="w-full md:w-48 h-48 md:h-auto bg-surface-container-lowest">
+<img class="w-full h-full object-cover grayscale opacity-30" data-alt="Futuristic robotic components and circuitry in a dark industrial assembly line setting with moody shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5-znnDvx5e_YR3mfxgZHhSDFi6Kf51EqSbO-qdRwiW9a5yd92cmn5xHg1Jc5gl4_cA6xye0oqeUy--XcUawjvB4TNi8dmPS3P1zaImGHhaNgfFETL05sPGod7NFl259CGBrLqB5-6gdyPDsOIkWNgZv1PhkIKJmXGZ3KkMMD0-xrGB90AtlFFwwqOH0u1mnSn76TsC8iUcLhbI-D-qsSQ6oI03Thg3hacU3p4VU-hzbEXH9s6ETjM7lywIREhew-i61m6-y91Ov8"/>
+</div>
+<div class="flex-1 p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="bg-surface-container-highest text-outline px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">Status: SCHEDULED</span>
+<h3 class="text-2xl font-headline font-bold mt-1 uppercase text-zinc-400">MECH_HUNT_NIGHT_OPS</h3>
+<p class="text-xs text-outline font-label">Z3 AIRSTRIP / สนามบิน Z3 — STARTS IN 04:00:00</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border-2 border-outline hover:border-on-surface transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="flex-1 bg-primary-container text-on-primary-container font-headline font-bold py-2 text-xs uppercase tracking-widest border-2 border-primary-container hover:bg-transparent hover:text-primary-container transition-all">
+                                        Start event / เริ่มกิจกรรม
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Event Card 03: Queued -->
+<div class="bg-surface-container-high border-2 border-surface-container-highest border-dashed opacity-75 hover:opacity-100 transition-opacity p-6">
+<div class="flex justify-between items-center">
+<div>
+<h3 class="font-headline font-bold uppercase text-outline">VEHICLE_RACE_ORGY</h3>
+<p class="text-[10px] text-outline font-label tracking-widest">PENDING_APPROVAL / รอการอนุมัติ</p>
+</div>
+<button class="border-2 border-outline px-4 py-2 text-xs font-headline font-bold uppercase tracking-widest hover:border-white transition-all">
+                                Edit event / แก้ไข
+                            </button>
+</div>
+</div>
+</div>
+<!-- Right: Raid Window Management & System Logs -->
+<div class="lg:col-span-4 space-y-6">
+<h2 class="font-headline text-xl font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="w-2 h-6 bg-orange-600"></span>
+                        Raid Control / ควบคุมเรด
+                    </h2>
+<!-- Raid Management Box -->
+<div class="bg-surface-container-high border-4 border-surface-container-highest p-6 space-y-6">
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-outline">Active Window / ช่วงเวลาที่เปิด</label>
+<div class="bg-surface-container-lowest p-4 border-2 border-secondary flex items-center justify-between">
+<span class="font-headline text-xl font-bold">18:00 — 22:00</span>
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">timer</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="bg-secondary text-on-secondary font-headline font-bold py-4 text-xs uppercase tracking-widest border-2 border-secondary hover:brightness-110">
+                                Open Raid / เปิด
+                            </button>
+<button class="bg-surface-container-lowest text-error font-headline font-bold py-4 text-xs uppercase tracking-widest border-2 border-error hover:bg-error hover:text-white transition-all">
+                                Close Raid / ปิด
+                            </button>
+</div>
+<div class="pt-4 border-t-2 border-surface-container-highest space-y-4">
+<div class="flex justify-between items-center text-[10px] font-bold text-outline uppercase tracking-widest">
+<span>Settings / การตั้งค่า</span>
+<span class="material-symbols-outlined text-sm">settings</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<span class="text-xs font-label uppercase tracking-widest">Base Damage / ความเสียหาย</span>
+<div class="w-12 h-6 bg-secondary relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white"></div>
+</div>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<span class="text-xs font-label uppercase tracking-widest text-outline">Offline Protection / ป้องกันออฟไลน์</span>
+<div class="w-12 h-6 bg-surface-container-highest relative">
+<div class="absolute left-1 top-1 w-4 h-4 bg-zinc-500"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- System Feed -->
+<div class="space-y-4">
+<div class="flex justify-between items-center border-b-2 border-surface-container-highest pb-2">
+<span class="font-headline text-sm font-bold uppercase tracking-widest text-outline">System Logs</span>
+<span class="text-[10px] font-label text-secondary uppercase animate-pulse">Live feed</span>
+</div>
+<div class="font-label text-[11px] space-y-3 uppercase tracking-tighter">
+<div class="flex gap-2">
+<span class="text-outline">[14:22:01]</span>
+<span class="text-secondary">SYS_EVENT:</span>
+<span>SQUAD_WIPE_EXTREME_V2 Triggered successfully.</span>
+</div>
+<div class="flex gap-2">
+<span class="text-outline">[14:15:33]</span>
+<span class="text-primary-container">ADMIN_ACTION:</span>
+<span>Raid window adjusted by UID_0911.</span>
+</div>
+<div class="flex gap-2">
+<span class="text-outline">[13:58:12]</span>
+<span class="text-error">ERROR_ALERT:</span>
+<span>Log synchronization delay in Sector A3.</span>
+</div>
+<div class="flex gap-2">
+<span class="text-outline">[13:45:00]</span>
+<span class="text-secondary">SYS_STATUS:</span>
+<span>Bot 'B-404' operational for event guarding.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

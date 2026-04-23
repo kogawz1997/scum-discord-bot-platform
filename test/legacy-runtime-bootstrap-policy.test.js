@@ -52,6 +52,23 @@ test('legacy runtime bootstrap policy allows non-production compatibility for ra
   assert.equal(policy.source, 'default');
 });
 
+test('legacy runtime bootstrap policy denies compatibility when db-only posture is required', () => {
+  const policy = resolveLegacyRuntimeBootstrapPolicy({
+    env: {
+      NODE_ENV: 'test',
+      PERSIST_REQUIRE_DB: 'true',
+    },
+    envName: 'EXAMPLE_BOOTSTRAP',
+    runtime: { engine: 'sqlite', provider: 'sqlite', isServerEngine: false },
+    prismaClientLike: false,
+    policy: 'example-bootstrap',
+  });
+
+  assert.equal(policy.allowed, false);
+  assert.equal(policy.reason, 'persist-require-db');
+  assert.equal(policy.requireDb, true);
+});
+
 test('legacy runtime bootstrap policy honors explicit opt-in and opt-out', () => {
   const optIn = resolveLegacyRuntimeBootstrapPolicy({
     env: { NODE_ENV: 'production', EXAMPLE_BOOTSTRAP: '1' },

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AEGIS COMMAND | Operational Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#a4e6ff",
+                        "secondary-fixed": "#ffdea8",
+                        "inverse-primary": "#00677f",
+                        "on-secondary": "#412d00",
+                        "on-primary-container": "#00566a",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#271900",
+                        "on-secondary-container": "#6b4b00",
+                        "on-tertiary": "#68000b",
+                        "on-primary-fixed-variant": "#004e60",
+                        "primary-container": "#00d1ff",
+                        "on-surface": "#e3e2e4",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface-container-high": "#292a2c",
+                        "surface-dim": "#121315",
+                        "secondary": "#ffdb9d",
+                        "surface-variant": "#343537",
+                        "on-primary": "#003543",
+                        "surface-bright": "#38393b",
+                        "surface-container-low": "#1b1c1e",
+                        "surface-tint": "#4cd6ff",
+                        "surface-container": "#1f2022",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#3c494e",
+                        "outline": "#859399",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-tertiary-container": "#a10017",
+                        "tertiary": "#ffd1ce",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-surface-variant": "#bbc9cf",
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "surface-container-highest": "#343537",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "secondary-container": "#feb700",
+                        "inverse-surface": "#e3e2e4",
+                        "on-tertiary-fixed": "#410004",
+                        "background": "#121315",
+                        "on-background": "#e3e2e4",
+                        "inverse-on-surface": "#303032",
+                        "primary-fixed": "#b7eaff",
+                        "tertiary-container": "#ffaaa4",
+                        "surface": "#121315"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121315;
+            color: #e3e2e4;
+        }
+        .scum-glow {
+            box-shadow: 0 0 15px rgba(0, 209, 255, 0.1);
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background overflow-hidden h-screen flex">
+<!-- Sidebar Navigation -->
+<aside class="h-screen w-72 flex flex-col border-r sticky left-0 top-0 border-zinc-800/80 bg-gray-950 dark:bg-zinc-950 font-['Public_Sans'] text-sm font-medium shrink-0">
+<div class="px-6 py-8 flex flex-col gap-1">
+<h1 class="text-lg font-bold text-zinc-100 dark:text-zinc-50 uppercase tracking-widest">Aegis Command</h1>
+<p class="text-[10px] text-cyan-500/60 uppercase tracking-widest font-black">Platform Authority</p>
+</div>
+<nav class="flex-col gap-1 py-4 overflow-y-auto flex-1 px-2">
+<!-- Active Tab: Overview -->
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Overview</span>
+</div>
+<div class="bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500 rounded-r-lg py-3 px-4 flex items-center gap-3 transition-all duration-150 select-none cursor-pointer">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span>Tenants</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span>Packages</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="card_membership">card_membership</span>
+<span>Subscriptions</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Billing</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span>
+<span>Runtime Health</span>
+</div>
+<div class="mt-4 px-4 py-2 text-[10px] text-zinc-600 font-bold uppercase tracking-tighter">Fleet Management</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span>Fleet: Agents</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="robot_2">robot_2</span>
+<span>Fleet: Bots</span>
+</div>
+<div class="mt-4 px-4 py-2 text-[10px] text-zinc-600 font-bold uppercase tracking-tighter">Operations</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span>Audit</span>
+</div>
+<div class="text-zinc-500 hover:text-zinc-300 py-3 px-4 hover:bg-zinc-900/80 hover:text-cyan-400 transition-all duration-150 select-none cursor-pointer flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="settings_backup_restore">settings_backup_restore</span>
+<span>Recovery</span>
+</div>
+</nav>
+<div class="p-6 border-t border-zinc-800/80">
+<button class="w-full bg-zinc-900 text-zinc-100 py-2 rounded font-semibold hover:bg-cyan-600 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="settings">settings</span>
+                Settings
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+<!-- Top Bar -->
+<header class="bg-gray-950/95 dark:bg-zinc-950/95 flex justify-between items-center w-full px-6 py-3 backdrop-blur-md border-b border-zinc-800 z-50 sticky top-0 shadow-xl shadow-black/20 font-['Public_Sans'] font-semibold tracking-tight">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="text-xl font-black tracking-tighter text-cyan-500 uppercase">AEGIS COMMAND</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<span class="text-cyan-400 border-b-2 border-cyan-400 pb-1">Refresh</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-zinc-900 rounded-full border border-zinc-800">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<span class="text-[10px] uppercase tracking-wider text-zinc-400">System Nominal</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer" data-icon="language">language</span>
+<span class="material-symbols-outlined text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer" data-icon="notifications">notifications</span>
+<div class="w-8 h-8 rounded bg-cyan-900/50 border border-cyan-500/30 flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile" class="w-full h-full object-cover" data-alt="Close-up portrait of a tech professional with a serious expression in professional studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoqCX9LSgFfhY612diuxZfQKYBtD4ELX0aXTm6WvHk1Wpt3ZtIqg7dMlAmO6i3jTuuJyDbnPvnUp8DImPnG4yHToRZhwZer7qFb-UpeeMQDCY5suwuZLu28GyIQ_t_Pfd73-1zr_nCVp159iCG2cZVdoxKdN1T5nC3302ih-YtJI-mzUWV6w68BkoE8hHwJN2hhhgtRpkc4sB6t477CiP--zqPDgJpgxAMfKsKe42f8-NL4tuvusrlJ7IqmxvT-wuQk7Nkx5yHSys"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Body Grid -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6 bg-zinc-950">
+<!-- Page Header -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-2xl font-black text-zinc-100 uppercase tracking-tighter">Oversight Dashboard</h2>
+<p class="text-zinc-500 text-sm">Tenant #SC-9042 Detail &amp; Platform Backup Registry</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-bold uppercase rounded hover:text-cyan-400 transition-colors">Generate Report</button>
+<button class="px-4 py-2 bg-cyan-500 text-zinc-950 text-xs font-bold uppercase rounded hover:bg-cyan-400 transition-colors">New Deployment</button>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="bento-grid">
+<!-- Tenant Detail Card -->
+<div class="col-span-12 lg:col-span-8 bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl rounded-full"></div>
+<div class="flex justify-between items-start mb-8">
+<div>
+<span class="text-[10px] font-black uppercase text-cyan-500 tracking-[0.2em]">Tenant Environment</span>
+<h3 class="text-3xl font-bold text-zinc-100">SC-9042: Northern Sector Ops</h3>
+<p class="text-zinc-500 text-sm mt-1">Contract: <span class="text-cyan-500">Tier-3 Enterprise Managed</span> • Active since Aug 2023</p>
+</div>
+<div class="flex gap-4">
+<div class="text-right">
+<p class="text-[10px] uppercase text-zinc-500 font-bold">Health Score</p>
+<p class="text-2xl font-black text-green-500">98.4%</p>
+</div>
+<div class="w-px h-10 bg-zinc-800"></div>
+<div class="text-right">
+<p class="text-[10px] uppercase text-zinc-500 font-bold">SLA Status</p>
+<p class="text-2xl font-black text-zinc-100">STABLE</p>
+</div>
+</div>
+</div>
+<!-- Quota Charts Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="bg-zinc-950/50 p-4 border border-zinc-800 rounded">
+<div class="flex justify-between items-end mb-2">
+<p class="text-xs font-bold text-zinc-400 uppercase">CPU Usage</p>
+<p class="text-lg font-black text-cyan-400">42%</p>
+</div>
+<div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+<div class="bg-cyan-500 h-full" style="width: 42%"></div>
+</div>
+</div>
+<div class="bg-zinc-950/50 p-4 border border-zinc-800 rounded">
+<div class="flex justify-between items-end mb-2">
+<p class="text-xs font-bold text-zinc-400 uppercase">Memory Allocation</p>
+<p class="text-lg font-black text-secondary-container">78%</p>
+</div>
+<div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full" style="width: 78%"></div>
+</div>
+</div>
+<div class="bg-zinc-950/50 p-4 border border-zinc-800 rounded">
+<div class="flex justify-between items-end mb-2">
+<p class="text-xs font-bold text-zinc-400 uppercase">Storage Quota</p>
+<p class="text-lg font-black text-zinc-100">1.2 TB <span class="text-zinc-500 text-xs font-normal">/ 2TB</span></p>
+</div>
+<div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+<div class="bg-zinc-700 h-full" style="width: 60%"></div>
+</div>
+</div>
+</div>
+<!-- Server List -->
+<div class="mb-8">
+<h4 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="dns">dns</span> Active Runtimes
+                        </h4>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-3 bg-zinc-950/30 border border-zinc-800 rounded hover:bg-zinc-900 transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-cyan-500" data-icon="robot_2">robot_2</span>
+<div>
+<p class="text-sm font-bold text-zinc-200">SERVER-BOT: SCUM-ALPHA-01</p>
+<p class="text-[10px] text-zinc-500 font-mono uppercase tracking-tighter">ID: 88-X99 • Status: SYNCING_LOGS</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded">HEALTHY</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-zinc-950/30 border border-zinc-800 rounded hover:bg-zinc-900 transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary-container" data-icon="local_shipping">local_shipping</span>
+<div>
+<p class="text-sm font-bold text-zinc-200">DELIVERY-AGENT: D-PRIME-NORTH</p>
+<p class="text-[10px] text-zinc-500 font-mono uppercase tracking-tighter">ID: 12-W44 • Status: WAITING_FOR_PAYLOAD</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded">HEALTHY</span>
+</div>
+</div>
+</div>
+<!-- Diagnostic Tools -->
+<div>
+<h4 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="terminal">terminal</span> Diagnostics
+                        </h4>
+<div class="flex gap-2">
+<button class="flex-1 py-3 bg-zinc-800/50 border border-zinc-700 rounded text-xs font-bold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all">TRACE NETWORK</button>
+<button class="flex-1 py-3 bg-zinc-800/50 border border-zinc-700 rounded text-xs font-bold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all">FLUSH BUFFER</button>
+<button class="flex-1 py-3 bg-zinc-800/50 border border-zinc-700 rounded text-xs font-bold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all">PING SERVICES</button>
+<button class="flex-1 py-3 bg-zinc-800/50 border border-zinc-700 rounded text-xs font-bold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all text-cyan-400">RE-AUTH STEAM</button>
+</div>
+</div>
+</div>
+<!-- Backup Registry & Detail Card -->
+<div class="col-span-12 lg:col-span-4 space-y-4">
+<!-- Quick Stats -->
+<div class="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-5">
+<p class="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4">Integrity Summary</p>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between">
+<span class="text-sm text-zinc-400">Total Backups</span>
+<span class="text-sm font-bold text-zinc-100">142</span>
+</div>
+<div class="flex justify-between">
+<span class="text-sm text-zinc-400">Redundancy</span>
+<span class="text-sm font-bold text-green-500">3-POINT REPLICA</span>
+</div>
+<div class="flex justify-between">
+<span class="text-sm text-zinc-400">Last Verified</span>
+<span class="text-sm font-bold text-zinc-100">4 min ago</span>
+</div>
+</div>
+</div>
+<!-- Backup Detail Card -->
+<div class="bg-zinc-900 border border-zinc-700/50 rounded-xl p-6 relative overflow-hidden ring-1 ring-zinc-700/30 shadow-2xl">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="text-lg font-black text-zinc-100 leading-tight">BACKUP: FULL_PLATFORM_V42</h4>
+<p class="text-[10px] text-zinc-500 font-mono">HASH: 7F00-BA42-D9A1-00F1</p>
+</div>
+<span class="material-symbols-outlined text-secondary-container" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div class="space-y-4 mb-6">
+<div class="p-3 bg-zinc-950 rounded border border-zinc-800">
+<p class="text-[10px] uppercase text-zinc-500 font-bold mb-1">Integrity Evidence Logs</p>
+<div class="space-y-1 font-mono text-[9px]">
+<div class="flex justify-between">
+<span class="text-zinc-400">CHECKSUM_MD5</span>
+<span class="text-cyan-400">A492B..F200</span>
+</div>
+<div class="flex justify-between">
+<span class="text-zinc-400">ENCRYPTION</span>
+<span class="text-zinc-200 uppercase">AES-256 GCM</span>
+</div>
+<div class="flex justify-between">
+<span class="text-zinc-400">VALIDATION</span>
+<span class="text-green-500 uppercase">SUCCESS</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-zinc-950 p-3 rounded border border-zinc-800">
+<p class="text-[10px] uppercase text-zinc-500 font-bold">Size</p>
+<p class="text-lg font-black text-zinc-100">8.42 GB</p>
+</div>
+<div class="bg-zinc-950 p-3 rounded border border-zinc-800">
+<p class="text-[10px] uppercase text-zinc-500 font-bold">Nodes</p>
+<p class="text-lg font-black text-zinc-100">12,402</p>
+</div>
+</div>
+</div>
+<!-- Restore Action -->
+<div class="pt-4 border-t border-zinc-800">
+<div class="flex items-center gap-2 mb-4 text-error text-[10px] font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+                                Potentially Destructive Action
+                            </div>
+<button class="w-full bg-error text-on-error py-4 rounded font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-error/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" data-icon="settings_backup_restore">settings_backup_restore</span>
+                                Initiate Restore
+                            </button>
+<p class="text-[9px] text-zinc-500 text-center mt-3 leading-relaxed">System-wide downtime will occur during data propagation. Recovery may take up to 480 seconds.</p>
+</div>
+</div>
+</div>
+<!-- Recent Events (Audit Log Subset) -->
+<div class="col-span-12 bg-zinc-900/20 border border-zinc-800/40 rounded-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center">
+<h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Recent Authority Actions</h4>
+<span class="text-[10px] text-zinc-600 font-mono">REEL: LIVE_STREAM_99042</span>
+</div>
+<div class="divide-y divide-zinc-800/40">
+<div class="px-6 py-4 flex items-center justify-between text-xs hover:bg-zinc-800/20 transition-colors">
+<div class="flex items-center gap-4">
+<span class="text-zinc-500 font-mono">14:22:04</span>
+<span class="font-bold text-zinc-300">ADMIN_OVERRIDE</span>
+<span class="text-zinc-500">Resource quota increased for SC-9042</span>
+</div>
+<span class="text-cyan-500/50 font-mono">#90422</span>
+</div>
+<div class="px-6 py-4 flex items-center justify-between text-xs hover:bg-zinc-800/20 transition-colors">
+<div class="flex items-center gap-4">
+<span class="text-zinc-500 font-mono">14:18:12</span>
+<span class="font-bold text-zinc-300">BACKUP_GENERATED</span>
+<span class="text-zinc-500">FULL_PLATFORM_V42 created successfully</span>
+</div>
+<span class="text-cyan-500/50 font-mono">#90421</span>
+</div>
+<div class="px-6 py-4 flex items-center justify-between text-xs hover:bg-zinc-800/20 transition-colors">
+<div class="flex items-center gap-4">
+<span class="text-zinc-500 font-mono">14:05:45</span>
+<span class="font-bold text-error">CRITICAL_WARNING</span>
+<span class="text-zinc-500">Storage reaching threshold (82%) on Node-B</span>
+</div>
+<span class="text-error/50 font-mono">#90420</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Global Status Strip -->
+<footer class="bg-zinc-950 border-t border-zinc-800 px-6 py-2 flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+<div class="flex gap-6">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                    API: LATEST
+                </div>
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    FLEET: SYNCHRONIZED
+                </div>
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-zinc-700"></span>
+                    LATENCY: 14MS
+                </div>
+</div>
+<div class="text-zinc-600">
+                © 2024 AEGIS COMMAND PLATFORM • AUTH LEVEL 5
+            </div>
+</footer>
+</main>
+</body></html>

@@ -26,6 +26,7 @@ function buildPortalHealthPayload(settings) {
       cookieSameSite: settings.cookieSameSite,
       enforceOriginCheck: settings.enforceOriginCheck,
       discordOAuthConfigured: settings.discordOAuthConfigured,
+      googleOAuthConfigured: settings.googleOAuthConfigured,
       playerOpenAccess: settings.playerOpenAccess,
       requireGuildMember: settings.requireGuildMember,
       legacyAdminUrl: settings.legacyAdminUrl,
@@ -81,6 +82,9 @@ function buildPortalRuntimeSettings(settings) {
     discordOAuthConfigured: Boolean(settings.discordOAuthConfigured),
     discordClientId: settings.discordClientId || '',
     discordClientSecret: settings.discordClientSecret || '',
+    googleOAuthConfigured: Boolean(settings.googleOAuthConfigured),
+    googleClientId: settings.googleClientId || '',
+    googleClientSecret: settings.googleClientSecret || '',
     discordGuildId: settings.discordGuildId || '',
     playerOpenAccess: Boolean(settings.playerOpenAccess),
     requireGuildMember: Boolean(settings.requireGuildMember),
@@ -105,6 +109,21 @@ function isDiscordCallbackPath(pathname, redirectPath = '/auth/discord/callback'
   );
 }
 
+function isGoogleStartPath(pathname) {
+  return pathname === '/auth/google/start' || pathname === '/admin/auth/google/start';
+}
+
+function isGoogleCallbackPath(pathname, redirectPath = '/auth/google/callback') {
+  const normalizedPath = String(redirectPath || '/auth/google/callback').startsWith('/')
+    ? String(redirectPath || '/auth/google/callback')
+    : `/${String(redirectPath || '/auth/google/callback')}`;
+  return (
+    pathname === '/auth/google/callback'
+    || pathname === '/admin/auth/google/callback'
+    || pathname === normalizedPath
+  );
+}
+
 function buildPortalStartupValidation(settings) {
   const errors = [];
   const warnings = [];
@@ -124,16 +143,29 @@ function buildPortalStartupValidation(settings) {
     errors.push('WEB_PORTAL_LEGACY_ADMIN_URL is invalid URL');
   }
 
-  if (!settings.discordClientId) {
-    errors.push('WEB_PORTAL_DISCORD_CLIENT_ID is required');
+  const discordConfigured = Boolean(settings.discordClientId && settings.discordClientSecret);
+  const googleConfigured = Boolean(settings.googleClientId && settings.googleClientSecret);
+  const discordPartial = Boolean(settings.discordClientId || settings.discordClientSecret) && !discordConfigured;
+  const googlePartial = Boolean(settings.googleClientId || settings.googleClientSecret) && !googleConfigured;
+
+  if (discordPartial) {
+    errors.push('Discord OAuth configuration requires both WEB_PORTAL_DISCORD_CLIENT_ID and WEB_PORTAL_DISCORD_CLIENT_SECRET');
   }
 
-  if (!settings.discordClientSecret) {
-    errors.push('WEB_PORTAL_DISCORD_CLIENT_SECRET is required');
+  if (googlePartial) {
+    errors.push('Google OAuth configuration requires both WEB_PORTAL_GOOGLE_CLIENT_ID and WEB_PORTAL_GOOGLE_CLIENT_SECRET');
+  }
+
+  if (!discordConfigured && !googleConfigured) {
+    errors.push('At least one player OAuth provider must be configured: Discord or Google');
   }
 
   if (!settings.playerOpenAccess && settings.requireGuildMember && !settings.discordGuildId) {
     errors.push('WEB_PORTAL_REQUIRE_GUILD_MEMBER=true requires WEB_PORTAL_DISCORD_GUILD_ID');
+  }
+
+  if (!settings.playerOpenAccess && settings.requireGuildMember && !discordConfigured) {
+    errors.push('WEB_PORTAL_REQUIRE_GUILD_MEMBER=true requires Discord OAuth to be configured');
   }
 
   if (settings.mode !== 'player') {
@@ -160,7 +192,7 @@ function buildPortalStartupValidation(settings) {
   }
 
   if (settings.cookieSameSite === 'Strict') {
-    warnings.push('WEB_PORTAL_COOKIE_SAMESITE=Strict may break Discord OAuth redirect flow');
+    warnings.push('WEB_PORTAL_COOKIE_SAMESITE=Strict may break OAuth redirect flow');
   }
 
   if (settings.cookieSameSite === 'None' && !settings.secureCookie) {
@@ -246,5 +278,7 @@ module.exports = {
   buildPortalStartupValidation,
   isDiscordCallbackPath,
   isDiscordStartPath,
+  isGoogleCallbackPath,
+  isGoogleStartPath,
   printPortalStartupHints,
 };

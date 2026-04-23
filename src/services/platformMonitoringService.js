@@ -202,7 +202,7 @@ async function runPlatformMonitoringCycle({ client = null, force = false } = {})
       const [runtimeSupervisor, agentRuntimes, tenants, subscriptions] = await Promise.all([
         getRuntimeSupervisorSnapshot({ forceRefresh: true }).catch(() => null),
         listPlatformAgentRuntimes({ limit: 500, allowGlobal: true }),
-        listPlatformTenants({ limit: 500 }),
+        listPlatformTenants({ limit: 500, allowGlobal: true }),
         listPlatformSubscriptions({ limit: 500, allowGlobal: true }).catch(() => []),
       ]);
 

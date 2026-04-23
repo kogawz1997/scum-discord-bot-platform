@@ -219,6 +219,7 @@ function createInteractionHandler(deps) {
           inGameName: null,
           allowReplace: false,
           allowSteamReuse: false,
+          guildId: interaction.guildId || interaction.guild?.id || null,
         });
 
         if (!result.ok && result.reason === 'steam-already-linked') {

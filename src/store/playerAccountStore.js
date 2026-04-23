@@ -4,6 +4,7 @@ const {
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,
 } = require('../prisma');
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
 
 function normalizeDiscordId(value) {
   const id = String(value || '').trim();
@@ -25,6 +26,12 @@ function normalizeText(value) {
 
 function resolveStoreScope(options = {}) {
   const tenantId = resolveDefaultTenantId(options);
+  assertTenantDbIsolationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'player account store scope',
+    env: options.env || process.env,
+  });
   if (!tenantId) {
     return {
       tenantId: null,
@@ -174,6 +181,7 @@ async function getPlayerDashboard(discordId, options = {}) {
 module.exports = {
   normalizeDiscordId,
   normalizeSteamId,
+  resolveStoreScope,
   upsertPlayerAccount,
   bindPlayerSteamId,
   unbindPlayerSteamId,

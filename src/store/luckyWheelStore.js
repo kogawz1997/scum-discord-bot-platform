@@ -7,8 +7,11 @@ const {
 
 const MAX_HISTORY_PER_USER = 80;
 
-function getLuckyWheelDb(options = {}) {
-  return resolveTenantStoreScope(options).db;
+function getLuckyWheelDb(options = {}, operation = 'lucky wheel store operation') {
+  return resolveTenantStoreScope({
+    ...options,
+    operation: String(options.operation || '').trim() || operation,
+  }).db;
 }
 
 function normalizeUserId(userId) {
@@ -85,7 +88,7 @@ function toStateView(userId, row, limit = 20) {
 async function getUserWheelState(userId, limit = 20, options = {}) {
   const id = buildServerScopedUserKey(userId, options);
   if (!id) return null;
-  const row = await getLuckyWheelDb(options).luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb(options, 'get lucky wheel state').luckyWheelState.findUnique({
     where: { userId: id },
   });
   return toStateView(id, row, limit);
@@ -100,7 +103,7 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now(), options = {}
     return { ok: true, remainingMs: 0, lastSpinAt: null, nextSpinAt: null };
   }
 
-  const row = await getLuckyWheelDb(options).luckyWheelState.findUnique({
+  const row = await getLuckyWheelDb(options, 'check lucky wheel cooldown').luckyWheelState.findUnique({
     where: { userId: id },
     select: { lastSpinAt: true },
   });
@@ -141,7 +144,7 @@ async function recordWheelSpin(userId, rewardEntry, options = {}) {
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb(options).$transaction(async (tx) => {
+  const next = await getLuckyWheelDb(options, 'record lucky wheel spin').$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -186,7 +189,7 @@ async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb(options).$transaction(async (tx) => {
+  const next = await getLuckyWheelDb(options, 'rollback lucky wheel spin').$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -233,7 +236,7 @@ async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
 }
 
 async function listLuckyWheelStates(limit = 1000, options = {}) {
-  const rows = await getLuckyWheelDb(options).luckyWheelState.findMany({
+  const rows = await getLuckyWheelDb(options, 'list lucky wheel states').luckyWheelState.findMany({
     orderBy: { updatedAt: 'desc' },
     take: Math.max(1, Number(limit || 1000)),
   });
@@ -247,7 +250,7 @@ async function listLuckyWheelStates(limit = 1000, options = {}) {
 }
 
 async function replaceLuckyWheelStates(nextRows = [], options = {}) {
-  await getLuckyWheelDb(options).$transaction(async (tx) => {
+  await getLuckyWheelDb(options, 'replace lucky wheel states').$transaction(async (tx) => {
     if (options.serverId) {
       const existingRows = await tx.luckyWheelState.findMany();
       for (const row of existingRows) {

@@ -94,7 +94,11 @@ function createPlatformMarketplaceService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformMarketplaceOffer.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform marketplace global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformMarketplaceOffer.findMany({

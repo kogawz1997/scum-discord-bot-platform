@@ -7,6 +7,8 @@ const {
 const { creditCoins } = require('./coinService');
 const { createQueuedPurchase } = require('./shopService');
 const { resolveItemIconUrl } = require('./itemIconService');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -22,6 +24,23 @@ function normalizeQuantity(value, fallback = 1) {
   const quantity = Number(value);
   if (!Number.isFinite(quantity)) return fallback;
   return Math.max(1, Math.trunc(quantity));
+}
+
+function resolveWheelScope(params = {}, operation = 'wheel reward') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
+  };
 }
 
 function normalizeReward(raw = {}) {
@@ -71,11 +90,7 @@ async function awardWheelRewardForUser(params = {}) {
   const userId = normalizeText(params.userId);
   const actor = normalizeText(params.actor) || 'system';
   const source = normalizeText(params.source) || 'wheel-service';
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
+  const scopeOptions = resolveWheelScope(params, 'award wheel reward');
   const reward = normalizeReward(params.reward);
   const rewardAt = params.now instanceof Date
     ? params.now.toISOString()

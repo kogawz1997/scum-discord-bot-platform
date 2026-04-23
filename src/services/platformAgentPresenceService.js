@@ -198,6 +198,27 @@ function createPlatformAgentPresenceService(options = {}) {
     };
   }
 
+  function resolveServerConfigScope() {
+    if (role !== 'sync' || scope !== 'sync_only') {
+      return {
+        ok: false,
+        error: 'platform-agent-server-bot-required',
+      };
+    }
+    if (!tenantId || !serverId || !runtimeKey) {
+      return {
+        ok: false,
+        error: 'platform-agent-server-config-scope-required',
+      };
+    }
+    return {
+      ok: true,
+      tenantId,
+      serverId,
+      runtimeKey,
+    };
+  }
+
   async function ensureActivated() {
     const existingToken = buildBearerToken(env, {
       ...state,
@@ -316,15 +337,17 @@ function createPlatformAgentPresenceService(options = {}) {
   }
 
   async function uploadServerConfigSnapshot(snapshot = {}) {
+    const configScope = resolveServerConfigScope();
+    if (!configScope.ok) return configScope;
     const activation = await ensureActivated();
     if (!activation.ok) return activation;
     return requestJson(
       'POST',
       '/platform/api/v1/server-config/snapshot',
       {
-        tenantId,
-        serverId,
-        runtimeKey,
+        tenantId: configScope.tenantId,
+        serverId: configScope.serverId,
+        runtimeKey: configScope.runtimeKey,
         snapshot,
       },
       activation.token,
@@ -332,23 +355,27 @@ function createPlatformAgentPresenceService(options = {}) {
   }
 
   async function claimNextServerConfigJob() {
+    const configScope = resolveServerConfigScope();
+    if (!configScope.ok) return configScope;
     const activation = await ensureActivated();
     if (!activation.ok) return activation;
-    const query = `?tenantId=${encodeURIComponent(tenantId || '')}&serverId=${encodeURIComponent(serverId || '')}&runtimeKey=${encodeURIComponent(runtimeKey)}`;
+    const query = `?tenantId=${encodeURIComponent(configScope.tenantId)}&serverId=${encodeURIComponent(configScope.serverId)}&runtimeKey=${encodeURIComponent(configScope.runtimeKey)}`;
     return requestJson('GET', `/platform/api/v1/server-config/jobs/next${query}`, null, activation.token);
   }
 
   async function reportServerConfigJobResult(payload = {}) {
+    const configScope = resolveServerConfigScope();
+    if (!configScope.ok) return configScope;
     const activation = await ensureActivated();
     if (!activation.ok) return activation;
     return requestJson(
       'POST',
       '/platform/api/v1/server-config/jobs/result',
       {
-        tenantId,
-        serverId,
-        runtimeKey,
         ...payload,
+        tenantId: configScope.tenantId,
+        serverId: configScope.serverId,
+        runtimeKey: configScope.runtimeKey,
       },
       activation.token,
     );

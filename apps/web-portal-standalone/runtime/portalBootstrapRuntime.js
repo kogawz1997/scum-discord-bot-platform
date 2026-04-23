@@ -101,6 +101,15 @@ const {
   issueEmailVerificationToken,
 } = require('../../../src/services/platformIdentityService');
 const {
+  bindSteamLinkForUser,
+  removeSteamLink,
+} = require('../../../src/services/linkService');
+const {
+  createPlayerSupportTicket,
+  listSupportTicketsForUser,
+  closeSupportTicketForUser,
+} = require('../../../src/services/ticketService');
+const {
   createRaidRequest,
   listRaidRequests,
   listRaidSummaries,
@@ -145,6 +154,8 @@ const {
   buildPortalRuntimeSettings,
   isDiscordCallbackPath,
   isDiscordStartPath,
+  isGoogleCallbackPath,
+  isGoogleStartPath,
   printPortalStartupHints,
 } = require('./portalRuntime');
 const {
@@ -208,11 +219,14 @@ function createPortalBootstrapRuntime({
     enforceOriginCheck,
     discordClientId,
     discordClientSecret,
+    googleClientId,
+    googleClientSecret,
     discordGuildId,
     playerOpenAccess,
     requireGuildMember,
     oauthStateTtlMs,
     discordRedirectPath,
+    googleRedirectPath,
     cleanupIntervalMs,
     publicAssetsDirPath,
     discordApiBase,
@@ -279,8 +293,11 @@ function createPortalBootstrapRuntime({
       cookieDomain: sessionCookieDomain,
       enforceOriginCheck,
       discordOAuthConfigured: Boolean(discordClientId && discordClientSecret),
+      googleOAuthConfigured: Boolean(googleClientId && googleClientSecret),
       discordClientId,
       discordClientSecret,
+      googleClientId,
+      googleClientSecret,
       discordGuildId,
       playerOpenAccess,
       requireGuildMember,
@@ -372,11 +389,15 @@ function createPortalBootstrapRuntime({
     discordApiBase,
     discordClientId,
     discordClientSecret,
+    googleClientId,
+    googleClientSecret,
     discordGuildId,
     discordRedirectPath,
+    googleRedirectPath,
     sendJson,
     upsertPlayerAccount,
     ensurePlatformPlayerIdentity,
+    getPlatformUserIdentitySummary,
     identityTenantId: resolveDefaultTenantId() || null,
     identityLocale: String(config.platform?.localization?.defaultLocale || 'en').trim().toLowerCase() || 'en',
     buildDiscordAvatarUrl,
@@ -394,6 +415,8 @@ function createPortalBootstrapRuntime({
     getSession,
     handleDiscordCallback,
     handleDiscordStart,
+    handleGoogleCallback,
+    handleGoogleStart,
     removeSession,
     verifyOrigin,
   } = portalAuthRuntime;
@@ -464,17 +487,37 @@ function createPortalBootstrapRuntime({
   }
 
   async function getPublicServerPortalSnapshot(slugValue) {
-    const tenant = await getPlatformTenantBySlug(slugValue);
+    let tenant = null;
+    try {
+      tenant = await getPlatformTenantBySlug(slugValue);
+    } catch (error) {
+      console.warn('[web-portal-standalone] public server lookup unavailable', error?.message || error);
+      tenant = null;
+    }
     if (!tenant?.id) {
       return null;
     }
 
     const tenantId = tenant.id;
-    const servers = await listServerRegistry({ tenantId });
+    let servers = [];
+    try {
+      servers = await listServerRegistry({ tenantId });
+    } catch (error) {
+      console.warn('[web-portal-standalone] public server registry unavailable', error?.message || error);
+      servers = [];
+    }
     const primaryServerId = servers[0]?.id || null;
-    const rawFeatureAccess = await getTenantFeatureAccess(tenantId, {
-      allowFallback: true,
-    });
+    let rawFeatureAccess = {
+      tenantId,
+      enabledFeatureKeys: [],
+    };
+    try {
+      rawFeatureAccess = await getTenantFeatureAccess(tenantId, {
+        allowFallback: true,
+      });
+    } catch (error) {
+      console.warn('[web-portal-standalone] public feature access unavailable', error?.message || error);
+    }
     const featureAccess = buildPlayerPortalFeatureAccess(rawFeatureAccess);
 
     const [
@@ -485,11 +528,11 @@ function createPortalBootstrapRuntime({
       raidSummariesRaw,
       donationOverview,
     ] = await Promise.all([
-      listShopItems({
+      readOptionalPublicData('public-shop-items', () => listShopItems({
         tenantId,
         includeDisabled: false,
         includeTestItems: false,
-      }),
+      }), []),
       readOptionalPublicData('public-stats', () => listAllStats({ tenantId, serverId: primaryServerId }), []),
       readOptionalPublicData('public-killfeed', () => listKillFeedEntries({ tenantId, serverId: primaryServerId, limit: 12 }), []),
       readOptionalPublicData('public-raid-windows', () => listRaidWindows({ tenantId, serverId: primaryServerId, limit: 6 }), []),
@@ -638,6 +681,8 @@ function createPortalBootstrapRuntime({
       buildNotificationItems,
       getLinkBySteamId,
       setLink,
+      bindSteamLinkForUser,
+      removeSteamLink,
       claimRewardForUser,
       checkRewardClaimForUser,
       msToHoursMinutes,
@@ -651,6 +696,9 @@ function createPortalBootstrapRuntime({
       getTenantFeatureAccess,
       getPlatformUserIdentitySummary,
       issueEmailVerificationToken,
+      createPlayerSupportTicket,
+      listSupportTicketsForUser,
+      closeSupportTicketForUser,
       createRaidRequest,
       listRaidRequests,
       listRaidWindows,
@@ -676,6 +724,8 @@ function createPortalBootstrapRuntime({
       previewHtmlPath,
       trialHtmlPath,
       showcaseHtmlPath,
+      discordOAuthConfigured: Boolean(discordClientId && discordClientSecret),
+      googleOAuthConfigured: Boolean(googleClientId && googleClientSecret),
       publicAssetsDirPath,
       docsDirPath,
       scumItemsDirPath,
@@ -691,8 +741,9 @@ function createPortalBootstrapRuntime({
       createCaptureSession: () => createSession({
         user: 'Capture Player',
         role: 'player',
-        discordId: 'capture_player',
+        discordId: String(process.env.WEB_PORTAL_CAPTURE_DISCORD_ID || '100000000000000000').trim(),
         authMethod: 'capture',
+        tenantId: String(process.env.WEB_PORTAL_CAPTURE_TENANT_ID || resolveDefaultTenantId() || '').trim() || null,
         avatarUrl: null,
       }),
       buildSessionCookie,
@@ -707,8 +758,12 @@ function createPortalBootstrapRuntime({
       getPublicServerPortalSnapshot,
       isDiscordStartPath,
       isDiscordCallbackPath: (pathname) => isDiscordCallbackPath(pathname, discordRedirectPath),
+      isGoogleStartPath,
+      isGoogleCallbackPath: (pathname) => isGoogleCallbackPath(pathname, googleRedirectPath),
       handleDiscordStart,
       handleDiscordCallback,
+      handleGoogleStart,
+      handleGoogleCallback,
       getSession,
       getPreviewSession,
     },

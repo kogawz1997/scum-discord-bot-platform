@@ -222,6 +222,53 @@ function createMockRestartDelegatePrisma() {
   };
 }
 
+function withRestartStrictIsolationEnv(run) {
+  const previous = {
+    TENANT_DB_ISOLATION_MODE: process.env.TENANT_DB_ISOLATION_MODE,
+    DATABASE_PROVIDER: process.env.DATABASE_PROVIDER,
+    PRISMA_SCHEMA_PROVIDER: process.env.PRISMA_SCHEMA_PROVIDER,
+    DATABASE_URL: process.env.DATABASE_URL,
+  };
+  process.env.TENANT_DB_ISOLATION_MODE = 'strict';
+  process.env.DATABASE_PROVIDER = 'postgresql';
+  process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+  process.env.DATABASE_URL = 'postgresql://tenant-scope:test@localhost:5432/scum';
+  try {
+    return run();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+function withEnv(overrides, run) {
+  const previous = {};
+  for (const [key, value] of Object.entries(overrides || {})) {
+    previous[key] = process.env[key];
+    if (value == null) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  try {
+    return run();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 async function cleanupRestartFixtures() {
   await ensurePlatformRestartTables(prisma);
   await prisma.$executeRawUnsafe("DELETE FROM platform_restart_executions WHERE tenant_id = 'tenant-restart-test'").catch(() => null);
@@ -289,6 +336,49 @@ test('platform restart orchestration prefers Prisma delegates when sqlite runtim
   assert.equal(snapshot.planCount, 1);
   assert.ok(snapshot.announcementCount >= 1);
   assert.equal(snapshot.executionCount, 1);
+});
+
+test('platform restart orchestration requires delegates when db-only posture is enabled', async () => {
+  const rawDb = {
+    rawQueryCalls: 0,
+    rawExecuteCalls: 0,
+    async $queryRaw() {
+      this.rawQueryCalls += 1;
+      return [];
+    },
+    async $executeRaw() {
+      this.rawExecuteCalls += 1;
+      return [];
+    },
+    async $queryRawUnsafe() {
+      this.rawQueryCalls += 1;
+      return [];
+    },
+    async $executeRawUnsafe() {
+      this.rawExecuteCalls += 1;
+      return [];
+    },
+    async $transaction(work) {
+      return work(this);
+    },
+    async $disconnect() {},
+  };
+
+  await withEnv({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'file:./restart-db-only-required.db',
+    DATABASE_PROVIDER: 'sqlite',
+    PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: 'true',
+  }, async () => {
+    await assert.rejects(
+      () => ensurePlatformRestartTables(rawDb),
+      (error) => String(error?.code || '') === 'PLATFORM_RESTART_SCHEMA_REQUIRED',
+    );
+  });
+
+  assert.equal(rawDb.rawQueryCalls, 0);
+  assert.equal(rawDb.rawExecuteCalls, 0);
 });
 
 test('platform restart orchestration repairs shared sqlite DateTime rows before using Prisma delegates', { concurrency: false }, async (t) => {
@@ -478,6 +568,141 @@ test('platform restart orchestration reuses duplicate active restart plans', { c
     limit: 10,
   });
   assert.equal(plans.length, 1);
+});
+
+test('platform restart orchestration requires explicit allowGlobal for global restart listings in strict mode', async () => {
+  await withRestartStrictIsolationEnv(async () => {
+    const mockDb = createMockRestartDelegatePrisma();
+    const strictEnv = {
+      ...process.env,
+      TENANT_DB_ISOLATION_MODE: 'strict',
+      DATABASE_PROVIDER: 'postgresql',
+      PRISMA_SCHEMA_PROVIDER: 'postgresql',
+      DATABASE_URL: 'postgresql://tenant-scope:test@localhost:5432/scum',
+    };
+    await mockDb.prisma.platformRestartPlan.create({
+      data: {
+        id: 'rplan-strict',
+        tenantId: 'tenant-a',
+        serverId: 'server-a',
+        status: 'scheduled',
+        restartMode: 'delayed',
+        controlMode: 'service',
+        scheduledFor: new Date('2026-04-04T00:00:00.000Z'),
+        delaySeconds: 0,
+      },
+    });
+    await mockDb.prisma.platformRestartExecution.create({
+      data: {
+        id: 'rexec-strict',
+        tenantId: 'tenant-a',
+        serverId: 'server-a',
+        planId: 'rplan-strict',
+        action: 'restart',
+        resultStatus: 'succeeded',
+        startedAt: new Date('2026-04-04T00:00:00.000Z'),
+      },
+    });
+
+    await assert.rejects(
+      () => listRestartPlans({ env: strictEnv }, mockDb.prisma),
+      (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+    );
+    await assert.rejects(
+      () => listRestartExecutions({ env: strictEnv }, mockDb.prisma),
+      (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+    );
+
+    const globalPlans = await listRestartPlans({ allowGlobal: true, env: strictEnv }, mockDb.prisma);
+    const globalExecutions = await listRestartExecutions({ allowGlobal: true, env: strictEnv }, mockDb.prisma);
+    assert.equal(globalPlans.length, 1);
+    assert.equal(globalExecutions.length, 1);
+
+    const tenantPlans = await listRestartPlans({ tenantId: 'tenant-a', env: strictEnv }, mockDb.prisma);
+    const tenantExecutions = await listRestartExecutions({ tenantId: 'tenant-a', env: strictEnv }, mockDb.prisma);
+    assert.equal(tenantPlans.length, 1);
+    assert.equal(tenantExecutions.length, 1);
+    assert.equal(String(tenantPlans[0]?.tenantId || ''), 'tenant-a');
+    assert.equal(String(tenantExecutions[0]?.tenantId || ''), 'tenant-a');
+  });
+});
+
+test('platform restart orchestration requires explicit allowGlobal for global due restart scans in strict mode', async () => {
+  await withRestartStrictIsolationEnv(async () => {
+    const mockDb = createMockRestartDelegatePrisma();
+    const strictEnv = {
+      ...process.env,
+      TENANT_DB_ISOLATION_MODE: 'strict',
+      DATABASE_PROVIDER: 'postgresql',
+      PRISMA_SCHEMA_PROVIDER: 'postgresql',
+      DATABASE_URL: 'postgresql://tenant-scope:test@localhost:5432/scum',
+    };
+    const dueAt = new Date('2026-04-04T00:00:00.000Z');
+    await mockDb.prisma.platformRestartPlan.create({
+      data: {
+        id: 'rplan-due-strict',
+        tenantId: 'tenant-a',
+        serverId: 'server-a',
+        status: 'scheduled',
+        restartMode: 'delayed',
+        controlMode: 'service',
+        scheduledFor: dueAt,
+        delaySeconds: 0,
+        createdAt: dueAt,
+      },
+    });
+    await mockDb.prisma.platformRestartAnnouncement.create({
+      data: {
+        id: 'rann-due-strict',
+        planId: 'rplan-due-strict',
+        tenantId: 'tenant-a',
+        serverId: 'server-a',
+        checkpointSeconds: 60,
+        message: 'Restart soon',
+        channel: 'system',
+        status: 'pending',
+        scheduledFor: dueAt,
+        createdAt: dueAt,
+      },
+    });
+
+    await assert.rejects(
+      () => listDueRestartPlans({ now: '2026-04-05T00:00:00.000Z', env: strictEnv }, mockDb.prisma),
+      (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+    );
+    await assert.rejects(
+      () => listDueRestartAnnouncements({ now: '2026-04-05T00:00:00.000Z', env: strictEnv }, mockDb.prisma),
+      (error) => error?.code === 'TENANT_DB_SCOPE_REQUIRED',
+    );
+
+    const globalDuePlans = await listDueRestartPlans({
+      allowGlobal: true,
+      now: '2026-04-05T00:00:00.000Z',
+      env: strictEnv,
+    }, mockDb.prisma);
+    const globalDueAnnouncements = await listDueRestartAnnouncements({
+      allowGlobal: true,
+      now: '2026-04-05T00:00:00.000Z',
+      env: strictEnv,
+    }, mockDb.prisma);
+    assert.equal(globalDuePlans.length, 1);
+    assert.equal(globalDueAnnouncements.length, 1);
+
+    const tenantDuePlans = await listDueRestartPlans({
+      tenantId: 'tenant-a',
+      now: '2026-04-05T00:00:00.000Z',
+      env: strictEnv,
+    }, mockDb.prisma);
+    const tenantDueAnnouncements = await listDueRestartAnnouncements({
+      tenantId: 'tenant-a',
+      now: '2026-04-05T00:00:00.000Z',
+      env: strictEnv,
+    }, mockDb.prisma);
+    assert.equal(tenantDuePlans.length, 1);
+    assert.equal(tenantDueAnnouncements.length, 1);
+    assert.equal(String(tenantDuePlans[0]?.tenantId || ''), 'tenant-a');
+    assert.equal(String(tenantDueAnnouncements[0]?.tenantId || ''), 'tenant-a');
+  });
 });
 
 test('platform restart orchestration lists due announcements and marks them sent', { concurrency: false }, async (t) => {

@@ -11,16 +11,21 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
+function buildScopeOptions(params = {}, operation = 'scum status update') {
+  return {
+    tenantId: normalizeText(params.tenantId),
+    defaultTenantId: normalizeText(params.defaultTenantId),
+    env: params.env,
+    operation,
+  };
+}
+
 function updateScumStatusForAdmin(params = {}) {
   const onlinePlayers = normalizeOptionalInt(params.onlinePlayers);
   const maxPlayers = normalizeOptionalInt(params.maxPlayers);
   const pingMs = normalizeOptionalInt(params.pingMs);
   const uptimeMinutes = normalizeOptionalInt(params.uptimeMinutes);
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
+  const scopeOptions = buildScopeOptions(params);
 
   if (
     onlinePlayers == null

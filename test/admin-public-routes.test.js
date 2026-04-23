@@ -44,6 +44,7 @@ function buildRoutes(overrides = {}) {
     isAuthorized: () => true,
     getAuthContext: () => ({ user: 'owner', role: 'owner', tenantId: null }),
     getLoginHtml: () => '<login/>',
+    getOwnerLoginHtml: () => '<owner-login/>',
     getTenantLoginHtml: () => '<tenant-login/>',
     getOwnerConsoleHtml: () => '<owner/>',
     getTenantConsoleHtml: () => '<tenant/>',
@@ -440,7 +441,7 @@ test('owner login stays on login page when stale platform admin session is inval
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<login/>');
+  assert.equal(res.body, '<owner-login/>');
   assert.equal(res.headers['Set-Cookie'], 'scum_admin_session=; Max-Age=0');
 });
 
@@ -550,7 +551,7 @@ test('owner login route serves login html when unauthenticated', async () => {
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<login/>');
+  assert.equal(res.body, '<owner-login/>');
 });
 
 test('tenant login route serves login html when unauthenticated', async () => {
@@ -716,7 +717,7 @@ test('owner login route stays on owner login for tenant-scoped admins', async ()
 
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body, '<login/>');
+  assert.equal(res.body, '<owner-login/>');
 });
 
 test('admin public healthz uses the redacted persistence payload', async () => {

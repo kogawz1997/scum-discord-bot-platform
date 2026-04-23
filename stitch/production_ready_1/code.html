@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>สรุปรายได้และระบบบัญชี | SCUM Managed Services</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bbc9cf",
+                        "inverse-surface": "#e3e2e4",
+                        "surface-tint": "#4cd6ff",
+                        "outline-variant": "#3c494e",
+                        "tertiary": "#ffd1ce",
+                        "surface-container": "#1f2022",
+                        "surface-bright": "#38393b",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface": "#121315",
+                        "secondary-fixed": "#ffdea8",
+                        "secondary-fixed-dim": "#ffba20",
+                        "primary": "#a4e6ff",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-fixed": "#410004",
+                        "on-tertiary-container": "#a10017",
+                        "on-primary": "#003543",
+                        "on-surface": "#e3e2e4",
+                        "surface-container-high": "#292a2c",
+                        "primary-fixed": "#b7eaff",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "surface-container-highest": "#343537",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "on-error-container": "#ffdad6",
+                        "outline": "#859399",
+                        "on-background": "#e3e2e4",
+                        "on-primary-fixed": "#001f28",
+                        "background": "#121315",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-secondary-fixed": "#271900",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-dim": "#121315",
+                        "tertiary-container": "#ffaaa4",
+                        "secondary": "#ffdb9d",
+                        "on-secondary": "#412d00",
+                        "error-container": "#93000a",
+                        "surface-variant": "#343537",
+                        "on-tertiary": "#68000b",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-primary-container": "#00566a",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "inverse-on-surface": "#303032",
+                        "inverse-primary": "#00677f",
+                        "primary-container": "#00d1ff",
+                        "surface-container-low": "#1b1c1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Prompt"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    "boxShadow": {
+                        "premium": "0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)",
+                        "premium-light": "0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02)",
+                        "cyan-glow": "0 0 20px rgba(0, 209, 255, 0.15)",
+                        "drawer": "-10px 0 50px -12px rgba(0, 0, 0, 0.6)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Prompt', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #343537; border-radius: 2px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #343537; }
+        .light .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
+        
+        .light body { background-color: #f8fafc; color: #1e293b; }
+        .light header { background-color: rgba(255, 255, 255, 0.95); border-color: #e2e8f0; }
+        .light aside { background-color: #ffffff; border-color: #e2e8f0; }
+        .light .bg-surface-container { background-color: #ffffff; border-color: #e2e8f0; }
+        .light .bg-zinc-950 { background-color: #f1f5f9; }
+        .light .bg-zinc-900\/50 { background-color: #f8fafc; }
+        .light .text-zinc-400 { color: #64748b; }
+        .light .text-zinc-500 { color: #475569; }
+        .light .text-white { color: #0f172a; }
+        .light .border-zinc-800, .light .border-zinc-900, .light .border-outline-variant { border-color: #e2e8f0; }
+        .light .bg-zinc-950\/95 { background-color: rgba(255, 255, 255, 0.95); }
+        .light .shadow-premium { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02); }
+        .light .shadow-drawer { box-shadow: -10px 0 50px -12px rgba(0, 0, 0, 0.15); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface custom-scrollbar transition-colors duration-300">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-md h-16 flex justify-between items-center px-6 transition-all duration-300">
+<div class="flex items-center gap-4">
+<span class="text-xl font-black text-[#00D1FF] tracking-tighter uppercase font-headline">SCUM Managed Services</span>
+<div class="h-6 w-px bg-zinc-800 dark:bg-zinc-800 light:bg-slate-200 mx-2"></div>
+<nav class="hidden md:flex gap-6 items-center font-headline font-medium uppercase tracking-wider text-sm">
+<a class="text-zinc-400 hover:text-white transition-colors duration-200 py-1" href="#">Platform</a>
+<a class="text-zinc-400 hover:text-white transition-colors duration-200 py-1" href="#">Tenants</a>
+<a class="text-[#00D1FF] border-b-2 border-[#00D1FF] pb-1" href="#">Billing</a>
+<a class="text-zinc-400 hover:text-white transition-colors duration-200 py-1" href="#">Observability</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<!-- Theme Toggle -->
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 light:hover:bg-slate-100 hover:text-[#00D1FF] rounded transition-all flex items-center justify-center active:scale-95" onclick="document.documentElement.classList.toggle('dark')" title="Toggle Theme">
+<span class="material-symbols-outlined dark:hidden">dark_mode</span>
+<span class="material-symbols-outlined hidden dark:block">light_mode</span>
+</button>
+<!-- i18n Dropdown -->
+<div class="relative group">
+<button class="flex items-center gap-2 p-2 text-zinc-400 hover:bg-zinc-900/50 light:hover:bg-slate-100 hover:text-[#00D1FF] rounded transition-all text-xs font-bold uppercase tracking-widest active:scale-95">
+<span class="material-symbols-outlined text-sm">language</span>
+<span>TH</span>
+<span class="material-symbols-outlined text-xs transition-transform group-hover:rotate-180">expand_more</span>
+</button>
+<div class="absolute right-0 top-full mt-1 w-40 bg-zinc-950 light:bg-white border border-zinc-800 light:border-slate-200 rounded-lg shadow-premium overflow-hidden hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+<button class="w-full text-left px-4 py-3 text-xs font-bold text-[#00D1FF] hover:bg-zinc-900 light:hover:bg-slate-50 flex items-center justify-between">
+<span>THAI (TH)</span>
+<span class="material-symbols-outlined text-sm">check</span>
+</button>
+<button class="w-full text-left px-4 py-3 text-xs font-bold text-zinc-500 hover:bg-zinc-900 light:hover:bg-slate-50 hover:text-zinc-300 transition-colors">ENGLISH (US)</button>
+</div>
+</div>
+<button class="p-2 text-zinc-400 hover:bg-zinc-900/50 light:hover:bg-slate-100 hover:text-[#00D1FF] rounded transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-zinc-950"></span>
+</button>
+<div class="flex items-center gap-2 pl-4 border-l border-zinc-800 light:border-slate-200">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-zinc-200 light:text-slate-700">ADMIN_OWNER</p>
+<p class="text-[10px] text-zinc-500 uppercase tracking-tighter">Level 4 Access</p>
+</div>
+<div class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition-colors cursor-pointer border border-zinc-700">
+<span class="material-symbols-outlined text-zinc-400">account_circle</span>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 border-r border-zinc-900 bg-zinc-950 flex flex-col py-4 overflow-y-auto font-['Prompt'] text-sm font-light antialiased transition-colors duration-300">
+<div class="px-6 mb-8">
+<p class="text-lg font-bold text-zinc-100 light:text-slate-800 tracking-tight uppercase">Control Plane</p>
+<p class="text-[10px] text-[#00D1FF] tracking-[0.2em] uppercase font-bold">V2.4.0-STABLE</p>
+</div>
+<nav class="flex-grow">
+<a class="group text-zinc-500 flex items-center gap-3 px-4 py-3 hover:text-zinc-200 light:hover:text-slate-900 transition-all hover:bg-zinc-900/40 light:hover:bg-slate-50 hover:pl-6 border-l-2 border-transparent hover:border-[#00D1FF]" href="#">
+<span class="material-symbols-outlined text-zinc-600 group-hover:text-[#00D1FF]">warning</span> Incidents
+        </a>
+<a class="group text-zinc-500 flex items-center gap-3 px-4 py-3 hover:text-zinc-200 light:hover:text-slate-900 transition-all hover:bg-zinc-900/40 light:hover:bg-slate-50 hover:pl-6 border-l-2 border-transparent hover:border-[#00D1FF]" href="#">
+<span class="material-symbols-outlined text-zinc-600 group-hover:text-[#00D1FF]">terminal</span> System Logs
+        </a>
+<a class="group text-zinc-500 flex items-center gap-3 px-4 py-3 hover:text-zinc-200 light:hover:text-slate-900 transition-all hover:bg-zinc-900/40 light:hover:bg-slate-50 hover:pl-6 border-l-2 border-transparent hover:border-[#00D1FF]" href="#">
+<span class="material-symbols-outlined text-zinc-600 group-hover:text-[#00D1FF]">developer_board</span> Fleet Health
+        </a>
+<a class="group text-zinc-500 flex items-center gap-3 px-4 py-3 hover:text-zinc-200 light:hover:text-slate-900 transition-all hover:bg-zinc-900/40 light:hover:bg-slate-50 hover:pl-6 border-l-2 border-transparent hover:border-[#00D1FF]" href="#">
+<span class="material-symbols-outlined text-zinc-600 group-hover:text-[#00D1FF]">package_2</span> Package Trace
+        </a>
+<a class="group text-zinc-500 flex items-center gap-3 px-4 py-3 hover:text-zinc-200 light:hover:text-slate-900 transition-all hover:bg-zinc-900/40 light:hover:bg-slate-50 hover:pl-6 border-l-2 border-transparent hover:border-[#00D1FF]" href="#">
+<span class="material-symbols-outlined text-zinc-600 group-hover:text-[#00D1FF]">verified_user</span> License Registry
+        </a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full py-3 bg-[#00D1FF]/10 text-[#00D1FF] border border-[#00D1FF]/30 rounded font-bold uppercase tracking-widest text-xs hover:bg-[#00D1FF]/20 transition-all active:scale-[0.98] shadow-cyan-glow">
+            Quick Diagnostics
+        </button>
+<div class="mt-6 border-t border-zinc-900 light:border-slate-100 pt-4 flex flex-col gap-2">
+<div class="flex items-center gap-3 px-2 py-1 text-zinc-500 text-xs">
+<span class="material-symbols-outlined text-sm">router</span> Delivery Agent
+                <span class="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+</div>
+<div class="flex items-center gap-3 px-2 py-1 text-zinc-500 text-xs">
+<span class="material-symbols-outlined text-sm">dns</span> Server Bot
+                <span class="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 mt-16 p-8 min-h-screen transition-all duration-300">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:justify-between md:items-end mb-8 gap-4">
+<div>
+<nav class="flex text-xs text-zinc-500 mb-2 gap-2 uppercase tracking-widest font-bold">
+<span class="hover:text-zinc-300 cursor-pointer transition-colors">Platform</span>
+<span class="opacity-30">/</span>
+<span class="text-zinc-300 light:text-slate-600">Billing</span>
+</nav>
+<h1 class="text-3xl font-black text-white light:text-slate-900 font-headline">สรุปรายได้และระบบบัญชี (Billing Overview)</h1>
+<p class="text-zinc-400 light:text-slate-500 mt-1 max-w-2xl">การตรวจสอบความเร็วรายได้, ข้อมูลวิเคราะห์ทางการเงิน และสถานะการจัดเก็บข้อมูลแบบ Real-time จากทุกโหนดในระบบ</p>
+</div>
+<div class="flex gap-3">
+<button class="px-5 py-2.5 border border-zinc-700 light:border-slate-200 bg-zinc-900 light:bg-white text-zinc-200 light:text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-zinc-800 light:hover:bg-slate-50 transition-all shadow-sm active:scale-95 group">
+<span class="material-symbols-outlined text-sm group-hover:-translate-y-0.5 transition-transform">download</span> ส่งออกรายงาน
+            </button>
+<button class="px-5 py-2.5 bg-primary-container text-on-primary-container rounded-lg text-sm font-black flex items-center gap-2 shadow-xl shadow-cyan-500/20 hover:brightness-110 transition-all active:scale-95 group">
+<span class="material-symbols-outlined text-sm group-hover:rotate-90 transition-transform">add</span> สร้างใบแจ้งหนี้ใหม่
+            </button>
+</div>
+</div>
+<!-- Bento Grid: Financial Intelligence -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<!-- KPI 1: Gross Revenue -->
+<div class="col-span-12 md:col-span-4 lg:col-span-3 bg-surface-container border border-outline-variant p-6 rounded-xl relative overflow-hidden group shadow-premium transition-all hover:border-[#00D1FF]/50">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-7xl text-zinc-100">payments</span>
+</div>
+<p class="text-[10px] font-bold text-[#00D1FF] uppercase tracking-widest mb-2 font-headline">รายได้รวมสุทธิ (Net Revenue)</p>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-zinc-400 font-headline text-xl">฿</span>
+<h2 class="text-3xl font-black text-white light:text-slate-900 tracking-tight">4,281,500</h2>
+</div>
+<div class="flex items-center gap-2 text-emerald-500 text-xs font-bold">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+12.4% จากเดือนที่แล้ว</span>
+</div>
+</div>
+<!-- KPI 2: Active Churn -->
+<div class="col-span-12 md:col-span-4 lg:col-span-3 bg-surface-container border border-outline-variant p-6 rounded-xl relative overflow-hidden group shadow-premium transition-all hover:border-amber-500/50">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-7xl text-zinc-100">person_remove</span>
+</div>
+<p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2 font-headline">อัตราการยกเลิก (Churn Rate)</p>
+<h2 class="text-3xl font-black text-white light:text-slate-900 mb-2 tracking-tight">1.8%</h2>
+<div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-bold">
+<span class="material-symbols-outlined text-sm">horizontal_rule</span>
+<span>เสถียร (ไม่มีความเสี่ยงเพิ่ม)</span>
+</div>
+</div>
+<!-- Chart: Revenue Velocity -->
+<div class="col-span-12 md:col-span-4 lg:col-span-6 bg-surface-container border border-outline-variant p-6 rounded-xl flex flex-col justify-between shadow-premium transition-all hover:border-zinc-500">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-headline mb-1">Revenue Velocity (ความเร็วรายได้)</p>
+<p class="text-xl font-black text-white light:text-slate-900">72H Forecast: <span class="text-[#00D1FF]">฿ 185K</span></p>
+</div>
+<div class="flex gap-1.5 items-end h-8">
+<span class="w-1.5 h-4 bg-zinc-800 light:bg-slate-100 rounded-full"></span>
+<span class="w-1.5 h-6 bg-zinc-700 light:bg-slate-200 rounded-full"></span>
+<span class="w-1.5 h-8 bg-[#00D1FF] rounded-full"></span>
+<span class="w-1.5 h-5 bg-zinc-700 light:bg-slate-200 rounded-full"></span>
+<span class="w-1.5 h-7 bg-zinc-800 light:bg-slate-100 rounded-full"></span>
+</div>
+</div>
+<div class="h-20 flex items-end gap-1.5 pt-2">
+<div class="flex-grow bg-zinc-800/30 light:bg-slate-100/50 rounded-t h-[30%] hover:bg-zinc-700 transition-colors cursor-help" title="Prev: 30%"></div>
+<div class="flex-grow bg-zinc-800/30 light:bg-slate-100/50 rounded-t h-[55%] hover:bg-zinc-700 transition-colors cursor-help" title="Prev: 55%"></div>
+<div class="flex-grow bg-[#00D1FF]/20 rounded-t h-[45%] border-t-2 border-[#00D1FF]/60 hover:bg-[#00D1FF]/30 transition-colors cursor-help" title="Avg: 45%"></div>
+<div class="flex-grow bg-zinc-800/30 light:bg-slate-100/50 rounded-t h-[70%] hover:bg-zinc-700 transition-colors cursor-help" title="Prev: 70%"></div>
+<div class="flex-grow bg-zinc-800/30 light:bg-slate-100/50 rounded-t h-[50%] hover:bg-zinc-700 transition-colors cursor-help" title="Prev: 50%"></div>
+<div class="flex-grow bg-[#00D1FF]/20 rounded-t h-[80%] border-t-2 border-[#00D1FF]/60 hover:bg-[#00D1FF]/30 transition-colors cursor-help" title="Forecast: 80%"></div>
+<div class="flex-grow bg-gradient-to-t from-[#00D1FF]/40 to-[#00D1FF] rounded-t h-[95%] shadow-cyan-glow cursor-help" title="Active: 95%"></div>
+</div>
+</div>
+</div>
+<!-- Invoice Ledger Table -->
+<div class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden shadow-premium">
+<div class="p-6 border-b border-outline-variant flex flex-col sm:flex-row justify-between items-center bg-zinc-900/40 light:bg-slate-50/50 gap-4">
+<h3 class="font-headline font-bold text-lg flex items-center gap-2 text-white light:text-slate-900">
+<span class="material-symbols-outlined text-[#00D1FF] bg-[#00D1FF]/10 p-1.5 rounded-lg">description</span>
+                บันทึกรายการใบแจ้งหนี้ (Invoice Ledger)
+            </h3>
+<div class="flex gap-3 w-full sm:w-auto">
+<div class="relative flex-grow">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">search</span>
+<input class="pl-9 pr-4 py-2 bg-zinc-950 light:bg-white border-zinc-800 light:border-slate-200 rounded-lg text-xs text-zinc-300 light:text-slate-700 focus:border-[#00D1FF] focus:ring-1 focus:ring-[#00D1FF]/20 outline-none w-full sm:w-64 transition-all" placeholder="ค้นหา รหัส, ชื่อกิจการ..." type="text"/>
+</div>
+<button class="p-2 border border-zinc-800 light:border-slate-200 rounded-lg hover:bg-zinc-800 light:hover:bg-white light:hover:shadow-sm transition-all text-zinc-400 active:scale-95">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm whitespace-nowrap">
+<thead>
+<tr class="bg-zinc-950/50 light:bg-slate-50 text-zinc-500 text-[10px] uppercase tracking-[0.15em] font-bold">
+<th class="px-6 py-4 font-headline">รหัสใบแจ้งหนี้</th>
+<th class="px-6 py-4 font-headline">ชื่อกิจการ (Tenant)</th>
+<th class="px-6 py-4 font-headline">สถานะการชำระ</th>
+<th class="px-6 py-4 font-headline">ยอดเงิน</th>
+<th class="px-6 py-4 font-headline">วันที่</th>
+<th class="px-6 py-4 text-right font-headline">การจัดการ</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-zinc-900 light:divide-slate-100">
+<tr class="hover:bg-zinc-900/30 light:hover:bg-slate-50 transition-all group cursor-pointer">
+<td class="px-6 py-5 font-mono text-zinc-400 light:text-slate-500 text-xs">INV-2024-001</td>
+<td class="px-6 py-5">
+<div class="font-bold text-zinc-200 light:text-slate-800 group-hover:text-[#00D1FF] transition-colors">Survival Gaming Network</div>
+<div class="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">Tier: Platinum</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> ชำระแล้ว
+                            </span>
+</td>
+<td class="px-6 py-5 font-bold text-zinc-100 light:text-slate-900">฿ 12,500.00</td>
+<td class="px-6 py-5 text-zinc-500 text-xs">12 ต.ค. 2024</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1.5 text-zinc-500 hover:text-[#00D1FF] hover:bg-[#00D1FF]/10 rounded-lg transition-all active:scale-90"><span class="material-symbols-outlined text-xl">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-zinc-900/30 light:hover:bg-slate-50 transition-all group cursor-pointer">
+<td class="px-6 py-5 font-mono text-zinc-400 light:text-slate-500 text-xs">INV-2024-002</td>
+<td class="px-6 py-5">
+<div class="font-bold text-zinc-200 light:text-slate-800 group-hover:text-[#00D1FF] transition-colors">SCUM Global Raiders</div>
+<div class="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">Tier: Gold</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span> รอดำเนินการ
+                            </span>
+</td>
+<td class="px-6 py-5 font-bold text-zinc-100 light:text-slate-900">฿ 8,900.00</td>
+<td class="px-6 py-5 text-zinc-500 text-xs">14 ต.ค. 2024</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1.5 text-zinc-500 hover:text-[#00D1FF] hover:bg-[#00D1FF]/10 rounded-lg transition-all active:scale-90"><span class="material-symbols-outlined text-xl">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-red-500/[0.08] light:hover:bg-red-50 transition-all group cursor-pointer bg-red-500/[0.03]">
+<td class="px-6 py-5 font-mono text-red-400/70 light:text-red-500 text-xs">INV-2024-003</td>
+<td class="px-6 py-5">
+<div class="font-bold text-zinc-200 light:text-slate-800 group-hover:text-red-500 transition-colors">Blackwood Server Hub</div>
+<div class="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">Tier: Platinum</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 animate-pulse"></span> เกินกำหนด
+                            </span>
+</td>
+<td class="px-6 py-5 font-bold text-red-400 light:text-red-600">฿ 22,000.00</td>
+<td class="px-6 py-5 text-zinc-500 text-xs">08 ต.ค. 2024</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all active:scale-90"><span class="material-symbols-outlined text-xl">warning</span></button>
+</td>
+</tr>
+<tr class="hover:bg-zinc-900/30 light:hover:bg-slate-50 transition-all group cursor-pointer">
+<td class="px-6 py-5 font-mono text-zinc-400 light:text-slate-500 text-xs">INV-2024-004</td>
+<td class="px-6 py-5">
+<div class="font-bold text-zinc-200 light:text-slate-800 group-hover:text-[#00D1FF] transition-colors">Wildlands RP</div>
+<div class="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">Tier: Essential</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> ชำระแล้ว
+                            </span>
+</td>
+<td class="px-6 py-5 font-bold text-zinc-100 light:text-slate-900">฿ 4,500.00</td>
+<td class="px-6 py-5 text-zinc-500 text-xs">15 ต.ค. 2024</td>
+<td class="px-6 py-5 text-right">
+<button class="p-1.5 text-zinc-500 hover:text-[#00D1FF] hover:bg-[#00D1FF]/10 rounded-lg transition-all active:scale-90"><span class="material-symbols-outlined text-xl">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-outline-variant bg-zinc-950/40 light:bg-slate-50/80 flex flex-col sm:flex-row justify-between items-center gap-4">
+<p class="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">แสดง 4 จาก 128 รายการใบแจ้งหนี้ | รวมมูลค่าที่แสดง: ฿ 47,900.00</p>
+<div class="flex items-center gap-4">
+<div class="flex gap-2">
+<button class="p-1.5 border border-zinc-800 light:border-slate-200 rounded-lg disabled:opacity-20 text-zinc-500 transition-all active:scale-90" disabled=""><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="p-1.5 border border-zinc-800 light:border-slate-200 rounded-lg text-zinc-300 light:text-slate-600 hover:bg-zinc-800 light:hover:bg-white light:hover:shadow-sm transition-all active:scale-90"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+<select class="bg-transparent border border-zinc-800 light:border-slate-200 rounded-lg text-[10px] font-bold text-zinc-500 px-3 py-1 outline-none hover:border-zinc-700 transition-colors">
+<option>แสดง 10 รายการ</option>
+<option>แสดง 25 รายการ</option>
+<option>แสดง 50 รายการ</option>
+</select>
+</div>
+</div>
+</div>
+</main>
+<!-- Side-Drawer: Invoice Adjustment -->
+<div class="fixed inset-y-0 right-0 w-[420px] bg-surface light:bg-white border-l border-zinc-800 light:border-slate-200 shadow-drawer z-[100] transform transition-transform duration-500 ease-in-out translate-x-0 overflow-hidden flex flex-col">
+<!-- Drawer Header -->
+<div class="p-6 border-b border-zinc-800 light:border-slate-200 flex justify-between items-center bg-zinc-950/80 light:bg-slate-50/80 backdrop-blur-md">
+<div>
+<h2 class="font-headline font-black text-xl text-white light:text-slate-900 uppercase tracking-tight">Invoice Adjustment</h2>
+<div class="flex items-center gap-2 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-[#00D1FF] animate-pulse"></span>
+<p class="text-[10px] text-[#00D1FF] font-bold uppercase tracking-widest">การปรับปรุงใบแจ้งหนี้แบบละเอียด</p>
+</div>
+</div>
+<button class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-white dark:hover:text-white light:hover:text-slate-900 hover:bg-zinc-800 light:hover:bg-slate-100 rounded-full transition-all active:scale-90">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Drawer Content -->
+<div class="flex-grow overflow-y-auto p-8 space-y-10 custom-scrollbar">
+<!-- Summary Info Card -->
+<div class="p-6 bg-[#00D1FF]/5 border border-[#00D1FF]/20 rounded-xl relative overflow-hidden group shadow-sm">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl text-[#00D1FF]">receipt_long</span>
+</div>
+<p class="text-[10px] text-zinc-400 light:text-slate-500 uppercase font-black mb-4 tracking-widest border-b border-[#00D1FF]/20 pb-2">ข้อมูลใบแจ้งหนี้ที่เลือก</p>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-zinc-500">ID ใบแจ้งหนี้:</span>
+<span class="text-xs font-mono font-bold text-[#00D1FF] bg-[#00D1FF]/10 px-2 py-0.5 rounded">INV-2024-003</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-zinc-500">สถานะปัจจุบัน:</span>
+<span class="text-[10px] font-bold text-red-500 uppercase">เกินกำหนดชำระ</span>
+</div>
+<div class="flex justify-between items-end pt-2">
+<span class="text-xs font-medium text-zinc-500">ยอดค้างชำระปัจจุบัน:</span>
+<div class="text-right">
+<span class="text-xs text-zinc-500 mr-1 font-headline">฿</span>
+<span class="text-2xl font-black text-white light:text-slate-900">22,000.00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Adjustment Form -->
+<div class="space-y-8">
+<div class="group">
+<label class="block text-[10px] font-bold text-zinc-500 group-focus-within:text-[#00D1FF] uppercase tracking-widest mb-3 font-headline transition-colors">ประเภทการปรับปรุง (Adjustment Type)</label>
+<div class="relative">
+<select class="w-full bg-zinc-950 light:bg-white border-zinc-800 light:border-slate-200 rounded-lg text-sm text-zinc-300 light:text-slate-700 focus:border-[#00D1FF] focus:ring-2 focus:ring-[#00D1FF]/10 outline-none py-3 px-4 appearance-none transition-all cursor-pointer">
+<option>ส่วนลดความภักดี (Loyalty Credit)</option>
+<option>การคืนเงินเนื่องจากความล่าช้า (SLA Credit)</option>
+<option>การปรับปรุงภาษี (Tax Adjustment)</option>
+<option>อื่นๆ (Manual Entry)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="group">
+<label class="block text-[10px] font-bold text-zinc-500 group-focus-within:text-[#00D1FF] uppercase tracking-widest mb-3 font-headline transition-colors">จำนวนเงินที่จะปรับปรุง (THB)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#00D1FF] font-headline font-bold text-lg">฿</span>
+<input class="w-full bg-zinc-950 light:bg-white border-zinc-800 light:border-slate-200 rounded-lg text-lg text-white light:text-slate-900 focus:border-[#00D1FF] focus:ring-2 focus:ring-[#00D1FF]/10 outline-none py-3 pl-10 pr-4 font-black transition-all" type="number" value="1500"/>
+</div>
+<p class="mt-2 text-[10px] text-zinc-500">ยอดคงเหลือหลังปรับปรุง: <span class="font-bold text-zinc-300">฿ 20,500.00</span></p>
+</div>
+<div class="group">
+<label class="block text-[10px] font-bold text-zinc-500 group-focus-within:text-[#00D1FF] uppercase tracking-widest mb-3 font-headline transition-colors">หมายเหตุภายใน (Internal Memo)</label>
+<textarea class="w-full bg-zinc-950 light:bg-white border-zinc-800 light:border-slate-200 rounded-lg text-sm text-zinc-300 light:text-slate-600 focus:border-[#00D1FF] focus:ring-2 focus:ring-[#00D1FF]/10 outline-none py-3 px-4 h-32 resize-none transition-all" placeholder="ระบุเหตุผลในการปรับปรุงยอดเงิน..."></textarea>
+</div>
+<div class="p-5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-4 shadow-sm">
+<span class="material-symbols-outlined text-amber-500">warning</span>
+<p class="text-[11px] text-amber-200/80 light:text-amber-800 leading-relaxed">
+<span class="font-black text-amber-500 uppercase tracking-tighter">ข้อควรระวัง:</span> การปรับปรุงนี้จะถูกบันทึกใน Ledger และส่งผลต่อรายงานภาษีโดยตรง โปรดตรวจสอบความถูกต้องก่อนกดประมวลผล
+                </p>
+</div>
+</div>
+</div>
+<!-- Drawer Footer -->
+<div class="p-8 border-t border-zinc-800 light:border-slate-200 bg-zinc-950/90 light:bg-slate-50/90 backdrop-blur-md mt-auto shadow-2xl">
+<button class="w-full py-4 bg-[#00D1FF] text-[#003543] rounded-xl font-black uppercase tracking-[0.2em] text-xs hover:bg-[#a4e6ff] transition-all shadow-xl shadow-cyan-500/15 mb-4 active:scale-[0.98] flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">bolt</span> ประมวลผลการปรับปรุง
+        </button>
+<button class="w-full py-4 bg-transparent text-zinc-500 rounded-xl font-bold uppercase tracking-[0.1em] text-xs hover:text-zinc-200 light:hover:text-slate-900 transition-all border border-zinc-800 light:border-slate-200 hover:border-zinc-700 active:scale-[0.98]">
+            ยกเลิกการแก้ไข
+        </button>
+</div>
+</div>
+</body></html>

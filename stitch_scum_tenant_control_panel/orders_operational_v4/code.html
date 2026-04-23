@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM_OPS_V1 | COMMERCE_LOGS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#0e0e0e",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#ff6a5d",
+                        "inverse-surface": "#e5e2e1",
+                        "surface-container": "#201f1f",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb4ab",
+                        "primary": "#ffb690",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary-fixed": "#ffdad6",
+                        "on-secondary": "#1e3700",
+                        "primary-fixed-dim": "#ffb690",
+                        "surface-container-low": "#1c1b1b",
+                        "inverse-primary": "#9d4300",
+                        "surface-bright": "#393939",
+                        "secondary-container": "#447200",
+                        "on-tertiary-fixed-variant": "#93000b",
+                        "on-surface": "#e5e2e1",
+                        "on-secondary-container": "#bdf57d",
+                        "secondary": "#a0d663",
+                        "outline": "#a78b7d",
+                        "surface": "#131313",
+                        "on-tertiary": "#690005",
+                        "tertiary": "#ffb4ab",
+                        "on-primary-container": "#582200",
+                        "outline-variant": "#584237",
+                        "surface-container-highest": "#353534",
+                        "primary-container": "#f97316",
+                        "on-primary-fixed-variant": "#783200",
+                        "surface-tint": "#ffb690",
+                        "background": "#131313",
+                        "on-secondary-fixed": "#0f2000",
+                        "on-tertiary-container": "#6c0005",
+                        "secondary-fixed-dim": "#a0d663",
+                        "on-secondary-fixed-variant": "#2e4f00",
+                        "on-surface-variant": "#e0c0b1",
+                        "on-background": "#e5e2e1",
+                        "surface-variant": "#353534",
+                        "on-tertiary-fixed": "#410002",
+                        "on-primary-fixed": "#341100",
+                        "on-primary": "#552100",
+                        "on-error": "#690005",
+                        "inverse-on-surface": "#313030",
+                        "surface-dim": "#131313",
+                        "secondary-fixed": "#bbf37c",
+                        "primary-fixed": "#ffdbca",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #353534; }
+        ::-webkit-scrollbar-thumb:hover { background: #f97316; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SIDE_NAVBAR -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 overflow-y-auto bg-[#201f1f] h-screen w-64 border-r-4 border-[#353534] font-['Public_Sans'] text-xs font-bold uppercase tracking-tight">
+<div class="p-6 border-b-4 border-[#353534]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-orange-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-surface" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<div class="text-orange-600 font-black">SECTOR_ADMIN</div>
+<div class="text-[#353534] text-[10px]">LEVEL_5_CLEARANCE</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4">
+<!-- Overview -->
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</div>
+<!-- Status active: Mapping to Lifecycle/Orders context -->
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 bg-orange-600 text-[#131313] border-l-4 border-white">
+<span class="material-symbols-outlined">receipt_long</span>
+<span>Protocol_Logs</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">dataset</span>
+<span>Fleet_Status</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">security</span>
+<span>Security_Grid</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">lan</span>
+<span>Active_Sectors</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">psychology</span>
+<span>Neural_Link</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">conveyor_belt</span>
+<span>Resource_Mgmt</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-3 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534] hover:border-l-4 hover:border-orange-600">
+<span class="material-symbols-outlined">key</span>
+<span>Auth_Vault</span>
+</div>
+</nav>
+<div class="mt-auto border-t-4 border-[#353534]">
+<div class="flex items-center gap-3 px-6 py-4 cursor-pointer transition-all duration-100 text-[#353534] hover:text-orange-500 hover:bg-[#353534]">
+<span class="material-symbols-outlined">settings</span>
+<span>System_Settings</span>
+</div>
+<div class="flex items-center gap-3 px-6 py-4 cursor-pointer transition-all duration-100 text-red-700 hover:bg-red-950">
+<span class="material-symbols-outlined">power_settings_new</span>
+<span>Terminal_Exit</span>
+</div>
+</div>
+</aside>
+<!-- MAIN_CANVAS -->
+<main class="ml-64 flex flex-col min-h-screen">
+<!-- TOP_APP_BAR -->
+<header class="flex justify-between items-center px-6 py-3 w-full bg-[#131313] border-b-2 border-[#353534]">
+<div class="flex items-center gap-6">
+<div class="text-xl font-black tracking-tighter text-orange-600 font-['Space_Grotesk'] uppercase tracking-wider">SCUM_OPS_V1</div>
+<div class="h-6 w-[2px] bg-[#353534]"></div>
+<div class="flex items-center gap-4 text-[#353534] font-bold text-xs font-['Space_Grotesk'] uppercase tracking-widest">
+<span class="text-orange-500">Protocol_Logs</span>
+<span class="opacity-30">/</span>
+<span>Commerce_Activity</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-[#353534] hover:bg-[#201f1f] transition-colors duration-75 active:scale-95">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="p-2 text-[#353534] hover:bg-[#201f1f] transition-colors duration-75 active:scale-95">
+<span class="material-symbols-outlined">translate</span>
+</button>
+<button class="p-2 text-[#353534] hover:bg-[#201f1f] transition-colors duration-75 active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-[2px] bg-[#353534] mx-2"></div>
+<button class="px-4 py-1.5 bg-orange-600 text-[#131313] font-black text-xs uppercase tracking-tighter active:scale-95 transition-transform hover:bg-orange-500">
+                    Logout
+                </button>
+</div>
+</header>
+<!-- CONTENT_AREA -->
+<section class="p-8 flex flex-col gap-6 max-w-[1600px]">
+<!-- VIEW_HEADER -->
+<div class="flex justify-between items-end border-b-4 border-[#353534] pb-6">
+<div>
+<h1 class="text-4xl font-headline font-black uppercase tracking-tighter text-on-surface">Commerce Logs / บันทึกการค้า</h1>
+<p class="text-on-surface-variant font-body text-sm mt-2 opacity-70">Real-time surveillance of sector-wide credit distribution and item delivery chains.</p>
+</div>
+<div class="flex gap-4 items-center">
+<div class="bg-surface-container border-2 border-outline-variant px-4 py-2 flex items-center gap-4">
+<div class="flex flex-col">
+<span class="text-[10px] font-black uppercase text-outline">Network_Load</span>
+<span class="font-headline text-secondary leading-none">0.82MS</span>
+</div>
+<div class="w-[2px] h-8 bg-outline-variant"></div>
+<div class="flex flex-col">
+<span class="text-[10px] font-black uppercase text-outline">Active_Trades</span>
+<span class="font-headline text-primary-container leading-none">1,402</span>
+</div>
+</div>
+</div>
+</div>
+<!-- FILTERS_BAR -->
+<div class="grid grid-cols-12 gap-4">
+<div class="col-span-12 md:col-span-4 lg:col-span-3">
+<label class="block text-[10px] font-black uppercase text-outline mb-1">Search_Player / ค้นหาผู้เล่น</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border-b-2 border-outline focus:border-primary-container outline-none px-10 py-3 text-sm font-bold tracking-tight" placeholder="COMBATANT_ID_000..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+</div>
+<div class="col-span-6 md:col-span-3 lg:col-span-2">
+<label class="block text-[10px] font-black uppercase text-outline mb-1">Filter_Status / กรองสถานะ</label>
+<select class="w-full bg-surface-container-lowest border-b-2 border-outline focus:border-primary-container outline-none px-4 py-3 text-sm font-bold appearance-none">
+<option>ALL_NODES</option>
+<option>QUEUED</option>
+<option>DELIVERING</option>
+<option>FAILED</option>
+</select>
+</div>
+<div class="col-span-6 md:col-span-3 lg:col-span-2">
+<label class="block text-[10px] font-black uppercase text-outline mb-1">Target_Combatants / กลุ่มเป้าหมาย</label>
+<select class="w-full bg-surface-container-lowest border-b-2 border-outline focus:border-primary-container outline-none px-4 py-3 text-sm font-bold appearance-none">
+<option>ALL_COMBATANTS</option>
+<option>LEVEL_1_ONLY</option>
+<option>HIGH_THREAT</option>
+</select>
+</div>
+<div class="col-span-12 lg:col-span-5 flex items-end justify-end gap-2">
+<button class="bg-surface-container-high border-2 border-outline-variant px-6 py-3 font-black text-xs uppercase tracking-widest hover:border-primary-container transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">filter_list</span> Apply_Filters
+                    </button>
+<button class="bg-primary-container text-on-primary-container border-2 border-primary-container px-6 py-3 font-black text-xs uppercase tracking-widest hover:bg-transparent hover:text-primary-container transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">refresh</span> Force_Refresh
+                    </button>
+</div>
+</div>
+<!-- LOG_TABLE_CONTAINER -->
+<div class="bg-surface-container border-4 border-[#353534] overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-highest border-b-4 border-[#353534]">
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface">Order_ID</th>
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface">Player_Node / ผู้เล่น</th>
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface">Current_Status / สถานะ</th>
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface">Timestamp / เวลา</th>
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface">Credit_Value / เครดิต</th>
+<th class="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y-2 divide-[#353534]">
+<!-- Row 1: Delivering -->
+<tr class="hover:bg-[#353534] transition-colors group">
+<td class="p-4 font-headline text-primary-container font-bold text-sm">#ORD-99021-X</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-lowest border border-outline flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-outline">person</span>
+</div>
+<div>
+<div class="text-sm font-bold uppercase">STALKER_PRO_99</div>
+<div class="text-[10px] font-mono text-outline opacity-70">UID: 4402-9912</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-2 px-3 py-1 bg-secondary/10 border-2 border-secondary text-secondary font-black text-[10px] uppercase">
+<span class="w-1.5 h-1.5 bg-secondary animate-pulse"></span> Delivering
+                                    </span>
+</td>
+<td class="p-4 text-xs font-medium text-on-surface-variant">2023-11-20 14:22:01</td>
+<td class="p-4 font-headline text-lg text-on-surface font-bold">1,250 <span class="text-[10px] text-outline">CR</span></td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-1">
+<button class="w-10 h-10 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center hover:border-primary-container group-hover:bg-surface text-on-surface transition-all">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center hover:border-primary-container group-hover:bg-surface text-on-surface transition-all">
+<span class="material-symbols-outlined text-[18px]">replay</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Failed -->
+<tr class="hover:bg-[#353534] transition-colors group">
+<td class="p-4 font-headline text-tertiary-container font-bold text-sm">#ORD-99019-Z</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-lowest border border-outline flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-outline">person</span>
+</div>
+<div>
+<div class="text-sm font-bold uppercase">NOOB_KILLER_9000</div>
+<div class="text-[10px] font-mono text-outline opacity-70">UID: 8812-0021</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-2 px-3 py-1 bg-error-container/20 border-2 border-tertiary-container text-tertiary-container font-black text-[10px] uppercase">
+<span class="w-1.5 h-1.5 bg-tertiary-container"></span> Failed
+                                    </span>
+</td>
+<td class="p-4 text-xs font-medium text-on-surface-variant">2023-11-20 14:18:45</td>
+<td class="p-4 font-headline text-lg text-on-surface font-bold">450 <span class="text-[10px] text-outline">CR</span></td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-1">
+<button class="w-10 h-10 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center hover:border-primary-container group-hover:bg-surface text-on-surface transition-all">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-high border-2 border-primary-container text-primary-container flex items-center justify-center hover:bg-primary-container hover:text-on-primary-container transition-all">
+<span class="material-symbols-outlined text-[18px]">replay</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Queued -->
+<tr class="hover:bg-[#353534] transition-colors group">
+<td class="p-4 font-headline text-primary-container font-bold text-sm">#ORD-88123-A</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-lowest border border-outline flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-outline">person</span>
+</div>
+<div>
+<div class="text-sm font-bold uppercase">SYSTEM_OVERRIDE</div>
+<div class="text-[10px] font-mono text-outline opacity-70">UID: 0091-2234</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-high border-2 border-outline text-outline font-black text-[10px] uppercase">
+<span class="w-1.5 h-1.5 bg-outline"></span> Queued
+                                    </span>
+</td>
+<td class="p-4 text-xs font-medium text-on-surface-variant">2023-11-20 14:15:10</td>
+<td class="p-4 font-headline text-lg text-on-surface font-bold">12,000 <span class="text-[10px] text-outline">CR</span></td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-1">
+<button class="w-10 h-10 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center hover:border-primary-container group-hover:bg-surface text-on-surface transition-all">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-high border-2 border-tertiary-container text-tertiary-container flex items-center justify-center hover:bg-tertiary-container hover:text-on-tertiary transition-all">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-surface-container-low p-4 flex justify-between items-center border-t-4 border-[#353534]">
+<div class="text-[10px] font-black uppercase text-outline">Displaying: 1-25 of 1,402 Entires</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center opacity-50 cursor-not-allowed"><span class="material-symbols-outlined">chevron_left</span></button>
+<button class="w-8 h-8 bg-orange-600 text-surface border-2 border-orange-600 flex items-center justify-center font-bold text-xs">1</button>
+<button class="w-8 h-8 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center font-bold text-xs hover:border-orange-600">2</button>
+<button class="w-8 h-8 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center font-bold text-xs hover:border-orange-600">3</button>
+<button class="w-8 h-8 bg-surface-container-high border-2 border-outline-variant flex items-center justify-center hover:border-orange-600"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- ASYMMETRIC_DETAIL_PANEL (Simulated Drawer) -->
+<div class="grid grid-cols-12 gap-8 mt-4">
+<div class="col-span-12 lg:col-span-8">
+<!-- Placeholder or additional charts could go here -->
+<div class="p-8 bg-surface-container border-2 border-outline-variant border-dashed flex flex-col items-center justify-center text-outline opacity-40 h-[400px]">
+<span class="material-symbols-outlined text-6xl mb-4">analytics</span>
+<span class="font-headline text-lg uppercase tracking-widest font-black">Regional_Activity_Visualizer</span>
+<span class="text-xs uppercase mt-1">Select an order row to generate localized map telemetry</span>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-0 border-4 border-orange-600">
+<div class="bg-orange-600 p-4 flex justify-between items-center">
+<h2 class="text-surface font-headline font-black uppercase text-lg tracking-tighter">LIFECYCLE_DRAWER / วงจรชีวิตการส่ง</h2>
+<span class="material-symbols-outlined text-surface">info</span>
+</div>
+<div class="bg-surface-container-high p-6 flex-1">
+<div class="flex flex-col gap-8 relative">
+<!-- Step 1 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 bg-secondary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-surface text-sm" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div>
+<p class="text-xs font-black uppercase text-secondary">Initiated_Session / เริ่มต้นรายการ</p>
+<p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Payment verified via Sector-01 central exchange. Hash: 0x992B...</p>
+<p class="text-[10px] text-outline font-mono mt-1">14:22:01</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 bg-secondary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-surface text-sm" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div>
+<p class="text-xs font-black uppercase text-secondary">Drone_Assigned / มอบหมายโดรน</p>
+<p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Carrier unit #DR-0012 dispatched from Command Center.</p>
+<p class="text-[10px] text-outline font-mono mt-1">14:22:05</p>
+</div>
+</div>
+<!-- Step 3 (Active) -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 bg-orange-600 flex items-center justify-center flex-shrink-0 border-2 border-white animate-pulse">
+<span class="material-symbols-outlined text-surface text-sm">flight_takeoff</span>
+</div>
+<div>
+<p class="text-xs font-black uppercase text-orange-600">Transit_Phase / กำลังขนส่ง</p>
+<p class="text-[11px] text-on-surface mt-1 leading-relaxed font-bold">Currently at Sector B-12. ETA: 4.2 Minutes.</p>
+<p class="text-[10px] text-outline font-mono mt-1">14:22:15</p>
+</div>
+</div>
+<!-- Step 4 (Incomplete) -->
+<div class="flex gap-4 items-start relative z-10 opacity-30">
+<div class="w-8 h-8 bg-surface-container-lowest border-2 border-outline flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-outline text-sm">location_on</span>
+</div>
+<div>
+<p class="text-xs font-black uppercase">Final_Drop / ส่งมอบสำเร็จ</p>
+<p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Confirmation signature from combatant neural link required.</p>
+</div>
+</div>
+<!-- Vertical Line Connector -->
+<div class="absolute left-4 top-4 bottom-4 w-[2px] bg-[#353534] z-0"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 border-t-2 border-[#353534]">
+<button class="w-full bg-transparent border-2 border-outline text-outline font-black text-xs uppercase py-3 hover:border-white hover:text-white transition-all">
+                            Export_Event_Log.CSV
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB_CONTEXTUAL -->
+<div class="fixed bottom-8 right-8 flex flex-col gap-4">
+<button class="w-16 h-16 bg-orange-600 text-surface border-4 border-[#353534] flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add_shopping_cart</span>
+</button>
+</div>
+</body></html>

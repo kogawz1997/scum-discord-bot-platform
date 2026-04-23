@@ -27,7 +27,7 @@ function createAdminDonationGetRouteHandler(deps) {
     if (!auth) return true;
 
     const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-    const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+    const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
       required: false,
     });
     if (requestedTenantId && !tenantId) return true;

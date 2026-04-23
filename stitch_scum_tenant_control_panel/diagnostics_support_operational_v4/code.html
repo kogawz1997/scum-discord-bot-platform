@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Diagnostics &amp; Support - Operational V4</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Public+Sans:wght@300;400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#783200",
+                      "on-secondary-container": "#bdf57d",
+                      "on-secondary-fixed": "#0f2000",
+                      "secondary-fixed": "#bbf37c",
+                      "secondary-fixed-dim": "#a0d663",
+                      "primary-fixed-dim": "#ffb690",
+                      "surface-dim": "#131313",
+                      "primary-fixed": "#ffdbca",
+                      "on-tertiary": "#690005",
+                      "on-surface": "#e5e2e1",
+                      "tertiary-fixed-dim": "#ffb4ab",
+                      "surface-bright": "#393939",
+                      "on-error-container": "#ffdad6",
+                      "error-container": "#93000a",
+                      "error": "#ffb4ab",
+                      "surface-container-low": "#1c1b1b",
+                      "on-secondary-fixed-variant": "#2e4f00",
+                      "secondary-container": "#447200",
+                      "on-background": "#e5e2e1",
+                      "on-primary-fixed": "#341100",
+                      "outline-variant": "#584237",
+                      "surface-tint": "#ffb690",
+                      "outline": "#a78b7d",
+                      "surface-container": "#201f1f",
+                      "surface-variant": "#353534",
+                      "surface-container-high": "#2a2a2a",
+                      "primary-container": "#f97316",
+                      "on-tertiary-container": "#6c0005",
+                      "on-error": "#690005",
+                      "primary": "#ffb690",
+                      "on-primary-container": "#582200",
+                      "on-tertiary-fixed": "#410002",
+                      "on-secondary": "#1e3700",
+                      "inverse-primary": "#9d4300",
+                      "tertiary-container": "#ff6a5d",
+                      "tertiary-fixed": "#ffdad6",
+                      "surface-container-highest": "#353534",
+                      "inverse-on-surface": "#313030",
+                      "inverse-surface": "#e5e2e1",
+                      "secondary": "#a0d663",
+                      "on-surface-variant": "#e0c0b1",
+                      "surface-container-lowest": "#0e0e0e",
+                      "surface": "#131313",
+                      "background": "#131313",
+                      "on-tertiary-fixed-variant": "#93000b",
+                      "on-primary": "#552100",
+                      "tertiary": "#ffb4ab"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0rem",
+                      "lg": "0rem",
+                      "xl": "0rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Space Grotesk"],
+                      "body": ["Public Sans"],
+                      "label": ["Public Sans"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Public Sans', sans-serif; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2px;
+        }
+        .structural-border {
+            outline: 2px solid #353534;
+        }
+        .recessed-well {
+            background-color: #0e0e0e;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-[#131313] text-orange-600 font-['Space_Grotesk'] tracking-wider uppercase text-sm docked full-width top-0 border-b-2 border-[#353534] flat no shadows flex justify-between items-center w-full px-6 h-16 fixed z-50">
+<div class="flex items-center gap-4">
+<span class="text-xl font-black text-orange-600 tracking-tighter">TENANT_ADMIN_SCUM_V1</span>
+<div class="hidden md:flex gap-6 ml-8">
+<span class="text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1 cursor-pointer">OPERATIONS</span>
+<span class="text-orange-500 font-bold border-b-2 border-orange-500 px-2 py-1 cursor-pointer">DIAGNOSTICS</span>
+<span class="text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1 cursor-pointer">NETWORK</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<input class="bg-surface-container-lowest border-none text-xs px-4 py-2 w-64 focus:ring-1 focus:ring-primary-container uppercase tracking-widest" placeholder="SEARCH_SYSTEM_NODES..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="material-symbols-outlined p-2 hover:bg-[#201f1f] transition-colors">refresh</button>
+<button class="material-symbols-outlined p-2 hover:bg-[#201f1f] transition-colors">language</button>
+<button class="material-symbols-outlined p-2 hover:bg-[#201f1f] transition-colors">dark_mode</button>
+<button class="material-symbols-outlined p-2 hover:bg-[#201f1f] transition-colors">notifications</button>
+</div>
+<div class="h-8 w-[2px] bg-[#353534] mx-2"></div>
+<button class="font-bold text-xs hover:bg-[#201f1f] px-3 py-2 transition-colors">Logout</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="bg-[#201f1f] fixed left-0 top-0 h-full w-64 flex flex-col pt-16 border-r-4 border-[#353534] z-40 hidden md:flex">
+<div class="p-6 border-b-2 border-[#353534]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-highest border-2 border-orange-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-white">terminal</span>
+</div>
+<div>
+<div class="text-lg font-black text-white leading-none">SECTOR_ADMIN</div>
+<div class="text-[10px] text-zinc-500 font-bold tracking-tighter uppercase">OPERATIONAL_UNIT_01</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-4">
+<!-- Active Tab Mapping: Diagnostics & Support -> Settings/Overview context -->
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white group" href="#">
+<span class="material-symbols-outlined">dashboard</span> Overview
+            </a>
+<a class="bg-[#353534] text-orange-500 border-l-4 border-orange-500 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">settings_input_component</span> Server Config
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">dns</span> Server Status
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">sync</span> Logs Sync
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">restart_alt</span> Restart Control
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">smart_toy</span> Server Bots
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">extension</span> Modules
+            </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white" href="#">
+<span class="material-symbols-outlined">settings</span> Settings
+            </a>
+</nav>
+<div class="p-4 border-t-2 border-[#353534]">
+<button class="w-full bg-primary-container text-on-primary-container py-3 font-bold uppercase text-[10px] tracking-widest border-2 border-primary-container active:opacity-80 transition-all hover:border-white">
+                Diagnostics &amp; Support
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 pt-16 min-h-screen bg-surface">
+<!-- Action Header -->
+<div class="p-8 border-b-4 border-[#353534] bg-surface-container-low flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+<div>
+<h1 class="text-5xl font-black tracking-tighter uppercase mb-1">System Health Overview</h1>
+<p class="text-zinc-500 font-label text-sm tracking-widest">สถานะระบบและความสมบูรณ์ของคอร์สแตก [NODE_ID: SCUM_DELTA_7]</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<button class="bg-surface-container-highest border-2 border-outline px-6 py-3 text-xs font-bold uppercase tracking-widest hover:border-white transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span> Export diagnostics
+                </button>
+<button class="bg-surface-container-highest border-2 border-outline px-6 py-3 text-xs font-bold uppercase tracking-widest hover:border-white transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">history_edu</span> Open audit
+                </button>
+<button class="bg-surface-container-highest border-2 border-outline px-6 py-3 text-xs font-bold uppercase tracking-widest hover:border-white transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">mail</span> Open dead-letter
+                </button>
+<button class="bg-primary-container text-on-primary-container border-2 border-primary-container px-6 py-3 text-xs font-bold uppercase tracking-widest hover:border-white transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">confirmation_number</span> Open support ticket
+                </button>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="p-8">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Main Status Console (Bento Large) -->
+<div class="lg:col-span-8 bg-surface-container-high border-2 border-[#353534] p-6 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="bg-secondary-container text-on-secondary-container px-3 py-1 text-[10px] font-black tracking-widest flex items-center gap-2">
+<span class="w-2 h-2 bg-white animate-pulse"></span> SYSTEM_STABLE
+                        </div>
+</div>
+<h2 class="text-2xl font-bold uppercase mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-orange-500">analytics</span> 
+                        Real-time Diagnostics | การวินิจฉัยแบบเรียลไทม์
+                    </h2>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<div class="recessed-well p-4 border-l-4 border-secondary">
+<div class="text-zinc-500 text-[10px] font-bold uppercase mb-1">CPU Load</div>
+<div class="text-3xl font-black text-on-surface">14.2%</div>
+<div class="w-full bg-surface-container h-1 mt-2">
+<div class="bg-secondary h-full w-[14%]"></div>
+</div>
+</div>
+<div class="recessed-well p-4 border-l-4 border-secondary">
+<div class="text-zinc-500 text-[10px] font-bold uppercase mb-1">Memory Utilization</div>
+<div class="text-3xl font-black text-on-surface">6.8GB</div>
+<div class="w-full bg-surface-container h-1 mt-2">
+<div class="bg-secondary h-full w-[42%]"></div>
+</div>
+</div>
+<div class="recessed-well p-4 border-l-4 border-primary">
+<div class="text-zinc-500 text-[10px] font-bold uppercase mb-1">Network IO</div>
+<div class="text-3xl font-black text-on-surface">422ms</div>
+<div class="w-full bg-surface-container h-1 mt-2">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+</div>
+<div class="recessed-well p-4 border-l-4 border-error">
+<div class="text-zinc-500 text-[10px] font-bold uppercase mb-1">Disk Queue</div>
+<div class="text-3xl font-black text-on-surface">0.02</div>
+<div class="w-full bg-surface-container h-1 mt-2">
+<div class="bg-error h-full w-[5%]"></div>
+</div>
+</div>
+</div>
+<!-- Terminal Style Log Display -->
+<div class="bg-[#0e0e0e] border-2 border-[#353534] p-4 font-mono text-[11px] leading-relaxed">
+<div class="flex justify-between items-center mb-4 pb-2 border-b border-[#353534]">
+<span class="text-zinc-500 uppercase font-bold tracking-widest">LIVE_KERNEL_OUTPUT</span>
+<span class="text-secondary uppercase">Connection Secure</span>
+</div>
+<div class="h-64 overflow-y-auto space-y-1 text-zinc-400">
+<p><span class="text-zinc-600">[08:42:11]</span> <span class="text-primary">INFO:</span> Initializing sector calibration sequence...</p>
+<p><span class="text-zinc-600">[08:42:15]</span> <span class="text-secondary">SUCCESS:</span> Node D-12 integrated successfully.</p>
+<p><span class="text-zinc-600">[08:43:02]</span> <span class="text-zinc-500">VERBOSE:</span> Garbage collection cycle completed in 4.2ms.</p>
+<p><span class="text-zinc-600">[08:44:19]</span> <span class="text-error">CRITICAL_FAIL:</span> Automated repair attempted on Bot_ID_9921 - FAILED.</p>
+<p><span class="text-zinc-600">[08:44:20]</span> <span class="text-primary">INFO:</span> Routing failure to dead-letter queue...</p>
+<p><span class="text-zinc-600">[08:45:00]</span> <span class="text-zinc-500">SYNC:</span> Log state synchronized with master controller.</p>
+<p><span class="text-zinc-600">[08:46:22]</span> <span class="text-primary">INFO:</span> New heartbeat detected from Southeast Cluster.</p>
+</div>
+</div>
+</div>
+<!-- Automated Tools Panel (Bento Side) -->
+<div class="lg:col-span-4 space-y-6">
+<div class="bg-surface-container-high border-2 border-primary-container p-6">
+<h3 class="text-lg font-bold uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">build</span>
+                            Repair Tools | เครื่องมือซ่อมแซม
+                        </h3>
+<div class="space-y-3">
+<button class="w-full text-left bg-surface-container-lowest border border-outline-variant p-4 hover:border-primary transition-colors group">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-black tracking-widest uppercase">Flush Buffers</span>
+<span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+<p class="text-[10px] text-zinc-500 uppercase">Clear all transient memory states and force sync</p>
+</button>
+<button class="w-full text-left bg-surface-container-lowest border border-outline-variant p-4 hover:border-primary transition-colors group">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-black tracking-widest uppercase">Recalibrate Nodes</span>
+<span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+<p class="text-[10px] text-zinc-500 uppercase">Re-align latency offsets between operational units</p>
+</button>
+<button class="w-full text-left bg-surface-container-lowest border border-outline-variant p-4 hover:border-primary transition-colors group">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-black tracking-widest uppercase">Purge Corrupted Assets</span>
+<span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+<p class="text-[10px] text-zinc-500 uppercase">Identify and remove non-signed operational data</p>
+</button>
+</div>
+</div>
+<div class="bg-surface-container-high border-2 border-[#353534] p-6">
+<h3 class="text-lg font-bold uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">shield_with_heart</span>
+                            System Health Check
+                        </h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Security Firewall</span>
+<span class="text-[10px] font-bold text-secondary uppercase">Active</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-2">
+<div class="bg-secondary h-full w-[98%]"></div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Database Latency</span>
+<span class="text-[10px] font-bold text-orange-500 uppercase">Warning</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-2">
+<div class="bg-orange-500 h-full w-[72%]"></div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Bot Intelligence</span>
+<span class="text-[10px] font-bold text-secondary uppercase">Optimal</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-2">
+<div class="bg-secondary h-full w-[100%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Failure Log (Bento Wide Bottom) -->
+<div class="lg:col-span-12 bg-surface-container-high border-2 border-[#353534] overflow-hidden">
+<div class="p-6 border-b-2 border-[#353534] flex justify-between items-center">
+<h3 class="text-lg font-bold uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-error">dangerous</span>
+                            Recent Failure Log | บันทึกความล้มเหลวล่าสุด
+                        </h3>
+<span class="text-[10px] font-bold bg-error-container text-on-error-container px-3 py-1">3 CRITICAL ISSUES DETECTED</span>
+</div>
+<table class="w-full text-left text-xs uppercase font-body tracking-wider">
+<thead>
+<tr class="bg-surface-container-lowest border-b-2 border-[#353534]">
+<th class="p-4 font-black">Timestamp</th>
+<th class="p-4 font-black">Node</th>
+<th class="p-4 font-black">Type</th>
+<th class="p-4 font-black">Description (TH/EN)</th>
+<th class="p-4 font-black text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y-2 divide-[#353534]">
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-4 text-zinc-500">2023-11-24 14:22:01</td>
+<td class="p-4 font-bold">NODE_ALPHA_01</td>
+<td class="p-4 text-error">Memory Overflow</td>
+<td class="p-4 text-zinc-300">
+                                    หน่วยความจำเต็มในเซกเตอร์ 4 - System shutdown prevented.
+                                </td>
+<td class="p-4 text-right">
+<button class="text-primary hover:underline font-bold">Investigate</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-4 text-zinc-500">2023-11-24 13:58:12</td>
+<td class="p-4 font-bold">DELIVERY_BOT_09</td>
+<td class="p-4 text-orange-500">Sync Delay</td>
+<td class="p-4 text-zinc-300">
+                                    ความล่าช้าในการซิงค์ข้อมูลเอเจนต์ - Delivery delay expected.
+                                </td>
+<td class="p-4 text-right">
+<button class="text-primary hover:underline font-bold">Investigate</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-4 text-zinc-500">2023-11-24 12:44:45</td>
+<td class="p-4 font-bold">API_GATEWAY</td>
+<td class="p-4 text-error">Auth Failure</td>
+<td class="p-4 text-zinc-300">
+                                    ข้อผิดพลาดในการตรวจสอบสิทธิ์ - Attempted unauthorized access block.
+                                </td>
+<td class="p-4 text-right">
+<button class="text-primary hover:underline font-bold">Investigate</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Sector Map Section -->
+<div class="lg:col-span-12 h-96 relative border-4 border-[#353534] bg-[#0e0e0e] flex items-center justify-center overflow-hidden">
+<img alt="Sector Map" class="absolute inset-0 w-full h-full object-cover opacity-30 grayscale mix-blend-overlay" data-alt="Technical blueprint map of a server facility with digital glowing wireframes and tactical grid lines on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoUt1245GZg9a0w4okAZTvfSjUvdTZm7W6Ppldlj3wDuYYZnWp85aBCi6gcemha1d74koXpROpBw3cz8W13toktj0mhQ56ZMOVtOAraLCgpcNBUyAh-GLoRBONbvyp2we9W2OjFUFkubQWgE7_im2rF8Kk3P8JN0wxFyeo4j8ogWxhyol1ye0sWrI-8ENKgVOP_cUDWLlnq9SVp8y4DFDklq5vBkgjEJ1KjUKDt1rCv8T-UQUeKRA1dMO2EnRoTKK0KzZ0_Czgud0"/>
+<div class="relative z-10 text-center">
+<div class="text-7xl font-black text-primary uppercase opacity-10 mb-4 select-none">SCUM_OPERATIONAL_GRID</div>
+<div class="inline-block border-2 border-secondary p-8 bg-surface-dim/80 backdrop-blur-md">
+<h4 class="text-xl font-bold uppercase tracking-[0.2em] mb-2">Cluster Node Map</h4>
+<p class="text-[10px] text-zinc-400 uppercase tracking-widest max-w-md mx-auto">Visualizing spatial distribution of active server bots and delivery agents across the operational sector.</p>
+<div class="mt-6 flex justify-center gap-12">
+<div>
+<div class="text-4xl font-black text-secondary leading-none">12</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase mt-1">Active Clusters</div>
+</div>
+<div>
+<div class="text-4xl font-black text-secondary leading-none">88%</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase mt-1">Area Coverage</div>
+</div>
+<div>
+<div class="text-4xl font-black text-error leading-none">02</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase mt-1">Dead Zones</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="p-8 border-t-2 border-[#353534] bg-surface-container-lowest flex justify-between items-center text-[10px] text-zinc-600 font-bold tracking-widest uppercase">
+<div>© 2024 SCUM_OPERATIONAL_UNIT_01 | HARDENED_SYSTEM_V4</div>
+<div class="flex gap-6">
+<span>System Time: 2023-11-24 15:00:21 UTC</span>
+<span>Latency: 14ms</span>
+<span class="text-secondary">Uptime: 142d 08h 12m</span>
+</div>
+</footer>
+</main>
+</body></html>

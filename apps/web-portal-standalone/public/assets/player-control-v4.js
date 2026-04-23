@@ -335,19 +335,24 @@
     const identitySummary = state?.profile?.identitySummary || {};
     const stats = state?.stats || {};
     const party = state?.party || {};
-    const serverInfo = state?.serverInfo?.serverInfo || {};
-    const serverStatus = state?.serverInfo?.status || {};
-    const cart = state?.cart || {};
-    const wheelState = state?.wheelState || {};
-    const latestOrder = buildLatestOrder(state);
+      const serverInfo = state?.serverInfo?.serverInfo || {};
+      const serverStatus = state?.serverInfo?.status || {};
+      const cart = state?.cart || {};
+      const wheelState = state?.wheelState || {};
+      const supportTickets = Array.isArray(state?.supportTickets)
+        ? state.supportTickets
+        : (Array.isArray(state?.supportTickets?.items) ? state.supportTickets.items : []);
+      const latestOrder = buildLatestOrder(state);
     const pendingOrders = orders.filter((row) => {
       const status = String(row?.status || '').trim().toLowerCase();
       return status === 'pending' || status === 'queued' || status === 'delivering';
     });
     const failedOrders = orders.filter((row) => String(row?.status || '').trim().toLowerCase() === 'delivery_failed');
     const deliveredOrders = orders.filter((row) => String(row?.status || '').trim().toLowerCase() === 'delivered');
-    const myRank = leaderboardItems.find((row) => Boolean(row?.isSelf)) || leaderboardItems[0] || null;
-    const supportAlerts = notifications.filter((item) => ['warning', 'error'].includes(String(item?.severity || '').toLowerCase()));
+      const myRank = leaderboardItems.find((row) => Boolean(row?.isSelf)) || leaderboardItems[0] || null;
+      const supportAlerts = notifications.filter((item) => ['warning', 'error'].includes(String(item?.severity || '').toLowerCase()));
+      const openSupportTickets = supportTickets.filter((row) => String(row?.status || '').trim().toLowerCase() !== 'closed');
+      const latestSupportTicket = supportTickets[0] || null;
     const supporterItems = shopItems.filter((item) => isSupporterLikeItem(item));
     const supporterItemIds = new Set(
       supporterItems
@@ -392,9 +397,12 @@
       party,
       serverInfo,
       serverStatus,
-      cart,
-      wheelState,
-      latestOrder,
+        cart,
+        wheelState,
+        supportTickets,
+        openSupportTickets,
+        latestSupportTicket,
+        latestOrder,
       pendingOrders,
       failedOrders,
       deliveredOrders,
@@ -464,6 +472,54 @@
       ],
       rows,
       'ยังไม่มีกิจกรรมการส่งของให้แสดงตอนนี้',
+    );
+  }
+
+  function buildSupportTicketTable(rows) {
+    return renderTable(
+      [
+        {
+          label: 'Ticket',
+          render: (row) => escapeHtml(firstNonEmpty([row.channelId, row.id], '-')),
+        },
+        {
+          label: 'Category',
+          render: (row) => escapeHtml(firstNonEmpty([row.category], 'support')),
+        },
+        {
+          label: 'Status',
+          render: (row) => badge(firstNonEmpty([row.status], 'open'), toneForStatus(row.status || 'open')),
+        },
+        {
+          label: 'Updated',
+          render: (row) => escapeHtml(formatDateTime(row.updatedAt || row.closedAt || row.claimedAt || row.createdAt)),
+        },
+        {
+          label: 'Action',
+          render: (row) => {
+            const status = String(row?.status || '').trim().toLowerCase();
+            if (status === 'closed') {
+              return renderPlayerActionControl(
+                { label: 'Open profile', href: buildCanonicalPlayerPath('profile') },
+                'Open profile',
+                buildCanonicalPlayerPath('profile'),
+              );
+            }
+            return renderPlayerActionControl(
+              {
+                label: 'Close ticket',
+                data: {
+                  'data-player-support-ticket-close': firstNonEmpty([row.channelId], ''),
+                },
+              },
+              'Close ticket',
+              null,
+            );
+          },
+        },
+      ],
+      rows,
+      'No support tickets yet.',
     );
   }
 
@@ -660,6 +716,28 @@
     return `<button class="${className}" type="button"${dataAttrs}${buildDisabledAttr(action.disabled === true, reason)}>${escapeHtml(label)}</button>`;
   }
 
+  function buildPlayerSupportPrefillAction(reason, category = 'identity', label = 'Open identity support', options = {}) {
+    const normalizedReason = String(reason || '').trim();
+    const normalizedCategory = String(category || 'identity').trim().toLowerCase() || 'identity';
+    if (!normalizedReason) {
+      return renderPlayerActionControl(
+        { label, href: buildCanonicalPlayerPath('support'), primary: options.primary === true },
+        label,
+        buildCanonicalPlayerPath('support'),
+        { primary: options.primary === true },
+      );
+    }
+    return renderPlayerActionControl({
+      label,
+      primary: options.primary === true,
+      data: {
+        'data-player-support-prefill': normalizedCategory,
+        'data-player-support-category': normalizedCategory,
+        'data-player-support-reason': normalizedReason,
+      },
+    }, label, null, { primary: options.primary === true });
+  }
+
   function renderPlayerOfferGrid(items) {
     const rows = Array.isArray(items) ? items : [];
     if (!rows.length) {
@@ -821,6 +899,14 @@
 
   function buildHomePageContent(facts) {
     const profile = facts.state?.profile || {};
+    const identitySummary = facts.identitySummary || {};
+    const linkedAccounts = identitySummary.linkedAccounts || {};
+    const emailAccount = linkedAccounts.email || {};
+    const inGameAccount = linkedAccounts.inGame || {};
+    const activeMembership = identitySummary.activeMembership || null;
+    const steamLinked = facts.steamLink.linked === true;
+    const primaryEmail = firstNonEmpty([profile.primaryEmail, facts.state?.me?.primaryEmail], '');
+    const emailNeedsVerification = Boolean(emailAccount.linked) && !emailAccount.verified;
     const homeTasks = [
       {
         tone: facts.pendingOrders.length > 0 ? 'warning' : 'success',
@@ -860,52 +946,73 @@
       },
     ];
     const identityAttention = [];
-    if (emailNeedsVerification && primaryEmail) {
-      identityAttention.push({
-        tone: 'warning',
-        title: 'Verify email before recovery or support',
-        detail: 'Send a verification email now so recovery, ownership checks, and support follow-ups can trust this profile.',
-        actions: [
-          renderPlayerActionControl({
-            label: 'Send verification email',
-            primary: true,
-            data: {
-              'data-player-email-verification-request': true,
-              'data-player-email-value': primaryEmail,
-            },
-          }, 'Send verification email', null, { primary: true }),
-        ],
+    const centralizedIdentityItems = []
+      .concat(Array.isArray(identitySummary?.conflicts) ? identitySummary.conflicts : [])
+      .concat(Array.isArray(identitySummary?.attention) ? identitySummary.attention : []);
+    if (centralizedIdentityItems.length > 0) {
+      centralizedIdentityItems.forEach((item) => {
+        identityAttention.push({
+          tone: item?.tone || 'info',
+          title: item?.title || 'Identity watch',
+          detail: item?.detail || '',
+          actions: Array.isArray(item?.actions)
+            ? item.actions.map((action) => renderPlayerActionControl(
+              action,
+              action?.label || 'Open',
+              action?.href || null,
+              { primary: action?.primary === true },
+            ))
+            : [],
+        });
       });
-    }
-    if (!steamLinked) {
-      identityAttention.push({
-        tone: 'warning',
-        title: 'Link Steam before expecting in-game delivery',
-        detail: 'Orders can be created already, but item delivery and player matching stay weaker until Steam is linked from this profile.',
-        actions: [
-          renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
-        ],
-      });
-    }
-    if (!activeMembership) {
-      identityAttention.push({
-        tone: 'warning',
-        title: 'No active membership was detected',
-        detail: 'This profile can still browse, but live player privileges and support context stay limited until an active membership is attached.',
-        actions: [
-          renderPlayerActionControl({ label: 'Open home', href: buildCanonicalPlayerPath('home') }, 'Open home', buildCanonicalPlayerPath('home')),
-        ],
-      });
-    }
-    if (steamLinked && !inGameAccount.linked) {
-      identityAttention.push({
-        tone: 'info',
-        title: 'In-game profile has not been matched yet',
-        detail: 'Steam is linked already, but the latest in-game profile match has not shown up in this summary yet.',
-        actions: [
-          renderPlayerActionControl({ label: 'Open events', href: buildCanonicalPlayerPath('events') }, 'Open events', buildCanonicalPlayerPath('events')),
-        ],
-      });
+    } else {
+      if (emailNeedsVerification && primaryEmail) {
+        identityAttention.push({
+          tone: 'warning',
+          title: 'Verify email before recovery or support',
+          detail: 'Send a verification email now so recovery, ownership checks, and support follow-ups can trust this profile.',
+          actions: [
+            renderPlayerActionControl({
+              label: 'Send verification email',
+              primary: true,
+              data: {
+                'data-player-email-verification-request': true,
+                'data-player-email-value': primaryEmail,
+              },
+            }, 'Send verification email', null, { primary: true }),
+          ],
+        });
+      }
+      if (!steamLinked) {
+        identityAttention.push({
+          tone: 'warning',
+          title: 'Link Steam before expecting in-game delivery',
+          detail: 'Orders can be created already, but item delivery and player matching stay weaker until Steam is linked from this profile.',
+          actions: [
+            renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
+          ],
+        });
+      }
+      if (!activeMembership) {
+        identityAttention.push({
+          tone: 'warning',
+          title: 'No active membership was detected',
+          detail: 'This profile can still browse, but live player privileges and support context stay limited until an active membership is attached.',
+          actions: [
+            renderPlayerActionControl({ label: 'Open home', href: buildCanonicalPlayerPath('home') }, 'Open home', buildCanonicalPlayerPath('home')),
+          ],
+        });
+      }
+      if (steamLinked && !inGameAccount.linked) {
+        identityAttention.push({
+          tone: 'info',
+          title: 'In-game profile has not been matched yet',
+          detail: 'Steam is linked already, but the latest in-game profile match has not shown up in this summary yet.',
+          actions: [
+            renderPlayerActionControl({ label: 'Open events', href: buildCanonicalPlayerPath('events') }, 'Open events', buildCanonicalPlayerPath('events')),
+          ],
+        });
+      }
     }
 
     return {
@@ -1494,6 +1601,15 @@
         ], 'ยังไม่มีรายละเอียดโปรไฟล์'),
         '</article>',
         '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">การเชื่อมต่อ</span><h2 class="plv4-section-title">การเชื่อม Steam และความพร้อม</h2><p class="plv4-section-copy">ให้เงื่อนไขเรื่อง Steam ยังมองเห็นได้ เพื่อให้การซื้อและการส่งของคาดเดาได้ง่าย</p></div></div>',
+        identityConflicts.length
+          ? `<div class="plv4-card-grid" data-player-identity-conflicts>${identityConflicts.map((item) => `<article class="plv4-panel plv4-tone-${escapeHtml(item.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Identity conflict</span><h3 class="plv4-section-title">${escapeHtml(item.title || 'Identity conflict')}</h3><p class="plv4-section-copy">${escapeHtml(item.detail || '')}</p></div></div><div class="plv4-action-row">${buildIdentityActions(item.key).join('')}</div></article>`).join('')}</div>`
+          : '',
+        identityConflicts.length
+          ? `<div class="plv4-card-grid" data-player-identity-conflicts>${identityConflicts.map((item) => `<article class="plv4-panel plv4-tone-${escapeHtml(item.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Identity conflict</span><h3 class="plv4-section-title">${escapeHtml(item.title || 'Identity conflict')}</h3><p class="plv4-section-copy">${escapeHtml(item.detail || '')}</p></div></div><div class="plv4-action-row">${buildIdentityActions(item.key).join('')}</div></article>`).join('')}</div>`
+          : '',
+        identityConflicts.length
+          ? `<div class="plv4-card-grid" data-player-identity-conflicts>${identityConflicts.map((item) => `<article class="plv4-panel plv4-tone-${escapeHtml(item.tone || 'warning')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Identity conflict</span><h3 class="plv4-section-title">${escapeHtml(item.title || 'Identity conflict')}</h3><p class="plv4-section-copy">${escapeHtml(item.detail || '')}</p></div></div><div class="plv4-action-row">${buildIdentityActions(item.key).join('')}</div></article>`).join('')}</div>`
+          : '',
         identityAttention.length
           ? `<div class="plv4-card-grid" data-player-identity-attention>${identityAttention.map((item) => `<article class="plv4-panel plv4-tone-${escapeHtml(item.tone || 'info')}"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Identity watch</span><h3 class="plv4-section-title">${escapeHtml(item.title)}</h3><p class="plv4-section-copy">${escapeHtml(item.detail)}</p></div></div><div class="plv4-action-row">${Array.isArray(item.actions) ? item.actions.join('') : ''}</div></article>`).join('')}</div>`
           : '',
@@ -1609,6 +1725,121 @@
     };
   }
 
+  function buildSupportWorkspacePageContent(facts) {
+    const openSupportTicket = facts.openSupportTickets[0] || null;
+    const latestSupportTicket = facts.latestSupportTicket || null;
+    const supportFeed = (facts.supportAlerts.length ? facts.supportAlerts : facts.communityFeed).slice(0, 4);
+    const supportTasks = [
+      {
+        tone: openSupportTicket ? 'info' : (facts.failedOrders.length > 0 ? 'danger' : 'info'),
+        tag: 'Support flow',
+        title: openSupportTicket
+          ? 'An open support ticket is already tracking this account'
+          : 'Open one support ticket with the clearest player context you have',
+        detail: openSupportTicket
+          ? 'Use the open ticket below until the issue is resolved. Close it from this page when you are done.'
+          : 'Describe the problem once, include the order or identity context, and keep follow-up in the same ticket.',
+        actions: openSupportTicket
+          ? [
+            { label: 'Review my ticket', href: '#player-support-ticket-list', primary: true },
+            { label: 'Open profile', href: buildCanonicalPlayerPath('profile') },
+          ]
+          : [
+            { label: 'Open profile', href: buildCanonicalPlayerPath('profile'), primary: true },
+            { label: 'Open orders', href: buildCanonicalPlayerPath('orders') },
+          ],
+      },
+      {
+        tone: facts.steamLink.linked ? 'success' : 'warning',
+        tag: 'Identity',
+        title: facts.steamLink.linked ? 'Steam is already linked for support context' : 'Steam still needs to be linked for stronger support checks',
+        detail: facts.steamLink.linked
+          ? 'Player identity is easier to verify when staff review delivery, matching, or ownership issues.'
+          : 'Link Steam first if the issue is about delivery, account matching, or in-game identity.',
+        actions: [
+          { label: 'Open profile', href: buildCanonicalPlayerPath('profile'), primary: !facts.steamLink.linked },
+          { label: 'Open delivery', href: buildCanonicalPlayerPath('delivery'), primary: facts.steamLink.linked },
+        ],
+      },
+    ];
+
+    return {
+      header: {
+        title: 'Support',
+        subtitle: 'Open, review, and close your support tickets without leaving the player portal.',
+        statusChips: [
+          { label: `${formatNumber(facts.openSupportTickets.length, '0')} open tickets`, tone: facts.openSupportTickets.length > 0 ? 'warning' : 'success' },
+          { label: `${formatNumber(facts.supportTickets.length, '0')} tickets total`, tone: facts.supportTickets.length > 0 ? 'info' : 'muted' },
+          { label: facts.steamLink.linked ? 'Steam linked' : 'Steam not linked', tone: facts.steamLink.linked ? 'success' : 'warning' },
+          { label: `${formatNumber(facts.supportAlerts.length, '0')} active alerts`, tone: facts.supportAlerts.length > 0 ? 'warning' : 'muted' },
+        ],
+        primaryAction: openSupportTicket
+          ? { label: 'Open orders', href: buildCanonicalPlayerPath('orders') }
+          : { label: 'Open profile', href: buildCanonicalPlayerPath('profile') },
+        secondaryActions: [
+          { label: 'Open delivery', href: buildCanonicalPlayerPath('delivery') },
+          { label: 'Home', href: buildCanonicalPlayerPath('home') },
+        ],
+      },
+      summaryStrip: [
+        { label: 'Open tickets', value: formatNumber(facts.openSupportTickets.length, '0'), detail: openSupportTicket ? firstNonEmpty([openSupportTicket.channelId], 'Ticket is active now') : 'No support ticket is currently open', tone: facts.openSupportTickets.length > 0 ? 'warning' : 'success' },
+        { label: 'Latest ticket', value: latestSupportTicket ? firstNonEmpty([latestSupportTicket.category], 'support') : '-', detail: latestSupportTicket ? firstNonEmpty([latestSupportTicket.status], 'open') : 'No support history yet', tone: latestSupportTicket ? toneForStatus(latestSupportTicket.status || 'open') : 'muted' },
+        { label: 'Failed deliveries', value: formatNumber(facts.failedOrders.length, '0'), detail: facts.failedOrders.length > 0 ? 'Review the affected order before contacting staff' : 'No failed deliveries are visible right now', tone: facts.failedOrders.length > 0 ? 'danger' : 'muted' },
+        { label: 'Portal alerts', value: formatNumber(facts.supportAlerts.length, '0'), detail: 'Warnings and errors already visible in this portal', tone: facts.supportAlerts.length > 0 ? 'warning' : 'success' },
+        { label: 'Steam ready', value: facts.steamLink.linked ? 'Yes' : 'No', detail: facts.steamLink.linked ? 'Linked identity is available to staff' : 'Support checks stay weaker until Steam is linked', tone: facts.steamLink.linked ? 'success' : 'warning' },
+      ],
+      railCards: buildRailCommon(facts),
+      mainHtml: [
+        '<section class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Start here</span><h2 class="plv4-section-title">Keep support in one place</h2><p class="plv4-section-copy">Use the same player ticket for follow-up, keep the order and identity context close, and avoid splitting the issue across multiple channels.</p></div></div>',
+        `<div class="plv4-task-grid">${renderTaskGroups(supportTasks)}</div></section>`,
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<article class="plv4-panel" data-player-support-ticket-form-panel><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Open ticket</span><h2 class="plv4-section-title">Describe the issue once</h2><p class="plv4-section-copy">This creates a player support ticket inside the platform so staff can review the latest delivery, identity, and order context.</p></div></div>',
+        `<form class="plv4-form-stack" data-player-support-ticket-form>
+          <label class="plv4-field">
+            <span class="plv4-field-label">Category</span>
+            <select name="category">
+              <option value="support">Support</option>
+              <option value="delivery">Delivery</option>
+              <option value="identity">Identity</option>
+              <option value="billing">Billing</option>
+              <option value="appeal">Appeal</option>
+            </select>
+          </label>
+          <label class="plv4-field">
+            <span class="plv4-field-label">What happened?</span>
+            <textarea name="reason" rows="5" placeholder="Describe the issue, what you expected, and any order or identity details that staff should review."></textarea>
+          </label>
+          <div class="plv4-action-row">
+            <button class="plv4-button plv4-button-primary" type="submit"${buildDisabledAttr(Boolean(openSupportTicket), openSupportTicket ? 'Close the current ticket before opening a new one.' : '')}>Open support ticket</button>
+            ${renderPlayerActionControl({ label: 'Open profile', href: buildCanonicalPlayerPath('profile') }, 'Open profile', buildCanonicalPlayerPath('profile'))}
+          </div>
+        </form>`,
+        '</article>',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Prepare context</span><h2 class="plv4-section-title">What staff will need</h2><p class="plv4-section-copy">Keep these details close before you open or update a ticket so support can verify the issue faster.</p></div></div>',
+        renderKeyValueList([
+          { label: 'Latest order', value: facts.latestOrder ? facts.latestOrder.code : 'No recent order' },
+          { label: 'Steam or in-game name', value: facts.steamLink.linked ? firstNonEmpty([facts.steamLink.inGameName, facts.steamLink.steamId], 'Steam linked') : 'Link Steam from your profile first' },
+          { label: 'Open tickets', value: formatNumber(facts.openSupportTickets.length, '0') },
+          { label: 'Failed deliveries', value: formatNumber(facts.failedOrders.length, '0') },
+          { label: 'Portal alerts', value: formatNumber(facts.supportAlerts.length, '0') },
+        ], 'Support context is not available yet.'),
+        '</article>',
+        '</section>',
+        '<section class="plv4-content-grid plv4-content-grid-two">',
+        '<article class="plv4-panel" id="player-support-ticket-list"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">My tickets</span><h2 class="plv4-section-title">Support history and active cases</h2><p class="plv4-section-copy">Track open tickets here and close the active one from the same workspace when the issue is resolved.</p></div></div>',
+        buildSupportTicketTable(facts.supportTickets),
+        '</article>',
+        '<article class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Recent signals</span><h2 class="plv4-section-title">Alerts and community updates</h2><p class="plv4-section-copy">Check whether the portal is already showing warnings or announcements that explain the issue before escalating it.</p></div></div>',
+        `<div class="plv4-feed-list">${renderFeed(supportFeed, 'No recent support alerts or announcements.')}</div>`,
+        '</article>',
+        '</section>',
+        '<section class="plv4-panel"><div class="plv4-panel-head"><div class="plv4-stack"><span class="plv4-section-kicker">Orders to review</span><h2 class="plv4-section-title">Delivery issues from the player side</h2><p class="plv4-section-copy">If the problem is about item delivery, keep the affected order code ready and review the latest status before contacting staff.</p></div></div>',
+        buildDeliveryTable(facts.failedOrders.length > 0 ? facts.failedOrders : facts.orders.slice(0, 8)),
+        '</section>',
+      ].join(''),
+    };
+  }
+
   function buildProfilePageContentReady(facts) {
     const profile = facts.state?.profile || {};
     const steamLinked = facts.steamLink.linked === true;
@@ -1624,6 +1855,13 @@
     const membershipValue = formatMembershipValue(activeMembership);
     const primaryEmail = firstNonEmpty([profile.primaryEmail, facts.state?.me?.primaryEmail], '');
     const emailNeedsVerification = Boolean(emailAccount.linked) && !emailAccount.verified;
+    const identityConflicts = Array.isArray(identitySummary.conflicts) ? identitySummary.conflicts : [];
+    const canSelfUnlinkSteam = steamLinked && !emailNeedsVerification && facts.pendingOrders.length === 0;
+    const steamUnlinkReason = emailNeedsVerification
+      ? 'ยืนยันอีเมลที่ผูกไว้ก่อน จึงจะถอดการเชื่อม Steam เพื่อทำ recovery ได้อย่างปลอดภัย'
+      : facts.pendingOrders.length > 0
+        ? 'ปิดหรือเช็กคำสั่งซื้อที่ยังค้างอยู่ก่อน จึงจะถอดการเชื่อม Steam ได้'
+        : steamLockReason;
     const linkedAccountRows = [
       { label: 'สถานะการยืนยันตัวตน', value: localizeVerificationState(verificationState) },
       { label: 'สิทธิ์ที่ใช้งานอยู่', value: membershipValue },
@@ -1648,13 +1886,9 @@
           : 'ยังไม่เชื่อม',
       },
     ];
-    const identityAttention = [];
-    if (emailNeedsVerification && primaryEmail) {
-      identityAttention.push({
-        tone: 'warning',
-        title: 'Verify email before recovery or support',
-        detail: 'This email is linked already, but it still needs verification before recovery and higher-trust support flows should rely on it.',
-        actions: [
+    function buildIdentityActions(actionKey) {
+      if (actionKey === 'verify-email' && primaryEmail) {
+        return [
           renderPlayerActionControl({
             label: 'Send verification email',
             primary: true,
@@ -1663,37 +1897,129 @@
               'data-player-email-value': primaryEmail,
             },
           }, 'Send verification email', null, { primary: true }),
-        ],
-      });
-    }
-    if (!steamLinked) {
-      identityAttention.push({
-        tone: 'warning',
-        title: 'Link Steam before expecting in-game delivery',
-        detail: 'Orders can be placed already, but delivery into the game world remains weaker until Steam is linked from this profile.',
-        actions: [
-          renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
-        ],
-      });
-    } else if (!inGameAccount.linked) {
-      identityAttention.push({
-        tone: 'info',
-        title: 'In-game profile match is still pending',
-        detail: 'Steam is linked already, but the latest in-game profile match has not appeared in this profile summary yet.',
-        actions: [
+          buildPlayerSupportPrefillAction(
+            'Identity recovery: the linked email still needs verification before recovery and higher-trust support flows can continue.',
+          ),
+        ];
+      }
+      if (actionKey === 'in-game-pending') {
+        return [
+          buildPlayerSupportPrefillAction(
+            'Identity recovery: Steam is linked already, but the latest in-game profile match has not appeared in the player profile summary yet.',
+            'identity',
+            'Open identity support',
+            { primary: true },
+          ),
           renderPlayerActionControl({ label: 'Open events', href: buildCanonicalPlayerPath('events') }, 'Open events', buildCanonicalPlayerPath('events')),
-        ],
-      });
-    }
-    if (!activeMembership) {
-      identityAttention.push({
-        tone: 'info',
-        title: 'No active membership was found',
-        detail: 'The account is linked, but no active tenant membership is visible in this view yet.',
-        actions: [
+        ];
+      }
+      if (actionKey === 'link-steam') {
+        return [
+          buildPlayerSupportPrefillAction(
+            'Identity recovery: Steam is not linked yet and the player needs help preparing the profile for in-game delivery.',
+            'identity',
+            'Open identity support',
+            { primary: true },
+          ),
           renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
-        ],
+        ];
+      }
+      if (actionKey === 'membership-required') {
+        return [
+          buildPlayerSupportPrefillAction(
+            'Identity recovery: the account is linked, but no active tenant membership is visible in this player profile yet.',
+            'identity',
+            'Open identity support',
+            { primary: true },
+          ),
+          renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
+        ];
+      }
+      if (actionKey === 'steam-mismatch') {
+        return [
+          buildPlayerSupportPrefillAction(
+            'Identity conflict: the linked Steam identity and the player profile are pointing at different Steam IDs.',
+            'identity',
+            'Open identity support',
+            { primary: true },
+          ),
+          renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
+        ];
+      }
+      if (actionKey === 'discord-mismatch') {
+        return [
+          buildPlayerSupportPrefillAction(
+            'Identity conflict: the linked Discord identity and the player profile are pointing at different Discord IDs.',
+            'identity',
+            'Open identity support',
+            { primary: true },
+          ),
+          renderPlayerActionControl({ label: 'Open support', href: buildCanonicalPlayerPath('support') }, 'Open support', buildCanonicalPlayerPath('support')),
+        ];
+      }
+      return [];
+    }
+
+    const identityAttention = (Array.isArray(identitySummary.attention) ? identitySummary.attention : []).map((item) => ({
+      tone: item?.tone || 'info',
+      title: item?.title || 'Identity attention',
+      detail: item?.detail || '',
+      actions: Array.isArray(item?.actions) && item.actions.length > 0
+        ? item.actions.map((action) => renderPlayerActionControl(
+          action,
+          action?.label || 'Open',
+          action?.href || null,
+          { primary: action?.primary === true },
+        ))
+        : buildIdentityActions(item?.key),
+    }));
+    identityConflicts.forEach((item) => {
+      identityAttention.unshift({
+        tone: item?.tone || 'warning',
+        title: item?.title || 'Identity conflict',
+        detail: item?.detail || '',
+        actions: Array.isArray(item?.actions) && item.actions.length > 0
+          ? item.actions.map((action) => renderPlayerActionControl(
+            action,
+            action?.label || 'Open',
+            action?.href || null,
+            { primary: action?.primary === true },
+          ))
+          : buildIdentityActions(item?.key),
       });
+    });
+    if (!identityAttention.length) {
+      if (emailNeedsVerification && primaryEmail) {
+        identityAttention.push({
+          tone: 'warning',
+          title: 'Verify email before recovery or support',
+          detail: 'This email is linked already, but it still needs verification before recovery and higher-trust support flows should rely on it.',
+          actions: buildIdentityActions('verify-email'),
+        });
+      }
+      if (!steamLinked) {
+        identityAttention.push({
+          tone: 'warning',
+          title: 'Link Steam before expecting in-game delivery',
+          detail: 'Orders can be placed already, but delivery into the game world remains weaker until Steam is linked from this profile.',
+          actions: buildIdentityActions('link-steam'),
+        });
+      } else if (!inGameAccount.linked) {
+        identityAttention.push({
+          tone: 'info',
+          title: 'In-game profile match is still pending',
+          detail: 'Steam is linked already, but the latest in-game profile match has not appeared in this profile summary yet.',
+          actions: buildIdentityActions('in-game-pending'),
+        });
+      }
+      if (!activeMembership) {
+        identityAttention.push({
+          tone: 'info',
+          title: 'No active membership was found',
+          detail: 'The account is linked, but no active tenant membership is visible in this view yet.',
+          actions: buildIdentityActions('membership-required'),
+        });
+      }
     }
 
     return {
@@ -1755,7 +2081,24 @@
             `<p class="plv4-inline-copy">${escapeHtml(steamLockReason)}</p>`,
             `<div class="plv4-action-row">${[
               renderPlayerActionControl({ label: 'เปิดหน้าช่วยเหลือ', href: buildCanonicalPlayerPath('support') }, 'เปิดหน้าช่วยเหลือ', buildCanonicalPlayerPath('support')),
-              renderPlayerActionControl({ label: 'ยังไม่เปิดให้ถอดการเชื่อมเอง', disabled: true, reason: steamLockReason }, 'ยังไม่เปิดให้ถอดการเชื่อมเอง', null),
+              renderPlayerActionControl(
+                canSelfUnlinkSteam
+                  ? {
+                      label: 'Disconnect Steam link',
+                      primary: true,
+                      data: {
+                        'data-player-steam-unlink': true,
+                      },
+                    }
+                  : {
+                      label: emailNeedsVerification ? 'Verify email first' : 'Finish active orders first',
+                      disabled: true,
+                      reason: steamUnlinkReason,
+                    },
+                canSelfUnlinkSteam ? 'Disconnect Steam link' : 'Finish active orders first',
+                null,
+                { primary: canSelfUnlinkSteam },
+              ),
             ].join('')}</div>`,
           ].join('')
           : [
@@ -1982,11 +2325,11 @@
         return buildEventsPageContent(facts);
       case 'donations':
         return buildDonationsPageContentReady(facts);
-      case 'profile':
-        return buildProfilePageContentReady(facts);
-      case 'support':
-        return buildSupportPageContent(facts);
-      default:
+        case 'profile':
+          return buildProfilePageContentReady(facts);
+        case 'support':
+          return buildSupportWorkspacePageContent(facts);
+        default:
         return {
           header: {
             title: 'พอร์ทัลผู้เล่น',

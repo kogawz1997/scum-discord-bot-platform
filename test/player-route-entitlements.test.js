@@ -68,6 +68,36 @@ test('player general routes expose normalized feature access for the current ten
   assert.equal(res.payload.data.pages.profile.enabled, true);
 });
 
+test('player general routes fall back to a safe empty feature access payload when entitlements fail', async () => {
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    getTenantFeatureAccess: async () => {
+      throw new Error('feature access store offline');
+    },
+  });
+
+  const res = createResponse();
+  const handled = await route({
+    req: {},
+    res,
+    urlObj: createUrl('/player/api/feature-access'),
+    pathname: '/player/api/feature-access',
+    method: 'GET',
+    session: {
+      tenantId: 'tenant-prod-001',
+      discordId: '123456789012345678',
+      user: 'Mira',
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.ok, true);
+  assert.deepEqual(res.payload.data.enabledFeatureKeys, []);
+  assert.equal(res.payload.data.pages.shop.enabled, false);
+  assert.equal(res.payload.data.pages.home.enabled, true);
+});
+
 test('player general routes deny wallet access when wallet feature is disabled', async () => {
   const route = createPlayerGeneralRoutes({
     sendJson: createSendJson(),
@@ -95,6 +125,48 @@ test('player general routes deny wallet access when wallet feature is disabled',
   assert.equal(res.statusCode, 403);
   assert.equal(res.payload.error, 'feature-not-enabled');
   assert.deepEqual(res.payload.data.requiredFeatures, ['wallet_module']);
+});
+
+test('player general routes fall back to a safe profile summary when player readers fail', async () => {
+  const route = createPlayerGeneralRoutes({
+    sendJson: createSendJson(),
+    normalizeText(value) {
+      return String(value || '').trim();
+    },
+    getPlayerAccount: async () => {
+      throw new Error('player account offline');
+    },
+    resolveSessionSteamLink: async () => {
+      throw new Error('steam link offline');
+    },
+    listServerRegistry: async () => {
+      throw new Error('server registry offline');
+    },
+  });
+
+  const res = createResponse();
+  const handled = await route({
+    req: {},
+    res,
+    urlObj: createUrl('/player/api/me'),
+    pathname: '/player/api/me',
+    method: 'GET',
+    session: {
+      tenantId: 'tenant-prod-001',
+      discordId: '123456789012345678',
+      user: 'Mira',
+      authMethod: 'capture',
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.ok, true);
+  assert.equal(res.payload.data.discordId, '123456789012345678');
+  assert.equal(res.payload.data.accountStatus, 'active');
+  assert.equal(res.payload.data.steamLinked, false);
+  assert.equal(res.payload.data.tenantId, 'tenant-prod-001');
+  assert.equal(res.payload.data.effectiveServerId, null);
 });
 
 test('player general routes support email magic-link request without a session', async () => {

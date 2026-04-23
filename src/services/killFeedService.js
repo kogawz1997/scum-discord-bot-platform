@@ -47,6 +47,13 @@ function toIsoString(value) {
   return date ? date.toISOString() : null;
 }
 
+function resolveKillFeedScope(options = {}, operation = 'kill feed operation') {
+  return resolveTenantServerStoreScope({
+    ...options,
+    operation,
+  });
+}
+
 function normalizeScopedSchemaTenantId(value) {
   return String(value || '')
     .trim()
@@ -95,11 +102,11 @@ function normalizeKillFeedRow(row = {}) {
 }
 
 async function recordKillFeedEntry(payload = {}, options = {}) {
-  const scope = resolveTenantServerStoreScope({
+  const scope = resolveKillFeedScope({
     ...options,
     tenantId: options.tenantId || payload.tenantId,
     serverId: options.serverId || payload.serverId,
-  });
+  }, 'record kill feed entry');
   const occurredAt = normalizeDate(payload.occurredAt) || new Date();
   const created = await scope.db.killFeedEvent.create({
     data: {
@@ -124,7 +131,7 @@ async function recordKillFeedEntry(payload = {}, options = {}) {
 }
 
 async function listKillFeedEntries(options = {}) {
-  const scope = resolveTenantServerStoreScope(options);
+  const scope = resolveKillFeedScope(options, 'list kill feed entries');
   const limit = clampLimit(options.limit, 20, 1, 100);
   const search = normalizeText(options.q).toLowerCase();
   const where = {};

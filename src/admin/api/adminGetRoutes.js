@@ -140,6 +140,7 @@ function createAdminGetRoutes(deps) {
     listUserPurchases,
     normalizePurchaseStatus,
     getPlayerDashboard,
+    getPlatformUserIdentitySummary,
     listActiveBountiesForUser,
     listFilteredDeliveryQueue,
     listFilteredDeliveryDeadLetters,
@@ -332,6 +333,7 @@ function createAdminGetRoutes(deps) {
     buildAdminDashboardCards,
     listPlayerAccounts,
     getPlayerDashboard,
+    getPlatformUserIdentitySummary,
   });
   const handleAdminObservabilityGetRoute = createAdminObservabilityGetRouteHandler({
     ensureRole,
@@ -556,7 +558,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'admin', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -663,7 +665,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -768,11 +770,12 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/quota') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -790,11 +793,12 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/tenant-feature-access') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -847,7 +851,18 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/tenants') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(
+        req,
+        res,
+        auth,
+        requestedTenantId || getAuthTenantId(auth),
+        { required: false },
+      );
+      if (requestedTenantId && !tenantId) return true;
       let data = await listPlatformTenants({
+        tenantId,
+        allowGlobal: !tenantId,
         limit: asInt(urlObj.searchParams.get('limit'), 100) || 100,
         status: requiredString(urlObj.searchParams.get('status')),
         type: requiredString(urlObj.searchParams.get('type')),
@@ -860,18 +875,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/servers') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listPlatformServerRegistry({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
         }),
       });
@@ -913,18 +930,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/server-discord-links') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listPlatformServerLinks({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           guildId: requiredString(urlObj.searchParams.get('guildId')),
         }),
@@ -935,18 +954,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/agent-registry') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await readOptionalAdminData('agent-registry', () => listPlatformAgentRegistry({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
         }), []),
       });
@@ -956,18 +977,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/agent-provisioning') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await readOptionalAdminData('agent-provisioning', () => listPlatformAgentProvisioningTokens({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
           status: requiredString(urlObj.searchParams.get('status')),
@@ -1008,18 +1031,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/agent-devices') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await readOptionalAdminData('agent-devices', () => listPlatformAgentDevices({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
           status: requiredString(urlObj.searchParams.get('status')),
@@ -1031,18 +1056,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/agent-credentials') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await readOptionalAdminData('agent-credentials', () => listPlatformAgentCredentials({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
         }), []),
@@ -1057,7 +1084,7 @@ function createAdminGetRoutes(deps) {
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requiredString(urlObj.searchParams.get('tenantId')) || getAuthTenantId(auth),
         { required: false },
       );
       if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
@@ -1076,18 +1103,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/agent-sessions') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listPlatformAgentSessions({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
         }),
@@ -1098,18 +1127,20 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/sync-runs') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listPlatformSyncRuns({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
         }),
@@ -1120,11 +1151,12 @@ function createAdminGetRoutes(deps) {
     if (pathname === '/admin/api/platform/tenant-staff') {
       const auth = ensureRole(req, urlObj, 'viewer', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -1172,7 +1204,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1192,7 +1224,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1219,7 +1251,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1241,7 +1273,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1261,7 +1293,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1281,7 +1313,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1302,7 +1334,7 @@ function createAdminGetRoutes(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -1431,13 +1463,14 @@ function createAdminGetRoutes(deps) {
         1,
         Math.min(1000, asInt(urlObj.searchParams.get('limit'), 100) || 100),
       );
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        String(urlObj.searchParams.get('tenantId') || '').trim(),
+        requestedTenantId || getAuthTenantId(auth),
       );
-      if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (requestedTenantId && tenantId === null) return true;
       const statusFilter = normalizePurchaseStatus(
         String(urlObj.searchParams.get('status') || ''),
       );

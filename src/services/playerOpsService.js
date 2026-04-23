@@ -12,6 +12,8 @@ const {
   listBounties,
 } = require('../store/bountyStore');
 const { requestRentBike } = require('./rentBikeService');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -28,17 +30,30 @@ function normalizeCode(value) {
   return code || null;
 }
 
+function resolvePlayerOpsScope(params = {}, operation = 'player ops') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
+  };
+}
+
 async function redeemCodeForUser(params = {}) {
   const userId = normalizeText(params.userId);
   const code = normalizeCode(params.code);
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
   if (!userId || !code) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolvePlayerOpsScope(params, 'redeem code');
 
   const data = getCode(code, scopeOptions);
   if (!data) {
@@ -94,14 +109,10 @@ async function createBountyForUser(params = {}) {
   const createdBy = normalizeText(params.createdBy);
   const targetName = normalizeText(params.targetName);
   const amount = normalizeAmount(params.amount);
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
   if (!createdBy || !targetName || amount <= 0) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolvePlayerOpsScope(params, 'create bounty');
 
   const bounty = await createBounty({
     targetName,
@@ -115,19 +126,15 @@ function cancelBountyForUser(params = {}) {
   const id = Number(params.id);
   const requesterId = normalizeText(params.requesterId);
   const isStaff = params.isStaff === true;
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
   if (!Number.isFinite(id) || id <= 0 || !requesterId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = resolvePlayerOpsScope(params, 'cancel bounty');
   return cancelBounty(id, requesterId, isStaff, scopeOptions);
 }
 
 function listActiveBountiesForUser(options = {}) {
-  return listBounties(options).filter((row) => row.status === 'active');
+  return listBounties(resolvePlayerOpsScope(options, 'list bounties')).filter((row) => row.status === 'active');
 }
 
 function createRedeemCodeForAdmin(params = {}) {
@@ -153,9 +160,7 @@ function createRedeemCodeForAdmin(params = {}) {
     amount,
     itemId,
   }, {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
+    ...resolvePlayerOpsScope(params, 'create redeem code'),
   });
 }
 
@@ -164,11 +169,7 @@ function deleteRedeemCodeForAdmin(params = {}) {
   if (!code) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const removed = deleteCode(code, {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  });
+  const removed = deleteCode(code, resolvePlayerOpsScope(params, 'delete redeem code'));
   if (!removed) {
     return { ok: false, reason: 'not-found' };
   }
@@ -180,11 +181,7 @@ function resetRedeemCodeUsageForAdmin(params = {}) {
   if (!code) {
     return { ok: false, reason: 'invalid-input' };
   }
-  const item = resetCodeUsage(code, {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  });
+  const item = resetCodeUsage(code, resolvePlayerOpsScope(params, 'reset redeem code'));
   if (!item) {
     return { ok: false, reason: 'not-found' };
   }
@@ -197,11 +194,7 @@ async function requestRentBikeForUser(params = {}) {
   if (!discordUserId) {
     return { ok: false, reason: 'invalid-user-id', message: 'user id is required' };
   }
-  return requestRentBike(discordUserId, guildId, {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  });
+  return requestRentBike(discordUserId, guildId, resolvePlayerOpsScope(params, 'request rent bike'));
 }
 
 module.exports = {

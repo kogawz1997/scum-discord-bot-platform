@@ -12,7 +12,10 @@ function createScopeState() {
 }
 
 function ensureWeaponStatsScope(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantStoreScope({
+    ...options,
+    operation: String(options.operation || '').trim() || 'weapon stats store operation',
+  });
   if (!scopeStateByDatasource.has(scope.datasourceKey)) {
     scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }

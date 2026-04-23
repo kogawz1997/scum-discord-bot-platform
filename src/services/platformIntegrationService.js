@@ -96,6 +96,12 @@ function createPlatformIntegrationService(deps) {
   }
 
   async function listPlatformApiKeyCandidates(options = {}) {
+    const { tenantId } = assertTenantDbIsolationScope({
+      tenantId: options.tenantId,
+      allowGlobal: options.allowGlobal === true,
+      operation: 'platform API key candidate lookup',
+      env: options.env || process.env,
+    });
     const keyPrefix = trimText(options.keyPrefix, 120);
     if (!keyPrefix) return [];
     const take = Math.max(1, Math.min(50, asInt(options.limit, 10, 1)));
@@ -107,10 +113,12 @@ function createPlatformIntegrationService(deps) {
     if (Array.isArray(sharedRows)) {
       rows.push(...sharedRows.map((row) => annotatePlatformScopeRow(row, null)));
     }
-    const tenantRows = await prisma.platformTenant.findMany({
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    }).catch(() => []);
+    const tenantRows = tenantId
+      ? [{ id: tenantId }]
+      : await prisma.platformTenant.findMany({
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      }).catch(() => []);
     const seenTenantIds = new Set();
     for (const tenant of tenantRows) {
       const tenantId = trimText(tenant?.id, 120);
@@ -244,7 +252,11 @@ function createPlatformIntegrationService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformApiKey.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform API key global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformApiKey.findMany({
@@ -255,10 +267,20 @@ function createPlatformIntegrationService(deps) {
     return rows.map(sanitizeApiKeyRow);
   }
 
-  async function revokePlatformApiKey(apiKeyId, actor = 'system') {
+  async function revokePlatformApiKey(apiKeyId, actor = 'system', options = {}) {
     const id = trimText(apiKeyId, 120);
     if (!id) return { ok: false, reason: 'invalid-api-key-id' };
-    const rows = await listPlatformApiKeys({ allowGlobal: true, limit: 1000 });
+    const { tenantId } = assertTenantDbIsolationScope({
+      tenantId: options.tenantId,
+      allowGlobal: options.allowGlobal === true,
+      operation: 'platform API key revocation',
+      env: options.env || process.env,
+    });
+    const rows = await listPlatformApiKeys({
+      tenantId,
+      allowGlobal: !tenantId && options.allowGlobal === true,
+      limit: 1000,
+    });
     const target = rows.find((row) => String(row?.id || '') === id) || null;
     if (!target) return { ok: false, reason: 'platform-apikey-not-found' };
     const row = await runWithOptionalTenantDbIsolation(target.tenantId, (db) => db.platformApiKey.update({
@@ -283,7 +305,17 @@ function createPlatformIntegrationService(deps) {
   async function rotatePlatformApiKey(input = {}, actor = 'system') {
     const apiKeyId = trimText(input.apiKeyId, 120);
     if (!apiKeyId) return { ok: false, reason: 'invalid-api-key-id' };
-    const rows = await listPlatformApiKeys({ allowGlobal: true, limit: 1000 });
+    const { tenantId } = assertTenantDbIsolationScope({
+      tenantId: input.tenantId,
+      allowGlobal: input.allowGlobal === true,
+      operation: 'platform API key rotation',
+      env: input.env || process.env,
+    });
+    const rows = await listPlatformApiKeys({
+      tenantId,
+      allowGlobal: !tenantId && input.allowGlobal === true,
+      limit: 1000,
+    });
     const target = rows.find((row) => String(row?.id || '') === apiKeyId) || null;
     if (!target) return { ok: false, reason: 'platform-apikey-not-found' };
     const created = await createPlatformApiKey({
@@ -293,7 +325,10 @@ function createPlatformIntegrationService(deps) {
       status: 'active',
     }, actor);
     if (!created.ok) return created;
-    await revokePlatformApiKey(apiKeyId, actor).catch(() => null);
+    await revokePlatformApiKey(apiKeyId, actor, {
+      tenantId: target.tenantId,
+      env: input.env || process.env,
+    }).catch(() => null);
     return {
       ok: true,
       apiKey: created.apiKey,
@@ -306,7 +341,12 @@ function createPlatformIntegrationService(deps) {
     const key = trimText(rawKey, 500);
     if (!key) return { ok: false, reason: 'missing-api-key' };
     const keyPrefix = key.slice(0, 16);
-    const rows = await listPlatformApiKeyCandidates({ keyPrefix, limit: 10 });
+    const rows = await listPlatformApiKeyCandidates({
+      keyPrefix,
+      limit: 10,
+      allowGlobal: true,
+      env: process.env,
+    });
     const matched = rows.find((row) => sha256(key) === row.keyHash) || null;
     if (!matched || matched.status !== 'active' || matched.revokedAt) {
       return { ok: false, reason: 'invalid-api-key' };
@@ -413,7 +453,11 @@ function createPlatformIntegrationService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformWebhookEndpoint.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform webhook global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformWebhookEndpoint.findMany({

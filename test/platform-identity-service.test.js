@@ -296,6 +296,114 @@ test('platform identity service treats standard email identities as linked email
   assert.equal(summary.linkedAccounts.email.value, 'identity-test@example.com');
 });
 
+test('platform identity service derives identity conflicts and attention items from mixed linkage state', () => {
+  const summary = buildLinkedAccountSummary({
+    user: {
+      id: 'platform-user-email-test',
+      primaryEmail: 'identity-test@example.com',
+    },
+    profile: {
+      discordUserId: 'discord-profile-id',
+      steamId: 'steam-profile-id',
+      verificationState: 'pending',
+    },
+    identities: [
+      {
+        provider: 'email',
+        providerEmail: 'identity-test@example.com',
+        verifiedAt: null,
+      },
+      {
+        provider: 'discord',
+        providerUserId: 'discord-identity-id',
+        verifiedAt: '2026-04-01T10:00:00.000Z',
+      },
+      {
+        provider: 'steam',
+        providerUserId: 'steam-identity-id',
+        verifiedAt: '2026-04-01T10:00:00.000Z',
+      },
+    ],
+    memberships: [
+      {
+        tenantId: 'tenant-identity-test',
+        membershipType: 'tenant',
+        role: 'player',
+        status: 'inactive',
+      },
+    ],
+    tenantId: 'tenant-identity-test',
+  });
+
+  assert.deepEqual(
+    summary.conflicts.map((item) => item.key).sort(),
+    ['discord-mismatch', 'steam-mismatch'],
+  );
+  assert.deepEqual(
+    summary.attention.map((item) => item.key).sort(),
+    ['in-game-pending', 'membership-required', 'verify-email'],
+  );
+  assert.equal(summary.readiness.hasSteam, true);
+  assert.equal(summary.readiness.hasActiveMembership, false);
+  assert.equal(summary.attention.find((item) => item.key === 'verify-email')?.actions?.[0]?.label, 'Send verification email');
+  assert.equal(summary.conflicts.find((item) => item.key === 'steam-mismatch')?.actions?.some((action) => action.label === 'Open support'), true);
+  assert.equal(summary.conflicts.find((item) => item.key === 'steam-mismatch')?.actions?.some((action) => action.label === 'Send verification email'), true);
+});
+
+test('platform identity summary exposes a direct steam disconnect action after email verification', async () => {
+  const summary = buildLinkedAccountSummary({
+    user: {
+      id: 'platform-user-1',
+      primaryEmail: 'verified@example.com',
+    },
+    profile: {
+      discordUserId: 'discord-profile-id',
+      steamId: 'steam-profile-id',
+      verificationState: 'fully_verified',
+    },
+    identities: [
+      {
+        provider: 'email_preview',
+        providerEmail: 'verified@example.com',
+        verifiedAt: '2026-04-01T09:00:00.000Z',
+      },
+      {
+        provider: 'discord',
+        providerUserId: 'discord-identity-id',
+        verifiedAt: '2026-04-01T09:05:00.000Z',
+      },
+      {
+        provider: 'steam',
+        providerUserId: 'steam-identity-id',
+        verifiedAt: '2026-04-01T09:10:00.000Z',
+      },
+    ],
+    memberships: [
+      {
+        tenantId: 'tenant-identity-test',
+        membershipType: 'tenant',
+        role: 'player',
+        status: 'active',
+      },
+    ],
+    tenantId: 'tenant-identity-test',
+  });
+
+  const steamMismatch = summary.conflicts.find((item) => item.key === 'steam-mismatch');
+  assert.equal(
+    steamMismatch?.actions?.some((action) => action.label === 'Disconnect Steam link'),
+    true,
+  );
+  assert.equal(
+    steamMismatch?.actions?.some((action) => action.data?.['data-player-steam-unlink'] === true),
+    true,
+  );
+  assert.equal(
+    steamMismatch?.actions?.some((action) => action.data?.['data-player-identity-support'] === true),
+    true,
+  );
+});
+
 test('platform identity summary for preview accounts includes player profile readiness', async (t) => {
   await cleanupIdentityFixtures();
   t.after(cleanupIdentityFixtures);
@@ -373,4 +481,59 @@ test('platform identity service can clear steam link from a shared player profil
   assert.equal(cleared.profile.verificationState, 'discord_verified');
   assert.equal(cleared.identitySummary.linkedAccounts.steam.linked, false);
   assert.equal(cleared.identitySummary.linkedAccounts.discord.linked, true);
+});
+
+test('platform identity service requires explicit allowGlobal for global identity summary lookups in strict postgres mode', async (t) => {
+  await cleanupIdentityFixtures();
+  t.after(cleanupIdentityFixtures);
+
+  await ensurePlatformPlayerIdentity({
+    provider: 'discord',
+    providerUserId: '123456789012345678',
+    providerEmail: 'identity-test@example.com',
+    email: 'identity-test@example.com',
+    displayName: 'Identity Player',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    verificationState: 'discord_verified',
+  });
+
+  await assert.rejects(
+    () => getPlatformUserIdentitySummary({
+      discordUserId: '123456789012345678',
+      env: {
+        DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+        TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+      },
+    }),
+    /platform identity latest profile lookup requires tenantId/i,
+  );
+});
+
+test('platform identity service allows explicit global identity summary lookups in strict postgres mode', async (t) => {
+  await cleanupIdentityFixtures();
+  t.after(cleanupIdentityFixtures);
+
+  await ensurePlatformPlayerIdentity({
+    provider: 'discord',
+    providerUserId: '123456789012345678',
+    providerEmail: 'identity-test@example.com',
+    email: 'identity-test@example.com',
+    displayName: 'Identity Player',
+    tenantId: 'tenant-identity-test',
+    discordUserId: '123456789012345678',
+    verificationState: 'discord_verified',
+  });
+
+  const summary = await getPlatformUserIdentitySummary({
+    discordUserId: '123456789012345678',
+    allowGlobal: true,
+    env: {
+      DATABASE_URL: 'postgresql://app:secret@127.0.0.1:5432/scum',
+      TENANT_DB_ISOLATION_MODE: 'postgres-rls-strict',
+    },
+  });
+
+  assert.equal(summary.ok, true);
+  assert.equal(String(summary.profile?.discordUserId || ''), '123456789012345678');
 });

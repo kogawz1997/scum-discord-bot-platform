@@ -18,6 +18,7 @@ test('tenant logs sync v4 model summarizes sync runs and events', () => {
   assert.equal(model.summaryStrip.length, 5);
   assert.equal(model.syncRuns.length, 1);
   assert.equal(model.syncEvents.length, 1);
+  assert.equal(model.timelineRows.length, 3);
 });
 
 test('tenant logs sync v4 html includes refresh action and history sections', () => {
@@ -26,7 +27,9 @@ test('tenant logs sync v4 html includes refresh action and history sections', ()
   assert.match(html, /Refresh sync status/);
   assert.match(html, /Latest sync runs/);
   assert.match(html, /Recent sync events/);
+  assert.match(html, /Audit timeline/);
   assert.match(html, /data-tenant-logs-sync-refresh/);
+  assert.match(html, /data-tenant-logs-sync-timeline/);
 });
 
 test('tenant logs sync v4 exposes config job recovery and delivery watch', () => {
@@ -83,4 +86,36 @@ test('tenant logs sync v4 exposes config job recovery and delivery watch', () =>
   assert.match(html, /Retry failed job/);
   assert.match(html, /data-config-job-retry/);
   assert.match(html, /Restart results and delivery recovery/);
+});
+
+test('tenant logs sync v4 audit timeline merges support, sync, and recovery activity newest first', () => {
+  const model = createTenantLogsSyncV4Model({
+    notifications: [{
+      kind: 'platform.player.identity.support',
+      createdAt: '2026-03-29T09:40:00+07:00',
+      data: {
+        eventType: 'platform.player.identity.support',
+        userId: 'discord-1',
+        steamId: '7656119',
+        supportIntent: 'relink',
+        supportOutcome: 'pending-verification',
+        supportReason: 'Steam mismatch with active order',
+        supportSource: 'owner-support',
+        followupAction: 'bind',
+      },
+    }],
+    syncRuns: [{ kind: 'sync', status: 'completed', startedAt: '2026-03-29T09:00:00+07:00', detail: 'Applied 4 log records' }],
+    restartExecutions: [{
+      id: 'rexec-1',
+      action: 'restart',
+      resultStatus: 'succeeded',
+      completedAt: '2026-03-29T09:25:00+07:00',
+      detail: 'Restart completed',
+    }],
+  });
+
+  assert.equal(model.timelineRows[0].title, 'Identity support: Relink');
+  assert.equal(model.timelineRows[0].sourceLabel, 'Support');
+  assert.match(model.timelineRows[0].detail, /Steam mismatch with active order/);
+  assert.equal(model.timelineRows[1].title, 'Restart');
 });

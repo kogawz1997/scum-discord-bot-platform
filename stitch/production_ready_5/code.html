@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AEGIS COMMAND - การแจ้งเตือนและเหตุการณ์ (Incidents &amp; Alerts)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-primary-container": "#00566a",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface-dim": "#121315",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-bright": "#38393b",
+                        "on-secondary": "#412d00",
+                        "inverse-surface": "#e3e2e4",
+                        "tertiary-container": "#ffaaa4",
+                        "surface-container-high": "#292a2c",
+                        "secondary": "#ffdb9d",
+                        "surface": "#121315",
+                        "on-surface": "#e3e2e4",
+                        "inverse-on-surface": "#303032",
+                        "tertiary": "#ffd1ce",
+                        "secondary-container": "#feb700",
+                        "surface-container-low": "#1b1c1e",
+                        "tertiary-fixed": "#ffdad7",
+                        "inverse-primary": "#00677f",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "primary-container": "#00d1ff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "surface-tint": "#4cd6ff",
+                        "primary": "#a4e6ff",
+                        "surface-container-highest": "#343537",
+                        "surface-container": "#1f2022",
+                        "on-primary-fixed": "#001f28",
+                        "primary-fixed": "#b7eaff",
+                        "on-tertiary": "#68000b",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#ffdea8",
+                        "error": "#ffb4ab",
+                        "on-primary": "#003543",
+                        "outline-variant": "#3c494e",
+                        "on-tertiary-container": "#a10017",
+                        "on-background": "#e3e2e4",
+                        "background": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "outline": "#859399",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#410004",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#bbc9cf",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface-dim text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-zinc-950 dark:bg-black border-b border-zinc-800 dark:border-zinc-900 shadow-sm font-headline tracking-tight">
+<div class="flex items-center gap-6">
+<span class="text-lg font-black tracking-widest text-cyan-500 uppercase">AEGIS COMMAND</span>
+<div class="hidden md:flex items-center gap-4 ml-4">
+<button class="flex items-center gap-2 px-3 py-1 rounded text-cyan-400 border-b-2 border-cyan-400 pb-1 font-semibold text-sm transition-all">
+<span class="material-symbols-outlined text-[20px]">refresh</span>
+                    Refresh
+                </button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors rounded">
+<span class="material-symbols-outlined">language</span>
+</button>
+<button class="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors rounded">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors rounded relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-black"></span>
+</button>
+<div class="h-8 w-[1px] bg-zinc-800 mx-2"></div>
+<button class="flex items-center gap-2 px-3 py-1 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors rounded">
+<span class="text-xs font-bold">Logout</span>
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-14 bottom-0 w-64 flex flex-col pt-4 pb-6 overflow-y-auto bg-zinc-950 dark:bg-black border-r border-zinc-800 dark:border-zinc-900 sidebar-scroll font-headline text-xs font-semibold uppercase tracking-wider">
+<div class="px-6 mb-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800 overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Official portrait of a military platform administrator in dark gear with professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDv1ibhdHeH1q8qvF5p5S5RtZ9IBjBrHZRTPSwyKxf5OC1wSn5XQ2MQlnOKOBV0iefMdYwjrRRZB9VK2PVcH0c6Nc3DAgAAJAI17vjzfpDLesYL4zh2pFF7_cpED7hMp8jxdMLZbCCp8ZrF1Z1KZ8N1BjTq0_I0TONmvONaXYLNQAr8LettV4cp4ee5XTAi1AgS3RGR44o9xUhJBCTTyOAJbtJfumsck0EGBISpNc-av3hhCjYQKnUNF0wcOMouEYFXzmNRcCp3VpY"/>
+</div>
+<div>
+<p class="text-cyan-400 font-bold">Platform Owner</p>
+<p class="text-[10px] text-zinc-500">Operational Control Plane</p>
+</div>
+</div>
+<div class="flex-1 space-y-1">
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span>Tenants</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span>Observability</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">health_and_safety</span>
+<span>Runtime Health</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">lan</span>
+<span>Fleet</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 bg-zinc-900 dark:bg-zinc-800 text-cyan-400 border-l-4 border-cyan-400 transition-all translate-x-1 duration-150" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span>Incidents</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">robot</span>
+<span>Automation</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">security</span>
+<span>Security</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</div>
+<div class="mt-auto px-6 pt-6 border-t border-zinc-900 space-y-4">
+<a class="flex items-center gap-4 text-zinc-500 hover:text-zinc-300 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span>Docs</span>
+</a>
+<a class="flex items-center gap-4 text-zinc-500 hover:text-zinc-300 transition-colors" href="#">
+<span class="material-symbols-outlined">cloud_done</span>
+<span>API Status</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-14 min-h-screen">
+<!-- Page Header & Status Strip -->
+<div class="bg-surface-container-low border-b border-outline-variant px-8 py-6">
+<div class="flex justify-between items-end mb-4">
+<div>
+<h1 class="text-2xl font-black font-headline tracking-tight text-on-surface mb-1">การแจ้งเตือนและเหตุการณ์ (Incidents &amp; Alerts)</h1>
+<p class="text-sm text-on-surface-variant font-medium">Real-time control plane monitoring and incident response</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded transition-all border border-zinc-700 active:scale-95">
+                        Acknowledge All
+                    </button>
+<button class="bg-cyan-600 hover:bg-cyan-500 text-black px-4 py-2 text-xs font-bold uppercase tracking-widest rounded transition-all active:scale-95">
+                        Clear Cleared
+                    </button>
+</div>
+</div>
+<!-- Dashboard Stats Strip -->
+<div class="grid grid-cols-4 gap-4 mt-6">
+<div class="bg-surface-container border-l-4 border-red-500 p-4 shadow-lg">
+<p class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mb-1">Critical active</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-red-500">12</span>
+<span class="text-[10px] text-red-400 font-bold tracking-tighter">+2 in last hour</span>
+</div>
+</div>
+<div class="bg-surface-container border-l-4 border-amber-500 p-4 shadow-lg">
+<p class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mb-1">Warnings pending</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-amber-500">28</span>
+<span class="text-[10px] text-amber-400 font-bold tracking-tighter">-5 resolved</span>
+</div>
+</div>
+<div class="bg-surface-container border-l-4 border-cyan-500 p-4 shadow-lg">
+<p class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mb-1">Acknowledged</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-cyan-500">142</span>
+<span class="text-[10px] text-cyan-400 font-bold tracking-tighter">84% response rate</span>
+</div>
+</div>
+<div class="bg-surface-container border-l-4 border-zinc-600 p-4 shadow-lg">
+<p class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mb-1">System Load</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-on-surface">Optimal</span>
+<span class="text-[10px] text-zinc-500 font-bold tracking-tighter">Fleet stable</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Content Body -->
+<div class="p-8">
+<!-- Filter Bar -->
+<div class="flex items-center justify-between mb-8 bg-surface-container-high p-2 rounded-lg border border-outline-variant">
+<div class="flex items-center gap-2 px-2">
+<span class="text-xs font-bold text-zinc-500 uppercase tracking-widest mr-4">Filter:</span>
+<button class="bg-primary-container text-on-primary-fixed px-3 py-1 rounded-full text-xs font-bold transition-all">All</button>
+<button class="hover:bg-zinc-800 px-3 py-1 rounded-full text-xs font-bold text-on-surface-variant transition-all">New</button>
+<button class="hover:bg-zinc-800 px-3 py-1 rounded-full text-xs font-bold text-on-surface-variant transition-all">Acknowledged</button>
+<button class="hover:bg-zinc-800 px-3 py-1 rounded-full text-xs font-bold text-on-surface-variant transition-all">Cleared</button>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">search</span>
+<input class="bg-zinc-900 border-zinc-800 rounded-lg pl-9 pr-4 py-1.5 text-xs text-zinc-200 focus:ring-cyan-500 focus:border-cyan-500 w-64" placeholder="Search incidents..." type="text"/>
+</div>
+<button class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors">
+<span class="material-symbols-outlined text-lg">tune</span>
+</button>
+</div>
+</div>
+<!-- Incident Timeline / Table -->
+<div class="space-y-4">
+<!-- Incident Item 1 (Critical) -->
+<div class="bg-surface-container-highest border border-outline-variant rounded-lg overflow-hidden flex transition-all hover:border-red-500/50 group">
+<div class="w-1.5 bg-red-500 group-hover:w-2 transition-all"></div>
+<div class="flex-1 p-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-red-500/10 text-red-500 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest border border-red-500/30">Critical</span>
+<h3 class="font-bold text-on-surface group-hover:text-red-400 transition-colors">Server Bot Deployment Failure - Fleet Segment A12</h3>
+</div>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">2m ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mt-2 max-w-2xl">Deployment agent timed out during container initialization on Node-SCUM-04. Health check failed for 3 consecutive cycles. Manual intervention required.</p>
+<div class="flex items-center gap-6 mt-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">domain</span>
+                                Tenant: <span class="text-zinc-200">SurvivalCore Global</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">robot</span>
+                                Runtime: <span class="text-zinc-200">Server Bot</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">location_on</span>
+                                Region: <span class="text-zinc-200">EU-WEST-1</span>
+</div>
+</div>
+</div>
+<div class="p-4 border-l border-outline-variant flex flex-col justify-center gap-2 bg-surface-container">
+<button class="bg-zinc-900 hover:bg-cyan-900 text-cyan-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-cyan-900/50 transition-all active:scale-95">Acknowledge</button>
+<button class="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-zinc-800 transition-all active:scale-95">Open Tenant</button>
+</div>
+</div>
+<!-- Incident Item 2 (Warning) -->
+<div class="bg-surface-container-highest border border-outline-variant rounded-lg overflow-hidden flex transition-all hover:border-amber-500/50 group">
+<div class="w-1.5 bg-amber-500 group-hover:w-2 transition-all"></div>
+<div class="flex-1 p-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest border border-amber-500/30">Warning</span>
+<h3 class="font-bold text-on-surface group-hover:text-amber-400 transition-colors">Log Sync Latency Threshold Exceeded</h3>
+</div>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">15m ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mt-2 max-w-2xl">SCUM.log synchronization for Tenant 'OmegaWasteland' is exceeding the 500ms threshold. Current latency: 1240ms. Possible network saturation.</p>
+<div class="flex items-center gap-6 mt-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">domain</span>
+                                Tenant: <span class="text-zinc-200">OmegaWasteland</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">lan</span>
+                                Runtime: <span class="text-zinc-200">Delivery Agent</span>
+</div>
+</div>
+</div>
+<div class="p-4 border-l border-outline-variant flex flex-col justify-center gap-2 bg-surface-container">
+<button class="bg-zinc-900 hover:bg-cyan-900 text-cyan-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-cyan-900/50 transition-all active:scale-95">Acknowledge</button>
+<button class="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-zinc-800 transition-all active:scale-95">Open Tenant</button>
+</div>
+</div>
+<!-- Incident Item 3 (Acknowledged/Info) -->
+<div class="bg-surface-container-low opacity-60 border border-outline-variant rounded-lg overflow-hidden flex transition-all group grayscale">
+<div class="w-1.5 bg-cyan-500"></div>
+<div class="flex-1 p-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-cyan-500/10 text-cyan-500 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest border border-cyan-500/30">Info</span>
+<h3 class="font-bold text-on-surface">Scheduled Maintenance: Backup Routine Completed</h3>
+</div>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">42m ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mt-2 max-w-2xl">Weekly full platform backup completed successfully. Integrity checks verified for all 42 tenant databases.</p>
+<div class="flex items-center gap-6 mt-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">history</span>
+                                Ack by: <span class="text-zinc-200">Admin_System</span>
+</div>
+</div>
+</div>
+<div class="p-4 border-l border-outline-variant flex flex-col justify-center gap-2 bg-surface-container">
+<button class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-zinc-700 transition-all active:scale-95">Clear</button>
+</div>
+</div>
+<!-- Incident Item 4 (Critical) -->
+<div class="bg-surface-container-highest border border-outline-variant rounded-lg overflow-hidden flex transition-all hover:border-red-500/50 group">
+<div class="w-1.5 bg-red-500 group-hover:w-2 transition-all"></div>
+<div class="flex-1 p-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<span class="bg-red-500/10 text-red-500 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest border border-red-500/30">Critical</span>
+<h3 class="font-bold text-on-surface group-hover:text-red-400 transition-colors">Unauthorized API Key Generation Detected</h3>
+</div>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">1h ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mt-2 max-w-2xl">Security audit triggered: Multiple high-privilege API tokens generated from an un-whitelisted IP range (45.2.x.x). Automatic account suspension in 5 mins.</p>
+<div class="flex items-center gap-6 mt-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">security</span>
+                                Subsystem: <span class="text-zinc-200">Identity-Service</span>
+</div>
+</div>
+</div>
+<div class="p-4 border-l border-outline-variant flex flex-col justify-center gap-2 bg-surface-container">
+<button class="bg-red-950 hover:bg-red-900 text-red-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-red-800 transition-all active:scale-95">Investigate</button>
+<button class="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-zinc-800 transition-all active:scale-95">Block IP</button>
+</div>
+</div>
+</div>
+<!-- More Content Indicator -->
+<div class="mt-8 flex justify-center">
+<button class="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-cyan-400 transition-colors">
+                    Load previous incidents
+                    <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-y-1">keyboard_arrow_down</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Right Rail (Context Panel - Hidden by default or for specific focus) -->
+<aside class="fixed right-0 top-14 bottom-0 w-80 bg-surface-container border-l border-outline-variant flex flex-col translate-x-full transition-transform lg:translate-x-0 hidden lg:flex">
+<div class="p-6 border-b border-outline-variant">
+<h2 class="font-black font-headline text-sm uppercase tracking-widest text-on-surface">System Health Insights</h2>
+<p class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase">Diagnostics Dashboard</p>
+</div>
+<div class="flex-1 p-6 space-y-6 overflow-y-auto sidebar-scroll">
+<div class="bg-zinc-950 p-4 rounded border border-zinc-800">
+<p class="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-3">Live Feed</p>
+<div class="space-y-3">
+<div class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1"></div>
+<p class="text-[11px] text-zinc-300">Heartbeat: Node-01 OK</p>
+</div>
+<div class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1"></div>
+<p class="text-[11px] text-zinc-300">Heartbeat: Node-02 OK</p>
+</div>
+<div class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 animate-pulse"></div>
+<p class="text-[11px] text-zinc-300">Timeout: Node-04 Failure</p>
+</div>
+<div class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1"></div>
+<p class="text-[11px] text-zinc-300">Heartbeat: Node-05 OK</p>
+</div>
+</div>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Tactical Summary</p>
+<div class="space-y-4">
+<div class="relative pt-1">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] font-bold uppercase text-zinc-300">Fleet Availability</span>
+<span class="text-[10px] font-bold text-cyan-400">92%</span>
+</div>
+<div class="overflow-hidden h-1 text-xs flex rounded bg-zinc-800">
+<div class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-cyan-500" style="width:92%"></div>
+</div>
+</div>
+<div class="relative pt-1">
+<div class="flex items-center justify-between mb-1">
+<span class="text-[10px] font-bold uppercase text-zinc-300">Active Incidents</span>
+<span class="text-[10px] font-bold text-red-400">High Risk</span>
+</div>
+<div class="overflow-hidden h-1 text-xs flex rounded bg-zinc-800">
+<div class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500" style="width:68%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-high p-4 rounded border border-outline-variant">
+<p class="text-[10px] font-black uppercase text-on-surface mb-2">Operational Posture</p>
+<img alt="Graph" class="rounded opacity-50 mb-3" data-alt="Cybersecurity network data visualization showing interconnected nodes and data traffic in a dark tactical interface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5ZD3hf__bZ9jbBi0pJ4ALvsS7wlxjqAG4dxD_OsrgTAPxhGJV6uzVTRiDiXgmpWhepkgGKYyzAMUIXnvDbF-hm_hNwz5bEl1iId-crIhzaF3m91YbCSlJNd4E4KWw7CDif8_3UgdkN4ed1CbivUOE0yH5ODyMozccMoJ-nEaG-M7L4fFoIHqUvxHInRRgrqG9UqghpqI7147nUwtK-HU6EYY595N3MVo-RkIOev-aLwXT6L7shS24nCN6_mZupRGLyQikZ6dLU_U"/>
+<p class="text-[10px] text-on-surface-variant leading-relaxed">System remains in defensive posture. Automated response is active for all Class 1 threats.</p>
+</div>
+</div>
+<div class="p-6 bg-zinc-950 border-t border-zinc-900">
+<button class="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-[10px] font-bold uppercase tracking-widest py-3 rounded border border-zinc-800 transition-all">
+                Generate Full Audit Report
+            </button>
+</div>
+</aside>
+</body></html>

@@ -39,6 +39,7 @@ function normalizeScopeOptions(options = {}) {
     tenantId: String(options.tenantId || '').trim() || null,
     defaultTenantId: String(options.defaultTenantId || '').trim() || null,
     env: options.env,
+    operation: String(options.operation || '').trim() || 'leaderboard panel query',
   };
 }
 

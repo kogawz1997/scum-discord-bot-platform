@@ -32,6 +32,7 @@ function buildScopeOptions(params = {}) {
     tenantId: normalizeText(params.tenantId),
     defaultTenantId: normalizeText(params.defaultTenantId),
     env: params.env,
+    operation: normalizeText(params.operation) || 'server event operation',
   };
 }
 
@@ -50,7 +51,7 @@ async function createServerEvent(params = {}) {
 }
 
 function listServerEvents(options = {}) {
-  return listEvents(options);
+  return listEvents(buildScopeOptions(options));
 }
 
 async function joinServerEvent(params = {}) {

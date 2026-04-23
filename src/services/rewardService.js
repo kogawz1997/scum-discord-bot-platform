@@ -6,6 +6,8 @@
   claimWeekly,
 } = require('../store/memoryStore');
 const { economy } = require('../config');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -15,6 +17,23 @@ function normalizeAmount(value, fallback = 0) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return fallback;
   return Math.max(0, Math.trunc(amount));
+}
+
+function resolveRewardScope(params = {}, operation = 'reward claim') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
+  };
 }
 
 function claimKey(type) {
@@ -57,11 +76,7 @@ async function checkRewardClaimForUser(params = {}) {
   }
 
   const configRow = claimConfig(type);
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
+  const scopeOptions = resolveRewardScope(params, 'check reward claim');
   const check = await configRow.canClaimFn(userId, scopeOptions);
   if (check?.ok) {
     return {
@@ -93,11 +108,7 @@ async function claimRewardForUser(params = {}) {
   }
 
   const configRow = claimConfig(type);
-  const scopeOptions = {
-    tenantId: normalizeText(params.tenantId),
-    defaultTenantId: normalizeText(params.defaultTenantId),
-    env: params.env,
-  };
+  const scopeOptions = resolveRewardScope(params, 'claim reward');
   const check = await checkRewardClaimForUser({
     userId,
     type,

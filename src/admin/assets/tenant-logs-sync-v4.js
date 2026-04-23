@@ -38,10 +38,22 @@
       : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
   }
 
+  function parseTimestamp(value) {
+    if (!value) return 0;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+
+  function joinParts(parts) {
+    return (Array.isArray(parts) ? parts : [])
+      .filter(function (part) { return String(part || '').trim(); })
+      .join(' · ');
+  }
+
   function statusTone(value) {
     const normalized = String(value || '').trim().toLowerCase();
-    if (['online', 'ready', 'healthy', 'active', 'success', 'completed', 'done', 'verified'].includes(normalized)) return 'success';
-    if (['pending', 'queued', 'running', 'stale', 'warning', 'degraded'].includes(normalized)) return 'warning';
+    if (['online', 'ready', 'healthy', 'active', 'success', 'completed', 'done', 'verified', 'resolved'].includes(normalized)) return 'success';
+    if (['pending', 'queued', 'running', 'stale', 'warning', 'degraded', 'reviewing', 'pending-verification', 'pending-player-reply'].includes(normalized)) return 'warning';
     if (['failed', 'offline', 'error', 'revoked'].includes(normalized)) return 'danger';
     return 'muted';
   }
@@ -84,12 +96,23 @@
       .replace(/\b\w/g, function (match) { return match.toUpperCase(); });
   }
 
+  function formatSupportIntentLabel(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'bind') return 'Bind';
+    if (normalized === 'unlink') return 'Unlink';
+    if (normalized === 'relink') return 'Relink';
+    if (normalized === 'conflict') return 'Conflict';
+    if (normalized === 'review') return 'Review';
+    return humanizeIdentifier(normalized || 'review');
+  }
+
   function normalizeOperationalStatus(value, fallback) {
     const normalized = String(value || '').trim().toLowerCase();
     if (['queued', 'pending', 'scheduled'].includes(normalized)) return 'pending';
     if (['processing', 'running', 'retrying', 'in_progress', 'in-progress'].includes(normalized)) return 'running';
     if (['failed', 'cancelled', 'dead-letter', 'error', 'offline', 'revoked'].includes(normalized)) return 'failed';
-    if (['done', 'completed', 'complete', 'success', 'succeeded', 'ready', 'active', 'online', 'verified'].includes(normalized)) return 'done';
+    if (['done', 'completed', 'complete', 'success', 'succeeded', 'ready', 'active', 'online', 'verified', 'resolved'].includes(normalized)) return 'done';
+    if (['reviewing', 'pending-verification', 'pending-player-reply'].includes(normalized)) return 'pending';
     return fallback || 'pending';
   }
 
@@ -113,6 +136,8 @@
       status: firstNonEmpty([row.status, row.resultStatus, row.healthStatus], 'unknown'),
       startedAt: firstNonEmpty([row.startedAt, row.requestedAt, row.createdAt], ''),
       detail: firstNonEmpty([row.summary, row.message, row.reason, row.detail, row.runtimeKey], 'No extra detail yet'),
+      meta: firstNonEmpty([row.scope, row.serverId, row.runtimeKey], ''),
+      sourceLabel: 'Sync run',
     };
   }
 
@@ -122,6 +147,8 @@
       status: firstNonEmpty([row.status, row.severity, row.healthStatus], 'info'),
       at: firstNonEmpty([row.occurredAt, row.createdAt, row.updatedAt], ''),
       detail: firstNonEmpty([row.detail, row.message, row.summary, row.runtimeKey, row.serverId], 'No event detail available'),
+      meta: firstNonEmpty([row.runtimeKey, row.serverId], ''),
+      sourceLabel: 'Sync event',
     };
   }
 
@@ -158,6 +185,8 @@
       ], 'No job detail available'),
       retryable: row?.retryable === true,
       needsRestartControl: needsRestartControl,
+      meta: firstNonEmpty([row.applyMode, row.jobType], ''),
+      sourceLabel: 'Config job',
     };
   }
 
@@ -172,6 +201,8 @@
         row?.metadata?.jobType,
         row?.runtimeKey,
       ], 'No restart detail available'),
+      meta: firstNonEmpty([row.runtimeKey, row?.metadata?.jobType], ''),
+      sourceLabel: 'Restart',
     };
   }
 
@@ -186,16 +217,61 @@
         row.errorCode,
         row.signalKey,
       ], 'No delivery issue detail available'),
+      meta: firstNonEmpty([row.signalKey], ''),
+      sourceLabel: 'Delivery',
     };
   }
 
   function summarizeNotification(row) {
+    const eventType = firstNonEmpty([row?.data?.eventType, row?.kind], '').trim().toLowerCase();
+    if (eventType === 'platform.player.identity.support') {
+      const supportIntent = formatSupportIntentLabel(firstNonEmpty([row?.data?.supportIntent, row?.data?.action], 'review'));
+      const supportOutcome = firstNonEmpty([row?.data?.supportOutcome, row?.status, row?.severity], 'reviewing');
+      const supportSource = firstNonEmpty([row?.data?.supportSource, row?.source], 'tenant');
+      const followupAction = firstNonEmpty([row?.data?.followupAction], '');
+      return {
+        title: `Identity support: ${supportIntent}`,
+        status: supportOutcome,
+        at: firstNonEmpty([row.createdAt, row.updatedAt, row?.data?.occurredAt], ''),
+        detail: joinParts([
+          firstNonEmpty([row?.data?.supportReason, row.detail, row.message], 'Identity support action recorded'),
+          supportSource ? `Source ${supportSource}` : '',
+          followupAction ? `Next ${formatSupportIntentLabel(followupAction)}` : '',
+        ]),
+        meta: joinParts([
+          firstNonEmpty([row?.data?.userId], '') ? `User ${firstNonEmpty([row?.data?.userId], '')}` : '',
+          firstNonEmpty([row?.data?.steamId], '') ? `Steam ${firstNonEmpty([row?.data?.steamId], '')}` : '',
+        ]),
+        sourceLabel: 'Support',
+      };
+    }
     return {
       title: firstNonEmpty([row.title, row.kind], 'Operational alert'),
       status: firstNonEmpty([row.severity, row.status], 'info'),
       at: firstNonEmpty([row.createdAt, row.updatedAt], ''),
       detail: firstNonEmpty([row.detail, row.message], 'No alert detail available'),
+      meta: firstNonEmpty([row.kind], ''),
+      sourceLabel: 'Alert',
     };
+  }
+
+  function buildOperationalTimelineRows(rows) {
+    return normalizeRows(rows)
+      .filter(function (row) { return row && firstNonEmpty([row.at, row.startedAt, row.detail, row.title], ''); })
+      .sort(function (left, right) {
+        return parseTimestamp(right?.at || right?.startedAt) - parseTimestamp(left?.at || left?.startedAt);
+      })
+      .slice(0, 10)
+      .map(function (row) {
+        return {
+          title: firstNonEmpty([row.title], 'Timeline item'),
+          status: firstNonEmpty([row.status], 'info'),
+          at: firstNonEmpty([row.at, row.startedAt], ''),
+          detail: firstNonEmpty([row.detail], 'Operational activity recorded'),
+          meta: firstNonEmpty([row.meta], ''),
+          sourceLabel: firstNonEmpty([row.sourceLabel], ''),
+        };
+      });
   }
 
   function createTenantLogsSyncV4Model(source) {
@@ -218,8 +294,19 @@
         status: firstNonEmpty([row.status, row.severity], 'info'),
         at: firstNonEmpty([row.createdAt, row.updatedAt, row.occurredAt], ''),
         detail: firstNonEmpty([row.detail, row.message, row.summary, row.actor], 'No audit detail available'),
+        meta: firstNonEmpty([row.actor], ''),
+        sourceLabel: 'Audit',
       };
     });
+    const timelineRows = buildOperationalTimelineRows(
+      notificationRows
+        .concat(auditRows)
+        .concat(syncRuns)
+        .concat(syncEvents)
+        .concat(configJobs)
+        .concat(restartJobs)
+        .concat(deliveryWatch),
+    );
     const latestRun = syncRuns[0] || null;
     const latestEvent = syncEvents[0] || null;
     const latestAudit = auditRows[0] || null;
@@ -278,11 +365,14 @@
       deliveryWatch: deliveryWatch,
       notificationRows: notificationRows.slice(0, 8),
       auditRows: auditRows.slice(0, 8),
+      timelineRows: timelineRows,
     };
   }
 
   function buildRow(row) {
-    return '<article class="tdv4-list-item tdv4-tone-' + escapeHtml(statusTone(row.status)) + '"><div class="tdv4-list-main"><strong>' + escapeHtml(row.title) + '</strong><p>' + escapeHtml(row.detail) + '</p><div class="tdv4-kpi-detail">' + escapeHtml(formatDateTime(row.startedAt || row.at, 'Unknown time')) + '</div></div>' + renderBadge(row.status, statusTone(row.status)) + '</article>';
+    const chips = [renderBadge(row.status, statusTone(row.status))];
+    if (row.sourceLabel) chips.push(renderBadge(row.sourceLabel, 'muted'));
+    return '<article class="tdv4-list-item tdv4-tone-' + escapeHtml(statusTone(row.status)) + '"><div class="tdv4-list-main"><strong>' + escapeHtml(row.title) + '</strong><p>' + escapeHtml(row.detail) + '</p>' + (row.meta ? '<div class="tdv4-kpi-detail">' + escapeHtml(row.meta) + '</div>' : '') + '<div class="tdv4-kpi-detail">' + escapeHtml(formatDateTime(row.startedAt || row.at, 'Unknown time')) + '</div></div><div class="tdv4-chip-row">' + chips.join('') + '</div></article>';
   }
 
   function buildConfigJobRow(row) {
@@ -343,9 +433,10 @@
       '</section>',
       '<section class="tdv4-dual-grid">',
       '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">History</div>',
-      '<h2 class="tdv4-section-title">Related audit items</h2>',
-      safe.auditRows.length ? safe.auditRows.map(buildRow).join('') : '<div class="tdv4-empty-state"><strong>No audit items yet</strong><p>Recent operational audit items will show up here once sync activity is recorded.</p></div>',
+      '<div class="tdv4-section-kicker">Audit timeline</div>',
+      '<h2 class="tdv4-section-title" data-tenant-logs-sync-timeline>Audit timeline</h2>',
+      '<p class="tdv4-section-copy">Merge alerts, audit evidence, support trails, sync activity, config jobs, and restart recovery into one newest-first operator timeline.</p>',
+      safe.timelineRows.length ? safe.timelineRows.map(buildRow).join('') : '<div class="tdv4-empty-state"><strong>No audit timeline yet</strong><p>Recent operational activity will appear here once sync, support, or recovery work starts recording timestamps.</p></div>',
       '</section>',
       '<section class="tdv4-panel">',
       '<div class="tdv4-section-kicker">History</div>',

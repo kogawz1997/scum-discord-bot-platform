@@ -68,6 +68,23 @@
     return fallback;
   }
 
+  function isOwnerScopedTenantView(state) {
+    const authTenantId = firstNonEmpty([state?.me?.tenantId], '');
+    const scopedTenantId = firstNonEmpty([state?.tenantId], '');
+    const role = firstNonEmpty([state?.me?.role], '').toLowerCase();
+    return role === 'owner' && !authTenantId && Boolean(scopedTenantId);
+  }
+
+  function appendTenantScopeToHref(href, state) {
+    const target = firstNonEmpty([href], '');
+    if (!target || !target.startsWith('/tenant') || !isOwnerScopedTenantView(state)) return target;
+    const tenantId = firstNonEmpty([state?.tenantId], '');
+    if (!tenantId) return target;
+    const url = new URL(target, 'https://tenant.local');
+    url.searchParams.set('tenantId', tenantId);
+    return `${url.pathname}${url.search}`;
+  }
+
   function playerStatusLabel(player) {
     if (player?.isActive === false) return 'inactive';
     return 'active';
@@ -126,13 +143,227 @@
       updatedAt: formatDateTime(selected?.updatedAt || selected?.createdAt),
       linked: Boolean(selected?.steamId || selected?.steam?.id),
       lastPurchase,
-      ordersHref: userId ? `/tenant/orders?userId=${encodeURIComponent(userId)}` : '/tenant/orders',
+      ordersHref: userId
+        ? appendTenantScopeToHref(`/tenant/orders?userId=${encodeURIComponent(userId)}`, state)
+        : '/tenant/orders',
       deliveryHref: lastPurchase
-        ? `/tenant/orders?userId=${encodeURIComponent(userId)}&code=${encodeURIComponent(firstNonEmpty([lastPurchase?.code, lastPurchase?.purchaseCode], ''))}`
-        : (userId ? `/tenant/orders?userId=${encodeURIComponent(userId)}` : '/tenant/orders'),
+        ? appendTenantScopeToHref(
+          `/tenant/orders?userId=${encodeURIComponent(userId)}&code=${encodeURIComponent(firstNonEmpty([lastPurchase?.code, lastPurchase?.purchaseCode], ''))}`,
+          state,
+        )
+        : (userId ? appendTenantScopeToHref(`/tenant/orders?userId=${encodeURIComponent(userId)}`, state) : '/tenant/orders'),
       recentDeliveryIssue: state?.deliveryCase && String(state.deliveryCase?.purchase?.userId || '').trim() === userId
         ? firstNonEmpty([state.deliveryCase?.deadLetter?.reason, state.deliveryCase?.latestCommandSummary, 'Open delivery case'])
         : '',
+    };
+  }
+
+  function recommendIdentityAction(issueKey, selected) {
+    const normalizedKey = String(issueKey || '').trim().toLowerCase();
+    if (normalizedKey === 'steam-mismatch') return 'relink';
+    if (normalizedKey === 'link-steam') return 'bind';
+    if (normalizedKey === 'verify-email') return 'review';
+    if (normalizedKey === 'discord-mismatch') return 'conflict';
+    if (normalizedKey === 'membership-required') return 'review';
+    if (normalizedKey === 'in-game-pending') return selected?.linked ? 'review' : 'bind';
+    return selected?.linked ? 'review' : 'bind';
+  }
+
+  function normalizeIdentityIntent(action, selected) {
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    if (normalizedAction === 'set') return 'bind';
+    if (normalizedAction === 'remove' || normalizedAction === 'unbind') return 'unlink';
+    if (['bind', 'unlink', 'relink', 'conflict', 'review'].includes(normalizedAction)) {
+      return normalizedAction;
+    }
+    return selected?.linked ? 'review' : 'bind';
+  }
+
+  function resolveIdentityActionButtonLabel(intent) {
+    switch (String(intent || '').trim().toLowerCase()) {
+      case 'bind':
+        return 'Prepare Steam bind';
+      case 'unlink':
+        return 'Prepare Steam unlink';
+      case 'relink':
+        return 'Prepare Steam relink';
+      case 'conflict':
+        return 'Review conflict handoff';
+      default:
+        return 'Review handoff';
+    }
+  }
+
+  function resolveIdentityIntentSummary(intent) {
+    switch (String(intent || '').trim().toLowerCase()) {
+      case 'bind':
+        return 'Prepare Steam bind';
+      case 'unlink':
+        return 'Review Steam unlink';
+      case 'relink':
+        return 'Prepare Steam relink';
+      case 'conflict':
+        return 'Review identity conflict';
+      default:
+        return 'Review handoff and linked account evidence';
+    }
+  }
+
+  function resolveIdentitySubmitLabel(intent, actionValue) {
+    const normalizedAction = String(actionValue || '').trim().toLowerCase();
+    if (normalizedAction === 'review') {
+      if (String(intent || '').trim().toLowerCase() === 'conflict') {
+        return 'Record conflict handoff';
+      }
+      return 'Record support review';
+    }
+    switch (String(intent || '').trim().toLowerCase()) {
+      case 'bind':
+        return 'Bind Steam now';
+      case 'unlink':
+        return 'Unlink Steam now';
+      case 'relink':
+        return 'Save replacement Steam';
+      default:
+        return 'Apply identity support action';
+    }
+  }
+
+  function resolveDefaultWorkflowAction(intent) {
+    const normalizedIntent = String(intent || '').trim().toLowerCase();
+    if (normalizedIntent === 'review' || normalizedIntent === 'conflict') return 'review';
+    if (normalizedIntent === 'unlink') return 'remove';
+    return 'set';
+  }
+
+  function resolveDefaultFollowupAction(intent, actionValue, selected, issueRows, trail) {
+    const latestFollowup = firstNonEmpty([
+      trail?.[0]?.followupAction,
+    ], '');
+    if (latestFollowup) return normalizeIdentityIntent(latestFollowup, selected);
+    const normalizedIntent = normalizeIdentityIntent(intent, selected);
+    const normalizedAction = String(actionValue || '').trim().toLowerCase();
+    if (normalizedAction === 'review') {
+      if (normalizedIntent === 'relink') return 'bind';
+      if (normalizedIntent === 'conflict') return 'conflict';
+      if (normalizedIntent === 'bind') return 'bind';
+      if (normalizedIntent === 'unlink') return 'unlink';
+      const issueFollowup = Array.isArray(issueRows)
+        ? issueRows.find((item) => String(item?.recommendedAction || '').trim())
+        : null;
+      return issueFollowup ? normalizeIdentityIntent(issueFollowup.recommendedAction, selected) : (selected?.linked ? 'review' : 'bind');
+    }
+    if (normalizedAction === 'remove') {
+      return normalizedIntent === 'relink' ? 'bind' : 'review';
+    }
+    return 'review';
+  }
+
+  function normalizeSupportOutcome(value, fallback = 'reviewing') {
+    const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '-');
+    if (['resolved', 'pending-verification', 'pending-player-reply', 'reviewing'].includes(normalized)) {
+      return normalized;
+    }
+    return String(fallback || 'reviewing').trim().toLowerCase() || 'reviewing';
+  }
+
+  function formatSupportOutcomeLabel(value) {
+    switch (normalizeSupportOutcome(value)) {
+      case 'resolved':
+        return 'Resolved';
+      case 'pending-verification':
+        return 'Pending verification';
+      case 'pending-player-reply':
+        return 'Pending player reply';
+      default:
+        return 'Reviewing';
+    }
+  }
+
+  function buildIdentitySupportTrail(state, selected) {
+    if (!selected?.userId) return [];
+    const rows = Array.isArray(state?.notifications) ? state.notifications : [];
+    return rows
+      .filter((row) => {
+        const eventType = firstNonEmpty([row?.data?.eventType, row?.kind], '');
+        const userId = firstNonEmpty([row?.data?.userId], '');
+        return eventType === 'platform.player.identity.support' && userId === selected.userId;
+      })
+      .sort((left, right) => {
+        const leftTime = new Date(firstNonEmpty([left?.createdAt, left?.updatedAt, left?.data?.occurredAt], 0)).getTime() || 0;
+        const rightTime = new Date(firstNonEmpty([right?.createdAt, right?.updatedAt, right?.data?.occurredAt], 0)).getTime() || 0;
+        return rightTime - leftTime;
+      })
+      .slice(0, 4)
+      .map((row) => ({
+        intent: normalizeIdentityIntent(firstNonEmpty([row?.data?.supportIntent, row?.data?.action], 'review'), selected),
+        actionLabel: resolveIdentityActionButtonLabel(firstNonEmpty([row?.data?.supportIntent, row?.data?.action], 'review')),
+        outcome: normalizeSupportOutcome(firstNonEmpty([row?.data?.supportOutcome], 'reviewing')),
+        outcomeLabel: formatSupportOutcomeLabel(firstNonEmpty([row?.data?.supportOutcome], 'reviewing')),
+        reason: firstNonEmpty([row?.data?.supportReason, row?.message], ''),
+        source: firstNonEmpty([row?.data?.supportSource, row?.source], 'tenant'),
+        actor: firstNonEmpty([row?.data?.actor], 'admin-web'),
+        followupAction: normalizeIdentityIntent(firstNonEmpty([row?.data?.followupAction], 'review'), selected),
+        at: formatDateTime(firstNonEmpty([row?.createdAt, row?.updatedAt, row?.data?.occurredAt], '')),
+      }));
+  }
+
+  function buildIdentityWorkflowState(state, selected) {
+    const context = state?.selectedPlayerIdentity && typeof state.selectedPlayerIdentity === 'object'
+      ? state.selectedPlayerIdentity
+      : {};
+    const identitySummary = context?.identitySummary && typeof context.identitySummary === 'object'
+      ? context.identitySummary
+      : {};
+    const linkedAccounts = identitySummary?.linkedAccounts && typeof identitySummary.linkedAccounts === 'object'
+      ? identitySummary.linkedAccounts
+      : {};
+    const steamValue = firstNonEmpty([
+      linkedAccounts?.steam?.value,
+      context?.account?.steamId,
+      context?.steamLink?.steamId,
+      selected?.steamId && selected.steamId !== '-' ? selected.steamId : '',
+    ], '');
+    const issueRows = []
+      .concat(Array.isArray(identitySummary?.conflicts) ? identitySummary.conflicts.map((item) => ({ ...item, issueType: 'conflict' })) : [])
+      .concat(Array.isArray(identitySummary?.attention) ? identitySummary.attention.map((item) => ({ ...item, issueType: 'attention' })) : [])
+      .map((item) => ({
+        key: firstNonEmpty([item?.key], 'identity-review'),
+        issueType: firstNonEmpty([item?.issueType], 'attention'),
+        tone: firstNonEmpty([item?.tone], 'warning'),
+        title: firstNonEmpty([item?.title], 'Identity review'),
+        detail: firstNonEmpty([item?.detail], ''),
+        recommendedAction: recommendIdentityAction(item?.key, selected),
+      }));
+
+    const trail = buildIdentitySupportTrail(state, selected);
+    const latestTrail = trail[0] || null;
+    const intent = normalizeIdentityIntent(
+      firstNonEmpty([state?.selectedIdentityAction, latestTrail?.intent], ''),
+      selected,
+    );
+    const actionValue = resolveDefaultWorkflowAction(intent);
+    const followupAction = resolveDefaultFollowupAction(intent, actionValue, selected, issueRows, trail);
+    const outcome = normalizeSupportOutcome(firstNonEmpty([state?.selectedSupportOutcome, latestTrail?.outcome], 'reviewing'));
+
+    return {
+      intent,
+      actionValue,
+      source: firstNonEmpty([state?.selectedSupportSource, latestTrail?.source], ''),
+      reason: firstNonEmpty([state?.selectedSupportReason, latestTrail?.reason], ''),
+      outcome,
+      steamValue,
+      linkedAccounts,
+      issues: issueRows,
+      trail,
+      followupAction,
+      hasIdentityData: Object.keys(identitySummary).length > 0,
+      hasVerifiedEmail: Boolean(linkedAccounts?.email?.linked && linkedAccounts?.email?.verified),
+      hasLinkedSteam: Boolean(linkedAccounts?.steam?.linked || steamValue),
+      hasInGameProfile: Boolean(linkedAccounts?.inGame?.linked),
+      nextStepLabel: resolveIdentityActionButtonLabel(followupAction),
+      submitLabel: resolveIdentitySubmitLabel(intent, actionValue),
+      outcomeLabel: formatSupportOutcomeLabel(outcome),
     };
   }
 
@@ -147,6 +378,7 @@
       || (state?.deliveryCase && String(state.deliveryCase?.purchase?.userId || '').trim() === String(item?.discordId || item?.userId || '').trim())
     )).length;
     const selected = buildSelectedPlayer(state);
+    const identityWorkflow = buildIdentityWorkflowState(state, selected);
     return {
       shell: {
         brand: 'SCUM TH',
@@ -180,10 +412,18 @@
         status: playerStatusLabel(row),
         updatedAt: formatDateTime(row?.updatedAt || row?.createdAt),
         ordersHref: firstNonEmpty([row?.discordId, row?.userId], '')
-          ? `/tenant/orders?userId=${encodeURIComponent(firstNonEmpty([row?.discordId, row?.userId], ''))}`
+          ? appendTenantScopeToHref(
+            `/tenant/orders?userId=${encodeURIComponent(firstNonEmpty([row?.discordId, row?.userId], ''))}`,
+            state,
+          )
           : '/tenant/orders',
       })),
       selected,
+      identityWorkflow,
+      links: {
+        staffHref: appendTenantScopeToHref('/tenant/staff', state),
+        rolesHref: appendTenantScopeToHref('/tenant/roles', state),
+      },
       railCards: [
         {
           title: 'Support shortcuts',
@@ -263,6 +503,21 @@
     ].join('');
   }
 
+  function renderIdentityIssueCard(item, selectedUserId, supportSource, supportOutcome) {
+    const actionLabel = resolveIdentityActionButtonLabel(item?.recommendedAction);
+    return [
+      `<article class="tdv4-panel tdv4-tone-${escapeHtml(item?.tone || 'warning')}">`,
+      `<div class="tdv4-section-kicker">${escapeHtml(item?.issueType === 'conflict' ? 'Identity conflict' : 'Identity attention')}</div>`,
+      `<h3 class="tdv4-section-title">${escapeHtml(item?.title || 'Identity review')}</h3>`,
+      `<p class="tdv4-section-copy">${escapeHtml(item?.detail || '')}</p>`,
+      '<div class="tdv4-action-list">',
+      `<button class="tdv4-button tdv4-button-primary" type="button" data-tenant-player-identity-action="${escapeHtml(item?.recommendedAction || 'review')}" data-tenant-player-user-id="${escapeHtml(selectedUserId || '')}" data-tenant-player-support-reason="${escapeHtml(item?.detail || '')}" data-tenant-player-support-source="${escapeHtml(supportSource || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(supportOutcome || 'reviewing')}">${escapeHtml(actionLabel)}</button>`,
+      `<button class="tdv4-button tdv4-button-secondary" type="button" data-tenant-player-identity-action="review" data-tenant-player-user-id="${escapeHtml(selectedUserId || '')}" data-tenant-player-support-reason="${escapeHtml(item?.detail || '')}" data-tenant-player-support-source="${escapeHtml(supportSource || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(supportOutcome || 'reviewing')}">Review handoff</button>`,
+      '</div>',
+      '</article>',
+    ].join('');
+  }
+
   function renderOptionList(values, selectedValue) {
     const normalizedSelected = String(selectedValue || '').trim().toLowerCase();
     return (Array.isArray(values) ? values : []).map((value) => {
@@ -302,6 +557,11 @@
 
   function buildTenantPlayersV4Html(model) {
     const safeModel = model || createTenantPlayersV4Model({});
+    const workflow = safeModel.identityWorkflow || {};
+    const selectedUserId = safeModel.selected?.userId || '';
+    const identityIssueCards = Array.isArray(workflow.issues) && workflow.issues.length
+      ? workflow.issues.map((item) => renderIdentityIssueCard(item, selectedUserId, workflow.source || 'tenant', workflow.outcome || 'reviewing')).join('')
+      : '<div class="tdv4-empty-state">No identity conflicts or recovery warnings are active for this player right now.</div>';
     return [
       '<div class="tdv4-app">',
       '<header class="tdv4-topbar">',
@@ -364,29 +624,103 @@
             safeModel.selected.lastPurchase
               ? `<div class="tdv4-kpi-detail">Latest order ${escapeHtml(firstNonEmpty([safeModel.selected.lastPurchase.code, safeModel.selected.lastPurchase.purchaseCode, '-']))} · ${escapeHtml(firstNonEmpty([safeModel.selected.lastPurchase.status, '-']))}</div>`
               : '<div class="tdv4-kpi-detail">No linked order visible for this player yet.</div>',
-            `<div class="tdv4-action-list"><button class="tdv4-button tdv4-button-primary" type="button" data-tenant-player-open-orders="${escapeHtml(safeModel.selected.userId)}">Open order history</button><a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(safeModel.selected.deliveryHref)}">Open delivery case</a></div>`,
+            `<div class="tdv4-action-list"><button class="tdv4-button tdv4-button-primary" type="button" data-tenant-player-open-orders="${escapeHtml(safeModel.selected.userId)}">Open order history</button><a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(safeModel.selected.deliveryHref)}">Open delivery case</a><button class="tdv4-button tdv4-button-secondary" type="button" data-tenant-player-identity-action="${escapeHtml(workflow.hasLinkedSteam ? 'remove' : 'set')}" data-tenant-player-user-id="${escapeHtml(safeModel.selected.userId)}" data-tenant-player-support-reason="${escapeHtml(workflow.reason || safeModel.selected.recentDeliveryIssue || '')}" data-tenant-player-support-source="${escapeHtml(workflow.source || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(workflow.outcome || 'reviewing')}">${escapeHtml(workflow.hasLinkedSteam ? 'Prepare unlink / relink' : 'Prepare Steam bind')}</button></div>`,
             '</div>',
           ].join('')
         : '<div class="tdv4-empty-state">Choose a player from the table first.</div>'),
       '</section>',
       '</section>',
       '<section class="tdv4-panel">',
-      '<div class="tdv4-section-kicker">Details / history</div>',
-      '<h2 class="tdv4-section-title">Use this page as the support handoff starting point</h2>',
-      '<div class="tdv4-support-grid">',
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Discord</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.selected ? safeModel.selected.discordId : '-')}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Steam</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.selected ? safeModel.selected.steamId : '-')}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Latest issue</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.selected?.recentDeliveryIssue || 'No active issue recorded')}</div></article>`,
-      `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Recommended next step</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.selected?.lastPurchase ? 'Open order history or delivery case' : 'Start with identity or Steam linking support')}</div></article>`,
-      '</div>',
+      '<div class="tdv4-section-kicker">Identity ops</div>',
+      '<h2 class="tdv4-section-title">Review, relink, or hand off without leaving the player workspace</h2>',
+      `<p class="tdv4-page-subtitle">${escapeHtml(workflow.reason ? 'Owner or support handoff context is attached to this player already. Review the note, then run Steam bind or unlink actions from the same page.' : 'Keep the handoff note, Steam operation, and player order context together so support does not lose the trail mid-escalation.')}</p>`,
+      (safeModel.selected
+        ? [
+            workflow.reason
+              ? `<div class="tdv4-empty-state" data-tenant-player-handoff><strong>${escapeHtml(workflow.source ? `${workflow.source} handoff` : 'Support handoff')}</strong><p>${escapeHtml(workflow.reason)}</p></div>`
+              : '<div class="tdv4-empty-state" data-tenant-player-handoff><strong>No handoff note is attached yet.</strong><p>Use the quick actions below to prepare Steam bind/unlink work or keep reviewing the selected player.</p></div>',
+            '<div class="tdv4-support-grid">',
+            `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Discord</div><div class="tdv4-mini-stat-value">${escapeHtml(safeModel.selected.discordId)}</div></article>`,
+            `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Steam</div><div class="tdv4-mini-stat-value">${escapeHtml(workflow.steamValue || safeModel.selected.steamId || '-')}</div></article>`,
+            `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Verified email</div><div class="tdv4-mini-stat-value">${escapeHtml(workflow.hasVerifiedEmail ? 'ready' : 'needs review')}</div></article>`,
+            `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Support outcome</div><div class="tdv4-mini-stat-value">${escapeHtml(workflow.outcomeLabel || 'Reviewing')}</div></article>`,
+            `<article class="tdv4-mini-stat"><div class="tdv4-mini-stat-label">Recommended next step</div><div class="tdv4-mini-stat-value">${escapeHtml(workflow.nextStepLabel || 'Review handoff and linked account evidence')}</div></article>`,
+            '</div>',
+            '<div class="tdv4-action-list">',
+            `<button class="tdv4-button tdv4-button-primary" type="button" data-tenant-player-identity-action="${escapeHtml(workflow.intent || (workflow.hasLinkedSteam ? 'review' : 'bind'))}" data-tenant-player-user-id="${escapeHtml(safeModel.selected.userId)}" data-tenant-player-support-reason="${escapeHtml(workflow.reason || '')}" data-tenant-player-support-source="${escapeHtml(workflow.source || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(workflow.outcome || 'reviewing')}">${escapeHtml(resolveIdentityActionButtonLabel(workflow.intent || (workflow.hasLinkedSteam ? 'review' : 'bind')))}</button>`,
+            `<button class="tdv4-button tdv4-button-secondary" type="button" data-tenant-player-identity-action="unlink" data-tenant-player-user-id="${escapeHtml(safeModel.selected.userId)}" data-tenant-player-support-reason="${escapeHtml(workflow.reason || '')}" data-tenant-player-support-source="${escapeHtml(workflow.source || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(workflow.outcome || 'reviewing')}">Prepare Steam unlink</button>`,
+            `<button class="tdv4-button tdv4-button-secondary" type="button" data-tenant-player-identity-action="review" data-tenant-player-user-id="${escapeHtml(safeModel.selected.userId)}" data-tenant-player-support-reason="${escapeHtml(workflow.reason || safeModel.selected.recentDeliveryIssue || '')}" data-tenant-player-support-source="${escapeHtml(workflow.source || 'tenant')}" data-tenant-player-support-outcome="${escapeHtml(workflow.outcome || 'reviewing')}">Review handoff</button>`,
+            '</div>',
+            `<div class="tdv4-card-grid" data-tenant-player-identity-issues>${identityIssueCards}</div>`,
+            `<form class="tdv4-form-grid" data-tenant-player-support-form>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Support action</span>
+                <select class="tdv4-basic-input" name="action" data-tenant-player-support-action>
+                  <option value="review"${workflow.actionValue === 'review' ? ' selected' : ''}>Record review only</option>
+                  <option value="set"${workflow.actionValue === 'set' ? ' selected' : ''}>Bind Steam</option>
+                  <option value="remove"${workflow.actionValue === 'remove' ? ' selected' : ''}>Unlink Steam</option>
+                </select>
+              </label>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Discord user</span>
+                <input class="tdv4-basic-input" type="text" name="userId" value="${escapeHtml(safeModel.selected.userId)}" readonly>
+              </label>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Steam ID</span>
+                <input class="tdv4-basic-input" type="text" name="steamId" value="${escapeHtml(workflow.steamValue || '')}" placeholder="7656119..." data-tenant-player-support-steam>
+              </label>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">In-game name</span>
+                <input class="tdv4-basic-input" type="text" name="inGameName" value="${escapeHtml(safeModel.selected.inGameName && safeModel.selected.inGameName !== '-' ? safeModel.selected.inGameName : '')}">
+              </label>
+              <label class="tdv4-form-field tdv4-form-field-span"><span class="tdv4-mini-stat-label">Handoff note</span>
+                <textarea class="tdv4-basic-input" name="supportReason" rows="3" data-tenant-player-support-reason>${escapeHtml(workflow.reason || '')}</textarea>
+              </label>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Support outcome</span>
+                <select class="tdv4-basic-input" name="supportOutcome">
+                  <option value="reviewing"${workflow.outcome === 'reviewing' ? ' selected' : ''}>Reviewing</option>
+                  <option value="resolved"${workflow.outcome === 'resolved' ? ' selected' : ''}>Resolved</option>
+                  <option value="pending-verification"${workflow.outcome === 'pending-verification' ? ' selected' : ''}>Pending verification</option>
+                  <option value="pending-player-reply"${workflow.outcome === 'pending-player-reply' ? ' selected' : ''}>Pending player reply</option>
+                </select>
+              </label>
+              <label class="tdv4-form-field"><span class="tdv4-mini-stat-label">Next step</span>
+                <select class="tdv4-basic-input" name="followupAction">
+                  <option value="review"${workflow.followupAction === 'review' ? ' selected' : ''}>Review handoff</option>
+                  <option value="bind"${workflow.followupAction === 'bind' ? ' selected' : ''}>Prepare Steam bind</option>
+                  <option value="unlink"${workflow.followupAction === 'unlink' ? ' selected' : ''}>Prepare Steam unlink</option>
+                  <option value="relink"${workflow.followupAction === 'relink' ? ' selected' : ''}>Prepare Steam relink</option>
+                  <option value="conflict"${workflow.followupAction === 'conflict' ? ' selected' : ''}>Review conflict handoff</option>
+                </select>
+              </label>
+              <input type="hidden" name="supportIntent" value="${escapeHtml(workflow.intent || 'review')}">
+              <input type="hidden" name="supportSource" value="${escapeHtml(workflow.source || 'tenant')}">
+              <div class="tdv4-action-list">
+                <button class="tdv4-button tdv4-button-primary" type="submit" data-tenant-player-support-submit>${escapeHtml(workflow.submitLabel || 'Apply identity support action')}</button>
+                <button class="tdv4-button tdv4-button-secondary" type="button" data-tenant-player-open-orders="${escapeHtml(safeModel.selected.userId)}">Open order history</button>
+              </div>
+            </form>`,
+            (Array.isArray(workflow.trail) && workflow.trail.length
+              ? [
+                  '<div class="tdv4-card-grid" data-tenant-player-support-trail>',
+                  ...workflow.trail.map((entry) => [
+                    '<article class="tdv4-panel tdv4-tone-info">',
+                    '<div class="tdv4-section-kicker">Recent support trail</div>',
+                    `<h3 class="tdv4-section-title">${escapeHtml(entry.actionLabel)}</h3>`,
+                    `<p class="tdv4-section-copy">${escapeHtml(entry.reason || 'No handoff note recorded.')}</p>`,
+                    `<div class="tdv4-chip-row">${renderBadge(entry.outcomeLabel, 'info')}${renderBadge(entry.source, 'muted')}${entry.followupAction ? renderBadge(`Next ${resolveIdentityActionButtonLabel(entry.followupAction)}`, 'warning') : ''}</div>`,
+                    `<div class="tdv4-kpi-detail">${escapeHtml(`Actor ${entry.actor} · ${entry.at}`)}</div>`,
+                    '</article>',
+                  ].join('')),
+                  '</div>',
+                ].join('')
+              : '<div class="tdv4-empty-state" data-tenant-player-support-trail><strong>No support trail recorded yet.</strong><p>Once review, bind, or unlink actions are submitted from this workspace, the latest support trail will appear here.</p></div>'),
+          ].join('')
+        : '<div class="tdv4-empty-state">Choose a player from the table first.</div>'),
       '</section>',
       '<section class="tdv4-panel tdv4-staff-panel">',
       '<div class="tdv4-section-kicker">Secondary actions</div>',
       '<h2 class="tdv4-section-title">Manage team access from the dedicated team pages</h2>',
       '<p class="tdv4-page-subtitle">Keep this page focused on player support. Open the Staff page to invite users, and open Roles to review permissions.</p>',
       '<div class="tdv4-action-list">',
-      '<a class="tdv4-button tdv4-button-primary" href="/tenant/staff">Open staff</a>',
-      '<a class="tdv4-button tdv4-button-secondary" href="/tenant/roles">Open roles &amp; permissions</a>',
+      `<a class="tdv4-button tdv4-button-primary" href="${escapeHtml(safeModel.links?.staffHref || '/tenant/staff')}">Open staff</a>`,
+      `<a class="tdv4-button tdv4-button-secondary" href="${escapeHtml(safeModel.links?.rolesHref || '/tenant/roles')}">Open roles &amp; permissions</a>`,
       '</div>',
       '</section>',
       '</main>',

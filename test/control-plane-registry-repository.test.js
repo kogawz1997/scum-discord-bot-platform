@@ -69,6 +69,8 @@ test('control plane registry persists servers, links, agents, sessions, and sync
       guildId: 'guild-a',
       agentId: 'agent-exec',
       runtimeKey: 'runtime-exec',
+      role: 'execute',
+      scope: 'execute_only',
       sessionId: 'session-1',
       heartbeatAt: '2026-03-25T00:00:00.000Z',
       baseUrl: 'http://127.0.0.1:3211',
@@ -81,6 +83,8 @@ test('control plane registry persists servers, links, agents, sessions, and sync
       guildId: 'guild-a',
       agentId: 'agent-sync',
       runtimeKey: 'runtime-sync',
+      role: 'sync',
+      scope: 'sync_only',
       syncRunId: 'sync-1',
       events: [{ type: 'join', playerName: 'Tester' }],
     });
@@ -96,6 +100,31 @@ test('control plane registry persists servers, links, agents, sessions, and sync
     assert.equal(repository.listAgentSessions({ tenantId: 'tenant-a', serverId: 'server-a' }).length, 1);
     assert.equal(repository.listSyncRuns({ tenantId: 'tenant-a', serverId: 'server-a' }).length, 1);
     assert.equal(repository.listSyncEvents({ tenantId: 'tenant-a', serverId: 'server-a' }).length, 1);
+  } finally {
+    process.env.BOT_DATA_DIR = previousDir;
+    delete process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('control plane registry rejects legacy hybrid runtime boundaries', () => {
+  const previousDir = process.env.BOT_DATA_DIR;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-invalid-'));
+
+  try {
+    const repository = freshRepository(tempDir);
+    const result = repository.upsertAgent({
+      tenantId: 'tenant-a',
+      serverId: 'server-a',
+      guildId: 'guild-a',
+      agentId: 'agent-legacy',
+      runtimeKey: 'legacy-runtime',
+      role: 'hybrid',
+      scope: 'sync_execute',
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'strict-agent-role-scope-required');
   } finally {
     process.env.BOT_DATA_DIR = previousDir;
     delete process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;

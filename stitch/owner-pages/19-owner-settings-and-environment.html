@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM COMMAND - Settings &amp; Environment</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#38393b",
+                        "tertiary": "#ffd1ce",
+                        "surface-container": "#1f2022",
+                        "outline-variant": "#3c494e",
+                        "surface-tint": "#4cd6ff",
+                        "on-surface-variant": "#bbc9cf",
+                        "inverse-surface": "#e3e2e4",
+                        "on-surface": "#e3e2e4",
+                        "on-primary": "#003543",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-fixed": "#410004",
+                        "on-tertiary-container": "#a10017",
+                        "primary": "#a4e6ff",
+                        "secondary-fixed-dim": "#ffba20",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface": "#121315",
+                        "secondary-fixed": "#ffdea8",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-highest": "#343537",
+                        "on-primary-fixed-variant": "#004e60",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#292a2c",
+                        "primary-fixed": "#b7eaff",
+                        "background": "#121315",
+                        "on-primary-fixed": "#001f28",
+                        "outline": "#859399",
+                        "on-background": "#e3e2e4",
+                        "surface-dim": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#271900",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "surface-variant": "#343537",
+                        "on-tertiary": "#68000b",
+                        "on-secondary": "#412d00",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#ffaaa4",
+                        "secondary": "#ffdb9d",
+                        "on-primary-container": "#00566a",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-container-low": "#1b1c1e",
+                        "primary-container": "#00d1ff",
+                        "inverse-primary": "#00677f",
+                        "inverse-on-surface": "#303032",
+                        "tertiary-fixed-dim": "#ffb3ae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-gray-950/90 backdrop-blur-md text-cyan-400 font-public-sans tracking-tight text-sm fixed top-0 w-full z-50 border-b border-gray-800 shadow-2xl flex justify-between items-center h-14 px-6">
+<div class="flex items-center gap-6">
+<div class="text-lg font-bold tracking-tighter text-cyan-400 uppercase">SCUM COMMAND</div>
+<div class="hidden md:flex items-center bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800 gap-2">
+<span class="material-symbols-outlined text-gray-500 text-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 text-gray-300 w-64" placeholder="Search operational plane..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+<button class="p-2 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded flex items-center gap-1">
+<span class="material-symbols-outlined" data-icon="language">language</span>
+<span class="text-[10px] font-bold">TH</span>
+</button>
+<button class="p-2 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<div class="relative">
+<button class="p-2 hover:bg-gray-800/50 hover:text-cyan-300 transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary-container rounded-full"></span>
+</div>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-cyan-400/30">
+<img alt="Operator" class="w-full h-full object-cover" data-alt="close-up portrait of a professional man with short hair and serious expression in a dark high-tech environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe-ZSftS0tsuYD-twmplqzWRlGA-LtYFfthUCIt06Re3BBqk80jgQ3EnxGtFjAvdC6s9aO7NGZuu1W4tQhM1q5RbxfFXJr9ymejoDQFhvBO1iwu8QBjGmYYXMuoliiNxHsDFuKsKDzgWEMRHeWQPKJrnprKOTsbpUky4IShtCv5dX_DH01RnuIcS9x5KkNwzBCtWw68koy393sqfYtq-twOO2VFBXRlas5MANGpqMRT1DP2iyuT6k0qJPaXpM_5xbGbuLQfyeBwzM"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Shared Component) -->
+<aside class="bg-gray-950 text-cyan-400 font-public-sans text-xs font-medium tracking-wide fixed left-0 top-0 h-full w-64 border-r border-gray-900 shadow-none flex flex-col pt-16 pb-4 z-40">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 p-3 bg-surface-container-high rounded-xl border border-outline-variant/30">
+<div class="w-10 h-10 bg-primary-container/20 flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-primary-container" data-icon="security">security</span>
+</div>
+<div>
+<div class="text-gray-200 font-black text-[10px] uppercase">PLATFORM OWNER</div>
+<div class="text-gray-500 text-[9px]">Operational Control</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto space-y-1 px-2">
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span> Dashboard
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="groups">groups</span> Tenants
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="inventory_2">inventory_2</span> Packages
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="monitor_heart">monitor_heart</span> Runtime Health
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="terminal">terminal</span> Fleet
+            </a>
+<a class="text-gray-500 px-4 py-3 flex items-center gap-3 hover:bg-gray-900 hover:text-gray-200 transition-all rounded" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="warning">warning</span> Incidents
+            </a>
+<div class="pt-4 pb-2 px-4 text-[10px] font-bold text-gray-600 uppercase tracking-widest">Configuration</div>
+<a class="bg-gray-900 text-cyan-400 border-l-2 border-cyan-400 px-4 py-3 flex items-center gap-3 rounded-r transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span> Settings
+            </a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-cyan-600/10 border border-cyan-500/30 text-cyan-400 py-2.5 rounded font-bold text-[10px] tracking-widest hover:bg-cyan-600/20 transition-all">
+                NEW TENANT
+            </button>
+<div class="mt-4 border-t border-gray-900 pt-4 space-y-1">
+<a class="text-gray-500 px-4 py-2 flex items-center gap-3 text-[10px] hover:text-gray-200" href="#">
+<span class="material-symbols-outlined text-base" data-icon="help">help</span> Support
+                </a>
+<a class="text-red-400/70 px-4 py-2 flex items-center gap-3 text-[10px] hover:text-red-400" href="#">
+<span class="material-symbols-outlined text-base" data-icon="logout">logout</span> Sign Out
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 pt-14 min-h-screen">
+<div class="p-8 max-w-7xl mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<nav class="flex text-[10px] text-gray-500 gap-2 mb-2 uppercase tracking-widest font-bold">
+<span>Platform</span>
+<span>/</span>
+<span class="text-cyan-400">การตั้งค่าและสภาพแวดล้อม</span>
+</nav>
+<h1 class="text-3xl font-black text-white tracking-tighter uppercase leading-none">Settings &amp; Environment</h1>
+<p class="text-gray-400 text-sm mt-2 max-w-xl">ควบคุมพารามิเตอร์ระดับแพลตฟอร์ม จัดการตัวแปรสภาพแวดล้อม และดูแลความปลอดภัยของผู้ดูแลระบบ</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-highest hover:bg-surface-bright text-white px-4 py-2 text-xs font-bold rounded border border-outline-variant/30 flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="history">history</span> ดูประวัติการแก้ไข
+                    </button>
+<button class="bg-error-container hover:bg-red-700 text-white px-5 py-2 text-xs font-black rounded flex items-center gap-2 shadow-lg shadow-red-900/20 transition-all active:scale-95">
+<span class="material-symbols-outlined text-sm" data-icon="restart_alt">restart_alt</span> RESTART SERVICE
+                    </button>
+</div>
+</div>
+<!-- Tab Navigation -->
+<div class="border-b border-gray-800 flex gap-8 mb-8 overflow-x-auto scrollbar-hide">
+<button class="pb-4 border-b-2 border-cyan-400 text-cyan-400 text-sm font-bold flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="tune">tune</span> ข้อมูลทั่วไป
+                </button>
+<button class="pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-300 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="database">database</span> สภาพแวดล้อม (ENV)
+                </button>
+<button class="pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-300 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="admin_panel_settings">admin_panel_settings</span> ผู้ใช้งาน
+                </button>
+<button class="pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-300 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="key">key</span> API Keys
+                </button>
+<button class="pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-300 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="security">security</span> ความปลอดภัย
+                </button>
+</div>
+<!-- Dashboard Grid Layout -->
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Primary Forms -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Platform Configuration Card -->
+<div class="bg-surface-container-low border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+<div class="px-6 py-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
+<h2 class="text-sm font-bold text-gray-200 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-lg" data-icon="dns">dns</span>
+                                การตั้งค่าแพลตฟอร์ม (Platform Settings)
+                            </h2>
+<span class="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 font-bold uppercase tracking-tighter">Synchronized</span>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Platform Name</label>
+<input class="w-full bg-gray-950 border-gray-800 rounded text-sm text-gray-300 focus:ring-cyan-500 focus:border-cyan-500 py-2.5" type="text" value="SCUM GLOBAL COMMAND"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Master Region</label>
+<select class="w-full bg-gray-950 border-gray-800 rounded text-sm text-gray-300 focus:ring-cyan-500 focus:border-cyan-500 py-2.5">
+<option>Southeast Asia (SEA)</option>
+<option>North America (NA)</option>
+<option>Europe (EU)</option>
+</select>
+</div>
+<div class="space-y-2 col-span-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Public Endpoint URL</label>
+<div class="flex">
+<span class="inline-flex items-center px-3 rounded-l border border-r-0 border-gray-800 bg-gray-900 text-gray-500 text-sm">https://</span>
+<input class="flex-1 min-w-0 bg-gray-950 border-gray-800 rounded-r text-sm text-gray-300 focus:ring-cyan-500 focus:border-cyan-500 py-2.5" type="text" value="api.scum-command.com"/>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 p-4 bg-gray-950 rounded border border-gray-800">
+<span class="material-symbols-outlined text-amber-500" data-icon="info">info</span>
+<p class="text-[11px] text-gray-400">การเปลี่ยน Public Endpoint อาจส่งผลต่อการเชื่อมต่อของ Delivery Agents ทั่วโลก โปรดตรวจสอบสถานะ Fleet ก่อนดำเนินการ</p>
+</div>
+<div class="flex justify-end gap-3 pt-4">
+<button class="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-gray-950 text-xs font-black rounded uppercase tracking-widest transition-all">
+                                    SAVE SETTINGS
+                                </button>
+</div>
+</div>
+</div>
+<!-- Environment Variables Section -->
+<div class="bg-surface-container-low border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+<div class="px-6 py-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
+<h2 class="text-sm font-bold text-gray-200 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-lg" data-icon="code">code</span>
+                                ตัวแปรสภาพแวดล้อม (Edit Env)
+                            </h2>
+<button class="text-cyan-400 text-[10px] font-bold flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-xs" data-icon="add">add</span> ADD VARIABLE
+                            </button>
+</div>
+<div class="p-0">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-950">
+<tr>
+<th class="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Key</th>
+<th class="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Value</th>
+<th class="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-900">
+<tr>
+<td class="px-6 py-4 font-mono text-[11px] text-cyan-400">LOG_LEVEL</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">"info"</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-600 hover:text-gray-300"><span class="material-symbols-outlined text-sm" data-icon="edit">edit</span></button>
+</td>
+</tr>
+<tr class="bg-gray-950/20">
+<td class="px-6 py-4 font-mono text-[11px] text-cyan-400">MAX_CONCURRENCY</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-400">512</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-600 hover:text-gray-300"><span class="material-symbols-outlined text-sm" data-icon="edit">edit</span></button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-mono text-[11px] text-cyan-400">DATABASE_URL</td>
+<td class="px-6 py-4 font-mono text-[11px] text-gray-600 italic">••••••••••••••••••••••••</td>
+<td class="px-6 py-4 text-right">
+<button class="text-gray-600 hover:text-gray-300"><span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: Context & Admin Management -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Create Admin User Card -->
+<div class="bg-surface-container-low border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+<div class="px-6 py-4 border-b border-gray-800 bg-gray-900/50">
+<h2 class="text-sm font-bold text-gray-200 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-lg" data-icon="person_add">person_add</span>
+                                เพิ่มผู้ดูแลระบบใหม่
+                            </h2>
+</div>
+<div class="p-6">
+<form class="space-y-4">
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Username / Email</label>
+<input class="w-full bg-gray-950 border-gray-800 rounded text-sm text-gray-300 focus:ring-cyan-500 focus:border-cyan-500 py-2" placeholder="admin@scum.com" type="email"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Initial Password</label>
+<input class="w-full bg-gray-950 border-gray-800 rounded text-sm text-gray-300 focus:ring-cyan-500 focus:border-cyan-500 py-2" type="password"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Permission Level</label>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-gray-900 border border-cyan-500/50 text-cyan-400 px-3 py-2 rounded text-[10px] font-bold uppercase" type="button">SuperAdmin</button>
+<button class="bg-gray-950 border border-gray-800 text-gray-500 px-3 py-2 rounded text-[10px] font-bold uppercase hover:bg-gray-900 transition-colors" type="button">Operator</button>
+</div>
+</div>
+<button class="w-full mt-4 bg-gray-100 hover:bg-white text-gray-950 py-2.5 rounded text-xs font-black uppercase tracking-widest transition-all">
+                                    CREATE ADMIN USER
+                                </button>
+</form>
+</div>
+</div>
+<!-- System Status Card -->
+<div class="bg-surface-container-low border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+<div class="p-6">
+<h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">สถานะเซิร์ฟเวอร์ควบคุม</h2>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-gray-400">Core Engine</span>
+<span class="text-xs text-green-400 font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                        ACTIVE
+                                    </span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-gray-400">Uptime</span>
+<span class="text-xs text-gray-200">24d 12h 45m</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-gray-400">Memory Usage</span>
+<span class="text-xs text-gray-200">1.4 GB / 4.0 GB</span>
+</div>
+<div class="w-full bg-gray-900 h-1 rounded-full overflow-hidden mt-1">
+<div class="bg-cyan-500 h-full w-[35%]"></div>
+</div>
+</div>
+<div class="mt-6 border-t border-gray-900 pt-6">
+<h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">คำแนะนำด้านความปลอดภัย</h3>
+<ul class="space-y-2">
+<li class="flex gap-2 items-start text-[11px] text-gray-400">
+<span class="material-symbols-outlined text-xs text-amber-500 mt-0.5" data-icon="verified_user">verified_user</span>
+<span>ควรเปิดใช้งาน MFA สำหรับบัญชี SuperAdmin ทุกบัญชี</span>
+</li>
+<li class="flex gap-2 items-start text-[11px] text-gray-400">
+<span class="material-symbols-outlined text-xs text-amber-500 mt-0.5" data-icon="lock_clock">lock_clock</span>
+<span>เปลี่ยน API Keys ทุกๆ 90 วันเพื่อความปลอดภัยสูงสุด</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Maintenance Window -->
+<div class="relative group rounded-xl overflow-hidden h-48">
+<img alt="Data center" class="w-full h-full object-cover" data-alt="futuristic dark server room with glowing blue and cyan lights on racks, highly technical atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtiUFlOk6zE1JSrbEGYqpKbgSJl-h9TSNnfqE4MvTHgfFANJPfXj-Xkzp0DWrTQvI6rJbum_G945Fryy9PLCh3fdd8oP4TogzaDYEGIJtpA8njDstQjx3tmscfKc-f81WnpM4fyVIFaJ4iJmH_likjfsJTs31nfyiZmwRwT-MJt-oXrY_cT4jPZEBeriN-P3ID1LKAxQ2eFnPjcOfUJRhtfIE2TpoEOlomddDpbkM7MX070vYrilJ9AU6XysYeEgKu0cU3g9_wrLw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-6 flex flex-col justify-end">
+<h3 class="text-white font-black text-sm uppercase tracking-tighter">Scheduled Maintenance</h3>
+<p class="text-[10px] text-gray-300 mt-1">หน้าต่างการบำรุงรักษาถัดไป: 12 ต.ค. 02:00 UTC</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Global Footer Overlay (Minimal) -->
+<footer class="ml-64 p-6 border-t border-gray-900 bg-gray-950/50 text-center">
+<p class="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 SCUM COMMAND GLOBAL OPS. ALL RIGHTS RESERVED.</p>
+</footer>
+</body></html>

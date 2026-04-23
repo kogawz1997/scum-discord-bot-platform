@@ -21,6 +21,7 @@ const {
   normalizeTenantMembershipStatus,
   normalizeTenantRole,
 } = require('./platformTenantAccessService');
+const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
 
 function trimText(value, maxLen = 240) {
   const text = String(value || '').trim();
@@ -258,9 +259,15 @@ async function listPlatformMembershipsForUser(db, userId) {
   return Array.isArray(rows) ? rows.map(normalizeMembershipRow).filter(Boolean) : [];
 }
 
-async function findLatestPlayerProfileForUser(db, userId) {
+async function findLatestPlayerProfileForUser(db, userId, options = {}) {
   const normalizedUserId = trimText(userId, 160);
   if (!normalizedUserId) return null;
+  assertTenantDbIsolationScope({
+    tenantId: null,
+    allowGlobal: options.allowGlobal === true,
+    operation: 'workspace auth latest player profile lookup',
+    env: options.env || process.env,
+  });
   await ensurePasswordColumn(db);
   const rows = await db.$queryRaw`
     SELECT id, userId, tenantId, discordUserId, steamId, inGameName, verificationState, metadataJson, createdAt, updatedAt
@@ -722,7 +729,10 @@ async function requestPlayerMagicLink(input = {}, db = prisma) {
     };
   }
 
-  const profile = await findLatestPlayerProfileForUser(db, user.id);
+  const profile = await findLatestPlayerProfileForUser(db, user.id, {
+    allowGlobal: true,
+    env: input.env || process.env,
+  });
   const discordUserId = profile?.discordUserId || await findDiscordIdentityForUser(db, user.id);
   if (!discordUserId) {
     return {
@@ -766,7 +776,10 @@ async function consumePlayerMagicLink(input = {}, db = prisma) {
     || (consumed.token.userId ? await findPlatformUserByIdentityEmail(db, consumed.token.email) : null);
   if (!user?.id) return { ok: false, reason: 'user-not-found' };
 
-  const profile = await findLatestPlayerProfileForUser(db, user.id);
+  const profile = await findLatestPlayerProfileForUser(db, user.id, {
+    allowGlobal: true,
+    env: input.env || process.env,
+  });
   const discordUserId = trimText(consumed.token.metadata?.discordUserId, 200)
     || profile?.discordUserId
     || await findDiscordIdentityForUser(db, user.id);

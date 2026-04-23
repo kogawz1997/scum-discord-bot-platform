@@ -11,10 +11,51 @@ const {
   ensurePlatformPlayerIdentity,
   getPlatformUserIdentitySummary,
 } = require('./platformIdentityService');
+const {
+  listServerDiscordLinks,
+} = require('../data/repositories/controlPlaneRegistryRepository');
 const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function resolveTenantIdFromGuildId(guildId) {
+  const normalizedGuildId = normalizeText(guildId);
+  if (!normalizedGuildId) return null;
+  const rows = listServerDiscordLinks({
+    guildId: normalizedGuildId,
+    allowGlobal: true,
+  });
+  const tenantIds = [...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => normalizeText(row?.tenantId))
+      .filter(Boolean),
+  )];
+  return tenantIds.length === 1 ? tenantIds[0] : null;
+}
+
+function resolveTenantScope(params = {}, operation = 'steam link operation') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const guildTenantId = explicitTenantId ? null : resolveTenantIdFromGuildId(params.guildId);
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId =
+    explicitTenantId
+    || guildTenantId
+    || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    guildId: normalizeText(params.guildId) || null,
+    env,
+  };
 }
 
 async function bindSteamLinkForUser(params = {}) {
@@ -23,13 +64,14 @@ async function bindSteamLinkForUser(params = {}) {
   const inGameName = normalizeText(params.inGameName) || null;
   const allowReplace = params.allowReplace === true;
   const allowSteamReuse = params.allowSteamReuse === true;
-  const tenantId = normalizeText(params.tenantId) || resolveDefaultTenantId() || null;
 
   if (!userId || !steamId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const tenantScope = resolveTenantScope(params, 'bind steam link');
+  const tenantId = tenantScope.tenantId;
 
-  const current = getLinkByUserId(userId);
+  const current = getLinkByUserId(userId, tenantScope);
   if (current?.steamId === steamId) {
     return {
       ok: true,
@@ -46,7 +88,7 @@ async function bindSteamLinkForUser(params = {}) {
     };
   }
 
-  const existing = getLinkBySteamId(steamId);
+  const existing = getLinkBySteamId(steamId, tenantScope);
   if (existing && existing.userId !== userId && !allowSteamReuse) {
     return {
       ok: false,
@@ -59,7 +101,7 @@ async function bindSteamLinkForUser(params = {}) {
     steamId,
     userId,
     inGameName,
-  });
+  }, tenantScope);
   if (!result.ok) {
     return result;
   }
@@ -118,16 +160,18 @@ async function bindSteamLinkForUser(params = {}) {
   };
 }
 
-function getSteamLinkByUserId(userId) {
+function getSteamLinkByUserId(userId, options = {}) {
   const normalized = normalizeText(userId);
   if (!normalized) return null;
-  return getLinkByUserId(normalized);
+  const scope = resolveTenantScope(options, 'read steam link by user');
+  return getLinkByUserId(normalized, scope);
 }
 
-function getSteamLinkBySteamId(steamId) {
+function getSteamLinkBySteamId(steamId, options = {}) {
   const normalized = normalizeSteamId(steamId);
   if (!normalized) return null;
-  return getLinkBySteamId(normalized);
+  const scope = resolveTenantScope(options, 'read steam link by steam');
+  return getLinkBySteamId(normalized, scope);
 }
 
 async function removeSteamLink(params = {}) {
@@ -136,8 +180,11 @@ async function removeSteamLink(params = {}) {
   if (!steamId && !userId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const tenantScope = resolveTenantScope(params, 'remove steam link');
 
-  const removed = steamId ? unlinkBySteamId(steamId) : unlinkByUserId(userId);
+  const removed = steamId
+    ? unlinkBySteamId(steamId, tenantScope)
+    : unlinkByUserId(userId, tenantScope);
   if (!removed) {
     return { ok: false, reason: 'not-found' };
   }
@@ -145,7 +192,7 @@ async function removeSteamLink(params = {}) {
   let platform = null;
   try {
     platform = await clearPlatformPlayerSteamLink({
-      tenantId: normalizeText(params.tenantId) || resolveDefaultTenantId() || null,
+      tenantId: tenantScope.tenantId,
       userId: removed.userId || userId || null,
       discordUserId: removed.userId || userId || null,
       steamId: removed.steamId || steamId || null,

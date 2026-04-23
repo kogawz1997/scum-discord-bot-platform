@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCUM Owner Plane - Access Posture</title>
+  <link rel="stylesheet" href="/admin/assets/owner-surface-theme.css?v=20260410-owner-surface-theme-1">
+  <style>.placeholder-main { padding: 28px; } .placeholder-note { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255,180,171,.18); background: rgba(255,180,171,.08); color: var(--text-soft); font-size: 13px; }</style>
+</head>
+<body>
+  <nav class="topbar"><div class="topbar__brand"><span class="topbar__mark">SCUM</span><div><span class="topbar__title">SCUM Owner Plane</span><span class="topbar__copy">Access Posture</span></div></div><div class="topbar__tools"><a class="topbar__pill" href="/owner/security">Security</a><button class="button">Refresh</button><button class="button">Language</button><button class="button">Notifications</button></div></nav>
+  <div class="shell">
+    <aside class="sidebar"><div class="sidebar__section"><div class="sidebar__title">Governance</div><a class="nav-item" href="/owner/audit">Audit</a><a class="nav-item" href="/owner/security">Security</a><a class="nav-item is-active" href="/owner/access">Access</a><a class="nav-item" href="/owner/diagnostics">Diagnostics</a><a class="nav-item" href="/owner/settings">Settings</a></div></aside>
+    <main class="main placeholder-main">
+      <header class="page-header"><div><span class="eyebrow">Access Posture</span><h1 class="page-title">Sessions and Access Review</h1><p class="page-copy">Review operator sessions, suspicious access, and identity posture from one route before taking guarded response actions.</p></div><div class="actions"><a class="button" href="/owner/security">Open Security</a><a class="button" href="/owner/audit">Open Audit</a><button class="button button--primary" data-open-live-workspace="true">Open Access Controls</button></div></header>
+      <section class="panel panel--hero"><h2 class="panel__title">Access review lane</h2><p class="panel__copy">Use this route to inspect operator sessions, suspicious access, role review, and revocation readiness before opening guarded controls.</p><div class="list"><div class="list__item"><div class="list__title"><span>Active sessions</span><span class="status" data-tone="cyan">Tracked</span></div><div class="soft">Session revocation remains on the guarded owner control lane.</div></div><div class="list__item"><div class="list__title"><span>Identity review</span><span class="status" data-tone="amber">Manual</span></div><div class="soft">Support and security context remain aligned.</div></div></div><div class="placeholder-note">Read-only on this route: session revoke, operator verification, and direct identity review actions remain guarded.</div></section>
+    </main>
+  </div>
+</body>
+</html>

@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const repositoryPath = path.resolve(__dirname, '../src/data/repositories/controlPlaneRegistryRepository.js');
+const prismaPath = path.resolve(__dirname, '../src/prisma.js');
 const persistPath = path.resolve(__dirname, '../src/store/_persist.js');
 const runtimeDataDirPath = path.resolve(__dirname, '../src/utils/runtimeDataDir.js');
 const deliveryPath = path.resolve(__dirname, '../src/services/rconDelivery.js');
@@ -30,6 +31,7 @@ function installMock(modulePath, exportsValue) {
 function clearModules() {
   for (const entry of [
     repositoryPath,
+    prismaPath,
     persistPath,
     runtimeDataDirPath,
     deliveryPath,
@@ -37,6 +39,23 @@ function clearModules() {
     consoleAgentClientPath,
   ]) {
     delete require.cache[entry];
+  }
+}
+
+async function removeDirWithRetries(targetPath, attempts = 5) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      fs.rmSync(targetPath, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (error?.code !== 'EPERM') {
+        throw error;
+      }
+      if (attempt === attempts - 1) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
   }
 }
 
@@ -121,6 +140,10 @@ test('delivery preflight routes execute checks through the control-plane registr
   });
 
   t.after(async () => {
+    try {
+      const { prisma } = require(prismaPath);
+      await prisma?.$disconnect?.().catch(() => {});
+    } catch {}
     clearModules();
     for (const [key, value] of Object.entries(previousEnv)) {
       if (value == null) {
@@ -129,7 +152,7 @@ test('delivery preflight routes execute checks through the control-plane registr
         process.env[key] = value;
       }
     }
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    await removeDirWithRetries(tempDir);
   });
 
   repository.upsertServer({
@@ -162,6 +185,8 @@ test('delivery preflight routes execute checks through the control-plane registr
     guildId: 'guild-routing',
     agentId: 'exec-routing',
     runtimeKey: 'exec-routing-runtime',
+    role: 'execute',
+    scope: 'execute_only',
     sessionId: 'exec-routing-session',
     heartbeatAt: '2026-03-25T14:00:00.000Z',
     channel: 'delivery',

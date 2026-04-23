@@ -18,7 +18,10 @@ function createScopeState() {
 }
 
 function ensureRedeemScope(options = {}) {
-  const scope = resolveTenantStoreScope(options);
+  const scope = resolveTenantStoreScope({
+    ...options,
+    operation: String(options.operation || '').trim() || 'redeem store operation',
+  });
   if (!scopeStateByDatasource.has(scope.datasourceKey)) {
     scopeStateByDatasource.set(scope.datasourceKey, createScopeState());
   }

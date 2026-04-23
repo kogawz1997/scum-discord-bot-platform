@@ -28,18 +28,20 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/sync-events') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: false },
       );
-      if (requiredString(urlObj.searchParams.get('tenantId')) && !tenantId) return true;
+      if (requestedTenantId && !tenantId) return true;
       sendJson(res, 200, {
         ok: true,
         data: await listPlatformSyncEvents({
           tenantId,
+          allowGlobal: !tenantId,
           serverId: requiredString(urlObj.searchParams.get('serverId')),
           agentId: requiredString(urlObj.searchParams.get('agentId')),
         }),
@@ -50,11 +52,12 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/tenant-diagnostics') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -72,11 +75,12 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/tenant-diagnostics/export') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -114,11 +118,12 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/tenant-support-case') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -137,11 +142,12 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
     if (pathname === '/admin/api/platform/tenant-support-case/export') {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        requiredString(urlObj.searchParams.get('tenantId')),
+        requestedTenantId || getAuthTenantId(auth),
         { required: true },
       );
       if (!tenantId) return true;
@@ -181,14 +187,16 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
+      const scopedTenantId = tenantId || getAuthTenantId(auth) || undefined;
       sendJson(res, 200, {
         ok: true,
         data: await buildDeliveryLifecycleReport({
-          tenantId: tenantId || getAuthTenantId(auth) || undefined,
+          tenantId: scopedTenantId,
+          allowGlobal: !scopedTenantId,
           limit: asInt(urlObj.searchParams.get('limit'), 120) || 120,
           pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
           retryHeavyAttempts: asInt(urlObj.searchParams.get('retryHeavyAttempts'), null),
@@ -202,12 +210,14 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
+      const scopedTenantId = tenantId || getAuthTenantId(auth) || undefined;
       const data = await buildDeliveryLifecycleReport({
-        tenantId: tenantId || getAuthTenantId(auth) || undefined,
+        tenantId: scopedTenantId,
+        allowGlobal: !scopedTenantId,
         limit: asInt(urlObj.searchParams.get('limit'), 120) || 120,
         pendingOverdueMs: asInt(urlObj.searchParams.get('pendingOverdueMs'), null),
         retryHeavyAttempts: asInt(urlObj.searchParams.get('retryHeavyAttempts'), null),
@@ -215,7 +225,7 @@ function createAdminDiagnosticsGetRouteHandler(deps) {
       });
       const format = String(urlObj.searchParams.get('format') || 'json').trim().toLowerCase();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const scopeLabel = tenantId || getAuthTenantId(auth) || 'global';
+      const scopeLabel = scopedTenantId || 'global';
       if (format === 'csv') {
         sendDownload(
           res,

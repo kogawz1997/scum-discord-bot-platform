@@ -8,6 +8,8 @@ const {
   buildPortalStartupValidation,
   isDiscordCallbackPath,
   isDiscordStartPath,
+  isGoogleCallbackPath,
+  isGoogleStartPath,
   printPortalStartupHints,
 } = require('../apps/web-portal-standalone/runtime/portalRuntime');
 
@@ -23,6 +25,7 @@ test('portal runtime health payload reflects runtime settings', () => {
     cookieSameSite: 'Lax',
     enforceOriginCheck: true,
     discordOAuthConfigured: true,
+    googleOAuthConfigured: true,
     playerOpenAccess: true,
     requireGuildMember: false,
     legacyAdminUrl: 'https://admin.example.com/admin',
@@ -43,6 +46,8 @@ test('portal runtime validation reports production and access-policy issues', ()
     legacyAdminUrl: 'http://admin.example.com/admin',
     discordClientId: '',
     discordClientSecret: '',
+    googleClientId: '',
+    googleClientSecret: '',
     discordGuildId: '',
     playerOpenAccess: false,
     requireGuildMember: true,
@@ -55,11 +60,17 @@ test('portal runtime validation reports production and access-policy issues', ()
     isProduction: true,
   });
 
-  assert.ok(result.errors.includes('WEB_PORTAL_DISCORD_CLIENT_ID is required'));
-  assert.ok(result.errors.includes('WEB_PORTAL_DISCORD_CLIENT_SECRET is required'));
+  assert.ok(
+    result.errors.includes('At least one player OAuth provider must be configured: Discord or Google'),
+  );
   assert.ok(
     result.errors.includes(
       'WEB_PORTAL_REQUIRE_GUILD_MEMBER=true requires WEB_PORTAL_DISCORD_GUILD_ID',
+    ),
+  );
+  assert.ok(
+    result.errors.includes(
+      'WEB_PORTAL_REQUIRE_GUILD_MEMBER=true requires Discord OAuth to be configured',
     ),
   );
   assert.ok(result.errors.includes('WEB_PORTAL_SECURE_COOKIE must be true in production'));
@@ -91,6 +102,9 @@ test('portal runtime route helpers normalize admin URL and Discord paths', () =>
   assert.equal(isDiscordStartPath('/auth/discord/start'), true);
   assert.equal(isDiscordCallbackPath('/oauth/callback', '/oauth/callback'), true);
   assert.equal(isDiscordCallbackPath('/auth/discord/callback', '/oauth/callback'), true);
+  assert.equal(isGoogleStartPath('/auth/google/start'), true);
+  assert.equal(isGoogleCallbackPath('/oauth/google/callback', '/oauth/google/callback'), true);
+  assert.equal(isGoogleCallbackPath('/auth/google/callback', '/oauth/google/callback'), true);
 });
 
 test('portal runtime settings builder normalizes counts and booleans', () => {
@@ -109,6 +123,9 @@ test('portal runtime settings builder normalizes counts and booleans', () => {
     discordOAuthConfigured: 1,
     discordClientId: 'client',
     discordClientSecret: 'secret',
+    googleOAuthConfigured: 1,
+    googleClientId: 'google-client',
+    googleClientSecret: 'google-secret',
     discordGuildId: 'guild',
     playerOpenAccess: 1,
     requireGuildMember: 0,
@@ -120,6 +137,7 @@ test('portal runtime settings builder normalizes counts and booleans', () => {
   assert.equal(settings.sessionCount, 4);
   assert.equal(settings.oauthStateCount, 2);
   assert.equal(settings.secureCookie, true);
+  assert.equal(settings.googleOAuthConfigured, true);
   assert.equal(settings.requireGuildMember, false);
   assert.equal(settings.allowedDiscordIdsCount, 3);
 });
@@ -148,6 +166,8 @@ test('portal runtime startup printer returns false and logs errors when invalid'
         legacyAdminUrl: 'https://admin.example.com/admin',
         discordClientId: '',
         discordClientSecret: '',
+        googleClientId: '',
+        googleClientSecret: '',
         discordGuildId: '',
         playerOpenAccess: true,
         requireGuildMember: false,

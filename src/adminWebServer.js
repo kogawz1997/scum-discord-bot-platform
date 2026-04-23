@@ -59,8 +59,6 @@ const {
 const { getStatus } = require('./store/scumStore');
 const {
   upsertPlayerAccount,
-  bindPlayerSteamId,
-  unbindPlayerSteamId,
   getPlayerDashboard,
   listPlayerAccounts,
 } = require('./store/playerAccountStore');
@@ -523,6 +521,7 @@ const {
 });
 const ownerConsoleHtmlPath = path.join(__dirname, 'admin', 'owner-console.html');
 const tenantConsoleHtmlPath = path.join(__dirname, 'admin', 'tenant-console.html');
+const ownerLoginHtmlPath = path.join(__dirname, 'admin', 'owner-login.html');
 const tenantLoginHtmlPath = path.join(__dirname, 'admin', 'tenant-login.html');
 const sessions = createPersistentRuntimeStore({
   filename: 'admin-runtime-sessions.json',
@@ -712,12 +711,14 @@ const {
   getOwnerConsoleHtml,
   getTenantConsoleHtml,
   getLoginHtml,
+  getOwnerLoginHtml,
   getTenantLoginHtml,
 } = createAdminPageRuntime({
   dashboardHtmlPath,
   ownerConsoleHtmlPath,
   tenantConsoleHtmlPath,
   loginHtmlPath,
+  ownerLoginHtmlPath,
   tenantLoginHtmlPath,
   assetsDirPath: adminAssetsDirPath,
   scumItemsDirPath,
@@ -838,8 +839,6 @@ const {
   bindSteamLinkForUser,
   removeSteamLink,
   upsertPlayerAccount,
-  bindPlayerSteamId,
-  unbindPlayerSteamId,
   grantVipForUser,
   revokeVipForUser,
   createRedeemCodeForAdmin,
@@ -878,6 +877,7 @@ const {
   isAuthorized,
   getAuthContext,
   getLoginHtml,
+  getOwnerLoginHtml,
   getTenantLoginHtml,
   getOwnerConsoleHtml,
   getTenantConsoleHtml,

@@ -16,6 +16,7 @@ function buildScopeOptions(params = {}) {
     tenantId: normalizeText(params.tenantId),
     defaultTenantId: normalizeText(params.defaultTenantId),
     env: params.env,
+    operation: normalizeText(params.operation) || 'moderation entry operation',
   };
 }
 

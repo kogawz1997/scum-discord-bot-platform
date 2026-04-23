@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TENANT_ADMIN_SCUM_V1 - SECTOR_ADMIN Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&amp;family=Public+Sans:wght@300..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#783200",
+                    "on-secondary-container": "#bdf57d",
+                    "on-secondary-fixed": "#0f2000",
+                    "secondary-fixed": "#bbf37c",
+                    "secondary-fixed-dim": "#a0d663",
+                    "primary-fixed-dim": "#ffb690",
+                    "surface-dim": "#131313",
+                    "primary-fixed": "#ffdbca",
+                    "on-tertiary": "#690005",
+                    "on-surface": "#e5e2e1",
+                    "tertiary-fixed-dim": "#ffb4ab",
+                    "surface-bright": "#393939",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "error": "#ffb4ab",
+                    "surface-container-low": "#1c1b1b",
+                    "on-secondary-fixed-variant": "#2e4f00",
+                    "secondary-container": "#447200",
+                    "on-background": "#e5e2e1",
+                    "on-primary-fixed": "#341100",
+                    "outline-variant": "#584237",
+                    "surface-tint": "#ffb690",
+                    "outline": "#a78b7d",
+                    "surface-container": "#201f1f",
+                    "surface-variant": "#353534",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-container": "#f97316",
+                    "on-tertiary-container": "#6c0005",
+                    "on-error": "#690005",
+                    "primary": "#ffb690",
+                    "on-primary-container": "#582200",
+                    "on-tertiary-fixed": "#410002",
+                    "on-secondary": "#1e3700",
+                    "inverse-primary": "#9d4300",
+                    "tertiary-container": "#ff6a5d",
+                    "tertiary-fixed": "#ffdad6",
+                    "surface-container-highest": "#353534",
+                    "inverse-on-surface": "#313030",
+                    "inverse-surface": "#e5e2e1",
+                    "secondary": "#a0d663",
+                    "on-surface-variant": "#e0c0b1",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface": "#131313",
+                    "background": "#131313",
+                    "on-tertiary-fixed-variant": "#93000b",
+                    "on-primary": "#552100",
+                    "tertiary": "#ffb4ab"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Public Sans"],
+                    "label": ["Public Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Public Sans', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-[#131313] dark:bg-[#131313] fixed top-0 z-50 flex justify-between items-center w-full px-6 h-16 border-b-2 border-[#353534] flat no shadows">
+<div class="flex items-center gap-8">
+<div class="text-xl font-black text-orange-600 dark:text-orange-500 tracking-tighter uppercase font-['Space_Grotesk']">
+                TENANT_ADMIN_SCUM_V1
+            </div>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="font-['Space_Grotesk'] tracking-wider uppercase text-sm text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1" href="#">Monitor</a>
+<a class="font-['Space_Grotesk'] tracking-wider uppercase text-sm text-zinc-500 hover:bg-[#201f1f] transition-colors duration-150 px-2 py-1" href="#">Assets</a>
+<a class="font-['Space_Grotesk'] tracking-wider uppercase text-sm text-orange-500 font-bold border-b-2 border-orange-500 px-2 py-1" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-zinc-500">
+<span class="material-symbols-outlined hover:text-orange-500 cursor-pointer">refresh</span>
+<span class="material-symbols-outlined hover:text-orange-500 cursor-pointer">language</span>
+<span class="material-symbols-outlined hover:text-orange-500 cursor-pointer">dark_mode</span>
+<span class="material-symbols-outlined hover:text-orange-500 cursor-pointer">notifications</span>
+</div>
+<div class="h-8 w-[2px] bg-[#353534]"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold leading-none">ADMINISTRATOR</p>
+<p class="text-[10px] text-zinc-500">Logout</p>
+</div>
+<img alt="Administrator Profile" class="w-10 h-10 border-2 border-orange-600" data-alt="Abstract geometric avatar icon with bold orange and black shapes for a technical administrative profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbSG6PWatzpqbJcrT_KncvV3p5Mny40sY0Uus_DLV4efry9Ep0so4LwP1LwDEA5Xs8JNmprTT8BlkDvFxd65HQaYt9RCGpQtuMD_G9nigoN8O9-RdXeZJdbo291Sx8P4ZF_7BNxc6isx-05LFNsVdxokbTy4XBqDufKt9gp4ol_nODCfnTpAYCnakVub6EjpbgRFsc3JvzDtciQl0J1iD_UGfpX2XXJAwcTGLTrBJtIt78kmj3cP31n5pIlMa0b2U3O7Dr2YHJX4o"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-[#201f1f] dark:bg-[#201f1f] flex flex-col pt-16 border-r-4 border-[#353534] flat no shadows z-40 hidden md:flex">
+<div class="p-6 border-b-2 border-[#353534]">
+<h2 class="text-lg font-black text-white font-['Space_Grotesk']">SECTOR_ADMIN</h2>
+<p class="font-['Public_Sans'] text-[10px] font-bold uppercase tracking-widest text-zinc-500">OPERATIONAL_UNIT_01</p>
+</div>
+<div class="flex-1 overflow-y-auto py-4">
+<nav class="flex flex-col">
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">dashboard</span> Overview
+                </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">dns</span> Server Status
+                </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">local_shipping</span> Delivery Agents
+                </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">shopping_cart</span> Orders
+                </a>
+<a class="text-zinc-400 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest hover:bg-[#353534] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-lg">payments</span> Billing
+                </a>
+<div class="my-4 border-t-2 border-[#353534] mx-4"></div>
+<a class="bg-[#353534] text-orange-500 border-l-4 border-orange-500 px-4 py-3 flex items-center gap-3 font-['Public_Sans'] text-xs font-bold uppercase tracking-widest translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined text-lg">settings</span> Settings
+                </a>
+</nav>
+</div>
+<div class="p-4">
+<button class="w-full bg-orange-600 text-on-primary-container font-bold py-3 text-xs uppercase tracking-tighter border-2 border-orange-600 hover:border-4 transition-all">
+                Diagnostics &amp; Support
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 pt-16 min-h-screen">
+<div class="p-8 max-w-6xl mx-auto">
+<!-- Page Header -->
+<div class="mb-12 border-l-8 border-orange-600 pl-6">
+<h1 class="text-5xl font-black font-['Space_Grotesk'] tracking-tighter uppercase">Settings <span class="text-orange-500">v4.0</span></h1>
+<p class="text-zinc-500 font-bold tracking-widest mt-2 uppercase text-sm">การตั้งค่าระบบ - System Configuration Console</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Tenant Settings Form -->
+<div class="lg:col-span-8 bg-[#201f1f] border-2 border-[#353534] p-8">
+<div class="flex items-center gap-2 mb-8 border-b-2 border-[#353534] pb-4">
+<span class="material-symbols-outlined text-orange-500">admin_panel_settings</span>
+<h3 class="text-xl font-bold font-['Space_Grotesk'] uppercase tracking-widest">Tenant Details (ข้อมูลผู้ใช้งาน)</h3>
+</div>
+<form class="space-y-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-400">Tenant Name (ชื่อเทนแนนต์)</label>
+<input class="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant p-3 focus:border-orange-500 focus:ring-0 text-on-surface font-['Public_Sans'] font-bold uppercase tracking-widest" type="text" value="OPERATIONAL_UNIT_01"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-400">Sector Code (รหัสสาขา)</label>
+<input class="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant p-3 focus:border-orange-500 focus:ring-0 text-on-surface font-['Public_Sans'] font-bold" type="text" value="SCUM-ALPHA-09"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-400">Operational Proxy (ที่อยู่พร็อกซี)</label>
+<div class="flex gap-4">
+<input class="flex-1 bg-surface-container-lowest border-0 border-b-2 border-outline-variant p-3 focus:border-orange-500 focus:ring-0 text-zinc-500 font-mono text-sm" type="text" value="https://proxy.sector-admin.io/v4/tunnel"/>
+<button class="bg-zinc-800 border-2 border-zinc-700 px-4 py-2 text-xs font-bold uppercase hover:border-zinc-500" type="button">Rotate</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-400">Max Logs (บันทึกสูงสุด)</label>
+<select class="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant p-3 focus:border-orange-500 focus:ring-0 text-on-surface font-bold">
+<option>50,000 ROWS</option>
+<option>100,000 ROWS</option>
+<option>UNLIMITED</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-400">Sync Interval (ระยะการซิงค์)</label>
+<div class="flex items-center gap-3 bg-surface-container-lowest p-3 border-b-2 border-outline-variant">
+<input class="w-full accent-orange-500" type="range"/>
+<span class="text-orange-500 font-bold">30s</span>
+</div>
+</div>
+<div class="flex items-end">
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative w-12 h-6 bg-zinc-800 border-2 border-zinc-700">
+<div class="absolute top-0.5 left-0.5 w-4 h-4 bg-orange-600 transition-transform translate-x-6"></div>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest group-hover:text-white">Auto-Restart (เริ่มใหม่ทันที)</span>
+</label>
+</div>
+</div>
+<div class="pt-8 flex flex-wrap gap-4 border-t-2 border-[#353534]">
+<button class="bg-primary-container text-on-primary-container px-8 py-4 font-black uppercase tracking-widest border-2 border-orange-600 hover:border-4 transition-all" type="submit">Save settings</button>
+<button class="bg-transparent border-2 border-zinc-700 px-8 py-4 font-bold uppercase tracking-widest text-zinc-400 hover:border-zinc-500 hover:text-white transition-all" type="button">Reset form</button>
+</div>
+</form>
+</div>
+<!-- Discord Integration Section -->
+<div class="lg:col-span-4 space-y-6">
+<div class="bg-[#201f1f] border-2 border-[#353534] p-8 relative overflow-hidden">
+<div class="absolute -right-8 -top-8 opacity-10">
+<span class="material-symbols-outlined text-[160px]">hub</span>
+</div>
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-[#5865F2]">chat</span>
+<h3 class="text-xl font-bold font-['Space_Grotesk'] uppercase tracking-widest">Discord Link</h3>
+</div>
+<p class="text-sm text-zinc-400 mb-6 font-['Public_Sans'] leading-relaxed">
+                            เชื่อมต่อระบบควบคุมกับกิลด์ Discord เพื่อรับการแจ้งเตือนแบบเรียลไทม์และการสั่งการผ่านบอท
+                        </p>
+<div class="space-y-4">
+<div class="bg-surface-container-lowest p-4 border-l-4 border-[#5865F2]">
+<p class="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Current Status</p>
+<p class="text-sm font-bold text-red-500">DISCONNECTED / ยังไม่ได้เชื่อมต่อ</p>
+</div>
+<button class="w-full bg-[#5865F2] text-white font-bold py-4 px-6 uppercase tracking-widest flex items-center justify-center gap-3 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">link</span> Link Discord guild
+                            </button>
+<button class="w-full border-2 border-zinc-700 text-zinc-400 font-bold py-4 px-6 uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-zinc-800 transition-colors">
+<span class="material-symbols-outlined">network_check</span> Test integration
+                            </button>
+</div>
+</div>
+<!-- Security Audit Card -->
+<div class="bg-surface-container-highest border-2 border-orange-600/30 p-8">
+<h4 class="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4">Security Audit (การตรวจสอบความปลอดภัย)</h4>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-xs border-b border-zinc-700 pb-2">
+<span class="text-zinc-500">Last Config Change</span>
+<span class="font-bold">2023-10-24 14:22</span>
+</div>
+<div class="flex justify-between items-center text-xs border-b border-zinc-700 pb-2">
+<span class="text-zinc-500">Admin ID</span>
+<span class="font-bold text-orange-500">USR-7729-X</span>
+</div>
+<div class="flex justify-between items-center text-xs">
+<span class="text-zinc-500">Protocol</span>
+<span class="font-bold">AES-256-ENCRYPTED</span>
+</div>
+</div>
+</div>
+<!-- Status Module -->
+<div class="bg-surface-container-low border-2 border-zinc-800 p-8">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-xs font-bold uppercase tracking-widest">System Health</h4>
+<div class="w-3 h-3 bg-secondary"></div>
+</div>
+<div class="grid grid-cols-4 gap-2">
+<div class="h-1 bg-secondary"></div>
+<div class="h-1 bg-secondary"></div>
+<div class="h-1 bg-secondary"></div>
+<div class="h-1 bg-zinc-800"></div>
+</div>
+<p class="text-[10px] text-zinc-600 mt-4 font-mono">NODE_UPTIME: 1422h:12m:04s</p>
+</div>
+</div>
+</div>
+<!-- Warning Footer -->
+<div class="mt-12 p-6 border-2 border-error-container bg-error-container/10 flex items-center gap-6">
+<span class="material-symbols-outlined text-error text-4xl" style="font-variation-settings: 'FILL' 1;">warning</span>
+<div>
+<h5 class="font-black text-error uppercase tracking-widest">Critical Override Warning</h5>
+<p class="text-xs text-on-surface-variant max-w-2xl font-bold uppercase tracking-tighter">การเปลี่ยนแปลงการตั้งค่าเทนแนนต์อาจส่งผลต่อความเสถียรของเซิร์ฟเวอร์ โปรดตรวจสอบความถูกต้องของพารามิเตอร์ก่อนบันทึก | UNINTENDED CHANGES MAY CAUSE SYSTEM INSTABILITY.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Accents -->
+<div class="fixed bottom-0 right-0 p-4 opacity-20 pointer-events-none select-none">
+<p class="text-[120px] font-black text-zinc-900 leading-none">V4.0</p>
+</div>
+</body></html>

@@ -24,6 +24,17 @@ test('admin live templates expose login and V4 shells', () => {
     /admin-login-v4\.js/,
   ]);
 
+  assertLiveTemplate(path.join('src', 'admin', 'owner-login.html'), [
+    /id="loginForm"/,
+    /id="usernameInput"/,
+    /id="passwordInput"/,
+    /id="ownerLoginLanguage"/,
+    /admin-i18n\.js/,
+    /admin-login-v4\.js/,
+  ]);
+  const ownerLoginHtml = read(path.join('src', 'admin', 'owner-login.html'));
+  assert.doesNotMatch(ownerLoginHtml, /Ã|Â|\ufffd/);
+
   assertLiveTemplate(path.join('src', 'admin', 'owner-console.html'), [
     /id="ownerV4AppRoot"/,
     /id="ownerV4RefreshBtn"/,

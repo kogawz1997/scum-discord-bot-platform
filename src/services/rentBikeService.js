@@ -13,6 +13,8 @@ const {
   listRentalVehiclesByStatuses,
   getLatestRentalByUser,
 } = require('../store/rentBikeStore');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 const queue = [];
 const inQueue = new Set();
@@ -231,10 +233,21 @@ function generateOrderId() {
 }
 
 function normalizeScopeOptions(options = {}) {
+  const env = options.env;
+  const explicitTenantId = String(options.tenantId || '').trim()
+    || String(options.defaultTenantId || '').trim()
+    || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation: 'rent bike service',
+    env,
+  });
   return {
-    tenantId: String(options.tenantId || '').trim() || null,
-    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
-    env: options.env,
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
   };
 }
 

@@ -10,9 +10,28 @@ const {
   listAllowedPurchaseTransitions,
   listKnownPurchaseStatuses,
 } = require('./purchaseStateMachine');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function resolvePurchaseScope(params = {}, operation = 'purchase status operation') {
+  const env = params.env;
+  const explicitTenantId = normalizeText(params.tenantId) || normalizeText(params.defaultTenantId) || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    env,
+  };
 }
 
 async function updatePurchaseStatusForActor(params = {}) {
@@ -29,9 +48,10 @@ async function updatePurchaseStatusForActor(params = {}) {
       knownStatuses: listKnownPurchaseStatuses(),
     };
   }
+  const scope = resolvePurchaseScope(params, 'update purchase status');
 
   const purchase = await findPurchaseByCode(code, {
-    tenantId: params.tenantId || null,
+    tenantId: scope.tenantId,
   });
   if (!purchase) {
     return { ok: false, reason: 'not-found' };
@@ -59,7 +79,7 @@ async function updatePurchaseStatusForActor(params = {}) {
       force: params.force === true,
       actor,
       reason,
-      tenantId: params.tenantId || purchase?.tenantId || null,
+      tenantId: scope.tenantId || purchase?.tenantId || null,
       meta: params.meta && typeof params.meta === 'object' ? params.meta : {},
       recordIfSame: params.recordIfSame === true,
     });
@@ -79,7 +99,7 @@ async function updatePurchaseStatusForActor(params = {}) {
   }
 
   const history = await listPurchaseStatusHistory(updated.code, historyLimit, {
-    tenantId: params.tenantId || updated?.tenantId || purchase?.tenantId || null,
+    tenantId: scope.tenantId || updated?.tenantId || purchase?.tenantId || null,
   });
   return {
     ok: true,
@@ -98,9 +118,10 @@ async function refundPurchaseForActor(params = {}) {
   if (!code) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scope = resolvePurchaseScope(params, 'refund purchase');
 
   const purchase = await findPurchaseByCode(code, {
-    tenantId: params.tenantId || null,
+    tenantId: scope.tenantId,
   });
   if (!purchase) {
     return { ok: false, reason: 'not-found' };
@@ -131,7 +152,9 @@ async function refundPurchaseForActor(params = {}) {
     reason,
     meta: params.meta && typeof params.meta === 'object' ? params.meta : {},
     historyLimit: Number(params.historyLimit || 20),
-    tenantId: params.tenantId || purchase?.tenantId || null,
+    tenantId: scope.tenantId || purchase?.tenantId || null,
+    defaultTenantId: scope.defaultTenantId,
+    env: scope.env,
   });
   if (!statusResult.ok) {
     return statusResult;
@@ -143,11 +166,14 @@ async function refundPurchaseForActor(params = {}) {
     reason: params.creditReason || 'refund_credit',
     reference: purchase.code,
     actor,
-    meta: {
-      source: normalizeText(params.source) || 'refund-service',
-      ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
-    },
-  });
+      meta: {
+        source: normalizeText(params.source) || 'refund-service',
+        ...(params.meta && typeof params.meta === 'object' ? params.meta : {}),
+      },
+      tenantId: scope.tenantId || purchase?.tenantId || null,
+      defaultTenantId: scope.defaultTenantId,
+      env: scope.env,
+    });
 
   if (!refundResult.ok) {
     return {

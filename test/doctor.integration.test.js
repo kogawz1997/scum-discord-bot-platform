@@ -21,6 +21,7 @@ function runDoctor(env, args = []) {
       ADMIN_WEB_2FA_SECRET: 'JBSWY3DPEHPK3PXP',
       PERSIST_REQUIRE_DB: 'true',
       PERSIST_LEGACY_SNAPSHOTS: 'false',
+      ADMIN_NOTIFICATION_STORE_MODE: 'db',
       ADMIN_SECURITY_EVENT_STORE_MODE: 'db',
       PLATFORM_AUTOMATION_STATE_STORE_MODE: 'db',
       PLATFORM_OPS_STATE_STORE_MODE: 'db',
@@ -409,12 +410,46 @@ test('doctor fails when db-required platform stores still run in fallback mode',
     BOT_ENABLE_DELIVERY_WORKER: 'false',
     WORKER_ENABLE_RENTBIKE: 'false',
     WORKER_ENABLE_DELIVERY: 'false',
+    ADMIN_NOTIFICATION_STORE_MODE: 'auto',
     ADMIN_SECURITY_EVENT_STORE_MODE: 'auto',
   });
 
   assert.notEqual(result.status, 0);
   assert.match(
     `${result.stdout}\n${result.stderr}`,
-    /ADMIN_SECURITY_EVENT_STORE_MODE=db is required when PERSIST_REQUIRE_DB=true/i,
+    /ADMIN_NOTIFICATION_STORE_MODE=db is required when PERSIST_REQUIRE_DB=true/i,
+  );
+});
+
+test('doctor fails when legacy runtime bootstrap is enabled under db-only posture', () => {
+  const result = runDoctor({
+    NODE_ENV: 'production',
+    DATABASE_URL: PROD_DB_URL,
+    ADMIN_WEB_HOST: '127.0.0.1',
+    ADMIN_WEB_PORT: '3200',
+    ADMIN_WEB_SECURE_COOKIE: 'true',
+    ADMIN_WEB_HSTS_ENABLED: 'true',
+    ADMIN_WEB_TRUST_PROXY: 'true',
+    ADMIN_WEB_SESSION_COOKIE_PATH: '/',
+    ADMIN_WEB_ENFORCE_ORIGIN_CHECK: 'true',
+    ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+    ADMIN_WEB_SSO_DISCORD_ENABLED: 'false',
+    WEB_PORTAL_BASE_URL: 'https://player.example.com',
+    WEB_PORTAL_LEGACY_ADMIN_URL: 'https://admin.example.com/admin',
+    WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
+    WEB_PORTAL_DISCORD_CLIENT_SECRET: 'portal-secret-1234567890',
+    WEB_PORTAL_SECURE_COOKIE: 'true',
+    WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
+    BOT_ENABLE_RENTBIKE_SERVICE: 'false',
+    BOT_ENABLE_DELIVERY_WORKER: 'false',
+    WORKER_ENABLE_RENTBIKE: 'false',
+    WORKER_ENABLE_DELIVERY: 'false',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: '1',
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP must stay disabled/i,
   );
 });

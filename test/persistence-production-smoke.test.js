@@ -23,6 +23,14 @@ function loadScriptWithPrismaMock(prismaMock) {
   clearModule(scriptPath);
   installMock(prismaPath, {
     prisma: prismaMock,
+    getPrismaRuntimeProfile() {
+      return {
+        sourceSchemaProvider: 'sqlite',
+        runtimeProvider: 'postgresql',
+        generatedClientProvider: 'postgresql',
+        runtimeMode: 'provider-rendered-runtime',
+      };
+    },
   });
   return require(scriptPath);
 }
@@ -35,6 +43,7 @@ test.afterEach(() => {
   delete process.env.DATABASE_URL;
   delete process.env.DATABASE_PROVIDER;
   delete process.env.PRISMA_SCHEMA_PROVIDER;
+  delete process.env.ADMIN_NOTIFICATION_STORE_MODE;
   delete process.env.ADMIN_SECURITY_EVENT_STORE_MODE;
   delete process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE;
   delete process.env.PLATFORM_OPS_STATE_STORE_MODE;
@@ -48,6 +57,7 @@ test('persistence smoke passes when db-backed platform state and control-plane t
   process.env.DATABASE_URL = 'postgresql://app:secret@127.0.0.1:5432/scum_th_platform?schema=public';
   process.env.DATABASE_PROVIDER = 'postgresql';
   process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+  process.env.ADMIN_NOTIFICATION_STORE_MODE = 'db';
   process.env.ADMIN_SECURITY_EVENT_STORE_MODE = 'db';
   process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE = 'db';
   process.env.PLATFORM_OPS_STATE_STORE_MODE = 'db';
@@ -55,6 +65,11 @@ test('persistence smoke passes when db-backed platform state and control-plane t
   process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = 'none';
 
   const { buildPersistenceSmokeReport } = loadScriptWithPrismaMock({
+    platformAdminNotification: {
+      async count() {
+        return 0;
+      },
+    },
     platformAdminSecurityEvent: {
       async count() {
         return 0;
@@ -90,6 +105,66 @@ test('persistence smoke passes when db-backed platform state and control-plane t
         return 0;
       },
     },
+    platformUser: {
+      async count() {
+        return 1;
+      },
+    },
+    platformVerificationToken: {
+      async count() {
+        return 0;
+      },
+    },
+    platformPlayerProfile: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRestartPlan: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRestartAnnouncement: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRestartExecution: {
+      async count() {
+        return 0;
+      },
+    },
+    platformServerConfigSnapshot: {
+      async count() {
+        return 0;
+      },
+    },
+    platformServerConfigJob: {
+      async count() {
+        return 0;
+      },
+    },
+    platformServerConfigBackup: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRaidRequest: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRaidWindow: {
+      async count() {
+        return 0;
+      },
+    },
+    platformRaidSummary: {
+      async count() {
+        return 0;
+      },
+    },
     async $disconnect() {},
   });
 
@@ -100,6 +175,8 @@ test('persistence smoke passes when db-backed platform state and control-plane t
   assert.equal(report.errors.length, 0);
   assert.deepEqual(report.data.fileMirrorSlices, []);
   assert.ok(report.checks.some((check) => check.name === 'platform admin security event table'));
+  assert.ok(report.checks.some((check) => check.name === 'platform raid request table'));
+  assert.ok(report.checks.some((check) => check.name === 'prisma runtime profile'));
 });
 
 test('persistence smoke fails when db-required store mode or file mirror policy is missing', async () => {
@@ -108,6 +185,7 @@ test('persistence smoke fails when db-required store mode or file mirror policy 
   process.env.DATABASE_URL = 'postgresql://app:secret@127.0.0.1:5432/scum_th_platform?schema=public';
   process.env.DATABASE_PROVIDER = 'postgresql';
   process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+  process.env.ADMIN_NOTIFICATION_STORE_MODE = 'auto';
   process.env.ADMIN_SECURITY_EVENT_STORE_MODE = 'auto';
   process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE = 'db';
   process.env.PLATFORM_OPS_STATE_STORE_MODE = 'db';
@@ -121,6 +199,31 @@ test('persistence smoke fails when db-required store mode or file mirror policy 
   const report = await buildPersistenceSmokeReport();
 
   assert.equal(report.ok, false);
+  assert.match(report.errors.join('\n'), /ADMIN_NOTIFICATION_STORE_MODE must be set to db/i);
   assert.match(report.errors.join('\n'), /ADMIN_SECURITY_EVENT_STORE_MODE must be set to db/i);
   assert.match(report.errors.join('\n'), /CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES must be set explicitly/i);
+});
+
+test('persistence smoke fails when legacy runtime bootstrap is explicitly enabled', async () => {
+  process.env.NODE_ENV = 'production';
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  process.env.DATABASE_URL = 'postgresql://app:secret@127.0.0.1:5432/scum_th_platform?schema=public';
+  process.env.DATABASE_PROVIDER = 'postgresql';
+  process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+  process.env.ADMIN_NOTIFICATION_STORE_MODE = 'db';
+  process.env.ADMIN_SECURITY_EVENT_STORE_MODE = 'db';
+  process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE = 'db';
+  process.env.PLATFORM_OPS_STATE_STORE_MODE = 'db';
+  process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
+  process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = 'none';
+  process.env.PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP = '1';
+
+  const { buildPersistenceSmokeReport } = loadScriptWithPrismaMock({
+    async $disconnect() {},
+  });
+
+  const report = await buildPersistenceSmokeReport();
+
+  assert.equal(report.ok, false);
+  assert.match(report.errors.join('\n'), /PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP must stay disabled/i);
 });

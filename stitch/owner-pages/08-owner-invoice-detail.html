@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoice Detail - SCUM Control Plane</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bbc9cf",
+                        "on-tertiary-container": "#a10017",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0d0e10",
+                        "inverse-primary": "#00677f",
+                        "on-primary-container": "#00566a",
+                        "on-tertiary": "#68000b",
+                        "tertiary": "#ffd1ce",
+                        "on-primary": "#003543",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#ffba20",
+                        "secondary-fixed": "#ffdea8",
+                        "surface-tint": "#4cd6ff",
+                        "primary": "#a4e6ff",
+                        "on-background": "#e3e2e4",
+                        "primary-container": "#00d1ff",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "inverse-on-surface": "#303032",
+                        "surface-container-high": "#292a2c",
+                        "outline": "#859399",
+                        "on-surface": "#e3e2e4",
+                        "tertiary-container": "#ffaaa4",
+                        "surface-container": "#1f2022",
+                        "surface-bright": "#38393b",
+                        "surface-variant": "#343537",
+                        "on-secondary-fixed": "#271900",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-primary-fixed": "#001f28",
+                        "background": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "surface-dim": "#121315",
+                        "outline-variant": "#3c494e",
+                        "surface": "#121315",
+                        "primary-fixed": "#b7eaff",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "secondary-container": "#feb700",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-low": "#1b1c1e",
+                        "inverse-surface": "#e3e2e4",
+                        "surface-container-highest": "#343537",
+                        "secondary": "#ffdb9d",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "on-secondary": "#412d00",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-public-sans { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="bg-slate-900/95 dark:bg-zinc-950/95 backdrop-blur-md fixed top-0 w-full z-50 border-b border-slate-800 dark:border-zinc-800 shadow-2xl flex justify-between items-center h-16 px-6 w-full">
+<div class="flex items-center gap-8">
+<div class="text-lg font-black tracking-tighter text-slate-100 dark:text-white uppercase font-public-sans tracking-tight">SCUM CONTROL PLANE</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-public-sans tracking-tight" href="#">Platform</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-public-sans tracking-tight" href="#">Incidents</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-public-sans tracking-tight" href="#">Fleet</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-public-sans tracking-tight" href="#">Support</a>
+<a class="text-cyan-400 border-b-2 border-cyan-400 pb-2 font-public-sans tracking-tight" href="#">Billing</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-slate-800/50 dark:hover:bg-zinc-800/50 transition-all p-2 rounded">
+<span class="material-symbols-outlined text-slate-400">language</span>
+</button>
+<button class="hover:bg-slate-800/50 dark:hover:bg-zinc-800/50 transition-all p-2 rounded">
+<span class="material-symbols-outlined text-slate-400">contrast</span>
+</button>
+<div class="relative">
+<button class="hover:bg-slate-800/50 dark:hover:bg-zinc-800/50 transition-all p-2 rounded">
+<span class="material-symbols-outlined text-slate-400">notifications</span>
+</button>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</div>
+<div class="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile" class="h-full w-full object-cover" data-alt="professional portrait of a high-level system administrator with a serious expression and dark studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXQCtnEJ4zM8-qyGa0vABbJ4z0KG-Rr6zAe3MbHlVWjAOgeFPSH_touDv5T2Q0dF7NU_HbQccSjyCbkihVGtXEnWbKptku3BYAizLHfptYZpq1ydbWeHdm_6lMlcQRDgbDaJOkQdCQxgDBFrWr9CkoTXxRKlj2DVAfHP9foOwhT28Bjs5snAS_gqch37lL1v6mS0zoeewkU62zd-AnyYJNCi5xOoe7wEjL9C-zoW8eYSNyDQ1FGh_d270G7Gc_JX-IR4ByRkUPjAM"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="bg-slate-950 dark:bg-black fixed left-0 h-full w-64 pt-16 border-r border-slate-800 dark:border-zinc-900 hidden lg:flex flex-col gap-1 py-4 overflow-y-auto">
+<div class="px-6 py-6 mb-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 bg-cyan-900/30 rounded border border-cyan-500/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-500">admin_panel_settings</span>
+</div>
+<div>
+<div class="text-cyan-500 font-bold text-xs font-public-sans tracking-widest uppercase">OPERATOR-01</div>
+<div class="text-[10px] text-slate-500 font-semibold tracking-tighter">GLOBAL OWNER PERMISSIONS</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span> Overview
+            </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">corporate_fare</span> Tenants
+            </a>
+<a class="bg-slate-900 dark:bg-zinc-900 text-cyan-400 border-l-4 border-cyan-400 flex items-center px-4 py-3 ml-0 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">payments</span> Billing
+            </a>
+<div class="pt-4 pb-2 px-6">
+<div class="h-[1px] bg-slate-800 w-full"></div>
+</div>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">developer_board</span> Delivery Agents
+            </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">dns</span> Server Bots
+            </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">security</span> Security Audit
+            </a>
+<a class="text-slate-500 dark:text-zinc-500 hover:text-slate-300 flex items-center px-4 py-3 font-public-sans text-xs font-semibold uppercase tracking-widest transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">settings</span> Settings
+            </a>
+</nav>
+<div class="p-6">
+<button class="w-full bg-cyan-900/20 text-cyan-400 border border-cyan-500/30 py-3 rounded text-[10px] font-bold tracking-widest uppercase hover:bg-cyan-900/40 transition-all">
+                SYSTEM RECOVERY
+            </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-16 min-h-screen bg-surface">
+<div class="max-w-[1400px] mx-auto p-6 md:p-8">
+<!-- Breadcrumbs & Tactical Status -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div>
+<nav class="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2 uppercase tracking-widest">
+<a class="hover:text-primary transition-colors" href="#">Platform</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">Billing</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface">Invoice Detail</span>
+</nav>
+<h1 class="text-3xl font-black font-public-sans tracking-tight text-on-surface flex items-center gap-3">
+                        INV-8921-SCUM
+                        <span class="px-3 py-1 bg-primary-container/20 text-primary text-xs font-bold rounded-full border border-primary/30 uppercase tracking-widest">PAID</span>
+</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant rounded transition-all font-semibold text-sm">
+<span class="material-symbols-outlined text-sm">refresh</span> อัปเดตใบแจ้งหนี้
+                    </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-primary-container text-on-primary-container hover:bg-primary-container/90 rounded transition-all font-bold text-sm">
+<span class="material-symbols-outlined text-sm">check_circle</span> ทำเครื่องหมายว่าตรวจสอบแล้ว
+                    </button>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Financial Summary (Bento Grid Style) -->
+<div class="col-span-12 lg:col-span-9 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 shadow-lg group hover:border-primary/50 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Amount Due</span>
+<span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+</div>
+<div class="text-3xl font-black font-public-sans text-on-surface">$2,450.00</div>
+<div class="text-[10px] text-slate-500 mt-2 flex items-center gap-1 uppercase font-bold">
+<span class="material-symbols-outlined text-[12px] text-primary">verified</span>
+                                Fully Settled via Stripe
+                            </div>
+</div>
+<div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 shadow-lg group hover:border-primary/50 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Billing Period</span>
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+</div>
+<div class="text-xl font-bold font-public-sans text-on-surface">Oct 01 - Oct 31, 2023</div>
+<div class="text-[10px] text-slate-500 mt-2 uppercase font-bold">31 Days Operating Cycle</div>
+</div>
+<div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 shadow-lg group hover:border-primary/50 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Tenant Name</span>
+<span class="material-symbols-outlined text-primary">corporate_fare</span>
+</div>
+<div class="text-xl font-bold font-public-sans text-on-surface">Alpha Squad Prime</div>
+<div class="text-[10px] text-slate-500 mt-2 uppercase font-bold">Tier: Enterprise Survival</div>
+</div>
+</div>
+<!-- Items Table -->
+<div class="bg-surface-container rounded-xl border border-outline-variant/30 shadow-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-low">
+<h3 class="text-sm font-black font-public-sans tracking-widest uppercase text-primary">Detailed Expenditure Log</h3>
+<button class="text-xs font-bold text-primary hover:underline uppercase">Export PDF</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant/30">
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Service Description</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Usage Metric</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Rate</th>
+<th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Subtotal</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20">
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 bg-slate-800 rounded flex items-center justify-center border border-slate-700">
+<span class="material-symbols-outlined text-sm text-cyan-400">cloud_done</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface">Enterprise Package Fee</div>
+<div class="text-[10px] text-slate-500 uppercase font-medium">Standard monthly platform fee</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface">1 Unit</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-medium">$1,500.00</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-bold">$1,500.00</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 bg-slate-800 rounded flex items-center justify-center border border-slate-700">
+<span class="material-symbols-outlined text-sm text-cyan-400">memory</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface">Runtime Usage (Server Bot)</div>
+<div class="text-[10px] text-slate-500 uppercase font-medium">744h Core Infrastructure Availability</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface">744 Hours</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-medium">$0.75/hr</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-bold">$558.00</td>
+</tr>
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 bg-slate-800 rounded flex items-center justify-center border border-slate-700">
+<span class="material-symbols-outlined text-sm text-cyan-400">upload_file</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface">Overage: Log Sync Data</div>
+<div class="text-[10px] text-slate-500 uppercase font-medium">Excess data transfer over 50GB limit</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface">196 GB</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-medium">$2.00/GB</td>
+<td class="px-6 py-5 text-sm text-on-surface text-right font-bold">$392.00</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="bg-surface-container-low">
+<td class="px-6 py-6 text-right text-xs font-black uppercase tracking-widest text-slate-400" colspan="3">Total Calculation</td>
+<td class="px-6 py-6 text-right text-2xl font-black font-public-sans text-primary">$2,450.00</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+</div>
+<!-- Sidebar Contextual View -->
+<div class="col-span-12 lg:col-span-3 space-y-6">
+<!-- Identity Quick View -->
+<div class="bg-slate-950 p-6 rounded-xl border border-cyan-900/20 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[120px]">shield</span>
+</div>
+<h4 class="text-xs font-black uppercase tracking-widest text-cyan-500 mb-6">Payment Attempts History</h4>
+<div class="space-y-6">
+<div class="relative pl-6 border-l-2 border-primary/30">
+<div class="absolute -left-[9px] top-0 w-4 h-4 bg-primary rounded-full border-4 border-slate-950"></div>
+<div class="text-[11px] font-bold text-primary uppercase">Attempt #3 - Success</div>
+<div class="text-xs text-on-surface font-semibold">Oct 31, 2023 • 09:42 AM</div>
+<div class="text-[10px] text-slate-500 font-medium">TXID: STR-9921-SCUM-01</div>
+</div>
+<div class="relative pl-6 border-l-2 border-error/30">
+<div class="absolute -left-[9px] top-0 w-4 h-4 bg-error rounded-full border-4 border-slate-950"></div>
+<div class="text-[11px] font-bold text-error uppercase">Attempt #2 - Denied</div>
+<div class="text-xs text-on-surface font-semibold">Oct 30, 2023 • 11:15 PM</div>
+<div class="text-[10px] text-slate-500 font-medium">Insufficient funds (E_402)</div>
+</div>
+<div class="relative pl-6 border-l-2 border-outline/30">
+<div class="absolute -left-[9px] top-0 w-4 h-4 bg-outline rounded-full border-4 border-slate-950"></div>
+<div class="text-[11px] font-bold text-slate-500 uppercase">Attempt #1 - Processing</div>
+<div class="text-xs text-on-surface font-semibold">Oct 30, 2023 • 10:00 AM</div>
+<div class="text-[10px] text-slate-500 font-medium">Initial system trigger</div>
+</div>
+</div>
+</div>
+<!-- Meta Info -->
+<div class="bg-surface-container p-6 rounded-xl border border-outline-variant/30 space-y-4">
+<h4 class="text-xs font-black uppercase tracking-widest text-slate-400">System Evidence</h4>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Authorized by</span>
+<span class="text-on-surface font-bold">SYSTEM-AUTO-BILL</span>
+</div>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Risk Score</span>
+<span class="px-2 py-0.5 bg-green-900/30 text-green-400 rounded-full font-black text-[10px]">LOW (0.02)</span>
+</div>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Method</span>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">credit_card</span>
+<span class="text-on-surface font-bold">VISA •••• 4242</span>
+</div>
+</div>
+</div>
+<!-- Internal Notes -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-dashed border-outline-variant/50">
+<label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Operator Notes</label>
+<textarea class="w-full bg-transparent border-none p-0 text-sm text-slate-300 focus:ring-0 placeholder:italic placeholder:text-slate-600 resize-none h-24" placeholder="Enter diagnostic observations or support notes for this invoice..."></textarea>
+<button class="w-full mt-4 py-2 bg-outline-variant/30 hover:bg-outline-variant/50 text-on-surface text-[10px] font-bold uppercase tracking-widest rounded transition-all">Save Note</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Identity Strip -->
+<footer class="lg:ml-64 py-8 px-8 border-t border-outline-variant/10 bg-surface-container-lowest">
+<div class="max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">description</span>
+<span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Docs</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-500 text-sm" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+<span class="text-[10px] font-black uppercase tracking-widest text-slate-500">API Status: Operational</span>
+</div>
+</div>
+<div class="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
+                © 2023 SCUM CONTROL PLANE • SECURED TERMINAL-8921-SCUM • PLATFORM AUTHORITY 01
+            </div>
+</div>
+</footer>
+</body></html>

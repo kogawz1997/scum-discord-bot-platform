@@ -12,6 +12,8 @@ const {
   getDeliveryStatusText,
   purchaseShopItemForUser,
 } = require('./shopService');
+const { resolveDefaultTenantId } = require('../prisma');
+const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeQty(value) {
   const n = Number(value);
@@ -19,15 +21,30 @@ function normalizeQty(value) {
   return Math.max(1, Math.trunc(n));
 }
 
+function normalizeCartScopeOptions(options = {}, operation = 'cart operation') {
+  const env = options.env;
+  const explicitTenantId = String(options.tenantId || '').trim()
+    || String(options.defaultTenantId || '').trim()
+    || null;
+  const runtime = getTenantDbIsolationRuntime(env);
+  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const scope = assertTenantDbIsolationScope({
+    tenantId,
+    operation,
+    env,
+  });
+  return {
+    tenantId: scope.tenantId,
+    defaultTenantId: scope.tenantId,
+    serverId: options.serverId || null,
+    env,
+  };
+}
+
 async function getResolvedCart(userId, options = {}) {
   const listCartItemsFn = options.listCartItemsFn || listCartItems;
   const getShopItemByIdFn = options.getShopItemByIdFn || getShopItemById;
-  const scopeOptions = {
-    tenantId: options.tenantId || null,
-    serverId: options.serverId || null,
-    defaultTenantId: options.defaultTenantId || null,
-    env: options.env,
-  };
+  const scopeOptions = normalizeCartScopeOptions(options, 'resolve cart');
 
   const rows = await Promise.resolve(listCartItemsFn(userId, scopeOptions));
   const resolved = [];
@@ -63,11 +80,7 @@ async function checkoutCart(userId, options = {}) {
   const guildId = options.guildId || null;
   const actor = options.actor || `discord:${userId}`;
   const source = options.source || 'cart-checkout';
-  const scopeOptions = {
-    tenantId: options.tenantId || null,
-    defaultTenantId: options.defaultTenantId || null,
-    env: options.env,
-  };
+  const scopeOptions = normalizeCartScopeOptions(options, 'cart checkout');
   const resolved = await getResolvedCart(userId, options);
 
   if (resolved.rows.length === 0) {
@@ -199,14 +212,10 @@ function addItemToCartForUser(params = {}) {
   const userId = String(params.userId || '').trim();
   const itemId = String(params.itemId || '').trim();
   const quantity = normalizeQty(params.quantity);
-  const scopeOptions = {
-    tenantId: String(params.tenantId || '').trim() || null,
-    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
-    env: params.env,
-  };
   if (!userId || !itemId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = normalizeCartScopeOptions(params, 'add cart item');
   addCartItem(userId, itemId, quantity, scopeOptions);
   return { ok: true, userId, itemId, quantity };
 }
@@ -215,14 +224,10 @@ function removeItemFromCartForUser(params = {}) {
   const userId = String(params.userId || '').trim();
   const itemId = String(params.itemId || '').trim();
   const quantity = normalizeQty(params.quantity);
-  const scopeOptions = {
-    tenantId: String(params.tenantId || '').trim() || null,
-    defaultTenantId: String(params.defaultTenantId || '').trim() || null,
-    env: params.env,
-  };
   if (!userId || !itemId) {
     return { ok: false, reason: 'invalid-input' };
   }
+  const scopeOptions = normalizeCartScopeOptions(params, 'remove cart item');
   const updated = removeCartItem(userId, itemId, quantity, scopeOptions);
   if (!updated) {
     return { ok: false, reason: 'not-found' };
@@ -235,16 +240,15 @@ function clearCartForUser(userId, options = {}) {
   if (!normalizedUserId) {
     return { ok: false, reason: 'invalid-input' };
   }
-  clearCart(normalizedUserId, {
-    tenantId: String(options.tenantId || '').trim() || null,
-    defaultTenantId: String(options.defaultTenantId || '').trim() || null,
-    env: options.env,
-  });
+  clearCart(normalizedUserId, normalizeCartScopeOptions(options, 'clear cart'));
   return { ok: true, userId: normalizedUserId };
 }
 
 function listCartItemsForUser(userId, options = {}) {
-  return listCartItems(String(userId || '').trim(), options);
+  return listCartItems(
+    String(userId || '').trim(),
+    normalizeCartScopeOptions(options, 'list cart items'),
+  );
 }
 
 module.exports = {

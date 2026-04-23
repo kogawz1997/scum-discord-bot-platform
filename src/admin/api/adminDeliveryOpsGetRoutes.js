@@ -20,6 +20,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
     buildAdminDashboardCards,
     listPlayerAccounts,
     getPlayerDashboard,
+    getPlatformUserIdentitySummary,
   } = deps;
 
   return async function handleAdminDeliveryOpsGetRoute(context) {
@@ -35,7 +36,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -55,7 +56,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -123,13 +124,14 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
         sendJson(res, 400, { ok: false, error: 'code is required' });
         return true;
       }
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
       const tenantId = resolveScopedTenantId(
         req,
         res,
         auth,
-        String(urlObj.searchParams.get('tenantId') || '').trim(),
+        requestedTenantId || getAuthTenantId(auth),
       );
-      if (tenantId === null && getAuthTenantId(auth)) return true;
+      if (requestedTenantId && tenantId === null) return true;
       try {
         const data = await getDeliveryDetailsByPurchaseCode(
           purchaseCode,
@@ -180,7 +182,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
       if (!auth) return true;
       const refreshRaw = String(urlObj.searchParams.get('refresh') || '').trim().toLowerCase();
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -190,6 +192,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
           prisma,
           client,
           tenantId,
+          allowGlobal: !tenantId,
           forceRefresh: refreshRaw === '1' || refreshRaw === 'true',
         }),
       });
@@ -200,7 +203,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
       const auth = ensureRole(req, urlObj, 'mod', res);
       if (!auth) return true;
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -223,7 +226,7 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
         return true;
       }
       const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
-      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId, {
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
         required: false,
       });
       if (requestedTenantId && !tenantId) return true;
@@ -236,6 +239,55 @@ function createAdminDeliveryOpsGetRouteHandler(deps) {
         return true;
       }
       sendJson(res, 200, { ok: true, data: dashboard.data });
+      return true;
+    }
+
+    if (pathname === '/admin/api/player/identity') {
+      const auth = ensureRole(req, urlObj, 'mod', res);
+      if (!auth) return true;
+      const userId = requiredString(urlObj.searchParams.get('userId'));
+      if (!userId) {
+        sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
+        return true;
+      }
+      const requestedTenantId = requiredString(urlObj.searchParams.get('tenantId'));
+      const tenantId = resolveScopedTenantId(req, res, auth, requestedTenantId || getAuthTenantId(auth), {
+        required: false,
+      });
+      if (requestedTenantId && !tenantId) return true;
+
+      const dashboard = await getPlayerDashboard(userId, tenantId ? { tenantId } : {});
+      if (!dashboard.ok) {
+        sendJson(res, 400, {
+          ok: false,
+          error: dashboard.reason || 'Cannot build player identity context',
+        });
+        return true;
+      }
+
+      const account = dashboard.data?.account || null;
+      const steamLink = dashboard.data?.steamLink || null;
+      const identitySummaryResult = typeof getPlatformUserIdentitySummary === 'function'
+        ? await getPlatformUserIdentitySummary({
+          discordUserId: userId,
+          steamId: String(account?.steamId || steamLink?.steamId || '').trim() || null,
+          tenantId: tenantId || null,
+          allowGlobal: !tenantId,
+          legacySteamLink: steamLink || null,
+          fallbackDiscordUserId: userId,
+        })
+        : null;
+
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          userId,
+          tenantId: tenantId || null,
+          account,
+          steamLink,
+          identitySummary: identitySummaryResult?.identitySummary || null,
+        },
+      });
       return true;
     }
 

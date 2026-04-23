@@ -208,7 +208,11 @@ function createPlatformCommercialService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformSubscription.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform subscription global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformSubscription.findMany({
@@ -255,39 +259,46 @@ function createPlatformCommercialService(deps) {
 
   async function acceptPlatformLicenseLegal(input = {}, actor = 'system') {
     const licenseId = trimText(input.licenseId, 120);
+    const { tenantId } = assertTenantDbIsolationScope({
+      tenantId: trimText(input.tenantId, 120) || null,
+      allowGlobal: input.allowGlobal === true,
+      operation: 'platform license legal acceptance',
+      env: input.env || process.env,
+    });
     if (!licenseId) return { ok: false, reason: 'license-required' };
     let row = null;
-    const tenantRows = await prisma.platformTenant.findMany({
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    }).catch(() => []);
-    for (const tenant of tenantRows) {
-      const tenantId = trimText(tenant?.id, 120);
-      if (!tenantId) continue;
+    const updateData = {
+      legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
+      legalAcceptedAt: new Date(),
+      metadataJson: stringifyMeta({
+        ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
+        acceptedBy: actor,
+      }),
+    };
+    if (tenantId) {
       row = await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.update({
         where: { id: licenseId },
-        data: {
-          legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
-          legalAcceptedAt: new Date(),
-          metadataJson: stringifyMeta({
-            ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
-            acceptedBy: actor,
-          }),
-        },
+        data: updateData,
       })).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
-      if (row) break;
+    } else {
+      const tenantRows = await prisma.platformTenant.findMany({
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      }).catch(() => []);
+      for (const tenant of tenantRows) {
+        const candidateTenantId = trimText(tenant?.id, 120);
+        if (!candidateTenantId) continue;
+        row = await runWithOptionalTenantDbIsolation(candidateTenantId, (db) => db.platformLicense.update({
+          where: { id: licenseId },
+          data: updateData,
+        })).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
+        if (row) break;
+      }
     }
-    if (!row) {
+    if (!row && !tenantId) {
       row = await prisma.platformLicense.update({
         where: { id: licenseId },
-        data: {
-          legalDocVersion: trimText(input.legalDocVersion || config.platform?.legal?.currentVersion, 80) || null,
-          legalAcceptedAt: new Date(),
-          metadataJson: stringifyMeta({
-            ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
-            acceptedBy: actor,
-          }),
-        },
+        data: updateData,
       }).catch((error) => (error?.code === 'P2025' ? null : Promise.reject(error)));
     }
     if (!row) return { ok: false, reason: 'license-not-found' };
@@ -313,7 +324,11 @@ function createPlatformCommercialService(deps) {
       ? sortRowsByTimestampDesc(
         await readAcrossPlatformTenantScopes(
           (db) => db.platformLicense.findMany({ where, orderBy: { updatedAt: 'desc' }, take }),
-          { buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']) },
+          {
+            allowGlobal: true,
+            operation: 'platform license global aggregation',
+            buildKey: (row) => buildPlatformRowScopeKey(row, ['id', 'tenantId']),
+          },
         ),
       ).slice(0, take)
       : await runWithOptionalTenantDbIsolation(tenantId, (db) => db.platformLicense.findMany({

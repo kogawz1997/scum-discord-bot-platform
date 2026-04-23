@@ -11,6 +11,7 @@ function createPlatformTenantRegistryService(deps) {
     normalizeLocale,
     stringifyMeta,
     sanitizeTenantRow,
+    assertTenantDbIsolationScope,
     getTenantDatabaseTopologyMode,
     ensureTenantDatabaseTargetProvisioned,
     emitPlatformEvent,
@@ -74,10 +75,17 @@ function createPlatformTenantRegistryService(deps) {
   }
 
   async function listPlatformTenants(options = {}) {
+    const { tenantId } = assertTenantDbIsolationScope({
+      tenantId: trimText(options.tenantId, 120) || null,
+      allowGlobal: options.allowGlobal === true,
+      operation: 'platform tenant listing',
+      env: options.env || process.env,
+    });
     const take = Math.max(1, Math.min(5000, Number.isFinite(Number(options.limit))
       ? Math.max(1, Math.trunc(Number(options.limit)))
       : 100));
     const where = {};
+    if (tenantId) where.id = tenantId;
     if (options.status) where.status = normalizeStatus(options.status, ['active', 'trialing', 'paused', 'suspended', 'inactive']);
     if (options.type) where.type = normalizeTenantType(options.type);
     const rows = await prisma.platformTenant.findMany({

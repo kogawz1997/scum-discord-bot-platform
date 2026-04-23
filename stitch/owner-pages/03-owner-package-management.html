@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>จัดการแพ็กเกจ (Package Management) - AEGIS COMMAND</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "on-primary-container": "#00566a",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "surface-dim": "#121315",
+                        "surface-container-lowest": "#0d0e10",
+                        "surface-bright": "#38393b",
+                        "on-secondary": "#412d00",
+                        "inverse-surface": "#e3e2e4",
+                        "tertiary-container": "#ffaaa4",
+                        "surface-container-high": "#292a2c",
+                        "secondary": "#ffdb9d",
+                        "surface": "#121315",
+                        "on-surface": "#e3e2e4",
+                        "inverse-on-surface": "#303032",
+                        "tertiary": "#ffd1ce",
+                        "secondary-container": "#feb700",
+                        "surface-container-low": "#1b1c1e",
+                        "tertiary-fixed": "#ffdad7",
+                        "inverse-primary": "#00677f",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "primary-container": "#00d1ff",
+                        "on-primary-fixed-variant": "#004e60",
+                        "surface-tint": "#4cd6ff",
+                        "primary": "#a4e6ff",
+                        "surface-container-highest": "#343537",
+                        "surface-container": "#1f2022",
+                        "on-primary-fixed": "#001f28",
+                        "primary-fixed": "#b7eaff",
+                        "on-tertiary": "#68000b",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#ffdea8",
+                        "error": "#ffb4ab",
+                        "on-primary": "#003543",
+                        "outline-variant": "#3c494e",
+                        "on-tertiary-container": "#a10017",
+                        "on-background": "#e3e2e4",
+                        "background": "#121315",
+                        "on-secondary-container": "#6b4b00",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "outline": "#859399",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#410004",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#bbc9cf",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Public Sans', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface-dim text-on-surface">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-zinc-950 dark:bg-black border-b border-zinc-800 dark:border-zinc-900 shadow-sm font-public-sans tracking-tight">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-widest text-cyan-500 uppercase">AEGIS COMMAND</span>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<button class="text-cyan-400 border-b-2 border-cyan-400 pb-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+                    Refresh
+                </button>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-zinc-900 rounded-lg text-zinc-400 text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="language">language</span>
+                Language (TH/EN)
+            </div>
+<div class="flex items-center gap-3 border-l border-zinc-800 pl-4 text-zinc-400">
+<button class="hover:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors p-1.5 rounded" title="Dark Mode">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="hover:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors p-1.5 rounded relative" title="Notifications">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+</button>
+<button class="hover:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors p-1.5 rounded" title="Profile">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+<button class="text-zinc-500 hover:text-zinc-200 text-xs font-semibold uppercase tracking-wider ml-2">Logout</button>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 bottom-0 w-64 flex flex-col pt-4 pb-6 overflow-y-auto bg-zinc-950 dark:bg-black border-r border-zinc-800 dark:border-zinc-900 font-public-sans text-xs font-semibold uppercase tracking-wider no-scrollbar">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 bg-zinc-800 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-500" data-icon="shield">shield</span>
+</div>
+<div>
+<div class="text-on-surface">Platform Owner</div>
+<div class="text-[10px] text-zinc-500">Operational Control Plane</div>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Overview
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span> Tenants
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 bg-zinc-900 dark:bg-zinc-800 text-cyan-400 border-l-4 border-cyan-400 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span> Packages
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span> Billing
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span> Observability
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="health_and_safety">health_and_safety</span> Runtime Health
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="lan">lan</span> Fleet
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span> Incidents
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="robot">robot</span> Automation
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span> Audit
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span> Security
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span> Support
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="settings_backup_restore">settings_backup_restore</span> Recovery
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-500 hover:bg-zinc-900/50 dark:hover:bg-zinc-800/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span> Settings
+            </a>
+</nav>
+<div class="mt-auto px-3 border-t border-zinc-900 pt-4 space-y-1">
+<a class="flex items-center gap-4 px-4 py-2 text-zinc-500 hover:bg-zinc-900/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span> Docs
+            </a>
+<a class="flex items-center gap-4 px-4 py-2 text-zinc-500 hover:bg-zinc-900/50 transition-all rounded" href="#">
+<span class="material-symbols-outlined" data-icon="cloud_done">cloud_done</span> API Status
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-14 p-8 bg-surface-dim min-h-screen">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="text-3xl font-black text-on-surface tracking-tight uppercase mb-2">จัดการแพ็กเกจ (Package Management)</h1>
+<p class="text-on-surface-variant text-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+                    Manage product entitlements, service tiers, and core platform feature mappings.
+                </p>
+</div>
+<button class="bg-primary-container text-on-primary-fixed-variant px-5 py-2.5 rounded flex items-center gap-2 font-bold tracking-tight hover:brightness-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+                Create Package
+            </button>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Package List Table (Main Bento Segment) -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container border border-zinc-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
+<div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+<h2 class="font-bold uppercase tracking-widest text-xs text-cyan-400">Available Tiers</h2>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-zinc-800 rounded text-[10px] text-zinc-400 uppercase font-bold tracking-tighter border border-zinc-700">3 Tiers Active</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-zinc-900/80 text-[10px] uppercase font-bold tracking-widest text-zinc-500 border-b border-zinc-800">
+<th class="px-6 py-4">Package Identity</th>
+<th class="px-6 py-4">Entitlements</th>
+<th class="px-6 py-4">Utilization</th>
+<th class="px-6 py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-zinc-800/50">
+<!-- Standard Row -->
+<tr class="hover:bg-zinc-900/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-400">
+<span class="material-symbols-outlined" data-icon="package_2">package_2</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface tracking-tight">Standard</div>
+<div class="text-[10px] text-zinc-500">Tier ID: SCUM-STND-01</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-wrap gap-1.5">
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">Runtime Core</span>
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">Basic Logs</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium text-on-surface">142 Tenants</div>
+<div class="w-full bg-zinc-800 h-1 mt-1.5 rounded-full overflow-hidden">
+<div class="bg-cyan-500 h-full w-[65%]"></div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-zinc-800 rounded text-zinc-400 transition-colors" title="Edit">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-zinc-800 rounded text-cyan-400 transition-colors" title="Open Feature Mapping">
+<span class="material-symbols-outlined text-lg" data-icon="account_tree">account_tree</span>
+</button>
+<button class="p-2 hover:bg-red-900/30 rounded text-red-500 transition-colors" title="Delete Package">
+<span class="material-symbols-outlined text-lg" data-icon="delete_forever">delete_forever</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Pro Row -->
+<tr class="hover:bg-zinc-900/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-cyan-900/20 flex items-center justify-center text-cyan-400 border border-cyan-900/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+<span class="material-symbols-outlined" data-icon="workspace_premium">workspace_premium</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface tracking-tight">Pro</div>
+<div class="text-[10px] text-cyan-500">Tier ID: SCUM-PRO-05</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-wrap gap-1.5">
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">Delivery Agent+</span>
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">Auto-Restart</span>
+<span class="px-2 py-0.5 bg-amber-900/20 text-amber-500 text-[10px] rounded border border-amber-900/50">Advanced Diagnostics</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium text-on-surface">58 Tenants</div>
+<div class="w-full bg-zinc-800 h-1 mt-1.5 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[25%]"></div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-zinc-800 rounded text-zinc-400 transition-colors" title="Edit">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-zinc-800 rounded text-cyan-400 transition-colors" title="Open Feature Mapping">
+<span class="material-symbols-outlined text-lg" data-icon="account_tree">account_tree</span>
+</button>
+<button class="p-2 hover:bg-red-900/30 rounded text-red-500 transition-colors" title="Delete Package">
+<span class="material-symbols-outlined text-lg" data-icon="delete_forever">delete_forever</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Enterprise Row -->
+<tr class="hover:bg-zinc-900/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-400">
+<span class="material-symbols-outlined" data-icon="corporate_fare">corporate_fare</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface tracking-tight">Enterprise</div>
+<div class="text-[10px] text-zinc-500">Tier ID: SCUM-ENT-99</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-wrap gap-1.5">
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">Custom Runtime</span>
+<span class="px-2 py-0.5 bg-cyan-900/20 text-cyan-500 text-[10px] rounded border border-cyan-900/50">SLA Priority</span>
+<span class="px-2 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] rounded border border-zinc-700">+12 more</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-sm font-medium text-on-surface">12 Tenants</div>
+<div class="w-full bg-zinc-800 h-1 mt-1.5 rounded-full overflow-hidden">
+<div class="bg-cyan-700 h-full w-[10%]"></div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-zinc-800 rounded text-zinc-400 transition-colors" title="Edit">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-zinc-800 rounded text-cyan-400 transition-colors" title="Open Feature Mapping">
+<span class="material-symbols-outlined text-lg" data-icon="account_tree">account_tree</span>
+</button>
+<button class="p-2 hover:bg-red-900/30 rounded text-red-500 transition-colors" title="Delete Package">
+<span class="material-symbols-outlined text-lg" data-icon="delete_forever">delete_forever</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Feature Matrix (Asymmetric Side Segment) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
+<div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
+<h2 class="font-bold uppercase tracking-widest text-xs text-on-surface">Capability Matrix</h2>
+<span class="text-[10px] text-zinc-500 font-bold uppercase">Quick Comparison</span>
+</div>
+<div class="p-6 space-y-4">
+<div class="grid grid-cols-3 gap-2 mb-4">
+<div class="text-[9px] uppercase font-black text-zinc-600 tracking-tighter">Feature</div>
+<div class="text-[9px] uppercase font-black text-center text-zinc-600 tracking-tighter">STD</div>
+<div class="text-[9px] uppercase font-black text-center text-zinc-600 tracking-tighter">PRO</div>
+</div>
+<div class="space-y-3">
+<div class="grid grid-cols-3 items-center border-b border-zinc-900 pb-2">
+<span class="text-[11px] text-on-surface-variant">Runtime Control</span>
+<span class="material-symbols-outlined text-sm text-center text-cyan-500" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="material-symbols-outlined text-sm text-center text-cyan-500" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="grid grid-cols-3 items-center border-b border-zinc-900 pb-2">
+<span class="text-[11px] text-on-surface-variant">Multi-Fleet</span>
+<span class="material-symbols-outlined text-sm text-center text-zinc-700" data-icon="cancel">cancel</span>
+<span class="material-symbols-outlined text-sm text-center text-cyan-500" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="grid grid-cols-3 items-center border-b border-zinc-900 pb-2">
+<span class="text-[11px] text-on-surface-variant">API Endpoint</span>
+<span class="material-symbols-outlined text-sm text-center text-zinc-700" data-icon="cancel">cancel</span>
+<span class="material-symbols-outlined text-sm text-center text-amber-500" data-icon="emergency">emergency</span>
+</div>
+<div class="grid grid-cols-3 items-center border-b border-zinc-900 pb-2">
+<span class="text-[11px] text-on-surface-variant">24/7 Priority</span>
+<span class="material-symbols-outlined text-sm text-center text-zinc-700" data-icon="cancel">cancel</span>
+<span class="material-symbols-outlined text-sm text-center text-zinc-700" data-icon="cancel">cancel</span>
+</div>
+</div>
+<button class="w-full py-3 mt-4 border border-zinc-800 rounded text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:bg-zinc-800 hover:text-on-surface transition-all">
+                            View Full Feature Matrix
+                        </button>
+</div>
+</div>
+<!-- Commercial Context -->
+<div class="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl p-6 shadow-lg">
+<h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-4">Package Intelligence</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-zinc-500">Highest Adoption</span>
+<span class="text-xs font-bold text-on-surface uppercase tracking-tight">Standard Tier</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-zinc-500">Churn Vulnerability</span>
+<span class="text-xs font-bold text-amber-500 uppercase tracking-tight">Low (4.2%)</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-zinc-500">Last Modified</span>
+<span class="text-xs font-bold text-zinc-400">14 hours ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Historical Audit Logs (Bottom Horizontal Bento) -->
+<div class="col-span-12 bg-surface-container-low border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+<div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-zinc-500" data-icon="history">history</span>
+<h2 class="font-bold uppercase tracking-widest text-xs text-on-surface">Package Change Audit History</h2>
+</div>
+<button class="text-[10px] font-bold text-cyan-500 hover:underline">Download Report</button>
+</div>
+<div class="p-6">
+<div class="space-y-0 relative before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-zinc-800">
+<!-- Audit Entry -->
+<div class="flex gap-6 pb-6 relative">
+<div class="mt-1 w-6 h-6 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center z-10 shrink-0 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<h4 class="text-xs font-bold text-on-surface uppercase tracking-tight">Updated Tier Entitlements: <span class="text-cyan-400">Pro</span></h4>
+<span class="text-[10px] text-zinc-500 font-mono">2023-11-24 09:42:12</span>
+</div>
+<p class="text-[11px] text-on-surface-variant leading-relaxed mb-2">Changed mapping for 'SCUM-PRO-05'. Added 'Advanced Diagnostics' module to the default entitlement stack.</p>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center text-[8px] text-white">OP</div>
+<span class="text-[10px] text-zinc-500">Operator: s.volkov</span>
+</div>
+</div>
+</div>
+<!-- Audit Entry 2 -->
+<div class="flex gap-6 pb-6 relative">
+<div class="mt-1 w-6 h-6 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center z-10 shrink-0 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<h4 class="text-xs font-bold text-on-surface uppercase tracking-tight">Maintenance Window Scheduled: <span class="text-amber-500">Tier Drift</span></h4>
+<span class="text-[10px] text-zinc-500 font-mono">2023-11-23 22:15:00</span>
+</div>
+<p class="text-[11px] text-on-surface-variant leading-relaxed mb-2">Platform-wide sync initiated to resolve 12 instances of configuration drift on Standard tier servers.</p>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center text-[8px] text-white">SYS</div>
+<span class="text-[10px] text-zinc-500">System Automation Cluster B</span>
+</div>
+</div>
+</div>
+<!-- Audit Entry 3 -->
+<div class="flex gap-6 relative opacity-50">
+<div class="mt-1 w-6 h-6 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center z-10 shrink-0 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<h4 class="text-xs font-bold text-zinc-400 uppercase tracking-tight">Price Manifest Adjustment</h4>
+<span class="text-[10px] text-zinc-500 font-mono">2023-11-22 14:05:32</span>
+</div>
+<p class="text-[11px] text-zinc-500 leading-relaxed mb-2">Internal SKU mapping refreshed for the next billing cycle. No customer-facing impact detected.</p>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center text-[8px] text-white">OP</div>
+<span class="text-[10px] text-zinc-500">Operator: j.manning</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Strip -->
+<footer class="mt-12 pt-8 border-t border-zinc-900 flex justify-between items-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest">
+<div class="flex gap-8">
+<span>© 2023 Aegis Command Operational Plane</span>
+<span>System Uptime: 99.998%</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+<span>Secure Terminal Session Linked</span>
+</div>
+</footer>
+</main>
+<!-- Contextual FAB (Hidden by suppression rules for specific views, but available if needed) -->
+<!-- Suppression Logic: FAB suppressed for Detailed Management Views -->
+</body></html>

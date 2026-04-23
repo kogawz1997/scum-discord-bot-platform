@@ -1,3 +1,35 @@
+const path = require('node:path');
+
+const projectRoot = path.resolve(__dirname, '..');
+const localSqliteDatabaseUrl = `file:${path.join(projectRoot, 'prisma', 'prisma', 'dev.db').replace(/\\/g, '/')}`;
+
+const localSqliteEnv = Object.freeze({
+  DATABASE_URL: localSqliteDatabaseUrl,
+  DATABASE_PROVIDER: 'sqlite',
+  PRISMA_SCHEMA_PROVIDER: 'sqlite',
+  PRISMA_TEST_DATABASE_URL: localSqliteDatabaseUrl,
+  PRISMA_TEST_DATABASE_PROVIDER: 'sqlite',
+  TENANT_DB_TOPOLOGY_MODE: 'shared',
+  TENANT_DB_ISOLATION_MODE: 'application',
+});
+
+const localAdminBackendEnv = Object.freeze({
+  ADMIN_WEB_HOST: '127.0.0.1',
+  ADMIN_WEB_PORT: '3200',
+  ADMIN_WEB_SECURE_COOKIE: 'false',
+  ADMIN_WEB_HSTS_ENABLED: 'false',
+  ADMIN_WEB_ALLOWED_ORIGINS: [
+    'http://127.0.0.1:3200',
+    'http://127.0.0.1:3201',
+    'http://127.0.0.1:3202',
+    'http://127.0.0.1:3300',
+  ].join(','),
+  ADMIN_WEB_RUNTIME_BOOTSTRAP: 'true',
+  PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: 'true',
+  PLATFORM_RAID_RUNTIME_BOOTSTRAP: 'true',
+  PERSIST_REQUIRE_DB: 'false',
+});
+
 module.exports = {
   apps: [
     {
@@ -10,11 +42,13 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
+        ...localAdminBackendEnv,
         NODE_ENV: 'development',
         PLATFORM_DISCORD_ONLY: 'false',
         BOT_ENABLE_SCUM_WEBHOOK: 'true',
         BOT_ENABLE_RESTART_SCHEDULER: 'true',
-        BOT_ENABLE_ADMIN_WEB: 'true',
+        BOT_ENABLE_ADMIN_WEB: 'false',
         BOT_ENABLE_RENTBIKE_SERVICE: 'false',
         BOT_ENABLE_DELIVERY_WORKER: 'false',
         BOT_ENABLE_OPS_ALERT_ROUTE: 'true',
@@ -32,6 +66,7 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
         NODE_ENV: 'development',
         WORKER_ENABLE_RENTBIKE: 'true',
         WORKER_ENABLE_DELIVERY: 'true',
@@ -50,6 +85,7 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
         NODE_ENV: 'development',
         SCUM_WATCHER_HEALTH_HOST: '127.0.0.1',
         SCUM_WATCHER_HEALTH_PORT: '3212',
@@ -65,6 +101,8 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
+        ...localAdminBackendEnv,
         NODE_ENV: 'development',
         SCUM_CONSOLE_AGENT_HOST: '127.0.0.1',
         SCUM_CONSOLE_AGENT_PORT: '3213',
@@ -80,10 +118,27 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
         NODE_ENV: 'development',
         PLATFORM_DISCORD_ONLY: 'false',
         WEB_PORTAL_SECURE_COOKIE: 'false',
         WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
+      },
+    },
+    {
+      name: 'scum-admin-web-local',
+      script: 'apps/admin-web/server.js',
+      cwd: '.',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      max_restarts: 20,
+      restart_delay: 3000,
+      env: {
+        ...localSqliteEnv,
+        ...localAdminBackendEnv,
+        NODE_ENV: 'development',
+        PLATFORM_DISCORD_ONLY: 'false',
       },
     },
     {
@@ -96,6 +151,8 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
+        ...localAdminBackendEnv,
         NODE_ENV: 'development',
         PLATFORM_DISCORD_ONLY: 'false',
         ADMIN_BACKEND_BASE_URL: 'http://127.0.0.1:3200',
@@ -115,6 +172,8 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
       env: {
+        ...localSqliteEnv,
+        ...localAdminBackendEnv,
         NODE_ENV: 'development',
         PLATFORM_DISCORD_ONLY: 'false',
         ADMIN_BACKEND_BASE_URL: 'http://127.0.0.1:3200',
