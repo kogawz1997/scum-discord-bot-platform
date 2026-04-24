@@ -30,13 +30,18 @@ function createPortalEnvRuntime(deps = {}) {
   const sessionCookieName =
     String(processEnv.WEB_PORTAL_SESSION_COOKIE_NAME || 'scum_portal_session').trim()
       || 'scum_portal_session';
-  const sessionSecret = String(
-    processEnv.WEB_PORTAL_SESSION_SECRET
-      || processEnv.WEB_PORTAL_DISCORD_CLIENT_SECRET
-      || processEnv.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET
-      || processEnv.DISCORD_CLIENT_SECRET
-      || baseUrl,
-  ).trim();
+  const explicitSessionSecret = String(processEnv.WEB_PORTAL_SESSION_SECRET || '').trim();
+  if (isProduction && explicitSessionSecret.length < 32) {
+    throw new Error(
+      'WEB_PORTAL_SESSION_SECRET must be set to a value of at least 32 characters in production. '
+        + 'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+  }
+  const sessionSecret = explicitSessionSecret
+    || String(processEnv.WEB_PORTAL_DISCORD_CLIENT_SECRET || '').trim()
+    || String(processEnv.ADMIN_WEB_SSO_DISCORD_CLIENT_SECRET || '').trim()
+    || String(processEnv.DISCORD_CLIENT_SECRET || '').trim()
+    || baseUrl;
   const sessionCookieSameSite = normalizeSameSite(
     processEnv.WEB_PORTAL_COOKIE_SAMESITE || 'lax',
   );

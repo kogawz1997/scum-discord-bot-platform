@@ -599,6 +599,7 @@ async function replacePrismaTablesFromSnapshot(snapshot = {}) {
     await prisma.purchase.create({
       data: {
         code,
+        tenantId: row.tenantId ? String(row.tenantId) : null,
         userId,
         itemId,
         price: Number(row.price || 0),
@@ -846,12 +847,18 @@ async function replacePrismaTablesFromSnapshot(snapshot = {}) {
 // admin surface can fall back to a coherent snapshot instead of a half-restored mix.
 async function restoreAdminSnapshotData(snapshot = {}) {
   await replacePrismaTablesFromSnapshot(snapshot);
+  const restoreScope = { allowGlobal: true };
 
   replaceTickets(
     Array.isArray(snapshot.tickets) ? snapshot.tickets : [],
     Number(snapshot.ticketCounter || 0) || null,
+    restoreScope,
   );
-  replaceBounties(Array.isArray(snapshot.bounties) ? snapshot.bounties : []);
+  replaceBounties(
+    Array.isArray(snapshot.bounties) ? snapshot.bounties : [],
+    Number(snapshot.bountyCounter || 0) || null,
+    restoreScope,
+  );
   replaceEvents(
     Array.isArray(snapshot.events) ? snapshot.events : [],
     Array.isArray(snapshot.events)
@@ -863,19 +870,23 @@ async function restoreAdminSnapshotData(snapshot = {}) {
         }))
       : [],
     Number(snapshot.eventCounter || 0) || null,
+    restoreScope,
   );
-  replaceLinks(Array.isArray(snapshot.links) ? snapshot.links : []);
-  replaceMemberships(Array.isArray(snapshot.memberships) ? snapshot.memberships : []);
-  replaceWeaponStats(Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats : []);
-  replaceStats(Array.isArray(snapshot.stats) ? snapshot.stats : []);
-  replaceGiveaways(Array.isArray(snapshot.giveaways) ? snapshot.giveaways : []);
-  replacePunishments(Array.isArray(snapshot.punishments) ? snapshot.punishments : []);
-  replaceCodes(Array.isArray(snapshot.redeemCodes) ? snapshot.redeemCodes : []);
-  replaceClaims(Array.isArray(snapshot.welcomeClaims) ? snapshot.welcomeClaims : []);
-  replaceTopPanels(Array.isArray(snapshot.topPanels) ? snapshot.topPanels : []);
-  replaceCarts(Array.isArray(snapshot.carts) ? snapshot.carts : []);
-  replaceStatus(snapshot.status || {});
-  replaceDeliveryAudit(Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : []);
+  replaceLinks(Array.isArray(snapshot.links) ? snapshot.links : [], restoreScope);
+  replaceMemberships(Array.isArray(snapshot.memberships) ? snapshot.memberships : [], restoreScope);
+  replaceWeaponStats(Array.isArray(snapshot.weaponStats) ? snapshot.weaponStats : [], restoreScope);
+  replaceStats(Array.isArray(snapshot.stats) ? snapshot.stats : [], restoreScope);
+  replaceGiveaways(Array.isArray(snapshot.giveaways) ? snapshot.giveaways : [], restoreScope);
+  replacePunishments(Array.isArray(snapshot.punishments) ? snapshot.punishments : [], restoreScope);
+  replaceCodes(Array.isArray(snapshot.redeemCodes) ? snapshot.redeemCodes : [], restoreScope);
+  replaceClaims(Array.isArray(snapshot.welcomeClaims) ? snapshot.welcomeClaims : [], restoreScope);
+  replaceTopPanels(Array.isArray(snapshot.topPanels) ? snapshot.topPanels : [], restoreScope);
+  replaceCarts(Array.isArray(snapshot.carts) ? snapshot.carts : [], restoreScope);
+  replaceStatus(snapshot.status || {}, restoreScope);
+  replaceDeliveryAudit(
+    Array.isArray(snapshot.deliveryAudit) ? snapshot.deliveryAudit : [],
+    restoreScope,
+  );
   replaceAdminNotifications(
     Array.isArray(snapshot.adminNotifications) ? snapshot.adminNotifications : [],
   );
@@ -887,38 +898,44 @@ async function restoreAdminSnapshotData(snapshot = {}) {
       ? snapshot.adminCommandCapabilityPresets
       : [],
   );
-  replaceDeliveryQueue(Array.isArray(snapshot.deliveryQueue) ? snapshot.deliveryQueue : []);
+  replaceDeliveryQueue(Array.isArray(snapshot.deliveryQueue) ? snapshot.deliveryQueue : [], {
+    allowGlobal: true,
+  });
   replaceDeliveryDeadLetters(
     Array.isArray(snapshot.deliveryDeadLetters) ? snapshot.deliveryDeadLetters : [],
+    { allowGlobal: true },
   );
   await replaceRentBikeData(
     Array.isArray(snapshot.dailyRents) ? snapshot.dailyRents : [],
     Array.isArray(snapshot.rentalVehicles) ? snapshot.rentalVehicles : [],
+    restoreScope,
   );
   await replaceLuckyWheelStates(
     Array.isArray(snapshot.luckyWheelStates) ? snapshot.luckyWheelStates : [],
+    restoreScope,
   );
   await replacePartyMessages(
     Array.isArray(snapshot.partyChatMessages) ? snapshot.partyChatMessages : [],
+    restoreScope,
   );
 
   // Most tenant-aware stores persist through async write queues; restore should only
   // report success after those queues drain or surface an error.
   await Promise.all([
-    flushTicketStoreWrites(),
-    flushBountyStoreWrites(),
-    flushEventStoreWrites(),
-    flushLinkStoreWrites(),
-    flushVipStoreWrites(),
-    flushWeaponStatsStoreWrites(),
-    flushStatsStoreWrites(),
-    flushGiveawayStoreWrites(),
-    flushModerationStoreWrites(),
-    flushRedeemStoreWrites(),
-    flushWelcomePackStoreWrites(),
-    flushTopPanelStoreWrites(),
-    flushCartStoreWrites(),
-    flushScumStoreWrites(),
+    flushTicketStoreWrites(restoreScope),
+    flushBountyStoreWrites(restoreScope),
+    flushEventStoreWrites(restoreScope),
+    flushLinkStoreWrites(restoreScope),
+    flushVipStoreWrites(restoreScope),
+    flushWeaponStatsStoreWrites(restoreScope),
+    flushStatsStoreWrites(restoreScope),
+    flushGiveawayStoreWrites(restoreScope),
+    flushModerationStoreWrites(restoreScope),
+    flushRedeemStoreWrites(restoreScope),
+    flushWelcomePackStoreWrites(restoreScope),
+    flushTopPanelStoreWrites(restoreScope),
+    flushCartStoreWrites(restoreScope),
+    flushScumStoreWrites(restoreScope),
     flushDeliveryAuditStoreWrites(),
     flushDeliveryPersistenceWrites(),
   ]);
