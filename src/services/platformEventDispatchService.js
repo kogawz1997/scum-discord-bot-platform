@@ -39,9 +39,11 @@ function createPlatformEventDispatchService(deps) {
         deliveredAt: nowIso(),
         payload: payload && typeof payload === 'object' ? payload : {},
       });
+      const { decryptWebhookSecret } = require('../utils/webhookSecretCrypto');
       const results = [];
       for (const endpoint of endpoints) {
-        const signature = hmacSha256(endpoint.secretValue, body);
+        const signingKey = decryptWebhookSecret(endpoint.secretValue) || endpoint.secretValue;
+        const signature = hmacSha256(signingKey, body);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
         try {

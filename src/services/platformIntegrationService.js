@@ -71,9 +71,11 @@ function createPlatformIntegrationService(deps) {
   function sanitizeWebhookRow(row, options = {}) {
     if (!row) return null;
     const includeSecret = options.includeSecret === true;
+    const { decryptWebhookSecret } = require('../utils/webhookSecretCrypto');
+    const plainSecret = decryptWebhookSecret(row.secretValue);
     return {
       ...row,
-      secretValue: includeSecret ? row.secretValue : maskSecret(row.secretValue),
+      secretValue: includeSecret ? plainSecret : maskSecret(plainSecret),
       lastSuccessAt: toIso(row.lastSuccessAt),
       lastFailureAt: toIso(row.lastFailureAt),
       createdAt: toIso(row.createdAt),
@@ -354,7 +356,14 @@ function createPlatformIntegrationService(deps) {
     const scopes = parseJsonOrFallback(matched.scopesJson, []);
     const missingScopes = buildApiKeyScopes(requiredScopes).filter((scope) => !scopes.includes(scope));
     if (missingScopes.length > 0) {
-      return { ok: false, reason: 'insufficient-scope', missingScopes };
+      return {
+        ok: false,
+        reason: 'insufficient-scope',
+        missingScopes,
+        apiKey: sanitizeApiKeyRow(matched),
+        tenant: { id: matched.tenantId },
+        scopes,
+      };
     }
     await runWithOptionalTenantDbIsolation(
       matched.tenantId,
@@ -413,7 +422,9 @@ function createPlatformIntegrationService(deps) {
         snapshot: quotaCheck.snapshot || null,
       };
     }
-    const secretValue = trimText(input.secretValue, 200) || crypto.randomBytes(18).toString('hex');
+    const plainSecret = trimText(input.secretValue, 200) || crypto.randomBytes(18).toString('hex');
+    const { encryptWebhookSecret } = require('../utils/webhookSecretCrypto');
+    const secretValue = encryptWebhookSecret(plainSecret);
     const row = await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
       return db.platformWebhookEndpoint.create({
         data: {
