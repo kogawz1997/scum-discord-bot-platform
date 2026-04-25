@@ -3,64 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | แพ็กเกจ</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
+  <title>SCUM TH Platform — แพ็กเกจ</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-design-system-v5.css?v=20260425">
 </head>
-<body class="public-v3">
-  <div class="site-shell">
-    <header class="site-topbar">
-      <div class="site-topbar-main">
-        <a class="site-brand" href="/landing">
-          <span class="site-brand-mark">SCUM</span>
-          <span class="site-brand-copy">
-            <strong class="site-brand-title">SCUM TH Platform</strong>
-            <span class="site-brand-detail">เปรียบเทียบแพ็กเกจตามฟีเจอร์ที่ต้องใช้จริง</span>
-          </span>
-        </a>
-        <nav class="site-nav" aria-label="Primary">
-          <a class="site-nav-link" href="/landing">ภาพรวม</a>
-          <a class="site-nav-link is-active" href="/pricing">แพ็กเกจ</a>
-          <a class="site-nav-link" href="/signup">สร้างบัญชี</a>
-          <a class="site-nav-link" href="/login">เข้าสู่ระบบ</a>
-        </nav>
-      </div>
-      <div class="site-topbar-tools">
-        <a class="site-button site-button-primary" href="/signup">สร้างบัญชีและพื้นที่ทำงาน</a>
-      </div>
-    </header>
-    <main class="site-main">
-      <section class="site-panel">
-        <span class="site-kicker">Packages</span>
-        <h1 class="site-page-title">เลือกชุดฟีเจอร์ให้ตรงกับงานจริงของเซิร์ฟเวอร์</h1>
-        <p class="site-page-copy">ทุกแพ็กเกจเริ่มจากการสร้างบัญชีและพื้นที่ทำงานได้ก่อน เพื่อให้คุณเปิดดูเมนู โครงงาน และขอบเขตสิทธิ์ที่ได้จริง แล้วค่อยเปิดใช้งานตามแผนของทีม</p>
-      </section>
-      <section class="site-grid-2">
-        <article class="site-panel">
-          <span class="site-kicker">BOT_LOG</span>
-          <h2 class="site-card-title">ซิงก์ log และ Discord integration</h2>
-          <p>เหมาะกับชุมชนที่ต้องการ Server Bot สำหรับ log dashboard การเฝ้าดูเหตุการณ์ และการเชื่อม Discord เป็นหลัก</p>
-          <a class="site-button site-button-primary" href="/signup?package=BOT_LOG">เริ่มต้นด้วยแพ็กเกจนี้</a>
-        </article>
-        <article class="site-panel">
-          <span class="site-kicker">BOT_LOG_DELIVERY</span>
-          <h2 class="site-card-title">เพิ่มร้านค้า คำสั่งซื้อ และการส่งของ</h2>
-          <p>เหมาะกับเซิร์ฟเวอร์ที่เปิดขายสินค้าและต้องการ Delivery Agent ควบคู่กับ Server Bot เพื่อดูแล flow การส่งของครบชุด</p>
-          <a class="site-button site-button-primary" href="/signup?package=BOT_LOG_DELIVERY">เริ่มต้นด้วยแพ็กเกจนี้</a>
-        </article>
-        <article class="site-panel">
-          <span class="site-kicker">FULL_OPTION</span>
-          <h2 class="site-card-title">ชุดครบสำหรับโฮสต์และคอมเมิร์ซ</h2>
-          <p>รวมการควบคุมเซิร์ฟเวอร์ การตั้งค่า สถานะรันไทม์ ร้านค้า คำสั่งซื้อ และพอร์ทัลผู้เล่นครบชุด เหมาะกับการเปิดระบบเต็มรูปแบบ</p>
-          <a class="site-button site-button-primary" href="/signup?package=FULL_OPTION">เริ่มต้นด้วยแพ็กเกจนี้</a>
-        </article>
-        <article class="site-panel">
-          <span class="site-kicker">SERVER_ONLY</span>
-          <h2 class="site-card-title">เน้นงานโฮสต์และควบคุมเซิร์ฟเวอร์</h2>
-          <p>เหมาะกับงานดูแลเซิร์ฟเวอร์โดยไม่เปิด commerce หรือ player-facing delivery แต่ยังต้องการสถานะ ระบบควบคุม และการจัดการฝั่งผู้ดูแล</p>
-          <a class="site-button site-button-primary" href="/signup?package=SERVER_ONLY">เริ่มต้นด้วยแพ็กเกจนี้</a>
-        </article>
-      </section>
-    </main>
-  </div>
+<body>
+  <header class="ds-topbar">
+    <div class="ds-topbar-inner">
+      <a class="ds-brand" href="/landing">
+        <span class="ds-brand-mark">SCUM</span>
+        <span>
+          <span class="ds-brand-title">SCUM TH Platform</span>
+          <span class="ds-brand-subtitle">แพ็กเกจ</span>
+        </span>
+      </a>
+      <nav class="ds-nav" aria-label="Primary">
+        <a class="ds-nav-link" href="/landing">ภาพรวม</a>
+        <a class="ds-nav-link is-active" href="/pricing">แพ็กเกจ</a>
+        <a class="ds-nav-link" href="/signup">สร้างบัญชี</a>
+        <a class="ds-nav-link" href="/login">เข้าสู่ระบบ</a>
+      </nav>
+      <a class="ds-btn ds-btn-primary" href="/signup">เริ่มฟรี</a>
+    </div>
+  </header>
+
+  <main class="ds-container" style="padding-block: var(--space-7)">
+    <div class="ds-page-header" style="text-align: center; flex-direction: column; align-items: center">
+      <span class="ds-kicker">Packages</span>
+      <h1 class="ds-page-title">เลือกแพ็กเกจให้ตรงกับงานจริงของเซิร์ฟเวอร์</h1>
+      <p class="ds-page-subtitle" style="max-width: 60ch">เริ่มจากบัญชีฟรี ทดลองดูเมนูและฟีเจอร์ก่อน — เปิดใช้งานจริงเมื่อพร้อม ไม่ต้องเริ่มใหม่</p>
+    </div>
+
+    <div class="ds-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-5)">
+      <article class="ds-card">
+        <span class="ds-badge">BOT_LOG</span>
+        <h2 class="ds-card-title" style="margin-top: var(--space-3)">Discord + Log Sync</h2>
+        <p class="ds-text-muted">เหมาะกับชุมชนที่ต้องการ Server Bot สำหรับ log, killfeed และเชื่อม Discord</p>
+        <ul class="ds-stack-sm" style="list-style: none; padding: 0; margin: var(--space-4) 0">
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Server Bot</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Killfeed + log dashboard</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Discord integration</li>
+        </ul>
+        <a class="ds-btn ds-btn-block" href="/signup?package=BOT_LOG">เริ่มต้น</a>
+      </article>
+
+      <article class="ds-card ds-card-elevated" style="position: relative; box-shadow: var(--shadow-glow-primary)">
+        <span class="ds-badge ds-badge-brand" style="position: absolute; top: var(--space-3); right: var(--space-3)">★ แนะนำ</span>
+        <span class="ds-badge ds-badge-info">BOT_LOG_DELIVERY</span>
+        <h2 class="ds-card-title" style="margin-top: var(--space-3)">Bot + Commerce</h2>
+        <p class="ds-text-muted">เพิ่มร้านค้า, คำสั่งซื้อ, และระบบส่งของอัตโนมัติ</p>
+        <ul class="ds-stack-sm" style="list-style: none; padding: 0; margin: var(--space-4) 0">
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> ทุกอย่างใน BOT_LOG</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Delivery Agent</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Player Portal &amp; Wallet</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Order management</li>
+        </ul>
+        <a class="ds-btn ds-btn-primary ds-btn-block" href="/signup?package=BOT_LOG_DELIVERY">เริ่มต้น</a>
+      </article>
+
+      <article class="ds-card">
+        <span class="ds-badge">FULL_OPTION</span>
+        <h2 class="ds-card-title" style="margin-top: var(--space-3)">Full Platform</h2>
+        <p class="ds-text-muted">ชุดครบสำหรับโฮสต์ + commerce + ควบคุม runtime</p>
+        <ul class="ds-stack-sm" style="list-style: none; padding: 0; margin: var(--space-4) 0">
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> ทุกอย่างใน BOT_LOG_DELIVERY</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Server runtime control</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Advanced analytics</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Priority support</li>
+        </ul>
+        <a class="ds-btn ds-btn-block" href="/signup?package=FULL_OPTION">เริ่มต้น</a>
+      </article>
+
+      <article class="ds-card">
+        <span class="ds-badge">SERVER_ONLY</span>
+        <h2 class="ds-card-title" style="margin-top: var(--space-3)">Server Hosting</h2>
+        <p class="ds-text-muted">เน้นงานโฮสต์ ไม่มี commerce หรือ player portal</p>
+        <ul class="ds-stack-sm" style="list-style: none; padding: 0; margin: var(--space-4) 0">
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Server runtime control</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Status monitoring</li>
+          <li class="ds-row" style="gap: var(--space-2)"><span class="ds-badge ds-badge-success">✓</span> Admin tools</li>
+        </ul>
+        <a class="ds-btn ds-btn-block" href="/signup?package=SERVER_ONLY">เริ่มต้น</a>
+      </article>
+    </div>
+
+    <div class="ds-card ds-card-glass ds-text-center" style="margin-top: var(--space-7); padding: var(--space-6)">
+      <h3 class="ds-card-title">ต้องการแผนแบบกำหนดเอง?</h3>
+      <p class="ds-text-muted">สำหรับเซิร์ฟเวอร์ขนาดใหญ่หรือต้องการฟีเจอร์เฉพาะ — ติดต่อทีมเราเพื่อปรึกษา</p>
+      <a class="ds-btn ds-btn-accent" href="/showcase">ดูสถาปัตยกรรมเต็ม</a>
+    </div>
+  </main>
 </body>
 </html>

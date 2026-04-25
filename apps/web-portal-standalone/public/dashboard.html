@@ -3,73 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCUM TH Platform | ศูนย์ทางเข้าระบบ</title>
-  <link rel="stylesheet" href="/player/assets/ui/platform-site-v3.css?v=20260327-live-1">
+  <title>SCUM TH Platform — ศูนย์ทางเข้าระบบ</title>
+  <link rel="stylesheet" href="/player/assets/ui/platform-design-system-v5.css?v=20260425">
 </head>
-<body class="public-v3">
-  <div class="site-shell">
-    <header class="site-topbar">
-      <div class="site-topbar-main">
-        <a class="site-brand" href="/landing">
-          <span class="site-brand-mark">SCUM</span>
-          <span class="site-brand-copy">
-            <strong class="site-brand-title">ศูนย์ทางเข้าระบบ</strong>
-            <span class="site-brand-detail">รวมเส้นทางไปยังหน้า Public, พื้นที่ก่อนเปิดใช้งาน และ Player Portal รุ่นปัจจุบัน</span>
-          </span>
-        </a>
-        <nav class="site-nav" aria-label="Portal destinations">
-          <a class="site-nav-link is-active" href="/dashboard">ทางเข้า</a>
-          <a class="site-nav-link" href="/landing">Public Site</a>
-          <a class="site-nav-link" href="/player/login">Player Portal</a>
-        </nav>
+<body>
+  <header class="ds-topbar">
+    <div class="ds-topbar-inner">
+      <a class="ds-brand" href="/landing">
+        <span class="ds-brand-mark">SCUM</span>
+        <span>
+          <span class="ds-brand-title">SCUM TH Platform</span>
+          <span class="ds-brand-subtitle">ศูนย์ทางเข้า</span>
+        </span>
+      </a>
+      <nav class="ds-nav" aria-label="Primary">
+        <a class="ds-nav-link" href="/landing">ภาพรวม</a>
+        <a class="ds-nav-link is-active" href="/dashboard">ทางเข้า</a>
+        <a class="ds-nav-link" href="/pricing">แพ็กเกจ</a>
+      </nav>
+      <div class="ds-row">
+        <a class="ds-btn ds-btn-primary" href="/player/login">เข้า Player Portal</a>
       </div>
-      <div class="site-topbar-tools">
-        <a class="site-button" href="/preview">พื้นที่ก่อนเปิดใช้งาน</a>
-        <a class="site-button site-button-primary" href="/player/login">เข้า Player Portal</a>
+    </div>
+  </header>
+
+  <main class="ds-container" style="padding-block: var(--space-7)">
+    <div class="ds-page-header">
+      <div>
+        <span class="ds-kicker">Quick Access</span>
+        <h1 class="ds-page-title">เลือกพื้นที่ที่คุณต้องการเข้า</h1>
+        <p class="ds-page-subtitle">รวมทางเข้า Public Site, Workspace ทดลอง, และ Player Portal ในที่เดียว</p>
       </div>
-    </header>
+    </div>
 
-    <main class="site-main">
-      <section class="site-feature-grid">
-        <article class="site-panel site-feature-card">
-          <div class="site-media-shot is-map-scene"></div>
-          <div class="site-feature-copy">
-            <span class="site-kicker">Public Site</span>
-            <h1 class="site-page-title">เริ่มจากข้อมูลบริการและการเลือกแพ็กเกจ</h1>
-            <p>ใช้เส้นทางนี้เมื่อกำลังสำรวจระบบ เปรียบเทียบแพ็กเกจ หรือสร้างบัญชีและพื้นที่ทำงานใหม่</p>
-            <div class="site-tool-cluster">
-              <a class="site-button site-button-primary" href="/landing">เปิดหน้า Landing</a>
-              <a class="site-button" href="/pricing">ดูแพ็กเกจ</a>
-            </div>
-          </div>
-        </article>
+    <div class="ds-feature-grid">
+      <article class="ds-card ds-card-interactive" onclick="location.href='/landing'">
+        <div class="ds-feature-icon">🌐</div>
+        <h3 class="ds-card-title">Public Site</h3>
+        <p class="ds-text-muted">ข้อมูลบริการ เปรียบเทียบแพ็กเกจ สมัครบัญชีใหม่</p>
+        <div class="ds-row" style="margin-top: var(--space-4)">
+          <a class="ds-btn ds-btn-primary" href="/landing">เปิด Landing</a>
+          <a class="ds-btn" href="/pricing">ดูแพ็กเกจ</a>
+        </div>
+      </article>
 
-        <article class="site-panel site-feature-card">
-          <div class="site-media-shot is-identity-scene"></div>
-          <div class="site-feature-copy">
-            <span class="site-kicker">Workspace</span>
-            <h2 class="site-card-title">ดูโครงจริงก่อน แล้วค่อยเปิดสิทธิ์ที่จำเป็น</h2>
-            <p>พื้นที่ก่อนเปิดใช้งานช่วยให้เห็นเมนู สิทธิ์ และฟีเจอร์ของแพ็กเกจที่เลือก พร้อมชี้ชัดว่าจุดไหนยังต้องเพิ่ม runtime หรืออัปเกรดแพ็กเกจ</p>
-            <div class="site-tool-cluster">
-              <a class="site-button site-button-primary" href="/preview">เปิดพื้นที่ก่อนใช้งาน</a>
-            </div>
-          </div>
-        </article>
+      <article class="ds-card ds-card-interactive" onclick="location.href='/preview'">
+        <div class="ds-feature-icon">🧪</div>
+        <h3 class="ds-card-title">Workspace ทดลอง</h3>
+        <p class="ds-text-muted">ดูโครงเมนู สิทธิ์ และฟีเจอร์แพ็กเกจก่อนเปิดใช้จริง</p>
+        <div class="ds-row" style="margin-top: var(--space-4)">
+          <a class="ds-btn ds-btn-primary" href="/preview">เปิด Workspace</a>
+        </div>
+      </article>
 
-        <article class="site-panel site-feature-card">
-          <div class="site-media-shot is-player-hero"></div>
-          <div class="site-feature-copy">
-            <span class="site-kicker">Player Portal</span>
-            <h2 class="site-card-title">ทางเข้าของผู้เล่นสำหรับร้านค้า คำสั่งซื้อ และข้อมูลชุมชน</h2>
-            <p>ใช้เส้นทางนี้เมื่อผู้เล่นต้องการเข้าสู่ระบบเพื่อซื้อของ ดูกระเป๋าเงิน ตรวจคำสั่งซื้อ หรือเปิดหน้าสถิติและกิจกรรมของตัวเอง</p>
-            <div class="site-tool-cluster">
-              <a class="site-button site-button-primary" href="/player/login">เข้าสู่ระบบผู้เล่น</a>
-              <a class="site-button" href="/player">เปิดพอร์ทัลผู้เล่น</a>
-            </div>
-          </div>
-        </article>
-      </section>
-    </main>
-  </div>
+      <article class="ds-card ds-card-interactive" onclick="location.href='/player/login'">
+        <div class="ds-feature-icon">★</div>
+        <h3 class="ds-card-title">Player Portal</h3>
+        <p class="ds-text-muted">ร้านค้า, กระเป๋าเงิน, คำสั่งซื้อ, สถิติ, กิจกรรม</p>
+        <div class="ds-row" style="margin-top: var(--space-4)">
+          <a class="ds-btn ds-btn-primary" href="/player/login">เข้าสู่ระบบ</a>
+          <a class="ds-btn" href="/player">เปิดพอร์ทัล</a>
+        </div>
+      </article>
+    </div>
+  </main>
 </body>
 </html>
