@@ -1,6 +1,6 @@
 {
   "name": "scum-th-platform",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SCUM TH control plane with Discord bot, admin web, player portal, worker, watcher, and optional console-agent",
   "main": "src/bot.js",
   "scripts": {

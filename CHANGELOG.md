@@ -12,6 +12,13 @@ Operator-facing release notes live under `docs/releases/` and are written separa
 The release process is automated through GitHub Actions and release tagging.
 See `.github/workflows/release.yml` for the source of truth.
 
+## [1.1.0](https://github.com/kogawz1997/scum-discord-bot-platform/compare/scum-th-platform-v1.0.0...scum-th-platform-v1.1.0) (2026-04-25)
+
+
+### Features
+
+* i18n locale files, billing expiry sweeper, owner UI sweep action ([3c972f3](https://github.com/kogawz1997/scum-discord-bot-platform/commit/3c972f376e155bc78b8e737e668af6cb89d2a389))
+
 ## [Unreleased]
 
 - CI verification now publishes workflow-backed status artifacts instead of relying on hardcoded test counts in docs.
