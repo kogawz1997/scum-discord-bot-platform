@@ -367,6 +367,8 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
       attempts: 1,
       nextAttemptAt: Date.now() + 60_000,
     },
+  ], { tenantId });
+  replaceDeliveryQueue([
     {
       purchaseCode: otherTenantPurchaseCode,
       tenantId: otherTenantId,
@@ -375,7 +377,7 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
       attempts: 1,
       nextAttemptAt: Date.now() + 60_000,
     },
-  ]);
+  ], { tenantId: otherTenantId });
   replaceDeliveryDeadLetters([
     {
       purchaseCode: sameTenantPurchaseCode,
@@ -385,6 +387,8 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
       attempts: 1,
       reason: 'tenant-test',
     },
+  ], { tenantId });
+  replaceDeliveryDeadLetters([
     {
       purchaseCode: otherTenantPurchaseCode,
       tenantId: otherTenantId,
@@ -393,7 +397,7 @@ test('tenant-scoped admin cannot cross tenant boundaries on platform read/write 
       attempts: 1,
       reason: 'tenant-test',
     },
-  ]);
+  ], { tenantId: otherTenantId });
   await flushDeliveryPersistenceWrites();
 
   const registrySeedTimestamp = new Date().toISOString();

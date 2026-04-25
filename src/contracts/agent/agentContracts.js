@@ -70,27 +70,37 @@ function resolveStrictAgentRoleScope(input = {}, options = {}) {
       || meta.kind
       || meta.runtimeKind,
   );
-  if (runtimeKind === 'server-bots') {
+  const rawRole = input.role || meta.role || meta.agentRole || '';
+  const rawScope = input.scope || meta.scope || meta.agentScope || '';
+  const role = normalizeRole(rawRole, '');
+  const scope = normalizeScope(rawScope, '');
+  const expectedByRuntime = runtimeKind === 'server-bots'
+    ? { runtimeKind, role: 'sync', scope: 'sync_only' }
+    : runtimeKind === 'delivery-agents'
+      ? { runtimeKind, role: 'execute', scope: 'execute_only' }
+      : null;
+  if (expectedByRuntime) {
+    if ((role && role !== expectedByRuntime.role) || (scope && scope !== expectedByRuntime.scope)) {
+      return {
+        ok: false,
+        reason: 'agent-runtime-role-scope-mismatch',
+      };
+    }
     return {
       ok: true,
-      runtimeKind,
-      role: 'sync',
-      scope: 'sync_only',
+      ...expectedByRuntime,
       legacy: false,
     };
   }
-  if (runtimeKind === 'delivery-agents') {
-    return {
-      ok: true,
-      runtimeKind,
-      role: 'execute',
-      scope: 'execute_only',
-      legacy: false,
-    };
+  if (role && scope) {
+    const expectedScope = role === 'sync' ? 'sync_only' : role === 'execute' ? 'execute_only' : '';
+    if (!expectedScope || scope !== expectedScope) {
+      return {
+        ok: false,
+        reason: 'agent-runtime-role-scope-mismatch',
+      };
+    }
   }
-
-  const role = normalizeRole(input.role, '');
-  const scope = normalizeScope(input.scope, '');
   if (role === 'sync' || scope === 'sync_only') {
     return {
       ok: true,
@@ -284,22 +294,17 @@ function normalizeServerDiscordLinkInput(input = {}) {
 }
 
 function deriveScopesForAgent(role, scope) {
-  const normalizedRole = normalizeRole(role, '');
-  const normalizedScope = normalizeScope(
-    scope,
-    normalizedRole === 'sync'
-      ? 'sync_only'
-      : normalizedRole === 'execute'
-        ? 'execute_only'
-        : '',
-  );
+  const strictProfile = resolveStrictAgentRoleScope({ role, scope });
   const scopes = new Set(['tenant:read', 'server:read', 'agent:register', 'agent:session', 'agent:write']);
-  if (normalizedRole === 'sync' || normalizedScope === 'sync_only') {
+  if (!strictProfile.ok) {
+    return Array.from(scopes);
+  }
+  if (strictProfile.role === 'sync' && strictProfile.scope === 'sync_only') {
     scopes.add('agent:sync');
     scopes.add('analytics:read');
     scopes.add('config:read');
   }
-  if (normalizedRole === 'execute' || normalizedScope === 'execute_only') {
+  if (strictProfile.role === 'execute' && strictProfile.scope === 'execute_only') {
     scopes.add('agent:execute');
   }
   return Array.from(scopes);

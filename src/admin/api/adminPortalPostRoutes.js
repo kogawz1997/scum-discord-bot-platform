@@ -8,41 +8,37 @@ function createAdminPortalPostRoutes(deps) {
     ensurePortalTokenAuth,
     readJsonBody,
     requiredString,
+    getAuthTenantId,
     redeemCodeForUser,
     requestRentBikeForUser,
     createBountyForUser,
   } = deps;
 
   return async function handleAdminPortalPostRoute(context) {
-    const {
-      req,
-      res,
-      urlObj,
-      pathname,
-      body: providedBody,
-    } = context;
+    const { req, res, urlObj, pathname, body: providedBody } = context;
 
     if (pathname === '/admin/api/portal/redeem') {
       const portal = ensurePortalTokenAuth(req, urlObj, res);
       if (!portal) return true;
-      const body = providedBody ?? await readJsonBody(req);
+      const body = providedBody ?? (await readJsonBody(req));
       const code = requiredString(body, 'code');
       if (!code) {
         sendJson(res, 400, { ok: false, error: 'Invalid request payload' });
         return true;
       }
 
+      const tenantId =
+        getAuthTenantId?.(portal.auth) || requiredString(body, 'tenantId') || undefined;
       const result = await redeemCodeForUser({
         userId: portal.discordId,
         code,
         actor: `portal:${portal.forwardedUser}`,
         source: 'player-portal',
+        tenantId,
       });
       if (!result.ok) {
         const status =
-          result.reason === 'code-not-found' || result.reason === 'code-already-used'
-            ? 400
-            : 500;
+          result.reason === 'code-not-found' || result.reason === 'code-already-used' ? 400 : 500;
         sendJson(res, status, {
           ok: false,
           error: result.reason,
@@ -66,10 +62,13 @@ function createAdminPortalPostRoutes(deps) {
     if (pathname === '/admin/api/portal/rentbike/request') {
       const portal = ensurePortalTokenAuth(req, urlObj, res);
       if (!portal) return true;
-      const body = providedBody ?? await readJsonBody(req).catch(() => ({}));
+      const body = providedBody ?? (await readJsonBody(req).catch(() => ({})));
+      const tenantId =
+        getAuthTenantId?.(portal.auth) || requiredString(body, 'tenantId') || undefined;
       const result = await requestRentBikeForUser({
         discordUserId: portal.discordId,
         guildId: requiredString(body, 'guildId') || null,
+        tenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, {
@@ -86,13 +85,16 @@ function createAdminPortalPostRoutes(deps) {
     if (pathname === '/admin/api/portal/bounty/add') {
       const portal = ensurePortalTokenAuth(req, urlObj, res);
       if (!portal) return true;
-      const body = providedBody ?? await readJsonBody(req);
+      const body = providedBody ?? (await readJsonBody(req));
       const targetName = requiredString(body, 'targetName');
       const amount = Number(body?.amount);
+      const tenantId =
+        getAuthTenantId?.(portal.auth) || requiredString(body, 'tenantId') || undefined;
       const result = await createBountyForUser({
         createdBy: portal.discordId,
         targetName,
         amount,
+        tenantId,
       });
       if (!result.ok) {
         sendJson(res, 400, {

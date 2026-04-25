@@ -203,7 +203,17 @@ function makeTestContext(overrides = {}) {
       },
     },
     memoryStore: {
-      findPurchaseByCode: async (code) => purchases.get(String(code)) || null,
+      findPurchaseByCode: async (code, options = {}) => {
+        const purchase = purchases.get(String(code)) || null;
+        if (!purchase) return null;
+        const requestedTenantId = String(options.tenantId || '').trim() || null;
+        const tenantId =
+          String(purchase.tenantId || requestedTenantId || overrides.defaultPurchaseTenantId || 'tenant-1')
+            .trim()
+          || null;
+        if (requestedTenantId && tenantId !== requestedTenantId) return null;
+        return tenantId ? { ...purchase, tenantId } : { ...purchase };
+      },
       setPurchaseStatusByCode: async (code, status) => {
         const item = purchases.get(String(code));
         if (!item) return null;
@@ -268,6 +278,43 @@ test.afterEach(() => {
   for (const dep of Object.values(depPaths)) {
     delete require.cache[dep];
   }
+});
+
+test('delivery queue replacement rejects tenantless queue rows', () => {
+  const ctx = makeTestContext();
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+
+  assert.throws(
+    () =>
+      api.replaceDeliveryQueue([
+        {
+          purchaseCode: 'P-TENANTLESS-QUEUE',
+          userId: 'u-1',
+          itemId: 'bundle-ak',
+          attempts: 0,
+          nextAttemptAt: Date.now(),
+        },
+      ]),
+    (error) => error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED',
+  );
+});
+
+test('delivery dead-letter replacement rejects tenantless dead-letter rows', () => {
+  const ctx = makeTestContext();
+  const api = loadRconDeliveryWithMocks(ctx.mocks);
+
+  assert.throws(
+    () =>
+      api.replaceDeliveryDeadLetters([
+        {
+          purchaseCode: 'P-TENANTLESS-DEAD',
+          userId: 'u-1',
+          itemId: 'bundle-ak',
+          reason: 'missing tenant',
+        },
+      ]),
+    (error) => error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED',
+  );
 });
 
 function startFakeAgentServer(options = {}) {

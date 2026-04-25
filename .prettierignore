@@ -6,3 +6,5 @@ backups/
 apps/web-portal-standalone/public/
 src/admin/dashboard.html
 package-lock.json
+docs/FULL_REPO_CURRENT_STATE_*.md
+docs/FULL_REPO_FILE_MANIFEST_*.md

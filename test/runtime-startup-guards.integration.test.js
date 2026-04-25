@@ -13,6 +13,8 @@ function runEntrypoint(relativePath, overrides = {}) {
       ...process.env,
       PLATFORM_DISCORD_ONLY: 'false',
       NODE_ENV: 'production',
+      PERSIST_REQUIRE_DB: 'true',
+      PERSIST_LEGACY_SNAPSHOTS: 'false',
       ...overrides,
     },
     encoding: 'utf8',

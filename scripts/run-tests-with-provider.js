@@ -212,6 +212,11 @@ function buildTestProcessEnv(testRuntime, baseEnv = process.env) {
     DATABASE_URL: testRuntime.databaseUrl,
     PRISMA_TEST_DATABASE_URL: testRuntime.databaseUrl,
     PRISMA_TEST_DATABASE_PROVIDER: testRuntime.provider,
+    PERSIST_REQUIRE_DB: 'false',
+    TENANT_DB_TOPOLOGY_MODE:
+      testRuntime.provider === 'postgresql'
+        ? baseEnv.TENANT_DB_TOPOLOGY_MODE || 'schema-per-tenant'
+        : 'shared',
     TENANT_DB_SCHEMA_PREFIX: testRuntime.tenantSchemaPrefix || baseEnv.TENANT_DB_SCHEMA_PREFIX || 'tenant_',
     PLATFORM_DEFAULT_TENANT_ID: '',
     DEFAULT_TENANT_ID: '',

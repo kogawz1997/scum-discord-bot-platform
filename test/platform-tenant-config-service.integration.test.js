@@ -78,9 +78,13 @@ test('platform tenant config service stores and scopes tenant config rows', asyn
     ['tenant-config-a'],
   );
 
-  const globalList = await listPlatformTenantConfigs({ limit: 20 });
+  const globalList = await listPlatformTenantConfigs({ limit: 500 });
+  const testTenantIds = globalList
+    .map((row) => row.tenantId)
+    .filter((tenantId) => ['tenant-config-a', 'tenant-config-b'].includes(tenantId))
+    .sort();
   assert.deepEqual(
-    globalList.map((row) => row.tenantId),
+    testTenantIds,
     ['tenant-config-a', 'tenant-config-b'],
   );
 

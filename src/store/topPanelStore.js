@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const PANEL_TYPES = new Set([
   'topKiller',
@@ -201,6 +204,7 @@ function getGuildState(guildId, createIfMissing = false, options = {}) {
 
 function setTopPanelMessage(guildId, panelType, channelId, messageId, options = {}) {
   const scope = ensureTopPanelScope(options);
+  assertTenantStoreMutationScope(scope, options, 'set top panel message', 'top-panel-message');
   void initTopPanelStore(options);
   const key = normalizePanelType(panelType);
   if (!key) return null;
@@ -251,6 +255,7 @@ function getTopPanelMessage(guildId, panelType, options = {}) {
 
 function removeTopPanelMessage(guildId, panelType, options = {}) {
   const scope = ensureTopPanelScope(options);
+  assertTenantStoreMutationScope(scope, options, 'remove top panel message', 'top-panel-message');
   void initTopPanelStore(options);
   const key = normalizePanelType(panelType);
   if (!key) return false;
@@ -310,6 +315,7 @@ function listTopPanels(options = {}) {
 
 function replaceTopPanels(nextPanels = [], options = {}) {
   const scope = ensureTopPanelScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace top panel messages', 'top-panel-message');
   void initTopPanelStore(options);
   scope.state.mutationVersion += 1;
   scope.state.panelsByGuild.clear();

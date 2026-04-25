@@ -60,6 +60,7 @@ data/evidence/
 # Database runtime state
 data/postgresql-main/
 prisma/**/*.db
+*.db-journal
 *.sqlite
 *.sqlite-journal
 db.sqlite3
@@ -67,6 +68,7 @@ db.sqlite3-journal
 
 # Local tools and editor state
 _compare/
+.claude/
 .vs/
 .vscode/
 .idea/

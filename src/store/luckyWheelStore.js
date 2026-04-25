@@ -1,4 +1,5 @@
 const {
+  assertTenantStoreMutationScope,
   resolveTenantStoreScope,
   buildServerScopedUserKey,
   parseServerScopedUserKey,
@@ -12,6 +13,13 @@ function getLuckyWheelDb(options = {}, operation = 'lucky wheel store operation'
     ...options,
     operation: String(options.operation || '').trim() || operation,
   }).db;
+}
+
+function getLuckyWheelScope(options = {}, operation = 'lucky wheel store operation') {
+  return resolveTenantStoreScope({
+    ...options,
+    operation: String(options.operation || '').trim() || operation,
+  });
 }
 
 function normalizeUserId(userId) {
@@ -138,13 +146,20 @@ async function canSpinWheel(userId, cooldownMs, nowMs = Date.now(), options = {}
 }
 
 async function recordWheelSpin(userId, rewardEntry, options = {}) {
+  const scope = getLuckyWheelScope(options, 'record lucky wheel spin');
+  assertTenantStoreMutationScope(
+    scope,
+    options,
+    'record lucky wheel spin',
+    'lucky-wheel-state',
+  );
   const id = buildServerScopedUserKey(userId, options);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb(options, 'record lucky wheel spin').$transaction(async (tx) => {
+  const next = await scope.db.$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -183,13 +198,20 @@ async function recordWheelSpin(userId, rewardEntry, options = {}) {
 }
 
 async function rollbackWheelSpin(userId, rewardEntry, options = {}) {
+  const scope = getLuckyWheelScope(options, 'rollback lucky wheel spin');
+  assertTenantStoreMutationScope(
+    scope,
+    options,
+    'rollback lucky wheel spin',
+    'lucky-wheel-state',
+  );
   const id = buildServerScopedUserKey(userId, options);
   if (!id) return { ok: false, reason: 'invalid-user-id' };
 
   const reward = normalizeRewardEntry(rewardEntry);
   if (!reward) return { ok: false, reason: 'invalid-reward-entry' };
 
-  const next = await getLuckyWheelDb(options, 'rollback lucky wheel spin').$transaction(async (tx) => {
+  const next = await scope.db.$transaction(async (tx) => {
     const existing = await tx.luckyWheelState.findUnique({
       where: { userId: id },
     });
@@ -250,7 +272,14 @@ async function listLuckyWheelStates(limit = 1000, options = {}) {
 }
 
 async function replaceLuckyWheelStates(nextRows = [], options = {}) {
-  await getLuckyWheelDb(options, 'replace lucky wheel states').$transaction(async (tx) => {
+  const scope = getLuckyWheelScope(options, 'replace lucky wheel states');
+  assertTenantStoreMutationScope(
+    scope,
+    options,
+    'replace lucky wheel states',
+    'lucky-wheel-state',
+  );
+  await scope.db.$transaction(async (tx) => {
     if (options.serverId) {
       const existingRows = await tx.luckyWheelState.findMany();
       for (const row of existingRows) {

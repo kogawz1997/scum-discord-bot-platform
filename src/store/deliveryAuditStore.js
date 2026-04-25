@@ -7,9 +7,36 @@ const {
   groupRowsByTenant,
   dedupeScopedRows,
 } = require('../services/deliveryPersistenceDb');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 
 const MAX_AUDIT_ITEMS = 3000;
 const audits = [];
+const TENANT_OWNED_DELIVERY_AUDIT_ACTIONS = new Set([
+  'attempt',
+  'command-dispatch',
+  'command-failed',
+  'command-ok',
+  'dead-letter-retry',
+  'enqueue-blocked',
+  'failed',
+  'failover-engaged',
+  'manual-cancel',
+  'manual-retry',
+  'missing-item-commands',
+  'missing-purchase',
+  'preflight-ok',
+  'preflight-start',
+  'queued',
+  'retry',
+  'skip-disabled',
+  'skip-invalid-template',
+  'skip-missing-command',
+  'skip-terminal-status',
+  'success',
+  'verify-failed',
+  'verify-ok',
+  'worker-picked',
+]);
 
 let mutationVersion = 0;
 let dbWriteQueue = Promise.resolve();
@@ -37,6 +64,33 @@ function normalizeAudit(entry) {
     message: entry.message ? String(entry.message) : '',
     meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null,
   };
+}
+
+function getDeliveryAuditTenantId(entry = {}) {
+  return normalizeTenantId(
+    entry?.tenantId
+      || entry?.meta?.tenantId
+      || entry?.meta?.tenant?.id,
+  );
+}
+
+function isTenantOwnedDeliveryAudit(entry = {}) {
+  const action = String(entry?.action || '').trim().toLowerCase();
+  if (entry.requireTenantScope === true || entry.tenantScoped === true) return true;
+  if (getDeliveryAuditTenantId(entry)) return true;
+  return TENANT_OWNED_DELIVERY_AUDIT_ACTIONS.has(action);
+}
+
+function assertDeliveryAuditMutationScope(entry = {}, operation = 'write delivery audit') {
+  if (!isTenantOwnedDeliveryAudit(entry)) return null;
+  const tenantId = getDeliveryAuditTenantId(entry);
+  return assertTenantMutationScope({
+    tenantId,
+    dataTenantId: tenantId,
+    allowGlobal: entry.allowGlobal === true,
+    operation,
+    entityType: 'delivery-audit',
+  });
 }
 
 function buildDeliveryAuditData(entry) {
@@ -207,6 +261,7 @@ function flushDeliveryAuditStoreWrites() {
 }
 
 function addDeliveryAudit(entry) {
+  assertDeliveryAuditMutationScope(entry, 'add delivery audit');
   const normalized = normalizeAudit(entry);
   if (!normalized) return null;
   audits.push(normalized);
@@ -260,6 +315,13 @@ function clearDeliveryAudit(options = {}) {
 
 function replaceDeliveryAudit(nextAudits = [], options = {}) {
   const tenantId = normalizeTenantId(options.tenantId);
+  for (const row of Array.isArray(nextAudits) ? nextAudits : []) {
+    assertDeliveryAuditMutationScope({
+      ...row,
+      tenantId: normalizeTenantId(row?.tenantId) || tenantId,
+      allowGlobal: options.allowGlobal === true || row?.allowGlobal === true,
+    }, 'replace delivery audit');
+  }
   if (!tenantId) {
     audits.length = 0;
   } else {

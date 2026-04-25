@@ -357,7 +357,13 @@ function run() {
   }
 
   const trackedMutableArtifacts = listTrackedMutableArtifacts();
-  if (trackedMutableArtifacts.length > 0) {
+  const trackedMutableArtifactsSkipped = trackedMutableArtifacts.skipped === true;
+  if (trackedMutableArtifactsSkipped) {
+    warnings.push(
+      trackedMutableArtifacts.detail
+      || 'Tracked runtime artifact scan skipped because git is not available in PATH',
+    );
+  } else if (trackedMutableArtifacts.length > 0) {
     const sample = trackedMutableArtifacts
       .slice(0, 5)
       .map((entry) => entry.file)
@@ -755,9 +761,16 @@ function run() {
             : 'pass',
       }),
       createValidationCheck('tracked mutable artifact hygiene', {
-        ok: trackedMutableArtifacts.length === 0,
+        status:
+          trackedMutableArtifactsSkipped
+            ? 'warning'
+            : trackedMutableArtifacts.length === 0
+              ? 'pass'
+              : 'failed',
         detail:
-          trackedMutableArtifacts.length === 0
+          trackedMutableArtifactsSkipped
+            ? 'git is not available in PATH; tracked runtime artifact scan was skipped'
+            : trackedMutableArtifacts.length === 0
             ? 'git index is clean from runtime/mutable artifacts'
             : `${trackedMutableArtifacts.length} tracked mutable artifact(s) detected`,
       }),

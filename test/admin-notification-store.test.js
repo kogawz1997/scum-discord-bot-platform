@@ -34,9 +34,18 @@ function createNotificationDelegateHarness() {
           return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
         }).map(clone);
       },
-      async deleteMany() {
-        rows.clear();
-        return { count: 0 };
+      async deleteMany(args = {}) {
+        const ids = args?.where?.id?.in;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          const count = rows.size;
+          rows.clear();
+          return { count };
+        }
+        let count = 0;
+        for (const id of ids) {
+          if (rows.delete(String(id))) count += 1;
+        }
+        return { count };
       },
       async createMany({ data }) {
         const seen = new Set();
@@ -51,6 +60,17 @@ function createNotificationDelegateHarness() {
           rows.set(String(row.id), clone(row));
         }
         return { count: rows.size };
+      },
+      async upsert({ where, create, update }) {
+        const id = String(where?.id || create?.id || update?.id || '');
+        const nextValue = rows.has(id)
+          ? {
+              ...clone(rows.get(id)),
+              ...clone(update),
+            }
+          : clone(create);
+        rows.set(id, nextValue);
+        return clone(nextValue);
       },
     },
     snapshot() {
@@ -273,6 +293,27 @@ test('admin notification store filters notifications by tenant id from payload d
   assert.equal(tenantOneRows.length, 1);
   assert.equal(tenantOneRows[0].id, 'note-tenant-1');
   assert.equal(tenantOneRows[0].tenantId, 'tenant-1');
+});
+
+test('admin notification store rejects tenant-owned notifications without tenant scope', async () => {
+  const harness = createNotificationDelegateHarness();
+  const store = loadStoreWithMocks(harness.delegate);
+
+  await store.initAdminNotificationStore();
+
+  assert.throws(
+    () =>
+      store.addAdminNotification({
+        id: 'note-missing-tenant',
+        type: 'billing',
+        source: 'platform-monitor',
+        kind: 'subscription-expiring',
+        severity: 'warn',
+        title: 'Subscription Expiring Soon',
+        message: 'subscription is ending soon',
+      }),
+    (error) => error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED',
+  );
 });
 
 test('admin notification store prunes old notifications while keeping the newest entries', async () => {

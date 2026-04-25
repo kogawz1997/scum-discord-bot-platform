@@ -1,10 +1,18 @@
+const path = require('node:path');
+
+process.env.NODE_ENV = 'test';
+process.env.PRISMA_TEST_DATABASE_URL = process.env.PRISMA_TEST_DATABASE_URL
+  || `file:${path.resolve(__dirname, '../prisma/prisma/test.db').replace(/\\/g, '/')}`;
+process.env.PRISMA_TEST_DATABASE_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER || 'sqlite';
+process.env.DATABASE_URL = process.env.PRISMA_TEST_DATABASE_URL;
+process.env.DATABASE_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER;
+process.env.PRISMA_SCHEMA_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER;
 require('dotenv').config();
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
-const path = require('node:path');
 const { once } = require('node:events');
 
 const { cleanupPlatformTenantFixtures } = require('./helpers/platformTestCleanup');

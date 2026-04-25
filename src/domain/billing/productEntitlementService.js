@@ -9,18 +9,18 @@ function trimText(value, maxLen = 160) {
 function normalizeSubscriptionStatus(value) {
   const normalized = trimText(value, 40).toLowerCase();
   if (!normalized) return null;
-  if (['trial', 'trialing'].includes(normalized)) return 'trial';
+  if (normalized === 'preview') return 'preview';
+  if (['trial', 'trialing'].includes(normalized)) return 'trialing';
   if (normalized === 'active') return 'active';
-  if (['expired', 'canceled', 'cancelled'].includes(normalized)) return 'expired';
-  if (['suspended', 'past_due', 'failed', 'pending', 'paused', 'void', 'disputed', 'inactive'].includes(normalized)) {
-    return 'suspended';
-  }
+  if (['canceled', 'cancelled'].includes(normalized)) return 'cancelled';
+  if (normalized === 'expired') return 'expired';
+  if (['suspended', 'past_due', 'failed', 'pending', 'paused', 'void', 'disputed', 'inactive'].includes(normalized)) return 'past_due';
   return normalized;
 }
 
 function isOperationalSubscriptionStatus(value) {
   const normalized = normalizeSubscriptionStatus(value);
-  return normalized === 'active' || normalized === 'trial';
+  return normalized === 'active' || normalized === 'trialing';
 }
 
 function normalizeFeatureAccess(raw) {
@@ -68,13 +68,17 @@ function buildSubscriptionLifecycleLock(featureAccess, surface = 'tenant') {
   if (!normalized.subscriptionStatus || isOperationalSubscriptionStatus(normalized.subscriptionStatus)) {
     return null;
   }
-  const expired = normalized.subscriptionStatus === 'expired';
+  const reasons = {
+    preview: 'This tenant is in preview mode. Start a trial or choose a package to unlock this operation.',
+    past_due: 'This subscription is past due. Resolve billing to restore access.',
+    cancelled: 'This subscription has been cancelled. Renew or choose a package to restore access.',
+    expired: 'This subscription has expired. Renew or upgrade billing to restore access.',
+  };
   return {
     subscriptionStatus: normalized.subscriptionStatus,
-    reason: expired
-      ? 'This subscription has expired. Renew or upgrade billing to restore access.'
-      : 'This subscription is suspended. Resolve billing to restore access.',
-    upgradeCta: normalized.subscriptionStatus === 'suspended' && trimText(surface, 40).toLowerCase() !== 'player'
+    reason: reasons[normalized.subscriptionStatus]
+      || 'This subscription is not active. Resolve billing to restore access.',
+    upgradeCta: normalized.subscriptionStatus === 'past_due' && trimText(surface, 40).toLowerCase() !== 'player'
       ? {
         label: 'Open billing',
         href: '/tenant/billing',

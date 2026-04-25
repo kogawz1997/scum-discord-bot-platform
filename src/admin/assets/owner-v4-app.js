@@ -7,8 +7,17 @@
     dashboard: 'dashboard',
     tenants: 'tenants',
     packages: 'tenants',
+    'packages-create': 'tenants',
+    'packages-entitlements': 'tenants',
+    'package-detail': 'tenants',
     subscriptions: 'tenants',
+    'subscriptions-registry': 'tenants',
+    'subscription-detail': 'tenants',
     billing: 'tenants',
+    'billing-recovery': 'tenants',
+    'billing-attempts': 'tenants',
+    'invoice-detail': 'tenants',
+    'attempt-detail': 'tenants',
     commercial: 'tenants',
     quota: 'tenants',
     fleet: 'runtime',
@@ -22,22 +31,47 @@
     control: 'runtime',
     access: 'runtime',
     recovery: 'runtime',
+    'recovery-create': 'runtime',
+    'recovery-preview': 'runtime',
+    'recovery-restore': 'runtime',
+    'recovery-history': 'runtime',
     runtime: 'runtime',
     'runtime-health': 'runtime',
+    'runtime-create-server': 'runtime',
+    'runtime-provision-runtime': 'runtime',
+    'agents-bots': 'runtime',
+    'fleet-diagnostics': 'runtime',
     settings: 'dashboard',
+    automation: 'dashboard',
     diagnostics: 'runtime',
     analytics: 'runtime',
+    'analytics-risk': 'runtime',
+    'analytics-packages': 'runtime',
+    'settings-admin-users': 'dashboard',
+    'settings-services': 'dashboard',
+    'settings-access-policy': 'dashboard',
+    'settings-portal-policy': 'dashboard',
+    'settings-billing-policy': 'dashboard',
+    'settings-runtime-policy': 'dashboard',
   };
 
   const PATH_PAGE_ALIASES = {
     '': 'overview',
+    dashboard: 'overview',
     tenants: 'tenants',
     packages: 'packages',
     subscriptions: 'subscriptions',
-    runtime: 'runtime-health',
-    analytics: 'observability',
+    runtime: 'runtime',
+    recovery: 'recovery',
+    analytics: 'analytics',
     audit: 'audit',
     settings: 'settings',
+    automation: 'automation',
+    billing: 'billing',
+    access: 'access',
+    diagnostics: 'diagnostics',
+    control: 'control',
+    support: 'support',
   };
 
   const PAGE_TITLE_KEYS = {
@@ -55,6 +89,8 @@
     billing: 'การเงินและการต่ออายุ',
     runtime: 'สถานะระบบและเหตุการณ์',
     'runtime-health': 'สถานะระบบและเหตุการณ์',
+    'agents-bots': 'การจัดการ Agent และ Bot',
+    'fleet-diagnostics': 'สถานะฟลีตและการวินิจฉัย',
     incidents: 'เหตุการณ์และสัญญาณ',
     observability: 'คำขอและความช้า',
     jobs: 'งานรอและบอท',
@@ -200,6 +236,24 @@
       railHeader: 'บริบทการปฏิบัติการ',
       railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจบริการหรือเหตุการณ์',
     },
+    'agents-bots': {
+      workspaceLabel: 'Agent & Bot registry',
+      kicker: 'Agent & Bot registry',
+      title: 'Agent & Bot registry',
+      subtitle: 'Separate Delivery Agent provisioning and Server Bot inventory from the rest of the runtime workspace.',
+      primaryAction: { label: 'Open runtime registry', href: '/owner/runtime/agents-bots' },
+      railHeader: 'Runtime registry',
+      railCopy: 'Keep server records, setup tokens, and bound runtimes together when reviewing the active delivery and server fleet.',
+    },
+    'fleet-diagnostics': {
+      workspaceLabel: 'Fleet diagnostics',
+      kicker: 'Fleet diagnostics',
+      title: 'Fleet diagnostics',
+      subtitle: 'Review activation drift, health signals, and runtime mismatches before opening shared recovery tools.',
+      primaryAction: { label: 'Open fleet diagnostics', href: '/owner/runtime/fleet-diagnostics' },
+      railHeader: 'Fleet diagnostics',
+      railCopy: 'Use this route to inspect runtime health separately from provisioning and recovery actions.',
+    },
     incidents: {
       workspaceLabel: 'เหตุการณ์และสัญญาณ',
       kicker: 'เหตุการณ์และสัญญาณ',
@@ -293,6 +347,36 @@
     },
   });
 
+  OWNER_ROUTE_PRESENTATION.control = {
+    workspaceLabel: 'Platform controls',
+    kicker: 'Platform controls',
+    title: 'Platform controls',
+    subtitle: 'Keep legacy control routes on the shared settings, service, and automation workspace without changing existing backend flows.',
+    primaryAction: { label: 'Open platform controls', href: '#owner-control-workspace' },
+    railHeader: 'Control context',
+    railCopy: 'Legacy control routes continue to use the same owner control forms, settings endpoints, and service actions.',
+  };
+
+  OWNER_ROUTE_PRESENTATION.access = {
+    workspaceLabel: 'Access posture',
+    kicker: 'Access posture',
+    title: 'Access and operator sessions',
+    subtitle: 'Review active sessions, access signals, and security evidence before revoking or escalating.',
+    primaryAction: { label: 'Focus audit workspace', href: '#audit' },
+    railHeader: 'Access context',
+    railCopy: 'Legacy access routes stay wired to the current audit and security evidence surfaces.',
+  };
+
+  OWNER_ROUTE_PRESENTATION.diagnostics = {
+    workspaceLabel: 'Diagnostics and evidence',
+    kicker: 'Diagnostics and evidence',
+    title: 'Diagnostics and evidence',
+    subtitle: 'Review export-ready diagnostics, request evidence, and notification backlog from the current owner governance flow.',
+    primaryAction: { label: 'Focus audit workspace', href: '#audit' },
+    railHeader: 'Diagnostics context',
+    railCopy: 'Legacy diagnostics routes stay mapped to the current audit, export, and evidence workspaces.',
+  };
+
   Object.assign(OWNER_ROUTE_PRESENTATION.tenants, {
     railCopy: 'เก็บงานดูแลลูกค้าและงานเชิงพาณิชย์ไว้ใกล้ทะเบียนลูกค้า',
   });
@@ -349,9 +433,31 @@
     railCopy: 'เก็บหลักฐานและงานติดตามของเจ้าของระบบไว้ใกล้มือเสมอขณะตรวจสถานะบริการหรือเหตุการณ์',
   });
 
+  Object.assign(OWNER_ROUTE_PRESENTATION['agents-bots'], {
+    title: 'Agent และ Bot ทั้งแพลตฟอร์ม',
+    subtitle: 'จัด provisioning ของ Delivery Agent และ Server Bot โดยไม่ปนกับงาน incident หรือ recovery',
+    railCopy: 'หน้านี้เน้นการสร้าง server record, ออก setup token, และตรวจ runtime inventory ของทั้งแพลตฟอร์ม',
+  });
+
+  Object.assign(OWNER_ROUTE_PRESENTATION['fleet-diagnostics'], {
+    title: 'Fleet diagnostics',
+    subtitle: 'ดู runtime ที่มีปัญหาและความเสี่ยงของฟลีตก่อนค่อยใช้ shared recovery controls',
+    railCopy: 'หน้านี้เน้น health drift, pending activation, และสัญญาณ request failure ของ Owner surface',
+  });
+
   Object.assign(OWNER_ROUTE_PRESENTATION.audit, {
     railCopy: 'งานดูแลลูกค้าและงานรีวิวความปลอดภัยควรใช้หลักฐานชุดเดียวกัน',
   });
+
+  OWNER_ROUTE_PRESENTATION.recovery = {
+    workspaceLabel: 'Recovery and backup',
+    kicker: 'Recovery and backup',
+    title: 'Recovery and backup',
+    subtitle: 'Inspect backup inventory, restore previews, and recovery history before applying shared restore actions.',
+    primaryAction: { label: 'Open recovery controls', href: '#owner-control-workspace' },
+    railHeader: 'Recovery context',
+    railCopy: 'Keep backup inventory, restore history, and dry-run previews visible together before any live recovery step.',
+  };
 
   const state = {
     payload: null,
@@ -361,6 +467,8 @@
     ownerUi: {
       selectedRuntimeKey: '',
       runtimeBootstrap: null,
+      restorePreview: null,
+      automationPreview: null,
       supportCaseTenantId: '',
       supportCase: null,
       supportCaseLoading: false,
@@ -371,6 +479,12 @@
       supportDeadLettersRequestId: 0,
     },
   };
+
+  const NATIVE_OWNER_FORM_ACTIONS = new Set([
+    'export-tenant-diagnostics',
+    'export-tenant-support-case',
+    'export-delivery-lifecycle',
+  ]);
 
   const OWNER_OVERVIEW_FALLBACK = {
     analytics: {
@@ -401,12 +515,178 @@
     reloadRequired: true,
   };
 
+  const CP1252_REVERSE_MAP = new Map([
+    [0x20AC, 0x80],
+    [0x201A, 0x82],
+    [0x0192, 0x83],
+    [0x201E, 0x84],
+    [0x2026, 0x85],
+    [0x2020, 0x86],
+    [0x2021, 0x87],
+    [0x02C6, 0x88],
+    [0x2030, 0x89],
+    [0x0160, 0x8A],
+    [0x2039, 0x8B],
+    [0x0152, 0x8C],
+    [0x017D, 0x8E],
+    [0x2018, 0x91],
+    [0x2019, 0x92],
+    [0x201C, 0x93],
+    [0x201D, 0x94],
+    [0x2022, 0x95],
+    [0x2013, 0x96],
+    [0x2014, 0x97],
+    [0x02DC, 0x98],
+    [0x2122, 0x99],
+    [0x0161, 0x9A],
+    [0x203A, 0x9B],
+    [0x0153, 0x9C],
+    [0x017E, 0x9E],
+    [0x0178, 0x9F],
+  ]);
+
+  function repairMojibakeText(value) {
+    const text = String(value ?? '');
+    if (!text || !/(\u00C3|\u00C2|\u00E0|\u00E2|\u00EF|\u00BF)/.test(text) || typeof TextDecoder !== 'function') return text;
+    try {
+      const bytes = Uint8Array.from(Array.from(text, (char) => {
+        const codePoint = char.codePointAt(0);
+        return CP1252_REVERSE_MAP.get(codePoint) ?? (codePoint & 0xff);
+      }));
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch {
+      return text;
+    }
+  }
+
   function t(key, fallback, params) {
-    return window.AdminUiI18n?.t?.(key, fallback, params) || fallback || key;
+    const normalizedFallback = repairMojibakeText(fallback);
+    return window.AdminUiI18n?.t?.(key, normalizedFallback, params) || normalizedFallback || key;
   }
 
   function applyI18n(rootNode = document) {
     window.AdminUiI18n?.apply?.(rootNode);
+  }
+
+  function ownerUiLocale() {
+    const rawLocale = String(
+      document.getElementById('ownerLanguageSelect')?.value
+      || window.AdminUiI18n?.getLocale?.()
+      || document.documentElement.lang
+      || ''
+    ).trim().toLowerCase();
+    return rawLocale.startsWith('th') ? 'th' : 'en';
+  }
+
+  function ownerText(english, thai) {
+    return ownerUiLocale() === 'th' ? repairMojibakeText(thai) : repairMojibakeText(english);
+  }
+
+  function resolveSafeWindowOpenUrl(rawUrl) {
+    const text = trimText(rawUrl, 800);
+    if (!text) return '';
+    try {
+      const resolved = new URL(text, window.location.origin);
+      if (!['http:', 'https:'].includes(resolved.protocol)) {
+        return '';
+      }
+      return resolved.href;
+    } catch {
+      return '';
+    }
+  }
+
+  function withOwnerBusyState(target, work) {
+    if (!target || typeof work !== 'function') {
+      return Promise.resolve();
+    }
+    if (target.dataset.ownerBusy === '1') {
+      return Promise.resolve();
+    }
+    const supportsDisabled = 'disabled' in target;
+    const previousDisabled = supportsDisabled ? Boolean(target.disabled) : false;
+    const previousAriaDisabled = target.getAttribute('aria-disabled');
+    target.dataset.ownerBusy = '1';
+    target.setAttribute('aria-disabled', 'true');
+    if (supportsDisabled) {
+      target.disabled = true;
+    }
+    return Promise.resolve()
+      .then(() => work())
+      .finally(() => {
+        delete target.dataset.ownerBusy;
+        if (previousAriaDisabled == null) {
+          target.removeAttribute('aria-disabled');
+        } else {
+          target.setAttribute('aria-disabled', previousAriaDisabled);
+        }
+        if (supportsDisabled) {
+          target.disabled = previousDisabled;
+        }
+      });
+  }
+
+  function buildOwnerActionConfirmMessage(action, button) {
+    const tenantLabel = trimText(button?.dataset.tenantName || button?.dataset.tenantId, 160) || ownerText('this tenant', 'ลูกค้ารายนี้');
+    const runtimeLabel = trimText(button?.dataset.displayName || button?.dataset.runtimeKey || button?.dataset.serviceLabel, 160) || ownerText('this runtime', 'บริการนี้');
+    const userLabel = trimText(button?.dataset.sessionUser, 160) || ownerText('this operator', 'ผู้ปฏิบัติงานรายนี้');
+    const invoiceId = trimText(button?.dataset.invoiceId, 160) || ownerText('this invoice', 'ใบแจ้งหนี้นี้');
+    const attemptId = trimText(button?.dataset.attemptId, 160) || ownerText('this payment attempt', 'รายการชำระเงินนี้');
+    const subscriptionId = trimText(button?.dataset.subscriptionId, 160) || ownerText('this subscription', 'การสมัครใช้นี้');
+    const deadLetterCode = trimText(button?.dataset.purchaseCode || button?.dataset.code, 160) || ownerText('this dead-letter job', 'งานค้างผิดปกตินี้');
+    const targetStatus = formatOwnerActionStatus(trimText(button?.dataset.targetStatus, 80));
+
+    if (action === 'set-tenant-status') {
+      return ownerText(`Change ${tenantLabel} to ${targetStatus}?`, `เปลี่ยนสถานะของ ${tenantLabel} เป็น ${targetStatus} ใช่หรือไม่?`);
+    }
+    if (action === 'reissue-runtime-token') {
+      return ownerText(`Issue a new setup token for ${runtimeLabel}? Existing device binding may need to reconnect.`, `ออก setup token ใหม่ให้ ${runtimeLabel} ใช่หรือไม่? เครื่องที่ผูกอยู่เดิมอาจต้องเชื่อมต่อใหม่`);
+    }
+    if (action === 'reset-runtime-binding') {
+      return ownerText(`Reset the device binding for ${runtimeLabel}?`, `รีเซ็ตการผูกเครื่องของ ${runtimeLabel} ใช่หรือไม่?`);
+    }
+    if (action === 'revoke-runtime') {
+      return ownerText(`Revoke the active token or credential for ${runtimeLabel}?`, `ยกเลิก token หรือ credential ของ ${runtimeLabel} ใช่หรือไม่?`);
+    }
+    if (action === 'restart-managed-service') {
+      return ownerText(`Restart ${runtimeLabel} now?`, `รีสตาร์ต ${runtimeLabel} ตอนนี้ใช่หรือไม่?`);
+    }
+    if (action === 'revoke-admin-session') {
+      return ownerText(`Revoke the current session for ${userLabel}?`, `ยกเลิกเซสชันของ ${userLabel} ใช่หรือไม่?`);
+    }
+    if (action === 'clear-acknowledged-notifications') {
+      return ownerText('Clear all acknowledged Owner notifications now?', 'ล้างการแจ้งเตือน Owner ที่รับทราบแล้วทั้งหมดใช่หรือไม่?');
+    }
+    if (action === 'update-billing-invoice-status') {
+      return ownerText(`Update ${invoiceId} to ${targetStatus}?`, `อัปเดต ${invoiceId} เป็นสถานะ ${targetStatus} ใช่หรือไม่?`);
+    }
+    if (action === 'update-payment-attempt-status') {
+      return ownerText(`Update ${attemptId} to ${targetStatus}?`, `อัปเดต ${attemptId} เป็นสถานะ ${targetStatus} ใช่หรือไม่?`);
+    }
+    if (action === 'retry-billing-checkout') {
+      return ownerText(`Create a new checkout session for ${tenantLabel}?`, `สร้าง checkout session ใหม่ให้ ${tenantLabel} ใช่หรือไม่?`);
+    }
+    if (action === 'cancel-billing-subscription') {
+      return ownerText(`Cancel ${subscriptionId} for ${tenantLabel}?`, `ยกเลิก ${subscriptionId} ของ ${tenantLabel} ใช่หรือไม่?`);
+    }
+    if (action === 'reactivate-billing-subscription') {
+      return ownerText(`Reactivate ${subscriptionId} for ${tenantLabel}?`, `เปิดใช้งาน ${subscriptionId} ของ ${tenantLabel} อีกครั้งใช่หรือไม่?`);
+    }
+    if (action === 'retry-dead-letter') {
+      return ownerText(`Retry dead-letter job ${deadLetterCode} for ${tenantLabel}?`, `ส่งงานค้างผิดปกติ ${deadLetterCode} ของ ${tenantLabel} กลับเข้าคิวใช่หรือไม่?`);
+    }
+    if (action === 'clear-dead-letter') {
+      return ownerText(`Delete dead-letter job ${deadLetterCode} for ${tenantLabel}?`, `ลบงานค้างผิดปกติ ${deadLetterCode} ของ ${tenantLabel} ใช่หรือไม่?`);
+    }
+    return '';
+  }
+
+  function confirmOwnerAction(action, button) {
+    const message = buildOwnerActionConfirmMessage(action, button);
+    if (!message || typeof window.confirm !== 'function') {
+      return true;
+    }
+    return window.confirm(message);
   }
 
   const OWNER_ACTIVE_TEXT_MAP = {
@@ -497,6 +777,47 @@
     'Cycle': 'รอบบิล',
     'Amount': 'ยอดเงิน',
     'Expiring accounts': 'บัญชีที่ใกล้ต่ออายุ',
+    'Subscription lifecycle': 'วงจรการสมัครใช้งาน',
+    'Renewals and billing watch': 'การต่ออายุและการเฝ้าระวังการเงิน',
+    'Subscriptions and renewals': 'การสมัครใช้งานและการต่ออายุ',
+    'Follow contracts that are expiring, suspended, or at risk before they become service-impacting incidents.': 'ติดตามสัญญาที่ใกล้หมดอายุ ถูกระงับ หรือเริ่มมีความเสี่ยงก่อนจะกลายเป็นปัญหาที่กระทบบริการ',
+    'Commercial risk': 'ความเสี่ยงเชิงพาณิชย์',
+    'Billing follow-up': 'รายการติดตามการเงิน',
+    'Expiring soon': 'ใกล้หมดอายุ',
+    'Within 14 days': 'ภายใน 14 วัน',
+    'Package catalog': 'แค็ตตาล็อกแพ็กเกจ',
+    'Active package definitions': 'แพ็กเกจที่เปิดใช้อยู่',
+    'Review package usage before changing entitlement definitions or moving tenants across plans.': 'ทบทวนการใช้งานแพ็กเกจก่อนเปลี่ยนสิทธิ์หรือย้ายลูกค้าข้ามแผน',
+    'Use this registry to move between customer records, entitlement posture, renewals, and support context.': 'ใช้ทะเบียนนี้สลับดูข้อมูลลูกค้า สิทธิ์ใช้งาน การต่ออายุ และบริบทงานดูแลลูกค้าได้จากจุดเดียว',
+    'No tenant selected': 'ยังไม่ได้เลือกลูกค้า',
+    'Open a tenant route from the registry to load a focused tenant dossier here.': 'เปิดเส้นทางของลูกค้าจากทะเบียนเพื่อโหลดแฟ้มข้อมูลที่ต้องโฟกัสไว้ตรงนี้',
+    'Recovery queue': 'คิวกู้คืนรายได้',
+    'Resolve billing issues before they grow': 'จัดการปัญหาการเงินก่อนลุกลาม',
+    'Prioritized billing follow-up items surface the owner actions that already exist in the workspace so support can recover revenue faster.': 'รายการติดตามการเงินที่จัดลำดับแล้วจะพาไปยัง action เดิมใน workspace เพื่อให้ทีมงานกู้รายได้ได้เร็วขึ้น',
+    'No urgent billing recovery work': 'ยังไม่มีงานกู้รายได้เร่งด่วน',
+    'No urgent billing recovery work is waiting right now.': 'ตอนนี้ยังไม่มีงานกู้รายได้เร่งด่วนที่รออยู่',
+    'Platform policy': 'นโยบายแพลตฟอร์ม',
+    'Shared settings and automation': 'การตั้งค่ากลางและระบบอัตโนมัติ',
+    'Review env policy, managed services, admin users, and automation posture while keeping the current backend contract intact.': 'ทบทวนนโยบาย env บริการที่จัดการอยู่ บัญชีผู้ดูแล และสถานะระบบอัตโนมัติ โดยยังคงสัญญา backend เดิมไว้',
+    'Admin users': 'บัญชีผู้ดูแล',
+    'Reload policy': 'นโยบายการโหลดใหม่',
+    'Policy context': 'บริบทของนโยบาย',
+    'Settings changes still flow through existing env and auth mutations.': 'การเปลี่ยนค่าตั้งค่ายังคงวิ่งผ่าน mutation ของ env และ auth เดิม',
+    Active: 'ใช้งานอยู่',
+    Role: 'บทบาท',
+    'Tenant scope': 'ขอบเขตลูกค้า',
+    Platform: 'แพลตฟอร์ม',
+    'Admin Web': 'เว็บเจ้าของระบบ',
+    'Standalone owner and tenant admin web runtime': 'เว็บแยกของเจ้าของระบบและผู้ดูแลลูกค้า',
+    'Discord command and automation runtime': 'รันไทม์คำสั่ง Discord และงานอัตโนมัติ',
+    Worker: 'ตัวประมวลผลงาน',
+    'Delivery and background job worker': 'ตัวประมวลผลงานส่งของและงานเบื้องหลัง',
+    'SCUM Watcher': 'ตัวติดตาม SCUM.log',
+    'SCUM log watcher and sync runtime': 'รันไทม์ติดตาม SCUM log และซิงก์ข้อมูล',
+    'Server-side sync, config, backup, and server control runtime': 'รันไทม์ฝั่งเซิร์ฟเวอร์สำหรับซิงก์ คอนฟิก สำรองข้อมูล และควบคุมเซิร์ฟเวอร์',
+    'Player Portal': 'พอร์ทัลผู้เล่น',
+    'Standalone public and player portal': 'เว็บสาธารณะและพอร์ทัลผู้เล่นแบบแยก',
+    'Execution runtime for in-game delivery and managed SCUM commands': 'รันไทม์สำหรับการส่งของในเกมและคำสั่ง SCUM แบบควบคุม',
     'Primary action': 'งานหลัก',
     'Update renewals without leaving this page': 'อัปเดตการต่ออายุได้จากหน้านี้ทันที',
     'Handle the accounts that are expiring, past due, or high-risk first, then open the customer record only when you need more detail.': 'เริ่มจากบัญชีที่ใกล้หมดอายุ ค้างชำระ หรือมีความเสี่ยงสูงก่อน แล้วค่อยเปิดหน้าลูกค้าเมื่อจำเป็นต้องดูรายละเอียดเพิ่ม',
@@ -562,15 +883,10 @@
     'Standalone owner and tenant owner web bot': 'เว็บแยกของเจ้าของระบบและผู้ดูแลลูกค้า',
     'Discord Bot': 'บอต Discord',
     'Discord command and automation bot': 'บอตคำสั่ง Discord และงานอัตโนมัติ',
-    Worker: 'ตัวประมวลผลงาน',
-    'Delivery and background job worker': 'ตัวประมวลผลงานส่งของและงานเบื้องหลัง',
-    'SCUM Watcher': 'ตัวติดตาม SCUM.log',
     'SCUM log watcher and sync bot': 'บอตติดตาม SCUM.log และซิงก์ข้อมูล',
     'Server-side sync, config, backup, and server control bot': 'บอตฝั่งเซิร์ฟเวอร์สำหรับซิงก์ คอนฟิก สำรองข้อมูล และควบคุมเซิร์ฟเวอร์',
     'Console Agent': 'บอตคอนโซล',
     'Execution bot for managed SCUM commands': 'บอตประมวลคำสั่ง SCUM ที่ระบบดูแลให้',
-    'Player Portal': 'พอร์ทัลผู้เล่น',
-    'Standalone public and player portal': 'เว็บสาธารณะและพอร์ทัลผู้เล่นแบบแยก',
     'ยอดรับเงินเดือนนี้ / MRR ล่าสุด': 'ยอดรับเงินเดือนนี้ / รายได้ประจำล่าสุด',
     'Owner เห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุม registry, binding และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน': 'เจ้าของระบบมองเห็นบอตส่งของและบอตเซิร์ฟเวอร์ทั้งแพลตฟอร์มจากมุมทะเบียนบริการ การผูกเครื่อง และวงจรชีวิตของโทเค็น โดยไม่ปนกับปุ่มคุมเซิร์ฟเวอร์รายวัน',
     'ใช้ workspace นี้เพื่อตัดเซสชันที่ยังใช้งาน รับทราบการแจ้งเตือน และตรวจหลักฐานก่อนที่ปัญหาระดับแพลตฟอร์มจะลุกลาม': 'ใช้พื้นที่งานนี้เพื่อตัดเซสชันที่ยังใช้งาน รับทราบการแจ้งเตือน และตรวจหลักฐานก่อนที่ปัญหาระดับแพลตฟอร์มจะลุกลาม',
@@ -624,6 +940,13 @@
     Provider: 'ผู้ให้บริการ',
     Collected: 'รับเงินแล้ว',
     'Open invoices': 'ใบแจ้งหนี้ที่ยังเปิด',
+    'Disputed invoices': 'ใบแจ้งหนี้ที่มีข้อโต้แย้ง',
+    'Refunded invoices': 'ใบแจ้งหนี้ที่คืนเงินแล้ว',
+    'Invoices waiting for billing review': 'ใบแจ้งหนี้ที่รอฝ่ายการเงินตรวจสอบ',
+    'Invoices already refunded': 'ใบแจ้งหนี้ที่คืนเงินแล้ว',
+    'Cancel subscription': 'ยกเลิกการสมัครใช้งาน',
+    'Reactivate subscription': 'เปิดการสมัครใช้งานอีกครั้ง',
+    'No extra actions': 'ไม่มีคำสั่งเพิ่มเติม',
   });
 
   Object.assign(OWNER_ACTIVE_TEXT_MAP, {
@@ -688,12 +1011,16 @@
       .replace(/\bactive\b/gu, 'ใช้งานอยู่')
       .replace(/\bsuccess\b/gu, 'ปกติ')
       .replace(/Invoice:\s*no-invoice/gu, 'ใบแจ้งหนี้: ไม่มี')
+      .replace(/(\d+)\s+failed payment attempts need recovery/gu, '$1 รายการชำระเงินล้มเหลวและต้องติดตาม')
+      .replace(/(\d+)\s+invoices are still open or past due/gu, '$1 ใบแจ้งหนี้ยังเปิดอยู่หรือค้างชำระ')
+      .replace(/(\d+)\s+invoices were marked disputed/gu, '$1 ใบแจ้งหนี้ถูกทำเครื่องหมายว่ามีข้อโต้แย้ง')
+      .replace(/(\d+)\s+invoices were marked refunded/gu, '$1 ใบแจ้งหนี้ถูกคืนเงินแล้ว')
       .replace(/(\d+)\s+paid invoices/gu, '$1 ใบแจ้งหนี้ที่จ่ายแล้ว')
       .replace(/(\d+)\s+failed payment attempts/gu, '$1 รายการชำระที่ล้มเหลว');
   }
 
   function normalizeOwnerActiveText(value) {
-    return String(finalizeOwnerActiveText(value) || '').trim()
+    return repairMojibakeText(finalizeOwnerActiveText(value)).trim()
       .replace(/\bBOT_LOG_DELIVERY\b/gu, 'บันทึกบอท + ส่งของ')
       .replace(/\bBOT_LOG\b/gu, 'บันทึกบอท')
       .replace(/\bFULL_OPTION\b/gu, 'จัดการเต็มรูปแบบ')
@@ -745,6 +1072,10 @@
 
   function localizeOwnerElementText(node) {
     if (!(node instanceof Element)) return;
+    if (node.closest('[data-owner-static-copy="1"]')) return;
+    const insideOwnerShell = node.closest('.ownerx-shell');
+    const insideControlWorkspace = node.closest('#owner-control-workspace');
+    if (insideOwnerShell && !insideControlWorkspace) return;
     const tags = new Set(['A', 'BUTTON', 'TH', 'TD', 'LABEL', 'OPTION', 'P', 'SPAN', 'STRONG', 'SMALL', 'H1', 'H2', 'H3', 'H4', 'DIV', 'LI']);
     if (tags.has(node.tagName) && node.children.length === 0) {
       const rawText = trimText(node.textContent, 400);
@@ -772,11 +1103,63 @@
 
   function localizeOwnerActivePage(scopeNode = document) {
     if (!(scopeNode instanceof Element || scopeNode instanceof Document)) return;
+    const rootNode = scopeNode instanceof Document ? scopeNode.documentElement : scopeNode;
     scopeNode.querySelectorAll('*').forEach((node) => localizeOwnerElementText(node));
+    if (rootNode && typeof document !== 'undefined' && typeof NodeFilter !== 'undefined') {
+      const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        const parent = textNode.parentElement;
+        if (parent) {
+          const insideOwnerShell = parent.closest('.ownerx-shell');
+          const insideControlWorkspace = parent.closest('#owner-control-workspace');
+          if (!parent.closest('[data-owner-static-copy="1"]') && (!insideOwnerShell || insideControlWorkspace)) {
+            const rawText = trimText(textNode.nodeValue, 400);
+            const translated = normalizeOwnerActiveTextV2(rawText);
+            if (translated && translated !== rawText) {
+              textNode.nodeValue = textNode.nodeValue.replace(rawText, translated);
+            }
+          }
+        }
+        textNode = walker.nextNode();
+      }
+    }
+  }
+
+  let ownerControlWorkspaceLocaleObserver = null;
+
+  function observeOwnerControlWorkspaceLocalization(rootNode) {
+    if (ownerControlWorkspaceLocaleObserver) {
+      ownerControlWorkspaceLocaleObserver.disconnect();
+      ownerControlWorkspaceLocaleObserver = null;
+    }
+    if (!(rootNode instanceof Element) || typeof MutationObserver === 'undefined') return;
+    ownerControlWorkspaceLocaleObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'characterData') {
+          localizeOwnerActivePage(rootNode);
+          return;
+        }
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof Element) {
+              localizeOwnerActivePage(node);
+            } else if (node instanceof Text && node.parentElement) {
+              localizeOwnerActivePage(node.parentElement);
+            }
+          });
+        }
+      }
+    });
+    ownerControlWorkspaceLocaleObserver.observe(rootNode, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
   }
 
   function escapeHtml(value) {
-    return String(value ?? '')
+    return repairMojibakeText(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -785,7 +1168,7 @@
   }
 
   function trimText(value, maxLen = 240) {
-    const text = String(value || '').trim();
+    const text = repairMojibakeText(value).trim();
     if (!text) return '';
     return text.length <= maxLen ? text : text.slice(0, maxLen);
   }
@@ -900,6 +1283,64 @@
     setStatus(t('owner.app.status.ready', 'พร้อมใช้งาน'), 'success');
   }
 
+  function resolveOwnerRouteFromSegments(rawSegments) {
+    const segments = Array.isArray(rawSegments) ? rawSegments.filter(Boolean) : [];
+    if (!segments.length) return '';
+    if (segments[0] === 'dashboard') return 'overview';
+    if (segments[0] === 'packages' && segments[1] === 'create') return 'packages-create';
+    if (segments[0] === 'packages' && segments[1] === 'entitlements') return 'packages-entitlements';
+    if (segments[0] === 'packages' && segments[1]) {
+      return `package-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'tenants' && segments[1] === 'new') {
+      return 'create-tenant';
+    }
+    if (segments[0] === 'tenants' && segments[1]) {
+      return `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'support' && segments[1]) {
+      return `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'subscriptions' && segments[1] === 'registry') return 'subscriptions-registry';
+    if (segments[0] === 'subscriptions' && segments[1]) {
+      return `subscription-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'billing' && segments[1] === 'recovery') return 'billing-recovery';
+    if (segments[0] === 'billing' && segments[1] === 'invoice' && segments[2]) {
+      return `invoice-${decodeURIComponent(segments[2]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'billing' && segments[1] === 'invoice') return 'invoice-detail';
+    if (segments[0] === 'billing' && segments[1] === 'attempt' && segments[2]) {
+      return `attempt-${decodeURIComponent(segments[2]).trim().toLowerCase()}`;
+    }
+    if (segments[0] === 'billing' && segments[1] === 'attempt') return 'attempt-detail';
+    if (segments[0] === 'billing' && segments[1] === 'attempts') return 'billing-attempts';
+    if (segments[0] === 'runtime' && segments[1]) {
+      const runtimeSegment = decodeURIComponent(segments[1]).trim().toLowerCase();
+      if (runtimeSegment === 'overview') return 'runtime';
+      if (runtimeSegment === 'create-server') return 'runtime-create-server';
+      if (runtimeSegment === 'provision-runtime') return 'runtime-provision-runtime';
+      return runtimeSegment;
+    }
+    if (segments[0] === 'analytics' && segments[1] === 'overview') return 'analytics';
+    if (segments[0] === 'analytics' && segments[1] === 'risk') return 'analytics-risk';
+    if (segments[0] === 'analytics' && segments[1] === 'packages') return 'analytics-packages';
+    if (segments[0] === 'recovery' && segments[1] === 'overview') return 'recovery';
+    if (segments[0] === 'recovery' && segments[1] === 'create') return 'recovery-create';
+    if (segments[0] === 'recovery' && segments[1] === 'preview') return 'recovery-preview';
+    if (segments[0] === 'recovery' && segments[1] === 'restore') return 'recovery-restore';
+    if (segments[0] === 'recovery' && segments[1] === 'history') return 'recovery-history';
+    if (segments[0] === 'security' && segments[1] === 'overview') return 'security';
+    if (segments[0] === 'settings' && segments[1] === 'overview') return 'settings';
+    if (segments[0] === 'settings' && segments[1] === 'admin-users') return 'settings-admin-users';
+    if (segments[0] === 'settings' && segments[1] === 'services') return 'settings-services';
+    if (segments[0] === 'settings' && segments[1] === 'access-policy') return 'settings-access-policy';
+    if (segments[0] === 'settings' && segments[1] === 'portal-policy') return 'settings-portal-policy';
+    if (segments[0] === 'settings' && segments[1] === 'billing-policy') return 'settings-billing-policy';
+    if (segments[0] === 'settings' && segments[1] === 'runtime-policy') return 'settings-runtime-policy';
+    return PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+  }
+
   function getRawPathRoute() {
     const path = String(window.location.pathname || '').trim().toLowerCase();
     if (!path.startsWith('/owner')) return '';
@@ -907,13 +1348,11 @@
     if (!relative) return '';
     const segments = relative.split('/').filter(Boolean);
     if (!segments.length) return '';
-    if (segments[0] === 'tenants' && segments[1]) {
-      return `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
-    }
-    if (segments[0] === 'support' && segments[1]) {
-      return `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
-    }
-    return PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+    return resolveOwnerRouteFromSegments(segments);
+  }
+
+  function isOwnerStitchHost() {
+    return Boolean(window.__OWNER_STITCH_ROUTE__);
   }
 
   function isKnownOwnerRouteAlias(rawRoute) {
@@ -925,11 +1364,16 @@
         || normalizedRoute === 'create-tenant'
         || normalizedRoute.startsWith('tenant-')
         || normalizedRoute.startsWith('support-')
+        || normalizedRoute.startsWith('package-')
+        || normalizedRoute.startsWith('subscription-')
+        || normalizedRoute.startsWith('invoice-')
+        || normalizedRoute.startsWith('attempt-')
       )
     );
   }
 
   function bootstrapLegacyOwnerRoute() {
+    if (isOwnerStitchHost()) return;
     const rawHashRoute = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
     if (!isKnownOwnerRouteAlias(rawHashRoute)) return;
     const canonicalPath = buildCanonicalOwnerPath(rawHashRoute, resolveOwnerPage(rawHashRoute));
@@ -940,7 +1384,15 @@
     const raw = String(rawRoute || '').trim().toLowerCase();
     if (!raw) return 'dashboard';
     if (PAGE_ALIASES[raw]) return PAGE_ALIASES[raw];
-    if (raw === 'create-tenant' || raw.startsWith('tenant-') || raw.startsWith('support-')) {
+    if (
+      raw === 'create-tenant'
+      || raw.startsWith('tenant-')
+      || raw.startsWith('support-')
+      || raw.startsWith('package-')
+      || raw.startsWith('subscription-')
+      || raw.startsWith('invoice-')
+      || raw.startsWith('attempt-')
+    ) {
       return 'tenants';
     }
     return 'dashboard';
@@ -954,24 +1406,56 @@
     if (normalizedRoute.startsWith('support-')) {
       return `/owner/support/${encodeURIComponent(normalizedRoute.slice('support-'.length))}`;
     }
-    if (normalizedRoute === 'packages') return '/owner/packages';
-    if (normalizedRoute === 'subscriptions' || normalizedRoute === 'billing') return '/owner/subscriptions';
-    if (normalizedRoute === 'audit' || normalizedRoute === 'security') return '/owner/audit';
-    if (normalizedRoute === 'settings') return '/owner/settings';
-    if (normalizedRoute === 'observability' || normalizedRoute === 'analytics') return '/owner/analytics';
-    if (
-      normalizedRoute === 'runtime'
-      || normalizedRoute === 'runtime-health'
-      || normalizedRoute === 'incidents'
-      || normalizedRoute === 'jobs'
-      || normalizedRoute === 'support'
-      || normalizedRoute === 'control'
-      || normalizedRoute === 'access'
-      || normalizedRoute === 'recovery'
-      || normalizedRoute === 'diagnostics'
-    ) {
-      return '/owner/runtime';
+    if (normalizedRoute.startsWith('package-')) {
+      return `/owner/packages/${encodeURIComponent(normalizedRoute.slice('package-'.length))}`;
     }
+    if (normalizedRoute.startsWith('subscription-')) {
+      return `/owner/subscriptions/${encodeURIComponent(normalizedRoute.slice('subscription-'.length))}`;
+    }
+    if (normalizedRoute.startsWith('invoice-')) {
+      return `/owner/billing/invoice/${encodeURIComponent(normalizedRoute.slice('invoice-'.length))}`;
+    }
+    if (normalizedRoute.startsWith('attempt-')) {
+      return `/owner/billing/attempt/${encodeURIComponent(normalizedRoute.slice('attempt-'.length))}`;
+    }
+    if (normalizedRoute === 'create-tenant') return '/owner/tenants/new';
+    if (normalizedRoute === 'packages') return '/owner/packages';
+    if (normalizedRoute === 'packages-create') return '/owner/packages/create';
+    if (normalizedRoute === 'packages-entitlements') return '/owner/packages/entitlements';
+    if (normalizedRoute === 'subscriptions') return '/owner/subscriptions';
+    if (normalizedRoute === 'subscriptions-registry') return '/owner/subscriptions/registry';
+    if (normalizedRoute === 'billing') return '/owner/billing';
+    if (normalizedRoute === 'billing-recovery') return '/owner/billing/recovery';
+    if (normalizedRoute === 'billing-attempts') return '/owner/billing/attempts';
+    if (normalizedRoute === 'audit') return '/owner/audit';
+    if (normalizedRoute === 'security') return '/owner/security/overview';
+    if (normalizedRoute === 'settings') return '/owner/settings/overview';
+    if (normalizedRoute === 'settings-admin-users') return '/owner/settings/admin-users';
+    if (normalizedRoute === 'settings-services') return '/owner/settings/services';
+    if (normalizedRoute === 'settings-access-policy') return '/owner/settings/access-policy';
+    if (normalizedRoute === 'settings-portal-policy') return '/owner/settings/portal-policy';
+    if (normalizedRoute === 'settings-billing-policy') return '/owner/settings/billing-policy';
+    if (normalizedRoute === 'settings-runtime-policy') return '/owner/settings/runtime-policy';
+    if (normalizedRoute === 'automation') return '/owner/automation';
+    if (normalizedRoute === 'observability' || normalizedRoute === 'analytics') return '/owner/analytics/overview';
+    if (normalizedRoute === 'analytics-risk') return '/owner/analytics/risk';
+    if (normalizedRoute === 'analytics-packages') return '/owner/analytics/packages';
+    if (normalizedRoute === 'recovery') return '/owner/recovery/overview';
+    if (normalizedRoute === 'recovery-create') return '/owner/recovery/create';
+    if (normalizedRoute === 'recovery-preview') return '/owner/recovery/preview';
+    if (normalizedRoute === 'recovery-restore') return '/owner/recovery/restore';
+    if (normalizedRoute === 'recovery-history') return '/owner/recovery/history';
+    if (normalizedRoute === 'runtime-create-server') return '/owner/runtime/create-server';
+    if (normalizedRoute === 'runtime-provision-runtime') return '/owner/runtime/provision-runtime';
+    if (normalizedRoute === 'agents-bots') return '/owner/runtime/agents-bots';
+    if (normalizedRoute === 'fleet-diagnostics') return '/owner/runtime/fleet-diagnostics';
+    if (normalizedRoute === 'runtime' || normalizedRoute === 'runtime-health') return '/owner/runtime/overview';
+    if (normalizedRoute === 'incidents') return '/owner/incidents';
+    if (normalizedRoute === 'jobs') return '/owner/jobs';
+    if (normalizedRoute === 'support') return '/owner/support';
+    if (normalizedRoute === 'control') return '/owner/control';
+    if (normalizedRoute === 'access') return '/owner/access';
+    if (normalizedRoute === 'diagnostics') return '/owner/diagnostics';
     if (
       normalizedRoute === 'tenants'
       || normalizedRoute === 'create-tenant'
@@ -996,12 +1480,8 @@
         const segments = relative.split('/').filter(Boolean);
         if (!segments.length) {
           rawRoute = 'overview';
-        } else if (segments[0] === 'tenants' && segments[1]) {
-          rawRoute = `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
-        } else if (segments[0] === 'support' && segments[1]) {
-          rawRoute = `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
         } else {
-          rawRoute = PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+          rawRoute = resolveOwnerRouteFromSegments(segments);
         }
       } else {
         rawRoute = target.replace(/^#/, '').trim().toLowerCase();
@@ -1073,6 +1553,27 @@
     return normalizeOwnerActiveTextV2(normalizedStatus);
   }
 
+  function resetOwnerSupportCaseCache() {
+    state.ownerUi.supportCaseTenantId = '';
+    state.ownerUi.supportCase = null;
+    state.ownerUi.supportCaseLoading = false;
+  }
+
+  function buildOwnerIdentityFollowupReason(action, existingReason) {
+    const reason = trimText(existingReason, 400);
+    if (action === 'resolve-identity-followup') {
+      return reason
+        ? `Owner resolved follow-up: ${reason}`
+        : 'Owner resolved the identity follow-up from the support workspace.';
+    }
+    if (action === 'reassign-identity-followup') {
+      return reason
+        ? `Owner reassigned follow-up to tenant: ${reason}`
+        : 'Owner reassigned the identity follow-up to the tenant workspace.';
+    }
+    return reason;
+  }
+
   function buildFormPayload(form) {
     const payload = {};
     const formData = new FormData(form);
@@ -1124,6 +1625,7 @@
       currentRoute: rawRoute,
       selectedRuntimeKey: state.ownerUi.selectedRuntimeKey,
       runtimeBootstrap: state.ownerUi.runtimeBootstrap,
+      automationPreview: state.ownerUi.automationPreview,
       supportCase: state.ownerUi.supportCase,
       supportCaseLoading: state.ownerUi.supportCaseLoading,
       supportDeadLetters: state.ownerUi.supportDeadLetters,
@@ -1268,6 +1770,127 @@
     const action = trimText(form?.dataset.ownerForm, 80);
     if (!action) return;
     const payload = buildStructuredFormPayload(form);
+    if (action === 'backup-create') {
+      if (!window.confirm('Create a new platform backup now?')) return;
+      state.ownerUi.restorePreview = null;
+      await ownerMutation('/admin/api/backup/create', {
+        note: trimText(payload.note, 260) || null,
+        includeSnapshot: String(payload.includeSnapshot || 'true').trim().toLowerCase() !== 'false',
+      });
+      await refreshState({ silent: true });
+      setStatus('สร้าง backup แล้ว', 'success');
+        navigateOwnerRoute('/owner/recovery/overview');
+      return;
+    }
+    if (action === 'backup-preview') {
+      const backup = trimText(payload.backup, 260);
+      if (!backup) {
+        throw new Error('เลือก backup ก่อนรัน dry-run preview');
+      }
+      const preview = await ownerMutation('/admin/api/backup/restore', {
+        backup,
+        dryRun: true,
+      });
+      state.ownerUi.restorePreview = preview || null;
+      renderCurrentPage();
+      setStatus('สร้าง restore preview แล้ว', 'success');
+      navigateOwnerRoute('/owner/recovery/overview');
+      return;
+    }
+    if (action === 'backup-restore') {
+      const backup = trimText(payload.backup, 260);
+      const confirmBackup = trimText(payload.confirmBackup, 260);
+      const previewToken = trimText(payload.previewToken, 260);
+      if (!backup) {
+        throw new Error('ต้องเลือก backup จาก preview ก่อนกู้คืน');
+      }
+      if (!previewToken) {
+        throw new Error('ต้องรัน dry-run preview ก่อนกู้คืน');
+      }
+      if (!confirmBackup) {
+        throw new Error('พิมพ์ชื่อ backup เพื่อยืนยันการกู้คืน');
+      }
+      if (!window.confirm(`Restore ${backup} now? This action applies the previewed backup to the shared control plane.`)) return;
+      await ownerMutation('/admin/api/backup/restore', {
+        backup,
+        dryRun: false,
+        confirmBackup,
+        previewToken,
+      });
+      state.ownerUi.restorePreview = null;
+      await refreshState({ silent: true });
+      setStatus('รัน restore แล้ว', 'success');
+        navigateOwnerRoute('/owner/recovery/overview');
+      return;
+    }
+    if (action === 'create-platform-server') {
+      const tenantId = trimText(payload.tenantId, 160);
+      const name = trimText(payload.name, 160);
+      if (!tenantId || !name) {
+        throw new Error('Tenant and server name are required');
+      }
+      const created = await ownerMutation('/owner/api/platform/server', {
+        tenantId,
+        name,
+        slug: trimText(payload.slug, 160) || null,
+        status: trimText(payload.status, 80) || 'active',
+        locale: trimText(payload.locale, 40) || 'th',
+        guildId: trimText(payload.guildId, 160) || null,
+      });
+      state.ownerUi.runtimeBootstrap = {
+        bootstrap: {
+          tenantId,
+          serverId: trimText(created?.id || created?.serverId, 160),
+          guildId: trimText(created?.guildId || payload.guildId, 160),
+          agentId: '',
+          runtimeKey: '',
+          displayName: '',
+        },
+      };
+      await refreshState({ silent: true });
+      setStatus(`Created server record: ${trimText(created?.name || name, 160)}`, 'success');
+      navigateOwnerRoute('/owner/runtime/provision-runtime');
+      return;
+    }
+    if (action === 'provision-runtime') {
+      const runtimeKind = trimText(payload.runtimeKind, 80).toLowerCase();
+      const strictProfile = runtimeKind === 'delivery-agents'
+        ? { role: 'execute', scope: 'execute_only', runtimeKind: 'delivery-agents' }
+        : runtimeKind === 'server-bots'
+          ? { role: 'sync', scope: 'sync_only', runtimeKind: 'server-bots' }
+          : null;
+      if (!strictProfile) {
+        throw new Error('Choose a valid runtime role before issuing a setup token');
+      }
+      const tenantId = trimText(payload.tenantId, 160);
+      const serverId = trimText(payload.serverId, 160);
+      const agentId = trimText(payload.agentId, 160);
+      const runtimeKey = trimText(payload.runtimeKey, 160);
+      const displayName = trimText(payload.displayName, 160) || runtimeKey || agentId;
+      const minimumVersion = trimText(payload.minimumVersion, 80) || '1.0.0';
+      if (!tenantId || !serverId || !agentId || !runtimeKey) {
+        throw new Error('Tenant, server ID, agent ID, and runtime key are required');
+      }
+      const result = await ownerMutation('/owner/api/platform/agent-provision', {
+        tenantId,
+        serverId,
+        guildId: trimText(payload.guildId, 160) || null,
+        agentId,
+        runtimeKey,
+        role: strictProfile.role,
+        scope: strictProfile.scope,
+        runtimeKind: strictProfile.runtimeKind,
+        displayName,
+        name: displayName,
+        minimumVersion,
+      });
+      state.ownerUi.selectedRuntimeKey = trimText(result?.bootstrap?.runtimeKey || runtimeKey, 160);
+      state.ownerUi.runtimeBootstrap = result;
+      await refreshState({ silent: true });
+      setStatus(`Issued setup token for ${displayName}`, 'success');
+      navigateOwnerRoute('/owner/runtime/provision-runtime');
+      return;
+    }
     if (action === 'create-tenant') {
       const created = await ownerMutation('/owner/api/platform/tenant', {
         name: payload.name,
@@ -1397,7 +2020,7 @@
         ? `บันทึกการตั้งค่าระบบ ${changedCount} รายการแล้ว${restartRequired ? ' (ต้องรีสตาร์ตบริการ)' : ''}`
         : 'ยังไม่มีการตั้งค่าระบบที่เปลี่ยนแปลง';
       setStatus(message, restartRequired ? 'warning' : 'success');
-      navigateOwnerRoute('/owner/settings');
+          navigateOwnerRoute('/owner/settings/overview');
       return;
     }
     if (action === 'upsert-admin-user') {
@@ -1410,17 +2033,18 @@
       });
       await refreshState({ silent: true });
       setStatus('บันทึกบัญชี Owner แล้ว', 'success');
-      navigateOwnerRoute('/owner/settings');
+          navigateOwnerRoute('/owner/settings/overview');
     }
   }
 
   async function handleOwnerAction(button) {
     const action = trimText(button?.dataset.ownerAction, 80);
     if (!action) return;
+    if (!confirmOwnerAction(action, button)) return;
     if (action === 'inspect-runtime') {
       state.ownerUi.selectedRuntimeKey = trimText(button.dataset.runtimeKey, 160);
       state.ownerUi.runtimeBootstrap = null;
-      navigateOwnerRoute('/owner/runtime');
+      navigateOwnerRoute('/owner/runtime/agents-bots');
       return;
     }
     if (action === 'set-tenant-status') {
@@ -1463,7 +2087,7 @@
       state.ownerUi.runtimeBootstrap = result;
       await refreshState({ silent: true });
       setStatus('ออก setup token ใหม่แล้ว', 'success');
-      navigateOwnerRoute('/owner/runtime');
+      navigateOwnerRoute('/owner/runtime/provision-runtime');
       return;
     }
     if (action === 'reset-runtime-binding') {
@@ -1475,7 +2099,7 @@
       state.ownerUi.runtimeBootstrap = null;
       await refreshState({ silent: true });
       setStatus('รีเซ็ตการผูกบริการแล้ว', 'success');
-      navigateOwnerRoute('/owner/runtime');
+      navigateOwnerRoute('/owner/runtime/agents-bots');
       return;
     }
     if (action === 'revoke-runtime') {
@@ -1493,7 +2117,7 @@
       state.ownerUi.runtimeBootstrap = null;
       await refreshState({ silent: true });
       setStatus('ยกเลิกสิทธิ์บริการแล้ว', 'success');
-      navigateOwnerRoute('/owner/runtime');
+      navigateOwnerRoute('/owner/runtime/agents-bots');
       return;
     }
     if (action === 'restart-managed-service') {
@@ -1502,7 +2126,27 @@
       });
       await refreshState({ silent: true });
       setStatus(`เริ่มรีสตาร์ตบริการแล้ว: ${trimText(button.dataset.serviceLabel, 160) || 'บริการ'}`, 'success');
-      navigateOwnerRoute('/owner/settings');
+          navigateOwnerRoute('/owner/settings/overview');
+      return;
+    }
+    if (action === 'run-platform-automation') {
+      const dryRun = trimText(button.dataset.dryRun, 8) === 'true';
+      if (!dryRun && !window.confirm('Run shared platform automation now?')) return;
+      const result = await ownerMutation('/admin/api/platform/automation/run', {
+        force: true,
+        dryRun,
+      });
+      state.ownerUi.automationPreview = result || null;
+      if (!dryRun) {
+        await refreshState({ silent: true });
+      }
+      const actionCount = Array.isArray(result?.actions) ? result.actions.length : 0;
+      const baseMessage = dryRun
+        ? `Generated automation dry-run report (${actionCount} action${actionCount === 1 ? '' : 's'})`
+        : `Ran shared automation (${actionCount} action${actionCount === 1 ? '' : 's'})`;
+      const detail = trimText(result?.reason, 120);
+      setStatus(detail ? `${baseMessage}: ${detail}` : baseMessage, dryRun ? 'success' : 'warning');
+      navigateOwnerRoute('/owner/settings/overview');
       return;
     }
     if (action === 'revoke-admin-session') {
@@ -1527,6 +2171,50 @@
       await refreshState({ silent: true });
       setStatus('รับทราบการแจ้งเตือนแล้ว', 'success');
       navigateOwnerRoute(returnRoute || '/owner/audit');
+      return;
+    }
+    if (action === 'resolve-identity-followup' || action === 'reassign-identity-followup') {
+      const tenantId = trimText(button.dataset.tenantId, 160);
+      const userId = trimText(button.dataset.userId, 160);
+      const playerLabel = trimText(button.dataset.playerLabel, 160) || userId;
+      const returnRoute = trimText(button.dataset.returnRoute, 240);
+      const followupAction = trimText(button.dataset.followupAction, 80) || 'review';
+      const supportIntent = trimText(button.dataset.supportIntent, 80) || 'review';
+      const currentOutcome = trimText(button.dataset.supportOutcome, 80) || 'reviewing';
+      const notificationId = trimText(button.dataset.notificationId, 160);
+      const acknowledged = trimText(button.dataset.acknowledged, 8) === '1';
+      if (!tenantId || !userId) {
+        throw new Error('Identity follow-up action is missing required fields');
+      }
+      const isResolve = action === 'resolve-identity-followup';
+      await ownerMutation('/admin/api/player/identity/review', {
+        tenantId,
+        userId,
+        steamId: trimText(button.dataset.steamId, 160) || null,
+        supportIntent,
+        supportOutcome: isResolve
+          ? 'resolved'
+          : currentOutcome === 'resolved'
+            ? 'reviewing'
+            : currentOutcome,
+        supportReason: buildOwnerIdentityFollowupReason(action, button.dataset.supportReason),
+        supportSource: 'owner',
+        followupAction,
+      });
+      if (notificationId && !acknowledged) {
+        await ownerMutation('/owner/api/notifications/ack', {
+          ids: [notificationId],
+        });
+      }
+      resetOwnerSupportCaseCache();
+      await refreshState({ silent: true });
+      setStatus(
+        isResolve
+          ? `Resolved identity follow-up for ${playerLabel}`
+          : `Reassigned identity follow-up for ${playerLabel}`,
+        isResolve ? 'success' : 'warning',
+      );
+      navigateOwnerRoute(returnRoute || `/owner/support/${encodeURIComponent(tenantId)}`);
       return;
     }
     if (action === 'clear-acknowledged-notifications') {
@@ -1604,12 +2292,17 @@
           action: 'retry-checkout',
         },
       });
-      const checkoutUrl = trimText(result?.session?.checkoutUrl, 800);
+      const checkoutUrl = resolveSafeWindowOpenUrl(result?.session?.checkoutUrl);
       if (checkoutUrl && typeof window.open === 'function') {
         window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
       }
       await refreshState({ silent: true });
-      setStatus(checkoutUrl ? 'เปิดลิงก์ชำระเงินใหม่ในแท็บใหม่แล้ว' : 'สร้างเซสชันชำระเงินใหม่แล้ว', 'success');
+      setStatus(
+        checkoutUrl
+          ? ownerText('Opened the new checkout link in a new tab.', 'เปิดลิงก์ชำระเงินใหม่ในแท็บใหม่แล้ว')
+          : ownerText('Created a new checkout session, but the returned link was not opened automatically.', 'สร้าง checkout session ใหม่แล้ว แต่ระบบไม่ได้เปิดลิงก์ให้อัตโนมัติ'),
+        checkoutUrl ? 'success' : 'warning',
+      );
       navigateOwnerRoute('/owner/subscriptions');
       return;
     }
@@ -1678,6 +2371,7 @@
     if (action === 'retry-dead-letter' || action === 'clear-dead-letter') {
       const tenantId = trimText(button.dataset.tenantId, 160);
       const code = trimText(button.dataset.purchaseCode || button.dataset.code, 160);
+      const returnRoute = trimText(button.dataset.returnRoute, 240);
       if (!tenantId || !code) {
         throw new Error('ข้อมูลการจัดการงานค้างผิดปกติยังไม่ครบ');
       }
@@ -1691,15 +2385,13 @@
           guildId: trimText(button.dataset.guildId, 160) || undefined,
         },
       );
-      state.ownerUi.supportCaseTenantId = '';
-      state.ownerUi.supportCase = null;
-      state.ownerUi.supportCaseLoading = false;
+      resetOwnerSupportCaseCache();
       state.ownerUi.supportDeadLettersTenantId = '';
       state.ownerUi.supportDeadLetters = [];
       state.ownerUi.supportDeadLettersLoading = false;
       await refreshState({ silent: true });
       setStatus(action === 'retry-dead-letter' ? `ส่งงานค้างผิดปกติกลับเข้าคิวแล้ว: ${code}` : `ล้างงานค้างผิดปกติแล้ว: ${code}`, 'success');
-      navigateOwnerRoute(`/owner/support/${encodeURIComponent(tenantId)}`);
+      navigateOwnerRoute(returnRoute || `/owner/support/${encodeURIComponent(tenantId)}`);
     }
   }
 
@@ -1709,55 +2401,22 @@
       const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
       return {
         ...(OWNER_ROUTE_PRESENTATION.support || {}),
-        workspaceLabel: 'งานดูแลลูกค้า',
-        kicker: 'งานดูแลลูกค้า',
-        title: 'งานดูแลลูกค้า',
-        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อตรวจสัญญาณช่วยเหลือ จุดติด onboarding และงานถัดไป โดยไม่ต้องสลับกลับไปหน้าแก้ข้อมูลทั่วไป',
-        primaryAction: { label: 'กลับไปหน้ารายละเอียดลูกค้า', href: `/owner/tenants/${tenantId}` },
+        workspaceLabel: 'Support context',
+        kicker: 'Customer support dossier',
+        title: 'Support context',
+        subtitle: 'Keep customer evidence, dead letters, and follow-up actions together without leaving the Owner surface.',
+        primaryAction: { label: 'Open tenant dossier', href: `/owner/tenants/${tenantId}` },
       };
     }
     if (normalizedRoute.startsWith('tenant-')) {
       const tenantId = encodeURIComponent(normalizedRoute.slice('tenant-'.length));
       return {
         ...(OWNER_ROUTE_PRESENTATION.tenants || {}),
-        workspaceLabel: 'รายละเอียดลูกค้า',
-        kicker: 'รายละเอียดลูกค้า',
-        title: 'รายละเอียดลูกค้า',
-        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อตรวจแพ็กเกจ การสมัครใช้ โควตา และสถานะบริการจากหน้าเดียว',
-        primaryAction: { label: 'เปิดหน้าลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
-      };
-    }
-    if (normalizedRoute.startsWith('support-')) {
-      const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
-      return {
-        ...(OWNER_ROUTE_PRESENTATION.support || {}),
-        workspaceLabel: 'งานดูแลลูกค้า',
-        kicker: 'งานดูแลลูกค้า',
-        title: 'งานดูแลลูกค้า',
-        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อคุยกับลูกค้า ดูหลักฐาน และตามงานต่อโดยไม่หลุดบริบท',
-        primaryAction: { label: 'กลับไปหน้าลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
-      };
-    }
-    if (normalizedRoute.startsWith('tenant-')) {
-      const tenantId = encodeURIComponent(normalizedRoute.slice('tenant-'.length));
-      return {
-        ...(OWNER_ROUTE_PRESENTATION.tenants || {}),
-        workspaceLabel: 'รายละเอียดลูกค้า',
-        kicker: 'รายละเอียดลูกค้า',
-        title: 'รายละเอียดลูกค้า',
-        subtitle: 'ใช้บริบทของลูกค้ารายนี้ต่อเพื่อดูสถานะเชิงพาณิชย์ งานดูแลลูกค้า และโควตาในหน้าเดียว',
-        primaryAction: { label: 'เปิดงานดูแลของลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
-      };
-    }
-    if (normalizedRoute.startsWith('support-')) {
-      const tenantId = encodeURIComponent(normalizedRoute.slice('support-'.length));
-      return {
-        ...(OWNER_ROUTE_PRESENTATION.support || {}),
-        workspaceLabel: 'เคสงานดูแลลูกค้า',
-        kicker: 'เคสงานดูแลลูกค้า',
-        title: 'เคสงานดูแลลูกค้า',
-        subtitle: 'ใช้บริบทของลูกค้ารายนี้เพื่อคุยกับลูกค้า ดูหลักฐาน และตามงานต่อโดยไม่หลุดบริบท',
-        primaryAction: { label: 'กลับไปดูลูกค้ารายนี้', href: `/owner/tenants/${tenantId}` },
+        workspaceLabel: 'Tenant dossier',
+        kicker: 'Tenant command context',
+        title: 'Tenant dossier',
+        subtitle: 'Review package posture, renewals, quota pressure, and follow-up actions for the selected tenant.',
+        primaryAction: { label: 'Open tenant dossier', href: `/owner/tenants/${tenantId}` },
       };
     }
     if (normalizedRoute && OWNER_ROUTE_PRESENTATION[normalizedRoute]) {
@@ -1786,6 +2445,8 @@
 
   function applyOwnerRoutePresentation(rawRoute, page) {
     const presentation = routePresentationFor(rawRoute, page);
+    const normalizedRoute = trimText(rawRoute, 120).toLowerCase();
+    const preserveStaticCopy = normalizedRoute === 'control' || normalizedRoute === 'access' || normalizedRoute === 'diagnostics';
     const workspaceNode = document.querySelector('.odv4-workspace-label');
     const kickerNode = document.querySelector('.odv4-pagehead .odv4-section-kicker');
     const titleNode = document.querySelector('.odv4-page-title');
@@ -1796,26 +2457,33 @@
 
     if (workspaceNode && presentation.workspaceLabel) {
       workspaceNode.textContent = String(presentation.workspaceLabel || '').trim();
+      if (preserveStaticCopy) workspaceNode.setAttribute('data-owner-static-copy', '1');
     }
     if (kickerNode && presentation.kicker) {
       kickerNode.textContent = String(presentation.kicker || '').trim();
+      if (preserveStaticCopy) kickerNode.setAttribute('data-owner-static-copy', '1');
     }
     if (titleNode && presentation.title) {
       titleNode.textContent = String(presentation.title || '').trim();
+      if (preserveStaticCopy) titleNode.setAttribute('data-owner-static-copy', '1');
     }
     if (subtitleNode && presentation.subtitle) {
       subtitleNode.textContent = String(presentation.subtitle || '').trim();
+      if (preserveStaticCopy) subtitleNode.setAttribute('data-owner-static-copy', '1');
     }
     if (primaryActionNode && presentation.primaryAction) {
       primaryActionNode.textContent = String(presentation.primaryAction.label || '').trim();
       primaryActionNode.setAttribute('href', String(presentation.primaryAction.href || '#').trim() || '#');
       delete primaryActionNode.dataset.ownerLocalFocus;
+      if (preserveStaticCopy) primaryActionNode.setAttribute('data-owner-static-copy', '1');
     }
     if (railHeaderNode && presentation.railHeader) {
       railHeaderNode.textContent = String(presentation.railHeader || '').trim();
+      if (preserveStaticCopy) railHeaderNode.setAttribute('data-owner-static-copy', '1');
     }
     if (railCopyNode && presentation.railCopy) {
       railCopyNode.textContent = String(presentation.railCopy || '').trim();
+      if (preserveStaticCopy) railCopyNode.setAttribute('data-owner-static-copy', '1');
     }
     applyRouteSectionPresentation(rawRoute, presentation);
   }
@@ -1829,12 +2497,8 @@
       const segments = relative.split('/').filter(Boolean);
       if (!segments.length) {
         rawRoute = 'overview';
-      } else if (segments[0] === 'tenants' && segments[1]) {
-        rawRoute = `tenant-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
-      } else if (segments[0] === 'support' && segments[1]) {
-        rawRoute = `support-${decodeURIComponent(segments[1]).trim().toLowerCase()}`;
       } else {
-        rawRoute = PATH_PAGE_ALIASES[segments[0]] || segments[segments.length - 1] || segments[0];
+        rawRoute = resolveOwnerRouteFromSegments(segments);
       }
     } else {
       const normalizedHash = targetValue.startsWith('#') ? targetValue : `#${targetValue}`;
@@ -1842,12 +2506,27 @@
     }
     const page = resolveOwnerPage(rawRoute);
     const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
-    if (window.location.pathname !== canonicalPath) {
-      window.history.pushState({}, '', canonicalPath);
+    if (isOwnerStitchHost()) {
+      const nextUrl = `${canonicalPath}${window.location.search || ''}`;
+      window.__OWNER_STITCH_ROUTE__ = canonicalPath;
+      if (`${window.location.pathname}${window.location.search || ''}` !== nextUrl) {
+        window.history.pushState({}, '', nextUrl);
+      }
       renderCurrentPage();
       focusCurrentRoute(rawRoute, page);
       return;
     }
+    if (window.location.pathname !== canonicalPath) {
+      window.history.pushState({}, '', canonicalPath);
+      renderCurrentPage();
+      focusCurrentRoute(rawRoute, page);
+    return;
+  }
+
+  function syncOwnerStitchRouteFromLocation() {
+    if (!isOwnerStitchHost()) return;
+    window.__OWNER_STITCH_ROUTE__ = String(window.location.pathname || '').trim() || '/owner';
+  }
     renderCurrentPage();
     focusCurrentRoute(rawRoute, page);
   }
@@ -1880,6 +2559,9 @@
       runtimeSupervisor,
       requestLogs,
       deliveryLifecycle,
+      restoreState,
+      restoreHistory,
+      backupFiles,
     ] = await Promise.all([
       optionalOwnerRead('/owner/api/platform/agents?limit=50', [], 2500),
       optionalOwnerRead('/owner/api/platform/agent-registry?limit=200', [], 2500),
@@ -1892,6 +2574,9 @@
       optionalOwnerRead('/owner/api/runtime/supervisor', null, 2500),
       optionalOwnerRead('/owner/api/observability/requests?limit=20&onlyErrors=true', { metrics: {}, items: [] }, 2500),
       optionalOwnerRead('/owner/api/delivery/lifecycle?limit=80&pendingOverdueMs=1200000', {}, 2500),
+      optionalOwnerRead('/admin/api/backup/restore/status', {}, 2500),
+      optionalOwnerRead('/admin/api/backup/restore/history?limit=12', [], 2500),
+      optionalOwnerRead('/admin/api/backup/list', [], 2500),
     ]);
     return {
       agents,
@@ -1905,6 +2590,9 @@
       runtimeSupervisor,
       requestLogs,
       deliveryLifecycle,
+      restoreState,
+      restoreHistory,
+      backupFiles,
     };
   }
 
@@ -1974,6 +2662,9 @@
         runtimeSupervisor: null,
         requestLogs: { metrics: {}, items: [] },
         deliveryLifecycle: {},
+        restoreState: {},
+        restoreHistory: [],
+        backupFiles: [],
         tenantQuotaSnapshots: [],
         __loadWarnings: loadWarnings,
       };
@@ -2025,10 +2716,28 @@
     }
   }
 
+  function publishOwnerStitchStateSnapshot(snapshot) {
+    const detail = snapshot && typeof snapshot === 'object'
+      ? {
+          ...snapshot,
+          updatedAt: Date.now(),
+        }
+      : {
+          payload: null,
+          rawRoute: '',
+          page: '',
+          pathname: String(window.__OWNER_STITCH_ROUTE__ || window.location.pathname || '').trim(),
+          updatedAt: Date.now(),
+        };
+    window.__OWNER_STITCH_STATE__ = detail;
+    window.dispatchEvent(new CustomEvent('owner-state-updated', { detail }));
+  }
+
   function renderCurrentPage() {
     const target = root();
     if (!target) return;
     if (!state.payload) {
+      publishOwnerStitchStateSnapshot(null);
       if (state.refreshing) {
         renderMessageCard(
           t('owner.app.card.loadingTitle', 'กำลังเตรียมข้อมูลของ Owner'),
@@ -2048,43 +2757,107 @@
     document.body.dataset.ownerPage = page;
     document.body.dataset.ownerRoute = rawRoute || page;
     const canonicalPath = buildCanonicalOwnerPath(rawRoute, page);
-    if (window.location.pathname !== canonicalPath) {
+    if (!isOwnerStitchHost() && window.location.pathname !== canonicalPath) {
       window.history.replaceState({}, '', `${canonicalPath}${window.location.search || ''}`);
     }
     const renderOptions = { currentRoute: rawRoute, currentPage: page };
-    if (page === 'tenants') {
-      window.OwnerTenantsV4.renderOwnerTenantsV4(target, state.payload, renderOptions);
-    } else if (page === 'runtime') {
-      window.OwnerRuntimeHealthV4.renderOwnerRuntimeHealthV4(target, state.payload, renderOptions);
-    } else {
-      window.OwnerDashboardV4.renderOwnerDashboardV4(target, state.payload, renderOptions);
+    const renderPayload = {
+      ...state.payload,
+      ownerUi: {
+        ...state.ownerUi,
+        restorePreview: state.ownerUi.restorePreview,
+        automationPreview: state.ownerUi.automationPreview,
+        supportCase: state.ownerUi.supportCase,
+        supportCaseLoading: state.ownerUi.supportCaseLoading,
+        supportDeadLetters: state.ownerUi.supportDeadLetters,
+        supportDeadLettersLoading: state.ownerUi.supportDeadLettersLoading,
+      },
+    };
+    publishOwnerStitchStateSnapshot({
+      payload: renderPayload,
+      rawRoute,
+      page,
+      pathname: String(window.__OWNER_STITCH_ROUTE__ || window.location.pathname || '').trim(),
+    });
+    let usedVNext = false;
+    let renderResult = null;
+    if (window.OwnerVNext?.renderOwnerVNext) {
+      try {
+        renderResult = window.OwnerVNext.renderOwnerVNext(target, renderPayload, renderOptions) || null;
+        usedVNext = true;
+      } catch (error) {
+        console.error('OwnerVNext render failed, falling back to legacy owner renderer.', error);
+      }
+    }
+    if (!usedVNext) {
+      if (page === 'tenants') {
+        window.OwnerTenantsV4.renderOwnerTenantsV4(target, state.payload, renderOptions);
+      } else if (page === 'runtime') {
+        window.OwnerRuntimeHealthV4.renderOwnerRuntimeHealthV4(target, {
+          ...state.payload,
+          restorePreview: state.ownerUi.restorePreview,
+        }, renderOptions);
+      } else {
+        window.OwnerDashboardV4.renderOwnerDashboardV4(target, state.payload, renderOptions);
+      }
     }
     requestSupportCaseForRoute(rawRoute);
     requestSupportDeadLettersForRoute(rawRoute);
     applyI18n(target);
     canonicalizeOwnerLinks(target);
-    applyOwnerRoutePresentation(rawRoute, page);
+    if (!usedVNext) {
+      applyOwnerRoutePresentation(rawRoute, page);
+    }
     mountOwnerControlWorkspace(rawRoute);
-    localizeOwnerActivePage(document.body);
+    const ownerControlWorkspace = document.getElementById('owner-control-workspace');
+    if (ownerControlWorkspace) {
+      applyI18n(ownerControlWorkspace);
+      localizeOwnerActivePage(ownerControlWorkspace);
+      observeOwnerControlWorkspaceLocalization(ownerControlWorkspace);
+    } else if (!usedVNext) {
+      observeOwnerControlWorkspaceLocalization(null);
+      localizeOwnerActivePage(document.body);
+    } else {
+      observeOwnerControlWorkspaceLocalization(null);
+    }
     focusCurrentRoute(rawRoute, page);
-    const presentation = routePresentationFor(rawRoute, page);
-    const titleFallback = normalizeOwnerActiveTextV2(presentation.title || ROUTE_TITLE_FALLBACKS[rawRoute] || ROUTE_TITLE_FALLBACKS[page] || 'Platform overview');
-    document.title = `SCUM TH Platform | Owner | ${titleFallback}`;
+    const titleFallback = usedVNext
+      ? trimText(target.querySelector('.ownerx-page-title')?.textContent, 200)
+        || trimText(renderResult?.meta?.title, 200)
+        || 'Platform overview'
+      : normalizeOwnerActiveTextV2(routePresentationFor(rawRoute, page).title || ROUTE_TITLE_FALLBACKS[rawRoute] || ROUTE_TITLE_FALLBACKS[page] || 'Platform overview');
+    const ownerSurfaceLabel = ownerUiLocale() === 'th' ? 'เจ้าของระบบ' : 'Owner';
+    document.title = `SCUM TH Platform | ${ownerSurfaceLabel} | ${titleFallback}`;
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
+  let ownerAppInitialized = false;
+
+  function initOwnerApp() {
+    if (ownerAppInitialized) return;
+    ownerAppInitialized = true;
     const refreshButton = document.getElementById('ownerV4RefreshBtn');
     refreshButton?.addEventListener('click', () => refreshState({ silent: false }));
-    window.addEventListener('popstate', renderCurrentPage);
+    window.__navigateOwnerStitchRoute = navigateOwnerRoute;
+    window.addEventListener('popstate', () => {
+      syncOwnerStitchRouteFromLocation();
+      renderCurrentPage();
+    });
     document.addEventListener('submit', async (event) => {
       const form = event.target instanceof HTMLFormElement
         ? event.target
         : null;
       if (!form || !form.dataset.ownerForm) return;
+      if (form.dataset.ownerBusy === '1') return;
+      const formAction = trimText(form.dataset.ownerForm, 80);
+      if (NATIVE_OWNER_FORM_ACTIONS.has(formAction)) {
+        return;
+      }
       event.preventDefault();
       try {
-        setStatus('กำลังบันทึกการเปลี่ยนแปลงของ Owner...', 'info');
-        await handleOwnerFormSubmit(form);
+        await withOwnerBusyState(form, async () => {
+          setStatus('กำลังบันทึกการเปลี่ยนแปลงของ Owner...', 'info');
+          await handleOwnerFormSubmit(form);
+        });
       } catch (error) {
         setStatus(trimText(error?.message || error || 'Owner action failed', 200), 'danger');
       }
@@ -2094,10 +2867,13 @@
         ? event.target.closest('[data-owner-action]')
         : null;
       if (!button) return;
+      if (button.dataset.ownerBusy === '1') return;
       event.preventDefault();
       try {
-        setStatus('กำลังดำเนินการคำสั่งของ Owner...', 'info');
-        await handleOwnerAction(button);
+        await withOwnerBusyState(button, async () => {
+          setStatus('กำลังดำเนินการคำสั่งของ Owner...', 'info');
+          await handleOwnerAction(button);
+        });
       } catch (error) {
         setStatus(trimText(error?.message || error || 'Owner action failed', 200), 'danger');
       }
@@ -2131,5 +2907,11 @@
     });
     bootstrapLegacyOwnerRoute();
     refreshState({ silent: false });
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initOwnerApp, { once: true });
+  } else {
+    initOwnerApp();
+  }
 })();

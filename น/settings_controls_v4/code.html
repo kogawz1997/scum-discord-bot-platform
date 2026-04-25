@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM CONTROL PLANE - Settings &amp; Platform Controls</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-background": "#e3e2e4",
+                "on-surface": "#e3e2e4",
+                "surface-bright": "#38393b",
+                "primary-container": "#00d1ff",
+                "primary": "#a4e6ff",
+                "on-primary-fixed": "#001f28",
+                "on-primary-container": "#00566a",
+                "outline": "#859399",
+                "surface-container": "#1f2022",
+                "tertiary": "#ffd1ce",
+                "on-tertiary-fixed-variant": "#930014",
+                "surface-variant": "#343537",
+                "surface-dim": "#121315",
+                "inverse-primary": "#00677f",
+                "error-container": "#93000a",
+                "primary-fixed": "#b7eaff",
+                "on-error-container": "#ffdad6",
+                "on-error": "#690005",
+                "on-primary-fixed-variant": "#004e60",
+                "background": "#121315",
+                "on-secondary-fixed-variant": "#5e4200",
+                "secondary-fixed": "#ffdea8",
+                "on-surface-variant": "#bbc9cf",
+                "tertiary-fixed-dim": "#ffb3ae",
+                "on-tertiary": "#68000b",
+                "on-primary": "#003543",
+                "inverse-on-surface": "#303032",
+                "surface": "#121315",
+                "tertiary-container": "#ffaaa4",
+                "on-secondary-container": "#6b4b00",
+                "inverse-surface": "#e3e2e4",
+                "primary-fixed-dim": "#4cd6ff",
+                "tertiary-fixed": "#ffdad7",
+                "surface-container-high": "#292a2c",
+                "outline-variant": "#3c494e",
+                "secondary-container": "#feb700",
+                "surface-tint": "#4cd6ff",
+                "error": "#ffb4ab",
+                "surface-container-low": "#1b1c1e",
+                "secondary": "#ffdb9d",
+                "on-tertiary-fixed": "#410004",
+                "surface-container-lowest": "#0d0e10",
+                "on-tertiary-container": "#a10017",
+                "on-secondary": "#412d00",
+                "surface-container-highest": "#343537",
+                "secondary-fixed-dim": "#ffba20",
+                "on-secondary-fixed": "#271900"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "fontFamily": {
+                "headline": ["Public Sans"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black text-cyan-400 tracking-widest uppercase font-headline">SCUM CONTROL PLANE</span>
+<nav class="hidden md:flex items-center gap-6 font-headline tracking-tight text-sm font-semibold uppercase">
+<a class="text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Platform</a>
+<a class="text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Incidents</a>
+<a class="text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Audit</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-zinc-500 hover:text-zinc-300 transition-all duration-150 p-2"><span class="material-symbols-outlined" data-icon="refresh">refresh</span></button>
+<button class="text-zinc-500 hover:text-zinc-300 transition-all duration-150 p-2"><span class="material-symbols-outlined" data-icon="language">language</span></button>
+<button class="text-zinc-500 hover:text-zinc-300 transition-all duration-150 p-2"><span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span></button>
+<button class="text-zinc-500 hover:text-zinc-300 transition-all duration-150 p-2"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<div class="h-8 w-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden">
+<img alt="Owner Profile" class="h-full w-full object-cover" data-alt="minimalist geometric avatar for a system operator in a dark UI environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUY4Kvahi11GRb5lr9XdhZwkjBzVznvXYS_OgjFasDSodJkxfB5oniYtVnwaGbV1xVCGIdNPEF10Ss5b8HEywsxmYX3GEWFoSKOm_skscPgl_33CLGlzdITj-4UuQMgSFoXmW9-OWJu7lXti1cfgEDnRDWT4TbVhvFHZdcI9F0w7MIecHJknN_GBesvR0dmOS0yQmBlsuh_fmuRE-ZnyYTXLCmKgesVUw5ydQmPCbiesmVPWHO_EJtA9hyHj8QthFB_q6vQSMdfl8"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col h-full overflow-y-auto scrollbar-hide py-4 font-label font-medium text-xs antialiased">
+<div class="px-6 py-2 mb-4">
+<div class="text-cyan-400 font-bold tracking-widest uppercase">OPERATOR-01</div>
+<div class="text-[10px] text-zinc-600 tracking-widest uppercase">ROOT ACCESS</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="dashboard">dashboard</span>Overview</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="supervised_user_circle">supervised_user_circle</span>Tenants</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="inventory_2">inventory_2</span>Packages</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="rebase_edit">rebase_edit</span>Subscriptions</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="payments">payments</span>Billing</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="monitor_heart">monitor_heart</span>Runtime Health</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="developer_board">developer_board</span>Fleet</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="settings_backup_restore">settings_backup_restore</span>Config Oversight</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="shopping_cart">shopping_cart</span>Commerce</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="groups">groups</span>Community</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="fingerprint">fingerprint</span>Identity</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="emergency">emergency</span>Incidents</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="history_edu">history_edu</span>Audit</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="security">security</span>Security</a>
+</nav>
+<div class="mt-4 px-4">
+<button class="w-full bg-cyan-900/20 text-cyan-400 border border-cyan-400/30 px-4 py-2 text-[10px] font-bold tracking-widest uppercase hover:bg-cyan-900/40 transition-all">DEPLOY UPDATE</button>
+</div>
+<div class="mt-auto border-t border-zinc-800 pt-4 space-y-1">
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="biotech">biotech</span>Diagnostics</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 hover:bg-zinc-900/50 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="settings_backup_restore">settings_backup_restore</span>Recovery</a>
+<a class="bg-zinc-900 border-l-4 border-cyan-400 text-cyan-400 px-4 py-3 flex items-center gap-3 transition-transform active:scale-95" href="#"><span class="material-symbols-outlined text-base" data-icon="settings">settings</span>Settings</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 pt-14 min-h-screen bg-surface-dim">
+<!-- Page Header -->
+<div class="px-8 py-6 flex justify-between items-end border-b border-zinc-800 bg-zinc-950">
+<div>
+<h1 class="text-2xl font-black font-headline text-on-surface tracking-tight uppercase">Settings &amp; Platform Controls</h1>
+<p class="text-zinc-500 text-sm mt-1 font-label">Global platform parameters, environment variables, and critical system oversight.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-on-surface text-xs font-bold tracking-widest uppercase transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="save">save</span> Save Settings
+                </button>
+<button class="px-4 py-2 bg-error-container hover:bg-on-tertiary-container text-on-error-container text-xs font-bold tracking-widest uppercase transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="terminal">terminal</span> Restart Service
+                </button>
+</div>
+</div>
+<!-- Content Grid -->
+<div class="p-8 grid grid-cols-12 gap-6">
+<!-- Environment Variables Editor (Bento Item 1) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-6">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400" data-icon="data_object">data_object</span>
+<h2 class="font-headline font-bold text-lg text-on-surface">Environment Variables</h2>
+</div>
+<button class="text-cyan-400 text-[10px] font-bold tracking-widest uppercase hover:underline">+ Add Entry</button>
+</div>
+<div class="space-y-3">
+<!-- Var Row -->
+<div class="grid grid-cols-12 gap-4 items-center p-3 bg-zinc-950 rounded border border-zinc-800 group hover:border-zinc-700 transition-colors">
+<div class="col-span-4 font-mono text-xs text-zinc-400">DATABASE_URL</div>
+<div class="col-span-7">
+<input class="w-full bg-transparent border-none text-xs font-mono focus:ring-0 text-cyan-400/80" type="password" value="postgresql://operator:••••••••••••@cluster0.scum.prod:5432/platform"/>
+</div>
+<div class="col-span-1 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-zinc-600 hover:text-on-error"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button>
+</div>
+</div>
+<!-- Var Row -->
+<div class="grid grid-cols-12 gap-4 items-center p-3 bg-zinc-950 rounded border border-zinc-800 group hover:border-zinc-700 transition-colors">
+<div class="col-span-4 font-mono text-xs text-zinc-400">FLEET_SYNC_INTERVAL</div>
+<div class="col-span-7">
+<input class="w-full bg-transparent border-none text-xs font-mono focus:ring-0 text-cyan-400/80" type="text" value="300s"/>
+</div>
+<div class="col-span-1 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-zinc-600 hover:text-on-error"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button>
+</div>
+</div>
+<!-- Var Row -->
+<div class="grid grid-cols-12 gap-4 items-center p-3 bg-zinc-950 rounded border border-zinc-800 group hover:border-zinc-700 transition-colors">
+<div class="col-span-4 font-mono text-xs text-zinc-400">LOG_LEVEL</div>
+<div class="col-span-7">
+<select class="w-full bg-transparent border-none text-xs font-mono focus:ring-0 text-cyan-400/80">
+<option>DEBUG</option>
+<option selected="">INFO</option>
+<option>WARN</option>
+<option>ERROR</option>
+</select>
+</div>
+<div class="col-span-1 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-zinc-600 hover:text-on-error"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Webhook Configuration -->
+<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-cyan-400" data-icon="webhook">webhook</span>
+<h2 class="font-headline font-bold text-lg text-on-surface">Outbound Webhooks</h2>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-zinc-950 border-l-2 border-secondary-container flex justify-between items-center">
+<div>
+<div class="text-sm font-bold text-on-surface">Discord Alert Channel</div>
+<div class="text-xs text-zinc-500 font-mono mt-1">https://discord.com/api/webhooks/982...</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 uppercase font-bold">Incidents</span>
+<span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 uppercase font-bold">Billing</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold uppercase tracking-widest border border-zinc-700">Test</button>
+<button class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold uppercase tracking-widest border border-zinc-700">Edit</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Rail Controls (Bento Item 2) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- API Key Management -->
+<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-6">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400" data-icon="key">key</span>
+<h2 class="font-headline font-bold text-lg text-on-surface">API Access</h2>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-3 bg-zinc-950 rounded border border-zinc-800">
+<div class="flex justify-between items-start mb-2">
+<div class="text-[10px] font-bold tracking-widest uppercase text-zinc-500">Production Secret</div>
+<span class="px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 text-[9px] font-bold rounded">ACTIVE</span>
+</div>
+<div class="font-mono text-xs text-zinc-300 truncate mb-3">sk_live_51Mv...fX2p9</div>
+<button class="w-full py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold tracking-widest uppercase transition-all">Rotate Secret</button>
+</div>
+<div class="p-3 bg-zinc-950 rounded border border-zinc-800 opacity-50">
+<div class="flex justify-between items-start mb-2">
+<div class="text-[10px] font-bold tracking-widest uppercase text-zinc-500">Staging Key</div>
+<span class="px-1.5 py-0.5 bg-zinc-800 text-zinc-500 text-[9px] font-bold rounded">REVOKED</span>
+</div>
+<div class="font-mono text-xs text-zinc-300 truncate">sk_test_41Jk...pL0s1</div>
+</div>
+<button class="w-full py-2 bg-cyan-900/20 text-cyan-400 border border-cyan-400/30 text-[10px] font-bold tracking-widest uppercase hover:bg-cyan-900/30 transition-all">+ Generate New Key</button>
+</div>
+</div>
+<!-- Admin Integrations -->
+<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-6">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-cyan-400" data-icon="extension">extension</span>
+<h2 class="font-headline font-bold text-lg text-on-surface">Integrations</h2>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="p-3 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center text-center">
+<img alt="Steam" class="h-8 w-8 mb-2 rounded grayscale" data-alt="Official Steam platform logo graphic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAawsbP1PHUB1W_uT0hPUf0CAjlx_jF8Nlf3fpyb4PzvGojSyIt7KHwdyGmvlMAVuAiTh7Qaq-wBUXtzk2R8qCb5ggtt9-nGVdJb1TtCZYbD06SCqVi-QXXP4FNA6kwclmpNjYrsbFRQlp4hVstvCiCrditYGJZt_Jy7rdL5isW1nqNNWdZ4XccTSfdnXZDTkHg3EnmP_lRyslJlskvKy12VT5kKpH3uUnrZWnHSNwnmeELj_1WlGaj8M8jQypGeRzQT6pKYpJ26g"/>
+<div class="text-[10px] font-bold uppercase text-on-surface">Steam API</div>
+<div class="text-[9px] text-zinc-600 uppercase">Connected</div>
+</div>
+<div class="p-3 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center text-center">
+<img alt="Discord" class="h-8 w-8 mb-2 rounded grayscale" data-alt="Official Discord brand mark for platform integration" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoNl5QW7igyCKUCP_K607sDPxDcxeBTfETM7KyWQvekJ1Ay9Le1LTBH0s-v9mCYiTwtEOqgbdAQjh3LpOXElp-qXicxkCsbFkZnvR8wTCS9noiLQBOmlQbfkd5O0nxcUMYM8ePSqeQljlFUY8pn9I0GY8glYh_W1hP0EcHFbMc7oEZseTODhImVD7DgZUDOgldLoPvPk_VQSniM_lfIPysChpSHpYYKTJeFif8uw7C2Ux0H8Fa1S01HBT0vQK1ugcQYo0rwpUvHdg"/>
+<div class="text-[10px] font-bold uppercase text-on-surface">Discord</div>
+<div class="text-[9px] text-zinc-600 uppercase">Connected</div>
+</div>
+<div class="p-3 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center text-center">
+<img alt="Slack" class="h-8 w-8 mb-2 rounded grayscale opacity-30" data-alt="Official Slack workspace integration icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAueMqLXM8hS_7tfD1ObU3TdR6Mw8CgWeou10NKTcQeUytukXiyaWvKo73K4MFgUnwgTuJ7hY4v_r2Oli3_z4N47Xf1TJ2WgSzE841iuKDqL2xrfJVc9Ot5no8MpQR8j_SHunIQneJJiv9CHU841eKb6CUaZQXwz6kpBL_Q7YncKFLv85f6fqNifSp4HM9eh6KbiHZ04oDDTLuvfAxjLzRJ-vyiHg6L3-vnOZaeGR3a5sIUJVCj72FH5OqkI6mIN4010DqLZu5gCYE"/>
+<div class="text-[10px] font-bold uppercase text-zinc-700">Slack</div>
+<div class="text-[9px] text-zinc-800 uppercase">Link Now</div>
+</div>
+<div class="p-3 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center text-center">
+<img alt="Github" class="h-8 w-8 mb-2 rounded grayscale" data-alt="Official Github mascot logo for repository linking" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsSohzmqValjDdsY23q-E2LccEiloaOGIeSGRZQr15s3RfzMMbyoPa0kDIH7hQi6h65wnNJTb7rtJCs6F7Az1sPxLkhZq9sFjSjExTiEj8yNz113YjWdSkyNgbfLbNEv0yvYiD9nCa2X0RXn3lw-Np5g1UM3KlKV-31QeNsPvlvh0gVnoXhgp31YlULxM-Uq2GnB8PiMCn2lq0Vf4-uveTu5QGaE0Qv6EcuIW8t-xBzqtZRnwYju03KTvFKJSWLsvAXkiQfAaVO3U"/>
+<div class="text-[10px] font-bold uppercase text-on-surface">GitHub</div>
+<div class="text-[9px] text-zinc-600 uppercase">Connected</div>
+</div>
+</div>
+</div>
+<!-- Danger Zone -->
+<div class="bg-zinc-900/50 border border-error-container/30 rounded-lg p-6">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+<h2 class="font-headline font-bold text-lg text-error">Danger Zone</h2>
+</div>
+<p class="text-xs text-zinc-500 mb-4">Destructive actions affecting platform-wide stability and data integrity.</p>
+<div class="space-y-3">
+<button class="w-full py-2 bg-zinc-900 hover:bg-error-container hover:text-on-error-container border border-error-container/50 text-error text-[10px] font-bold tracking-widest uppercase transition-all">Flush All Cache</button>
+<button class="w-full py-2 bg-zinc-900 hover:bg-error-container hover:text-on-error-container border border-error-container/50 text-error text-[10px] font-bold tracking-widest uppercase transition-all">Deactivate Maintenance Mode</button>
+<button class="w-full py-2 bg-on-tertiary-container text-on-error-container font-black text-[11px] tracking-tighter uppercase transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="skull">skull</span> HARD RESET SYSTEM
+                        </button>
+</div>
+</div>
+</div>
+<!-- Global Health Visualization (Bottom Bento) -->
+<div class="col-span-12">
+<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-6 relative overflow-hidden h-48 group">
+<div class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent pointer-events-none"></div>
+<div class="relative z-10 flex flex-col h-full">
+<div class="flex justify-between items-start">
+<div>
+<h2 class="font-headline font-bold text-on-surface uppercase tracking-widest text-sm">System Pulse Correlation</h2>
+<p class="text-xs text-zinc-500 mt-1">Cross-referencing fleet health with API latency and commerce throughput.</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Latency</div>
+<div class="text-xl font-black font-headline text-on-surface">14ms</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] font-bold text-secondary-container uppercase tracking-widest">Uptime</div>
+<div class="text-xl font-black font-headline text-on-surface">99.98%</div>
+</div>
+</div>
+</div>
+<div class="mt-auto flex items-end gap-1 h-12">
+<!-- Visual noise pulse representation -->
+<div class="w-full bg-zinc-800/50 h-full rounded-t relative overflow-hidden">
+<div class="absolute inset-0 flex items-end px-1 gap-1">
+<div class="bg-cyan-500/30 w-full h-[60%] rounded-t-sm"></div>
+<div class="bg-cyan-500/40 w-full h-[75%] rounded-t-sm"></div>
+<div class="bg-cyan-500/20 w-full h-[45%] rounded-t-sm"></div>
+<div class="bg-cyan-500/50 w-full h-[85%] rounded-t-sm"></div>
+<div class="bg-cyan-500/40 w-full h-[65%] rounded-t-sm"></div>
+<div class="bg-cyan-500/30 w-full h-[55%] rounded-t-sm"></div>
+<div class="bg-cyan-500/60 w-full h-[95%] rounded-t-sm"></div>
+<div class="bg-cyan-500/20 w-full h-[40%] rounded-t-sm"></div>
+<div class="bg-cyan-500/40 w-full h-[70%] rounded-t-sm"></div>
+<div class="bg-cyan-500/30 w-full h-[50%] rounded-t-sm"></div>
+<div class="bg-cyan-500/50 w-full h-[80%] rounded-t-sm"></div>
+<div class="bg-cyan-500/10 w-full h-[30%] rounded-t-sm"></div>
+<div class="bg-cyan-500/40 w-full h-[65%] rounded-t-sm"></div>
+<div class="bg-secondary-container/40 w-full h-[90%] rounded-t-sm"></div>
+<div class="bg-cyan-500/30 w-full h-[55%] rounded-t-sm"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Context Rail (Notification/Activity) -->
+<div class="fixed right-0 top-14 h-[calc(100vh-3.5rem)] w-12 border-l border-zinc-800 bg-zinc-950 flex flex-col items-center py-6 gap-6 z-40">
+<button class="text-zinc-600 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="history">history</span></button>
+<button class="text-zinc-600 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span></button>
+<button class="text-zinc-600 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="info">info</span></button>
+</div>
+</body></html>

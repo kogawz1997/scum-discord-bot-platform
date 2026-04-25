@@ -133,12 +133,46 @@ function tryRequire(modulePath) {
   }
 }
 
+function readSchemaProvider(schemaPath) {
+  if (!schemaPath || !fs.existsSync(schemaPath)) return '';
+  try {
+    const text = fs.readFileSync(schemaPath, 'utf8');
+    const match = text.match(/datasource\s+db\s*\{[\s\S]*?provider\s*=\s*"([^"]+)"/m);
+    return normalizeProvider(match?.[1]);
+  } catch {
+    return '';
+  }
+}
+
+function resolveFallbackClientProvider() {
+  return readSchemaProvider(path.join(PROJECT_ROOT, 'node_modules', '.prisma', 'client', 'schema.prisma'));
+}
+
+function isProviderFallbackAllowed() {
+  return ['1', 'true', 'yes', 'on'].includes(
+    trimText(process.env.PRISMA_CLIENT_ALLOW_PROVIDER_FALLBACK, 16).toLowerCase(),
+  );
+}
+
+function assertProviderFallbackSafe(requestedProvider, generatedModulePath) {
+  if (!requestedProvider || isProviderFallbackAllowed()) return;
+  const fallbackProvider = resolveFallbackClientProvider();
+  if (!fallbackProvider || fallbackProvider === requestedProvider) return;
+  const hint = generatedModulePath
+    ? `Generated client path is not loadable: ${generatedModulePath}.`
+    : `No generated client was found for provider ${requestedProvider}.`;
+  throw new Error(
+    `${hint} Runtime provider is ${requestedProvider}, but @prisma/client was generated for ${fallbackProvider}. Run npm run db:generate:${requestedProvider} or set PRISMA_CLIENT_MODULE_PATH to a valid generated client.`,
+  );
+}
+
 function getPrismaClientModule() {
   const generatedModulePath = resolveClientModulePath();
   const generatedModule = tryRequire(generatedModulePath);
   if (generatedModule?.PrismaClient) {
     return generatedModule;
   }
+  assertProviderFallbackSafe(resolveRequestedProvider(), generatedModulePath);
   return require('@prisma/client');
 }
 

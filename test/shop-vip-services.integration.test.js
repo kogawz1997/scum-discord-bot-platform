@@ -1,4 +1,4 @@
-const test = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
@@ -20,11 +20,75 @@ const { checkoutCart } = require('../src/services/cartService');
 const { buyVipForUser, getVipPlan } = require('../src/services/vipService');
 const { updatePurchaseStatusForActor } = require('../src/services/purchaseService');
 const { getMembership, removeMembership } = require('../src/store/vipStore');
-const { prisma } = require('../src/prisma');
+const {
+  createSubscription,
+  createTenant,
+  issuePlatformLicense,
+} = require('../src/services/platformService');
+const { prisma, getTenantScopedPrismaClient } = require('../src/prisma');
 
 function uniqueId(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
+
+const TEST_TENANT_ID =
+  process.env.PLATFORM_DEFAULT_TENANT_ID || 'tenant-shop-vip-integration';
+const TEST_SUBSCRIPTION_ID = `${TEST_TENANT_ID}-subscription`;
+const TEST_LICENSE_ID = `${TEST_TENANT_ID}-license`;
+const TEST_LICENSE_KEY = `${TEST_TENANT_ID}-license-key`;
+
+function scope() {
+  return { tenantId: TEST_TENANT_ID };
+}
+
+async function cleanupPlatformTenantFixture() {
+  const tenantDb = getTenantScopedPrismaClient(TEST_TENANT_ID);
+  await tenantDb.platformLicense.deleteMany({ where: { tenantId: TEST_TENANT_ID } }).catch(() => null);
+  await tenantDb.platformSubscription.deleteMany({ where: { tenantId: TEST_TENANT_ID } }).catch(() => null);
+  await prisma.platformLicense.deleteMany({ where: { tenantId: TEST_TENANT_ID } }).catch(() => null);
+  await prisma.platformSubscription.deleteMany({ where: { tenantId: TEST_TENANT_ID } }).catch(() => null);
+  await prisma.platformTenant.deleteMany({ where: { id: TEST_TENANT_ID } }).catch(() => null);
+}
+
+before(async () => {
+  await cleanupPlatformTenantFixture();
+
+  const tenantResult = await createTenant({
+    id: TEST_TENANT_ID,
+    slug: TEST_TENANT_ID,
+    name: 'Shop VIP Integration Tenant',
+    type: 'trial',
+    status: 'active',
+    locale: 'th',
+    ownerEmail: 'shop-vip-test@example.com',
+  }, 'test-suite');
+  assert.equal(tenantResult.ok, true);
+
+  const subscriptionResult = await createSubscription({
+    id: TEST_SUBSCRIPTION_ID,
+    tenantId: TEST_TENANT_ID,
+    planId: 'platform-growth',
+    status: 'active',
+    billingCycle: 'monthly',
+    amountCents: 1290000,
+  }, 'test-suite');
+  assert.equal(subscriptionResult.ok, true);
+
+  const licenseResult = await issuePlatformLicense({
+    id: TEST_LICENSE_ID,
+    tenantId: TEST_TENANT_ID,
+    licenseKey: TEST_LICENSE_KEY,
+    status: 'active',
+    seats: 10,
+    legalDocVersion: '2026.03',
+    legalAcceptedAt: new Date(),
+  }, 'test-suite');
+  assert.equal(licenseResult.ok, true);
+});
+
+after(async () => {
+  await cleanupPlatformTenantFixture();
+});
 
 test('purchaseShopItemForUser rolls back coins when purchase creation fails', async () => {
   const userId = uniqueId('shop-user');
@@ -34,11 +98,12 @@ test('purchaseShopItemForUser rolls back coins when purchase creation fails', as
     await setCoins(userId, 1000, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
     const item = await addShopItem(itemId, 'Test Weapon', 300, 'test item', {
       kind: 'item',
       deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
-    });
+    }, scope());
 
     const result = await purchaseShopItemForUser({
       userId,
@@ -46,6 +111,7 @@ test('purchaseShopItemForUser rolls back coins when purchase creation fails', as
       requireSteamLink: false,
       actor: 'test-suite',
       source: 'shop-service-test',
+      ...scope(),
       createQueuedPurchaseFn: async () => {
         throw new Error('forced-create-failure');
       },
@@ -55,15 +121,15 @@ test('purchaseShopItemForUser rolls back coins when purchase creation fails', as
     assert.equal(result.reason, 'purchase-create-failed');
     assert.equal(result.rolledBack, true);
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 1000);
 
-    const ledger = await listWalletLedger(userId, 10);
+    const ledger = await listWalletLedger(userId, 10, scope());
     const reasons = ledger.map((row) => row.reason);
     assert.ok(reasons.includes('purchase_debit'));
     assert.ok(reasons.includes('purchase_rollback'));
   } finally {
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, scope()).catch(() => null);
     await prisma.walletLedger.deleteMany({ where: { userId } });
     await prisma.userWallet.deleteMany({ where: { userId } });
   }
@@ -78,24 +144,26 @@ test('checkoutCart refunds only failed rows after batch debit', async () => {
     await setCoins(userId, 1000, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
     await addShopItem(itemIdA, 'Item A', 100, 'item a', {
       kind: 'item',
       deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
-    });
+    }, scope());
     await addShopItem(itemIdB, 'Item B', 200, 'item b', {
       kind: 'item',
       deliveryItems: [{ gameItemId: 'Weapon_AK47', quantity: 1 }],
-    });
+    }, scope());
 
-    addCartItem(userId, itemIdA, 1);
-    addCartItem(userId, itemIdB, 1);
+    addCartItem(userId, itemIdA, 1, scope());
+    addCartItem(userId, itemIdB, 1, scope());
 
     let callCount = 0;
     const result = await checkoutCart(userId, {
       actor: 'test-suite',
       source: 'cart-service-test',
       requireSteamLink: false,
+      ...scope(),
       createQueuedPurchaseFn: async ({ item }) => {
         callCount += 1;
         if (item.id === itemIdB) {
@@ -114,22 +182,22 @@ test('checkoutCart refunds only failed rows after batch debit', async () => {
     assert.equal(result.failures.length, 1);
     assert.equal(result.refundedAmount, 200);
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 900);
 
-    await flushCartStoreWrites();
+    await flushCartStoreWrites(scope());
     const cartRows = await prisma.cartEntry.findMany({ where: { userId } });
     assert.equal(cartRows.length, 0);
 
-    const ledger = await listWalletLedger(userId, 10);
+    const ledger = await listWalletLedger(userId, 10, scope());
     const reasons = ledger.map((row) => row.reason);
     assert.ok(reasons.includes('cart_checkout_debit'));
     assert.ok(reasons.includes('cart_checkout_partial_refund'));
   } finally {
-    clearCart(userId);
-    await flushCartStoreWrites();
-    await deleteShopItem(itemIdA).catch(() => null);
-    await deleteShopItem(itemIdB).catch(() => null);
+    clearCart(userId, scope());
+    await flushCartStoreWrites(scope());
+    await deleteShopItem(itemIdA, scope()).catch(() => null);
+    await deleteShopItem(itemIdB, scope()).catch(() => null);
     await prisma.cartEntry.deleteMany({ where: { userId } });
     await prisma.walletLedger.deleteMany({ where: { userId } });
     await prisma.userWallet.deleteMany({ where: { userId } });
@@ -142,23 +210,25 @@ test('checkoutCart activates VIP items immediately instead of leaving them pendi
   let item = null;
 
   try {
-    item = await getShopItemById(itemId);
+    item = await getShopItemById(itemId, scope());
     if (!item) {
       item = await addShopItem(itemId, 'VIP 7 วัน', 5000, 'vip item', {
         kind: 'vip',
-      });
+      }, scope());
     }
 
     await setCoins(userId, 50000, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
 
-    addCartItem(userId, itemId, 1);
+    addCartItem(userId, itemId, 1, scope());
 
     const result = await checkoutCart(userId, {
       actor: 'test-suite',
       source: 'cart-vip-test',
+      ...scope(),
     });
 
     assert.equal(result.ok, true);
@@ -168,16 +238,16 @@ test('checkoutCart activates VIP items immediately instead of leaving them pendi
     assert.equal(String(result.purchases[0]?.purchase?.status || ''), 'delivered');
     assert.equal(String(result.purchases[0]?.delivery?.reason || ''), 'vip-activated');
 
-    const membership = getMembership(userId);
+    const membership = getMembership(userId, scope());
     assert.ok(membership);
     assert.equal(String(membership?.planId || ''), 'vip-7d');
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 45000);
   } finally {
-    clearCart(userId);
-    await flushCartStoreWrites();
-    removeMembership(userId);
+    clearCart(userId, scope());
+    await flushCartStoreWrites(scope());
+    removeMembership(userId, scope());
     await prisma.purchaseStatusHistory.deleteMany({
       where: {
         purchase: {
@@ -193,7 +263,7 @@ test('checkoutCart activates VIP items immediately instead of leaving them pendi
     await prisma.walletLedger.deleteMany({ where: { userId } }).catch(() => null);
     await prisma.userWallet.deleteMany({ where: { userId } }).catch(() => null);
     await prisma.cartEntry.deleteMany({ where: { userId } }).catch(() => null);
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, scope()).catch(() => null);
   }
 });
 
@@ -206,6 +276,7 @@ test('buyVipForUser rolls back debit when membership activation fails', async ()
     await setCoins(userId, 50000, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
 
     const result = await buyVipForUser({
@@ -213,6 +284,7 @@ test('buyVipForUser rolls back debit when membership activation fails', async ()
       plan,
       actor: 'test-suite',
       source: 'vip-service-test',
+      ...scope(),
       setMembershipFn: () => {
         throw new Error('forced-membership-failure');
       },
@@ -222,7 +294,7 @@ test('buyVipForUser rolls back debit when membership activation fails', async ()
     assert.equal(result.reason, 'vip-activation-failed');
     assert.equal(result.rolledBack, true);
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 50000);
 
     const membership = await prisma.vipMembership.findUnique({ where: { userId } });
@@ -240,15 +312,16 @@ test('purchaseShopItemForUser activates VIP immediately and marks purchase deliv
   let item = null;
 
   try {
-    item = await getShopItemById(itemId);
+    item = await getShopItemById(itemId, scope());
     if (!item) {
-    item = await addShopItem(itemId, 'VIP 7 วัน', 5000, 'vip item', {
-      kind: 'vip',
-    });
+      item = await addShopItem(itemId, 'VIP 7 วัน', 5000, 'vip item', {
+        kind: 'vip',
+      }, scope());
     }
     await setCoins(userId, 50000, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
 
     const result = await purchaseShopItemForUser({
@@ -256,6 +329,7 @@ test('purchaseShopItemForUser activates VIP immediately and marks purchase deliv
       item,
       actor: 'test-suite',
       source: 'shop-vip-test',
+      ...scope(),
     });
 
     assert.equal(result.ok, true);
@@ -264,14 +338,14 @@ test('purchaseShopItemForUser activates VIP immediately and marks purchase deliv
     assert.equal(Boolean(result.delivery?.queued), false);
     assert.equal(String(result.delivery?.reason || ''), 'vip-activated');
 
-    const membership = getMembership(userId);
+    const membership = getMembership(userId, scope());
     assert.ok(membership);
     assert.equal(String(membership?.planId || ''), 'vip-7d');
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 45000);
   } finally {
-    removeMembership(userId);
+    removeMembership(userId, scope());
     await prisma.purchaseStatusHistory.deleteMany({
       where: {
         purchase: {
@@ -286,7 +360,7 @@ test('purchaseShopItemForUser activates VIP immediately and marks purchase deliv
     }).catch(() => null);
     await prisma.walletLedger.deleteMany({ where: { userId } }).catch(() => null);
     await prisma.userWallet.deleteMany({ where: { userId } }).catch(() => null);
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, scope()).catch(() => null);
   }
 });
 
@@ -299,17 +373,18 @@ test('updatePurchaseStatusForActor validates transitions and returns history', a
     await addShopItem(itemId, 'Status Test Item', 50, 'status item', {
       kind: 'item',
       deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
-    });
+    }, scope());
     purchase = await createPurchase(userId, {
       id: itemId,
       price: 50,
-    });
+    }, scope());
 
     const delivered = await updatePurchaseStatusForActor({
       code: purchase.code,
       status: 'delivered',
       actor: 'test-suite',
       reason: 'service-transition',
+      ...scope(),
     });
     assert.equal(delivered.ok, true);
     assert.equal(String(delivered.purchase?.status || ''), 'delivered');
@@ -321,6 +396,7 @@ test('updatePurchaseStatusForActor validates transitions and returns history', a
       status: 'pending',
       actor: 'test-suite',
       reason: 'invalid-transition',
+      ...scope(),
     });
     assert.equal(invalid.ok, false);
     assert.equal(String(invalid.reason || ''), 'transition-not-allowed');
@@ -335,7 +411,7 @@ test('updatePurchaseStatusForActor validates transitions and returns history', a
         userId,
       },
     }).catch(() => null);
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, scope()).catch(() => null);
   }
 });
 
@@ -349,8 +425,9 @@ test('purchase store honors tenant-scoped lookups and status writes when tenantI
     await addShopItem(itemId, 'Tenant Purchase Item', 50, 'tenant item', {
       kind: 'item',
       deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
+    }, {
+      tenantId: 'tenant-alpha',
     });
-
     purchaseA = await createPurchase(userId, {
       id: itemId,
       price: 50,
@@ -408,7 +485,8 @@ test('purchase store honors tenant-scoped lookups and status writes when tenantI
         },
       },
     }).catch(() => null);
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, { tenantId: 'tenant-alpha' }).catch(() => null);
+    await deleteShopItem(itemId, { tenantId: 'tenant-beta' }).catch(() => null);
   }
 });
 
@@ -425,7 +503,7 @@ test('addShopItem persists delivery profile metadata for item delivery behavior'
       deliveryReturnTarget: 'Admin Anchor',
       deliveryPreCommands: ['#TeleportTo {teleportTargetQuoted}'],
       deliveryPostCommands: ['#TeleportTo {returnTargetQuoted}'],
-    });
+    }, scope());
 
     assert.equal(created.deliveryProfile, 'teleport_spawn');
     assert.equal(created.deliveryTeleportMode, 'vehicle');
@@ -438,7 +516,7 @@ test('addShopItem persists delivery profile metadata for item delivery behavior'
       '#TeleportTo {returnTargetQuoted}',
     ]);
 
-    const fetched = await getShopItemById(itemId);
+    const fetched = await getShopItemById(itemId, scope());
     assert.equal(fetched.deliveryProfile, 'teleport_spawn');
     assert.equal(fetched.deliveryTeleportMode, 'vehicle');
     assert.equal(fetched.deliveryTeleportTarget, 'AdminBike');
@@ -450,6 +528,6 @@ test('addShopItem persists delivery profile metadata for item delivery behavior'
       '#TeleportTo {returnTargetQuoted}',
     ]);
   } finally {
-    await deleteShopItem(itemId).catch(() => null);
+    await deleteShopItem(itemId, scope()).catch(() => null);
   }
 });

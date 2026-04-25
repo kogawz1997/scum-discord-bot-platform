@@ -59,6 +59,7 @@ function normalizePresetSharedRole(value, fallbackRole = 'mod') {
 
 function normalizeAuditView(value) {
   const raw = String(value || '').trim().toLowerCase();
+  if (['governance', 'destructive', 'destructive-action'].includes(raw)) return 'governance';
   if (raw === 'reward') return 'reward';
   if (raw === 'event') return 'event';
   return 'wallet';
@@ -343,6 +344,7 @@ const AUDIT_SORT_FIELDS = Object.freeze({
   wallet: ['timestamp', 'userId', 'delta', 'balanceAfter', 'reason', 'reference', 'actor', 'status'],
   reward: ['timestamp', 'userId', 'delta', 'balanceAfter', 'reason', 'reference', 'actor', 'status'],
   event: ['timestamp', 'id', 'name', 'status', 'reward', 'participantsCount'],
+  governance: ['timestamp', 'actionType', 'tenantId', 'actor', 'targetType', 'targetId', 'resultStatus'],
 });
 
 function normalizeAuditSortBy(view, value) {
@@ -359,7 +361,11 @@ function normalizeAuditSortOrder(value) {
 function getAuditSortValue(view, row, sortBy) {
   switch (sortBy) {
     case 'timestamp':
-      return normalizeAuditTimestamp(view === 'event' ? row?.createdAt || row?.time : row?.createdAt || row?.claimedAt || row?.statusUpdatedAt);
+      return normalizeAuditTimestamp(
+        view === 'event'
+          ? row?.createdAt || row?.time
+          : row?.timestamp || row?.occurredAt || row?.createdAt || row?.claimedAt || row?.statusUpdatedAt,
+      );
     case 'userId':
       return String(row?.userId || '');
     case 'delta':
@@ -382,6 +388,16 @@ function getAuditSortValue(view, row, sortBy) {
       return String(row?.reward || '');
     case 'participantsCount':
       return Number(row?.participantsCount || 0);
+    case 'tenantId':
+      return String(row?.tenantId || '');
+    case 'actionType':
+      return String(row?.actionType || row?.type || '');
+    case 'targetType':
+      return String(row?.targetType || '');
+    case 'targetId':
+      return String(row?.targetId || '');
+    case 'resultStatus':
+      return String(row?.resultStatus || row?.status || '');
     default:
       return normalizeAuditTimestamp(row?.createdAt || row?.time);
   }
@@ -886,13 +902,275 @@ async function buildEventDataset(prisma, options) {
   };
 }
 
+function parseGovernanceData(event = {}) {
+  if (event?.data && typeof event.data === 'object' && !Array.isArray(event.data)) {
+    return event.data;
+  }
+  if (event?.dataJson) {
+    try {
+      const parsed = JSON.parse(String(event.dataJson));
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function isGovernanceAuditEvent(event = {}) {
+  const data = parseGovernanceData(event);
+  if (data.governance === true || data.actionType || data.targetType) return true;
+  const type = normalizeAuditFilterText(event.type).toLowerCase();
+  return [
+    'server.',
+    'config.',
+    'agent.',
+    'package.',
+    'subscription.',
+    'admin.user.',
+    'runtime.',
+  ].some((prefix) => type.startsWith(prefix));
+}
+
+function normalizeGovernanceAuditRow(event = {}) {
+  const data = parseGovernanceData(event);
+  const actionType = normalizeAuditFilterText(data.actionType || event.type || 'destructive-action');
+  const tenantId = normalizeAuditFilterText(data.tenantId || data.tenant?.id);
+  const serverId = normalizeAuditFilterText(data.serverId || data.server?.id);
+  const runtimeKey = normalizeAuditFilterText(data.runtimeKey || data.runtime?.key);
+  const targetType = normalizeAuditFilterText(data.targetType)
+    || (serverId ? 'server' : runtimeKey ? 'runtime' : 'platform');
+  const targetId = normalizeAuditFilterText(
+    data.targetId
+      || data.jobId
+      || data.planId
+      || data.apiKeyId
+      || data.tokenId
+      || data.deviceId
+      || serverId
+      || runtimeKey,
+  );
+  const timestamp = normalizeAuditFilterText(event.at || event.occurredAt || event.createdAt);
+  return {
+    id: normalizeAuditFilterText(event.id),
+    timestamp,
+    occurredAt: timestamp,
+    tenantId,
+    serverId,
+    runtimeKey,
+    actionType,
+    targetType,
+    targetId,
+    actor: normalizeAuditFilterText(data.actorId || event.actor),
+    actorRole: normalizeAuditFilterText(data.actorRole || event.role),
+    reason: normalizeAuditFilterText(data.reason || event.reason),
+    requestId: normalizeAuditFilterText(data.requestId || data.correlationId),
+    correlationId: normalizeAuditFilterText(data.correlationId || data.requestId),
+    jobId: normalizeAuditFilterText(data.jobId),
+    resultStatus: normalizeAuditFilterText(data.resultStatus || data.status || event.severity),
+    before: data.beforeState || data.before || null,
+    after: data.afterState || data.after || null,
+    detail: normalizeAuditFilterText(event.detail || data.detail),
+    severity: normalizeAuditFilterText(event.severity || 'info'),
+    raw: event,
+  };
+}
+
+function auditTextMatches(value, filter, mode = 'contains') {
+  const normalizedFilter = normalizeAuditFilterText(filter).toLowerCase();
+  if (!normalizedFilter) return true;
+  const text = normalizeAuditFilterText(value).toLowerCase();
+  return mode === 'exact' ? text === normalizedFilter : text.includes(normalizedFilter);
+}
+
+function filterGovernanceAuditRows(rows = [], options = {}) {
+  const query = normalizeAuditFilterText(options.query);
+  const tenantId = normalizeTenantId(options.tenantId);
+  const actionType = normalizeAuditFilterText(options.actionType);
+  const targetType = normalizeAuditFilterText(options.targetType);
+  const targetId = normalizeAuditFilterText(options.targetId);
+  const serverId = normalizeAuditFilterText(options.serverId);
+  const runtimeKey = normalizeAuditFilterText(options.runtimeKey);
+  const requestId = normalizeAuditFilterText(options.requestId || options.correlationId);
+  const jobId = normalizeAuditFilterText(options.jobId);
+  const reason = normalizeAuditFilterText(options.reason);
+  const status = normalizeAuditFilterText(options.status);
+  const statusMode = normalizeAuditMatchMode(options.statusMode);
+  const actor = normalizeAuditFilterText(options.actor);
+  const actorMode = normalizeAuditMatchMode(options.actorMode);
+  const dateFrom = normalizeAuditDateInput(options.dateFrom);
+  const dateTo = normalizeAuditDateInput(options.dateTo, { endOfDay: true });
+  const windowMs = normalizeAuditWindowMs(options.windowMs);
+  const windowStart = windowMs ? Date.now() - windowMs : null;
+
+  return rows.filter((row) => {
+    const ts = normalizeAuditTimestamp(row.timestamp);
+    if (tenantId && row.tenantId !== tenantId) return false;
+    if (actionType && row.actionType !== actionType) return false;
+    if (targetType && row.targetType !== targetType) return false;
+    if (targetId && row.targetId !== targetId) return false;
+    if (serverId && row.serverId !== serverId) return false;
+    if (runtimeKey && row.runtimeKey !== runtimeKey) return false;
+    if (requestId && row.requestId !== requestId && row.correlationId !== requestId) return false;
+    if (jobId && row.jobId !== jobId) return false;
+    if (dateFrom && ts < dateFrom) return false;
+    if (dateTo && ts > dateTo) return false;
+    if (windowStart && ts < windowStart) return false;
+    if (reason && !auditTextMatches(row.reason, reason)) return false;
+    if (status && !auditTextMatches(row.resultStatus, status, statusMode)) return false;
+    if (actor && !auditTextMatches(row.actor, actor, actorMode)) return false;
+    if (query) {
+      const haystack = [
+        row.actionType,
+        row.tenantId,
+        row.serverId,
+        row.runtimeKey,
+        row.targetType,
+        row.targetId,
+        row.actor,
+        row.actorRole,
+        row.reason,
+        row.resultStatus,
+        row.requestId,
+        row.jobId,
+        row.detail,
+      ].join(' ');
+      if (!auditTextMatches(haystack, query)) return false;
+    }
+    return true;
+  });
+}
+
+function mapGovernanceAuditRow(row = {}) {
+  return {
+    Time: row.timestamp || '-',
+    Tenant: row.tenantId || '-',
+    Server: row.serverId || '-',
+    Action: row.actionType || '-',
+    Target: [row.targetType, row.targetId].filter(Boolean).join(':') || '-',
+    Actor: row.actor || '-',
+    Role: row.actorRole || '-',
+    Reason: row.reason || '-',
+    Status: row.resultStatus || '-',
+    Request: row.requestId || row.jobId || '-',
+  };
+}
+
+function buildGovernanceCards(rows = [], windowMs) {
+  const actionTypes = new Set(rows.map((row) => row.actionType).filter(Boolean));
+  const tenants = new Set(rows.map((row) => row.tenantId).filter(Boolean));
+  const failed = rows.filter((row) => /failed|error|blocked|denied/i.test(row.resultStatus || '')).length;
+  return [
+    ['Governance events', rows.length],
+    ['Action types', actionTypes.size],
+    ['Tenants', tenants.size],
+    ['Failed or blocked', failed],
+    ['Window', getAuditWindowLabel(windowMs)],
+  ];
+}
+
+async function buildGovernanceAuditDataset(options = {}) {
+  const tenantId = normalizeTenantId(options.tenantId);
+  if (!tenantId && options.allowGlobal !== true) {
+    throw createPresetError('admin-audit-global-scope-required', 400);
+  }
+  if (typeof options.listAdminSecurityEvents !== 'function') {
+    throw new Error('listAdminSecurityEvents dependency is required for governance audit view');
+  }
+  const view = 'governance';
+  const sortBy = normalizeAuditSortBy(view, options.sortBy);
+  const sortOrder = normalizeAuditSortOrder(options.sortOrder);
+  const pageSize = Math.max(
+    1,
+    Math.min(500, Number.isFinite(Number(options.pageSize || options.limit))
+      ? Math.trunc(Number(options.pageSize || options.limit))
+      : 50),
+  );
+  const requestedPage = Math.max(
+    1,
+    Number.isFinite(Number(options.page)) ? Math.trunc(Number(options.page)) : 1,
+  );
+  const exportAll = options.exportAll === true;
+  const sourceRows = await options.listAdminSecurityEvents({
+    limit: Math.max(pageSize, 1000),
+    actor: options.actor,
+    severity: options.severity,
+  });
+  const normalizedRows = (Array.isArray(sourceRows) ? sourceRows : [])
+    .filter(isGovernanceAuditEvent)
+    .map(normalizeGovernanceAuditRow);
+  const filteredRows = filterGovernanceAuditRows(normalizedRows, options);
+  const sortedRows = sortAuditRows(filteredRows, view, sortBy, sortOrder);
+  const paging = buildPaginationState({
+    total: sortedRows.length,
+    pageSize,
+    requestedPage,
+    cursor: options.cursor,
+    exportAll,
+  });
+  const rows = exportAll
+    ? sortedRows
+    : sortedRows.slice(paging.normalizedStartIndex, paging.normalizedStartIndex + pageSize);
+
+  return {
+    view,
+    total: sortedRows.length,
+    returned: rows.length,
+    page: paging.page,
+    pageSize,
+    totalPages: paging.totalPages,
+    sortBy,
+    sortOrder,
+    paginationMode: paging.usingCursor ? 'cursor' : 'page',
+    cursor: paging.cursor,
+    nextCursor: paging.nextCursor,
+    prevCursor: paging.prevCursor,
+    hasPrev: paging.hasPrev,
+    hasNext: paging.hasNext,
+    cards: buildGovernanceCards(filteredRows, normalizeAuditWindowMs(options.windowMs)),
+    rows,
+    tableRows: rows.map(mapGovernanceAuditRow),
+  };
+}
+
 async function buildAuditDataset(options = {}) {
+  const view = normalizeAuditView(options.view);
+  if (view === 'governance') {
+    const data = await buildGovernanceAuditDataset(options);
+    return {
+      ...data,
+      filters: {
+        query: normalizeAuditFilterText(options.query),
+        actionType: normalizeAuditFilterText(options.actionType),
+        targetType: normalizeAuditFilterText(options.targetType),
+        targetId: normalizeAuditFilterText(options.targetId),
+        tenantId: normalizeTenantId(options.tenantId),
+        serverId: normalizeAuditFilterText(options.serverId),
+        runtimeKey: normalizeAuditFilterText(options.runtimeKey),
+        requestId: normalizeAuditFilterText(options.requestId || options.correlationId),
+        jobId: normalizeAuditFilterText(options.jobId),
+        reason: normalizeAuditFilterText(options.reason),
+        status: normalizeAuditFilterText(options.status),
+        actor: normalizeAuditFilterText(options.actor),
+        windowMs: normalizeAuditWindowMs(options.windowMs),
+        dateFrom: normalizeAuditDateInput(options.dateFrom)
+          ? new Date(normalizeAuditDateInput(options.dateFrom)).toISOString()
+          : null,
+        dateTo: normalizeAuditDateInput(options.dateTo, { endOfDay: true })
+          ? new Date(normalizeAuditDateInput(options.dateTo, { endOfDay: true })).toISOString()
+          : null,
+        windowLabel: getAuditWindowLabel(normalizeAuditWindowMs(options.windowMs)),
+        sortBy: data.sortBy,
+        sortOrder: data.sortOrder,
+      },
+    };
+  }
+
   const { prisma } = options;
   if (!prisma || typeof prisma.walletLedger?.findMany !== 'function') {
     throw new Error('prisma dependency is required');
   }
 
-  const view = normalizeAuditView(options.view);
   const query = normalizeAuditFilterText(options.query);
   const userId = normalizeAuditFilterText(options.userId);
   const reason = normalizeAuditFilterText(options.reason);

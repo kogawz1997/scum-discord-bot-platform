@@ -38,7 +38,8 @@ test('legacy plaintext value is returned unchanged when decrypted', () => {
 test('decrypt returns empty string on tamper', () => {
   const env = { PLATFORM_WEBHOOK_SECRET_KEY: 'a'.repeat(64) };
   const encrypted = encryptWebhookSecret('value', env);
-  const tampered = encrypted.slice(0, -2) + 'ff';
+  const lastChar = encrypted.slice(-1);
+  const tampered = `${encrypted.slice(0, -1)}${lastChar === '0' ? '1' : '0'}`;
   assert.equal(decryptWebhookSecret(tampered, env), '');
 });
 

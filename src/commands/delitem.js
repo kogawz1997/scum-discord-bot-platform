@@ -14,7 +14,10 @@ module.exports = {
     ),
   async execute(interaction) {
     const query = interaction.options.getString('item', true);
-    const result = await deleteShopItemForAdmin({ idOrName: query });
+    const result = await deleteShopItemForAdmin({
+      idOrName: query,
+      guildId: interaction.guildId || interaction.guild?.id || null,
+    });
 
     if (!result.ok) {
       return interaction.reply({

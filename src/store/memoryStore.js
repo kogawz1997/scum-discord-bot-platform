@@ -16,11 +16,9 @@ const {
   parseServerScopedUserKey,
   matchesServerScope,
 } = require('./tenantStoreScope');
-const {
-  resolveCanonicalItemId,
-  resolveItemIconUrl,
-} = require('../services/itemIconService');
+const { resolveCanonicalItemId, resolveItemIconUrl } = require('../services/itemIconService');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 
 function normalizeShopKind(value, fallback = 'item') {
   const raw = String(value || fallback)
@@ -32,13 +30,17 @@ function normalizeShopKind(value, fallback = 'item') {
 }
 
 function normalizeShopStatus(value, fallback = 'active') {
-  const raw = String(value || fallback).trim().toLowerCase();
+  const raw = String(value || fallback)
+    .trim()
+    .toLowerCase();
   if (raw === 'disabled') return 'disabled';
   return 'active';
 }
 
 function normalizeFixtureText(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 function looksLikeFixtureIdentifier(value) {
@@ -50,7 +52,9 @@ function looksLikeFixtureIdentifier(value) {
 function looksLikeFixtureLabel(value) {
   const text = normalizeFixtureText(value);
   if (!text) return false;
-  return /(?:\((test|fixture)\)|\[(test|fixture)\]|(?:^|[\s-])(test|fixture)(?:$|[\s-]))/.test(text);
+  return /(?:\((test|fixture)\)|\[(test|fixture)\]|(?:^|[\s-])(test|fixture)(?:$|[\s-]))/.test(
+    text,
+  );
 }
 
 function looksLikeFixtureDescription(value) {
@@ -62,9 +66,9 @@ function looksLikeFixtureDescription(value) {
 function isShopItemFixture(item) {
   if (!item || typeof item !== 'object') return false;
   return (
-    looksLikeFixtureIdentifier(item.id)
-    || looksLikeFixtureLabel(item.name)
-    || looksLikeFixtureDescription(item.description)
+    looksLikeFixtureIdentifier(item.id) ||
+    looksLikeFixtureLabel(item.name) ||
+    looksLikeFixtureDescription(item.description)
   );
 }
 
@@ -119,7 +123,9 @@ function normalizeShopCommandList(value) {
 }
 
 function normalizeDeliveryProfile(value) {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return null;
   if (raw === 'spawn_only') return 'spawn_only';
   if (raw === 'teleport_spawn') return 'teleport_spawn';
@@ -128,7 +134,9 @@ function normalizeDeliveryProfile(value) {
 }
 
 function normalizeDeliveryTeleportMode(value) {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return null;
   if (raw === 'player') return 'player';
   if (raw === 'vehicle') return 'vehicle';
@@ -153,6 +161,30 @@ function resolveStoreScope(options = {}) {
   };
 }
 
+function assertShopItemMutationScope(options = {}, operation = 'shop item mutation') {
+  const tenantId = resolveTenantId(options.tenantId || options.defaultTenantId);
+  const scope = assertTenantMutationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation,
+    entityType: 'shop-item',
+    env: options.env,
+  });
+  return scope.tenantId;
+}
+
+function assertWalletMutationScope(options = {}, operation = 'wallet mutation') {
+  const tenantId = resolveTenantId(options.tenantId || options.defaultTenantId);
+  const scope = assertTenantMutationScope({
+    tenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation,
+    entityType: 'wallet',
+    env: options.env,
+  });
+  return scope.tenantId;
+}
+
 async function ensureShopItemDeliveryProfileColumns(options = {}) {
   const scope = resolveStoreScope(options);
   if (shopItemSchemaEnsurePromiseByDatasource.has(scope.datasourceKey)) {
@@ -162,14 +194,15 @@ async function ensureShopItemDeliveryProfileColumns(options = {}) {
     try {
       const runtime = resolveDatabaseRuntime();
       const db = scope.db;
-      const rows = runtime.engine === 'postgresql'
-        ? await db.$queryRaw`
+      const rows =
+        runtime.engine === 'postgresql'
+          ? await db.$queryRaw`
           SELECT column_name AS name
           FROM information_schema.columns
           WHERE table_schema = current_schema()
             AND table_name = 'ShopItem'
         `
-        : await db.$queryRawUnsafe('PRAGMA table_info("ShopItem")');
+          : await db.$queryRawUnsafe('PRAGMA table_info("ShopItem")');
       const columnNames = new Set(
         Array.isArray(rows) ? rows.map((row) => String(row?.name || '')) : [],
       );
@@ -221,7 +254,9 @@ function canonicalizeGameItemId(value, name = null) {
 }
 
 function inferShopKindById(id) {
-  const key = String(id || '').trim().toLowerCase();
+  const key = String(id || '')
+    .trim()
+    .toLowerCase();
   if (key.startsWith('vip')) return 'vip';
   return 'item';
 }
@@ -264,8 +299,8 @@ function normalizeDeliveryItem(entry) {
   if (!gameItemId) return null;
   const quantity = normalizeShopQuantity(entry.quantity, 1);
   const iconUrl =
-    normalizeOptionalText(entry.iconUrl)
-    || resolveItemIconUrl({
+    normalizeOptionalText(entry.iconUrl) ||
+    resolveItemIconUrl({
       gameItemId,
       id: gameItemId,
       name: entry.name,
@@ -316,13 +351,14 @@ function normalizeDeliveryItems(value, fallback = {}) {
 
 function resolveShopMetaForWrite(meta = {}, fallbackId = '') {
   const resolvedKind = normalizeShopKind(meta.kind, inferShopKindById(fallbackId));
-  const deliveryItems = resolvedKind === 'item'
-    ? normalizeDeliveryItems(meta.deliveryItems, {
-        gameItemId: meta.gameItemId,
-        quantity: meta.quantity,
-        iconUrl: meta.iconUrl,
-      })
-    : [];
+  const deliveryItems =
+    resolvedKind === 'item'
+      ? normalizeDeliveryItems(meta.deliveryItems, {
+          gameItemId: meta.gameItemId,
+          quantity: meta.quantity,
+          iconUrl: meta.iconUrl,
+        })
+      : [];
   const primary = deliveryItems[0] || null;
   return { resolvedKind, deliveryItems, primary };
 }
@@ -349,9 +385,7 @@ function buildInitialShopItemRecord(initialItem) {
     quantity: primary?.quantity || 1,
     iconUrl: primary?.iconUrl || null,
     deliveryItemsJson:
-      resolvedKind === 'item' && deliveryItems.length > 0
-        ? JSON.stringify(deliveryItems)
-        : null,
+      resolvedKind === 'item' && deliveryItems.length > 0 ? JSON.stringify(deliveryItems) : null,
     deliveryProfile: normalizeDeliveryProfile(initialItem.deliveryProfile),
     deliveryTeleportMode: normalizeDeliveryTeleportMode(initialItem.deliveryTeleportMode),
     deliveryTeleportTarget: normalizeOptionalText(initialItem.deliveryTeleportTarget),
@@ -374,8 +408,8 @@ function shouldRepairInitialShopKind(existingItem, initialRecord) {
   if (desiredKind === 'vip' || desiredKind === 'item') return false;
 
   const hasExistingDeliveryConfig =
-    String(existingItem?.gameItemId || '').trim().length > 0
-    || String(existingItem?.deliveryItemsJson || '').trim().length > 0;
+    String(existingItem?.gameItemId || '').trim().length > 0 ||
+    String(existingItem?.deliveryItemsJson || '').trim().length > 0;
   return currentKind === 'item' && !hasExistingDeliveryConfig;
 }
 
@@ -384,13 +418,14 @@ function toShopItemView(rawItem) {
 
   const kind = normalizeShopKind(rawItem.kind, inferShopKindById(rawItem.id));
   const status = normalizeShopStatus(rawItem.status);
-  const deliveryItems = kind === 'item'
-    ? normalizeDeliveryItems(rawItem.deliveryItemsJson, {
-        gameItemId: rawItem.gameItemId,
-        quantity: rawItem.quantity,
-        iconUrl: rawItem.iconUrl,
-      })
-    : [];
+  const deliveryItems =
+    kind === 'item'
+      ? normalizeDeliveryItems(rawItem.deliveryItemsJson, {
+          gameItemId: rawItem.gameItemId,
+          quantity: rawItem.quantity,
+          iconUrl: rawItem.iconUrl,
+        })
+      : [];
   const primary = deliveryItems[0] || null;
 
   return {
@@ -398,15 +433,10 @@ function toShopItemView(rawItem) {
     kind,
     status,
     enabled: status !== 'disabled',
-    gameItemId: kind === 'item'
-      ? normalizeOptionalText(primary?.gameItemId || rawItem.gameItemId)
-      : null,
-    quantity: kind === 'item'
-      ? normalizeShopQuantity(primary?.quantity || rawItem.quantity, 1)
-      : 1,
-    iconUrl: kind === 'item'
-      ? normalizeOptionalText(primary?.iconUrl || rawItem.iconUrl)
-      : null,
+    gameItemId:
+      kind === 'item' ? normalizeOptionalText(primary?.gameItemId || rawItem.gameItemId) : null,
+    quantity: kind === 'item' ? normalizeShopQuantity(primary?.quantity || rawItem.quantity, 1) : 1,
+    iconUrl: kind === 'item' ? normalizeOptionalText(primary?.iconUrl || rawItem.iconUrl) : null,
     deliveryItems,
     deliveryProfile: normalizeDeliveryProfile(rawItem.deliveryProfile),
     deliveryTeleportMode: normalizeDeliveryTeleportMode(rawItem.deliveryTeleportMode),
@@ -530,9 +560,7 @@ async function filterPurchaseRowsByServer(db, rows, options = {}) {
     return [];
   }
   const tenantId = normalizeOptionalText(options.tenantId);
-  const purchaseCodes = purchaseRows
-    .map((row) => String(row?.code || '').trim())
-    .filter(Boolean);
+  const purchaseCodes = purchaseRows.map((row) => String(row?.code || '').trim()).filter(Boolean);
   if (purchaseCodes.length === 0) {
     return [];
   }
@@ -558,7 +586,9 @@ async function mutateWalletWithLedger(userId, updater, options = {}) {
   if (!id) {
     throw new Error('userId is required');
   }
-  const { db } = resolveStoreScope(options);
+  const tenantId = assertWalletMutationScope(options, options.operation || 'mutate wallet');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
 
   return db.$transaction(async (tx) => {
     let wallet = await tx.userWallet.findUnique({ where: { userId: id } });
@@ -607,6 +637,7 @@ async function getWallet(userId, options = {}) {
   const { db } = resolveStoreScope(options);
   let wallet = await db.userWallet.findUnique({ where: { userId: id } });
   if (!wallet) {
+    assertWalletMutationScope(options, options.operation || 'initialize wallet');
     wallet = await db.userWallet.create({
       data: { userId: id, balance: 0, lastDaily: null, lastWeekly: null },
     });
@@ -626,6 +657,7 @@ async function addCoins(userId, amount, options = {}) {
       reference: options.reference,
       actor: options.actor,
       meta: options.meta,
+      operation: 'add wallet coins',
       recordZeroDelta: options.recordZeroDelta,
       serverId: options.serverId,
       tenantId: options.tenantId,
@@ -648,6 +680,7 @@ async function removeCoins(userId, amount, options = {}) {
       reference: options.reference,
       actor: options.actor,
       meta: options.meta,
+      operation: 'remove wallet coins',
       recordZeroDelta: options.recordZeroDelta,
       serverId: options.serverId,
       tenantId: options.tenantId,
@@ -670,6 +703,7 @@ async function setCoins(userId, amount, options = {}) {
       reference: options.reference,
       actor: options.actor,
       meta: options.meta,
+      operation: 'set wallet coins',
       recordZeroDelta: options.recordZeroDelta,
       serverId: options.serverId,
       tenantId: options.tenantId,
@@ -705,6 +739,7 @@ async function claimDaily(userId, options = {}) {
       reason: 'daily_claim',
       actor: 'system',
       meta: { reward },
+      operation: 'claim daily reward',
       recordZeroDelta: true,
       serverId: options.serverId,
       tenantId: options.tenantId,
@@ -740,6 +775,7 @@ async function claimWeekly(userId, options = {}) {
       reason: 'weekly_claim',
       actor: 'system',
       meta: { reward },
+      operation: 'claim weekly reward',
       recordZeroDelta: true,
       serverId: options.serverId,
       tenantId: options.tenantId,
@@ -782,7 +818,10 @@ async function listShopItems(options = {}) {
     items = await db.shopItem.findMany();
   }
 
-  const statusMap = await loadShopItemStatusMap(db, items.map((item) => item.id));
+  const statusMap = await loadShopItemStatusMap(
+    db,
+    items.map((item) => item.id),
+  );
 
   return items
     .map((item) => toShopItemView(applyShopItemStatus(item, statusMap)))
@@ -816,9 +855,7 @@ async function getShopItemByName(name, options = {}) {
       quantity: i.quantity,
       iconUrl: i.iconUrl,
     });
-    return deliveryItems.some(
-      (entry) => String(entry.gameItemId || '').toLowerCase() === lower,
-    );
+    return deliveryItems.some((entry) => String(entry.gameItemId || '').toLowerCase() === lower);
   });
   const statusMap = await loadShopItemStatusMap(db, found ? [found.id] : []);
   const view = toShopItemView(applyShopItemStatus(found || null, statusMap));
@@ -826,8 +863,10 @@ async function getShopItemByName(name, options = {}) {
 }
 
 async function addShopItem(id, name, price, description, meta = {}, options = {}) {
-  const { db } = resolveStoreScope(options);
-  await ensureShopItemDeliveryProfileColumns(options);
+  const tenantId = assertShopItemMutationScope(options, 'add shop item');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
+  await ensureShopItemDeliveryProfileColumns(scopeOptions);
   const existing = await db.shopItem.findUnique({
     where: { id: String(id) },
   });
@@ -835,10 +874,7 @@ async function addShopItem(id, name, price, description, meta = {}, options = {}
     throw new Error('มี item id นี้อยู่แล้ว');
   }
 
-  const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(
-    meta,
-    id,
-  );
+  const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(meta, id);
 
   if (resolvedKind === 'item' && deliveryItems.length === 0) {
     throw new Error('สินค้าประเภท item ต้องมี deliveryItems อย่างน้อย 1 รายการ');
@@ -855,9 +891,7 @@ async function addShopItem(id, name, price, description, meta = {}, options = {}
       quantity: primary?.quantity || 1,
       iconUrl: primary?.iconUrl || null,
       deliveryItemsJson:
-        resolvedKind === 'item' && deliveryItems.length > 0
-          ? JSON.stringify(deliveryItems)
-          : null,
+        resolvedKind === 'item' && deliveryItems.length > 0 ? JSON.stringify(deliveryItems) : null,
       deliveryProfile: normalizeDeliveryProfile(meta.deliveryProfile),
       deliveryTeleportMode: normalizeDeliveryTeleportMode(meta.deliveryTeleportMode),
       deliveryTeleportTarget: normalizeOptionalText(meta.deliveryTeleportTarget),
@@ -883,11 +917,13 @@ async function addShopItem(id, name, price, description, meta = {}, options = {}
 }
 
 async function updateShopItem(idOrName, patch = {}, options = {}) {
-  const { db } = resolveStoreScope(options);
-  await ensureShopItemDeliveryProfileColumns(options);
+  const tenantId = assertShopItemMutationScope(options, 'update shop item');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
+  await ensureShopItemDeliveryProfileColumns(scopeOptions);
   const existing =
-    (await getShopItemById(idOrName, { ...options, includeDisabled: true }))
-    || (await getShopItemByName(idOrName, { ...options, includeDisabled: true }));
+    (await getShopItemById(idOrName, { ...scopeOptions, includeDisabled: true })) ||
+    (await getShopItemByName(idOrName, { ...scopeOptions, includeDisabled: true }));
   if (!existing) return null;
 
   const nextName = String(patch.name || existing.name || '').trim();
@@ -904,12 +940,26 @@ async function updateShopItem(idOrName, patch = {}, options = {}) {
     quantity: patch.quantity == null ? existing.quantity : patch.quantity,
     iconUrl: patch.iconUrl == null ? existing.iconUrl : patch.iconUrl,
     deliveryItems: patch.deliveryItems == null ? existing.deliveryItems : patch.deliveryItems,
-    deliveryProfile: patch.deliveryProfile == null ? existing.deliveryProfile : patch.deliveryProfile,
-    deliveryTeleportMode: patch.deliveryTeleportMode == null ? existing.deliveryTeleportMode : patch.deliveryTeleportMode,
-    deliveryTeleportTarget: patch.deliveryTeleportTarget == null ? existing.deliveryTeleportTarget : patch.deliveryTeleportTarget,
-    deliveryPreCommands: patch.deliveryPreCommands == null ? existing.deliveryPreCommands : patch.deliveryPreCommands,
-    deliveryPostCommands: patch.deliveryPostCommands == null ? existing.deliveryPostCommands : patch.deliveryPostCommands,
-    deliveryReturnTarget: patch.deliveryReturnTarget == null ? existing.deliveryReturnTarget : patch.deliveryReturnTarget,
+    deliveryProfile:
+      patch.deliveryProfile == null ? existing.deliveryProfile : patch.deliveryProfile,
+    deliveryTeleportMode:
+      patch.deliveryTeleportMode == null
+        ? existing.deliveryTeleportMode
+        : patch.deliveryTeleportMode,
+    deliveryTeleportTarget:
+      patch.deliveryTeleportTarget == null
+        ? existing.deliveryTeleportTarget
+        : patch.deliveryTeleportTarget,
+    deliveryPreCommands:
+      patch.deliveryPreCommands == null ? existing.deliveryPreCommands : patch.deliveryPreCommands,
+    deliveryPostCommands:
+      patch.deliveryPostCommands == null
+        ? existing.deliveryPostCommands
+        : patch.deliveryPostCommands,
+    deliveryReturnTarget:
+      patch.deliveryReturnTarget == null
+        ? existing.deliveryReturnTarget
+        : patch.deliveryReturnTarget,
   };
   const { resolvedKind, deliveryItems, primary } = resolveShopMetaForWrite(mergedMeta, existing.id);
   if (resolvedKind === 'item' && deliveryItems.length === 0) {
@@ -926,18 +976,19 @@ async function updateShopItem(idOrName, patch = {}, options = {}) {
       gameItemId: resolvedKind === 'item' ? primary?.gameItemId || null : null,
       quantity: resolvedKind === 'item' ? primary?.quantity || 1 : 1,
       iconUrl: resolvedKind === 'item' ? primary?.iconUrl || null : null,
-      deliveryItemsJson: resolvedKind === 'item' && deliveryItems.length > 0
-        ? JSON.stringify(deliveryItems)
-        : null,
+      deliveryItemsJson:
+        resolvedKind === 'item' && deliveryItems.length > 0 ? JSON.stringify(deliveryItems) : null,
       deliveryProfile: normalizeDeliveryProfile(mergedMeta.deliveryProfile),
       deliveryTeleportMode: normalizeDeliveryTeleportMode(mergedMeta.deliveryTeleportMode),
       deliveryTeleportTarget: normalizeOptionalText(mergedMeta.deliveryTeleportTarget),
-      deliveryPreCommandsJson: normalizeShopCommandList(mergedMeta.deliveryPreCommands).length > 0
-        ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPreCommands))
-        : null,
-      deliveryPostCommandsJson: normalizeShopCommandList(mergedMeta.deliveryPostCommands).length > 0
-        ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPostCommands))
-        : null,
+      deliveryPreCommandsJson:
+        normalizeShopCommandList(mergedMeta.deliveryPreCommands).length > 0
+          ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPreCommands))
+          : null,
+      deliveryPostCommandsJson:
+        normalizeShopCommandList(mergedMeta.deliveryPostCommands).length > 0
+          ? JSON.stringify(normalizeShopCommandList(mergedMeta.deliveryPostCommands))
+          : null,
       deliveryReturnTarget: normalizeOptionalText(mergedMeta.deliveryReturnTarget),
     },
   });
@@ -952,15 +1003,17 @@ async function updateShopItem(idOrName, patch = {}, options = {}) {
 }
 
 async function deleteShopItem(idOrName, options = {}) {
-  const { db } = resolveStoreScope(options);
+  const tenantId = assertShopItemMutationScope(options, 'delete shop item');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
   const item =
     (await getShopItemById(idOrName, {
-      ...options,
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
-    }))
-    || (await getShopItemByName(idOrName, {
-      ...options,
+    })) ||
+    (await getShopItemByName(idOrName, {
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
     }));
@@ -970,15 +1023,17 @@ async function deleteShopItem(idOrName, options = {}) {
 }
 
 async function setShopItemPrice(idOrName, newPrice, options = {}) {
-  const { db } = resolveStoreScope(options);
+  const tenantId = assertShopItemMutationScope(options, 'set shop item price');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
   const item =
     (await getShopItemById(idOrName, {
-      ...options,
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
-    }))
-    || (await getShopItemByName(idOrName, {
-      ...options,
+    })) ||
+    (await getShopItemByName(idOrName, {
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
     }));
@@ -991,16 +1046,18 @@ async function setShopItemPrice(idOrName, newPrice, options = {}) {
 }
 
 async function setShopItemStatus(idOrName, nextStatus, options = {}) {
-  const { db } = resolveStoreScope(options);
-  await ensureShopItemDeliveryProfileColumns(options);
+  const tenantId = assertShopItemMutationScope(options, 'set shop item status');
+  const scopeOptions = tenantId ? { ...options, tenantId } : options;
+  const { db } = resolveStoreScope(scopeOptions);
+  await ensureShopItemDeliveryProfileColumns(scopeOptions);
   const item =
     (await getShopItemById(idOrName, {
-      ...options,
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
-    }))
-    || (await getShopItemByName(idOrName, {
-      ...options,
+    })) ||
+    (await getShopItemByName(idOrName, {
+      ...scopeOptions,
       includeDisabled: true,
       includeTestItems: true,
     }));
@@ -1015,6 +1072,13 @@ async function setShopItemStatus(idOrName, nextStatus, options = {}) {
 
 async function createPurchase(userId, item, options = {}) {
   const tenantId = resolveTenantId(options.tenantId || item?.tenantId);
+  assertTenantMutationScope({
+    tenantId,
+    dataTenantId: item?.tenantId,
+    operation: 'create purchase',
+    entityType: 'purchase',
+    env: options.env,
+  });
   const { db } = resolveStoreScope({ tenantId });
   const serverId = normalizeOptionalText(options.serverId);
   const payload = {
@@ -1099,9 +1163,7 @@ async function setPurchaseStatusByCode(code, status, options = {}) {
   });
 
   if (!validation.ok) {
-    const allowed = Array.isArray(validation.allowed)
-      ? validation.allowed.join(', ')
-      : 'n/a';
+    const allowed = Array.isArray(validation.allowed) ? validation.allowed.join(', ') : 'n/a';
     throw new Error(
       `Invalid purchase status transition: ${currentStatus || '<empty>'} -> ${nextStatus || '<empty>'} (reason=${validation.reason}; allowed=${allowed})`,
     );
@@ -1157,12 +1219,9 @@ async function listUserPurchases(userId, options = {}) {
 }
 
 async function listTopWallets(limitOrOptions = 10, maybeOptions = {}) {
-  const options = typeof limitOrOptions === 'object' && limitOrOptions !== null
-    ? limitOrOptions
-    : maybeOptions;
-  const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null
-    ? 10
-    : limitOrOptions;
+  const options =
+    typeof limitOrOptions === 'object' && limitOrOptions !== null ? limitOrOptions : maybeOptions;
+  const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null ? 10 : limitOrOptions;
   const { db } = resolveStoreScope(options);
   const rows = await db.userWallet.findMany();
   return rows
@@ -1173,12 +1232,10 @@ async function listTopWallets(limitOrOptions = 10, maybeOptions = {}) {
 }
 
 async function listWalletLedger(userId, limitOrOptions = 100, maybeOptions = {}) {
-  const options = typeof limitOrOptions === 'object' && limitOrOptions !== null
-    ? limitOrOptions
-    : maybeOptions;
-  const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null
-    ? 100
-    : limitOrOptions;
+  const options =
+    typeof limitOrOptions === 'object' && limitOrOptions !== null ? limitOrOptions : maybeOptions;
+  const limit =
+    typeof limitOrOptions === 'object' && limitOrOptions !== null ? 100 : limitOrOptions;
   const { db } = resolveStoreScope(options);
   const max = Math.max(1, Math.min(1000, normalizeInteger(limit, 100)));
   const scopedUserId = buildServerScopedUserKey(userId, options);

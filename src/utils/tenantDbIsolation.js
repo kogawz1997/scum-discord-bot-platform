@@ -68,7 +68,9 @@ function assertTenantDbIsolationScope(options = {}) {
   const allowGlobal = options.allowGlobal === true;
   if (runtime.strict && !tenantId && !allowGlobal) {
     const operation = trimText(options.operation, 160) || 'tenant-scoped operation';
-    const error = new Error(`${operation} requires tenantId when TENANT_DB_ISOLATION_MODE=${runtime.mode}`);
+    const error = new Error(
+      `${operation} requires tenantId when TENANT_DB_ISOLATION_MODE=${runtime.mode}`,
+    );
     error.code = 'TENANT_DB_SCOPE_REQUIRED';
     error.statusCode = 400;
     error.tenantDbIsolation = {
@@ -84,6 +86,53 @@ function assertTenantDbIsolationScope(options = {}) {
     runtime,
     tenantId,
     allowGlobal,
+  });
+}
+
+function assertTenantMutationScope(options = {}) {
+  const tenantId = trimText(options.tenantId, 120) || null;
+  const dataTenantId = trimText(options.dataTenantId, 120) || null;
+  const allowGlobal = options.allowGlobal === true;
+  const operation = trimText(options.operation, 160) || 'tenant-owned mutation';
+  const entityType = trimText(options.entityType, 120) || 'tenant-owned-record';
+
+  if (!tenantId && !allowGlobal) {
+    const error = new Error(`${operation} requires tenantId for ${entityType}`);
+    error.code = 'TENANT_MUTATION_SCOPE_REQUIRED';
+    error.statusCode = 400;
+    error.tenantMutationScope = {
+      tenantId,
+      dataTenantId,
+      allowGlobal,
+      operation,
+      entityType,
+    };
+    throw error;
+  }
+
+  if (tenantId && dataTenantId && tenantId !== dataTenantId) {
+    const error = new Error(
+      `${operation} tenantId mismatch for ${entityType}: scope=${tenantId} payload=${dataTenantId}`,
+    );
+    error.code = 'TENANT_MUTATION_SCOPE_MISMATCH';
+    error.statusCode = 403;
+    error.tenantMutationScope = {
+      tenantId,
+      dataTenantId,
+      allowGlobal,
+      operation,
+      entityType,
+    };
+    throw error;
+  }
+
+  return Object.freeze({
+    tenantId,
+    dataTenantId,
+    allowGlobal,
+    globalMutation: allowGlobal && !tenantId,
+    operation,
+    entityType,
   });
 }
 
@@ -217,13 +266,16 @@ async function withTenantDbIsolation(client, options = {}, work) {
     options.transactionTimeoutMs ?? env.TENANT_DB_ISOLATION_TIMEOUT_MS,
     15_000,
   );
-  return client.$transaction(async (tx) => {
-    const context = await configureTenantDbIsolationSession(tx, options);
-    return work(tx, context);
-  }, {
-    maxWait: transactionMaxWaitMs,
-    timeout: transactionTimeoutMs,
-  });
+  return client.$transaction(
+    async (tx) => {
+      const context = await configureTenantDbIsolationSession(tx, options);
+      return work(tx, context);
+    },
+    {
+      maxWait: transactionMaxWaitMs,
+      timeout: transactionTimeoutMs,
+    },
+  );
 }
 
 async function installTenantDbIsolation(client, options = {}) {
@@ -366,5 +418,6 @@ module.exports = {
   listTenantDbIsolationTables,
   normalizeTenantDbIsolationMode,
   assertTenantDbIsolationScope,
+  assertTenantMutationScope,
   withTenantDbIsolation,
 };

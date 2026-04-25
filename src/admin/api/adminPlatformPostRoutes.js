@@ -32,6 +32,55 @@ function trimText(value, maxLen = 160) {
   return text.length <= maxLen ? text : text.slice(0, maxLen);
 }
 
+function getRequestId(req) {
+  return trimText(
+    req?.__adminRequestMeta?.requestId
+      || req?.headers?.['x-request-id']
+      || req?.headers?.['X-Request-ID'],
+    160,
+  ) || null;
+}
+
+function getAdminActorId(auth) {
+  return `admin-web:${trimText(auth?.user, 160) || 'unknown'}`;
+}
+
+function emitGovernanceAudit(recordAdminSecuritySignal, options = {}) {
+  if (typeof recordAdminSecuritySignal !== 'function') return;
+  const actionType = trimText(options.actionType, 120);
+  if (!actionType) return;
+  const requestId = getRequestId(options.req);
+  const auth = options.auth || {};
+  recordAdminSecuritySignal(actionType, {
+    actor: auth?.user || null,
+    role: auth?.role || null,
+    authMethod: auth?.authMethod || null,
+    sessionId: auth?.sessionId || null,
+    ip: options.ip || null,
+    path: options.pathname || options.req?.url || null,
+    detail: trimText(options.detail, 500) || actionType,
+    severity: options.severity || 'info',
+    data: {
+      governance: true,
+      actionType,
+      tenantId: trimText(options.tenantId, 160) || null,
+      serverId: trimText(options.serverId, 160) || null,
+      targetType: trimText(options.targetType, 120) || 'platform',
+      targetId: trimText(options.targetId, 160) || null,
+      runtimeKey: trimText(options.runtimeKey, 200) || null,
+      actorId: getAdminActorId(auth),
+      actorRole: auth?.role || null,
+      requestId,
+      correlationId: requestId,
+      jobId: trimText(options.jobId, 160) || null,
+      reason: trimText(options.reason, 400) || null,
+      resultStatus: trimText(options.resultStatus, 80) || 'succeeded',
+      beforeState: options.beforeState || null,
+      afterState: options.afterState || null,
+    },
+  });
+}
+
 function parseSubscriptionMetadata(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value;
@@ -143,6 +192,7 @@ function createAdminPlatformPostRoutes(deps) {
     updatePackageCatalogEntry,
     consumeAdminActionRateLimit,
     getClientIp,
+    recordAdminSecuritySignal,
   } = deps;
 
   const handleAdminBillingPostRoute = createAdminBillingPostRouteHandler({
@@ -176,6 +226,7 @@ function createAdminPlatformPostRoutes(deps) {
     createServerBotActionJob,
     consumeAdminActionRateLimit,
     getClientIp,
+    recordAdminSecuritySignal,
   });
   const handleAdminNotificationPostRoute = createAdminNotificationPostRouteHandler({
     sendJson,
@@ -336,6 +387,20 @@ function createAdminPlatformPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-package-create-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        actionType: 'package.create',
+        targetType: 'package',
+        targetId: result.package?.id || requiredString(body, 'id'),
+        resultStatus: 'created',
+        afterState: {
+          id: result.package?.id || requiredString(body, 'id'),
+          status: result.package?.status || requiredString(body, 'status') || null,
+          billingCycle: result.package?.billingCycle || requiredString(body, 'billingCycle') || null,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result.package });
       return true;
     }
@@ -367,6 +432,20 @@ function createAdminPlatformPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-package-update-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        actionType: 'package.update',
+        targetType: 'package',
+        targetId: result.package?.id || requiredString(body, 'id'),
+        resultStatus: 'updated',
+        afterState: {
+          id: result.package?.id || requiredString(body, 'id'),
+          status: result.package?.status || requiredString(body, 'status') || null,
+          billingCycle: result.package?.billingCycle || requiredString(body, 'billingCycle') || null,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result.package });
       return true;
     }
@@ -403,6 +482,18 @@ function createAdminPlatformPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-package-delete-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        actionType: 'package.delete',
+        targetType: 'package',
+        targetId: packageId,
+        resultStatus: 'deleted',
+        beforeState: {
+          packageId,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -505,6 +596,22 @@ function createAdminPlatformPostRoutes(deps) {
         });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        actionType: 'staff.role.change',
+        targetType: 'tenant_staff',
+        targetId: result.staff?.id || requiredString(body, 'membershipId') || requiredString(body, 'userId'),
+        resultStatus: 'updated',
+        afterState: {
+          membershipId: requiredString(body, 'membershipId') || null,
+          userId: requiredString(body, 'userId') || null,
+          role: result.staff?.role || requiredString(body, 'role') || null,
+          status: result.staff?.status || requiredString(body, 'status') || null,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result.staff });
       return true;
     }
@@ -785,11 +892,33 @@ function createAdminPlatformPostRoutes(deps) {
         minimumVersion: requiredString(body, 'minimumVersion'),
         expiresAt: requiredString(body, 'expiresAt'),
         metadata: body.metadata,
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'platform-agent-provision-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: requiredString(body, 'serverId'),
+        actionType: 'agent.provision.issue',
+        targetType: 'agent_provisioning_token',
+        targetId: result.token?.id || requiredString(body, 'tokenId') || requiredString(body, 'id'),
+        runtimeKey: requiredString(body, 'runtimeKey'),
+        jobId: result.token?.id || null,
+        resultStatus: 'issued',
+        afterState: {
+          agentId: requiredString(body, 'agentId') || null,
+          role: strictProfile.role,
+          scope: strictProfile.scope,
+          runtimeKind: strictProfile.runtimeKind,
+          expiresAt: result.token?.expiresAt || requiredString(body, 'expiresAt') || null,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }

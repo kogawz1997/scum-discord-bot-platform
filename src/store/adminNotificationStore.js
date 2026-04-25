@@ -2,10 +2,23 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 const { prisma } = require('../prisma');
-const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
+const {
+  atomicWriteJson,
+  getFilePath,
+  isDbPersistenceEnabled,
+  resolveStorePersistenceMode: resolveStorePersistenceModeBase,
+} = require('./_persist');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 
 const MAX_NOTIFICATIONS = 500;
 const FILE_PATH = getFilePath('admin-notifications.json');
+const TENANT_OWNED_NOTIFICATION_TYPES = new Set([
+  'billing',
+  'commercial',
+  'subscription',
+  'tenant',
+  'tenant-runtime',
+]);
 
 const notifications = [];
 let initPromise = null;
@@ -60,6 +73,28 @@ function getNotificationTenantId(entry = {}) {
   ) || null;
 }
 
+function isTenantOwnedNotification(entry = {}) {
+  const type = trimText(entry.type, 120).toLowerCase();
+  const source = trimText(entry.source, 160).toLowerCase();
+  const kind = trimText(entry.kind, 160).toLowerCase();
+  if (entry.requireTenantScope === true || entry.tenantScoped === true) return true;
+  if (getNotificationTenantId(entry)) return true;
+  if (TENANT_OWNED_NOTIFICATION_TYPES.has(type)) return true;
+  if (type.startsWith('tenant-') || source.startsWith('tenant-')) return true;
+  return kind.startsWith('tenant-') || kind.includes('subscription');
+}
+
+function assertAdminNotificationMutationScope(entry = {}, operation = 'add admin notification') {
+  if (!isTenantOwnedNotification(entry)) return null;
+  const tenantId = getNotificationTenantId(entry);
+  return assertTenantMutationScope({
+    tenantId,
+    dataTenantId: tenantId,
+    operation,
+    entityType: 'admin-notification',
+  });
+}
+
 function parseDataJson(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value;
@@ -100,14 +135,21 @@ function getNotificationDelegate(client = prisma) {
   return delegate;
 }
 
-function getPersistenceMode() {
-  const explicit = String(process.env.ADMIN_NOTIFICATION_STORE_MODE || '').trim().toLowerCase();
+function resolveStorePersistenceMode(explicitValue, defaultMode) {
+  if (typeof resolveStorePersistenceModeBase === 'function') {
+    return resolveStorePersistenceModeBase(explicitValue, defaultMode);
+  }
+  const explicit = String(explicitValue || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
   if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
     return 'db';
   }
-  return 'db';
+  return defaultMode;
+}
+
+function getPersistenceMode() {
+  return resolveStorePersistenceMode(process.env.ADMIN_NOTIFICATION_STORE_MODE, 'db');
 }
 
 async function runWithPreferredPersistence(dbWork, fileWork) {
@@ -156,6 +198,30 @@ async function writeSnapshotToDatabase(delegate = getNotificationDelegate()) {
   if (rows.length > 0) {
     await delegate.createMany({ data: rows });
   }
+}
+
+async function persistNotificationToDatabase(entry, delegate = getNotificationDelegate(), staleIds = []) {
+  if (!delegate) return;
+  const row = serializeNotificationRow(entry);
+  if (!row) return;
+  if (typeof delegate.upsert === 'function') {
+    await delegate.upsert({
+      where: { id: row.id },
+      create: row,
+      update: row,
+    });
+    if (Array.isArray(staleIds) && staleIds.length > 0 && typeof delegate.deleteMany === 'function') {
+      await delegate.deleteMany({
+        where: {
+          id: {
+            in: staleIds,
+          },
+        },
+      });
+    }
+    return;
+  }
+  await writeSnapshotToDatabase(delegate);
 }
 
 async function writeSnapshot() {
@@ -229,12 +295,22 @@ function initAdminNotificationStore() {
 }
 
 function addAdminNotification(entry = {}) {
+  assertAdminNotificationMutationScope(entry, 'add admin notification');
   const normalized = normalizeNotification(entry);
   if (!normalized) return null;
+  const previousIds = new Set(notifications.map((item) => item.id));
   const deduped = dedupeNotifications([...notifications, normalized]);
   notifications.length = 0;
   notifications.push(...deduped);
-  queueWrite(writeSnapshot, 'add');
+  const activeIds = new Set(notifications.map((item) => item.id));
+  const staleIds = Array.from(previousIds).filter((id) => !activeIds.has(id));
+  queueWrite(
+    () => runWithPreferredPersistence(
+      (delegate) => persistNotificationToDatabase(normalized, delegate, staleIds),
+      async () => writeSnapshotToDisk(),
+    ),
+    'add',
+  );
   return { ...normalized };
 }
 
@@ -373,6 +449,9 @@ function pruneAdminNotifications(options = {}) {
 }
 
 function replaceAdminNotifications(nextRows = []) {
+  for (const row of Array.isArray(nextRows) ? nextRows : []) {
+    assertAdminNotificationMutationScope(row, 'replace admin notifications');
+  }
   const deduped = dedupeNotifications(nextRows);
   notifications.length = 0;
   notifications.push(...deduped);

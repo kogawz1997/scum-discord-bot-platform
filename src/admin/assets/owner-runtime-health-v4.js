@@ -7,6 +7,36 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
+  const CP1252_REVERSE_MAP = new Map([
+    [0x20AC, 0x80],
+    [0x201A, 0x82],
+    [0x0192, 0x83],
+    [0x201E, 0x84],
+    [0x2026, 0x85],
+    [0x2020, 0x86],
+    [0x2021, 0x87],
+    [0x02C6, 0x88],
+    [0x2030, 0x89],
+    [0x0160, 0x8A],
+    [0x2039, 0x8B],
+    [0x0152, 0x8C],
+    [0x017D, 0x8E],
+    [0x2018, 0x91],
+    [0x2019, 0x92],
+    [0x201C, 0x93],
+    [0x201D, 0x94],
+    [0x2022, 0x95],
+    [0x2013, 0x96],
+    [0x2014, 0x97],
+    [0x02DC, 0x98],
+    [0x2122, 0x99],
+    [0x0161, 0x9A],
+    [0x203A, 0x9B],
+    [0x0153, 0x9C],
+    [0x017E, 0x9E],
+    [0x0178, 0x9F],
+  ]);
+
   const NAV_GROUPS = [
     { label: 'แพลตฟอร์ม', items: [
       { label: 'ภาพรวม', href: '#overview' },
@@ -47,8 +77,27 @@
     }));
   }
 
+  function repairMojibakeText(value) {
+    const text = String(value ?? '');
+    if (!text || !/(\u00C3|\u00C2|\u00E0|\u00E2|\u00EF|\u00BF)/.test(text) || typeof TextDecoder !== 'function') return text;
+    try {
+      const bytes = Uint8Array.from(Array.from(text, (char) => {
+        const codePoint = char.codePointAt(0);
+        return CP1252_REVERSE_MAP.get(codePoint) ?? (codePoint & 0xff);
+      }));
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch {
+      return text;
+    }
+  }
+
   function escapeHtml(value) {
-    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return repairMojibakeText(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
   function formatNumber(value, fallback = '0') {
     const numeric = Number(value);
@@ -117,10 +166,89 @@
   function toneForStatus(value) {
     const raw = String(value || '').trim().toLowerCase();
     if (['ready', 'healthy', 'active', 'online'].includes(raw)) return 'success';
-    if (['warning', 'degraded', 'stale', 'slow', 'outdated'].includes(raw)) return 'warning';
+    if (['warning', 'degraded', 'stale', 'slow', 'outdated', 'pending_activation', 'pending-activation'].includes(raw)) return 'warning';
     if (['offline', 'failed', 'error', 'expired', 'suspended'].includes(raw)) return 'danger';
+    if (['unregistered'].includes(raw)) return 'danger';
     if (['pending', 'draft', 'provisioned'].includes(raw)) return 'info';
     return 'muted';
+  }
+  function inferAgentRuntimeKind(row) {
+    const role = String(row && row.meta && row.meta.agentRole || row && row.role || '').trim().toLowerCase();
+    const scope = String(row && row.meta && row.meta.agentScope || row && row.scope || '').trim().toLowerCase();
+    if (role === 'sync' || ['sync_only', 'sync-only', 'synconly'].includes(scope)) return 'server-bots';
+    if (role === 'execute' || ['execute_only', 'execute-only', 'executeonly'].includes(scope)) return 'delivery-agents';
+    const text = [
+      row && row.runtimeKey,
+      row && row.name,
+      row && row.channel,
+      row && row.meta && row.meta.agentRole,
+      row && row.meta && row.meta.agentScope,
+      ...(Array.isArray(row && row.meta && row.meta.capabilities) ? row.meta.capabilities : []),
+    ]
+      .map((entry) => String(entry || '').trim().toLowerCase())
+      .filter(Boolean)
+      .join(' ');
+    if (['sync', 'watch', 'watcher', 'log', 'config', 'restart', 'monitor'].some((token) => text.includes(token))) return 'server-bots';
+    if (['execute', 'delivery', 'dispatch', 'announce', 'console-agent', 'write'].some((token) => text.includes(token))) return 'delivery-agents';
+    return '';
+  }
+  function buildTenantRuntimeHref(kind, tenantId) {
+    const runtimeKind = String(kind || '').trim();
+    const scopedTenantId = String(tenantId || '').trim();
+    if (!runtimeKind || !scopedTenantId) return '';
+    return `/tenant/runtimes/${encodeURIComponent(runtimeKind)}?tenantId=${encodeURIComponent(scopedTenantId)}`;
+  }
+  function buildOwnerTenantHref(tenantId) {
+    const scopedTenantId = String(tenantId || '').trim();
+    if (!scopedTenantId) return '';
+    return `/owner/tenants/${encodeURIComponent(scopedTenantId)}`;
+  }
+  function buildOwnerSupportHref(tenantId) {
+    const scopedTenantId = String(tenantId || '').trim();
+    if (!scopedTenantId) return '';
+    return `/owner/support/${encodeURIComponent(scopedTenantId)}`;
+  }
+  function buildOwnerRuntimeSectionHref(section) {
+    const normalized = String(section || '').trim().toLowerCase();
+    return normalized ? `#${encodeURIComponent(normalized)}` : '#runtime-health';
+  }
+  function describeTenantRuntimeLabel(kind) {
+    return kind === 'server-bots' ? 'Open Server Bot' : kind === 'delivery-agents' ? 'Open Delivery Agent' : 'Open tenant runtime';
+  }
+  function trimText(value, maxLen = 240) {
+    const text = String(value ?? '').trim();
+    return !text ? '' : text.slice(0, maxLen);
+  }
+  function compareVersions(left, right) {
+    const leftParts = trimText(left, 120).split(/[.-]/g).map((value) => Number.parseInt(value, 10) || 0);
+    const rightParts = trimText(right, 120).split(/[.-]/g).map((value) => Number.parseInt(value, 10) || 0);
+    const maxLen = Math.max(leftParts.length, rightParts.length);
+    for (let index = 0; index < maxLen; index += 1) {
+      const leftValue = leftParts[index] || 0;
+      const rightValue = rightParts[index] || 0;
+      if (leftValue > rightValue) return 1;
+      if (leftValue < rightValue) return -1;
+    }
+    return 0;
+  }
+  function buildVersionWatch(version, minimumVersion) {
+    const currentVersion = trimText(version, 80);
+    const minimum = trimText(minimumVersion, 80);
+    if (!minimum) {
+      return {
+        tone: currentVersion ? 'success' : 'warning',
+        label: currentVersion ? 'Version reported' : 'Waiting for version',
+      };
+    }
+    if (!currentVersion) {
+      return {
+        tone: 'warning',
+        label: `Need at least ${minimum}`,
+      };
+    }
+    return compareVersions(currentVersion, minimum) >= 0
+      ? { tone: 'success', label: `Meets ${minimum}` }
+      : { tone: 'danger', label: `Upgrade to ${minimum}` };
   }
   function normalizeRuntimeRows(snapshot) {
     const services = snapshot && snapshot.services;
@@ -176,6 +304,489 @@
       errors: formatNumber(row.errors, '0'),
       p95LatencyMs: formatNumber(row.p95LatencyMs, '0'),
     }));
+  }
+  function buildOwnerFleetKey(parts) {
+    return [
+      trimText(parts && parts.tenantId, 160),
+      trimText(parts && parts.serverId, 160),
+      trimText(parts && parts.agentId, 160) || trimText(parts && parts.runtimeKey, 160) || trimText(parts && parts.fallbackId, 160) || 'runtime',
+    ].join('::');
+  }
+  function buildOwnerRuntimeFleetRows(state) {
+    const tenants = new Map((Array.isArray(state && state.tenants) ? state.tenants : []).map((row) => [trimText(row && row.id, 160), row]));
+    const registry = Array.isArray(state && state.agentRegistry) ? state.agentRegistry : [];
+    const runtimes = Array.isArray(state && state.agents) ? state.agents : [];
+    const provisionings = Array.isArray(state && state.agentProvisioning) ? state.agentProvisioning : [];
+    const devices = Array.isArray(state && state.agentDevices) ? state.agentDevices : [];
+    const credentials = Array.isArray(state && state.agentCredentials) ? state.agentCredentials : [];
+    const rows = new Map();
+
+    function upsert(parts, patch) {
+      const key = buildOwnerFleetKey(parts);
+      const previous = rows.get(key) || {
+        tenantId: '',
+        tenantLabel: '',
+        serverId: '',
+        serverLabel: '',
+        agentId: '',
+        runtimeKey: '',
+        runtime: '',
+        role: '',
+        scope: '',
+        channel: '',
+        status: '',
+        version: '',
+        lastSeenAt: '',
+        machineName: '',
+        apiKeyId: '',
+        deviceId: '',
+        provisionTokenId: '',
+        provisionStatus: '',
+        minimumVersion: '',
+      };
+      const next = {
+        ...previous,
+        ...patch,
+      };
+      if (!next.tenantLabel) {
+        next.tenantLabel = firstNonEmpty([
+          next.tenantId && tenants.get(next.tenantId) && (tenants.get(next.tenantId).name || tenants.get(next.tenantId).slug),
+          next.tenantId,
+          'Tenant not attached',
+        ]);
+      }
+      if (!next.runtime) {
+        next.runtime = firstNonEmpty([next.runtimeKey, next.agentId], '-');
+      }
+      if (!next.serverLabel) {
+        next.serverLabel = firstNonEmpty([next.serverId, '-']);
+      }
+      rows.set(key, next);
+    }
+
+    registry.forEach((entry) => {
+      const runtime = entry && entry.runtime && typeof entry.runtime === 'object' ? entry.runtime : {};
+      const binding = Array.isArray(entry && entry.bindings) && entry.bindings.length ? entry.bindings[0] : {};
+      const latestSession = Array.isArray(entry && entry.sessions) && entry.sessions.length ? entry.sessions[0] : {};
+      const tenantId = trimText(entry && entry.tenantId, 160);
+      const serverId = trimText(entry && entry.serverId, 160);
+      const agentId = trimText(entry && entry.agentId, 160);
+      const runtimeKey = trimText(entry && entry.runtimeKey, 160);
+      upsert({ tenantId, serverId, agentId, runtimeKey }, {
+        tenantId,
+        tenantLabel: firstNonEmpty([entry && entry.tenantName, '']),
+        serverId,
+        serverLabel: firstNonEmpty([entry && entry.serverName, entry && entry.guildId, serverId, '-']),
+        agentId,
+        runtimeKey,
+        runtime: firstNonEmpty([entry && entry.displayName, entry && entry.name, runtimeKey, agentId], 'Runtime'),
+        role: firstNonEmpty([entry && entry.role, runtime && runtime.meta && runtime.meta.agentRole], '-'),
+        scope: firstNonEmpty([entry && entry.scope, runtime && runtime.meta && runtime.meta.agentScope], '-'),
+        channel: firstNonEmpty([runtime && runtime.channel, entry && entry.channel], '-'),
+        status: firstNonEmpty([runtime && runtime.status, entry && entry.status], ''),
+        version: firstNonEmpty([runtime && runtime.version, latestSession && latestSession.version], '-'),
+        lastSeenAt: firstNonEmpty([
+          runtime && (runtime.lastSeenAt || runtime.updatedAt || runtime.heartbeatAt),
+          latestSession && (latestSession.heartbeatAt || latestSession.updatedAt),
+          entry && entry.updatedAt,
+        ], ''),
+        machineName: firstNonEmpty([
+          runtime && runtime.meta && runtime.meta.hostname,
+          latestSession && latestSession.hostname,
+        ], ''),
+        apiKeyId: trimText(binding && binding.apiKeyId, 160),
+        deviceId: trimText(binding && binding.deviceId, 160),
+        minimumVersion: firstNonEmpty([binding && binding.minVersion, entry && entry.minimumVersion], ''),
+      });
+    });
+
+    runtimes.forEach((entry) => {
+      const meta = entry && entry.meta && typeof entry.meta === 'object' ? entry.meta : {};
+      const tenantId = trimText(entry && entry.tenantId, 160);
+      const serverId = firstNonEmpty([entry && entry.serverId, meta.serverId], '');
+      const agentId = firstNonEmpty([entry && entry.agentId, meta.agentId], '');
+      const runtimeKey = firstNonEmpty([entry && entry.runtimeKey, meta.runtimeKey], '');
+      upsert({ tenantId, serverId, agentId, runtimeKey }, {
+        tenantId,
+        tenantLabel: firstNonEmpty([entry && entry.tenantName, meta.tenantName, '']),
+        serverId,
+        serverLabel: firstNonEmpty([meta.serverName, meta.serverId, entry && entry.serverId, '-']),
+        agentId,
+        runtimeKey,
+        runtime: firstNonEmpty([entry && entry.displayName, runtimeKey, agentId], 'Runtime'),
+        role: firstNonEmpty([meta.agentRole, entry && entry.role], '-'),
+        scope: firstNonEmpty([meta.agentScope, entry && entry.scope], '-'),
+        channel: firstNonEmpty([entry && entry.channel, meta.channel, meta.agentScope], '-'),
+        status: firstNonEmpty([entry && entry.status], ''),
+        version: firstNonEmpty([entry && entry.version, meta.version], '-'),
+        lastSeenAt: firstNonEmpty([entry && (entry.lastSeenAt || entry.updatedAt || entry.heartbeatAt)], ''),
+        machineName: firstNonEmpty([meta.hostname], ''),
+      });
+    });
+
+    credentials.forEach((entry) => {
+      const tenantId = trimText(entry && entry.tenantId, 160);
+      const serverId = trimText(entry && entry.serverId, 160);
+      const agentId = trimText(entry && entry.agentId, 160);
+      const runtimeKey = trimText(entry && entry.runtimeKey, 160);
+      upsert({ tenantId, serverId, agentId, runtimeKey, fallbackId: trimText(entry && entry.apiKeyId, 160) }, {
+        tenantId,
+        serverId,
+        agentId,
+        runtimeKey,
+        apiKeyId: trimText(entry && entry.apiKeyId, 160),
+        deviceId: trimText(entry && entry.deviceId, 160),
+        minimumVersion: firstNonEmpty([entry && entry.minVersion], ''),
+      });
+    });
+
+    devices.forEach((entry) => {
+      const tenantId = trimText(entry && entry.tenantId, 160);
+      const serverId = trimText(entry && entry.serverId, 160);
+      const agentId = trimText(entry && entry.agentId, 160);
+      const runtimeKey = trimText(entry && entry.runtimeKey, 160);
+      upsert({ tenantId, serverId, agentId, runtimeKey, fallbackId: trimText(entry && entry.id, 160) }, {
+        tenantId,
+        serverId,
+        agentId,
+        runtimeKey,
+        deviceId: trimText(entry && entry.id, 160),
+        machineName: firstNonEmpty([entry && entry.hostname], ''),
+        lastSeenAt: firstNonEmpty([entry && entry.lastSeenAt], ''),
+      });
+    });
+
+    provisionings.forEach((entry) => {
+      const tenantId = trimText(entry && entry.tenantId, 160);
+      const serverId = trimText(entry && entry.serverId, 160);
+      const agentId = trimText(entry && entry.agentId, 160);
+      const runtimeKey = trimText(entry && entry.runtimeKey, 160);
+      upsert({ tenantId, serverId, agentId, runtimeKey, fallbackId: trimText(entry && entry.id, 160) }, {
+        tenantId,
+        serverId,
+        agentId,
+        runtimeKey,
+        runtime: firstNonEmpty([entry && entry.displayName, entry && entry.name, runtimeKey, agentId], 'Runtime'),
+        role: firstNonEmpty([entry && entry.role], '-'),
+        scope: firstNonEmpty([entry && entry.scope], '-'),
+        provisionTokenId: trimText(entry && (entry.tokenId || entry.id), 160),
+        provisionStatus: firstNonEmpty([entry && entry.status], ''),
+        minimumVersion: firstNonEmpty([entry && entry.minVersion], ''),
+      });
+    });
+
+    return Array.from(rows.values()).map((row) => {
+      const runtimeKind = inferAgentRuntimeKind({
+        runtimeKey: row.runtimeKey,
+        name: row.runtime,
+        channel: row.channel,
+        role: row.role,
+        scope: row.scope,
+      });
+      const versionWatch = buildVersionWatch(row.version, row.minimumVersion);
+      const normalizedStatus = firstNonEmpty([
+        row.status,
+        trimText(row.provisionStatus, 80).toLowerCase() === 'pending_activation' ? 'pending_activation' : '',
+        row.apiKeyId ? 'offline' : '',
+        row.provisionTokenId ? 'pending_activation' : '',
+      ], 'unregistered');
+      let bindingTone = 'danger';
+      let bindingLabel = 'Needs provisioning';
+      if (!row.tenantId) {
+        bindingTone = 'danger';
+        bindingLabel = 'Tenant scope missing';
+      } else if (row.deviceId || row.machineName) {
+        bindingTone = 'success';
+        bindingLabel = 'Machine bound';
+      } else if (trimText(row.provisionStatus, 80).toLowerCase() === 'pending_activation') {
+        bindingTone = 'warning';
+        bindingLabel = 'Pending activation';
+      } else if (row.apiKeyId || row.provisionTokenId) {
+        bindingTone = 'warning';
+        bindingLabel = 'Binding incomplete';
+      }
+      let attention = { key: 'healthy', label: 'Healthy', tone: 'success', rank: 0 };
+      if (!row.tenantId) {
+        attention = { key: 'missing-tenant-scope', label: 'Tenant scope missing', tone: 'danger', rank: 6 };
+      } else if (!runtimeKind) {
+        attention = { key: 'missing-runtime-kind', label: 'Runtime type missing', tone: 'danger', rank: 5 };
+      } else if (!row.apiKeyId && !row.provisionTokenId) {
+        attention = { key: 'needs-provisioning', label: 'Needs provisioning', tone: 'danger', rank: 5 };
+      } else if (versionWatch.tone === 'danger') {
+        attention = { key: 'version-gap', label: versionWatch.label, tone: 'danger', rank: 4 };
+      } else if (toneForStatus(normalizedStatus) === 'danger') {
+        attention = { key: 'runtime-offline', label: 'Runtime offline', tone: 'danger', rank: 4 };
+      } else if (bindingTone !== 'success') {
+        attention = { key: 'binding-gap', label: bindingLabel, tone: 'warning', rank: 3 };
+      } else if (toneForStatus(normalizedStatus) !== 'success') {
+        attention = { key: 'runtime-watch', label: 'Needs operator review', tone: 'warning', rank: 2 };
+      }
+      return {
+        ...row,
+        status: normalizedStatus,
+        runtimeKind,
+        versionWatchTone: versionWatch.tone,
+        versionWatchLabel: versionWatch.label,
+        bindingTone,
+        bindingLabel,
+        handoffHref: buildTenantRuntimeHref(runtimeKind, row.tenantId),
+        handoffLabel: describeTenantRuntimeLabel(runtimeKind),
+        attentionKey: attention.key,
+        attentionLabel: attention.label,
+        attentionTone: attention.tone,
+        attentionRank: attention.rank,
+      };
+    }).sort((left, right) => {
+      if (right.attentionRank !== left.attentionRank) return right.attentionRank - left.attentionRank;
+      return (parseDate(right.lastSeenAt)?.getTime() || 0) - (parseDate(left.lastSeenAt)?.getTime() || 0);
+    });
+  }
+  function buildOwnerRuntimeFleetWatch(rows) {
+    const items = Array.isArray(rows) ? rows : [];
+    const needsProvisioning = items.filter((row) => row.attentionKey === 'needs-provisioning').length;
+    const pendingActivation = items.filter((row) => trimText(row.provisionStatus, 80).toLowerCase() === 'pending_activation').length;
+    const bindingGaps = items.filter((row) => row.attentionKey === 'binding-gap').length;
+    const versionGaps = items.filter((row) => row.versionWatchTone === 'danger').length;
+    const scopeIssues = items.filter((row) => row.attentionKey === 'missing-tenant-scope' || row.attentionKey === 'missing-runtime-kind').length;
+    const offlineOrStale = items.filter((row) => toneForStatus(row.status) !== 'success').length;
+    return [
+      {
+        label: 'Needs provisioning',
+        value: formatNumber(needsProvisioning, '0'),
+        detail: needsProvisioning ? 'These runtimes still lack an active credential or provisioning token.' : 'Every visible runtime has a credential or provisioning path.',
+        tone: needsProvisioning ? 'danger' : 'success',
+      },
+      {
+        label: 'Pending activation',
+        value: formatNumber(pendingActivation, '0'),
+        detail: pendingActivation ? 'Provisioning exists but the target machine has not activated yet.' : 'No pending activation tokens are blocking the visible fleet.',
+        tone: pendingActivation ? 'warning' : 'success',
+      },
+      {
+        label: 'Binding gaps',
+        value: formatNumber(bindingGaps, '0'),
+        detail: bindingGaps ? 'At least one runtime still needs a machine binding before it is trustworthy.' : 'All visible runtimes have a machine binding.',
+        tone: bindingGaps ? 'warning' : 'success',
+      },
+      {
+        label: 'Version gaps',
+        value: formatNumber(versionGaps, '0'),
+        detail: versionGaps ? 'Some runtimes are below the visible minimum version target.' : 'Visible runtimes meet the version floor where one is configured.',
+        tone: versionGaps ? 'danger' : 'success',
+      },
+      {
+        label: 'Scope issues',
+        value: formatNumber(scopeIssues, '0'),
+        detail: scopeIssues ? 'Review runtimes that are missing tenant scope or runtime kind before routing incidents.' : 'Tenant scope and runtime kind are present for visible runtimes.',
+        tone: scopeIssues ? 'danger' : 'success',
+      },
+      {
+        label: 'Offline or stale',
+        value: formatNumber(offlineOrStale, '0'),
+        detail: offlineOrStale ? 'These runtimes need operator review before relying on delivery, sync, or restart work.' : 'Visible runtimes are reporting healthy status.',
+        tone: offlineOrStale ? 'warning' : 'success',
+      },
+    ];
+  }
+  function buildOwnerRuntimeAttentionRows(rows) {
+    return (Array.isArray(rows) ? rows : []).filter((row) => row.attentionRank > 0).slice(0, 8);
+  }
+  function buildOwnerRuntimeAttentionGroups(rows) {
+    const items = Array.isArray(rows) ? rows : [];
+    const groups = [
+      {
+        key: 'needs-provisioning',
+        label: 'Needs provisioning',
+        tone: 'danger',
+        detail: 'Create or repair the provisioning path before this runtime is treated as ready.',
+        predicate: (row) => row.attentionKey === 'needs-provisioning',
+      },
+      {
+        key: 'pending-activation',
+        label: 'Pending activation',
+        tone: 'warning',
+        detail: 'The machine still has a token or draft binding that has not activated yet.',
+        predicate: (row) => trimText(row.provisionStatus, 80).toLowerCase() === 'pending_activation',
+      },
+      {
+        key: 'binding-gap',
+        label: 'Binding gaps',
+        tone: 'warning',
+        detail: 'A runtime exists, but it still needs a stable machine binding before it is trustworthy.',
+        predicate: (row) => row.attentionKey === 'binding-gap',
+      },
+      {
+        key: 'version-gap',
+        label: 'Version gaps',
+        tone: 'danger',
+        detail: 'These runtimes are below the current minimum version target.',
+        predicate: (row) => row.versionWatchTone === 'danger',
+      },
+      {
+        key: 'scope-issues',
+        label: 'Scope issues',
+        tone: 'danger',
+        detail: 'Tenant scope or runtime type is incomplete, so routing and remediation stay ambiguous.',
+        predicate: (row) => row.attentionKey === 'missing-tenant-scope' || row.attentionKey === 'missing-runtime-kind',
+      },
+      {
+        key: 'offline-or-stale',
+        label: 'Offline or stale',
+        tone: 'warning',
+        detail: 'These runtimes are not reporting healthy status and need operator review before use.',
+        predicate: (row) => toneForStatus(row.status) !== 'success',
+      },
+    ];
+    return groups.map((group) => {
+      const matches = items.filter(group.predicate);
+      return {
+        key: group.key,
+        label: group.label,
+        tone: group.tone,
+        detail: group.detail,
+        count: matches.length,
+        rows: matches.slice(0, 8),
+      };
+    }).filter((group) => group.count > 0);
+  }
+  function normalizeBackupFiles(items) {
+    return (Array.isArray(items) ? items : [])
+      .map((item) => ({
+        id: trimText(item && item.id, 160),
+        file: trimText(item && item.file, 260),
+        sizeBytes: Number(item && item.sizeBytes || 0),
+        createdAt: item && item.createdAt,
+        updatedAt: item && item.updatedAt,
+      }))
+      .filter((item) => item.file || item.id)
+      .sort((left, right) => (parseDate(right.updatedAt)?.getTime() || 0) - (parseDate(left.updatedAt)?.getTime() || 0));
+  }
+  function normalizeRestoreHistory(items) {
+    return (Array.isArray(items) ? items : [])
+      .map((item) => ({
+        operationId: trimText(item && item.operationId, 160),
+        status: trimText(item && item.status, 80).toLowerCase() || 'idle',
+        backup: trimText(item && item.backup, 260),
+        confirmBackup: trimText(item && item.confirmBackup, 260),
+        rollbackBackup: trimText(item && item.rollbackBackup, 260),
+        rollbackStatus: trimText(item && item.rollbackStatus, 80).toLowerCase() || 'none',
+        lastError: trimText(item && item.lastError, 400),
+        actor: trimText(item && item.actor, 160),
+        recordedAt: item && (item.recordedAt || item.endedAt || item.updatedAt || item.startedAt),
+        warnings: Array.isArray(item && item.warnings) ? item.warnings.filter(Boolean) : [],
+        verification: item && item.verification && typeof item.verification === 'object' ? item.verification : null,
+      }))
+      .filter((item) => item.backup || item.operationId)
+      .sort((left, right) => (parseDate(right.recordedAt)?.getTime() || 0) - (parseDate(left.recordedAt)?.getTime() || 0));
+  }
+  function buildRestorePhase(restoreState, restorePreview) {
+    const state = restoreState && typeof restoreState === 'object' ? restoreState : {};
+    const preview = restorePreview && typeof restorePreview === 'object' ? restorePreview : null;
+    const status = trimText(state.status, 80).toLowerCase();
+    const rollbackStatus = trimText(state.rollbackStatus, 80).toLowerCase();
+    if (status === 'running') {
+      return {
+        key: 'executing',
+        tone: 'warning',
+        label: 'Restore running',
+        detail: firstNonEmpty([
+          trimText(state.backup, 160) ? `Shared restore is applying ${trimText(state.backup, 160)} right now.` : '',
+          'Shared restore is running. Keep operators out of sensitive workflows until verification finishes.',
+        ]),
+      };
+    }
+    if (status === 'succeeded') {
+      return {
+        key: 'completed',
+        tone: 'success',
+        label: 'Restore completed',
+        detail: state.verification && state.verification.ready === true
+          ? 'Verification checks passed for the latest restore cycle.'
+          : 'The latest restore finished. Review verification details before declaring recovery complete.',
+      };
+    }
+    if (status === 'failed' && rollbackStatus === 'succeeded') {
+      return {
+        key: 'rolled-back',
+        tone: 'warning',
+        label: 'Restore rolled back',
+        detail: firstNonEmpty([
+          trimText(state.lastError, 220),
+          'The restore failed and the rollback backup was applied to keep the control plane stable.',
+        ]),
+      };
+    }
+    if (status === 'failed') {
+      return {
+        key: 'failed',
+        tone: 'danger',
+        label: 'Restore failed',
+        detail: firstNonEmpty([
+          trimText(state.lastError, 220),
+          'The latest restore failed. Review the preview and history before retrying.',
+        ]),
+      };
+    }
+    if (preview || state.previewBackup || state.previewToken) {
+      return {
+        key: 'previewed',
+        tone: 'info',
+        label: 'Preview ready',
+        detail: state.previewExpiresAt
+          ? `Preview guard expires ${formatDateTime(state.previewExpiresAt)}.`
+          : 'A dry-run preview is ready for guarded restore.',
+      };
+    }
+    return {
+      key: 'idle',
+      tone: 'muted',
+      label: 'Recovery idle',
+      detail: 'Create a backup or run a dry-run preview before using guarded restore.',
+    };
+  }
+  function buildRecoveryStrip(restoreState, restorePreview, backupFiles, restoreHistory) {
+    const state = restoreState && typeof restoreState === 'object' ? restoreState : {};
+    const preview = restorePreview && typeof restorePreview === 'object' ? restorePreview : null;
+    const phase = buildRestorePhase(state, preview);
+    const warningCount = Array.isArray(preview && preview.warnings)
+      ? preview.warnings.length
+      : Array.isArray(state.warnings)
+        ? state.warnings.length
+        : 0;
+    const lastHistory = Array.isArray(restoreHistory) && restoreHistory.length ? restoreHistory[0] : null;
+    const previewToken = trimText(preview && preview.previewToken, 180) || trimText(state.previewToken, 180);
+    return [
+      {
+        label: 'Recovery phase',
+        value: phase.label,
+        detail: phase.detail,
+        tone: phase.tone,
+      },
+      {
+        label: 'Backups visible',
+        value: formatNumber(Array.isArray(backupFiles) ? backupFiles.length : 0, '0'),
+        detail: Array.isArray(backupFiles) && backupFiles.length
+          ? `Latest backup updated ${formatDateTime(backupFiles[0].updatedAt || backupFiles[0].createdAt)}.`
+          : 'No shared backup files are visible yet.',
+        tone: Array.isArray(backupFiles) && backupFiles.length ? 'success' : 'warning',
+      },
+      {
+        label: 'Preview guard',
+        value: previewToken ? 'Ready' : 'Missing',
+        detail: previewToken
+          ? `Warnings ${formatNumber(warningCount, '0')} · ${trimText(preview && preview.backup, 160) || trimText(state.previewBackup, 160) || 'preview source recorded'}`
+          : 'Run a dry-run preview to mint a guarded restore token.',
+        tone: previewToken ? 'info' : 'warning',
+      },
+      {
+        label: 'Restore history',
+        value: formatNumber(Array.isArray(restoreHistory) ? restoreHistory.length : 0, '0'),
+        detail: lastHistory
+          ? `${firstNonEmpty([lastHistory.backup, lastHistory.operationId], 'Latest restore')} · ${formatDateTime(lastHistory.recordedAt)}`
+          : 'No shared restore history has been recorded yet.',
+        tone: lastHistory ? 'muted' : 'info',
+      },
+    ];
   }
   function buildRuntimeRouteView(currentRoute, context = {}) {
     const route = normalizeRuntimeNavRoute(currentRoute);
@@ -291,6 +902,34 @@
       };
     }
 
+    if (route === 'recovery') {
+      return {
+        ...base,
+        pageKicker: 'สำรองข้อมูลและกู้คืน',
+        headerTitle: 'Backup / Restore Manager',
+        headerSubtitle: 'ใช้หน้านี้สร้าง shared backup, ตรวจ dry-run preview, และรัน guarded restore โดยไม่ต้องกลับไปหน้า owner console รุ่นเก่า',
+        primaryAction: { label: 'เปิด workbench กู้คืน (แนะนำ)', href: '#recovery' },
+        recovery: {
+          kicker: 'Recovery workbench',
+          title: 'Shared backup and guarded restore',
+          copy: 'เริ่มจาก backup inventory และ dry-run preview ก่อน แล้วค่อยยืนยัน restore ด้วย preview token เดียวกัน',
+        },
+        jobs: {
+          kicker: 'Runtime context',
+          title: 'Delivery Agent และ Server Bot ที่ต้องเฝ้าดู',
+          copy: 'หลัง restore ให้ย้อนดู runtime fleet ต่อทันทีเพื่อยืนยันว่า binding และ version ยังอยู่ในเกณฑ์',
+        },
+        observability: {
+          kicker: 'Verification context',
+          title: 'จุดร้อนของคำขอหลังการกู้คืน',
+          copy: 'ให้ request hotspot และ error ล่าสุดอยู่ใกล้ recovery history เพื่อใช้เทียบก่อนและหลัง restore',
+        },
+        blockOrder: ['recovery', 'jobs', 'observability', 'incidents'],
+        railHeader: 'บริบทการกู้คืน',
+        railCopy: 'กู้คืนเฉพาะเมื่อ preview, verification plan, และ rollback posture ชัดพอแล้วเท่านั้น',
+      };
+    }
+
     if (route === 'support' || route === 'security') {
       return {
         ...base,
@@ -332,20 +971,20 @@
       detail: row.detail || row.reason || row.summary || '-',
       updatedAt: row.updatedAt || row.checkedAt || row.lastSeenAt,
     }));
-    const agentRows = (Array.isArray(state.agents) ? state.agents : []).slice(0, 12).map((row) => ({
-      runtime: row.runtimeKey || row.name || '-',
-      channel: row.channel || row.meta && row.meta.agentScope || '-',
-      role: row.meta && row.meta.agentRole || row.role || '-',
-      status: row.status || 'unknown',
-      version: row.version || '-',
-      lastSeenAt: row.lastSeenAt,
-    }));
+    const agentRows = buildOwnerRuntimeFleetRows(state);
+    const fleetWatch = buildOwnerRuntimeFleetWatch(agentRows);
+    const attentionRows = buildOwnerRuntimeAttentionRows(agentRows);
+    const attentionGroups = buildOwnerRuntimeAttentionGroups(agentRows);
     const feed = buildIncidentFeed(state);
     const hotspots = buildHotspots(state);
     const readyRuntimeCount = runtimeRows.filter((row) => toneForStatus(row.status) === 'success').length;
     const degradedRuntimeCount = runtimeRows.filter((row) => toneForStatus(row.status) === 'warning').length;
     const staleAgents = agentRows.filter((row) => toneForStatus(row.status) !== 'success').length;
     const lifecycle = state.deliveryLifecycle && state.deliveryLifecycle.summary ? state.deliveryLifecycle.summary : {};
+    const restoreState = state.restoreState && typeof state.restoreState === 'object' ? state.restoreState : {};
+    const restorePreview = state.restorePreview && typeof state.restorePreview === 'object' ? state.restorePreview : null;
+    const backupFiles = normalizeBackupFiles(state.backupFiles);
+    const restoreHistory = normalizeRestoreHistory(state.restoreHistory);
     const routeView = buildRuntimeRouteView(currentRoute, {
       feedCount: feed.length,
       hotspotCount: hotspots.length,
@@ -380,6 +1019,14 @@
       ],
       runtimeRows,
       agentRows,
+      fleetWatch,
+      attentionRows,
+      attentionGroups,
+      restoreState,
+      restorePreview,
+      backupFiles,
+      restoreHistory,
+      recoveryStrip: buildRecoveryStrip(restoreState, restorePreview, backupFiles, restoreHistory),
       incidentFeed: feed,
       hotspots,
       routeView,
@@ -449,6 +1096,135 @@
       '</div>',
     ].join('');
   }
+  function renderAgentRuntimeFleetTable(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="odv4-empty-state">No agent runtime data in this preview state.</div>';
+    }
+    return [
+      '<div class="odv4-table">',
+      '<div class="odv4-table-head cols-6"><span>Runtime</span><span>Role</span><span>Tenant / Server</span><span>Status</span><span>Last seen</span><span>Actions</span></div>',
+      ...items.map((row) => {
+        const runtimeMeta = [row.version, row.channel].filter((value) => String(value || '').trim()).join(' · ') || '-';
+        const runtimeKindNote = row.runtimeKind === 'server-bots'
+          ? 'Server Bot runtime'
+          : row.runtimeKind === 'delivery-agents'
+            ? 'Delivery Agent runtime'
+            : 'Runtime type pending';
+        const tenantLabel = row.tenantLabel || 'Tenant not attached';
+        const serverLabel = row.serverLabel || '-';
+        const actionCell = row.handoffHref
+          ? `<a class="odv4-button odv4-button-secondary" data-owner-runtime-handoff="${escapeHtml(row.runtimeKind || '')}" href="${escapeHtml(row.handoffHref)}">${escapeHtml(row.handoffLabel || 'Open tenant runtime')}</a>`
+          : '<span class="odv4-table-note">Tenant scope missing</span>';
+        return [
+          '<div class="odv4-table-row cols-6">',
+          `<div class="odv4-table-cell"><strong>${escapeHtml(row.runtime)}</strong><span class="odv4-table-note">${escapeHtml(runtimeMeta)}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-pill odv4-pill-muted">${escapeHtml(row.role)}</span><span class="odv4-table-note">${escapeHtml(runtimeKindNote)}</span></div>`,
+          `<div class="odv4-table-cell"><strong>${escapeHtml(tenantLabel)}</strong><span class="odv4-table-note">${escapeHtml(serverLabel)}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(row.status))}">${escapeHtml(row.status || 'unknown')}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-table-value">${escapeHtml(formatDateTime(row.lastSeenAt))}</span></div>`,
+          `<div class="odv4-table-cell odv4-table-actions">${actionCell}</div>`,
+          '</div>',
+        ].join('');
+      }),
+      '</div>',
+    ].join('');
+  }
+  function buildOwnerRuntimeAttentionActions(row) {
+    const item = row && typeof row === 'object' ? row : {};
+    const actions = [];
+    if (item.handoffHref) {
+      actions.push({
+        key: 'tenant-runtime',
+        href: item.handoffHref,
+        label: item.handoffLabel || 'Open tenant runtime',
+        attentionKey: item.attentionKey || '',
+      });
+    }
+    if (item.tenantId) {
+      actions.push({
+        key: 'tenant-detail',
+        href: buildOwnerTenantHref(item.tenantId),
+        label: 'Open tenant detail',
+        attentionKey: item.attentionKey || '',
+      });
+    }
+    if (item.tenantId && ['binding-gap', 'version-gap', 'runtime-offline', 'runtime-watch', 'missing-runtime-kind'].includes(item.attentionKey)) {
+      actions.push({
+        key: 'support',
+        href: buildOwnerSupportHref(item.tenantId),
+        label: 'Open support case',
+        attentionKey: item.attentionKey || '',
+      });
+    }
+    if (['runtime-offline', 'runtime-watch', 'missing-tenant-scope', 'missing-runtime-kind'].includes(item.attentionKey)) {
+      actions.push({
+        key: 'incidents',
+        href: buildOwnerRuntimeSectionHref('incidents'),
+        label: 'Review incidents',
+        attentionKey: item.attentionKey || '',
+      });
+    }
+    if (item.attentionKey === 'version-gap') {
+      actions.push({
+        key: 'observability',
+        href: buildOwnerRuntimeSectionHref('observability'),
+        label: 'Review observability',
+        attentionKey: item.attentionKey || '',
+      });
+    }
+    const seen = new Set();
+    return actions.filter((action) => {
+      const href = String(action && action.href || '').trim();
+      if (!href) return false;
+      const identity = `${action.key}:${href}`;
+      if (seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    }).slice(0, 4);
+  }
+  function renderAgentRuntimeAttentionTable(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="odv4-empty-state">No runtime fleet issues need owner follow-up right now.</div>';
+    }
+    return [
+      '<div class="odv4-table" data-owner-runtime-attention-table="true">',
+      '<div class="odv4-table-head cols-7"><span>Attention</span><span>Runtime</span><span>Tenant / Server</span><span>Binding</span><span>Status</span><span>Last seen</span><span>Actions</span></div>',
+      ...items.map((row) => {
+        const actions = buildOwnerRuntimeAttentionActions(row);
+        const actionCell = actions.length
+          ? `<div class="odvc4-inline-actions">${actions.map((action) => `<a class="odv4-button odv4-button-secondary" data-owner-runtime-action="${escapeHtml(action.key || '')}" data-owner-runtime-attention="${escapeHtml(action.attentionKey || '')}" href="${escapeHtml(action.href || '#')}">${escapeHtml(action.label || 'Open')}</a>`).join('')}</div>`
+          : '<span class="odv4-table-note">Resolve scope before handoff</span>';
+        return [
+          '<div class="odv4-table-row cols-7">',
+          `<div class="odv4-table-cell"><span class="odv4-pill odv4-pill-${escapeHtml(row.attentionTone || 'muted')}">${escapeHtml(row.attentionLabel || 'Needs review')}</span><span class="odv4-table-note">${escapeHtml(row.versionWatchLabel || row.bindingLabel || '-')}</span></div>`,
+          `<div class="odv4-table-cell"><strong>${escapeHtml(row.runtime || '-')}</strong><span class="odv4-table-note">${escapeHtml([row.version, row.channel].filter((value) => trimText(value, 80)).join(' · ') || '-')}</span></div>`,
+          `<div class="odv4-table-cell"><strong>${escapeHtml(row.tenantLabel || 'Tenant not attached')}</strong><span class="odv4-table-note">${escapeHtml(row.serverLabel || '-')}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-pill odv4-pill-${escapeHtml(row.bindingTone || 'muted')}">${escapeHtml(row.bindingLabel || '-')}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-pill odv4-pill-${escapeHtml(toneForStatus(row.status))}">${escapeHtml(row.status || 'unknown')}</span></div>`,
+          `<div class="odv4-table-cell"><span class="odv4-table-value">${escapeHtml(formatDateTime(row.lastSeenAt))}</span></div>`,
+          `<div class="odv4-table-cell odv4-table-actions">${actionCell}</div>`,
+          '</div>',
+        ].join('');
+      }),
+      '</div>',
+    ].join('');
+  }
+  function renderAgentRuntimeAttentionFilters(groups) {
+    if (!Array.isArray(groups) || groups.length === 0) return '';
+    return [
+      '<div class="odvc4-inline-actions" data-owner-runtime-attention-filters="true">',
+      ...groups.map((group) => `<a class="odv4-button odv4-button-secondary" data-owner-runtime-attention-filter="${escapeHtml(group.key || '')}" href="#owner-runtime-attention-${escapeHtml(group.key || '')}">${escapeHtml(group.label || 'Needs review')} (${escapeHtml(formatNumber(group.count || 0, '0'))})</a>`),
+      '</div>',
+    ].join('');
+  }
+  function renderAgentRuntimeAttentionGroups(groups) {
+    if (!Array.isArray(groups) || groups.length === 0) return '';
+    return groups.map((group) => [
+      `<div class="odv4-section-head" id="owner-runtime-attention-${escapeHtml(group.key || '')}" data-owner-runtime-attention-group="${escapeHtml(group.key || '')}" style="margin-top:16px;">`,
+      `<span class="odv4-section-kicker">Attention slice</span><h4 class="odv4-section-title">${escapeHtml(group.label || 'Needs review')}</h4><p class="odv4-section-copy">${escapeHtml(group.detail || '')}</p></div>`,
+      renderAgentRuntimeAttentionTable(group.rows),
+    ].join('')).join('');
+  }
   function renderFeed(items) {
     if (!Array.isArray(items) || items.length === 0) return '<div class="odv4-empty-state">ตอนนี้ยังไม่มีรายการใน incident feed</div>';
     return items.map((item) => [
@@ -490,6 +1266,90 @@
       '</article>',
     ].join('')).join('');
   }
+  function renderRecoveryPreviewCard(restoreState, restorePreview) {
+    const state = restoreState && typeof restoreState === 'object' ? restoreState : {};
+    const preview = restorePreview && typeof restorePreview === 'object' ? restorePreview : null;
+    if (!preview) {
+      if (state.previewBackup || state.previewToken) {
+        return [
+          '<article class="odv4-runbook-card">',
+          '<strong>Preview guard is active</strong>',
+          `<div class="odv4-feed-meta">${escapeHtml(firstNonEmpty([
+            trimText(state.previewBackup, 260),
+            'A previous dry-run preview is still active for guarded restore.',
+          ]))}</div>`,
+          `<p>${escapeHtml(state.previewExpiresAt ? `Preview expires ${formatDateTime(state.previewExpiresAt)}.` : 'Run the preview form again to refresh counts, warnings, and verification details in this workspace.')}</p>`,
+          '</article>',
+        ].join('');
+      }
+      return '<div class="odv4-empty-state"><strong>No preview data yet</strong><p>Run a dry-run preview to inspect warnings, verification checks, and the restore guard token before applying a shared backup.</p></div>';
+    }
+    const warningItems = Array.isArray(preview.warnings) ? preview.warnings.slice(0, 4) : [];
+    const verificationChecks = Array.isArray(preview.verificationPlan && preview.verificationPlan.checks)
+      ? preview.verificationPlan.checks.slice(0, 5)
+      : [];
+    return [
+      '<article class="odv4-runbook-card" data-owner-runtime-preview-card="true">',
+      `<strong>${escapeHtml(firstNonEmpty([trimText(preview.backup, 260), 'Restore preview']))}</strong>`,
+      `<div class="odv4-chip-row">${renderChips([
+        { label: preview.schemaVersion ? `Schema ${preview.schemaVersion}` : 'Schema unknown', tone: 'info' },
+        { label: preview.compatibilityMode || 'Current compatibility', tone: 'muted' },
+        { label: preview.previewToken ? 'Preview token issued' : 'Preview token missing', tone: preview.previewToken ? 'success' : 'warning' },
+      ])}</div>`,
+      `<p>${escapeHtml(firstNonEmpty([
+        trimText(preview.note, 260),
+        'Dry-run preview generated from the selected shared backup.',
+      ]))}</p>`,
+      warningItems.length
+        ? `<div class="odv4-stack"><span class="odv4-table-label">Warnings</span>${warningItems.map((item) => `<div class="odv4-feed-meta">${escapeHtml(item)}</div>`).join('')}</div>`
+        : '<div class="odv4-feed-meta">No preview warnings were returned.</div>',
+      verificationChecks.length
+        ? `<div class="odv4-stack"><span class="odv4-table-label">Verification plan</span>${verificationChecks.map((item) => `<div class="odv4-feed-meta">${escapeHtml(firstNonEmpty([item.label, item.id], 'check'))}${item.detail ? ` · ${escapeHtml(item.detail)}` : ''}</div>`).join('')}</div>`
+        : '<div class="odv4-feed-meta">No verification plan entries were returned.</div>',
+      '</article>',
+    ].join('');
+  }
+  function renderRecoveryBackupTable(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="odv4-empty-state"><strong>No backup files found</strong><p>Create a shared backup before using preview or restore.</p></div>';
+    }
+    return [
+      '<div class="odv4-table" data-owner-runtime-backup-table="true">',
+      '<div class="odv4-table-head cols-4"><span>Backup</span><span>Updated</span><span>Size</span><span>Detail</span></div>',
+      items.slice(0, 12).map((item) => [
+        '<div class="odv4-table-row cols-4">',
+        `<div><strong>${escapeHtml(firstNonEmpty([item.file, item.id], '-'))}</strong><div class="odv4-table-note">${escapeHtml(item.id || '-')}</div></div>`,
+        `<div>${escapeHtml(formatDateTime(item.updatedAt || item.createdAt))}</div>`,
+        `<div>${escapeHtml(formatNumber(Math.round(Number(item.sizeBytes || 0) / 1024), '0'))} KB</div>`,
+        `<div class="odv4-table-note">${escapeHtml(item.createdAt ? `Created ${formatDateTime(item.createdAt)}` : 'Shared backup inventory entry')}</div>`,
+        '</div>',
+      ].join('')).join(''),
+      '</div>',
+    ].join('');
+  }
+  function renderRecoveryHistoryTable(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<div class="odv4-empty-state"><strong>No restore history yet</strong><p>The owner recovery workbench has not recorded a shared restore cycle yet.</p></div>';
+    }
+    return [
+      '<div class="odv4-table" data-owner-runtime-restore-history="true">',
+      '<div class="odv4-table-head cols-5"><span>When</span><span>Backup</span><span>Status</span><span>Verification</span><span>Notes</span></div>',
+      items.slice(0, 8).map((item) => [
+        '<div class="odv4-table-row cols-5">',
+        `<div><strong>${escapeHtml(formatDateTime(item.recordedAt))}</strong><div class="odv4-table-note">${escapeHtml(firstNonEmpty([item.actor, item.operationId], '-'))}</div></div>`,
+        `<div><strong>${escapeHtml(firstNonEmpty([item.backup, '-']))}</strong>${item.rollbackBackup ? `<div class="odv4-table-note">Rollback ${escapeHtml(item.rollbackBackup)}</div>` : ''}</div>`,
+        `<div><span class="odv4-badge odv4-badge-${escapeHtml(toneForStatus(item.status))}">${escapeHtml(item.status || 'idle')}</span>${item.rollbackStatus && item.rollbackStatus !== 'none' ? `<div class="odv4-table-note">Rollback ${escapeHtml(item.rollbackStatus)}</div>` : ''}</div>`,
+        `<div>${item.verification && item.verification.ready === true ? '<span class="odv4-badge odv4-badge-success">Ready</span>' : '<span class="odv4-badge odv4-badge-warning">Pending</span>'}</div>`,
+        `<div class="odv4-table-note">${escapeHtml(firstNonEmpty([
+          item.lastError,
+          item.warnings && item.warnings.length ? item.warnings[0] : '',
+          'Shared restore cycle recorded.',
+        ]))}</div>`,
+        '</div>',
+      ].join('')).join(''),
+      '</div>',
+    ].join('');
+  }
 
   function buildOwnerRuntimeHealthV4Html(model) {
     const safeModel = model && typeof model === 'object' ? model : createOwnerRuntimeHealthV4Model({});
@@ -507,7 +1367,13 @@
       `<span class="odv4-section-kicker">${escapeHtml(routeView.jobs && routeView.jobs.kicker || 'รายชื่อบอท')}</span>`,
       `<h2 class="odv4-section-title">${escapeHtml(routeView.jobs && routeView.jobs.title || 'ทะเบียนเอเจนต์')}</h2>`,
       `<p class="odv4-section-copy">${escapeHtml(routeView.jobs && routeView.jobs.copy || 'ให้สถานะของ Delivery Agent และ Server Bot มองเห็นได้ตลอด โดยไม่ปนกับมุมมองงานประจำวันของผู้เช่า')}</p></div>`,
-      renderAgentTable(safeModel.agentRows),
+      `<section class="odv4-kpi-strip" data-owner-runtime-fleet-watch="jobs">${renderSummaryStrip(safeModel.fleetWatch)}</section>`,
+      '<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">Runtime fleet management</span><h3 class="odv4-section-title">Owner attention queue</h3><p class="odv4-section-copy">Review scope issues, provisioning gaps, stale bindings, and version drift before routing tenants into deeper runtime actions.</p></div>',
+      renderAgentRuntimeAttentionFilters(safeModel.attentionGroups),
+      renderAgentRuntimeAttentionTable(safeModel.attentionRows),
+      renderAgentRuntimeAttentionGroups(safeModel.attentionGroups),
+      '<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">Runtime registry</span><h3 class="odv4-section-title">Visible delivery and server runtimes</h3></div>',
+      renderAgentRuntimeFleetTable(safeModel.agentRows),
       '</section>',
     ].join('');
     const incidentsSection = [
@@ -527,7 +1393,84 @@
       `<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">${escapeHtml(routeView.runbooks && routeView.runbooks.kicker || 'แนวทางปฏิบัติ')}</span><h3 class="odv4-section-title">${escapeHtml(routeView.runbooks && routeView.runbooks.title || 'ควรเช็กอะไรก่อน')}</h3></div>`,
       `<div class="odv4-runbook-grid">${renderRunbooks(safeModel.runbooks)}</div></section>`,
     ].join('');
+    const previewBackup = firstNonEmpty([
+      trimText(safeModel.restorePreview && safeModel.restorePreview.backup, 260),
+      trimText(safeModel.restoreState && safeModel.restoreState.previewBackup, 260),
+    ], '');
+    const previewToken = firstNonEmpty([
+      trimText(safeModel.restorePreview && safeModel.restorePreview.previewToken, 260),
+      trimText(safeModel.restoreState && safeModel.restoreState.previewToken, 260),
+    ], '');
+    const backupOptions = (Array.isArray(safeModel.backupFiles) ? safeModel.backupFiles : [])
+      .map((item) => {
+        const value = firstNonEmpty([item && item.file, item && item.id], '');
+        if (!value) return '';
+        const note = [
+          formatDateTime(item && (item.updatedAt || item.createdAt)),
+          `${formatNumber(Math.round(Number(item && item.sizeBytes || 0) / 1024), '0')} KB`,
+        ].join(' · ');
+        return `<option value="${escapeHtml(value)}"${value === previewBackup ? ' selected' : ''}>${escapeHtml(value)}${note ? ` · ${escapeHtml(note)}` : ''}</option>`;
+      })
+      .filter(Boolean)
+      .join('');
+    const fieldStyle = 'width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(212,186,113,.18);background:rgba(9,12,10,.82);color:#f4efe4;font:400 14px/1.5 "IBM Plex Sans Thai","Segoe UI",sans-serif;';
+    const recoverySection = [
+      '<section id="recovery" class="odv4-panel odv4-focus-target" data-owner-focus-route="recovery" data-owner-runtime-recovery="true"><div class="odv4-section-head">',
+      `<span class="odv4-section-kicker">${escapeHtml(routeView.recovery && routeView.recovery.kicker || 'Recovery workbench')}</span>`,
+      `<h2 class="odv4-section-title">${escapeHtml(routeView.recovery && routeView.recovery.title || 'Shared backup and guarded restore')}</h2>`,
+      `<p class="odv4-section-copy">${escapeHtml(routeView.recovery && routeView.recovery.copy || 'Create a backup, inspect a dry-run preview, and only then apply a guarded restore.')}</p></div>`,
+      `<section class="odv4-kpi-strip" data-owner-runtime-fleet-watch="recovery">${renderSummaryStrip(safeModel.recoveryStrip)}</section>`,
+      '<div class="odv4-runbook-grid" style="margin-top:16px;">',
+      [
+        '<article class="odv4-runbook-card">',
+        '<span class="odv4-table-label">Create backup</span>',
+        '<strong>Capture a shared platform backup</strong>',
+        '<p>Create a new backup before touching guarded restore so rollback inventory stays fresh.</p>',
+        '<form class="odv4-stack" data-owner-form="backup-create">',
+        `<label class="odv4-stack"><span class="odv4-table-label">Operator note</span><textarea name="note" rows="3" style="${fieldStyle}" placeholder="Optional note for this backup run"></textarea></label>`,
+        '<label class="odv4-feed-meta" style="display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" name="includeSnapshot" value="true" checked>Include runtime snapshot metadata with this backup</label>',
+        '<div class="odv4-chip-row"><button class="odv4-button odv4-button-primary" type="submit">Create backup</button></div>',
+        '</form>',
+        '</article>',
+      ].join(''),
+      [
+        '<article class="odv4-runbook-card">',
+        '<span class="odv4-table-label">Dry-run preview</span>',
+        '<strong>Inspect warnings and verification before restore</strong>',
+        '<p>Use the latest shared backup inventory entry to mint a preview token and review the verification plan.</p>',
+        '<form class="odv4-stack" data-owner-form="backup-preview">',
+        `<label class="odv4-stack"><span class="odv4-table-label">Backup file</span><select name="backup" style="${fieldStyle}"><option value="">Select a backup</option>${backupOptions}</select></label>`,
+        '<div class="odv4-chip-row"><button class="odv4-button odv4-button-secondary" type="submit">Run preview</button></div>',
+        '</form>',
+        '</article>',
+      ].join(''),
+      [
+        '<article class="odv4-runbook-card">',
+        '<span class="odv4-table-label">Guarded restore</span>',
+        '<strong>Apply the previewed backup only with a live token</strong>',
+        previewToken
+          ? `<p>Preview token is active for <strong>${escapeHtml(previewBackup || 'the selected backup')}</strong>. Type the backup name to confirm the restore.</p>`
+          : '<p>Run a dry-run preview first. The live restore form only unlocks when a preview token exists.</p>',
+        previewToken
+          ? [
+              '<form class="odv4-stack" data-owner-form="backup-restore">',
+              `<input type="hidden" name="backup" value="${escapeHtml(previewBackup)}">`,
+              `<input type="hidden" name="previewToken" value="${escapeHtml(previewToken)}">`,
+              `<label class="odv4-stack"><span class="odv4-table-label">Confirm backup name</span><input name="confirmBackup" type="text" autocomplete="off" style="${fieldStyle}" placeholder="${escapeHtml(previewBackup || 'Type the backup file name')}"></label>`,
+              '<div class="odv4-chip-row"><button class="odv4-button odv4-button-primary" type="submit">Run guarded restore</button></div>',
+              '</form>',
+            ].join('')
+          : '<div class="odv4-feed-meta">No live preview token is active in this workspace.</div>',
+        '</article>',
+      ].join(''),
+      '</div>',
+      `<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">Preview</span><h3 class="odv4-section-title">Current restore preview</h3></div>${renderRecoveryPreviewCard(safeModel.restoreState, safeModel.restorePreview)}`,
+      `<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">Inventory</span><h3 class="odv4-section-title">Shared backups</h3></div>${renderRecoveryBackupTable(safeModel.backupFiles)}`,
+      `<div class="odv4-section-head" style="margin-top:16px;"><span class="odv4-section-kicker">History</span><h3 class="odv4-section-title">Restore history</h3></div>${renderRecoveryHistoryTable(safeModel.restoreHistory)}`,
+      '</section>',
+    ].join('');
     const blockMap = {
+      recovery: recoverySection,
       services: servicesSection,
       jobs: jobsSection,
       incidents: `<div id="incidents" class="odv4-focus-target" data-owner-focus-route="incidents support security">${incidentsSection}</div>`,

@@ -92,3 +92,22 @@ test('legacy runtime bootstrap policy honors explicit opt-in and opt-out', () =>
   assert.equal(optOut.reason, 'explicit-opt-out');
   assert.equal(optOut.explicitValue, 'off');
 });
+
+test('legacy runtime bootstrap policy does not allow explicit opt-in to bypass db-only posture', () => {
+  const policy = resolveLegacyRuntimeBootstrapPolicy({
+    env: {
+      NODE_ENV: 'test',
+      PERSIST_REQUIRE_DB: 'true',
+      EXAMPLE_BOOTSTRAP: '1',
+    },
+    envName: 'EXAMPLE_BOOTSTRAP',
+    runtime: { engine: 'sqlite', provider: 'sqlite', isServerEngine: false },
+    prismaClientLike: false,
+    policy: 'example-bootstrap',
+  });
+
+  assert.equal(policy.allowed, false);
+  assert.equal(policy.reason, 'persist-require-db');
+  assert.equal(policy.explicit, true);
+  assert.equal(policy.explicitValue, '1');
+});

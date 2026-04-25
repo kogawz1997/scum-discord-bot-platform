@@ -21,10 +21,28 @@ const { enqueuePurchaseDelivery } = require('./rconDelivery');
 const { assertTenantQuotaAvailable } = require('./platformService');
 const { getVipPlan } = require('./vipService');
 const { resolveDefaultTenantId } = require('../prisma');
+const {
+  listServerDiscordLinks,
+} = require('../data/repositories/controlPlaneRegistryRepository');
 const { assertTenantDbIsolationScope, getTenantDbIsolationRuntime } = require('../utils/tenantDbIsolation');
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function resolveTenantIdFromGuildId(guildId) {
+  const normalizedGuildId = normalizeText(guildId);
+  if (!normalizedGuildId) return null;
+  const rows = listServerDiscordLinks({
+    guildId: normalizedGuildId,
+    allowGlobal: true,
+  });
+  const tenantIds = [...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => normalizeText(row?.tenantId))
+      .filter(Boolean),
+  )];
+  return tenantIds.length === 1 ? tenantIds[0] : null;
 }
 
 function resolveShopScope(params = {}, operation = 'shop operation', fallbackTenantId = null) {
@@ -33,8 +51,11 @@ function resolveShopScope(params = {}, operation = 'shop operation', fallbackTen
     || normalizeText(params.defaultTenantId)
     || normalizeText(fallbackTenantId)
     || null;
+  const guildTenantId = explicitTenantId ? null : resolveTenantIdFromGuildId(params.guildId);
   const runtime = getTenantDbIsolationRuntime(env);
-  const tenantId = explicitTenantId || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
+  const tenantId = explicitTenantId
+    || guildTenantId
+    || (runtime.strict ? (resolveDefaultTenantId({ env }) || null) : null);
   const scope = assertTenantDbIsolationScope({
     tenantId,
     operation,
@@ -43,6 +64,7 @@ function resolveShopScope(params = {}, operation = 'shop operation', fallbackTen
   return {
     tenantId: scope.tenantId,
     defaultTenantId: scope.tenantId,
+    guildId: normalizeText(params.guildId) || null,
     serverId: normalizeText(params.serverId) || null,
     env,
   };

@@ -1,5 +1,8 @@
 const crypto = require('node:crypto');
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -172,6 +175,7 @@ async function flushGiveawayStoreWrites(options = {}) {
 
 function createGiveaway(payload = {}, options = {}) {
   const scope = ensureGiveawayScope(options);
+  assertTenantStoreMutationScope(scope, options, 'create giveaway', 'giveaway');
   void initGiveawayStore(options);
   const g = normalizeGiveaway({
     messageId: payload.messageId,
@@ -231,6 +235,7 @@ function listGiveaways(options = {}) {
 
 function addEntrant(messageId, userId, options = {}) {
   const scope = ensureGiveawayScope(options);
+  assertTenantStoreMutationScope(scope, options, 'join giveaway', 'giveaway-entrant');
   void initGiveawayStore(options);
   const g = scope.state.giveaways.get(messageId);
   if (!g) return null;
@@ -263,6 +268,7 @@ function addEntrant(messageId, userId, options = {}) {
 
 function removeGiveaway(messageId, options = {}) {
   const scope = ensureGiveawayScope(options);
+  assertTenantStoreMutationScope(scope, options, 'remove giveaway', 'giveaway');
   void initGiveawayStore(options);
   const removed = scope.state.giveaways.delete(messageId);
   scope.state.mutationVersion += 1;
@@ -280,6 +286,7 @@ function removeGiveaway(messageId, options = {}) {
 
 function replaceGiveaways(nextGiveaways = [], options = {}) {
   const scope = ensureGiveawayScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace giveaways', 'giveaway');
   void initGiveawayStore(options);
   scope.state.mutationVersion += 1;
   scope.state.giveaways.clear();

@@ -85,6 +85,7 @@ module.exports = {
       gameItemId: kind === 'item' ? gameItemId : null,
       quantity: Math.max(1, Number(quantity || 1)),
       iconUrl,
+      guildId: interaction.guildId || interaction.guild?.id || null,
     });
 
     if (!result.ok) {

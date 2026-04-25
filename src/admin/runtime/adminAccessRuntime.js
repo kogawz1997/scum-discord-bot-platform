@@ -109,8 +109,31 @@ function createAdminAccessRuntime(options = {}) {
       reason: 'tenant-scope-mismatch',
       detail: 'Tenant-scoped admin attempted to access another tenant scope',
       data: {
+        tenantId: authTenantId,
         authTenantId,
         requestedTenantId: normalizedRequested,
+      },
+    });
+  }
+
+  function maybeRecordPlatformApiScopeDenied(req, auth, requiredScopes = []) {
+    if (typeof recordAdminSecuritySignal !== 'function') return;
+    if (String(auth?.reason || '').trim() !== 'insufficient-scope') return;
+    const tenantId = String(auth?.tenant?.id || auth?.apiKey?.tenantId || '').trim() || null;
+    recordAdminSecuritySignal('platform-api-insufficient-scope', {
+      severity: 'warn',
+      suppressNotification: true,
+      actor: String(auth?.apiKey?.name || 'platform-api-key').trim() || 'platform-api-key',
+      role: 'platform-api-key',
+      ip: typeof getClientIp === 'function' ? getClientIp(req) : null,
+      path: String(req?.url || req?.pathname || '').trim() || null,
+      reason: 'insufficient-scope',
+      detail: 'Platform API key attempted to call an endpoint without the required scope.',
+      data: {
+        tenantId,
+        apiKeyId: String(auth?.apiKey?.id || '').trim() || null,
+        requiredScopes: Array.isArray(requiredScopes) ? requiredScopes : [],
+        missingScopes: Array.isArray(auth?.missingScopes) ? auth.missingScopes : [],
       },
     });
   }
@@ -160,8 +183,22 @@ function createAdminAccessRuntime(options = {}) {
       });
       return null;
     }
+    const forwardedTenantId =
+      String(req.headers['x-forwarded-tenant-id'] || req.headers['x-tenant-id'] || '').trim() ||
+      requiredString(urlObj?.searchParams?.get('tenantId'));
+    const scopedAuth =
+      forwardedTenantId && !auth.tenantId
+        ? {
+            ...auth,
+            tenantId: forwardedTenantId,
+            tenant: {
+              ...(auth.tenant && typeof auth.tenant === 'object' ? auth.tenant : {}),
+              id: forwardedTenantId,
+            },
+          }
+        : auth;
     return {
-      auth,
+      auth: scopedAuth,
       discordId,
       forwardedUser: String(req.headers['x-forwarded-user'] || '').trim() || 'portal',
     };
@@ -181,6 +218,7 @@ function createAdminAccessRuntime(options = {}) {
     const rawKey = getPlatformApiKeyFromRequest(req);
     const auth = await verifyPlatformApiKey(rawKey, requiredScopes);
     if (!auth?.ok) {
+      maybeRecordPlatformApiScopeDenied(req, auth, requiredScopes);
       const status = [
         'insufficient-scope',
         'tenant-access-suspended',
@@ -206,15 +244,22 @@ function createAdminAccessRuntime(options = {}) {
   }
 
   function filterShopItems(rows, optionsArg = {}) {
-    const kindFilter = String(optionsArg.kind || '').trim().toLowerCase();
-    const query = String(optionsArg.q || '').trim().toLowerCase();
+    const kindFilter = String(optionsArg.kind || '')
+      .trim()
+      .toLowerCase();
+    const query = String(optionsArg.q || '')
+      .trim()
+      .toLowerCase();
     const limit = Math.max(1, Math.min(1000, Number(optionsArg.limit || 200)));
     const out = [];
 
     for (const row of Array.isArray(rows) ? rows : []) {
-      const kind = String(row?.kind || 'item').trim().toLowerCase() === 'vip'
-        ? 'vip'
-        : 'item';
+      const kind =
+        String(row?.kind || 'item')
+          .trim()
+          .toLowerCase() === 'vip'
+          ? 'vip'
+          : 'item';
       if (kindFilter && kindFilter !== 'all' && kind !== kindFilter) continue;
 
       const haystack = [row?.id, row?.name, row?.description, row?.gameItemId]

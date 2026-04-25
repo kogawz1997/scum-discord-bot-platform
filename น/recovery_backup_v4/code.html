@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Recovery &amp; Backup - SCUM CONTROL PLANE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e3e2e4",
+                        "on-surface": "#e3e2e4",
+                        "surface-bright": "#38393b",
+                        "primary-container": "#00d1ff",
+                        "primary": "#a4e6ff",
+                        "on-primary-fixed": "#001f28",
+                        "on-primary-container": "#00566a",
+                        "outline": "#859399",
+                        "surface-container": "#1f2022",
+                        "tertiary": "#ffd1ce",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-variant": "#343537",
+                        "surface-dim": "#121315",
+                        "inverse-primary": "#00677f",
+                        "error-container": "#93000a",
+                        "primary-fixed": "#b7eaff",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#004e60",
+                        "background": "#121315",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "secondary-fixed": "#ffdea8",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-tertiary": "#68000b",
+                        "on-primary": "#003543",
+                        "inverse-on-surface": "#303032",
+                        "surface": "#121315",
+                        "tertiary-container": "#ffaaa4",
+                        "on-secondary-container": "#6b4b00",
+                        "inverse-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface-container-high": "#292a2c",
+                        "outline-variant": "#3c494e",
+                        "secondary-container": "#feb700",
+                        "surface-tint": "#4cd6ff",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1b1c1e",
+                        "secondary": "#ffdb9d",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-tertiary-container": "#a10017",
+                        "on-secondary": "#412d00",
+                        "surface-container-highest": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel {
+            background: rgba(31, 32, 34, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(60, 73, 78, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Shell -->
+<nav class="fixed top-0 w-full z-50 border-b bg-zinc-950/90 backdrop-blur-md border-zinc-800 flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black text-cyan-400 tracking-widest uppercase">SCUM CONTROL PLANE</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Platform</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Incidents</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Audit</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-zinc-400 hover:bg-zinc-900 transition-all duration-150 p-2 rounded">refresh</button>
+<button class="material-symbols-outlined text-zinc-400 hover:bg-zinc-900 transition-all duration-150 p-2 rounded">language</button>
+<button class="material-symbols-outlined text-zinc-400 hover:bg-zinc-900 transition-all duration-150 p-2 rounded">dark_mode</button>
+<button class="material-symbols-outlined text-zinc-400 hover:bg-zinc-900 transition-all duration-150 p-2 rounded">notifications</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-zinc-700 ml-2">
+<img alt="Owner Profile" data-alt="profile avatar of a system operator in high contrast dark mode" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAG5XXXtavhf2hr2GBskTCuKy8VA8Rt-sJikXUT5lxQBe-PbvfBsQlhAwXioXEULg9Ubn9J8y_gUwzurwG-lKPPvj7U6uAvYExvnJiQLc_mtm4C74hg-XMYKEwrsYWal2qGFqJLbUP-Ym3L6P8J9iLBBdOfkkZyBwYpsw_Qr1HgxYUH4J-fXj7nS_KlfD14dt5gZRQKBSveyhlPSax--Vujy5tBkVi77dzFusQ701CT6FEVDMuCxxjj7OjGApXqqjnb4sHg7xbFwV8"/>
+</div>
+</div>
+</nav>
+<!-- Sidebar Navigation Shell -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r bg-zinc-950 border-zinc-800 flex flex-col overflow-y-auto scrollbar-hide py-4">
+<div class="px-4 mb-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-zinc-900 rounded flex items-center justify-center text-cyan-400">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<div class="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">OPERATOR-01</div>
+<div class="text-[10px] font-bold text-cyan-400 tracking-widest uppercase">ROOT ACCESS</div>
+</div>
+</div>
+<nav class="flex-1">
+<div class="px-4 py-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Main Ecosystem</div>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">dashboard</span> Overview
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">supervised_user_circle</span> Tenants
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">inventory_2</span> Packages
+            </a>
+<div class="px-4 py-2 mt-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Operations</div>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">monitor_heart</span> Runtime Health
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">developer_board</span> Fleet
+            </a>
+<a class="bg-zinc-900 border-l-4 border-cyan-400 text-cyan-400 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings_backup_restore</span> Maintenance &amp; Recovery
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">emergency</span> Incidents
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">history_edu</span> Audit
+            </a>
+</nav>
+<div class="p-4 mt-auto">
+<button class="w-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black tracking-widest py-2 rounded hover:bg-cyan-500/20 transition-all uppercase">
+                DEPLOY UPDATE
+            </button>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 mt-14 p-8 min-h-[calc(100vh-3.5rem)]">
+<!-- Page Header -->
+<header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+<span class="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">System Status: Operational</span>
+</div>
+<h1 class="text-4xl font-black text-on-surface tracking-tight uppercase mb-2">Recovery &amp; Backup</h1>
+<p class="text-zinc-500 max-w-2xl text-sm font-medium">Platform-level disaster recovery control plane. Manage global backup inventory, initiate point-in-time restores, and monitor real-time data integrity across the SCUM ecosystem.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-on-background rounded font-semibold text-sm hover:bg-zinc-700 transition-all">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                    Configure Schedule
+                </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-zinc-950 rounded font-bold text-sm hover:bg-cyan-400 transition-all">
+<span class="material-symbols-outlined text-sm">backup</span>
+                    Create Manual Backup
+                </button>
+</div>
+</header>
+<!-- Oversight Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<!-- Active Status Card -->
+<div class="md:col-span-2 glass-panel p-6 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-8xl">clinical_notes</span>
+</div>
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-emerald-500/20 rounded">
+<span class="material-symbols-outlined text-emerald-500">verified_user</span>
+</div>
+<span class="text-xs font-black tracking-widest uppercase text-zinc-400">Data Integrity Posture</span>
+</div>
+<span class="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">ENCRYPTED</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<div class="text-3xl font-black text-on-surface mb-1">99.98%</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Verification Rate</div>
+</div>
+<div>
+<div class="text-3xl font-black text-on-surface mb-1">1.4 TB</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Storage Consumed</div>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-zinc-800 flex items-center gap-4">
+<div class="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+<div class="h-full w-[85%] bg-cyan-400"></div>
+</div>
+<span class="text-[10px] font-bold text-zinc-400 uppercase">Retention: 85%</span>
+</div>
+</div>
+<!-- Next Scheduled -->
+<div class="glass-panel p-6 rounded-xl border-l-4 border-amber-500/50">
+<div class="text-[10px] font-black text-zinc-500 tracking-widest uppercase mb-4">Upcoming Operation</div>
+<div class="flex items-center gap-3 mb-6">
+<div class="text-4xl font-black text-amber-500">02:14</div>
+<div class="text-[10px] font-bold text-zinc-400 leading-tight uppercase">Hours until<br/>Automated Sync</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-[10px] font-bold">
+<span class="text-zinc-500">TYPE</span>
+<span class="text-on-surface">INCREMENTAL</span>
+</div>
+<div class="flex justify-between text-[10px] font-bold">
+<span class="text-zinc-500">TARGET</span>
+<span class="text-on-surface">AWS-S3-E1</span>
+</div>
+</div>
+</div>
+<!-- Health Metric -->
+<div class="glass-panel p-6 rounded-xl">
+<div class="text-[10px] font-black text-zinc-500 tracking-widest uppercase mb-4">Health Snapshot</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="h-10 w-1 bg-cyan-500 rounded-full"></div>
+<div class="h-6 w-1 bg-cyan-500/50 rounded-full"></div>
+<div class="h-12 w-1 bg-cyan-500 rounded-full"></div>
+<div class="h-8 w-1 bg-cyan-500/30 rounded-full"></div>
+<div class="h-10 w-1 bg-cyan-500 rounded-full"></div>
+</div>
+<div class="text-2xl font-black text-on-surface">Stable</div>
+<div class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Recovery Readiness</div>
+</div>
+</div>
+<!-- Operations Area -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Backup Inventory (Primary Content) -->
+<section class="lg:col-span-2">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-sm font-black text-on-surface tracking-widest uppercase">Vault Inventory</h2>
+<div class="flex items-center gap-2">
+<input class="bg-zinc-900 border-zinc-800 rounded text-xs px-3 py-1.5 focus:ring-cyan-500 focus:border-cyan-500 text-zinc-300 w-48" placeholder="Filter by ID..." type="text"/>
+<button class="material-symbols-outlined text-zinc-400 hover:text-white p-1">filter_list</button>
+</div>
+</div>
+<div class="glass-panel rounded-xl overflow-hidden">
+<table class="w-full text-left text-xs">
+<thead class="bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+<tr>
+<th class="px-6 py-4">Snapshot ID</th>
+<th class="px-6 py-4">Timestamp</th>
+<th class="px-6 py-4">Scope</th>
+<th class="px-6 py-4">Size</th>
+<th class="px-6 py-4 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-zinc-800">
+<tr class="hover:bg-zinc-800/30 transition-colors group">
+<td class="px-6 py-4 font-mono text-cyan-400">#BK-9928-XA</td>
+<td class="px-6 py-4 text-zinc-300">2024-05-22 14:30:11</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded text-[9px] font-bold uppercase tracking-tighter">GLOBAL PLATFORM</span>
+</td>
+<td class="px-6 py-4 text-zinc-500">24.2 GB</td>
+<td class="px-6 py-4 text-right">
+<button class="text-zinc-500 hover:text-cyan-400 material-symbols-outlined">download</button>
+</td>
+</tr>
+<tr class="hover:bg-zinc-800/30 transition-colors group">
+<td class="px-6 py-4 font-mono text-cyan-400">#BK-9927-ZB</td>
+<td class="px-6 py-4 text-zinc-300">2024-05-22 02:00:04</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-cyan-950 text-cyan-400 rounded text-[9px] font-bold uppercase tracking-tighter">CORE ENGINE</span>
+</td>
+<td class="px-6 py-4 text-zinc-500">12.8 GB</td>
+<td class="px-6 py-4 text-right">
+<button class="text-zinc-500 hover:text-cyan-400 material-symbols-outlined">download</button>
+</td>
+</tr>
+<tr class="hover:bg-zinc-800/30 transition-colors group">
+<td class="px-6 py-4 font-mono text-cyan-400">#BK-9926-KC</td>
+<td class="px-6 py-4 text-zinc-300">2024-05-21 14:30:00</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded text-[9px] font-bold uppercase tracking-tighter">GLOBAL PLATFORM</span>
+</td>
+<td class="px-6 py-4 text-zinc-500">24.1 GB</td>
+<td class="px-6 py-4 text-right">
+<button class="text-zinc-500 hover:text-cyan-400 material-symbols-outlined">download</button>
+</td>
+</tr>
+<tr class="hover:bg-zinc-800/30 transition-colors group">
+<td class="px-6 py-4 font-mono text-cyan-400">#BK-9925-PL</td>
+<td class="px-6 py-4 text-zinc-300">2024-05-21 02:00:02</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded text-[9px] font-bold uppercase tracking-tighter">GLOBAL PLATFORM</span>
+</td>
+<td class="px-6 py-4 text-zinc-500">23.9 GB</td>
+<td class="px-6 py-4 text-right">
+<button class="text-zinc-500 hover:text-cyan-400 material-symbols-outlined">download</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-zinc-900/30 border-t border-zinc-800 flex justify-center">
+<button class="text-[10px] font-black text-zinc-500 hover:text-cyan-400 uppercase tracking-widest transition-colors">Load Archive Entries</button>
+</div>
+</div>
+</section>
+<!-- Danger Zone & History (Sidebar context) -->
+<aside class="space-y-8">
+<!-- Danger Action Area -->
+<div class="bg-error-container/20 border border-on-tertiary-fixed-variant/40 rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4 text-on-error-container">
+<span class="material-symbols-outlined">warning</span>
+<h3 class="text-sm font-black uppercase tracking-widest">CRITICAL RECOVERY</h3>
+</div>
+<p class="text-xs text-on-error-container/80 mb-6 leading-relaxed font-medium">Restoring from backup will overwrite current platform state. This action is IRREVERSIBLE. Ensure all active tenant sessions are terminated before proceeding.</p>
+<div class="space-y-4">
+<label class="block">
+<span class="text-[10px] font-bold text-on-error-container/60 uppercase tracking-widest mb-1 block">SELECT TARGET SNAPSHOT</span>
+<select class="w-full bg-zinc-950/50 border-on-tertiary-fixed-variant/30 rounded text-xs px-3 py-2 text-on-background focus:ring-on-tertiary-fixed-variant">
+<option>#BK-9928-XA (Latest - Recommended)</option>
+<option>#BK-9927-ZB (Core Only)</option>
+<option>#BK-9926-KC (Stable Baseline)</option>
+</select>
+</label>
+<div class="bg-zinc-950/40 p-3 rounded border border-on-tertiary-fixed-variant/20">
+<div class="flex items-center gap-2 mb-2">
+<input class="rounded bg-zinc-900 border-zinc-700 text-on-tertiary-fixed-variant focus:ring-offset-zinc-950" id="confirm-1" type="checkbox"/>
+<label class="text-[10px] font-bold text-on-error-container/80" for="confirm-1">I understand this will overwrite current live data.</label>
+</div>
+<div class="flex items-center gap-2">
+<input class="rounded bg-zinc-900 border-zinc-700 text-on-tertiary-fixed-variant focus:ring-offset-zinc-950" id="confirm-2" type="checkbox"/>
+<label class="text-[10px] font-bold text-on-error-container/80" for="confirm-2">Service downtime has been authorized.</label>
+</div>
+</div>
+<button class="w-full bg-on-tertiary-fixed-variant text-white font-black text-xs py-3 rounded-lg hover:bg-on-tertiary-fixed-variant/80 transition-all shadow-xl shadow-error-container/20 uppercase tracking-widest">
+                            Trigger Restore Sequence
+                        </button>
+</div>
+</div>
+<!-- Restore History Tracker -->
+<div>
+<h2 class="text-sm font-black text-on-surface tracking-widest uppercase mb-4">Operational History</h2>
+<div class="space-y-4">
+<!-- History Item: Success -->
+<div class="glass-panel p-4 rounded-lg relative">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded uppercase">SUCCESS</span>
+<span class="text-[10px] text-zinc-500 font-mono">#RE-8821</span>
+</div>
+<div class="text-xs font-bold text-on-surface mb-1">Point-in-Time Restore</div>
+<div class="text-[10px] text-zinc-500 mb-3 uppercase tracking-tighter">May 14, 2024 • Executed by Operator-01</div>
+<div class="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
+<span class="material-symbols-outlined text-[14px]">history</span>
+                                Duration: 14m 22s
+                            </div>
+</div>
+<!-- History Item: Failed -->
+<div class="glass-panel p-4 rounded-lg relative border-l-2 border-on-tertiary-fixed-variant">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold text-on-tertiary-fixed-variant bg-error-container/20 px-2 py-0.5 rounded uppercase">FAILED</span>
+<span class="text-[10px] text-zinc-500 font-mono">#BK-2210</span>
+</div>
+<div class="text-xs font-bold text-on-surface mb-1">Incremental Cloud Backup</div>
+<div class="text-[10px] text-zinc-500 mb-3 uppercase tracking-tighter">April 28, 2024 • System Exception</div>
+<div class="flex items-center gap-2 text-[10px] font-bold text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                S3 Connection Timeout
+                            </div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Floating Restore Status (Active Overlay) -->
+<div class="fixed bottom-8 right-8 w-80 glass-panel rounded-xl shadow-2xl p-4 border-cyan-500/30 z-[60] hidden">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-sm animate-spin">sync</span>
+<span class="text-xs font-black uppercase tracking-widest">Active Restore</span>
+</div>
+<span class="text-[10px] font-mono text-cyan-400">42%</span>
+</div>
+<div class="h-1 bg-zinc-800 rounded-full mb-4">
+<div class="h-full w-[42%] bg-cyan-400 shadow-[0_0_8px_rgba(76,214,255,0.6)]"></div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[10px] font-bold">
+<span class="text-zinc-500 uppercase">Phase</span>
+<span class="text-on-surface uppercase">Database Migration</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-bold">
+<span class="text-zinc-500 uppercase">Est. Completion</span>
+<span class="text-on-surface uppercase">4m 12s</span>
+</div>
+</div>
+</div>
+</body></html>

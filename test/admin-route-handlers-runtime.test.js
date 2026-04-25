@@ -392,6 +392,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
   });
 
   assert.equal(agentFactoryDeps.createPlatformApiKey, 'create-platform-api-key-marker');
+  assert.equal(agentFactoryDeps.recordAdminSecuritySignal, 'record-admin-security-signal-marker');
   assert.equal(syncFactoryDeps.emitPlatformEvent, 'emit-platform-event-marker');
   assert.equal(configServiceDeps.listServerRegistry, 'list-server-registry-marker');
   assert.equal(publicRouteDeps.activatePlatformAgent, 'activate-agent-marker');
@@ -409,6 +410,7 @@ test('admin route handlers runtime wires service outputs into route factories', 
   assert.equal(platformPostDeps.createServerConfigApplyJob, 'create-server-config-apply-job-marker');
   assert.equal(platformPostDeps.retryServerConfigJob, 'retry-server-config-job-marker');
   assert.equal(platformPostDeps.consumeAdminActionRateLimit, 'consume-admin-action-rate-limit-marker');
+  assert.equal(platformPostDeps.recordAdminSecuritySignal, 'record-admin-security-signal-marker');
   assert.equal(commerceRouteDeps.consumeAdminActionRateLimit, 'consume-admin-action-rate-limit-marker');
   assert.equal(routeRuntimeDeps.handleAdminPlatformPostRoute, platformMarker);
   assert.equal(routeRuntimeDeps.handleAdminCommerceDeliveryPostRoute, commerceMarker);

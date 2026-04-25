@@ -8,6 +8,11 @@ const { refreshLocalSqliteArtifacts } = require('./refresh-local-sqlite-artifact
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const PM2_LOCAL_CONFIG_PATH = path.join(PROJECT_ROOT, 'deploy', 'pm2.local.config.cjs');
+const LOCAL_ADMIN_AUTH_DISABLE_ENV = Object.freeze({
+  ADMIN_WEB_2FA_ENABLED: 'false',
+  ADMIN_WEB_2FA_SECRET: '',
+  ADMIN_WEB_STEP_UP_ENABLED: 'false',
+});
 
 function getManagedLocalPm2AppNames(config = pm2LocalConfig) {
   return Array.isArray(config?.apps)
@@ -35,6 +40,12 @@ function runCommand(command, args, options = {}) {
     throw new Error(String(result.stderr || result.stdout || `${command} failed`).trim());
   }
   return result;
+}
+
+function sleep(ms) {
+  const delay = Number.isFinite(ms) ? Math.max(0, Number(ms)) : 0;
+  if (!delay) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
 }
 
 function runPm2(args, options = {}) {
@@ -73,9 +84,13 @@ function startLocalPm2Profile() {
     runPm2(['delete', ...namesToDelete], {
       allowFailure: false,
     });
+    // Windows can keep Prisma engines locked for a brief moment after PM2 stops the apps.
+    sleep(1500);
   }
   refreshLocalSqliteArtifacts();
-  runPm2(['start', PM2_LOCAL_CONFIG_PATH, '--update-env']);
+  runPm2(['start', PM2_LOCAL_CONFIG_PATH, '--update-env'], {
+    env: LOCAL_ADMIN_AUTH_DISABLE_ENV,
+  });
 }
 
 if (require.main === module) {
@@ -87,5 +102,7 @@ module.exports = {
   listExistingPm2AppNames,
   pickExistingManagedLocalPm2AppNames,
   PM2_LOCAL_CONFIG_PATH,
+  LOCAL_ADMIN_AUTH_DISABLE_ENV,
+  sleep,
   startLocalPm2Profile,
 };

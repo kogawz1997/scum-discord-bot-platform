@@ -3,6 +3,9 @@
 const path = require('node:path');
 
 const { prisma, getPrismaRuntimeProfile } = require('../src/prisma');
+const {
+  assertControlPlaneRegistryPersistenceReady,
+} = require('../src/data/repositories/controlPlaneRegistryRepository');
 const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
 const {
@@ -33,6 +36,7 @@ const FORBIDDEN_RUNTIME_BOOTSTRAP_KEYS = Object.freeze([
   'ADMIN_WEB_RUNTIME_BOOTSTRAP',
   'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP',
   'PLATFORM_RAID_RUNTIME_BOOTSTRAP',
+  'CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY',
 ]);
 
 const TABLE_PROBES = Object.freeze([
@@ -204,6 +208,22 @@ async function buildPersistenceSmokeReport(options = {}) {
     if (enabled) {
       errors.push(`${envKey} must stay disabled for production db-only posture`);
     }
+  }
+
+  try {
+    const readiness = assertControlPlaneRegistryPersistenceReady({
+      requireDb,
+    });
+    checks.push(createValidationCheck('control-plane registry readiness', {
+      status: 'pass',
+      detail: `mode=${readiness.persistenceMode} | requireDb=${readiness.requireDb}`,
+    }));
+  } catch (error) {
+    checks.push(createValidationCheck('control-plane registry readiness', {
+      status: 'failed',
+      detail: error?.message || String(error),
+    }));
+    errors.push(`control-plane registry readiness failed: ${error?.message || String(error)}`);
   }
 
   for (const envKey of REQUIRED_DB_MODE_KEYS) {

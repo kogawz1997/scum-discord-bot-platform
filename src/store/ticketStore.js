@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -154,6 +157,7 @@ async function flushTicketStoreWrites(options = {}) {
 
 function createTicket(payload = {}, options = {}) {
   const scope = ensureTicketScope(options);
+  assertTenantStoreMutationScope(scope, options, 'create support ticket', 'support-ticket');
   void initTicketStore(options);
   const id = scope.state.ticketCounter++;
   const t = normalizeTicket({
@@ -221,6 +225,7 @@ function listTickets(options = {}) {
 
 function claimTicket(channelId, staffId, options = {}) {
   const scope = ensureTicketScope(options);
+  assertTenantStoreMutationScope(scope, options, 'claim support ticket', 'support-ticket');
   void initTicketStore(options);
   const t = scope.state.tickets.get(channelId);
   if (!t) return null;
@@ -246,6 +251,7 @@ function claimTicket(channelId, staffId, options = {}) {
 
 function closeTicket(channelId, options = {}) {
   const scope = ensureTicketScope(options);
+  assertTenantStoreMutationScope(scope, options, 'close support ticket', 'support-ticket');
   void initTicketStore(options);
   const t = scope.state.tickets.get(channelId);
   if (!t) return null;
@@ -271,6 +277,7 @@ function closeTicket(channelId, options = {}) {
 
 function replaceTickets(nextTickets = [], nextCounter = null, options = {}) {
   const scope = ensureTicketScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace support tickets', 'support-ticket');
   void initTicketStore(options);
   scope.state.mutationVersion += 1;
   scope.state.tickets.clear();

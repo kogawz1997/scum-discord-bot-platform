@@ -40,6 +40,18 @@ function createSyncIngestionService(deps = {}) {
       tenantId: normalized.tenantId,
     })[0] || null;
     if (!binding) return { ok: false, reason: 'agent-token-binding-not-found' };
+    if (String(binding.role || '') !== 'sync' || String(binding.scope || '') !== 'sync_only') {
+      return { ok: false, reason: 'agent-sync-role-required' };
+    }
+    if (normalized.agentId && trimText(binding.agentId, 120) && normalized.agentId !== trimText(binding.agentId, 120)) {
+      return { ok: false, reason: 'agent-token-binding-scope-mismatch' };
+    }
+    if (resolvedServerId && trimText(binding.serverId, 120) && resolvedServerId !== trimText(binding.serverId, 120)) {
+      return { ok: false, reason: 'agent-token-binding-scope-mismatch' };
+    }
+    if (resolvedGuildId && trimText(binding.guildId, 120) && resolvedGuildId !== trimText(binding.guildId, 120)) {
+      return { ok: false, reason: 'agent-token-binding-scope-mismatch' };
+    }
     if (!resolvedServerId && trimText(binding.serverId, 120)) {
       resolvedServerId = trimText(binding.serverId, 120);
     }

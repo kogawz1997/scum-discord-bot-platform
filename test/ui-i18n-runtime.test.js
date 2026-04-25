@@ -101,3 +101,12 @@ test('portal i18n repairs mojibake in runtime translations and language labels',
   assert.match(runtime.select.innerHTML, /ไทย/);
   assert.match(runtime.select.innerHTML, /Español/);
 });
+
+test('admin i18n skips owner stitched shell chrome during generic translation passes', () => {
+  const source = fs.readFileSync('C:/new/src/admin/assets/admin-i18n.js', 'utf8');
+
+  assert.match(source, /function shouldSkipShellTranslation\(element\)/);
+  assert.match(source, /element\.closest\('#ownerUnifiedTopbar, #ownerUnifiedSidebar'\)/);
+  assert.match(source, /root\.querySelectorAll\(selector\)\.forEach\(\(element\) => \{\s*if \(shouldSkipShellTranslation\(element\)\) return;/);
+  assert.match(source, /root\.querySelectorAll\('\[data-i18n\]'\)\.forEach\(\(element\) => \{\s*if \(shouldSkipShellTranslation\(element\)\) return;/);
+});

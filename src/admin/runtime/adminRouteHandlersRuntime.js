@@ -306,6 +306,7 @@ function createAdminRouteHandlersRuntime(deps) {
     revokePlatformApiKey,
     rotatePlatformApiKey,
     getPlatformTenantById,
+    recordAdminSecuritySignal,
   });
   const syncIngestionService = createSyncIngestionService({
     emitPlatformEvent,
@@ -333,9 +334,7 @@ function createAdminRouteHandlersRuntime(deps) {
     revokeAgentToken: revokePlatformAgentToken,
     rotateAgentToken: rotatePlatformAgentToken,
   } = agentRegistryService;
-  const {
-    ingestPayload: ingestPlatformAgentSync,
-  } = syncIngestionService;
+  const { ingestPayload: ingestPlatformAgentSync } = syncIngestionService;
   const platformServerConfigService = createPlatformServerConfigService({
     listServerRegistry: listPlatformServerRegistry,
   });
@@ -691,6 +690,7 @@ function createAdminRouteHandlersRuntime(deps) {
     ensurePortalTokenAuth,
     readJsonBody,
     requiredString,
+    getAuthTenantId,
     redeemCodeForUser,
     requestRentBikeForUser,
     createBountyForUser,
@@ -753,6 +753,7 @@ function createAdminRouteHandlersRuntime(deps) {
     updatePackageCatalogEntry,
     consumeAdminActionRateLimit,
     getClientIp,
+    recordAdminSecuritySignal,
   });
 
   const handleAdminAuditRoute = createAdminAuditRoutes({
@@ -768,16 +769,14 @@ function createAdminRouteHandlersRuntime(deps) {
     listAuditPresetsService,
     saveAuditPresetService,
     deleteAuditPresetService,
+    listAdminSecurityEventsService: listAdminSecurityEvents,
     prisma,
     listEvents: deps.listEvents,
     getParticipants,
     jsonReplacer,
   });
 
-  const {
-    deriveRouteGroup,
-    handleMutationAction,
-  } = createAdminRouteRuntime({
+  const { deriveRouteGroup, handleMutationAction } = createAdminRouteRuntime({
     sendJson,
     handleAdminAuthPostRoute,
     handleAdminEntityPostRoute,

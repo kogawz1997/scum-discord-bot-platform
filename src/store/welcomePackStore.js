@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -113,6 +116,7 @@ function hasClaimed(userId, options = {}) {
 
 function claim(userId, options = {}) {
   const scope = ensureWelcomePackScope(options);
+  assertTenantStoreMutationScope(scope, options, 'claim welcome pack', 'welcome-claim');
   void initWelcomePackStore(options);
   const id = normalizeUserId(userId);
   if (!id) return false;
@@ -144,6 +148,7 @@ function listClaimed(options = {}) {
 
 function revokeClaim(userId, options = {}) {
   const scope = ensureWelcomePackScope(options);
+  assertTenantStoreMutationScope(scope, options, 'revoke welcome pack claim', 'welcome-claim');
   void initWelcomePackStore(options);
   const id = normalizeUserId(userId);
   if (!id) return false;
@@ -165,6 +170,7 @@ function revokeClaim(userId, options = {}) {
 
 function clearClaims(options = {}) {
   const scope = ensureWelcomePackScope(options);
+  assertTenantStoreMutationScope(scope, options, 'clear welcome pack claims', 'welcome-claim');
   void initWelcomePackStore(options);
   scope.state.claimed.clear();
   scope.state.mutationVersion += 1;
@@ -179,6 +185,7 @@ function clearClaims(options = {}) {
 
 function replaceClaims(nextClaims = [], options = {}) {
   const scope = ensureWelcomePackScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace welcome pack claims', 'welcome-claim');
   void initWelcomePackStore(options);
   scope.state.claimed.clear();
   scope.state.mutationVersion += 1;

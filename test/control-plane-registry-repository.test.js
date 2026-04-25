@@ -17,6 +17,14 @@ function freshRepository(tempDir) {
   return require(repositoryPath);
 }
 
+function restoreEnvVar(key, previousValue) {
+  if (previousValue == null) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = previousValue;
+}
+
 test('control plane registry persists servers, links, agents, sessions, and sync events', () => {
   const previousDir = process.env.BOT_DATA_DIR;
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-'));
@@ -101,7 +109,7 @@ test('control plane registry persists servers, links, agents, sessions, and sync
     assert.equal(repository.listSyncRuns({ tenantId: 'tenant-a', serverId: 'server-a' }).length, 1);
     assert.equal(repository.listSyncEvents({ tenantId: 'tenant-a', serverId: 'server-a' }).length, 1);
   } finally {
-    process.env.BOT_DATA_DIR = previousDir;
+    restoreEnvVar('BOT_DATA_DIR', previousDir);
     delete process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -126,8 +134,77 @@ test('control plane registry rejects legacy hybrid runtime boundaries', () => {
     assert.equal(result.ok, false);
     assert.equal(result.reason, 'strict-agent-role-scope-required');
   } finally {
-    process.env.BOT_DATA_DIR = previousDir;
+    restoreEnvVar('BOT_DATA_DIR', previousDir);
     delete process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('control plane registry readiness allows file mode when database persistence is not required', () => {
+  const previousDir = process.env.BOT_DATA_DIR;
+  const previousStoreMode = process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
+  const previousRequireDb = process.env.PERSIST_REQUIRE_DB;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-ready-'));
+
+  try {
+    process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'file';
+    process.env.PERSIST_REQUIRE_DB = 'false';
+    const repository = freshRepository(tempDir);
+    const result = repository.assertControlPlaneRegistryPersistenceReady();
+    assert.equal(result.ok, true);
+    assert.equal(result.persistenceMode, 'file');
+    assert.equal(result.requireDb, false);
+  } finally {
+    restoreEnvVar('BOT_DATA_DIR', previousDir);
+    restoreEnvVar('CONTROL_PLANE_REGISTRY_STORE_MODE', previousStoreMode);
+    restoreEnvVar('PERSIST_REQUIRE_DB', previousRequireDb);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('control plane registry readiness resolves to db mode when database persistence is required', () => {
+  const previousDir = process.env.BOT_DATA_DIR;
+  const previousStoreMode = process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
+  const previousRequireDb = process.env.PERSIST_REQUIRE_DB;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-ready-db-'));
+
+  try {
+    process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'file';
+    process.env.PERSIST_REQUIRE_DB = 'true';
+    const repository = freshRepository(tempDir);
+    const result = repository.assertControlPlaneRegistryPersistenceReady();
+    assert.equal(result.ok, true);
+    assert.equal(result.persistenceMode, 'db');
+    assert.equal(result.requireDb, true);
+  } finally {
+    restoreEnvVar('BOT_DATA_DIR', previousDir);
+    restoreEnvVar('CONTROL_PLANE_REGISTRY_STORE_MODE', previousStoreMode);
+    restoreEnvVar('PERSIST_REQUIRE_DB', previousRequireDb);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('control plane registry readiness forbids file import bootstrap when database persistence is required', () => {
+  const previousDir = process.env.BOT_DATA_DIR;
+  const previousStoreMode = process.env.CONTROL_PLANE_REGISTRY_STORE_MODE;
+  const previousRequireDb = process.env.PERSIST_REQUIRE_DB;
+  const previousImportOnEmpty = process.env.CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-ready-import-'));
+
+  try {
+    process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
+    process.env.PERSIST_REQUIRE_DB = 'true';
+    process.env.CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY = 'true';
+    const repository = freshRepository(tempDir);
+    assert.throws(
+      () => repository.assertControlPlaneRegistryPersistenceReady(),
+      /IMPORT_FILE_ON_EMPTY/i,
+    );
+  } finally {
+    restoreEnvVar('BOT_DATA_DIR', previousDir);
+    restoreEnvVar('CONTROL_PLANE_REGISTRY_STORE_MODE', previousStoreMode);
+    restoreEnvVar('PERSIST_REQUIRE_DB', previousRequireDb);
+    restoreEnvVar('CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY', previousImportOnEmpty);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });

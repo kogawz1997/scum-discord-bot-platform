@@ -61,6 +61,15 @@ function resolveLegacyRuntimeBootstrapPolicy(options = {}) {
     requireDb,
   };
 
+  if (requireDb) {
+    return Object.freeze({
+      ...details,
+      allowed: false,
+      reason: 'persist-require-db',
+      source: 'default',
+    });
+  }
+
   if (explicit.explicit) {
     return Object.freeze({
       ...details,
@@ -75,15 +84,6 @@ function resolveLegacyRuntimeBootstrapPolicy(options = {}) {
       ...details,
       allowed: false,
       reason: 'prisma-client-runtime',
-      source: 'default',
-    });
-  }
-
-  if (requireDb) {
-    return Object.freeze({
-      ...details,
-      allowed: false,
-      reason: 'persist-require-db',
       source: 'default',
     });
   }

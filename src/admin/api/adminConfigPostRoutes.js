@@ -10,6 +10,25 @@ const {
   requireTenantPermission,
 } = require('./tenantRoutePermissions');
 
+function trimText(value, maxLen = 240) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.length <= maxLen ? text : text.slice(0, maxLen);
+}
+
+function getRequestId(req) {
+  return trimText(
+    req?.__adminRequestMeta?.requestId
+      || req?.headers?.['x-request-id']
+      || req?.headers?.['X-Request-ID'],
+    160,
+  ) || null;
+}
+
+function getAdminActorId(auth) {
+  return `admin-web:${trimText(auth?.user, 160) || 'unknown'}`;
+}
+
 function createAdminConfigPostRoutes(deps) {
   const {
     sendJson,
@@ -81,6 +100,15 @@ function createAdminConfigPostRoutes(deps) {
         path: pathname,
         detail: 'Control panel environment settings updated',
         data: {
+          governance: true,
+          actionType: 'control_panel.env.update',
+          targetType: 'control_panel_env',
+          targetId: 'control-panel-env',
+          actorId: getAdminActorId(auth),
+          actorRole: auth?.role || null,
+          requestId: getRequestId(req),
+          correlationId: getRequestId(req),
+          resultStatus: 'updated',
           rootChanged: rootWrite.changedKeys,
           portalChanged: portalWrite.changedKeys,
           applySummary,
@@ -137,6 +165,15 @@ function createAdminConfigPostRoutes(deps) {
         targetUser: saved?.username || username,
         detail: 'Admin user credentials or role updated',
         data: {
+          governance: true,
+          actionType: 'admin.user.update',
+          targetType: 'admin_user',
+          targetId: saved?.username || username,
+          actorId: getAdminActorId(auth),
+          actorRole: auth?.role || null,
+          requestId: getRequestId(req),
+          correlationId: getRequestId(req),
+          resultStatus: 'updated',
           username: saved?.username || username,
           role: saved?.role || role,
           tenantId: saved?.tenantId || tenantId,
@@ -193,6 +230,15 @@ function createAdminConfigPostRoutes(deps) {
           ? 'Managed runtime services restarted'
           : 'Managed runtime service restart failed',
         data: {
+          governance: true,
+          actionType: 'runtime.service.restart',
+          targetType: 'runtime_service',
+          targetId: services.join(','),
+          actorId: getAdminActorId(auth),
+          actorRole: auth?.role || null,
+          requestId: getRequestId(req),
+          correlationId: getRequestId(req),
+          resultStatus: restartResult.ok ? 'restarted' : 'failed',
           services: restartResult.services,
           exitCode: restartResult.exitCode,
         },
@@ -331,6 +377,36 @@ function createAdminConfigPostRoutes(deps) {
         sendJson(res, 400, { ok: false, error: result.reason || 'tenant-config-failed' });
         return true;
       }
+      recordAdminSecuritySignal('tenant.config.update', {
+        actor: auth?.user || null,
+        role: auth?.role || null,
+        authMethod: auth?.authMethod || null,
+        sessionId: auth?.sessionId || null,
+        ip: getClientIp(req),
+        path: pathname,
+        detail: updateScope === 'modules'
+          ? 'Tenant module configuration updated'
+          : 'Tenant settings configuration updated',
+        data: {
+          governance: true,
+          actionType: 'tenant.config.update',
+          tenantId,
+          targetType: 'tenant_config',
+          targetId: tenantId,
+          actorId: getAdminActorId(auth),
+          actorRole: auth?.role || null,
+          requestId: getRequestId(req),
+          correlationId: getRequestId(req),
+          reason: requiredString(body, 'reason') || null,
+          resultStatus: 'updated',
+          afterState: {
+            updateScope,
+            configPatchKeys: Object.keys(body?.configPatch || {}),
+            portalEnvPatchKeys: Object.keys(body?.portalEnvPatch || {}),
+            featureFlagKeys: Object.keys(body?.featureFlags || {}),
+          },
+        },
+      });
       sendJson(res, 200, { ok: true, data: result.data });
       return true;
     }

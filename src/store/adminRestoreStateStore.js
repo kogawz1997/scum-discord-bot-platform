@@ -4,7 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { prisma } = require('../prisma');
-const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
+const {
+  atomicWriteJson,
+  getFilePath,
+  isDbPersistenceEnabled,
+  resolveStorePersistenceMode: resolveStorePersistenceModeBase,
+} = require('./_persist');
 
 const FILE_PATH = getFilePath('admin-restore-state.json');
 const STATE_ROW_ID = 'admin-restore-state';
@@ -321,14 +326,21 @@ function getRestoreStateDelegate(client = prisma) {
   return delegate;
 }
 
-function getPersistenceMode() {
-  const explicit = String(process.env.ADMIN_RESTORE_STATE_STORE_MODE || '').trim().toLowerCase();
+function resolveStorePersistenceMode(explicitValue, defaultMode) {
+  if (typeof resolveStorePersistenceModeBase === 'function') {
+    return resolveStorePersistenceModeBase(explicitValue, defaultMode);
+  }
+  const explicit = String(explicitValue || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
   if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
     return 'db';
   }
-  return 'auto';
+  return defaultMode;
+}
+
+function getPersistenceMode() {
+  return resolveStorePersistenceMode(process.env.ADMIN_RESTORE_STATE_STORE_MODE, 'auto');
 }
 
 function shouldFallbackToFile(error) {

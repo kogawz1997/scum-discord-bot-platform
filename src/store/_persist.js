@@ -113,6 +113,16 @@ const fallbackReason = LEGACY_SNAPSHOTS_ENABLED
     ? 'db-only-mode'
     : 'snapshots-disabled';
 
+function resolveStorePersistenceMode(explicitValue, defaultMode = 'auto') {
+  if (REQUIRE_DB) {
+    return 'db';
+  }
+  const explicit = String(explicitValue || '').trim().toLowerCase();
+  if (explicit === 'file') return 'file';
+  if (explicit === 'db') return 'db';
+  return defaultMode;
+}
+
 function loadFromFile(filename) {
   const filePath = getFilePath(filename);
   if (!fs.existsSync(filePath)) return null;
@@ -202,4 +212,5 @@ module.exports = {
   isDbPersistenceEnabled,
   getPersistenceStatus,
   getPublicPersistenceStatus,
+  resolveStorePersistenceMode,
 };

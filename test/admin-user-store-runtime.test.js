@@ -273,6 +273,52 @@ test('admin user store falls back to env-backed users when prisma is unavailable
   assert.equal(auth?.role, 'owner');
 });
 
+test('admin user store refuses env-backed fallback when db-only posture is required', async () => {
+  const originalRequireDb = process.env.PERSIST_REQUIRE_DB;
+  process.env.PERSIST_REQUIRE_DB = 'true';
+
+  try {
+    const runtime = createAdminUserStoreRuntime({
+      prisma: {
+        async $executeRawUnsafe() {
+          throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+        },
+        async $executeRaw() {
+          throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+        },
+        async $queryRaw() {
+          throw new Error('Error validating datasource `db`: the URL must start with the protocol `file:`.');
+        },
+      },
+      crypto,
+      secureEqual: (left, right) => String(left) === String(right),
+      normalizeRole,
+      resolveDatabaseRuntime: () => ({ engine: 'postgresql' }),
+      adminWebUser: 'fallback_owner',
+      adminWebUserRole: 'owner',
+      adminWebUsersJson: JSON.stringify([
+        {
+          username: 'env_owner',
+          password: 'env-secret',
+          role: 'owner',
+        },
+      ]),
+      logger: { warn() {} },
+    });
+
+    await assert.rejects(
+      () => runtime.ensureAdminUsersReady(),
+      /must start with the protocol/i,
+    );
+  } finally {
+    if (originalRequireDb == null) {
+      delete process.env.PERSIST_REQUIRE_DB;
+    } else {
+      process.env.PERSIST_REQUIRE_DB = originalRequireDb;
+    }
+  }
+});
+
 test('admin user store bootstraps legacy table path only when delegate persistence falls back', async () => {
   let rawUnsafeCalls = 0;
   let rawInsertCalls = 0;
@@ -423,6 +469,66 @@ test('admin user store can still bootstrap legacy table path for prisma-client r
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalBootstrap == null) {
+      delete process.env.ADMIN_WEB_RUNTIME_BOOTSTRAP;
+    } else {
+      process.env.ADMIN_WEB_RUNTIME_BOOTSTRAP = originalBootstrap;
+    }
+  }
+});
+
+test('admin user store refuses explicit runtime bootstrap when db-only posture is required', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalBootstrap = process.env.ADMIN_WEB_RUNTIME_BOOTSTRAP;
+  const originalRequireDb = process.env.PERSIST_REQUIRE_DB;
+  process.env.NODE_ENV = 'test';
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  process.env.ADMIN_WEB_RUNTIME_BOOTSTRAP = '1';
+
+  try {
+    const harness = createPrismaClientLikeFallbackHarness();
+    const runtime = createAdminUserStoreRuntime({
+      prisma: harness.prisma,
+      crypto,
+      secureEqual: (left, right) => String(left) === String(right),
+      normalizeRole,
+      resolveDatabaseRuntime: () => ({ engine: 'sqlite' }),
+      adminWebUser: 'fallback_owner',
+      adminWebUserRole: 'owner',
+      adminWebUsersJson: JSON.stringify([
+        {
+          username: 'schema_owner',
+          password: 'schema-secret',
+          role: 'owner',
+        },
+      ]),
+      logger: { warn() {} },
+    });
+
+    await assert.rejects(
+      () => runtime.ensureAdminUsersReady(),
+      (error) => {
+        assert.equal(error?.code, 'ADMIN_WEB_USERS_SCHEMA_REQUIRED');
+        assert.equal(error?.adminUserSchema?.bootstrapPolicy?.reason, 'persist-require-db');
+        assert.equal(error?.adminUserSchema?.bootstrapPolicy?.explicitValue, '1');
+        return true;
+      },
+    );
+
+    const snapshot = harness.getSnapshot();
+    assert.equal(snapshot.rawUnsafeCalls, 0);
+    assert.equal(snapshot.rawInsertCalls, 0);
+  } finally {
+    if (originalNodeEnv == null) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalRequireDb == null) {
+      delete process.env.PERSIST_REQUIRE_DB;
+    } else {
+      process.env.PERSIST_REQUIRE_DB = originalRequireDb;
     }
     if (originalBootstrap == null) {
       delete process.env.ADMIN_WEB_RUNTIME_BOOTSTRAP;

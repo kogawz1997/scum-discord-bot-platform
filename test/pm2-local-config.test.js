@@ -35,3 +35,11 @@ test('pm2 local bot and worker runtimes are pinned to local sqlite env', () => {
 
   assert.equal(bot.env.BOT_ENABLE_ADMIN_WEB, 'false');
 });
+
+test('pm2 local public portal keeps product links on local surfaces', () => {
+  const portal = getAppByName('scum-web-portal-local');
+
+  assert.ok(portal);
+  assert.equal(portal.env.WEB_PORTAL_BASE_URL, 'http://127.0.0.1:3300');
+  assert.equal(portal.env.WEB_PORTAL_LEGACY_ADMIN_URL, 'http://127.0.0.1:3202');
+});

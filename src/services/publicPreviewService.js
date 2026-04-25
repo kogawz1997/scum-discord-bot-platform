@@ -189,7 +189,9 @@ function derivePreviewLinkedIdentities(account, identitySummary) {
 function normalizePreviewLifecycleStatus(value) {
   const normalized = trimText(value, 80).toLowerCase();
   if (normalized === 'trial') return 'trialing';
-  return ['preview', 'trialing', 'active', 'past_due', 'suspended', 'canceled', 'expired'].includes(normalized)
+  if (normalized === 'canceled') return 'cancelled';
+  if (normalized === 'suspended') return 'past_due';
+  return ['preview', 'trialing', 'active', 'past_due', 'cancelled', 'expired'].includes(normalized)
     ? normalized
     : 'preview';
 }

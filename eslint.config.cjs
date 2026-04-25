@@ -5,11 +5,21 @@ module.exports = [
   {
     ignores: [
       'node_modules/**',
+      '**/node_modules/**',
+      'dist/**',
+      '**/dist/**',
       'data/**',
       'artifacts/**',
+      'output/**',
+      'tmp/**',
+      'tmp-*/**',
+      'temp_*/**',
       '_compare/**',
+      '.claude/**',
       'vendor/**',
       'backups/**',
+      'owen scum/**',
+      'น/**',
       'apps/web-portal-standalone/public/**',
       'src/admin/dashboard.html',
       '**/*.min.js',
@@ -32,6 +42,22 @@ module.exports = [
       'no-undef': 'off',
       'no-unused-vars': 'off',
       'no-useless-escape': 'off',
+    },
+  },
+  {
+    files: ['apps/owner-ui-prototype/**/*.js'],
+    ignores: [
+      'apps/owner-ui-prototype/node_modules/**',
+      'apps/owner-ui-prototype/dist/**',
+      'apps/owner-ui-prototype/output/**',
+    ],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
   },
   {

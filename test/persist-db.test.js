@@ -72,6 +72,35 @@ test('db-only mode disables legacy snapshots cleanly', () => {
   assert.equal(fs.existsSync(path.join(tempDir, 'legacy-data', 'unit.json')), false);
 });
 
+test('db-only mode forces store persistence helpers to db even when file is requested', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scumdb-store-mode-'));
+  const modulePath = path.resolve(__dirname, '../src/store/_persist.js');
+  const script = [
+    `const mod = require(${JSON.stringify(modulePath)});`,
+    'console.log(`MODE:${mod.resolveStorePersistenceMode("file", "auto")}`);',
+    'console.log(`MODE_DB:${mod.resolveStorePersistenceMode("db", "auto")}`);',
+    'console.log(`MODE_AUTO:${mod.resolveStorePersistenceMode("", "auto")}`);',
+  ].join('\n');
+
+  const result = spawnSync(process.execPath, ['-e', script], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      DATABASE_URL: `file:${path.join(tempDir, 'required.db')}`,
+      BOT_DATA_DIR: path.join(tempDir, 'legacy-data'),
+      PERSIST_REQUIRE_DB: 'true',
+    },
+  });
+
+  assert.equal(result.status, 0);
+  const lines = String(result.stdout || '')
+    .split(/\r?\n/)
+    .filter(Boolean);
+  assert.ok(lines.includes('MODE:db'));
+  assert.ok(lines.includes('MODE_DB:db'));
+  assert.ok(lines.includes('MODE_AUTO:db'));
+});
+
 test('public persistence status redacts connection strings and storage paths', () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalDatabaseUrl = process.env.DATABASE_URL;

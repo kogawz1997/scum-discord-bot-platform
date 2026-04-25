@@ -189,3 +189,59 @@ test('delivery audit store dedupes repeated ids during replace before persistenc
   assert.equal(persisted[0].id, 'audit-dup');
   assert.equal(persisted[0].message, 'second');
 });
+
+test('delivery audit store rejects tenant-owned audit writes without tenant scope', async () => {
+  const harness = createAuditDbHarness();
+  const store = loadStoreWithMocks(harness);
+
+  assert.throws(
+    () =>
+      store.addDeliveryAudit({
+        id: 'audit-tenantless-queued',
+        action: 'queued',
+        purchaseCode: 'P-TENANTLESS-AUDIT',
+        itemId: 'bundle-ak',
+        userId: 'u-1',
+        message: 'Queued without tenant',
+      }),
+    (error) => error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED',
+  );
+});
+
+test('delivery audit store rejects tenant-owned restore rows without tenant scope', async () => {
+  const harness = createAuditDbHarness();
+  const store = loadStoreWithMocks(harness);
+
+  assert.throws(
+    () =>
+      store.replaceDeliveryAudit([
+        {
+          id: 'audit-tenantless-restore',
+          action: 'success',
+          purchaseCode: 'P-TENANTLESS-RESTORE',
+          itemId: 'bundle-ak',
+          userId: 'u-1',
+          message: 'Restored without tenant',
+        },
+      ]),
+    (error) => error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED',
+  );
+});
+
+test('delivery audit store allows explicit platform-global manual audit writes', async () => {
+  const harness = createAuditDbHarness();
+  const store = loadStoreWithMocks(harness);
+
+  const audit = store.addDeliveryAudit({
+    id: 'audit-global-manual-test',
+    action: 'manual-test-send',
+    itemId: 'bundle-ak',
+    userId: 'admin-test',
+    message: 'Manual test send without tenant',
+    allowGlobal: true,
+  });
+  await store.flushDeliveryAuditStoreWrites();
+
+  assert.equal(audit.id, 'audit-global-manual-test');
+  assert.equal(harness.snapshot(null).length, 1);
+});

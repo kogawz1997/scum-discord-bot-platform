@@ -15,6 +15,40 @@ function installMock(modulePath, exportsValue) {
   };
 }
 
+function createRegistryDelegate(extra = {}) {
+  return {
+    async findMany() {
+      return [];
+    },
+    async deleteMany() {
+      return { count: 0 };
+    },
+    ...extra,
+  };
+}
+
+function withRegistryDelegates(prismaMock) {
+  const delegateNames = [
+    'controlPlaneServer',
+    'controlPlaneServerDiscordLink',
+    'controlPlaneAgent',
+    'controlPlaneAgentTokenBinding',
+    'controlPlaneAgentProvisioningToken',
+    'controlPlaneAgentDevice',
+    'controlPlaneAgentCredential',
+    'controlPlaneAgentSession',
+    'controlPlaneSyncRun',
+    'controlPlaneSyncEvent',
+  ];
+  const merged = {
+    ...prismaMock,
+  };
+  for (const delegateName of delegateNames) {
+    merged[delegateName] = createRegistryDelegate(prismaMock?.[delegateName]);
+  }
+  return merged;
+}
+
 function clearModule(modulePath) {
   delete require.cache[modulePath];
 }
@@ -22,7 +56,7 @@ function clearModule(modulePath) {
 function loadScriptWithPrismaMock(prismaMock) {
   clearModule(scriptPath);
   installMock(prismaPath, {
-    prisma: prismaMock,
+    prisma: withRegistryDelegates(prismaMock),
     getPrismaRuntimeProfile() {
       return {
         sourceSchemaProvider: 'sqlite',
@@ -226,4 +260,28 @@ test('persistence smoke fails when legacy runtime bootstrap is explicitly enable
 
   assert.equal(report.ok, false);
   assert.match(report.errors.join('\n'), /PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP must stay disabled/i);
+});
+
+test('persistence smoke fails when control-plane file import bootstrap remains enabled', async () => {
+  process.env.NODE_ENV = 'production';
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  process.env.DATABASE_URL = 'postgresql://app:secret@127.0.0.1:5432/scum_th_platform?schema=public';
+  process.env.DATABASE_PROVIDER = 'postgresql';
+  process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+  process.env.ADMIN_NOTIFICATION_STORE_MODE = 'db';
+  process.env.ADMIN_SECURITY_EVENT_STORE_MODE = 'db';
+  process.env.PLATFORM_AUTOMATION_STATE_STORE_MODE = 'db';
+  process.env.PLATFORM_OPS_STATE_STORE_MODE = 'db';
+  process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
+  process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = 'none';
+  process.env.CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY = 'true';
+
+  const { buildPersistenceSmokeReport } = loadScriptWithPrismaMock({
+    async $disconnect() {},
+  });
+
+  const report = await buildPersistenceSmokeReport();
+
+  assert.equal(report.ok, false);
+  assert.match(report.errors.join('\n'), /CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY must stay disabled/i);
 });

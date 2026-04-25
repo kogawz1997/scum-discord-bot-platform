@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const recentMessages = new Map();
 const scopeStateByDatasource = new Map();
@@ -151,6 +154,7 @@ function getRecentMessages(userId, sinceMs) {
 
 function addPunishment(userId, type, reason, staffId, durationMinutes, options = {}) {
   const scope = ensureModerationScope(options);
+  assertTenantStoreMutationScope(scope, options, 'add moderation punishment', 'moderation-punishment');
   void initModerationStore(options);
   const key = String(userId || '').trim();
   if (!key) return null;
@@ -202,6 +206,7 @@ function listAllPunishments(options = {}) {
 
 function replacePunishments(nextRows = [], options = {}) {
   const scope = ensureModerationScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace moderation punishments', 'moderation-punishment');
   void initModerationStore(options);
   scope.state.mutationVersion += 1;
   scope.state.punishments.clear();

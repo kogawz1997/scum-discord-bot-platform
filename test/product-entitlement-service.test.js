@@ -40,10 +40,10 @@ test('tenant entitlements lock protected actions when subscription is expired', 
   assert.match(String(entitlements.actions.can_restart_server.reason || ''), /expired/i);
 });
 
-test('player entitlements lock commerce on suspended subscriptions but keep discovery pages open', () => {
+test('player entitlements lock commerce on past-due subscriptions but keep discovery pages open', () => {
   const entitlements = buildPlayerProductEntitlements({
     tenantId: 'tenant-1',
-    subscriptionStatus: 'suspended',
+    subscriptionStatus: 'past_due',
     enabledFeatureKeys: ['shop_module', 'orders_module', 'bot_delivery'],
   });
 
@@ -52,5 +52,5 @@ test('player entitlements lock commerce on suspended subscriptions but keep disc
   assert.equal(entitlements.sections.shop.locked, true);
   assert.equal(entitlements.actions.can_buy_items.locked, true);
   assert.equal(entitlements.locks.subscriptionLocked, true);
-  assert.match(String(entitlements.actions.can_buy_items.reason || ''), /suspend/i);
+  assert.match(String(entitlements.actions.can_buy_items.reason || ''), /past due/i);
 });

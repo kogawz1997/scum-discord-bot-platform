@@ -173,14 +173,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount: balance,
         reason: 'admin_wallet_set',
         actor: `admin-web:${auth?.user || 'unknown'}`,
-        tenantId: authTenantId,
+        tenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-set', { tenantId: authTenantId });
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-set', { tenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }
@@ -218,14 +218,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount,
         reason: 'admin_wallet_add',
         actor: `admin-web:${auth?.user || 'unknown'}`,
-        tenantId: authTenantId,
+        tenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-add', { tenantId: authTenantId });
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-add', { tenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }
@@ -263,14 +263,14 @@ function createAdminCommerceDeliveryPostRoutes(deps) {
         amount,
         reason: 'admin_wallet_remove',
         actor: `admin-web:${auth?.user || 'unknown'}`,
-        tenantId: authTenantId,
+        tenantId,
         meta: { role: auth?.role || 'unknown' },
       });
       if (!result.ok) {
         sendJson(res, 400, { ok: false, error: result.reason || 'Request failed' });
         return true;
       }
-      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-remove', { tenantId: authTenantId });
+      queueLeaderboardRefreshForAllGuilds(client, 'admin-wallet-remove', { tenantId });
       sendJson(res, 200, { ok: true, data: { userId, balance: result.balance } });
       return true;
     }

@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -146,6 +149,7 @@ async function flushBountyStoreWrites(options = {}) {
 
 async function createBounty({ targetName, amount, createdBy }, options = {}) {
   const scope = ensureBountyScope(options);
+  assertTenantStoreMutationScope(scope, options, 'create bounty', 'bounty');
   if (scope.state.initPromise) {
     await scope.state.initPromise.catch(() => null);
   }
@@ -179,6 +183,7 @@ function listBounties(options = {}) {
 
 function cancelBounty(id, requesterId, isStaff, options = {}) {
   const scope = ensureBountyScope(options);
+  assertTenantStoreMutationScope(scope, options, 'cancel bounty', 'bounty');
   void initBountyStore(options);
   const bounty = scope.state.bounties.get(Number(id));
   if (!bounty) return { ok: false, reason: 'not-found' };
@@ -208,6 +213,7 @@ function cancelBounty(id, requesterId, isStaff, options = {}) {
 
 function claimBounty(id, killerName, options = {}) {
   const scope = ensureBountyScope(options);
+  assertTenantStoreMutationScope(scope, options, 'claim bounty', 'bounty');
   void initBountyStore(options);
   const bounty = scope.state.bounties.get(Number(id));
   if (!bounty) return { ok: false, reason: 'not-found' };
@@ -236,6 +242,7 @@ function claimBounty(id, killerName, options = {}) {
 
 function replaceBounties(nextBounties = [], nextCounter = null, options = {}) {
   const scope = ensureBountyScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace bounties', 'bounty');
   void initBountyStore(options);
   scope.state.mutationVersion += 1;
   scope.state.bounties.clear();

@@ -4,7 +4,13 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 const { prisma } = require('../prisma');
-const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
+const {
+  atomicWriteJson,
+  getFilePath,
+  isDbPersistenceEnabled,
+  resolveStorePersistenceMode: resolveStorePersistenceModeBase,
+} = require('./_persist');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 
 const FILE_PATH = getFilePath('admin-security-events.json');
 const MAX_ENTRIES = Math.max(
@@ -38,6 +44,33 @@ function normalizeSeverity(value) {
   const text = String(value || '').trim().toLowerCase();
   if (text === 'error' || text === 'warn' || text === 'info') return text;
   return 'info';
+}
+
+function getSecurityEventTenantId(entry = {}) {
+  return normalizeText(
+    entry?.tenantId
+      || entry?.data?.tenantId
+      || entry?.data?.tenant?.id,
+    160,
+  );
+}
+
+function isTenantOwnedSecurityEvent(entry = {}) {
+  const type = normalizeText(entry.type, 120)?.toLowerCase() || '';
+  if (entry.requireTenantScope === true || entry.tenantScoped === true) return true;
+  if (getSecurityEventTenantId(entry)) return true;
+  return type.startsWith('tenant-') || type.includes('tenant-boundary');
+}
+
+function assertAdminSecurityMutationScope(entry = {}, operation = 'record admin security event') {
+  if (!isTenantOwnedSecurityEvent(entry)) return null;
+  const tenantId = getSecurityEventTenantId(entry);
+  return assertTenantMutationScope({
+    tenantId,
+    dataTenantId: tenantId,
+    operation,
+    entityType: 'admin-security-event',
+  });
 }
 
 function parseDataJson(value) {
@@ -102,14 +135,21 @@ function getSecurityEventDelegate(client = prisma) {
   return delegate;
 }
 
-function getPersistenceMode() {
-  const explicit = String(process.env.ADMIN_SECURITY_EVENT_STORE_MODE || '').trim().toLowerCase();
+function resolveStorePersistenceMode(explicitValue, defaultMode) {
+  if (typeof resolveStorePersistenceModeBase === 'function') {
+    return resolveStorePersistenceModeBase(explicitValue, defaultMode);
+  }
+  const explicit = String(explicitValue || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
   if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
     return 'db';
   }
-  return 'db';
+  return defaultMode;
+}
+
+function getPersistenceMode() {
+  return resolveStorePersistenceMode(process.env.ADMIN_SECURITY_EVENT_STORE_MODE, 'db');
 }
 
 async function runWithPreferredPersistence(dbWork, fileWork) {
@@ -200,6 +240,29 @@ async function writeEventsToDatabase(delegate = getSecurityEventDelegate()) {
   }
 }
 
+async function persistRecordedEventToDatabase(entry, delegate = getSecurityEventDelegate(), staleIds = []) {
+  if (!delegate) return;
+  const row = serializeEventRow(entry);
+  if (typeof delegate.upsert === 'function') {
+    await delegate.upsert({
+      where: { id: row.id },
+      create: row,
+      update: row,
+    });
+    if (Array.isArray(staleIds) && staleIds.length > 0 && typeof delegate.deleteMany === 'function') {
+      await delegate.deleteMany({
+        where: {
+          id: {
+            in: staleIds,
+          },
+        },
+      });
+    }
+    return;
+  }
+  await writeEventsToDatabase(delegate);
+}
+
 function initAdminSecurityEventStore() {
   if (!initPromise) {
     initPromise = runWithPreferredPersistence(
@@ -211,12 +274,16 @@ function initAdminSecurityEventStore() {
 }
 
 function recordAdminSecurityEvent(entry = {}) {
+  assertAdminSecurityMutationScope(entry, 'record admin security event');
   const normalized = normalizeEvent(entry);
+  const previousIds = new Set((Array.isArray(events) ? events : []).map((item) => item.id));
   events.push(normalized);
   events = trimEvents(events);
+  const activeIds = new Set(events.map((item) => item.id));
+  const staleIds = Array.from(previousIds).filter((id) => !activeIds.has(id));
   queueWrite(
     () => runWithPreferredPersistence(
-      (delegate) => writeEventsToDatabase(delegate),
+      (delegate) => persistRecordedEventToDatabase(normalized, delegate, staleIds),
       async () => writeEventsToDisk(),
     ),
     'record',
@@ -247,6 +314,9 @@ async function listAdminSecurityEvents(options = {}) {
 }
 
 async function replaceAdminSecurityEvents(nextRows = []) {
+  for (const row of Array.isArray(nextRows) ? nextRows : []) {
+    assertAdminSecurityMutationScope(row, 'replace admin security events');
+  }
   await initAdminSecurityEventStore();
   events = trimEvents(nextRows);
   queueWrite(

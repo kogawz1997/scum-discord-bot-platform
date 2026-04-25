@@ -9,6 +9,7 @@ const { once } = require('node:events');
 const { addShopItem, createPurchase, listShopItems } = require('../src/store/memoryStore');
 const { setLink } = require('../src/store/linkStore');
 const { claimWelcomePackForUser } = require('../src/services/welcomePackService');
+const { getMembership: getVipMembership } = require('../src/services/vipService');
 const { startScumConsoleAgent } = require('../src/services/scumConsoleAgent');
 const { prisma, getTenantScopedPrismaClient } = require('../src/prisma');
 const {
@@ -151,6 +152,64 @@ async function resetAdminIntegrationRuntimeState() {
   delete process.env.ADMIN_WEB_PORTAL_ENV_FILE_PATH;
 }
 
+async function seedAdminApiScopedTenant(tenantId) {
+  const subscriptionId = `sub-${tenantId}`;
+  const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await prisma.platformTenant.upsert({
+    where: { id: tenantId },
+    update: {
+      status: 'active',
+      type: 'trial',
+      metadataJson: JSON.stringify({ source: 'admin-api-integration-test' }),
+    },
+    create: {
+      id: tenantId,
+      slug: tenantId,
+      name: tenantId,
+      type: 'trial',
+      status: 'active',
+      locale: 'th',
+      metadataJson: JSON.stringify({ source: 'admin-api-integration-test' }),
+    },
+  });
+  await prisma.platformSubscription.upsert({
+    where: { id: subscriptionId },
+    update: {
+      tenantId,
+      planId: 'platform-growth',
+      billingCycle: 'monthly',
+      status: 'active',
+      currency: 'THB',
+      amountCents: 1290000,
+      renewsAt: periodEnd,
+      metadataJson: JSON.stringify({
+        packageId: 'FULL_OPTION',
+        currentPeriodEnd: periodEnd.toISOString(),
+      }),
+    },
+    create: {
+      id: subscriptionId,
+      tenantId,
+      planId: 'platform-growth',
+      billingCycle: 'monthly',
+      status: 'active',
+      currency: 'THB',
+      amountCents: 1290000,
+      renewsAt: periodEnd,
+      metadataJson: JSON.stringify({
+        packageId: 'FULL_OPTION',
+        currentPeriodEnd: periodEnd.toISOString(),
+      }),
+    },
+  });
+}
+
+async function cleanupAdminApiScopedTenant(tenantId) {
+  await prisma.purchase.deleteMany({ where: { tenantId } }).catch(() => null);
+  await prisma.platformSubscription.deleteMany({ where: { tenantId } }).catch(() => null);
+  await prisma.platformTenant.deleteMany({ where: { id: tenantId } }).catch(() => null);
+}
+
 void resetAdminIntegrationRuntimeState();
 
 test('admin API auth + validation integration flow', { concurrency: false }, async (t) => {
@@ -181,6 +240,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
 
   t.after(async () => {
     await resetAdminIntegrationRuntimeState();
+    await cleanupAdminApiScopedTenant('tenant-admin-api-transition');
     await closeHttpServer(server);
     delete require.cache[adminWebServerPath];
   });
@@ -444,12 +504,15 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
 
   const initialShopItems = await listShopItems();
   assert.ok(initialShopItems.length > 0);
+  await seedAdminApiScopedTenant('tenant-admin-api-transition');
   const purchaseForTransition = await createPurchase(
     'admin-api-transition-user',
     initialShopItems[0],
+    { tenantId: 'tenant-admin-api-transition' },
   );
 
   const statusDelivered = await request('/admin/api/purchase/status', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     code: purchaseForTransition.code,
     status: 'delivered',
     reason: 'integration-test-transition',
@@ -462,6 +525,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   );
 
   const invalidTransition = await request('/admin/api/purchase/status', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     code: purchaseForTransition.code,
     status: 'pending',
     reason: 'integration-test-invalid-transition',
@@ -475,6 +539,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
 
   const probeUserId = '999999999999999991';
   const walletSetA = await request('/admin/api/wallet/set', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
     balance: 123456,
   }, cookie);
@@ -482,6 +547,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(walletSetA.data.ok, true);
 
   const walletAdd = await request('/admin/api/wallet/add', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
     amount: 44,
   }, cookie);
@@ -490,6 +556,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(Number(walletAdd.data.data?.balance || 0), 123500);
 
   const walletRemove = await request('/admin/api/wallet/remove', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
     amount: 500,
   }, cookie);
@@ -499,14 +566,17 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
 
   const pagedUserId = '999999999999999992';
   await request('/admin/api/wallet/set', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: pagedUserId,
     balance: 500,
   }, cookie);
   await request('/admin/api/wallet/add', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: pagedUserId,
     amount: 50,
   }, cookie);
   await request('/admin/api/wallet/remove', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: pagedUserId,
     amount: 25,
   }, cookie);
@@ -615,6 +685,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.match(snapshotExportText, /\"wallets\"/);
 
   const vipSet = await request('/admin/api/vip/set', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
     planId: 'vip-7d',
     durationDays: 14,
@@ -623,27 +694,25 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(vipSet.data.ok, true);
   assert.equal(String(vipSet.data.data?.planId || ''), 'vip-7d');
 
-  const snapshotAfterVipSet = await request('/admin/api/snapshot', 'GET', null, cookie);
-  assert.equal(snapshotAfterVipSet.res.status, 200);
-  const membershipAfterSet = (snapshotAfterVipSet.data?.data?.memberships || []).find(
-    (row) => String(row?.userId || '') === probeUserId,
-  );
+  const membershipAfterSet = await getVipMembership(probeUserId, {
+    tenantId: 'tenant-admin-api-transition',
+  });
   assert.equal(String(membershipAfterSet?.planId || ''), 'vip-7d');
 
   const vipRemove = await request('/admin/api/vip/remove', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
   }, cookie);
   assert.equal(vipRemove.res.status, 200);
   assert.equal(vipRemove.data.ok, true);
 
-  const snapshotAfterVipRemove = await request('/admin/api/snapshot', 'GET', null, cookie);
-  assert.equal(snapshotAfterVipRemove.res.status, 200);
-  const membershipAfterRemove = (snapshotAfterVipRemove.data?.data?.memberships || []).find(
-    (row) => String(row?.userId || '') === probeUserId,
-  );
-  assert.equal(membershipAfterRemove, undefined);
+  const membershipAfterRemove = await getVipMembership(probeUserId, {
+    tenantId: 'tenant-admin-api-transition',
+  });
+  assert.equal(membershipAfterRemove, null);
 
   const bountyCreate = await request('/admin/api/bounty/create', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     targetName: 'TargetFromAdminApi',
     amount: 777,
     createdBy: probeUserId,
@@ -654,6 +723,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.ok(bountyId > 0);
 
   const bountyCancel = await request('/admin/api/bounty/cancel', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     id: bountyId,
   }, cookie);
   assert.equal(bountyCancel.res.status, 200);
@@ -661,6 +731,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(String(bountyCancel.data.data?.status || ''), 'cancelled');
 
   const redeemAdd = await request('/admin/api/redeem/add', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     code: 'ADMIN-API-TEST',
     type: 'coins',
     amount: 250,
@@ -669,18 +740,21 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(redeemAdd.data.ok, true);
 
   const redeemReset = await request('/admin/api/redeem/reset-usage', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     code: 'ADMIN-API-TEST',
   }, cookie);
   assert.equal(redeemReset.res.status, 200);
   assert.equal(redeemReset.data.ok, true);
 
   const redeemDelete = await request('/admin/api/redeem/delete', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     code: 'ADMIN-API-TEST',
   }, cookie);
   assert.equal(redeemDelete.res.status, 200);
   assert.equal(redeemDelete.data.ok, true);
 
   const eventCreate = await request('/admin/api/event/create', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     name: 'Admin API Audit Event',
     time: new Date().toISOString(),
     reward: '500 coins',
@@ -720,12 +794,14 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   const welcomeUserA = '888888888888888881';
   const welcomeUserB = '888888888888888882';
   const welcomeClaimA = await claimWelcomePackForUser({
+    tenantId: 'tenant-admin-api-transition',
     userId: welcomeUserA,
     amount: 100,
     actor: 'test-suite',
     source: 'admin-api-test',
   });
   const welcomeClaimB = await claimWelcomePackForUser({
+    tenantId: 'tenant-admin-api-transition',
     userId: welcomeUserB,
     amount: 100,
     actor: 'test-suite',
@@ -735,12 +811,15 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   assert.equal(welcomeClaimB.ok, true);
 
   const welcomeRevoke = await request('/admin/api/welcome/revoke', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: welcomeUserA,
   }, cookie);
   assert.equal(welcomeRevoke.res.status, 200);
   assert.equal(welcomeRevoke.data.ok, true);
 
-  const welcomeClear = await request('/admin/api/welcome/clear', 'POST', {}, cookie);
+  const welcomeClear = await request('/admin/api/welcome/clear', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
+  }, cookie);
   assert.equal(welcomeClear.res.status, 200);
   assert.equal(welcomeClear.data.ok, true);
   assert.ok(Number(welcomeClear.data?.data?.clearedCount || 0) >= 1);
@@ -765,6 +844,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
   );
 
   const walletSetB = await request('/admin/api/wallet/set', 'POST', {
+    tenantId: 'tenant-admin-api-transition',
     userId: probeUserId,
     balance: 654321,
   }, cookie);
@@ -822,7 +902,7 @@ test('admin API auth + validation integration flow', { concurrency: false }, asy
     confirmBackup: backupFile,
     previewToken: restoreDryRun.data.data.previewToken,
   }, cookie);
-  assert.equal(restoreLive.res.status, 200);
+  assert.equal(restoreLive.res.status, 200, JSON.stringify(restoreLive.data, null, 2));
   assert.equal(restoreLive.data.ok, true);
   assert.equal(restoreLive.data.data.restored, true);
   assert.ok(String(restoreLive.data.data.rollbackBackup || '').endsWith('.json'));
@@ -1629,6 +1709,7 @@ test('admin API delivery detail + test send routes work with local console agent
   }
 
   t.after(async () => {
+    await cleanupAdminApiScopedTenant('tenant-admin-delivery-detail');
     await closeHttpServer(server);
     await runtime.close();
     delete require.cache[adminWebServerPath];
@@ -1864,13 +1945,15 @@ test('admin API delivery detail + test send routes work with local console agent
     );
   }
   assert.ok(detailShopItem, 'expected at least one item-kind shop item');
+  await seedAdminApiScopedTenant('tenant-admin-delivery-detail');
   const purchase = await createPurchase(
     'admin-delivery-detail-user',
     detailShopItem,
+    { tenantId: 'tenant-admin-delivery-detail' },
   );
 
   const detail = await request(
-    `/admin/api/delivery/detail?code=${encodeURIComponent(purchase.code)}&limit=20`,
+    `/admin/api/delivery/detail?code=${encodeURIComponent(purchase.code)}&limit=20&tenantId=${encodeURIComponent('tenant-admin-delivery-detail')}`,
     'GET',
     null,
     cookie,
@@ -1885,6 +1968,7 @@ test('admin API delivery detail + test send routes work with local console agent
   const queuedPurchase = await createPurchase(
     'admin-delivery-queue-user',
     detailShopItem,
+    { tenantId: 'tenant-admin-delivery-detail' },
   );
   setLink({
     userId: 'admin-delivery-queue-user',
@@ -1892,13 +1976,14 @@ test('admin API delivery detail + test send routes work with local console agent
     inGameName: 'Admin Queue User',
   });
   const enqueueRes = await request('/admin/api/delivery/enqueue', 'POST', {
+    tenantId: 'tenant-admin-delivery-detail',
     code: queuedPurchase.code,
   }, cookie);
   assert.equal(enqueueRes.res.status, 200);
   assert.equal(enqueueRes.data.ok, true);
 
   const queueRes = await request(
-    `/admin/api/delivery/queue?limit=20&q=${encodeURIComponent(queuedPurchase.code)}`,
+    `/admin/api/delivery/queue?limit=20&q=${encodeURIComponent(queuedPurchase.code)}&tenantId=${encodeURIComponent('tenant-admin-delivery-detail')}`,
     'GET',
     null,
     cookie,

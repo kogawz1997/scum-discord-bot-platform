@@ -185,6 +185,10 @@ function createAdminUserStoreRuntime(options = {}) {
     return getLegacyAdminUsersRuntimeBootstrapPolicy().allowed;
   }
 
+  function isAdminUsersDbOnlyPosture() {
+    return getLegacyAdminUsersRuntimeBootstrapPolicy().requireDb === true;
+  }
+
   function buildAdminUsersSchemaRequiredError(details = {}) {
     const error = new Error(
       'Admin web user schema is not ready. Run the database migrations before enabling password-based admin auth, or explicitly enable local runtime bootstrap for compatibility only.',
@@ -224,6 +228,9 @@ function createAdminUserStoreRuntime(options = {}) {
   }
 
   function shouldUseEnvAdminUsersFallback(error) {
+    if (isAdminUsersDbOnlyPosture()) {
+      return false;
+    }
     if (shouldFallbackToLegacyAdminUserPersistence(error)) {
       return true;
     }

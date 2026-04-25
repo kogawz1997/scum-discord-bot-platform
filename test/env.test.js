@@ -236,6 +236,39 @@ test('getDeliveryAgentRuntimeErrors blocks insecure production delivery-agent co
   assert.match(combined, /PLATFORM_AGENT_STATE_SECRET/i);
 });
 
+test('getDeliveryAgentRuntimeErrors blocks incomplete production managed delivery-agent config', () => {
+  const errors = getDeliveryAgentRuntimeErrors({
+    NODE_ENV: 'production',
+    SCUM_CONSOLE_AGENT_BACKEND: 'exec',
+    SCUM_CONSOLE_AGENT_EXEC_TEMPLATE: 'powershell -Command {command}',
+    SCUM_CONSOLE_AGENT_TOKEN: 'console-token-1234567890',
+    PLATFORM_API_BASE_URL: 'http://control.platform.example.net',
+    PLATFORM_AGENT_TOKEN: 'short',
+  });
+
+  const combined = errors.join('\n');
+  assert.match(combined, /PLATFORM_API_BASE_URL \/ SCUM_SYNC_CONTROL_PLANE_URL/i);
+  assert.match(combined, /PLATFORM_AGENT_TOKEN with at least 16 characters/i);
+  assert.match(combined, /PLATFORM_TENANT_ID/i);
+  assert.match(combined, /PLATFORM_SERVER_ID/i);
+});
+
+test('getDeliveryAgentRuntimeErrors accepts strong production managed delivery-agent config', () => {
+  const errors = getDeliveryAgentRuntimeErrors({
+    NODE_ENV: 'production',
+    SCUM_CONSOLE_AGENT_BACKEND: 'exec',
+    SCUM_CONSOLE_AGENT_EXEC_TEMPLATE: 'powershell -Command {command}',
+    SCUM_CONSOLE_AGENT_TOKEN: 'console-token-1234567890',
+    SCUM_CONSOLE_AGENT_ALLOW_NON_HASH: 'false',
+    PLATFORM_API_BASE_URL: 'https://control.platform.example.net',
+    PLATFORM_AGENT_TOKEN: 'agent-token-12345678901234567890',
+    PLATFORM_TENANT_ID: 'tenant-live-001',
+    PLATFORM_SERVER_ID: 'server-live-001',
+  });
+
+  assert.deepEqual(errors, []);
+});
+
 test('getServerBotRuntimeErrors blocks insecure production server-bot config', () => {
   const errors = getServerBotRuntimeErrors({
     NODE_ENV: 'production',

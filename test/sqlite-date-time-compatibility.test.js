@@ -68,3 +68,63 @@ test('sqlite date time compatibility rebuild preserves ISO text while converting
   assert.equal(byId.get('event-space').scheduledAt, '2026-03-31T10:00:00.000Z');
   assert.equal(byId.get('event-space').createdAt, '2026-03-31T10:00:00.000Z');
 });
+
+test('sqlite date time compatibility rebuild tolerates newly added columns missing from the legacy table', async (t) => {
+  const dbPath = path.join(os.tmpdir(), `codex-sqlite-datetime-missing-column-${process.pid}-${Date.now()}.db`);
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    CREATE TABLE "admin_web_users" (
+      "username" TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+      "password_hash" TEXT NOT NULL,
+      "role" TEXT NOT NULL DEFAULT 'mod',
+      "is_active" INTEGER NOT NULL DEFAULT 1,
+      "created_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updated_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  db.exec(`
+    INSERT INTO "admin_web_users" ("username", "password_hash", "role", "is_active", "created_at", "updated_at") VALUES
+      ('owner', 'hash', 'owner', 1, '1774951200000', '1774951200000');
+  `);
+  db.close();
+
+  t.after(() => {
+    fs.rmSync(dbPath, { force: true });
+  });
+
+  const result = ensureSqliteDateTimeSchemaCompatibility(dbPath, [{
+    tableName: 'admin_web_users',
+    columns: ['username', 'password_hash', 'role', 'tenant_id', 'is_active', 'created_at', 'updated_at'],
+    dateColumns: ['created_at', 'updated_at'],
+    createTableSql: `
+      CREATE TABLE "admin_web_users" (
+        "username" TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+        "password_hash" TEXT NOT NULL,
+        "role" TEXT NOT NULL DEFAULT 'mod',
+        "tenant_id" TEXT,
+        "is_active" INTEGER NOT NULL DEFAULT 1,
+        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `,
+    indexSql: [],
+  }]);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.tables.some((entry) => entry.tableName === 'admin_web_users' && entry.rebuilt), true);
+
+  const verifyDb = new DatabaseSync(dbPath, { readOnly: true });
+  const columns = verifyDb.prepare('PRAGMA table_info("admin_web_users")').all();
+  const row = verifyDb.prepare('SELECT username, password_hash, role, tenant_id, is_active, created_at, updated_at FROM "admin_web_users" WHERE username = ?').get('owner');
+  verifyDb.close();
+
+  const columnMap = new Map(columns.map((entry) => [String(entry.name), String(entry.type)]));
+  assert.equal(columnMap.get('tenant_id'), 'TEXT');
+  assert.equal(row.username, 'owner');
+  assert.equal(row.password_hash, 'hash');
+  assert.equal(row.role, 'owner');
+  assert.equal(row.tenant_id, null);
+  assert.equal(row.is_active, 1);
+  assert.equal(row.created_at, new Date(1774951200000).toISOString());
+  assert.equal(row.updated_at, new Date(1774951200000).toISOString());
+});

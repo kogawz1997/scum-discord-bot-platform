@@ -24,12 +24,15 @@ function randomDigits(length) {
 test('link store syncs steam binding into player account and dashboard', async () => {
   const discordId = randomDigits(18);
   const steamId = randomDigits(17);
+  const tenantId = 'tenant-player-account-integration';
   try {
     const upserted = await upsertPlayerAccount({
       discordId,
       username: 'tester',
       displayName: 'Tester',
       isActive: true,
+    }, {
+      tenantId,
     });
     assert.equal(upserted.ok, true);
 
@@ -37,21 +40,23 @@ test('link store syncs steam binding into player account and dashboard', async (
       steamId,
       userId: discordId,
       inGameName: 'TesterInGame',
+    }, {
+      tenantId,
     });
     assert.equal(linked.ok, true);
-    await flushLinkStoreWrites();
+    await flushLinkStoreWrites({ tenantId });
 
-    const account = await getPlayerAccount(discordId);
+    const account = await getPlayerAccount(discordId, { tenantId });
     assert.ok(account);
     assert.equal(account.steamId, steamId);
 
-    const dashboard = await getPlayerDashboard(discordId);
+    const dashboard = await getPlayerDashboard(discordId, { tenantId });
     assert.equal(dashboard.ok, true);
     assert.equal(String(dashboard.data?.steamLink?.steamId || ''), steamId);
 
-    unlinkByUserId(discordId);
-    await flushLinkStoreWrites();
-    const accountAfterUnlink = await getPlayerAccount(discordId);
+    unlinkByUserId(discordId, { tenantId });
+    await flushLinkStoreWrites({ tenantId });
+    const accountAfterUnlink = await getPlayerAccount(discordId, { tenantId });
     assert.ok(accountAfterUnlink);
     assert.equal(accountAfterUnlink.steamId, null);
   } finally {

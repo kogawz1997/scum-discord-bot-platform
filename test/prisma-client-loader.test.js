@@ -50,3 +50,24 @@ test('resolveRequestedProvider infers sqlite from test database url when explici
   assert.equal(loader.resolveProviderFromDatabaseUrl(process.env.DATABASE_URL), 'sqlite');
   assert.equal(loader.resolveRequestedProvider(), 'sqlite');
 });
+
+test('prisma client loader refuses provider-mismatched fallback clients', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prisma-client-loader-missing-'));
+
+  try {
+    process.env.PRISMA_CLIENT_MODULE_PATH = path.join(tempDir, 'missing-client');
+    process.env.DATABASE_URL = 'postgresql://app:secret@127.0.0.1:5432/scum?schema=public';
+    process.env.PRISMA_TEST_DATABASE_URL = process.env.DATABASE_URL;
+    process.env.PRISMA_TEST_DATABASE_PROVIDER = 'postgresql';
+    process.env.PRISMA_SCHEMA_PROVIDER = 'postgresql';
+    process.env.DATABASE_PROVIDER = 'postgresql';
+    clearLoader();
+
+    assert.throws(
+      () => require(loaderPath),
+      /db:generate:postgresql|PRISMA_CLIENT_MODULE_PATH/i,
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});

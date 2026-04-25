@@ -268,8 +268,10 @@ test('raid service uses prisma delegates when sqlite runtimes expose generated d
 test('raid service requires migrated schema for sqlite prisma-client runtimes unless bootstrap is explicitly enabled', async () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalBootstrap = process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;
+  const originalRequireDb = process.env.PERSIST_REQUIRE_DB;
   process.env.NODE_ENV = 'test';
   delete process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;
+  delete process.env.PERSIST_REQUIRE_DB;
 
   try {
     const scope = createPrismaClientLikeRawScope();
@@ -299,14 +301,21 @@ test('raid service requires migrated schema for sqlite prisma-client runtimes un
     } else {
       process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP = originalBootstrap;
     }
+    if (originalRequireDb == null) {
+      delete process.env.PERSIST_REQUIRE_DB;
+    } else {
+      process.env.PERSIST_REQUIRE_DB = originalRequireDb;
+    }
   }
 });
 
 test('raid service can still bootstrap sqlite prisma-client runtimes when explicitly enabled', async () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalBootstrap = process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;
+  const originalRequireDb = process.env.PERSIST_REQUIRE_DB;
   process.env.NODE_ENV = 'test';
   process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP = '1';
+  delete process.env.PERSIST_REQUIRE_DB;
 
   try {
     const scope = createPrismaClientLikeRawScope();
@@ -322,6 +331,55 @@ test('raid service can still bootstrap sqlite prisma-client runtimes when explic
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalBootstrap == null) {
+      delete process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;
+    } else {
+      process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP = originalBootstrap;
+    }
+    if (originalRequireDb == null) {
+      delete process.env.PERSIST_REQUIRE_DB;
+    } else {
+      process.env.PERSIST_REQUIRE_DB = originalRequireDb;
+    }
+  }
+});
+
+test('raid service refuses explicit runtime bootstrap when db-only posture is required', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalBootstrap = process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;
+  const originalRequireDb = process.env.PERSIST_REQUIRE_DB;
+  process.env.NODE_ENV = 'test';
+  process.env.PERSIST_REQUIRE_DB = 'true';
+  process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP = '1';
+
+  try {
+    const scope = createPrismaClientLikeRawScope();
+    const service = loadService({
+      runtime: { isServerEngine: false, engine: 'sqlite', provider: 'sqlite' },
+      scope,
+    });
+
+    await assert.rejects(
+      () => service.ensureRaidTables({ tenantId: 'tenant-raid' }),
+      (error) => {
+        assert.equal(String(error?.code || ''), 'PLATFORM_RAID_SCHEMA_REQUIRED');
+        assert.equal(error?.raidSchema?.bootstrapPolicy?.reason, 'persist-require-db');
+        assert.equal(error?.raidSchema?.bootstrapPolicy?.explicitValue, '1');
+        return true;
+      },
+    );
+    assert.equal(scope.calls.length, 0);
+  } finally {
+    if (originalNodeEnv == null) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalRequireDb == null) {
+      delete process.env.PERSIST_REQUIRE_DB;
+    } else {
+      process.env.PERSIST_REQUIRE_DB = originalRequireDb;
     }
     if (originalBootstrap == null) {
       delete process.env.PLATFORM_RAID_RUNTIME_BOOTSTRAP;

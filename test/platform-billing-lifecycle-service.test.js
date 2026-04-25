@@ -625,9 +625,11 @@ test('platform billing lifecycle service dedupes replayed webhook events by prov
   assert.equal(second.ok, true);
   assert.equal(second.reused, true);
   assert.equal(String(second.event?.id || ''), String(first.event?.id || ''));
-  assert.equal(events.length, 2);
-  assert.equal(String(events[0]?.eventType || ''), 'checkout.session_created');
-  assert.equal(String(events[1]?.eventType || ''), 'invoice.paid');
+  const eventTypes = events.map((entry) => String(entry?.eventType || ''));
+  assert.equal(eventTypes.filter((entry) => entry === 'checkout.session_created').length, 1);
+  assert.equal(eventTypes.filter((entry) => entry === 'invoice.paid').length, 1);
+  assert.equal(eventTypes.filter((entry) => entry === 'payment.succeeded').length, 1);
+  assert.equal(eventTypes.filter((entry) => entry === 'entitlement.unlocked').length, 1);
 });
 
 test('platform billing lifecycle service reuses an open checkout session for duplicate requests', async (t) => {

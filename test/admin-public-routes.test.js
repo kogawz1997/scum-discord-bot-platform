@@ -172,6 +172,57 @@ test('admin public routes redirect backend tenant path to split tenant web when 
   }
 });
 
+test('admin public platform routes record insufficient scope signals for any-scope endpoints', async () => {
+  const signals = [];
+  const handler = buildRoutes({
+    verifyPlatformApiKey: async () => ({
+      ok: false,
+      reason: 'insufficient-scope',
+      missingScopes: ['agent:sync'],
+      apiKey: {
+        id: 'key-execute',
+        tenantId: 'tenant-a',
+        name: 'Execute Agent',
+      },
+      tenant: { id: 'tenant-a' },
+    }),
+    recordAdminSecuritySignal: (type, payload) => {
+      signals.push({ type, payload });
+    },
+  });
+  const res = createMockRes();
+
+  const handled = await handler({
+    client: null,
+    req: {
+      method: 'GET',
+      url: '/platform/api/v1/server-config/jobs/next?tenantId=tenant-a&serverId=server-a&runtimeKey=exec',
+      headers: {
+        host: '127.0.0.1:3200',
+        'x-platform-api-key': 'sk_execute',
+      },
+    },
+    res,
+    urlObj: new URL('http://127.0.0.1:3200/platform/api/v1/server-config/jobs/next?tenantId=tenant-a&serverId=server-a&runtimeKey=exec'),
+    pathname: '/platform/api/v1/server-config/jobs/next',
+    host: '127.0.0.1',
+    port: 3200,
+  });
+
+  assert.equal(handled, true);
+  assert.equal(res.statusCode, 403);
+  assert.equal(JSON.parse(res.body).error, 'insufficient-scope');
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0].type, 'platform-api-insufficient-scope');
+  assert.equal(signals[0].payload.reason, 'insufficient-scope');
+  assert.deepEqual(signals[0].payload.data, {
+    tenantId: 'tenant-a',
+    apiKeyId: 'key-execute',
+    acceptedScopeSets: [['agent:sync'], ['config:write'], ['server:control']],
+    missingScopes: ['agent:sync'],
+  });
+});
+
 test('admin public routes redirect tenant-scoped admins from /admin to /tenant', async () => {
   const handler = buildRoutes({
     getAuthContext: () => ({ user: 'tenant-admin', role: 'admin', tenantId: 'tenant-1' }),

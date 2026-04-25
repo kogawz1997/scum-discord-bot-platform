@@ -14,6 +14,9 @@ const { assertStandaloneSurfaceEnv } = require('../../src/utils/env');
 const {
   createAdminStandaloneSurfaceRuntime,
 } = require('../../src/admin/runtime/adminStandaloneSurfaceRuntime');
+const {
+  assertControlPlaneRuntimeReadiness,
+} = require('../../src/utils/controlPlaneRuntimeReadiness');
 
 loadMergedEnvFiles({
   basePath: path.resolve(process.cwd(), '.env'),
@@ -33,6 +36,9 @@ function startOwnerWebServer() {
   }
 
   assertStandaloneSurfaceEnv('owner', process.env);
+  assertControlPlaneRuntimeReadiness({
+    env: process.env,
+  });
 
   const runtime = createAdminStandaloneSurfaceRuntime({
     surface: 'owner',

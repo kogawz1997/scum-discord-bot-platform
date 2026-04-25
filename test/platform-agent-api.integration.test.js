@@ -1,10 +1,18 @@
+const path = require('node:path');
+
+process.env.NODE_ENV = 'test';
+process.env.PRISMA_TEST_DATABASE_URL = process.env.PRISMA_TEST_DATABASE_URL
+  || `file:${path.resolve(__dirname, '../prisma/prisma/test.db').replace(/\\/g, '/')}`;
+process.env.PRISMA_TEST_DATABASE_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER || 'sqlite';
+process.env.DATABASE_URL = process.env.PRISMA_TEST_DATABASE_URL;
+process.env.DATABASE_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER;
+process.env.PRISMA_SCHEMA_PROVIDER = process.env.PRISMA_TEST_DATABASE_PROVIDER;
 require('dotenv').config();
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
-const path = require('node:path');
 const { once } = require('node:events');
 
 const { cleanupPlatformTenantFixtures } = require('./helpers/platformTestCleanup');
@@ -149,6 +157,21 @@ test('platform agent routes register scoped agents and ingest sync through the c
   const rawSyncKey = String(syncToken.data.data?.rawKey || '');
   assert.match(rawSyncKey, /^sk_/);
 
+  const executeToken = await request('/admin/api/platform/agent-token', 'POST', {
+    tenantId: 'tenant-agent-api',
+    serverId: 'server-agent-api',
+    guildId: 'guild-agent-api',
+    agentId: 'execute-agent-api',
+    runtimeKey: 'execute-agent-runtime',
+    role: 'execute',
+    scope: 'execute_only',
+    version: '1.0.0',
+  }, cookie);
+  assert.equal(executeToken.res.status, 200);
+  assert.equal(executeToken.data.ok, true);
+  const rawExecuteKey = String(executeToken.data.data?.rawKey || '');
+  assert.match(rawExecuteKey, /^sk_/);
+
   const register = await request('/platform/api/v1/agent/register', 'POST', {
     tenantId: 'tenant-agent-api',
     serverId: 'server-agent-api',
@@ -219,6 +242,41 @@ test('platform agent routes register scoped agents and ingest sync through the c
   assert.equal(sync.res.status, 200, JSON.stringify(sync.data));
   assert.equal(sync.data.ok, true);
   assert.equal(sync.data.data.syncEvents.length, 1);
+
+  const executeTokenSyncAttempt = await request('/platform/api/v1/agent/sync', 'POST', {
+    tenantId: 'tenant-agent-api',
+    serverId: 'server-agent-api',
+    guildId: 'guild-agent-api',
+    agentId: 'sync-agent-api',
+    runtimeKey: 'sync-agent-runtime',
+    role: 'sync',
+    scope: 'sync_only',
+    channel: 'watch',
+    version: '1.0.1',
+    heartbeatAt: '2026-03-25T10:00:00.000Z',
+    syncRunId: 'sync-run-execute-token',
+    events: [{ type: 'join', playerName: 'Wrong Runtime' }],
+  }, '', {
+    'x-platform-api-key': rawExecuteKey,
+  });
+  assert.equal(executeTokenSyncAttempt.res.status, 403);
+  assert.equal(String(executeTokenSyncAttempt.data.error || ''), 'insufficient-scope');
+
+  const executeConfigClaim = await request(
+    '/platform/api/v1/server-config/jobs/next?tenantId=tenant-agent-api&serverId=server-agent-api&runtimeKey=execute-agent-runtime',
+    'GET',
+    null,
+    '',
+    { authorization: `Bearer ${rawExecuteKey}` },
+  );
+  assert.equal(executeConfigClaim.res.status, 403);
+  assert.equal(String(executeConfigClaim.data.error || ''), 'insufficient-scope');
+
+  const serverBotDeliveryAttempt = await request('/platform/api/v1/delivery/reconcile', 'POST', {}, '', {
+    authorization: `Bearer ${rawSyncKey}`,
+  });
+  assert.equal(serverBotDeliveryAttempt.res.status, 403);
+  assert.equal(String(serverBotDeliveryAttempt.data.error || ''), 'insufficient-scope');
 
   const servers = await request('/admin/api/platform/servers', 'GET', null, cookie);
   assert.equal(servers.res.status, 200);

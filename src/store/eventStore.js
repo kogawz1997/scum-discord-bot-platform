@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -168,6 +171,7 @@ async function flushEventStoreWrites(options = {}) {
 
 function createEvent(payload = {}, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'create guild event', 'guild-event');
   void initEventStore(options);
   const id = scope.state.eventCounter++;
   const ev = {
@@ -220,6 +224,7 @@ function listEvents(options = {}) {
 
 function joinEvent(id, userId, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'join guild event', 'guild-event-participant');
   void initEventStore(options);
   const eventId = Number(id);
   const ev = scope.state.events.get(eventId);
@@ -255,6 +260,7 @@ function joinEvent(id, userId, options = {}) {
 
 function startEvent(id, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'start guild event', 'guild-event');
   void initEventStore(options);
   const eventId = Number(id);
   const ev = scope.state.events.get(eventId);
@@ -279,6 +285,7 @@ function startEvent(id, options = {}) {
 
 function updateEvent(id, payload = {}, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'update guild event', 'guild-event');
   void initEventStore(options);
   const eventId = Number(id);
   const ev = scope.state.events.get(eventId);
@@ -313,6 +320,7 @@ function updateEvent(id, payload = {}, options = {}) {
 
 function endEvent(id, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'end guild event', 'guild-event');
   void initEventStore(options);
   const eventId = Number(id);
   const ev = scope.state.events.get(eventId);
@@ -346,6 +354,7 @@ function getParticipants(id, options = {}) {
 
 function replaceEvents(nextEvents = [], nextParticipants = [], nextCounter = null, options = {}) {
   const scope = ensureEventScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace guild events', 'guild-event');
   void initEventStore(options);
   scope.state.mutationVersion += 1;
   scope.state.events.clear();

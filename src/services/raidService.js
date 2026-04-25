@@ -4,6 +4,7 @@ const {
 } = require('../store/tenantStoreScope');
 const { resolveDatabaseRuntime } = require('../utils/dbEngine');
 const { resolveLegacyRuntimeBootstrapPolicy } = require('../utils/legacyRuntimeBootstrapPolicy');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 const {
   createRaidRequestLegacy,
   createRaidSummaryLegacy,
@@ -82,6 +83,15 @@ function withRaidOperation(options = {}, operation = 'raid service operation') {
     ...options,
     operation: normalizeText(options.operation) || operation,
   };
+}
+
+function assertRaidMutationScope(scope, params = {}, operation, entityType) {
+  return assertTenantMutationScope({
+    tenantId: scope?.tenantId,
+    dataTenantId: params.tenantId,
+    operation,
+    entityType,
+  });
 }
 
 function normalizeWindowStatus(value) {
@@ -320,6 +330,7 @@ async function getRaidRequestById(id, options = {}) {
 
 async function createRaidRequest(params = {}) {
   const scope = await ensureRaidTables(withRaidOperation(params, 'create raid request'));
+  assertRaidMutationScope(scope, params, 'create raid request', 'raid-request');
   const requesterUserId = normalizeText(params.requesterUserId);
   const requesterName = normalizeText(params.requesterName) || requesterUserId || 'Player';
   const requestText = normalizeText(params.requestText);
@@ -362,6 +373,7 @@ async function createRaidRequest(params = {}) {
 
 async function reviewRaidRequest(params = {}) {
   const scope = await ensureRaidTables(withRaidOperation(params, 'review raid request'));
+  assertRaidMutationScope(scope, params, 'review raid request', 'raid-request');
   const requestId = normalizeId(params.id);
   const nextStatus = normalizeRequestStatus(params.status);
   const decisionNote = normalizeText(params.decisionNote) || null;
@@ -406,6 +418,7 @@ async function reviewRaidRequest(params = {}) {
 
 async function createRaidWindow(params = {}) {
   const scope = await ensureRaidTables(withRaidOperation(params, 'create raid window'));
+  assertRaidMutationScope(scope, params, 'create raid window', 'raid-window');
   const requestId = normalizeId(params.requestId);
   const title = normalizeText(params.title);
   const startsAt = normalizeText(params.startsAt);
@@ -456,6 +469,7 @@ async function createRaidWindow(params = {}) {
 
 async function createRaidSummary(params = {}) {
   const scope = await ensureRaidTables(withRaidOperation(params, 'create raid summary'));
+  assertRaidMutationScope(scope, params, 'create raid summary', 'raid-summary');
   const requestId = normalizeId(params.requestId);
   const windowId = normalizeId(params.windowId);
   const outcome = normalizeText(params.outcome);

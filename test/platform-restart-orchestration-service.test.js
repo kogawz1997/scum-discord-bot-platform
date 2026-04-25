@@ -508,6 +508,66 @@ test('platform restart orchestration persists restart plan and execution history
   assert.equal(String(executions[0]?.planId || ''), String(plan.plan.id || ''));
 });
 
+test('platform restart orchestration records operator audit metadata on restart plans and executions', { concurrency: false }, async (t) => {
+  await cleanupRestartFixtures();
+  t.after(cleanupRestartFixtures);
+
+  const plan = await scheduleRestartPlan({
+    tenantId: 'tenant-restart-test',
+    serverId: 'server-restart-test',
+    guildId: 'guild-restart-test',
+    runtimeKey: 'server-bot-runtime',
+    delaySeconds: 0,
+    restartMode: 'immediate',
+    controlMode: 'service',
+    reason: 'manual-maintenance',
+    actorRole: 'owner',
+    requestId: 'req-restart-audit-1',
+    serverBotReady: true,
+    deliveryRuntimeStatus: 'online',
+  }, 'admin-web:owner');
+  assert.equal(plan.ok, true);
+  assert.equal(plan.plan?.payload?.audit?.actionType, 'server.restart.schedule');
+  assert.equal(plan.plan.payload.audit.tenantId, 'tenant-restart-test');
+  assert.equal(plan.plan.payload.audit.serverId, 'server-restart-test');
+  assert.equal(plan.plan.payload.audit.actorId, 'admin-web:owner');
+  assert.equal(plan.plan.payload.audit.actorRole, 'owner');
+  assert.equal(plan.plan.payload.audit.reason, 'manual-maintenance');
+  assert.equal(plan.plan.payload.audit.requestId, 'req-restart-audit-1');
+  assert.equal(plan.plan.payload.audit.targetType, 'server');
+  assert.equal(plan.plan.payload.audit.targetId, 'server-restart-test');
+  assert.equal(plan.plan.payload.audit.resultStatus, 'scheduled');
+
+  const execution = await recordRestartExecution({
+    planId: plan.plan.id,
+    tenantId: 'tenant-restart-test',
+    serverId: 'server-restart-test',
+    runtimeKey: 'server-bot-runtime',
+    resultStatus: 'succeeded',
+    exitCode: 0,
+    detail: 'Restart completed',
+    actorRole: 'server-bot',
+    requestId: 'req-restart-audit-2',
+  });
+  assert.equal(execution.ok, true);
+
+  const executions = await listRestartExecutions({
+    tenantId: 'tenant-restart-test',
+    serverId: 'server-restart-test',
+    planId: plan.plan.id,
+    limit: 5,
+  });
+  assert.equal(executions.length, 1);
+  assert.equal(executions[0].metadata.audit.actionType, 'server.restart.execute');
+  assert.equal(executions[0].metadata.audit.tenantId, 'tenant-restart-test');
+  assert.equal(executions[0].metadata.audit.serverId, 'server-restart-test');
+  assert.equal(executions[0].metadata.audit.runtimeKey, 'server-bot-runtime');
+  assert.equal(executions[0].metadata.audit.actorId, 'system:server-bot');
+  assert.equal(executions[0].metadata.audit.actorRole, 'server-bot');
+  assert.equal(executions[0].metadata.audit.requestId, 'req-restart-audit-2');
+  assert.equal(executions[0].metadata.audit.resultStatus, 'succeeded');
+});
+
 test('platform restart orchestration blocks unsafe safe_restart plans when blockers exist', { concurrency: false }, async (t) => {
   await cleanupRestartFixtures();
   t.after(cleanupRestartFixtures);

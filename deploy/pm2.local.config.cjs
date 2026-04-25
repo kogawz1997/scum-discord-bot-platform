@@ -18,6 +18,8 @@ const localAdminBackendEnv = Object.freeze({
   ADMIN_WEB_PORT: '3200',
   ADMIN_WEB_SECURE_COOKIE: 'false',
   ADMIN_WEB_HSTS_ENABLED: 'false',
+  ADMIN_WEB_2FA_ENABLED: 'false',
+  ADMIN_WEB_STEP_UP_ENABLED: 'false',
   ADMIN_WEB_ALLOWED_ORIGINS: [
     'http://127.0.0.1:3200',
     'http://127.0.0.1:3201',
@@ -121,6 +123,8 @@ module.exports = {
         ...localSqliteEnv,
         NODE_ENV: 'development',
         PLATFORM_DISCORD_ONLY: 'false',
+        WEB_PORTAL_BASE_URL: 'http://127.0.0.1:3300',
+        WEB_PORTAL_LEGACY_ADMIN_URL: 'http://127.0.0.1:3202',
         WEB_PORTAL_SECURE_COOKIE: 'false',
         WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
       },

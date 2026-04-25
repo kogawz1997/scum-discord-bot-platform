@@ -1519,6 +1519,34 @@ async function recordSubscriptionEvent(input = {}, db = prisma) {
   return { ok: true, event: await getSubscriptionEventRowByIdRaw(scopedDb, eventId) };
 }
 
+async function recordSubscriptionLifecycleEvents(input = {}, db = prisma) {
+  const tenantId = trimText(input.tenantId, 160);
+  const subscriptionId = trimText(input.subscriptionId, 160);
+  const eventTypes = Array.isArray(input.eventTypes)
+    ? input.eventTypes.map((entry) => trimText(entry, 120)).filter(Boolean)
+    : [];
+  if (!tenantId || !subscriptionId || eventTypes.length === 0) return [];
+  const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload)
+    ? input.payload
+    : {};
+  const results = [];
+  for (const eventType of eventTypes) {
+    const result = await recordSubscriptionEvent({
+      tenantId,
+      subscriptionId,
+      eventType,
+      billingStatus: input.billingStatus,
+      actor: input.actor,
+      payload: {
+        ...payload,
+        lifecycleAlias: true,
+      },
+    }, db).catch(() => null);
+    if (result?.event) results.push(result.event);
+  }
+  return results;
+}
+
 async function findTenantSubscription(scopedDb, tenantId, subscriptionId = null) {
   const requestedSubscriptionId = trimText(subscriptionId, 160);
   if (requestedSubscriptionId) return scopedDb.platformSubscription.findUnique({ where: { id: requestedSubscriptionId } }).catch(() => null);
@@ -1612,6 +1640,40 @@ async function updateSubscriptionBillingState(input = {}, db = prisma) {
         currency: row.currency,
         renewsAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
         canceledAt: row.canceledAt ? new Date(row.canceledAt).toISOString() : null,
+      },
+    }, scopedDb).catch(() => null);
+    const lifecycleEventTypes = [];
+    if (nextStatus === 'canceled' && previousStatus !== 'canceled') {
+      lifecycleEventTypes.push('subscription.cancelled', 'entitlement.locked');
+    }
+    if (['past_due', 'suspended'].includes(nextStatus) && previousStatus !== nextStatus) {
+      lifecycleEventTypes.push('entitlement.locked');
+    }
+    if (nextStatus === 'active' && previousStatus !== 'active') {
+      lifecycleEventTypes.push('entitlement.unlocked');
+    }
+    const previousMeta = parseJsonObject(existing.metadataJson);
+    const nextPackageId = trimText(nextMetadata.packageId, 120);
+    const previousPackageId = trimText(previousMeta.packageId, 120);
+    if (
+      (trimText(existing.planId, 120) !== trimText(row.planId, 120))
+      || (nextPackageId && nextPackageId !== previousPackageId)
+    ) {
+      lifecycleEventTypes.push('package.changed');
+    }
+    await recordSubscriptionLifecycleEvents({
+      tenantId,
+      subscriptionId: row.id,
+      eventTypes: lifecycleEventTypes,
+      billingStatus: nextStatus,
+      actor: trimText(input.actor, 200) || 'billing-admin',
+      payload: {
+        previousStatus,
+        nextStatus,
+        previousPlanId: trimText(existing.planId, 120) || null,
+        nextPlanId: trimText(row.planId, 120) || null,
+        previousPackageId: previousPackageId || null,
+        nextPackageId: nextPackageId || null,
       },
     }, scopedDb).catch(() => null);
   }
@@ -1807,6 +1869,20 @@ async function createCheckoutSession(input = {}, db = prisma) {
         sessionToken,
         provider,
         providerSessionId: trimText(providerSession?.providerSessionId, 200) || null,
+      },
+    }, scopedDb).catch(() => null);
+    await recordSubscriptionLifecycleEvents({
+      tenantId,
+      subscriptionId: invoice.subscriptionId,
+      eventTypes: ['checkout.started'],
+      billingStatus: 'requires_action',
+      actor: trimText(input.actor, 200) || 'system',
+      payload: {
+        invoiceId: invoice.id,
+        sessionToken,
+        provider,
+        targetPlanId: trimText(input.planId, 120) || null,
+        targetPackageId: trimText(input.packageId, 120) || null,
       },
     }, scopedDb).catch(() => null);
   }
@@ -2014,6 +2090,35 @@ async function processBillingWebhookEvent(input = {}, db = prisma) {
       },
     }, scopedDb).catch(() => null)
     : null;
+  if (subscriptionId) {
+    const lifecycleEventTypes = [];
+    if (paymentStatus === 'succeeded') {
+      lifecycleEventTypes.push('payment.succeeded', 'entitlement.unlocked');
+      if (subscriptionPatch?.planId || subscriptionPatch?.metadata?.packageId) {
+        lifecycleEventTypes.push('package.changed');
+      }
+    } else if (paymentStatus === 'failed') {
+      lifecycleEventTypes.push('payment.failed', 'entitlement.locked');
+    } else if (paymentStatus === 'canceled') {
+      lifecycleEventTypes.push('subscription.cancelled', 'entitlement.locked');
+    }
+    await recordSubscriptionLifecycleEvents({
+      tenantId: invoice.tenantId,
+      subscriptionId,
+      eventTypes: lifecycleEventTypes,
+      billingStatus: subscriptionPatch?.status || invoiceStatus,
+      actor: trimText(input.actor, 200) || 'billing-webhook',
+      payload: {
+        invoiceId: invoice.id,
+        provider,
+        externalRef,
+        providerEventId,
+        sourceEventType: eventType || 'billing.webhook',
+        targetPlanId: trimText(subscriptionPatch?.planId, 120) || null,
+        targetPackageId: trimText(subscriptionPatch?.metadata?.packageId, 120) || null,
+      },
+    }, scopedDb).catch(() => null);
+  }
 
   return {
     ok: true,

@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Owner Panel — SCUM Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Surfaces */
+    --bg-app:#0b1220;
+    --bg-surface:#111827;
+    --bg-surface-2:#161f33;
+    --bg-surface-3:#1b2540;
+    --bg-table-head:#141d32;
+    --bg-hover:#1a2540;
+    /* Borders */
+    --border:#232f4a;
+    --border-strong:#384566;
+    --border-subtle:#1a2238;
+    /* Text */
+    --text:#f1f5f9;
+    --text-2:#cbd5e1;
+    --text-3:#8996ad;
+    --text-muted:#64748b;
+    /* Accents */
+    --accent:#5eead4;
+    --accent-2:#38bdf8;
+    --accent-ink:#042f2e;
+    /* Semantic */
+    --ok:#22c55e;
+    --ok-bg:rgba(34,197,94,0.12);
+    --ok-border:rgba(34,197,94,0.32);
+    --warn:#f59e0b;
+    --warn-bg:rgba(245,158,11,0.13);
+    --warn-border:rgba(245,158,11,0.34);
+    --danger:#ef4444;
+    --danger-bg:rgba(239,68,68,0.13);
+    --danger-border:rgba(239,68,68,0.36);
+    --critical:#dc2626;
+    --critical-bg:rgba(220,38,38,0.15);
+    --info:#60a5fa;
+    --info-bg:rgba(96,165,250,0.13);
+    --info-border:rgba(96,165,250,0.32);
+    --purple:#a78bfa;
+    --purple-bg:rgba(167,139,250,0.13);
+    --purple-border:rgba(167,139,250,0.32);
+    /* Runtime role colors */
+    --delivery:#38bdf8;
+    --delivery-bg:rgba(56,189,248,0.12);
+    --delivery-border:rgba(56,189,248,0.32);
+    --serverbot:#a78bfa;
+    --serverbot-bg:rgba(167,139,250,0.12);
+    --serverbot-border:rgba(167,139,250,0.32);
+    /* Radii */
+    --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px;
+    /* Shadow */
+    --shadow-md:0 6px 24px -8px rgba(0,0,0,0.5);
+    --shadow-pop:0 20px 60px -12px rgba(0,0,0,0.7);
+    /* Density */
+    --row-h:40px;
+    --sidebar-w:248px;
+    --topbar-h:52px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-app);color:var(--text);font-family:'IBM Plex Sans','IBM Plex Sans Thai',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
+  button{font-family:inherit}
+  ::selection{background:rgba(94,234,212,0.3)}
+  /* Scrollbars */
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:var(--bg-app)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;border:2px solid var(--bg-app)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--border-strong)}
+  #root{min-height:100vh}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+
+// ========== data.js ==========
+// Mock platform data for Owner Panel
+
+const NOW = new Date('2026-04-23T10:30:00+07:00');
+const relTime = (minutesAgo) => new Date(NOW.getTime() - minutesAgo * 60000);
+
+const fmtTime = (date) => {
+  if (!date) return '—';
+  const d = date instanceof Date ? date : new Date(date);
+  const diff = (NOW - d) / 60000;
+  if (diff < 1) return 'just now';
+  if (diff < 60) return `${Math.floor(diff)}m ago`;
+  if (diff < 1440) return `${Math.floor(diff/60)}h ago`;
+  return `${Math.floor(diff/1440)}d ago`;
+};
+const fmtAbs = (date) => {
+  if (!date) return '—';
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:false });
+};
+
+const TENANTS = [
+  {
+    id:'t_bkk', slug:'bangkok-survival', name:'Bangkok Survival',
+    status:'active', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'admin@bkk-survival.gg', ownerName:'Kittisak P.',
+    pkg:'Pro', pkgId:'pkg_pro',
+    sub:{ status:'active', renewsAt:'2026-05-22', interval:'monthly', mrr:2490 },
+    billing:{ status:'paid', failedCount:0, latestInvoice:'inv_01' },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(2), machine:'SHOP-PC-01' },
+    serverBot:{ status:'offline', version:'1.8.0', lastSeen:relTime(109), machine:'SERVER-BOX-01' },
+    risk:{ level:'high', badges:['Server Bot Offline','Restart Blocked','Outdated Runtime'] },
+    createdAt:'2025-11-04',
+    players:842,
+    openCases:1,
+  },
+  {
+    id:'t_chm', slug:'chiangmai-frontier', name:'Chiangmai Frontier',
+    status:'active', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'owner@cm-frontier.th', ownerName:'Nattapong S.',
+    pkg:'Growth', pkgId:'pkg_growth',
+    sub:{ status:'active', renewsAt:'2026-05-02', interval:'monthly', mrr:1290 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(1), machine:'SHOP-01' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(0), machine:'SRV-01' },
+    risk:{ level:'low', badges:[] },
+    createdAt:'2025-09-12',
+    players:421,
+    openCases:0,
+  },
+  {
+    id:'t_pnx', slug:'phuket-wasteland', name:'Phuket Wasteland',
+    status:'active', locale:'en', tz:'Asia/Bangkok',
+    ownerEmail:'ops@phuketwaste.com', ownerName:'Siripong T.',
+    pkg:'Pro', pkgId:'pkg_pro',
+    sub:{ status:'past_due', renewsAt:'2026-04-18', interval:'monthly', mrr:2490 },
+    billing:{ status:'unpaid', failedCount:2, latestInvoice:'inv_07' },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(3), machine:'PKT-SHOP' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(1), machine:'PKT-SRV' },
+    risk:{ level:'high', badges:['Payment Failed','Due Soon'] },
+    createdAt:'2025-08-22',
+    players:312,
+    openCases:1,
+  },
+  {
+    id:'t_hdy', slug:'hatyai-apocalypse', name:'Hatyai Apocalypse',
+    status:'preview', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'dev@hatyai-apo.gg', ownerName:'Arthit R.',
+    pkg:'Preview', pkgId:'pkg_preview',
+    sub:{ status:'trial', trialEnd:'2026-04-26', interval:'monthly', mrr:0 },
+    billing:{ status:'none', failedCount:0 },
+    delivery:{ status:'pending', version:'—', lastSeen:null, machine:null },
+    serverBot:{ status:'pending', version:'—', lastSeen:null, machine:null },
+    risk:{ level:'medium', badges:['Trial Ending','Runtime Not Activated'] },
+    createdAt:'2026-04-19',
+    players:0,
+    openCases:0,
+  },
+  {
+    id:'t_nak', slug:'nakhon-raiders', name:'Nakhon Raiders',
+    status:'active', locale:'en', tz:'Asia/Bangkok',
+    ownerEmail:'raid@nkraiders.io', ownerName:'Panupong L.',
+    pkg:'Enterprise', pkgId:'pkg_ent',
+    sub:{ status:'active', renewsAt:'2026-10-14', interval:'yearly', mrr:4990 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(0), machine:'ENT-DEL-01' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(0), machine:'ENT-SRV-01' },
+    risk:{ level:'low', badges:[] },
+    createdAt:'2024-10-14',
+    players:1284,
+    openCases:0,
+  },
+  {
+    id:'t_kkc', slug:'khonkaen-outpost', name:'Khonkaen Outpost',
+    status:'active', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'admin@kk-outpost.gg', ownerName:'Worawit K.',
+    pkg:'Growth', pkgId:'pkg_growth',
+    sub:{ status:'active', renewsAt:'2026-05-09', interval:'monthly', mrr:1290 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'offline', version:'1.7.4', lastSeen:relTime(240), machine:'KK-SHOP' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(2), machine:'KK-SRV' },
+    risk:{ level:'medium', badges:['Delivery Offline','Outdated Runtime'] },
+    createdAt:'2025-07-18',
+    players:198,
+    openCases:0,
+  },
+  {
+    id:'t_ubn', slug:'ubon-badlands', name:'Ubon Badlands',
+    status:'suspended', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'x@ubon-bad.com', ownerName:'Somsak V.',
+    pkg:'Starter', pkgId:'pkg_starter',
+    sub:{ status:'cancelled', endedAt:'2026-04-10', interval:'monthly', mrr:0 },
+    billing:{ status:'none', failedCount:3 },
+    delivery:{ status:'offline', version:'1.6.1', lastSeen:relTime(18000), machine:'UB-01' },
+    serverBot:{ status:'offline', version:'1.6.1', lastSeen:relTime(18000), machine:'UB-01' },
+    risk:{ level:'low', badges:['Suspended'] },
+    createdAt:'2025-02-14',
+    players:0,
+    openCases:0,
+  },
+  {
+    id:'t_pat', slug:'pattaya-dropzone', name:'Pattaya Dropzone',
+    status:'active', locale:'en', tz:'Asia/Bangkok',
+    ownerEmail:'ops@pattayadrop.gg', ownerName:'Ekachai M.',
+    pkg:'Pro', pkgId:'pkg_pro',
+    sub:{ status:'active', renewsAt:'2026-05-19', interval:'monthly', mrr:2490 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(0), machine:'PT-DEL' },
+    serverBot:{ status:'degraded', version:'1.8.2', lastSeen:relTime(14), machine:'PT-SRV' },
+    risk:{ level:'medium', badges:['Config Job Failed'] },
+    createdAt:'2025-06-30',
+    players:567,
+    openCases:1,
+  },
+  {
+    id:'t_knc', slug:'kanchanaburi-bridge', name:'Kanchanaburi Bridge',
+    status:'active', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'kc@kcburi.gg', ownerName:'Prasert N.',
+    pkg:'Starter', pkgId:'pkg_starter',
+    sub:{ status:'active', renewsAt:'2026-05-03', interval:'monthly', mrr:590 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(4), machine:'KN-01' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(2), machine:'KN-SRV' },
+    risk:{ level:'low', badges:[] },
+    createdAt:'2026-02-03',
+    players:87,
+    openCases:0,
+  },
+  {
+    id:'t_kbi', slug:'krabi-lastlight', name:'Krabi Lastlight',
+    status:'active', locale:'en', tz:'Asia/Bangkok',
+    ownerEmail:'admin@krabi-ll.io', ownerName:'Supachai O.',
+    pkg:'Growth', pkgId:'pkg_growth',
+    sub:{ status:'active', renewsAt:'2026-05-11', interval:'monthly', mrr:1290 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(1), machine:'KB-01' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(0), machine:'KB-SRV' },
+    risk:{ level:'low', badges:[] },
+    createdAt:'2025-10-22',
+    players:234,
+    openCases:0,
+  },
+  {
+    id:'t_cry', slug:'chiangrai-blacksite', name:'Chiangrai Blacksite',
+    status:'active', locale:'en', tz:'Asia/Bangkok',
+    ownerEmail:'sec@cr-blacksite.io', ownerName:'Theerapat C.',
+    pkg:'Pro', pkgId:'pkg_pro',
+    sub:{ status:'active', renewsAt:'2026-05-07', interval:'monthly', mrr:2490 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.2', lastSeen:relTime(2), machine:'CR-DEL' },
+    serverBot:{ status:'online', version:'1.8.2', lastSeen:relTime(1), machine:'CR-SRV' },
+    risk:{ level:'low', badges:[] },
+    createdAt:'2025-04-03',
+    players:612,
+    openCases:0,
+  },
+  {
+    id:'t_syp', slug:'surat-highway', name:'Surat Highway',
+    status:'active', locale:'th', tz:'Asia/Bangkok',
+    ownerEmail:'srt@surathw.gg', ownerName:'Anan J.',
+    pkg:'Growth', pkgId:'pkg_growth',
+    sub:{ status:'active', renewsAt:'2026-05-27', interval:'monthly', mrr:1290 },
+    billing:{ status:'paid', failedCount:0 },
+    delivery:{ status:'online', version:'1.8.1', lastSeen:relTime(6), machine:'SR-01' },
+    serverBot:{ status:'online', version:'1.8.1', lastSeen:relTime(3), machine:'SR-SRV' },
+    risk:{ level:'low', badges:['Outdated Runtime'] },
+    createdAt:'2025-12-01',
+    players:156,
+    openCases:0,
+  },
+];
+
+const JOBS = [
+  { id:'job_1001', tenantId:'t_bkk', type:'config.apply', status:'failed', err:'Server Bot offline before apply', createdAt:relTime(20), attempts:2, max:3, retryable:true },
+  { id:'job_1002', tenantId:'t_bkk', type:'restart.schedule', status:'blocked', err:'Server Bot offline', createdAt:relTime(18), attempts:0, max:3, retryable:true },
+  { id:'job_1003', tenantId:'t_pat', type:'config.apply', status:'failed', err:'Validation: gameUserSettings.Difficulty missing', createdAt:relTime(55), attempts:3, max:3, retryable:false },
+  { id:'job_1004', tenantId:'t_pnx', type:'billing.retry', status:'failed', err:'card_declined', createdAt:relTime(120), attempts:2, max:5, retryable:true },
+  { id:'job_1005', tenantId:'t_kkc', type:'delivery.announce', status:'failed', err:'Delivery Agent offline', createdAt:relTime(140), attempts:1, max:3, retryable:true },
+  { id:'job_1006', tenantId:'t_pnx', type:'delivery.job', status:'dead_letter', err:'attempts exhausted', createdAt:relTime(220), attempts:5, max:5, retryable:false },
+];
+
+const INCIDENTS = [
+  { id:'inc_01', title:'Billing provider elevated 5xx', severity:'high', status:'investigating', tenantId:null, startedAt:relTime(45) },
+  { id:'inc_02', title:'Server Bot v1.7.x heartbeat drift', severity:'medium', status:'monitoring', tenantId:null, startedAt:relTime(180) },
+];
+
+const NOTIFS = [
+  { id:'n1', severity:'critical', type:'runtime', title:'Server Bot offline', body:'Bangkok Survival server bot has not sent a heartbeat for 109 minutes.', tenantId:'t_bkk', at:relTime(14) },
+  { id:'n2', severity:'high', type:'billing', title:'Payment failed', body:'Phuket Wasteland — card_declined on invoice inv_07', tenantId:'t_pnx', at:relTime(46) },
+  { id:'n3', severity:'medium', type:'runtime', title:'Delivery Agent offline', body:'Khonkaen Outpost delivery agent offline for 4h.', tenantId:'t_kkc', at:relTime(60) },
+  { id:'n4', severity:'medium', type:'billing', title:'Trial ending soon', body:'Hatyai Apocalypse trial ends in 3 days.', tenantId:'t_hdy', at:relTime(90) },
+  { id:'n5', severity:'low', type:'security', title:'Setup token consumed', body:'Kanchanaburi Bridge server bot token activated from new machine.', tenantId:'t_knc', at:relTime(120) },
+];
+
+const SECURITY = [
+  { id:'sec_1', type:'Setup token reused', severity:'high', tenantId:'t_bkk', ip:'203.0.113.20', at:relTime(30) },
+  { id:'sec_2', type:'Failed login', severity:'medium', tenantId:null, ip:'203.0.113.45', at:relTime(120) },
+  { id:'sec_3', type:'API key created', severity:'low', tenantId:'t_nak', ip:'203.0.113.10', at:relTime(180) },
+];
+
+const AUDIT_FOR = (tenantId) => ([
+  { id:'a1', actor:'Kittisak P.', action:'restart.schedule', target:'restart_01', risk:'high', result:'blocked', at:relTime(18) },
+  { id:'a2', actor:'system', action:'config.apply', target:'cfgjob_01', risk:'high', result:'failed', at:relTime(22) },
+  { id:'a3', actor:'Kittisak P.', action:'config.save', target:'cfgjob_01', risk:'medium', result:'success', at:relTime(28) },
+  { id:'a4', actor:'system', action:'heartbeat.stale', target:'rt_serverbot_01', risk:'medium', result:'warning', at:relTime(109) },
+  { id:'a5', actor:'Owen (Owner)', action:'tenant.package.update', target:'sub_01', risk:'medium', result:'success', at:relTime(1440) },
+]);
+
+const PACKAGES = [
+  { id:'pkg_preview', name:'Preview', price:0, tenants:1, currency:'THB' },
+  { id:'pkg_starter', name:'Starter', price:590, tenants:2, currency:'THB' },
+  { id:'pkg_growth', name:'Growth', price:1290, tenants:4, currency:'THB' },
+  { id:'pkg_pro', name:'Pro', price:2490, tenants:4, currency:'THB' },
+  { id:'pkg_ent', name:'Enterprise', price:4990, tenants:1, currency:'THB' },
+];
+
+// Flatten runtimes
+const buildFleet = () => {
+  const out = [];
+  TENANTS.forEach(t => {
+    out.push({
+      id:`rt_del_${t.id}`, tenantId:t.id, tenantName:t.name,
+      kind:'delivery', scope:'execute_only',
+      ...t.delivery,
+      latestVersion:'1.8.2',
+      capabilities:['delivery_jobs','in_game_announce'],
+    });
+    out.push({
+      id:`rt_bot_${t.id}`, tenantId:t.id, tenantName:t.name,
+      kind:'server_bot', scope:'sync_only',
+      ...t.serverBot,
+      latestVersion:'1.8.2',
+      capabilities:['log_sync','config_apply','backup','restart'],
+    });
+  });
+  return out;
+};
+
+const FLEET = buildFleet();
+
+const DASHBOARD = {
+  generatedAt: NOW,
+  platform:{ status:'degraded', riskLevel:'high', riskReasons:['3 server bots offline','2 unpaid invoices','1 incident investigating'] },
+  tenants:{ total:12, active:9, preview:1, trial:1, suspended:1, atRisk:5 },
+  revenue:{ currency:'THB', mrr:21890, activeSubscriptions:10, unpaidInvoices:2, failedPayments:2, trialEndingSoon:1 },
+  runtime:{
+    deliveryOnline: FLEET.filter(r=>r.kind==='delivery'&&r.status==='online').length,
+    deliveryOffline: FLEET.filter(r=>r.kind==='delivery'&&r.status==='offline').length,
+    botOnline: FLEET.filter(r=>r.kind==='server_bot'&&r.status==='online').length,
+    botOffline: FLEET.filter(r=>r.kind==='server_bot'&&r.status==='offline').length,
+    outdated: FLEET.filter(r=>r.version && r.version !== '1.8.2' && r.version !== '—').length,
+    staleHeartbeats: 2,
+  },
+  ops:{ failedJobs: JOBS.filter(j=>j.status==='failed').length, deadLetter: JOBS.filter(j=>j.status==='dead_letter').length, pendingRestarts:2, failedConfig: JOBS.filter(j=>j.type.startsWith('config')&&j.status==='failed').length },
+  security:{ openEvents: SECURITY.length, failedLogins24h:11, keysNeedingRotation:2 },
+  support:{ openCases: TENANTS.reduce((s,t)=>s+t.openCases,0), highPriority:2, waitingOwner:2 },
+};
+
+Object.assign(window, { TENANTS, JOBS, INCIDENTS, NOTIFS, SECURITY, AUDIT_FOR, PACKAGES, FLEET, DASHBOARD, fmtTime, fmtAbs, NOW });
+
+
+// ========== primitives.js ==========
+// Primitives: badges, cards, tables, buttons, modal
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+const Icon = ({ name, size=14, className='', style }) => {
+  const paths = {
+    search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></>,
+    bell:<><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></>,
+    chevronDown:<path d="m6 9 6 6 6-6"/>,
+    chevronRight:<path d="m9 6 6 6-6 6"/>,
+    chevronLeft:<path d="m15 6-6 6 6 6"/>,
+    plus:<path d="M12 5v14M5 12h14"/>,
+    filter:<path d="M3 6h18M6 12h12M10 18h4"/>,
+    x:<path d="M18 6 6 18M6 6l12 12"/>,
+    refresh:<><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></>,
+    settings:<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    alert:<><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></>,
+    check:<path d="M20 6 9 17l-5-5"/>,
+    dot:<circle cx="12" cy="12" r="4"/>,
+    lock:<><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+    pkg:<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></>,
+    server:<><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></>,
+    bot:<><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M12 3v4M9 11v2M15 11v2M8 17h8"/></>,
+    truck:<><path d="M14 18V6h6l3 4v8h-2"/><path d="M14 18H4V6h10v12z"/><circle cx="7" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></>,
+    users:<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    activity:<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>,
+    shield:<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>,
+    grid:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,
+    layers:<><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></>,
+    radio:<><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2a6 6 0 0 1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></>,
+    lifebuoy:<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M14.83 9.17l3.53-3.53M4.93 19.07l4.24-4.24"/></>,
+    list:<><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></>,
+    file:<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></>,
+    copy:<><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
+    external:<><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></>,
+    arrowUp:<path d="M12 19V5M5 12l7-7 7 7"/>,
+    arrowDown:<path d="M12 5v14M19 12l-7 7-7-7"/>,
+    wifi:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></>,
+    wifiOff:<><path d="M1 1l22 22M8.5 16.5a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><circle cx="12" cy="20" r="1"/></>,
+    clock:<><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></>,
+    moreH:<><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>{paths[name]}</svg>;
+};
+
+const Badge = ({ tone='default', children, style, icon }) => {
+  const tones = {
+    default:{bg:'rgba(148,163,184,0.12)',fg:'#cbd5e1',bd:'rgba(148,163,184,0.22)'},
+    ok:{bg:'var(--ok-bg)',fg:'#86efac',bd:'var(--ok-border)'},
+    warn:{bg:'var(--warn-bg)',fg:'#fbbf24',bd:'var(--warn-border)'},
+    danger:{bg:'var(--danger-bg)',fg:'#fca5a5',bd:'var(--danger-border)'},
+    critical:{bg:'var(--critical-bg)',fg:'#fca5a5',bd:'rgba(220,38,38,0.5)'},
+    info:{bg:'var(--info-bg)',fg:'#93c5fd',bd:'var(--info-border)'},
+    delivery:{bg:'var(--delivery-bg)',fg:'#7dd3fc',bd:'var(--delivery-border)'},
+    serverbot:{bg:'var(--serverbot-bg)',fg:'#c4b5fd',bd:'var(--serverbot-border)'},
+    muted:{bg:'rgba(100,116,139,0.12)',fg:'var(--text-3)',bd:'rgba(100,116,139,0.22)'},
+    neutral:{bg:'rgba(56,66,96,0.5)',fg:'#cbd5e1',bd:'var(--border)'},
+  };
+  const t = tones[tone]||tones.default;
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 7px',background:t.bg,color:t.fg,border:`1px solid ${t.bd}`,borderRadius:4,fontSize:11,fontWeight:500,letterSpacing:0.1,whiteSpace:'nowrap',...style}}>{icon && <Icon name={icon} size={10}/>}{children}</span>;
+};
+
+const StatusDot = ({ status }) => {
+  const c = { online:'var(--ok)', offline:'var(--danger)', degraded:'var(--warn)', pending:'var(--text-3)', past_due:'var(--warn)', unpaid:'var(--danger)', paid:'var(--ok)' }[status] || 'var(--text-3)';
+  const pulse = status==='online' || status==='degraded';
+  return <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:c,boxShadow:pulse?`0 0 0 3px ${c}22`:'none',flexShrink:0}}/>;
+};
+
+const Btn = ({ variant='ghost', size='sm', icon, children, onClick, disabled, style, title, danger, ...rest }) => {
+  const sizes = { xs:{h:24,px:8,fs:11}, sm:{h:28,px:10,fs:12}, md:{h:34,px:14,fs:13} };
+  const s = sizes[size];
+  const variants = {
+    primary:{bg:'var(--accent)',fg:'var(--accent-ink)',bd:'var(--accent)',hover:'#2dd4bf'},
+    secondary:{bg:'var(--bg-surface-3)',fg:'var(--text)',bd:'var(--border-strong)',hover:'var(--bg-hover)'},
+    ghost:{bg:'transparent',fg:'var(--text-2)',bd:'var(--border)',hover:'var(--bg-surface-2)'},
+    danger:{bg:'var(--danger)',fg:'#fff',bd:'var(--danger)',hover:'#dc2626'},
+    dangerGhost:{bg:'transparent',fg:'#fca5a5',bd:'var(--danger-border)',hover:'var(--danger-bg)'},
+  };
+  const v = variants[danger?'dangerGhost':variant]||variants.ghost;
+  const [hover,setHover] = useState(false);
+  return <button title={title} onClick={onClick} disabled={disabled} onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} style={{height:s.h,padding:`0 ${s.px}px`,fontSize:s.fs,fontWeight:500,background:hover&&!disabled?v.hover:v.bg,color:v.fg,border:`1px solid ${v.bd}`,borderRadius:6,cursor:disabled?'not-allowed':'pointer',opacity:disabled?0.5:1,display:'inline-flex',alignItems:'center',gap:6,whiteSpace:'nowrap',transition:'all 0.1s',...style}} {...rest}>
+    {icon && <Icon name={icon} size={s.fs+1}/>}
+    {children}
+  </button>;
+};
+
+const Card = ({ children, style, title, actions, pad=true }) => (
+  <div style={{background:'var(--bg-surface)',border:'1px solid var(--border)',borderRadius:'var(--r-md)',...style}}>
+    {title && <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+      <div style={{fontSize:12,fontWeight:600,color:'var(--text-2)',letterSpacing:0.3,textTransform:'uppercase'}}>{title}</div>
+      {actions}
+    </div>}
+    <div style={{padding:pad?(title?'14px':'14px'):0}}>{children}</div>
+  </div>
+);
+
+const MetricCard = ({ label, value, delta, tone='default', sub, onClick }) => {
+  const toneBorder = { critical:'var(--critical-bg)', danger:'var(--danger-border)', warn:'var(--warn-border)', ok:'var(--ok-border)', info:'var(--info-border)', default:'var(--border)' }[tone];
+  const toneBg = tone==='default' ? 'var(--bg-surface)' : {critical:'linear-gradient(180deg, rgba(220,38,38,0.08), transparent)', danger:'linear-gradient(180deg, rgba(239,68,68,0.06), transparent)', warn:'linear-gradient(180deg, rgba(245,158,11,0.06), transparent)', ok:'linear-gradient(180deg, rgba(34,197,94,0.06), transparent)', info:'linear-gradient(180deg, rgba(96,165,250,0.06), transparent)'}[tone];
+  return <div onClick={onClick} style={{background:toneBg,backgroundColor:'var(--bg-surface)',border:`1px solid ${toneBorder}`,borderRadius:'var(--r-md)',padding:'12px 14px',cursor:onClick?'pointer':'default',minWidth:0,transition:'border-color 0.15s'}} onMouseEnter={e=>onClick && (e.currentTarget.style.borderColor='var(--border-strong)')} onMouseLeave={e=>onClick && (e.currentTarget.style.borderColor=toneBorder)}>
+    <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:500,marginBottom:6}}>{label}</div>
+    <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+      <div style={{fontSize:24,fontWeight:600,fontVariantNumeric:'tabular-nums',color:tone==='critical'||tone==='danger'?'#fca5a5':tone==='warn'?'#fbbf24':tone==='ok'?'#86efac':'var(--text)'}}>{value}</div>
+      {delta && <div style={{fontSize:11,color:'var(--text-3)'}}>{delta}</div>}
+    </div>
+    {sub && <div style={{fontSize:11,color:'var(--text-3)',marginTop:4}}>{sub}</div>}
+  </div>;
+};
+
+const Table = ({ columns, rows, onRowClick, dense=false, emptyText='No data' }) => {
+  return <div style={{overflow:'auto'}}>
+    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,fontVariantNumeric:'tabular-nums'}}>
+      <thead>
+        <tr>
+          {columns.map((c,i) => <th key={i} style={{textAlign:c.align||'left',padding:'8px 12px',background:'var(--bg-table-head)',borderBottom:'1px solid var(--border)',borderTop:'1px solid var(--border)',color:'var(--text-3)',fontWeight:500,fontSize:11,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap',width:c.width,position:'sticky',top:0,zIndex:1}}>{c.header}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length===0 && <tr><td colSpan={columns.length} style={{padding:'32px',textAlign:'center',color:'var(--text-3)'}}>{emptyText}</td></tr>}
+        {rows.map((r,ri) => <tr key={ri} onClick={onRowClick?(e)=>onRowClick(r,e):undefined} style={{cursor:onRowClick?'pointer':'default',borderBottom:'1px solid var(--border-subtle)'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          {columns.map((c,ci) => <td key={ci} style={{padding:dense?'6px 12px':'9px 12px',textAlign:c.align||'left',color:'var(--text-2)',verticalAlign:'middle'}}>{c.render ? c.render(r) : r[c.key]}</td>)}
+        </tr>)}
+      </tbody>
+    </table>
+  </div>;
+};
+
+// Modal with risk confirmation
+const Modal = ({ open, onClose, title, children, maxWidth=540, footer, risk }) => {
+  useEffect(()=>{
+    if(!open) return;
+    const onKey = (e) => { if (e.key==='Escape') onClose(); };
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+  },[open,onClose]);
+  if(!open) return null;
+  const riskTone = { high:'var(--warn-border)', critical:'var(--critical-bg)' }[risk];
+  return <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(5,10,24,0.7)',backdropFilter:'blur(4px)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'fadeIn 0.15s ease'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:'var(--bg-surface)',border:`1px solid ${riskTone||'var(--border-strong)'}`,borderRadius:10,maxWidth,width:'100%',boxShadow:'var(--shadow-pop)',maxHeight:'90vh',display:'flex',flexDirection:'column',animation:'pop 0.18s cubic-bezier(0.2,0.9,0.3,1.2)'}}>
+      {risk && <div style={{padding:'8px 16px',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:0.8,color:risk==='critical'?'#fca5a5':'#fbbf24',background:risk==='critical'?'var(--critical-bg)':'var(--warn-bg)',borderBottom:`1px solid ${riskTone}`,borderRadius:'10px 10px 0 0',display:'flex',alignItems:'center',gap:6}}><Icon name="alert" size={12}/>{risk==='critical'?'Confirm critical action':'Confirm high-risk action'}</div>}
+      <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{fontSize:15,fontWeight:600}}>{title}</div>
+        <button onClick={onClose} style={{background:'none',border:0,color:'var(--text-3)',cursor:'pointer',padding:4,display:'flex'}}><Icon name="x" size={16}/></button>
+      </div>
+      <div style={{padding:'16px 20px',overflow:'auto',flex:1}}>{children}</div>
+      {footer && <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg-surface-2)',borderRadius:'0 0 10px 10px'}}>{footer}</div>}
+    </div>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(0.98)}to{opacity:1;transform:none}}`}</style>
+  </div>;
+};
+
+const TextInput = ({ value, onChange, placeholder, icon, style, size='sm', ...rest }) => {
+  const sizes = { sm:{h:28,fs:12}, md:{h:34,fs:13} };
+  const s = sizes[size];
+  return <div style={{position:'relative',display:'flex',alignItems:'center',...style}}>
+    {icon && <Icon name={icon} size={13} style={{position:'absolute',left:9,color:'var(--text-3)',pointerEvents:'none'}}/>}
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} {...rest} style={{height:s.h,paddingLeft:icon?28:10,paddingRight:10,fontSize:s.fs,width:'100%',background:'var(--bg-surface-2)',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)',fontFamily:'inherit',outline:'none'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+  </div>;
+};
+
+const Select = ({ value, onChange, options, style, size='sm' }) => {
+  const sizes = { sm:{h:28,fs:12}, md:{h:34,fs:13} };
+  const s = sizes[size];
+  return <select value={value} onChange={e=>onChange(e.target.value)} style={{height:s.h,padding:'0 24px 0 10px',fontSize:s.fs,background:'var(--bg-surface-2)',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)',fontFamily:'inherit',cursor:'pointer',appearance:'none',backgroundImage:"url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round'><polyline points='6 9 12 15 18 9'/></svg>\")",backgroundRepeat:'no-repeat',backgroundPosition:'right 8px center',outline:'none',...style}}>
+    {options.map(o => typeof o==='string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
+  </select>;
+};
+
+// Delivery vs Server Bot visual separator
+const RuntimeTag = ({ kind, size='sm' }) => {
+  const isDelivery = kind==='delivery';
+  const tone = isDelivery ? 'delivery' : 'serverbot';
+  const label = isDelivery ? 'Delivery / Execute' : 'Server / Sync';
+  const ic = isDelivery ? 'truck' : 'server';
+  return <Badge tone={tone} icon={ic}>{label}</Badge>;
+};
+
+const RiskBadge = ({ level }) => {
+  if(!level || level==='none') return <span style={{color:'var(--text-3)'}}>—</span>;
+  const tones = { low:'muted', medium:'warn', high:'danger', critical:'critical' };
+  return <Badge tone={tones[level]}>{level.toUpperCase()}</Badge>;
+};
+
+const StatusBadge = ({ status, icon }) => {
+  const map = {
+    online:{t:'ok',l:'Online'},
+    offline:{t:'danger',l:'Offline'},
+    degraded:{t:'warn',l:'Degraded'},
+    pending:{t:'muted',l:'Pending'},
+    active:{t:'ok',l:'Active'},
+    paid:{t:'ok',l:'Paid'},
+    unpaid:{t:'danger',l:'Unpaid'},
+    past_due:{t:'warn',l:'Past Due'},
+    trial:{t:'info',l:'Trial'},
+    preview:{t:'info',l:'Preview'},
+    suspended:{t:'muted',l:'Suspended'},
+    cancelled:{t:'muted',l:'Cancelled'},
+    failed:{t:'danger',l:'Failed'},
+    blocked:{t:'warn',l:'Blocked'},
+    dead_letter:{t:'critical',l:'Dead-letter'},
+    none:{t:'muted',l:'—'},
+  };
+  const m = map[status]||{t:'muted',l:status};
+  return <Badge tone={m.t} icon={icon}>{m.l}</Badge>;
+};
+
+Object.assign(window, { Icon, Badge, StatusDot, Btn, Card, MetricCard, Table, Modal, TextInput, Select, RuntimeTag, RiskBadge, StatusBadge });
+
+
+// ========== shell.js ==========
+// App Shell: sidebar + topbar
+
+const NAV = [
+  { group:'Platform', items:[
+    { id:'overview', label:'Overview', icon:'grid' },
+    { id:'tenants', label:'Tenants', icon:'users', badge:'12' },
+    { id:'packages', label:'Packages', icon:'pkg' },
+    { id:'subscriptions', label:'Subscriptions', icon:'layers' },
+    { id:'billing', label:'Billing', icon:'file', badge:'2', badgeTone:'warn' },
+  ]},
+  { group:'Operations', items:[
+    { id:'runtime', label:'Runtime Health', icon:'radio', badge:'3', badgeTone:'danger' },
+    { id:'agents', label:'Agents & Bots', icon:'bot' },
+    { id:'jobs', label:'Jobs & Queues', icon:'activity' },
+    { id:'config', label:'Config Jobs', icon:'settings' },
+    { id:'restart', label:'Restart Plans', icon:'refresh' },
+    { id:'backups', label:'Backups', icon:'server' },
+    { id:'incidents', label:'Incidents', icon:'alert', badge:'1', badgeTone:'warn' },
+    { id:'support', label:'Support', icon:'lifebuoy' },
+    { id:'diagnostics', label:'Diagnostics', icon:'list' },
+  ]},
+  { group:'Governance', items:[
+    { id:'audit', label:'Audit Logs', icon:'file' },
+    { id:'security', label:'Security Events', icon:'shield' },
+    { id:'access', label:'Access Control', icon:'lock' },
+    { id:'settings', label:'Settings', icon:'settings' },
+  ]},
+];
+
+const Sidebar = ({ current, onNav }) => {
+  return <aside style={{width:'var(--sidebar-w)',background:'var(--bg-surface)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',height:'100vh',position:'sticky',top:0,flexShrink:0}}>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
+      <div style={{width:28,height:28,background:'linear-gradient(135deg, var(--accent), var(--accent-2))',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--accent-ink)',fontWeight:700,fontSize:13,fontFamily:'JetBrains Mono'}}>OW</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:600,letterSpacing:0.2}}>Owen Panel</div>
+        <div style={{fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.6}}>SCUM Platform · v2</div>
+      </div>
+    </div>
+    <nav style={{flex:1,overflowY:'auto',padding:'8px 0'}}>
+      {NAV.map(group => <div key={group.group} style={{marginBottom:14}}>
+        <div style={{padding:'6px 18px 4px',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontWeight:600}}>{group.group}</div>
+        {group.items.map(it => {
+          const active = current===it.id;
+          return <button key={it.id} onClick={()=>onNav(it.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'7px 18px',background:active?'var(--bg-surface-3)':'transparent',border:0,borderLeft:`2px solid ${active?'var(--accent)':'transparent'}`,color:active?'var(--text)':'var(--text-2)',cursor:'pointer',fontSize:12.5,fontWeight:active?500:400,fontFamily:'inherit',textAlign:'left',transition:'background 0.1s'}} onMouseEnter={e=>!active && (e.currentTarget.style.background='var(--bg-surface-2)')} onMouseLeave={e=>!active && (e.currentTarget.style.background='transparent')}>
+            <Icon name={it.icon} size={14} style={{color:active?'var(--accent)':'var(--text-3)',flexShrink:0}}/>
+            <span style={{flex:1}}>{it.label}</span>
+            {it.badge && <span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:it.badgeTone==='danger'?'var(--danger-bg)':it.badgeTone==='warn'?'var(--warn-bg)':'rgba(148,163,184,0.12)',color:it.badgeTone==='danger'?'#fca5a5':it.badgeTone==='warn'?'#fbbf24':'var(--text-3)',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{it.badge}</span>}
+          </button>;
+        })}
+      </div>)}
+    </nav>
+    <div style={{padding:'10px 14px',borderTop:'1px solid var(--border)',background:'var(--bg-surface-2)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg, #f59e0b, #ef4444)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>OW</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Owen Scum</div>
+          <div style={{fontSize:10,color:'var(--text-3)'}}>Platform Owner</div>
+        </div>
+        <Icon name="settings" size={13} style={{color:'var(--text-3)',cursor:'pointer'}}/>
+      </div>
+    </div>
+  </aside>;
+};
+
+const TopBar = ({ onNav }) => {
+  const [q, setQ] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+
+  const results = useMemo(() => {
+    if(!q.trim()) return [];
+    const lc = q.toLowerCase();
+    return window.TENANTS.filter(t => t.name.toLowerCase().includes(lc) || t.slug.includes(lc) || t.ownerEmail.includes(lc)).slice(0,5);
+  }, [q]);
+
+  return <header style={{height:'var(--topbar-h)',background:'var(--bg-surface)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 16px',gap:14,position:'sticky',top:0,zIndex:50}}>
+    {/* Global search */}
+    <div style={{position:'relative',flex:'0 1 460px'}}>
+      <TextInput icon="search" value={q} onChange={setQ} placeholder="Search tenants, invoices, agents, audit events…" onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false),150)}/>
+      {showResults && q && <div style={{position:'absolute',top:34,left:0,right:0,background:'var(--bg-surface)',border:'1px solid var(--border-strong)',borderRadius:8,boxShadow:'var(--shadow-pop)',maxHeight:360,overflow:'auto',zIndex:100}}>
+        {results.length===0 && <div style={{padding:16,color:'var(--text-3)',fontSize:12,textAlign:'center'}}>No matches</div>}
+        {results.map(t => <div key={t.id} onClick={()=>{onNav('tenant-detail',{tenantId:t.id});setQ('');setShowResults(false);}} style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',borderBottom:'1px solid var(--border-subtle)'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          <StatusDot status={t.status==='active'?'online':'offline'}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:500}}>{t.name}</div>
+            <div style={{fontSize:11,color:'var(--text-3)',fontFamily:'JetBrains Mono'}}>{t.slug}</div>
+          </div>
+          <Badge tone="muted">{t.pkg}</Badge>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Platform status pill */}
+    <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',background:'var(--warn-bg)',border:'1px solid var(--warn-border)',borderRadius:6,fontSize:11,color:'#fbbf24',fontWeight:500}}>
+      <StatusDot status="degraded"/>
+      Platform: Degraded
+    </div>
+
+    {/* Runtime summary */}
+    <div style={{display:'flex',alignItems:'center',gap:14,fontSize:11,color:'var(--text-3)',fontVariantNumeric:'tabular-nums'}}>
+      <span><Icon name="truck" size={12} style={{color:'var(--delivery)',marginRight:4,verticalAlign:-1}}/>{window.DASHBOARD.runtime.deliveryOnline}/{window.DASHBOARD.runtime.deliveryOnline+window.DASHBOARD.runtime.deliveryOffline} delivery</span>
+      <span><Icon name="server" size={12} style={{color:'var(--serverbot)',marginRight:4,verticalAlign:-1}}/>{window.DASHBOARD.runtime.botOnline}/{window.DASHBOARD.runtime.botOnline+window.DASHBOARD.runtime.botOffline} server bots</span>
+    </div>
+
+    <div style={{flex:1}}/>
+
+    {/* Env + actions */}
+    <Badge tone="warn" icon="dot" style={{fontWeight:600}}>PRODUCTION</Badge>
+    <Btn size="sm" icon="plus" variant="secondary">Quick Action</Btn>
+
+    {/* Locale */}
+    <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:6,overflow:'hidden',fontSize:11}}>
+      <button style={{padding:'4px 8px',background:'var(--bg-surface-3)',border:0,color:'var(--text)',cursor:'pointer',fontFamily:'inherit'}}>EN</button>
+      <button style={{padding:'4px 8px',background:'transparent',border:0,borderLeft:'1px solid var(--border)',color:'var(--text-3)',cursor:'pointer',fontFamily:'inherit'}}>TH</button>
+    </div>
+
+    {/* Notifications */}
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setShowNotifs(!showNotifs)} style={{width:30,height:30,display:'flex',alignItems:'center',justifyContent:'center',background:'transparent',border:'1px solid var(--border)',borderRadius:6,color:'var(--text-2)',cursor:'pointer',position:'relative'}}>
+        <Icon name="bell" size={14}/>
+        <span style={{position:'absolute',top:-4,right:-4,background:'var(--danger)',color:'#fff',fontSize:9,padding:'1px 5px',borderRadius:10,fontWeight:700,minWidth:16,textAlign:'center'}}>{window.NOTIFS.length}</span>
+      </button>
+      {showNotifs && <div style={{position:'absolute',top:36,right:0,width:380,background:'var(--bg-surface)',border:'1px solid var(--border-strong)',borderRadius:8,boxShadow:'var(--shadow-pop)',zIndex:100}}>
+        <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:12,fontWeight:600}}>Notifications</div>
+          <span style={{fontSize:11,color:'var(--text-3)'}}>{window.NOTIFS.length} unread</span>
+        </div>
+        <div style={{maxHeight:400,overflow:'auto'}}>
+          {window.NOTIFS.map(n => {
+            const sevMap = { critical:{c:'#fca5a5',bg:'var(--critical-bg)'}, high:{c:'#fca5a5',bg:'var(--danger-bg)'}, medium:{c:'#fbbf24',bg:'var(--warn-bg)'}, low:{c:'#93c5fd',bg:'var(--info-bg)'} }[n.severity];
+            return <div key={n.id} onClick={()=>{setShowNotifs(false);n.tenantId&&onNav('tenant-detail',{tenantId:n.tenantId});}} style={{padding:'10px 14px',borderBottom:'1px solid var(--border-subtle)',cursor:'pointer',display:'flex',gap:10}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:sevMap.c,marginTop:6,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:500,marginBottom:2}}>{n.title}</div>
+                <div style={{fontSize:11,color:'var(--text-3)',lineHeight:1.4}}>{n.body}</div>
+                <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4,textTransform:'uppercase',letterSpacing:0.3}}>{n.type} · {window.fmtTime(n.at)}</div>
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>}
+    </div>
+  </header>;
+};
+
+const PageHeader = ({ title, subtitle, actions, breadcrumb }) => (
+  <div style={{padding:'18px 24px 14px',borderBottom:'1px solid var(--border)',background:'var(--bg-surface)'}}>
+    {breadcrumb && <div style={{fontSize:11,color:'var(--text-3)',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>{breadcrumb}</div>}
+    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20}}>
+      <div>
+        <h1 style={{margin:0,fontSize:20,fontWeight:600,letterSpacing:-0.2}}>{title}</h1>
+        {subtitle && <div style={{fontSize:12.5,color:'var(--text-3)',marginTop:4,maxWidth:720}}>{subtitle}</div>}
+      </div>
+      {actions && <div style={{display:'flex',gap:8,flexShrink:0}}>{actions}</div>}
+    </div>
+  </div>
+);
+
+Object.assign(window, { Sidebar, TopBar, PageHeader });
+
+
+// ========== overview.js ==========
+// Owner Overview
+const Overview = ({ onNav }) => {
+  const D = window.DASHBOARD;
+  const atRisk = window.TENANTS.filter(t => t.risk.level==='high' || t.risk.level==='critical').slice(0,6);
+  const failedJobs = window.JOBS.filter(j => j.status==='failed' || j.status==='dead_letter' || j.status==='blocked');
+  const tenantName = (id) => window.TENANTS.find(t=>t.id===id)?.name || id;
+
+  return <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:20}}>
+    {/* Risk Banner */}
+    <div style={{background:'linear-gradient(180deg, rgba(245,158,11,0.08), transparent)',border:'1px solid var(--warn-border)',borderRadius:10,padding:'14px 18px',display:'flex',alignItems:'center',gap:16}}>
+      <div style={{width:40,height:40,borderRadius:10,background:'var(--warn-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fbbf24'}}><Icon name="alert" size={20}/></div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>Platform is <span style={{color:'#fbbf24'}}>Degraded</span> — 3 issues need attention</div>
+        <div style={{fontSize:12,color:'var(--text-3)'}}>{D.platform.riskReasons.join(' · ')}</div>
+      </div>
+      <Btn size="sm" variant="secondary" onClick={()=>onNav('runtime')}>Open Runtime Health</Btn>
+      <Btn size="sm" variant="primary" icon="chevronRight" onClick={()=>onNav('tenants',{riskFilter:'high'})}>View at-risk tenants</Btn>
+    </div>
+
+    {/* Tenant health row */}
+    <div>
+      <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.8,fontWeight:600,marginBottom:10}}>Tenant Health</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(6, 1fr)',gap:12}}>
+        <MetricCard label="Total tenants" value={D.tenants.total} onClick={()=>onNav('tenants')}/>
+        <MetricCard label="Active" value={D.tenants.active} tone="ok"/>
+        <MetricCard label="Preview" value={D.tenants.preview} tone="info" sub="visible locked features"/>
+        <MetricCard label="Trial" value={D.tenants.trial} tone="info" sub="1 ending in 3 days"/>
+        <MetricCard label="Suspended" value={D.tenants.suspended} tone="default"/>
+        <MetricCard label="At risk" value={D.tenants.atRisk} tone="danger" onClick={()=>onNav('tenants',{riskFilter:'high'})}/>
+      </div>
+    </div>
+
+    {/* Revenue + Runtime row */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <div>
+        <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.8,fontWeight:600,marginBottom:10}}>Revenue Health</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:10}}>
+          <MetricCard label="MRR (THB)" value={`฿${D.revenue.mrr.toLocaleString()}`} sub={`${D.revenue.activeSubscriptions} active subs`}/>
+          <MetricCard label="Unpaid invoices" value={D.revenue.unpaidInvoices} tone="warn" onClick={()=>onNav('billing')}/>
+          <MetricCard label="Failed payments" value={D.revenue.failedPayments} tone="danger"/>
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.8,fontWeight:600,marginBottom:10}}>Runtime Health</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:10}}>
+          <MetricCard label="Delivery online" value={`${D.runtime.deliveryOnline}/${D.runtime.deliveryOnline+D.runtime.deliveryOffline}`} tone={D.runtime.deliveryOffline>0?'warn':'ok'} sub="execute_only"/>
+          <MetricCard label="Server Bots online" value={`${D.runtime.botOnline}/${D.runtime.botOnline+D.runtime.botOffline}`} tone="danger" sub="sync_only" onClick={()=>onNav('runtime')}/>
+          <MetricCard label="Outdated runtimes" value={D.runtime.outdated} tone="warn" sub="version < 1.8.2"/>
+        </div>
+      </div>
+    </div>
+
+    {/* At risk table + ops risk */}
+    <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:16}}>
+      <Card title="At-risk tenants" actions={<Btn size="xs" onClick={()=>onNav('tenants',{riskFilter:'high'})}>View all →</Btn>} pad={false}>
+        <Table
+          columns={[
+            { header:'Tenant', key:'name', render: t => <div style={{display:'flex',alignItems:'center',gap:8}}><StatusDot status={t.status==='active'?'online':'offline'}/><div><div style={{fontWeight:500,color:'var(--text)'}}>{t.name}</div><div className="mono" style={{fontSize:10,color:'var(--text-muted)'}}>{t.slug}</div></div></div> },
+            { header:'Package', render: t => <Badge tone={t.pkg==='Enterprise'?'info':t.pkg==='Pro'?'ok':'muted'}>{t.pkg}</Badge> },
+            { header:'Risk', render: t => <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{t.risk.badges.slice(0,2).map((b,i)=><Badge key={i} tone={b.includes('Offline')||b.includes('Failed')?'danger':'warn'}>{b}</Badge>)}{t.risk.badges.length>2 && <Badge tone="muted">+{t.risk.badges.length-2}</Badge>}</div> },
+            { header:'Level', align:'right', render: t => <RiskBadge level={t.risk.level}/> },
+          ]}
+          rows={atRisk}
+          onRowClick={(t)=>onNav('tenant-detail',{tenantId:t.id})}
+          dense
+        />
+      </Card>
+
+      <Card title="Operations Risk Queue" pad={false}>
+        <div style={{padding:'8px 0'}}>
+          {failedJobs.map(j => <div key={j.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',gap:10}}>
+            <StatusBadge status={j.status}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,display:'flex',alignItems:'center',gap:8}}>
+                <span className="mono" style={{color:'var(--text-3)'}}>{j.type}</span>
+                <span style={{color:'var(--text-2)'}}>· {tenantName(j.tenantId)}</span>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{j.err} · {window.fmtTime(j.createdAt)}</div>
+            </div>
+            {j.retryable && <Btn size="xs" icon="refresh">Retry</Btn>}
+          </div>)}
+        </div>
+      </Card>
+    </div>
+
+    {/* Security + Support */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
+      <Card title="Security snapshot" pad={false}>
+        <div>
+          {window.SECURITY.map(s => <div key={s.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',gap:10}}>
+            <StatusDot status={s.severity==='high'?'offline':s.severity==='medium'?'degraded':'online'}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:500}}>{s.type}</div>
+              <div style={{fontSize:11,color:'var(--text-3)'}}>{s.tenantId?tenantName(s.tenantId):'platform'} · {s.ip} · {window.fmtTime(s.at)}</div>
+            </div>
+            <RiskBadge level={s.severity}/>
+          </div>)}
+        </div>
+      </Card>
+
+      <Card title="Support snapshot" pad={false}>
+        <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:12,color:'var(--text-2)'}}>Open cases</span>
+            <span style={{fontSize:18,fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{D.support.openCases}</span>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:12,color:'var(--text-2)'}}>High priority</span>
+            <Badge tone="danger">{D.support.highPriority}</Badge>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:12,color:'var(--text-2)'}}>Waiting owner action</span>
+            <Badge tone="warn">{D.support.waitingOwner}</Badge>
+          </div>
+          <div style={{borderTop:'1px solid var(--border)',paddingTop:10,marginTop:4}}>
+            <div style={{fontSize:11,color:'var(--text-3)',marginBottom:6}}>Active incidents</div>
+            {window.INCIDENTS.map(i => <div key={i.id} style={{padding:'6px 0',fontSize:12,display:'flex',alignItems:'center',gap:8}}>
+              <Badge tone={i.severity==='high'?'danger':'warn'}>{i.severity}</Badge>
+              <span style={{flex:1,color:'var(--text-2)',minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{i.title}</span>
+              <span style={{fontSize:11,color:'var(--text-3)'}}>{window.fmtTime(i.startedAt)}</span>
+            </div>)}
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Quick actions" pad={false}>
+        <div style={{padding:'10px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <Btn size="sm" variant="secondary" icon="plus" style={{justifyContent:'flex-start'}}>Create tenant</Btn>
+          <Btn size="sm" variant="secondary" icon="truck" style={{justifyContent:'flex-start'}}>Provision Delivery</Btn>
+          <Btn size="sm" variant="secondary" icon="server" style={{justifyContent:'flex-start'}}>Provision Server Bot</Btn>
+          <Btn size="sm" variant="secondary" icon="pkg" style={{justifyContent:'flex-start'}}>Create package</Btn>
+          <Btn size="sm" variant="secondary" icon="lifebuoy" style={{justifyContent:'flex-start'}}>New support case</Btn>
+          <Btn size="sm" variant="secondary" icon="list" style={{justifyContent:'flex-start'}}>Run diagnostics</Btn>
+        </div>
+      </Card>
+    </div>
+
+    <div style={{fontSize:11,color:'var(--text-muted)',textAlign:'right',paddingTop:4}}>Last updated {window.fmtAbs(D.generatedAt)} · auto-refresh via SSE</div>
+  </div>;
+};
+window.Overview = Overview;
+
+
+// ========== tenants.js ==========
+// Tenants list with filters
+const Tenants = ({ onNav, initialFilter }) => {
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('all');
+  const [pkg, setPkg] = useState('all');
+  const [risk, setRisk] = useState(initialFilter?.riskFilter || 'all');
+  const [rtFilter, setRtFilter] = useState('all');
+
+  const rows = useMemo(() => {
+    return window.TENANTS.filter(t => {
+      if (q && !(t.name.toLowerCase().includes(q.toLowerCase()) || t.slug.includes(q.toLowerCase()))) return false;
+      if (status !== 'all' && t.status !== status) return false;
+      if (pkg !== 'all' && t.pkg !== pkg) return false;
+      if (risk !== 'all' && t.risk.level !== risk) return false;
+      if (rtFilter === 'delivery_offline' && t.delivery.status !== 'offline') return false;
+      if (rtFilter === 'bot_offline' && t.serverBot.status !== 'offline') return false;
+      return true;
+    });
+  }, [q, status, pkg, risk, rtFilter]);
+
+  const clearAll = () => { setQ(''); setStatus('all'); setPkg('all'); setRisk('all'); setRtFilter('all'); };
+  const activeFilterCount = [status,pkg,risk,rtFilter].filter(v=>v!=='all').length + (q?1:0);
+
+  return <div>
+    <PageHeader
+      title="Tenants"
+      subtitle="Manage tenant status, packages, billing posture, and runtime readiness. Click any row to open tenant dossier."
+      actions={<>
+        <Btn size="sm" icon="refresh" variant="ghost">Refresh</Btn>
+        <Btn size="sm" icon="plus" variant="primary">Create tenant</Btn>
+      </>}
+    />
+    <div style={{padding:'14px 24px',borderBottom:'1px solid var(--border)',background:'var(--bg-surface)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <TextInput icon="search" value={q} onChange={setQ} placeholder="Search name, slug, email…" style={{width:260}}/>
+      <Select value={status} onChange={setStatus} options={[{value:'all',label:'All statuses'},{value:'active',label:'Active'},{value:'preview',label:'Preview'},{value:'suspended',label:'Suspended'}]}/>
+      <Select value={pkg} onChange={setPkg} options={[{value:'all',label:'All packages'},...window.PACKAGES.map(p=>({value:p.name,label:p.name}))]}/>
+      <Select value={risk} onChange={setRisk} options={[{value:'all',label:'Any risk'},{value:'low',label:'Low'},{value:'medium',label:'Medium'},{value:'high',label:'High'},{value:'critical',label:'Critical'}]}/>
+      <Select value={rtFilter} onChange={setRtFilter} options={[{value:'all',label:'Any runtime'},{value:'delivery_offline',label:'Delivery offline'},{value:'bot_offline',label:'Server Bot offline'}]}/>
+      {activeFilterCount>0 && <Btn size="sm" icon="x" onClick={clearAll}>Clear ({activeFilterCount})</Btn>}
+      <div style={{flex:1}}/>
+      <span style={{fontSize:11,color:'var(--text-3)'}}>Showing <b style={{color:'var(--text)'}}>{rows.length}</b> of {window.TENANTS.length}</span>
+    </div>
+
+    <div style={{padding:'0 24px 24px'}}>
+      <div style={{background:'var(--bg-surface)',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden',marginTop:16}}>
+        <Table
+          onRowClick={(t)=>onNav('tenant-detail',{tenantId:t.id})}
+          columns={[
+            { header:'Tenant', render: t => <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <StatusDot status={t.status==='active'?'online':t.status==='suspended'?'offline':'pending'}/>
+              <div><div style={{fontWeight:500,color:'var(--text)'}}>{t.name}</div><div className="mono" style={{fontSize:10.5,color:'var(--text-muted)'}}>{t.slug} · {t.locale.toUpperCase()}</div></div>
+            </div>},
+            { header:'Status', render: t => <StatusBadge status={t.status}/> },
+            { header:'Package', render: t => <Badge tone={t.pkg==='Enterprise'?'info':t.pkg==='Pro'?'ok':'muted'} icon="pkg">{t.pkg}</Badge> },
+            { header:'Subscription', render: t => <div><StatusBadge status={t.sub.status==='active'?'active':t.sub.status==='past_due'?'past_due':t.sub.status==='trial'?'trial':t.sub.status==='cancelled'?'cancelled':'none'}/><div style={{fontSize:10.5,color:'var(--text-3)',marginTop:2}}>{t.sub.renewsAt?`renew ${t.sub.renewsAt}`:t.sub.trialEnd?`trial → ${t.sub.trialEnd}`:'—'}</div></div> },
+            { header:'Delivery', render: t => <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}><Icon name={t.delivery.status==='online'?'wifi':'wifiOff'} size={12} style={{color:t.delivery.status==='online'?'var(--ok)':t.delivery.status==='offline'?'var(--danger)':'var(--text-3)'}}/><div><div style={{color:'var(--text-2)'}}>{t.delivery.status}</div><div className="mono" style={{fontSize:10,color:'var(--text-muted)'}}>v{t.delivery.version}</div></div></div> },
+            { header:'Server Bot', render: t => <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}><Icon name={t.serverBot.status==='online'?'wifi':'wifiOff'} size={12} style={{color:t.serverBot.status==='online'?'var(--ok)':t.serverBot.status==='offline'?'var(--danger)':t.serverBot.status==='degraded'?'var(--warn)':'var(--text-3)'}}/><div><div style={{color:'var(--text-2)'}}>{t.serverBot.status}</div><div className="mono" style={{fontSize:10,color:'var(--text-muted)'}}>v{t.serverBot.version}</div></div></div> },
+            { header:'Billing', render: t => <StatusBadge status={t.billing.status==='none'?'none':t.billing.status}/> },
+            { header:'Risk', render: t => <div style={{display:'flex',flexDirection:'column',gap:3,alignItems:'flex-start'}}>{t.risk.badges.length===0 ? <Badge tone="muted">healthy</Badge> : t.risk.badges.slice(0,2).map((b,i)=><Badge key={i} tone={b.includes('Offline')||b.includes('Failed')?'danger':b.includes('Suspended')?'muted':'warn'}>{b}</Badge>)}{t.risk.badges.length>2 && <span style={{fontSize:10,color:'var(--text-3)'}}>+{t.risk.badges.length-2} more</span>}</div> },
+            { header:'Activity', render: t => <span style={{fontSize:11,color:'var(--text-3)'}}>{t.players} players</span> },
+            { header:'', width:40, render: t => <Icon name="chevronRight" size={14} style={{color:'var(--text-muted)'}}/> },
+          ]}
+          rows={rows}
+          emptyText="No tenants match the current filters."
+        />
+      </div>
+    </div>
+  </div>;
+};
+window.Tenants = Tenants;
+
+
+// ========== tenant-detail.js ==========
+// Tenant Detail / Dossier
+const TenantDetail = ({ tenantId, onNav, onConfirm }) => {
+  const t = window.TENANTS.find(x => x.id === tenantId) || window.TENANTS[0];
+  const [tab, setTab] = useState('summary');
+
+  const TABS = ['summary','subscription','billing','agents','config','restart','backups','support','audit','diagnostics'];
+  const audit = window.AUDIT_FOR(t.id);
+  const failedJobs = window.JOBS.filter(j => j.tenantId === t.id);
+
+  const handleSuspend = () => onConfirm({
+    title:`Suspend ${t.name}?`, risk:'critical',
+    body:<>
+      <div style={{marginBottom:12,color:'var(--text-2)',fontSize:12.5,lineHeight:1.5}}>This will block tenant operations, runtime actions, and player access depending on policy.</div>
+      <div style={{background:'var(--bg-surface-2)',border:'1px solid var(--border)',borderRadius:6,padding:12,marginBottom:12}}>
+        <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:8,fontWeight:600}}>Impact</div>
+        <ul style={{margin:0,paddingLeft:18,fontSize:12,color:'var(--text-2)',lineHeight:1.7}}>
+          <li>Delivery Agent will stop processing new jobs</li>
+          <li>Server Bot will stop syncing logs and config</li>
+          <li>Player portal access will be restricted</li>
+          <li>Active subscription will remain billable unless cancelled</li>
+        </ul>
+      </div>
+    </>,
+    confirmPhrase: t.slug,
+    confirmLabel:'Suspend tenant',
+  });
+
+  return <div>
+    {/* Header */}
+    <div style={{padding:'16px 24px 0',background:'var(--bg-surface)',borderBottom:'1px solid var(--border)'}}>
+      <div style={{fontSize:11,color:'var(--text-3)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+        <button onClick={()=>onNav('tenants')} style={{background:0,border:0,color:'var(--text-3)',cursor:'pointer',padding:0,fontFamily:'inherit'}}>Tenants</button>
+        <Icon name="chevronRight" size={10}/>
+        <span style={{color:'var(--text-2)'}}>{t.name}</span>
+      </div>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:14}}>
+        <div style={{flex:1}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+            <StatusDot status={t.status==='active'?'online':'offline'}/>
+            <h1 style={{margin:0,fontSize:22,fontWeight:600}}>{t.name}</h1>
+            <StatusBadge status={t.status}/>
+            <RiskBadge level={t.risk.level}/>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:18,fontSize:12,color:'var(--text-3)'}}>
+            <span className="mono">{t.slug}</span>
+            <span>{t.ownerName} · {t.ownerEmail}</span>
+            <span>Locale {t.locale.toUpperCase()}</span>
+            <span>Created {t.createdAt}</span>
+            <span>{t.players} players online</span>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <Btn size="sm" icon="list" variant="secondary">Run diagnostics</Btn>
+          <Btn size="sm" icon="lifebuoy" variant="secondary">New support case</Btn>
+          <Btn size="sm" icon="alert" danger onClick={handleSuspend}>Suspend</Btn>
+        </div>
+      </div>
+      {/* Risk banner if any */}
+      {t.risk.badges.length>0 && t.risk.level!=='low' && <div style={{background:t.risk.level==='high'||t.risk.level==='critical'?'var(--danger-bg)':'var(--warn-bg)',border:`1px solid ${t.risk.level==='high'||t.risk.level==='critical'?'var(--danger-border)':'var(--warn-border)'}`,borderRadius:6,padding:'8px 12px',marginBottom:14,display:'flex',alignItems:'center',gap:10,fontSize:12}}>
+        <Icon name="alert" size={14} style={{color:t.risk.level==='high'||t.risk.level==='critical'?'#fca5a5':'#fbbf24'}}/>
+        <div style={{flex:1}}>{t.risk.badges.join(' · ')}</div>
+      </div>}
+      {/* Tabs */}
+      <div style={{display:'flex',gap:2,overflowX:'auto'}}>
+        {TABS.map(id => <button key={id} onClick={()=>setTab(id)} style={{padding:'9px 14px',background:'transparent',border:0,borderBottom:`2px solid ${tab===id?'var(--accent)':'transparent'}`,color:tab===id?'var(--text)':'var(--text-3)',fontSize:12.5,fontWeight:tab===id?600:400,cursor:'pointer',fontFamily:'inherit',textTransform:'capitalize',whiteSpace:'nowrap'}}>{id==='agents'?'Agents & Bots':id}</button>)}
+      </div>
+    </div>
+
+    {/* Content */}
+    <div style={{padding:'20px 24px'}}>
+      {tab==='summary' && <SummaryTab t={t} onConfirm={onConfirm} audit={audit}/>}
+      {tab==='agents' && <AgentsTab t={t} onConfirm={onConfirm}/>}
+      {tab==='subscription' && <SubscriptionTab t={t}/>}
+      {tab==='billing' && <BillingTab t={t} onConfirm={onConfirm}/>}
+      {tab==='config' && <ConfigTab t={t} failedJobs={failedJobs}/>}
+      {tab==='restart' && <RestartTab t={t} onConfirm={onConfirm}/>}
+      {tab==='backups' && <BackupsTab t={t}/>}
+      {tab==='support' && <SupportTab t={t}/>}
+      {tab==='audit' && <AuditTab audit={audit}/>}
+      {tab==='diagnostics' && <DiagnosticsTab t={t}/>}
+    </div>
+  </div>;
+};
+
+const SummaryTab = ({ t, onConfirm, audit }) => (
+  <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:12,marginBottom:16}}>
+    <MetricCard label="Subscription" value={t.sub.status} tone={t.sub.status==='active'?'ok':t.sub.status==='past_due'?'warn':'default'} sub={t.pkg+' · '+(t.sub.mrr?`฿${t.sub.mrr.toLocaleString()}/mo`:'free')}/>
+    <MetricCard label="Billing" value={t.billing.status==='none'?'—':t.billing.status} tone={t.billing.status==='paid'?'ok':t.billing.status==='unpaid'?'danger':'default'} sub={t.billing.failedCount>0?`${t.billing.failedCount} failed attempts`:'No failed payments'}/>
+    <MetricCard label="Delivery Agent" value={t.delivery.status} tone={t.delivery.status==='online'?'ok':'danger'} sub={t.delivery.machine?`${t.delivery.machine} · v${t.delivery.version}`:'not activated'}/>
+    <MetricCard label="Server Bot" value={t.serverBot.status} tone={t.serverBot.status==='online'?'ok':t.serverBot.status==='degraded'?'warn':'danger'} sub={t.serverBot.machine?`${t.serverBot.machine} · v${t.serverBot.version}`:'not activated'}/>
+    <div style={{gridColumn:'1 / -1'}}>
+      <Card title="Recent activity" pad={false}>
+        <div>
+          {audit.slice(0,5).map(a => <div key={a.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',gap:10,fontSize:12}}>
+            <span style={{width:70,color:'var(--text-3)',fontSize:11}}>{window.fmtTime(a.at)}</span>
+            <span style={{width:120,color:'var(--text-2)'}}>{a.actor}</span>
+            <span className="mono" style={{flex:1,color:'var(--text)'}}>{a.action}</span>
+            <RiskBadge level={a.risk}/>
+            <StatusBadge status={a.result==='success'?'online':a.result==='failed'?'failed':a.result==='blocked'?'blocked':'degraded'}/>
+          </div>)}
+        </div>
+      </Card>
+    </div>
+  </div>
+);
+
+const AgentsTab = ({ t, onConfirm }) => {
+  const rotate = () => onConfirm({
+    title:'Rotate Server Bot credential?', risk:'high',
+    body:<div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.5}}>This will invalidate the current credential. The Server Bot will disconnect and must be re-activated with a new setup token. Server config apply, backup, and restart will be blocked until re-activated.</div>,
+    confirmLabel:'Rotate credential',
+  });
+  return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+    <RuntimePanel t={t} kind="delivery" onRotate={rotate}/>
+    <RuntimePanel t={t} kind="server_bot" onRotate={rotate}/>
+  </div>;
+};
+
+const RuntimePanel = ({ t, kind, onRotate }) => {
+  const rt = kind==='delivery' ? t.delivery : t.serverBot;
+  const isDel = kind==='delivery';
+  const tone = isDel ? 'delivery' : 'serverbot';
+  const color = isDel ? 'var(--delivery)' : 'var(--serverbot)';
+  const title = isDel ? 'Delivery Agent' : 'Server Bot';
+  const capabilities = isDel ? ['Delivery jobs','In-game announce'] : ['Log sync','Config apply','Backup','Restart control'];
+  const restrictions = isDel ? ['Cannot edit config','Cannot restart server','Cannot create backup'] : ['Cannot deliver items','Cannot announce in-game'];
+
+  return <div style={{background:'var(--bg-surface)',border:`1px solid ${color}33`,borderRadius:10,overflow:'hidden'}}>
+    <div style={{padding:'12px 16px',borderBottom:`1px solid ${color}22`,background:`linear-gradient(180deg, ${isDel?'rgba(56,189,248,0.06)':'rgba(167,139,250,0.06)'}, transparent)`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:32,height:32,borderRadius:8,background:isDel?'var(--delivery-bg)':'var(--serverbot-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:color}}>
+          <Icon name={isDel?'truck':'server'} size={16}/>
+        </div>
+        <div>
+          <div style={{fontSize:13,fontWeight:600}}>{title}</div>
+          <div style={{fontSize:10.5,color:color,textTransform:'uppercase',letterSpacing:0.8,fontWeight:600}}>{isDel?'execute_only':'sync_only'}</div>
+        </div>
+      </div>
+      <StatusBadge status={rt.status}/>
+    </div>
+    <div style={{padding:16}}>
+      {rt.status==='pending' ? <div style={{textAlign:'center',padding:'16px 0'}}>
+        <div style={{fontSize:12,color:'var(--text-3)',marginBottom:12}}>No runtime activated yet</div>
+        <Btn size="sm" icon="plus" variant="primary">Generate setup token</Btn>
+      </div> : <div>
+        <div style={{display:'grid',gridTemplateColumns:'80px 1fr',gap:'8px 12px',fontSize:12,marginBottom:14}}>
+          <div style={{color:'var(--text-3)'}}>Runtime ID</div><div className="mono" style={{color:'var(--text-2)'}}>rt_{kind.replace('_','')}_{t.id.slice(2)}</div>
+          <div style={{color:'var(--text-3)'}}>Machine</div><div className="mono" style={{color:'var(--text-2)'}}>{rt.machine || '—'}</div>
+          <div style={{color:'var(--text-3)'}}>Version</div><div className="mono" style={{color:'var(--text-2)'}}>{rt.version} {rt.version!=='1.8.2' && rt.version!=='—' && <Badge tone="warn" style={{marginLeft:6}}>outdated</Badge>}</div>
+          <div style={{color:'var(--text-3)'}}>Last heartbeat</div><div style={{color:rt.status==='offline'?'#fca5a5':'var(--text-2)'}}>{rt.lastSeen?window.fmtTime(rt.lastSeen):'—'} {rt.lastSeen && <span style={{color:'var(--text-muted)',fontSize:10}}>({window.fmtAbs(rt.lastSeen)})</span>}</div>
+          <div style={{color:'var(--text-3)'}}>Credential</div><div style={{color:'var(--text-2)'}}><Badge tone="ok" icon="lock">active</Badge></div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:600}}>Capabilities</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{capabilities.map(c => <Badge key={c} tone={tone} icon="check">{c}</Badge>)}</div>
+        </div>
+        <div style={{marginBottom:14,opacity:0.6}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:600}}>Cannot do</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{restrictions.map(c => <Badge key={c} tone="muted" icon="lock">{c}</Badge>)}</div>
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          <Btn size="xs" variant="secondary">View logs</Btn>
+          <Btn size="xs" variant="secondary">Heartbeat history</Btn>
+          <Btn size="xs" danger onClick={onRotate}>Rotate credential</Btn>
+          <Btn size="xs" danger>Revoke</Btn>
+        </div>
+      </div>}
+    </div>
+  </div>;
+};
+
+const SubscriptionTab = ({ t }) => <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}}>
+  <Card title="Current subscription">
+    <div style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:'10px 16px',fontSize:12.5}}>
+      <div style={{color:'var(--text-3)'}}>Plan</div><div><Badge tone="ok" icon="pkg">{t.pkg}</Badge></div>
+      <div style={{color:'var(--text-3)'}}>Status</div><div><StatusBadge status={t.sub.status==='active'?'active':t.sub.status==='past_due'?'past_due':t.sub.status==='trial'?'trial':'cancelled'}/></div>
+      <div style={{color:'var(--text-3)'}}>Interval</div><div>{t.sub.interval}</div>
+      <div style={{color:'var(--text-3)'}}>Revenue</div><div className="mono">{t.sub.mrr?`฿${t.sub.mrr.toLocaleString()}/mo`:'—'}</div>
+      <div style={{color:'var(--text-3)'}}>Renews</div><div>{t.sub.renewsAt || '—'}</div>
+      <div style={{color:'var(--text-3)'}}>Trial ends</div><div>{t.sub.trialEnd || '—'}</div>
+    </div>
+    <div style={{marginTop:16,display:'flex',gap:8,flexWrap:'wrap'}}>
+      <Btn size="sm" variant="primary" icon="pkg">Change package</Btn>
+      <Btn size="sm" variant="secondary">Extend trial</Btn>
+      <Btn size="sm" danger>Cancel subscription</Btn>
+    </div>
+  </Card>
+  <Card title="Entitlements">
+    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+      {[['Config Editor','enabled'],['Restart Control','enabled'],['Backups','auto + manual'],['Donations','enabled'],['Events','10 active'],['Raid System','enabled'],['Analytics','180 days']].map(([k,v]) => <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+        <span style={{color:'var(--text-2)'}}>{k}</span>
+        <span style={{color:'var(--text-3)'}}>{v}</span>
+      </div>)}
+    </div>
+  </Card>
+</div>;
+
+const BillingTab = ({ t, onConfirm }) => {
+  const markPaid = () => onConfirm({
+    title:'Mark invoice as paid?', risk:'high',
+    body:<div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.5}}>Use this only for manual payment reconciliation. An audit event will be created.</div>,
+    confirmLabel:'Mark paid',
+  });
+  return <Card title={`Invoices (${t.billing.failedCount>0?t.billing.failedCount+' failed':'all paid'})`} pad={false}>
+    <Table
+      columns={[
+        { header:'Invoice', render: r => <span className="mono" style={{color:'var(--text)'}}>{r.id}</span>},
+        { header:'Amount', align:'right', render: r => <span className="mono">฿{r.amount.toLocaleString()}</span>},
+        { header:'Status', render: r => <StatusBadge status={r.status}/>},
+        { header:'Due', render: r => r.due},
+        { header:'Last attempt', render: r => r.attempt },
+        { header:'', render: r => <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>{r.status==='unpaid' && <><Btn size="xs" variant="primary" icon="refresh">Retry</Btn><Btn size="xs" onClick={markPaid}>Mark paid</Btn></>}</div>},
+      ]}
+      rows={t.billing.status==='unpaid' ? [
+        {id:'inv_07', amount:t.sub.mrr, status:'unpaid', due:'Apr 25', attempt:'card_declined · 2h ago'},
+        {id:'inv_06', amount:t.sub.mrr, status:'paid', due:'Mar 25', attempt:'—'},
+        {id:'inv_05', amount:t.sub.mrr, status:'paid', due:'Feb 25', attempt:'—'},
+      ] : [
+        {id:'inv_01', amount:t.sub.mrr, status:'paid', due:'Apr 22', attempt:'—'},
+        {id:'inv_00', amount:t.sub.mrr, status:'paid', due:'Mar 22', attempt:'—'},
+      ]}
+    />
+  </Card>;
+};
+
+const ConfigTab = ({ t, failedJobs }) => <Card title="Config jobs" pad={false}>
+  <Table
+    columns={[
+      { header:'Job', render: j => <span className="mono" style={{color:'var(--text)'}}>{j.id}</span>},
+      { header:'Category', render: j => <Badge tone="muted">server-settings</Badge>},
+      { header:'Type', render: j => <span className="mono">{j.type.split('.')[1]}</span>},
+      { header:'Status', render: j => <StatusBadge status={j.status}/>},
+      { header:'Requires restart', render: () => <Badge tone="warn">yes</Badge>},
+      { header:'Applied by', render: () => <span style={{color:'var(--text-3)',fontSize:11}}>Server Bot offline</span>},
+      { header:'', render: j => <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs">View diff</Btn>{j.retryable && <Btn size="xs" variant="primary">Retry</Btn>}</div>},
+    ]}
+    rows={failedJobs.filter(j=>j.type.startsWith('config'))}
+    emptyText="No config jobs in the last 7 days."
+  />
+</Card>;
+
+const RestartTab = ({ t, onConfirm }) => {
+  const blocked = t.serverBot.status !== 'online';
+  const scheduleRestart = () => onConfirm({
+    title:`Schedule safe restart for ${t.name}?`, risk:'high',
+    body:<>
+      <div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.5,marginBottom:12}}>This will trigger countdown announcements through the Delivery Agent, then execute the restart via Server Bot, then verify health.</div>
+      <div style={{background:'var(--bg-surface-2)',border:'1px solid var(--border)',borderRadius:6,padding:12}}>
+        <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:8}}>Readiness check</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:12}}>
+          <div style={{display:'flex',justifyContent:'space-between'}}>Delivery Agent ready <Badge tone={t.delivery.status==='online'?'ok':'warn'} icon={t.delivery.status==='online'?'check':'alert'}>{t.delivery.status==='online'?'yes':'announce may fail'}</Badge></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}>Server Bot ready <Badge tone={t.serverBot.status==='online'?'ok':'danger'} icon={t.serverBot.status==='online'?'check':'x'}>{t.serverBot.status==='online'?'yes':'BLOCKED'}</Badge></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}>Active queue <Badge tone="muted">none</Badge></div>
+        </div>
+      </div>
+    </>,
+    confirmLabel:'Schedule restart',
+    disabled: blocked,
+  });
+  return <div>
+    {blocked && <div style={{background:'var(--danger-bg)',border:'1px solid var(--danger-border)',borderRadius:6,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10,fontSize:12.5}}>
+      <Icon name="alert" size={14} style={{color:'#fca5a5'}}/>
+      <span><b>Restart is blocked</b> — Server Bot must be online to execute restart commands.</span>
+    </div>}
+    <Card title="Restart plans" pad={false} actions={<Btn size="xs" variant="primary" icon="plus" onClick={scheduleRestart} disabled={blocked}>Schedule restart</Btn>}>
+      <Table
+        columns={[
+          { header:'Plan', render: r => <span className="mono">{r.id}</span>},
+          { header:'Type', render: r => <Badge tone="info">{r.type}</Badge>},
+          { header:'Scheduled', render: r => r.at},
+          { header:'Delivery', render: r => <Badge tone={t.delivery.status==='online'?'ok':'warn'}>{t.delivery.status==='online'?'ready':'offline'}</Badge>},
+          { header:'Server Bot', render: r => <Badge tone={t.serverBot.status==='online'?'ok':'danger'}>{t.serverBot.status==='online'?'ready':'offline'}</Badge>},
+          { header:'Status', render: r => <StatusBadge status={r.status}/>},
+        ]}
+        rows={[
+          {id:'restart_01', type:'safe_restart', at:'11:00 today', status:blocked?'blocked':'pending'},
+        ]}
+      />
+    </Card>
+  </div>;
+};
+
+const BackupsTab = ({ t }) => <Card title="Backups" pad={false} actions={<Btn size="xs" icon="plus" variant="primary">Create backup</Btn>}>
+  <Table
+    columns={[
+      { header:'Backup', render: b => <span className="mono">{b.id}</span>},
+      { header:'Type', render: b => <Badge tone="muted">{b.type}</Badge>},
+      { header:'Source', render: b => <Badge tone="serverbot" icon="server">Server Bot</Badge>},
+      { header:'Size', align:'right', render: b => <span className="mono">{b.size}</span>},
+      { header:'Created', render: b => b.at},
+      { header:'Verified', render: () => <Badge tone="ok" icon="check">verified</Badge>},
+      { header:'', render: b => <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs">Compare</Btn><Btn size="xs" variant="primary">Restore</Btn></div>},
+    ]}
+    rows={[
+      {id:'backup_01', type:'config', size:'124 KB', at:'Yesterday 23:00'},
+      {id:'backup_00', type:'config', size:'119 KB', at:'2 days ago 23:00'},
+      {id:'bk_manual_02', type:'manual', size:'2.4 MB', at:'4 days ago'},
+    ]}
+  />
+</Card>;
+
+const SupportTab = ({ t }) => <Card title={`Support cases (${t.openCases} open)`} pad={false}>
+  {t.openCases===0 ? <div style={{padding:40,textAlign:'center',color:'var(--text-3)'}}>
+    <div style={{fontSize:13,marginBottom:10}}>No open support cases</div>
+    <Btn size="sm" icon="plus" variant="secondary">Create case</Btn>
+  </div> : <div>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid var(--border-subtle)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+        <Badge tone="danger">HIGH</Badge>
+        <span style={{fontWeight:600}}>Server Bot offline — restart blocked</span>
+        <span style={{color:'var(--text-3)',fontSize:11,marginLeft:'auto'}}>case_01 · opened {window.fmtTime(t.serverBot.lastSeen || window.NOW)}</span>
+      </div>
+      <div style={{fontSize:12,color:'var(--text-3)',marginBottom:10}}>Customer reports server is down. Server Bot heartbeat stale for 109 minutes. Linked diagnostics attached.</div>
+      <div style={{display:'flex',gap:6}}>
+        <Btn size="xs">Add note</Btn>
+        <Btn size="xs">Attach diagnostics</Btn>
+        <Btn size="xs" variant="secondary">Escalate</Btn>
+      </div>
+    </div>
+  </div>}
+</Card>;
+
+const AuditTab = ({ audit }) => <Card title="Audit log" pad={false}>
+  <Table
+    columns={[
+      { header:'Time', render: a => <span style={{color:'var(--text-3)'}}>{window.fmtTime(a.at)}</span>},
+      { header:'Actor', render: a => a.actor},
+      { header:'Action', render: a => <span className="mono">{a.action}</span>},
+      { header:'Target', render: a => <span className="mono" style={{color:'var(--text-3)'}}>{a.target}</span>},
+      { header:'Risk', render: a => <RiskBadge level={a.risk}/>},
+      { header:'Result', render: a => <StatusBadge status={a.result==='success'?'online':a.result==='failed'?'failed':a.result==='blocked'?'blocked':'degraded'}/>},
+    ]}
+    rows={audit}
+  />
+</Card>;
+
+const DiagnosticsTab = ({ t }) => {
+  const checks = [
+    { k:'Tenant exists', s:'pass' },
+    { k:'Subscription active', s: t.sub.status==='active'?'pass':t.sub.status==='past_due'?'fail':'pass' },
+    { k:'Package valid', s:'pass' },
+    { k:'Delivery Agent online', s: t.delivery.status==='online'?'pass':'fail', msg: t.delivery.status!=='online'?'Last heartbeat '+window.fmtTime(t.delivery.lastSeen)+' ago':null },
+    { k:'Server Bot online', s: t.serverBot.status==='online'?'pass':'fail', msg: t.serverBot.status!=='online'?'Last heartbeat was 109 minutes ago':null, rec: t.serverBot.status!=='online'?'Open runtime detail':null },
+    { k:'Last heartbeat fresh', s: t.serverBot.status==='online'?'pass':'fail' },
+    { k:'Config jobs healthy', s: window.JOBS.filter(j=>j.tenantId===t.id&&j.type.startsWith('config')&&j.status==='failed').length>0?'fail':'pass' },
+    { k:'Restart jobs healthy', s: t.serverBot.status==='online'?'pass':'warn' },
+    { k:'Backup available', s:'pass' },
+    { k:'Billing healthy', s: t.billing.status==='paid'?'pass':t.billing.status==='unpaid'?'fail':'pass' },
+    { k:'Queue healthy', s:'pass' },
+    { k:'Recent security events', s:'pass' },
+  ];
+  const failing = checks.filter(c=>c.s==='fail').length;
+  return <div>
+    <div style={{display:'flex',alignItems:'center',gap:14,background:'var(--bg-surface)',border:'1px solid var(--border)',borderRadius:8,padding:'12px 16px',marginBottom:14}}>
+      <div style={{width:44,height:44,borderRadius:10,background:failing?'var(--danger-bg)':'var(--ok-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:failing?'#fca5a5':'#86efac'}}>
+        <Icon name={failing?'alert':'check'} size={20}/>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:14,fontWeight:600}}>{failing?`${failing} check${failing>1?'s':''} failing`:'All checks passing'}</div>
+        <div style={{fontSize:12,color:'var(--text-3)'}}>Last run {window.fmtTime(window.NOW)} · {checks.length} checks</div>
+      </div>
+      <Btn size="sm" icon="refresh" variant="primary">Run again</Btn>
+      <Btn size="sm" variant="secondary">Attach to case</Btn>
+    </div>
+    <Card pad={false}>
+      {checks.map((c,i) => <div key={i} style={{padding:'10px 16px',borderBottom:i<checks.length-1?'1px solid var(--border-subtle)':0,display:'flex',alignItems:'center',gap:12}}>
+        <div style={{width:20,height:20,borderRadius:'50%',background:c.s==='pass'?'var(--ok-bg)':c.s==='fail'?'var(--danger-bg)':'var(--warn-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:c.s==='pass'?'#86efac':c.s==='fail'?'#fca5a5':'#fbbf24'}}>
+          <Icon name={c.s==='pass'?'check':c.s==='fail'?'x':'alert'} size={11}/>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12.5}}>{c.k}</div>
+          {c.msg && <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{c.msg}</div>}
+        </div>
+        {c.rec && <Btn size="xs">{c.rec}</Btn>}
+        <Badge tone={c.s==='pass'?'ok':c.s==='fail'?'danger':'warn'}>{c.s.toUpperCase()}</Badge>
+      </div>)}
+    </Card>
+  </div>;
+};
+
+window.TenantDetail = TenantDetail;
+
+
+// ========== runtime.js ==========
+// Runtime Health — fleet view for Delivery Agents + Server Bots
+const Runtime = ({ onNav }) => {
+  const [kind, setKind] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [version, setVersion] = useState('all');
+  const [q, setQ] = useState('');
+
+  const rows = useMemo(() => {
+    return window.FLEET.filter(r => {
+      if (kind !== 'all' && r.kind !== kind) return false;
+      if (status !== 'all' && r.status !== status) return false;
+      if (version === 'outdated' && r.version === r.latestVersion) return false;
+      if (version === 'latest' && r.version !== r.latestVersion) return false;
+      if (q && !(r.tenantName.toLowerCase().includes(q.toLowerCase()) || (r.machine||'').toLowerCase().includes(q.toLowerCase()))) return false;
+      return true;
+    });
+  }, [kind, status, version, q]);
+
+  const R = window.DASHBOARD.runtime;
+
+  return <div>
+    <PageHeader
+      title="Runtime Health"
+      subtitle="Combined fleet of Delivery Agents and Server Bots across all tenants. Each row is an individual runtime instance."
+      actions={<>
+        <Btn size="sm" icon="refresh" variant="ghost">Refresh</Btn>
+        <Btn size="sm" icon="list" variant="secondary">Version drift report</Btn>
+      </>}
+    />
+    <div style={{padding:'16px 24px 0'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5, 1fr)',gap:12,marginBottom:16}}>
+        <MetricCard label="Delivery Agents online" value={`${R.deliveryOnline} / ${R.deliveryOnline+R.deliveryOffline}`} tone="info"/>
+        <MetricCard label="Delivery offline" value={R.deliveryOffline} tone={R.deliveryOffline>0?'warn':'default'}/>
+        <MetricCard label="Server Bots online" value={`${R.botOnline} / ${R.botOnline+R.botOffline}`} tone="info"/>
+        <MetricCard label="Server Bot offline" value={R.botOffline} tone={R.botOffline>0?'danger':'default'} sub="restart + config blocked"/>
+        <MetricCard label="Outdated runtimes" value={R.outdated} tone="warn" sub="not on v1.8.2"/>
+      </div>
+    </div>
+    <div style={{padding:'0 24px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',borderBottom:'1px solid var(--border)'}}>
+      <TextInput icon="search" value={q} onChange={setQ} placeholder="Search tenant or machine…" style={{width:260}}/>
+      <Select value={kind} onChange={setKind} options={[{value:'all',label:'All runtimes'},{value:'delivery',label:'Delivery Agent'},{value:'server_bot',label:'Server Bot'}]}/>
+      <Select value={status} onChange={setStatus} options={[{value:'all',label:'Any status'},{value:'online',label:'Online'},{value:'offline',label:'Offline'},{value:'degraded',label:'Degraded'},{value:'pending',label:'Pending'}]}/>
+      <Select value={version} onChange={setVersion} options={[{value:'all',label:'Any version'},{value:'outdated',label:'Outdated only'},{value:'latest',label:'Latest only'}]}/>
+      <div style={{flex:1}}/>
+      <span style={{fontSize:11,color:'var(--text-3)'}}>{rows.length} runtimes</span>
+    </div>
+    <div style={{padding:'16px 24px 24px'}}>
+      <div style={{background:'var(--bg-surface)',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>
+        <Table
+          onRowClick={r=>onNav('tenant-detail',{tenantId:r.tenantId})}
+          columns={[
+            { header:'Runtime', render: r => <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <RuntimeTag kind={r.kind}/>
+              <span className="mono" style={{fontSize:11,color:'var(--text-3)'}}>{r.id}</span>
+            </div>},
+            { header:'Tenant', render: r => <span style={{color:'var(--text)'}}>{r.tenantName}</span>},
+            { header:'Machine', render: r => <span className="mono" style={{color:'var(--text-2)'}}>{r.machine || '—'}</span>},
+            { header:'Status', render: r => <StatusBadge status={r.status}/>},
+            { header:'Version', render: r => <div style={{display:'flex',alignItems:'center',gap:6}}><span className="mono">{r.version}</span>{r.version !== r.latestVersion && r.version !== '—' && <Badge tone="warn">outdated</Badge>}</div>},
+            { header:'Heartbeat', render: r => <span style={{color:r.status==='offline'?'#fca5a5':'var(--text-2)',fontSize:11}}>{r.lastSeen?window.fmtTime(r.lastSeen):'—'}</span>},
+            { header:'Scope', render: r => <Badge tone={r.kind==='delivery'?'delivery':'serverbot'}>{r.scope}</Badge>},
+            { header:'', width:90, render: r => <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs">Logs</Btn></div> },
+          ]}
+          rows={rows}
+          emptyText="No runtimes match."
+        />
+      </div>
+    </div>
+  </div>;
+};
+window.Runtime = Runtime;
+
+
+// ========== agents.js ==========
+// Agents & Bots — provision + catalog
+const Agents = ({ onNav }) => {
+  const [showWizard, setShowWizard] = useState(false);
+  const [wz, setWz] = useState({ step:1, tenantId:'', kind:'', scope:'' });
+
+  const counts = {
+    delivery: window.FLEET.filter(r=>r.kind==='delivery').length,
+    serverBot: window.FLEET.filter(r=>r.kind==='server_bot').length,
+  };
+
+  return <div>
+    <PageHeader
+      title="Agents & Bots"
+      subtitle="Provision, rotate, and revoke runtime credentials. Enforces the single-responsibility split: Delivery Agents execute, Server Bots sync."
+      actions={<Btn size="sm" icon="plus" variant="primary" onClick={()=>{setShowWizard(true);setWz({step:1,tenantId:'',kind:'',scope:''});}}>Provision runtime</Btn>}
+    />
+    <div style={{padding:24,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <div style={{background:'var(--bg-surface)',border:'1px solid var(--delivery-border)',borderRadius:10,padding:18}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+          <div style={{width:40,height:40,borderRadius:10,background:'var(--delivery-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--delivery)'}}>
+            <Icon name="truck" size={18}/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:600}}>Delivery Agent</div>
+            <div style={{fontSize:11,color:'var(--delivery)',textTransform:'uppercase',letterSpacing:0.8,fontWeight:600}}>execute_only · {counts.delivery} active</div>
+          </div>
+        </div>
+        <div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.55,marginBottom:14}}>Runs on the shop PC. Executes in-game delivery jobs and announcements. <b>Cannot</b> edit config, restart servers, or access backups.</div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:6}}>Capabilities</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <Badge tone="delivery" icon="check">delivery_jobs</Badge>
+            <Badge tone="delivery" icon="check">in_game_announce</Badge>
+          </div>
+        </div>
+        <div style={{opacity:0.65}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:6}}>Cannot</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <Badge tone="muted" icon="lock">config_apply</Badge>
+            <Badge tone="muted" icon="lock">restart</Badge>
+            <Badge tone="muted" icon="lock">backup</Badge>
+          </div>
+        </div>
+      </div>
+
+      <div style={{background:'var(--bg-surface)',border:'1px solid var(--serverbot-border)',borderRadius:10,padding:18}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+          <div style={{width:40,height:40,borderRadius:10,background:'var(--serverbot-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--serverbot)'}}>
+            <Icon name="server" size={18}/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:600}}>Server Bot</div>
+            <div style={{fontSize:11,color:'var(--serverbot)',textTransform:'uppercase',letterSpacing:0.8,fontWeight:600}}>sync_only · {counts.serverBot} active</div>
+          </div>
+        </div>
+        <div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.55,marginBottom:14}}>Runs on the server host. Syncs logs, applies config, performs backups, and orchestrates restarts. <b>Cannot</b> deliver items or announce in-game.</div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:6}}>Capabilities</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <Badge tone="serverbot" icon="check">log_sync</Badge>
+            <Badge tone="serverbot" icon="check">config_apply</Badge>
+            <Badge tone="serverbot" icon="check">backup</Badge>
+            <Badge tone="serverbot" icon="check">restart</Badge>
+          </div>
+        </div>
+        <div style={{opacity:0.65}}>
+          <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:6}}>Cannot</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <Badge tone="muted" icon="lock">delivery_jobs</Badge>
+            <Badge tone="muted" icon="lock">in_game_announce</Badge>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style={{padding:'0 24px 24px'}}>
+      <Card title="Runtime catalog" pad={false}>
+        <Table
+          onRowClick={r=>onNav('tenant-detail',{tenantId:r.tenantId})}
+          columns={[
+            { header:'Runtime', render: r => <div style={{display:'flex',alignItems:'center',gap:8}}><RuntimeTag kind={r.kind}/><span className="mono" style={{fontSize:11,color:'var(--text-3)'}}>{r.id}</span></div>},
+            { header:'Tenant', render: r => r.tenantName},
+            { header:'Machine', render: r => <span className="mono">{r.machine || '—'}</span>},
+            { header:'Status', render: r => <StatusBadge status={r.status}/>},
+            { header:'Version', render: r => <span className="mono">{r.version}</span>},
+            { header:'Credential', render: () => <Badge tone="ok" icon="lock">active</Badge>},
+            { header:'', render: () => <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs">Rotate</Btn><Btn size="xs" danger>Revoke</Btn></div>},
+          ]}
+          rows={window.FLEET}
+        />
+      </Card>
+    </div>
+
+    <ProvisionWizard open={showWizard} onClose={()=>setShowWizard(false)} wz={wz} setWz={setWz}/>
+  </div>;
+};
+
+const ProvisionWizard = ({ open, onClose, wz, setWz }) => {
+  const canNext = (wz.step===1 && wz.tenantId) || (wz.step===2 && wz.kind) || (wz.step===3);
+  const tenant = window.TENANTS.find(t=>t.id===wz.tenantId);
+
+  return <Modal open={open} onClose={onClose} title={`Provision runtime — step ${wz.step} of 4`} maxWidth={620} footer={
+    <>
+      {wz.step>1 && <Btn size="sm" onClick={()=>setWz({...wz,step:wz.step-1})}>Back</Btn>}
+      <div style={{flex:1}}/>
+      <Btn size="sm" onClick={onClose}>Cancel</Btn>
+      {wz.step<4 ? <Btn size="sm" variant="primary" disabled={!canNext} onClick={()=>setWz({...wz,step:wz.step+1})}>Continue</Btn> : <Btn size="sm" variant="primary" onClick={onClose}>Done</Btn>}
+    </>
+  }>
+    {wz.step===1 && <div>
+      <div style={{fontSize:12.5,color:'var(--text-2)',marginBottom:12}}>Choose the tenant this runtime will belong to.</div>
+      <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:280,overflow:'auto'}}>
+        {window.TENANTS.map(t => <label key={t.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',border:`1px solid ${wz.tenantId===t.id?'var(--accent)':'var(--border)'}`,borderRadius:6,cursor:'pointer',background:wz.tenantId===t.id?'var(--bg-surface-3)':'transparent'}}>
+          <input type="radio" checked={wz.tenantId===t.id} onChange={()=>setWz({...wz,tenantId:t.id})} style={{accentColor:'var(--accent)'}}/>
+          <StatusDot status={t.status==='active'?'online':'offline'}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12.5,fontWeight:500}}>{t.name}</div>
+            <div className="mono" style={{fontSize:10.5,color:'var(--text-3)'}}>{t.slug}</div>
+          </div>
+          <Badge tone="muted">{t.pkg}</Badge>
+        </label>)}
+      </div>
+    </div>}
+    {wz.step===2 && <div>
+      <div style={{fontSize:12.5,color:'var(--text-2)',marginBottom:12}}>Pick runtime type for <b style={{color:'var(--text)'}}>{tenant?.name}</b>. Each tenant can have exactly one of each.</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {[
+          {k:'delivery',title:'Delivery Agent',desc:'Executes delivery jobs and announcements from shop PC',icon:'truck',tone:'delivery'},
+          {k:'server_bot',title:'Server Bot',desc:'Syncs logs, applies config, backups, restart control',icon:'server',tone:'serverbot'},
+        ].map(o => <button key={o.k} onClick={()=>setWz({...wz,kind:o.k,scope:o.k==='delivery'?'execute_only':'sync_only'})} style={{padding:14,background:wz.kind===o.k?`var(--${o.tone}-bg)`:'var(--bg-surface-2)',border:`1px solid ${wz.kind===o.k?`var(--${o.tone})`:'var(--border)'}`,borderRadius:8,textAlign:'left',cursor:'pointer',color:'var(--text)',fontFamily:'inherit'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><Icon name={o.icon} size={16} style={{color:`var(--${o.tone})`}}/><div style={{fontSize:13,fontWeight:600}}>{o.title}</div></div>
+          <div style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.5}}>{o.desc}</div>
+        </button>)}
+      </div>
+    </div>}
+    {wz.step===3 && <div>
+      <div style={{fontSize:12.5,color:'var(--text-2)',marginBottom:12}}>Review scope — capabilities are fixed by role and cannot be expanded.</div>
+      <div style={{background:'var(--bg-surface-2)',border:'1px solid var(--border)',borderRadius:6,padding:14,fontSize:12.5}}>
+        <div style={{display:'grid',gridTemplateColumns:'110px 1fr',gap:'8px 12px'}}>
+          <span style={{color:'var(--text-3)'}}>Tenant</span><span>{tenant?.name}</span>
+          <span style={{color:'var(--text-3)'}}>Role</span><span><Badge tone={wz.kind==='delivery'?'delivery':'serverbot'}>{wz.kind}</Badge></span>
+          <span style={{color:'var(--text-3)'}}>Scope</span><span><Badge tone="muted">{wz.scope}</Badge></span>
+          <span style={{color:'var(--text-3)'}}>Version</span><span className="mono">1.8.2 (latest)</span>
+          <span style={{color:'var(--text-3)'}}>Token TTL</span><span>24 hours</span>
+        </div>
+      </div>
+    </div>}
+    {wz.step===4 && <div>
+      <div style={{background:'var(--ok-bg)',border:'1px solid var(--ok-border)',borderRadius:6,padding:'10px 14px',marginBottom:12,fontSize:12.5,display:'flex',alignItems:'center',gap:8}}>
+        <Icon name="check" size={14} style={{color:'#86efac'}}/>
+        Setup token generated. Share it with the operator — it's single-use and expires in 24h.
+      </div>
+      <div style={{fontSize:10.5,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:6}}>Setup token</div>
+      <div style={{background:'var(--bg-app)',border:'1px solid var(--border)',borderRadius:6,padding:12,fontFamily:'JetBrains Mono',fontSize:12,wordBreak:'break-all',color:'var(--accent)'}}>stkn_{wz.kind}_{tenant?.slug}_4f8a9b2c1d7e6f5a3b8c9d0e1f2a3b4c</div>
+      <div style={{display:'flex',gap:6,marginTop:10}}>
+        <Btn size="sm" icon="copy">Copy token</Btn>
+        <Btn size="sm">Download setup guide</Btn>
+      </div>
+    </div>}
+  </Modal>;
+};
+window.Agents = Agents;
+
+
+// ========== app.js ==========
+// Main app: router + root + cross-cutting screens
+
+const RiskConfirmModal = ({ open, onClose, cfg, onConfirm }) => {
+  const [phrase, setPhrase] = useState('');
+  useEffect(() => { if(open) setPhrase(''); }, [open]);
+  if (!cfg) return null;
+  const phraseOk = !cfg.confirmPhrase || phrase === cfg.confirmPhrase;
+
+  return <Modal open={open} onClose={onClose} title={cfg.title} risk={cfg.risk} maxWidth={520} footer={
+    <>
+      <div style={{flex:1}}/>
+      <Btn size="sm" onClick={onClose}>Cancel</Btn>
+      <Btn size="sm" danger disabled={!phraseOk || cfg.disabled} onClick={() => { onConfirm && onConfirm(); onClose(); }}>{cfg.confirmLabel || 'Confirm'}</Btn>
+    </>
+  }>
+    {cfg.body}
+    {cfg.confirmPhrase && <div style={{marginTop:14}}>
+      <div style={{fontSize:11,color:'var(--text-3)',marginBottom:6}}>Type <code style={{color:'var(--text)',background:'var(--bg-surface-2)',padding:'1px 6px',borderRadius:3}}>{cfg.confirmPhrase}</code> to confirm</div>
+      <TextInput value={phrase} onChange={setPhrase} placeholder={cfg.confirmPhrase}/>
+    </div>}
+  </Modal>;
+};
+
+// ---------- Simple cross-cutting screens ----------
+
+const Billing = ({ onNav }) => {
+  const unpaid = window.TENANTS.filter(t => t.billing.status === 'unpaid');
+  const rows = window.TENANTS.flatMap(t => {
+    if (t.billing.status === 'unpaid') {
+      return [{tenantId:t.id, tenant:t.name, id:t.billing.latestInvoice||'inv_x', amount:t.sub.mrr, status:'unpaid', due:'Apr 22', attempt:'card_declined · 2h ago'}];
+    }
+    if (t.sub.status === 'active' && t.sub.mrr) {
+      return [{tenantId:t.id, tenant:t.name, id:`inv_${t.id.slice(-3)}_04`, amount:t.sub.mrr, status:'paid', due:'Apr 01', attempt:'—'}];
+    }
+    return [];
+  });
+  return <div>
+    <PageHeader title="Billing" subtitle="Invoices, payment retries, and revenue posture across all tenants." actions={<Btn size="sm" icon="refresh">Run retry cycle</Btn>}/>
+    <div style={{padding:'18px 24px 0',display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+      <MetricCard label="MRR" value={`฿${window.DASHBOARD.revenue.mrr.toLocaleString()}`} tone="ok" sub={`${window.DASHBOARD.revenue.activeSubscriptions} active subs`}/>
+      <MetricCard label="Unpaid invoices" value={window.DASHBOARD.revenue.unpaidInvoices} tone="danger"/>
+      <MetricCard label="Failed payments" value={window.DASHBOARD.revenue.failedPayments} tone="warn"/>
+      <MetricCard label="Trials ending" value={window.DASHBOARD.revenue.trialEndingSoon} tone="info"/>
+    </div>
+    <div style={{padding:24}}>
+      <Card title="Invoices" pad={false}>
+        <Table
+          onRowClick={r=>onNav('tenant-detail',{tenantId:r.tenantId})}
+          columns={[
+            {header:'Invoice',render:r=><span className="mono">{r.id}</span>},
+            {header:'Tenant',render:r=>r.tenant},
+            {header:'Amount',align:'right',render:r=><span className="mono">฿{r.amount.toLocaleString()}</span>},
+            {header:'Status',render:r=><StatusBadge status={r.status}/>},
+            {header:'Due',render:r=>r.due},
+            {header:'Last attempt',render:r=><span style={{fontSize:11,color:'var(--text-3)'}}>{r.attempt}</span>},
+            {header:'',render:r=>r.status==='unpaid' ? <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs" variant="primary">Retry</Btn><Btn size="xs">Mark paid</Btn></div> : null},
+          ]}
+          rows={rows}
+        />
+      </Card>
+    </div>
+  </div>;
+};
+
+const Jobs = ({ onNav }) => <div>
+  <PageHeader title="Jobs & Queues" subtitle="All runtime jobs across Delivery Agents and Server Bots — config, restart, backup, delivery." actions={<Btn size="sm" icon="refresh">Refresh</Btn>}/>
+  <div style={{padding:24}}>
+    <Card title={`${window.JOBS.length} recent jobs`} pad={false}>
+      <Table
+        onRowClick={j=>onNav('tenant-detail',{tenantId:j.tenantId})}
+        columns={[
+          {header:'Job',render:j=><span className="mono">{j.id}</span>},
+          {header:'Tenant',render:j=>{const t=window.TENANTS.find(x=>x.id===j.tenantId);return t?.name||j.tenantId;}},
+          {header:'Type',render:j=><span className="mono">{j.type}</span>},
+          {header:'Runtime',render:j=><RuntimeTag kind={j.type.startsWith('delivery')?'delivery':'server_bot'}/>},
+          {header:'Status',render:j=><StatusBadge status={j.status}/>},
+          {header:'Attempts',render:j=><span className="mono">{j.attempts||1}</span>},
+          {header:'Created',render:j=><span style={{color:'var(--text-3)'}}>{window.fmtTime(j.at)}</span>},
+          {header:'',render:j=>j.retryable?<Btn size="xs" variant="primary">Retry</Btn>:null},
+        ]}
+        rows={window.JOBS}
+      />
+    </Card>
+  </div>
+</div>;
+
+const Audit = () => <div>
+  <PageHeader title="Audit Logs" subtitle="Every sensitive operation across the platform. Immutable."/>
+  <div style={{padding:24}}>
+    <Card pad={false}>
+      <Table
+        columns={[
+          {header:'Time',render:a=><span style={{color:'var(--text-3)'}}>{window.fmtTime(a.at)}</span>},
+          {header:'Actor',render:a=>a.actor},
+          {header:'Action',render:a=><span className="mono">{a.action}</span>},
+          {header:'Target',render:a=><span className="mono" style={{color:'var(--text-3)'}}>{a.target}</span>},
+          {header:'Risk',render:a=><RiskBadge level={a.risk}/>},
+          {header:'Result',render:a=><StatusBadge status={a.result==='success'?'online':a.result==='failed'?'failed':a.result==='blocked'?'blocked':'degraded'}/>},
+        ]}
+        rows={[...window.AUDIT_FOR('t_bkk'),...window.AUDIT_FOR('t_pnx')]}
+      />
+    </Card>
+  </div>
+</div>;
+
+const Security = () => <div>
+  <PageHeader title="Security Events" subtitle="Setup token usage, auth anomalies, credential events."/>
+  <div style={{padding:24}}>
+    <Card pad={false}>
+      <Table
+        columns={[
+          {header:'Time',render:s=><span style={{color:'var(--text-3)'}}>{window.fmtTime(s.at)}</span>},
+          {header:'Event',render:s=>s.type},
+          {header:'Severity',render:s=><RiskBadge level={s.severity}/>},
+          {header:'Tenant',render:s=>{const t=window.TENANTS.find(x=>x.id===s.tenantId);return t?.name||'—';}},
+          {header:'Source IP',render:s=><span className="mono">{s.ip}</span>},
+          {header:'',render:()=><div style={{display:'flex',gap:4,justifyContent:'flex-end'}}><Btn size="xs">Investigate</Btn></div>},
+        ]}
+        rows={window.SECURITY}
+      />
+    </Card>
+  </div>
+</div>;
+
+const Incidents = () => <div>
+  <PageHeader title="Incidents" subtitle="Platform-wide issues affecting multiple tenants or core services."/>
+  <div style={{padding:24}}>
+    <Card pad={false}>
+      <Table
+        columns={[
+          {header:'Incident',render:i=><div><div style={{fontWeight:500}}>{i.title}</div><div className="mono" style={{fontSize:11,color:'var(--text-3)'}}>{i.id}</div></div>},
+          {header:'Severity',render:i=><RiskBadge level={i.severity}/>},
+          {header:'Status',render:i=><Badge tone={i.status==='investigating'?'warn':'info'}>{i.status}</Badge>},
+          {header:'Started',render:i=><span style={{color:'var(--text-3)'}}>{window.fmtTime(i.startedAt)}</span>},
+          {header:'',render:()=><Btn size="xs">View</Btn>},
+        ]}
+        rows={window.INCIDENTS}
+      />
+    </Card>
+  </div>
+</div>;
+
+const Packages = () => <div>
+  <PageHeader title="Packages" subtitle="Subscription tiers available to tenants." actions={<Btn size="sm" icon="plus" variant="primary">New package</Btn>}/>
+  <div style={{padding:24,display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',gap:12}}>
+    {window.PACKAGES.map(p => <div key={p.id} style={{background:'var(--bg-surface)',border:'1px solid var(--border)',borderRadius:8,padding:16}}>
+      <div style={{fontSize:11,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:0.6,fontWeight:600,marginBottom:4}}>{p.name}</div>
+      <div style={{fontSize:22,fontWeight:600,marginBottom:6}}>฿{p.price.toLocaleString()}<span style={{fontSize:11,color:'var(--text-3)',fontWeight:400}}> /mo</span></div>
+      <div style={{fontSize:11.5,color:'var(--text-3)',marginBottom:10}}>{p.tenants} tenant{p.tenants>1?'s':''} subscribed</div>
+      <div style={{display:'flex',gap:6}}><Btn size="xs">Edit</Btn><Btn size="xs">View tenants</Btn></div>
+    </div>)}
+  </div>
+</div>;
+
+const Placeholder = ({ label }) => <div>
+  <PageHeader title={label} subtitle="This screen follows the same pattern as the others — filters, metric row, primary table, detail drawer."/>
+  <div style={{padding:40,textAlign:'center',color:'var(--text-3)'}}>
+    <div style={{fontSize:13,marginBottom:6}}>{label} screen — wireframe only in this prototype.</div>
+    <div style={{fontSize:11.5}}>Navigate to Overview, Tenants, Runtime Health, or Agents & Bots to see fully rendered screens.</div>
+  </div>
+</div>;
+
+// ---------- Root ----------
+
+const App = () => {
+  const [route, setRoute] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ownerRoute')) || { page:'overview', params:{} }; }
+    catch { return { page:'overview', params:{} }; }
+  });
+  const [confirmCfg, setConfirmCfg] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmResolve, setConfirmResolve] = useState(() => ()=>{});
+
+  useEffect(() => { localStorage.setItem('ownerRoute', JSON.stringify(route)); }, [route]);
+
+  const nav = (page, params={}) => setRoute({ page, params });
+
+  const openConfirm = (cfg) => {
+    setConfirmCfg(cfg);
+    setConfirmOpen(true);
+  };
+
+  const screens = {
+    overview: <Overview onNav={nav}/>,
+    tenants: <Tenants onNav={nav}/>,
+    'tenant-detail': <TenantDetail tenantId={route.params.tenantId} onNav={nav} onConfirm={openConfirm}/>,
+    runtime: <Runtime onNav={nav}/>,
+    agents: <Agents onNav={nav}/>,
+    billing: <Billing onNav={nav}/>,
+    jobs: <Jobs onNav={nav}/>,
+    audit: <Audit/>,
+    security: <Security/>,
+    incidents: <Incidents/>,
+    packages: <Packages/>,
+    subscriptions: <Placeholder label="Subscriptions"/>,
+    config: <Placeholder label="Config Jobs"/>,
+    restart: <Placeholder label="Restart Plans"/>,
+    backups: <Placeholder label="Backups"/>,
+    support: <Placeholder label="Support"/>,
+    diagnostics: <Placeholder label="Diagnostics"/>,
+    access: <Placeholder label="Access Control"/>,
+    settings: <Placeholder label="Settings"/>,
+  };
+
+  const currentNav = route.page === 'tenant-detail' ? 'tenants' : route.page;
+
+  return <div style={{display:'flex',minHeight:'100vh'}}>
+    <Sidebar current={currentNav} onNav={nav}/>
+    <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
+      <TopBar onNav={nav}/>
+      <main style={{flex:1}}>{screens[route.page] || <Placeholder label="Not found"/>}</main>
+    </div>
+    <RiskConfirmModal open={confirmOpen} onClose={()=>setConfirmOpen(false)} cfg={confirmCfg} onConfirm={()=>{}}/>
+  </div>;
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+
+</script>
+</body>
+</html>

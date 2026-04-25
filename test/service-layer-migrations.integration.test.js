@@ -13,13 +13,19 @@ const {
   enterGiveawayForUser,
   settleGiveawayForMessage,
 } = require('../src/services/giveawayService');
-const { prisma } = require('../src/prisma');
+const { prisma, getTenantScopedPrismaClient } = require('../src/prisma');
 const { flushLinkStoreWrites } = require('../src/store/linkStore');
 const { flushModerationStoreWrites } = require('../src/store/moderationStore');
 const { flushGiveawayStoreWrites } = require('../src/store/giveawayStore');
 
 function uniqueId(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+const TEST_TENANT_ID = 'tenant-service-layer-migrations';
+
+function scope() {
+  return { tenantId: TEST_TENANT_ID };
 }
 
 test('linkService enforces one-time self bind and supports admin removal', async () => {
@@ -97,6 +103,7 @@ test('linkService enforces one-time self bind and supports admin removal', async
 
 test('moderationService creates punishment entries through service layer', async () => {
   const userId = uniqueId('punish-user');
+  const db = getTenantScopedPrismaClient(TEST_TENANT_ID);
 
   try {
     const result = createPunishmentEntry({
@@ -105,20 +112,22 @@ test('moderationService creates punishment entries through service layer', async
       reason: 'integration-test-warning',
       staffId: 'test-suite',
       durationMinutes: null,
+      ...scope(),
     });
     assert.equal(result.ok, true);
     assert.equal(String(result.entry?.type || ''), 'warn');
 
-    await flushModerationStoreWrites();
-    const rows = await prisma.punishment.findMany({ where: { userId } });
+    await flushModerationStoreWrites(scope());
+    const rows = await db.punishment.findMany({ where: { userId } });
     assert.equal(rows.length >= 1, true);
     assert.equal(String(rows.at(-1)?.reason || ''), 'integration-test-warning');
   } finally {
-    await prisma.punishment.deleteMany({ where: { userId } }).catch(() => null);
+    await db.punishment.deleteMany({ where: { userId } }).catch(() => null);
   }
 });
 
 test('giveawayService start/join/settle flow works via service layer', async () => {
+  const db = getTenantScopedPrismaClient(TEST_TENANT_ID);
   const messageId = uniqueId('giveaway-message');
   const channelId = uniqueId('giveaway-channel');
   const guildId = uniqueId('giveaway-guild');
@@ -133,28 +142,30 @@ test('giveawayService start/join/settle flow works via service layer', async () 
       prize: 'AK Set',
       winnersCount: 1,
       endsAt: new Date(Date.now() + 60_000),
+      ...scope(),
     });
     assert.equal(start.ok, true);
 
-    const joinA = enterGiveawayForUser({ messageId, userId: userIdA });
-    const joinB = enterGiveawayForUser({ messageId, userId: userIdB });
+    const joinA = enterGiveawayForUser({ messageId, userId: userIdA, ...scope() });
+    const joinB = enterGiveawayForUser({ messageId, userId: userIdB, ...scope() });
     assert.equal(joinA.ok, true);
     assert.equal(joinB.ok, true);
 
     const settled = settleGiveawayForMessage({
       messageId,
       randomIntFn: () => 1,
+      ...scope(),
     });
     assert.equal(settled.ok, true);
     assert.equal(settled.noEntrants, false);
     assert.equal(settled.winnerIds.length, 1);
     assert.equal(settled.winnerIds[0], userIdA);
 
-    await flushGiveawayStoreWrites();
-    const row = await prisma.giveaway.findUnique({ where: { messageId } });
+    await flushGiveawayStoreWrites(scope());
+    const row = await db.giveaway.findUnique({ where: { messageId } });
     assert.equal(row, null);
   } finally {
-    await prisma.giveawayEntrant.deleteMany({ where: { messageId } }).catch(() => null);
-    await prisma.giveaway.deleteMany({ where: { messageId } }).catch(() => null);
+    await db.giveawayEntrant.deleteMany({ where: { messageId } }).catch(() => null);
+    await db.giveaway.deleteMany({ where: { messageId } }).catch(() => null);
   }
 });

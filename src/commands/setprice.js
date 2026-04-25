@@ -27,6 +27,7 @@ module.exports = {
     const result = await setShopItemPriceForAdmin({
       idOrName: query,
       price,
+      guildId: interaction.guildId || interaction.guild?.id || null,
     });
     if (!result.ok) {
       return interaction.reply({

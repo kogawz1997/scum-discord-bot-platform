@@ -644,6 +644,7 @@ test('identity schema guard requires migrated schema for sqlite Prisma client ru
     NODE_ENV: 'test',
     DATABASE_URL: 'file:./identity-prisma-client-sqlite.db',
     PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: null,
     PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: null,
   }, async () => {
     await assert.rejects(
@@ -674,6 +675,7 @@ test('identity schema guard can still bootstrap sqlite Prisma client runtimes wh
     NODE_ENV: 'test',
     DATABASE_URL: 'file:./identity-prisma-client-bootstrap.db',
     PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: null,
     PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: '1',
   }, async () => {
     const result = await ensurePlatformIdentityTables(db);
@@ -684,6 +686,37 @@ test('identity schema guard can still bootstrap sqlite Prisma client runtimes wh
   assert.equal(
     db.calls.some((entry) => entry.method === '$executeRawUnsafe' && entry.query.includes('CREATE TABLE IF NOT EXISTS platform_users')),
     true,
+  );
+});
+
+test('identity schema guard refuses explicit runtime bootstrap when db-only posture is required', async () => {
+  const db = createPrismaClientLikeRawDb({
+    runtime: 'sqlite',
+    tables: [],
+    columns: {},
+  });
+
+  await withEnv({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'file:./identity-prisma-client-db-only.db',
+    PRISMA_SCHEMA_PROVIDER: 'sqlite',
+    PERSIST_REQUIRE_DB: 'true',
+    PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP: '1',
+  }, async () => {
+    await assert.rejects(
+      ensurePlatformIdentityTables(db),
+      (error) => {
+        assert.equal(error?.code, 'PLATFORM_IDENTITY_SCHEMA_REQUIRED');
+        assert.equal(error?.identitySchema?.bootstrapPolicy?.reason, 'persist-require-db');
+        assert.equal(error?.identitySchema?.bootstrapPolicy?.explicitValue, '1');
+        return true;
+      },
+    );
+  });
+
+  assert.equal(
+    db.calls.some((entry) => entry.method === '$executeRawUnsafe' && entry.query.includes('CREATE TABLE IF NOT EXISTS')),
+    false,
   );
 });
 

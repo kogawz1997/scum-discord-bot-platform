@@ -380,7 +380,7 @@ test('control plane registry does not import file state into an empty db unless 
   }
 });
 
-test('control plane registry can explicitly import file state into an empty db for migration', async () => {
+test('control plane registry does not import file state during init even when legacy import env is enabled', async () => {
   process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
   process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = 'none';
   process.env.CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY = 'true';
@@ -418,6 +418,53 @@ test('control plane registry can explicitly import file state into an empty db f
     const { repository } = loadRepositoryWithMocks(prismaHarness, { filePath });
     await repository.initControlPlaneRegistryRepository();
 
+    assert.equal(prismaHarness.snapshot('controlPlaneServer').length, 0);
+    assert.deepEqual(repository.listServers({ tenantId: 'tenant-a' }), []);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('control plane registry can explicitly import file state into an empty db for migration', async () => {
+  process.env.CONTROL_PLANE_REGISTRY_STORE_MODE = 'db';
+  process.env.CONTROL_PLANE_REGISTRY_FILE_MIRROR_SLICES = 'none';
+  const prismaHarness = createPrismaHarness();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-registry-import-explicit-'));
+  const sourceFilePath = path.join(tempDir, 'control-plane-registry-source.json');
+  fs.writeFileSync(sourceFilePath, JSON.stringify({
+    version: 1,
+    updatedAt: '2026-03-28T05:00:00.000Z',
+    servers: [{
+      id: 'server-from-file',
+      tenantId: 'tenant-a',
+      slug: 'server-from-file',
+      name: 'Server From File',
+      status: 'active',
+      locale: 'th',
+      guildId: null,
+      metadata: {},
+      actor: 'system',
+      createdAt: '2026-03-28T05:00:00.000Z',
+      updatedAt: '2026-03-28T05:00:00.000Z',
+    }],
+    serverDiscordLinks: [],
+    agents: [],
+    agentTokenBindings: [],
+    agentProvisioningTokens: [],
+    agentDevices: [],
+    agentCredentials: [],
+    agentSessions: [],
+    syncRuns: [],
+    syncEvents: [],
+  }), 'utf8');
+
+  try {
+    const { repository } = loadRepositoryWithMocks(prismaHarness);
+    await repository.initControlPlaneRegistryRepository();
+    const importResult = await repository.importRegistryFileIntoDatabase({ filePath: sourceFilePath });
+
+    assert.equal(importResult.ok, true);
+    assert.equal(importResult.imported, true);
     assert.equal(prismaHarness.snapshot('controlPlaneServer').length, 1);
     assert.equal(
       String(prismaHarness.snapshot('controlPlaneServer')[0]?.id || ''),

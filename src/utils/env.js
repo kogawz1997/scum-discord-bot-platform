@@ -548,10 +548,26 @@ function getDeliveryAgentRuntimeErrors(env = process.env) {
   const errors = [];
   const backend = String(env.SCUM_CONSOLE_AGENT_BACKEND || 'exec').trim().toLowerCase() || 'exec';
   const execTemplate = String(env.SCUM_CONSOLE_AGENT_EXEC_TEMPLATE || '').trim();
+  const controlPlaneUrl = resolveConfiguredControlPlaneBaseUrl(env);
+  const platformToken = String(
+    env.PLATFORM_AGENT_TOKEN
+      || env.SCUM_AGENT_TOKEN
+      || env.SCUM_SYNC_AGENT_TOKEN
+      || '',
+  ).trim();
   const setupToken = String(env.PLATFORM_AGENT_SETUP_TOKEN || env.SCUM_PLATFORM_SETUP_TOKEN || '').trim();
   const dedicatedAgentStateSecret = String(
     env.PLATFORM_AGENT_STATE_SECRET || env.SCUM_PLATFORM_AGENT_STATE_SECRET || '',
   ).trim();
+  const tenantId = String(env.PLATFORM_TENANT_ID || env.SCUM_TENANT_ID || env.TENANT_ID || '').trim();
+  const serverId = String(env.PLATFORM_SERVER_ID || env.SCUM_SERVER_ID || '').trim();
+  const platformManaged = Boolean(
+    controlPlaneUrl
+      || platformToken
+      || setupToken
+      || tenantId
+      || serverId,
+  );
 
   if (backend === 'exec') {
     if (!execTemplate) {
@@ -582,6 +598,28 @@ function getDeliveryAgentRuntimeErrors(env = process.env) {
     errors.push(
       'Production delivery-agent requires PLATFORM_AGENT_STATE_SECRET (or SCUM_PLATFORM_AGENT_STATE_SECRET) when PLATFORM_AGENT_SETUP_TOKEN is used.',
     );
+  }
+  if (platformManaged) {
+    if (!controlPlaneUrl) {
+      errors.push('Production delivery-agent platform-managed mode requires PLATFORM_API_BASE_URL or SCUM_SYNC_CONTROL_PLANE_URL.');
+    } else {
+      requireHttpsWhenExternal('PLATFORM_API_BASE_URL / SCUM_SYNC_CONTROL_PLANE_URL', controlPlaneUrl, errors);
+    }
+    if (!platformToken && !setupToken) {
+      errors.push('Production delivery-agent platform-managed mode requires PLATFORM_AGENT_TOKEN or PLATFORM_AGENT_SETUP_TOKEN.');
+    }
+    if (platformToken && (platformToken.length < 16 || isLikelyPlaceholder(platformToken))) {
+      errors.push('Production delivery-agent requires PLATFORM_AGENT_TOKEN with at least 16 characters.');
+    }
+    if (setupToken && (setupToken.length < 16 || isLikelyPlaceholder(setupToken))) {
+      errors.push('Production delivery-agent requires PLATFORM_AGENT_SETUP_TOKEN with at least 16 characters.');
+    }
+    if (!tenantId) {
+      errors.push('Production delivery-agent platform-managed mode requires PLATFORM_TENANT_ID.');
+    }
+    if (!serverId) {
+      errors.push('Production delivery-agent platform-managed mode requires PLATFORM_SERVER_ID.');
+    }
   }
 
   return errors;

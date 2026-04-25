@@ -1,4 +1,7 @@
-const { resolveTenantStoreScope } = require('./tenantStoreScope');
+const {
+  assertTenantStoreMutationScope,
+  resolveTenantStoreScope,
+} = require('./tenantStoreScope');
 
 const scopeStateByDatasource = new Map();
 
@@ -134,6 +137,7 @@ async function flushVipStoreWrites(options = {}) {
 
 function setMembership(userId, planId, expiresAt, options = {}) {
   const scope = ensureVipScope(options);
+  assertTenantStoreMutationScope(scope, options, 'set vip membership', 'vip-membership');
   void initVipStore(options);
   const parsed = normalizeMembership({ userId, planId, expiresAt });
   if (!parsed) return null;
@@ -191,6 +195,7 @@ function listMemberships(options = {}) {
 
 function removeMembership(userId, options = {}) {
   const scope = ensureVipScope(options);
+  assertTenantStoreMutationScope(scope, options, 'remove vip membership', 'vip-membership');
   void initVipStore(options);
   const key = normalizeUserId(userId);
   if (!key) return false;
@@ -212,6 +217,7 @@ function removeMembership(userId, options = {}) {
 
 function replaceMemberships(nextMemberships = [], options = {}) {
   const scope = ensureVipScope(options);
+  assertTenantStoreMutationScope(scope, options, 'replace vip memberships', 'vip-membership');
   void initVipStore(options);
   scope.state.mutationVersion += 1;
   scope.state.memberships.clear();

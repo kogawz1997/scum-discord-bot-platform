@@ -4,7 +4,10 @@ const {
   resolveDefaultTenantId,
   resolveTenantScopedDatasourceUrl,
 } = require('../prisma');
-const { assertTenantDbIsolationScope } = require('../utils/tenantDbIsolation');
+const {
+  assertTenantDbIsolationScope,
+  assertTenantMutationScope,
+} = require('../utils/tenantDbIsolation');
 
 function normalizeDiscordId(value) {
   const id = String(value || '').trim();
@@ -53,7 +56,13 @@ async function upsertPlayerAccount(input = {}, options = {}) {
   }
 
   const steamId = normalizeSteamId(input.steamId);
-  const { db } = resolveStoreScope(options);
+  const { db, tenantId } = resolveStoreScope(options);
+  assertTenantMutationScope({
+    tenantId,
+    dataTenantId: options.tenantId || options.defaultTenantId,
+    operation: 'upsert player account',
+    entityType: 'player-account',
+  });
   try {
     const row = await db.playerAccount.upsert({
       where: { discordId },
@@ -98,7 +107,13 @@ async function bindPlayerSteamId(discordId, steamId, options = {}) {
 async function unbindPlayerSteamId(discordId, options = {}) {
   const did = normalizeDiscordId(discordId);
   if (!did) return { ok: false, reason: 'invalid-discord-id' };
-  const { db } = resolveStoreScope(options);
+  const { db, tenantId } = resolveStoreScope(options);
+  assertTenantMutationScope({
+    tenantId,
+    dataTenantId: options.tenantId || options.defaultTenantId,
+    operation: 'unbind player steam id',
+    entityType: 'player-account',
+  });
 
   const row = await db.playerAccount.upsert({
     where: { discordId: did },

@@ -34,9 +34,18 @@ function createDelegateHarness() {
           .sort((left, right) => String(left.occurredAt || '').localeCompare(String(right.occurredAt || '')))
           .map(clone);
       },
-      async deleteMany() {
-        rows.clear();
-        return { count: 0 };
+      async deleteMany(args = {}) {
+        const ids = args?.where?.id?.in;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          const count = rows.size;
+          rows.clear();
+          return { count };
+        }
+        let count = 0;
+        for (const id of ids) {
+          if (rows.delete(String(id))) count += 1;
+        }
+        return { count };
       },
       async createMany({ data }) {
         const seen = new Set();
@@ -51,6 +60,17 @@ function createDelegateHarness() {
           rows.set(String(row.id), clone(row));
         }
         return { count: rows.size };
+      },
+      async upsert({ where, create, update }) {
+        const id = String(where?.id || create?.id || update?.id || '');
+        const nextValue = rows.has(id)
+          ? {
+              ...clone(rows.get(id)),
+              ...clone(update),
+            }
+          : clone(create);
+        rows.set(id, nextValue);
+        return clone(nextValue);
       },
     },
     snapshot() {

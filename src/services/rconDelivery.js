@@ -42,6 +42,7 @@ const {
   readAcrossDeliveryPersistenceScopes,
   groupRowsByTenant,
 } = require('./deliveryPersistenceDb');
+const { assertTenantMutationScope } = require('../utils/tenantDbIsolation');
 const {
   createAgentExecutionRoutingService,
 } = require('../domain/delivery/agentExecutionRoutingService');
@@ -1322,6 +1323,7 @@ async function sendTestDeliveryCommand(options = {}) {
   addDeliveryAudit({
     level: verification.ok ? 'info' : 'warn',
     action: 'manual-test-send',
+    ...buildDeliveryAuditScopePatch(options.tenantId),
     purchaseCode,
     itemId: preview.itemId || preview.gameItemId || null,
     userId,
@@ -3497,6 +3499,7 @@ async function testScumAdminCommandCapability(options = {}) {
   addDeliveryAudit({
     level: result.passed ? 'info' : 'warn',
     action: 'manual-capability-test',
+    ...buildDeliveryAuditScopePatch(options.tenantId),
     purchaseCode: vars.purchaseCode || null,
     itemId: vars.itemId || capability.id,
     itemName: capability.name,
@@ -4161,6 +4164,89 @@ function normalizeDeadLetter(input) {
   };
 }
 
+function normalizeDeliveryMutationRows(nextRows, normalizer, options = {}, operation, entityType) {
+  const requestedTenantId = normalizeTenantId(options.tenantId);
+  const allowGlobal = options.allowGlobal === true;
+  const normalizedRows = [];
+  const tenantIds = new Set();
+
+  for (const raw of Array.isArray(nextRows) ? nextRows : []) {
+    const row = normalizer(raw);
+    if (!row) continue;
+    const rowTenantId = normalizeTenantId(row.tenantId) || requestedTenantId;
+    assertTenantMutationScope({
+      tenantId: requestedTenantId || rowTenantId,
+      dataTenantId: rowTenantId,
+      allowGlobal,
+      operation,
+      entityType,
+    });
+    const scopedRow = rowTenantId ? { ...row, tenantId: rowTenantId } : row;
+    if (rowTenantId) tenantIds.add(rowTenantId);
+    normalizedRows.push(scopedRow);
+  }
+
+  if (requestedTenantId) {
+    assertTenantMutationScope({
+      tenantId: requestedTenantId,
+      allowGlobal,
+      operation,
+      entityType,
+    });
+    return {
+      tenantId: requestedTenantId,
+      rows: normalizedRows,
+      global: false,
+    };
+  }
+
+  if (allowGlobal) {
+    assertTenantMutationScope({
+      allowGlobal: true,
+      operation,
+      entityType,
+    });
+    return {
+      tenantId: null,
+      rows: normalizedRows,
+      global: true,
+    };
+  }
+
+  if (normalizedRows.length === 0) {
+    return {
+      tenantId: null,
+      rows: normalizedRows,
+      global: true,
+    };
+  }
+
+  if (tenantIds.size === 1) {
+    const [derivedTenantId] = Array.from(tenantIds);
+    assertTenantMutationScope({
+      tenantId: derivedTenantId,
+      operation,
+      entityType,
+    });
+    return {
+      tenantId: derivedTenantId,
+      rows: normalizedRows,
+      global: false,
+    };
+  }
+
+  assertTenantMutationScope({
+    operation,
+    entityType,
+  });
+
+  return {
+    tenantId: null,
+    rows: normalizedRows,
+    global: true,
+  };
+}
+
 function compactRecentlyDelivered(now = Date.now()) {
   const cutoff = now - IDEMPOTENCY_SUCCESS_WINDOW_MS;
   for (const [code, ts] of recentlyDeliveredCodes.entries()) {
@@ -4638,7 +4724,14 @@ function listDeliveryQueue(limit = 500, options = {}) {
 }
 
 function replaceDeliveryQueue(nextJobs = [], options = {}) {
-  const tenantId = normalizeTenantId(options.tenantId);
+  const mutation = normalizeDeliveryMutationRows(
+    nextJobs,
+    normalizeJob,
+    options,
+    'replace delivery queue',
+    'delivery-queue-job',
+  );
+  const tenantId = mutation.tenantId;
   mutationVersion += 1;
   if (!tenantId) {
     jobs.clear();
@@ -4649,7 +4742,7 @@ function replaceDeliveryQueue(nextJobs = [], options = {}) {
       }
     }
   }
-  for (const row of Array.isArray(nextJobs) ? nextJobs : []) {
+  for (const row of mutation.rows) {
     const normalized = normalizeJob(row);
     if (!normalized) continue;
     if (tenantId && normalizeTenantId(normalized.tenantId) !== tenantId) continue;
@@ -4738,7 +4831,14 @@ function listFilteredDeliveryDeadLetters(filters = {}) {
 }
 
 function replaceDeliveryDeadLetters(nextRows = [], options = {}) {
-  const tenantId = normalizeTenantId(options.tenantId);
+  const mutation = normalizeDeliveryMutationRows(
+    nextRows,
+    normalizeDeadLetter,
+    options,
+    'replace delivery dead letters',
+    'delivery-dead-letter',
+  );
+  const tenantId = mutation.tenantId;
   mutationVersion += 1;
   if (!tenantId) {
     deadLetters.clear();
@@ -4749,7 +4849,7 @@ function replaceDeliveryDeadLetters(nextRows = [], options = {}) {
       }
     }
   }
-  for (const row of Array.isArray(nextRows) ? nextRows : []) {
+  for (const row of mutation.rows) {
     const normalized = normalizeDeadLetter(row);
     if (!normalized) continue;
     if (tenantId && normalizeTenantId(normalized.tenantId) !== tenantId) continue;
@@ -5015,12 +5115,57 @@ function publishQueueLiveUpdate(action, job) {
   });
 }
 
+function buildDeliveryAuditScopePatch(tenantId) {
+  const scopedTenantId = normalizeTenantId(tenantId);
+  return scopedTenantId ? { tenantId: scopedTenantId } : { allowGlobal: true };
+}
+
+function validatePurchaseDeliveryTenantScope(purchase, context = {}) {
+  const purchaseTenantId = normalizeTenantId(purchase?.tenantId);
+  const contextTenantId = normalizeTenantId(context?.tenantId);
+  const tenantId = contextTenantId || purchaseTenantId;
+  try {
+    assertTenantMutationScope({
+      tenantId,
+      dataTenantId: purchaseTenantId,
+      operation: 'enqueue purchase delivery',
+      entityType: 'delivery-queue-job',
+    });
+  } catch (error) {
+    if (error?.code === 'TENANT_MUTATION_SCOPE_REQUIRED') {
+      return {
+        ok: false,
+        result: {
+          queued: false,
+          reason: 'tenant-scope-required',
+          errorCode: error.code,
+        },
+      };
+    }
+    if (error?.code === 'TENANT_MUTATION_SCOPE_MISMATCH') {
+      return {
+        ok: false,
+        result: {
+          queued: false,
+          reason: 'tenant-scope-mismatch',
+          errorCode: error.code,
+        },
+      };
+    }
+    throw error;
+  }
+  return {
+    ok: true,
+    tenantId,
+  };
+}
+
 function queueAudit(level, action, job, message, meta = null) {
   const executionMeta = buildExecutionAuditMeta(job, meta);
   addDeliveryAudit({
     level,
     action,
-    tenantId: job?.tenantId || null,
+    ...buildDeliveryAuditScopePatch(job?.tenantId),
     purchaseCode: job?.purchaseCode || null,
     itemId: job?.itemId || null,
     userId: job?.userId || null,
@@ -5912,11 +6057,17 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     return { queued: false, reason: 'invalid-purchase' };
   }
   const purchaseCode = String(purchase.code);
+  const scopeValidation = validatePurchaseDeliveryTenantScope(purchase, context);
+  if (!scopeValidation.ok) {
+    return scopeValidation.result;
+  }
+  const deliveryTenantId = scopeValidation.tenantId;
   if (purchase.status === 'delivered' || purchase.status === 'refunded') {
     markRecentlyDelivered(purchaseCode);
     addDeliveryAudit({
       level: 'info',
       action: 'skip-terminal-status',
+      ...buildDeliveryAuditScopePatch(deliveryTenantId),
       purchaseCode,
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
@@ -5939,7 +6090,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     return { queued: false, reason: 'terminal-status', noop: true, reused: true };
   }
   const shopItem = await getShopItemById(purchase.itemId, {
-    tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+    tenantId: deliveryTenantId,
   }).catch(() => null);
   const itemName = String(context.itemName || shopItem?.name || purchase.itemId);
   const fallbackDeliveryItems = normalizeDeliveryItemsForJob(shopItem?.deliveryItems, {
@@ -5976,6 +6127,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     addDeliveryAudit({
       level: 'info',
       action: 'skip-disabled',
+      ...buildDeliveryAuditScopePatch(deliveryTenantId),
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
@@ -6008,6 +6160,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     addDeliveryAudit({
       level: 'info',
       action: 'skip-missing-command',
+      ...buildDeliveryAuditScopePatch(deliveryTenantId),
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
@@ -6039,6 +6192,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
     addDeliveryAudit({
       level: 'warn',
       action: 'skip-invalid-template',
+      ...buildDeliveryAuditScopePatch(deliveryTenantId),
       purchaseCode: String(purchase.code),
       itemId: String(purchase.itemId),
       userId: String(purchase.userId),
@@ -6089,6 +6243,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       addDeliveryAudit({
         level: 'warn',
         action: 'enqueue-blocked',
+        ...buildDeliveryAuditScopePatch(deliveryTenantId),
         purchaseCode,
         itemId: String(purchase.itemId),
         userId: String(purchase.userId),
@@ -6121,7 +6276,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
 
     const preflightReport = await getDeliveryPreflightReport({
       settings,
-      tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+      tenantId: deliveryTenantId,
       serverId: String(context.serverId || purchase.serverId || '').trim() || null,
       guildId: String(context.guildId || purchase.guildId || '').trim() || null,
       purchaseCode,
@@ -6152,6 +6307,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
       addDeliveryAudit({
         level: 'warn',
         action: 'enqueue-blocked',
+        ...buildDeliveryAuditScopePatch(deliveryTenantId),
         purchaseCode,
         itemId: String(purchase.itemId),
         userId: String(purchase.userId),
@@ -6190,7 +6346,7 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
 
   const job = normalizeJob({
     purchaseCode,
-    tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+    tenantId: deliveryTenantId,
     serverId: String(context.serverId || purchase.serverId || '').trim() || null,
     userId: String(purchase.userId),
     itemId: String(purchase.itemId),
@@ -6215,13 +6371,13 @@ async function enqueuePurchaseDelivery(purchase, context = {}) {
   setJob(job);
   if (deadLetters.has(purchaseCode)) {
     removeDeliveryDeadLetter(purchaseCode, {
-      tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+      tenantId: deliveryTenantId,
     });
   }
   await setPurchaseStatusByCode(purchaseCode, 'delivering', {
     actor: 'delivery-worker',
     reason: 'delivery-enqueued',
-    tenantId: String(context.tenantId || purchase.tenantId || '').trim() || null,
+    tenantId: deliveryTenantId,
   }).catch(() => null);
   queueAudit('info', 'queued', job, 'Queued purchase for auto-delivery', {
     step: 'queued',

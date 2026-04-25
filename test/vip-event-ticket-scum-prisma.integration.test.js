@@ -26,6 +26,12 @@ function uniqueText(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+const TEST_TENANT_ID = 'tenant-vip-ticket-event-integration';
+
+function scope() {
+  return { tenantId: TEST_TENANT_ID };
+}
+
 test('vip/ticket/event/scum stores write through to prisma', async () => {
   const userId = uniqueText('vip-user');
   const channelId = uniqueText('ticket-channel');
@@ -35,15 +41,15 @@ test('vip/ticket/event/scum stores write through to prisma', async () => {
 
   try {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    setMembership(userId, 'vip-7d', expiresAt);
-    await flushVipStoreWrites();
+    setMembership(userId, 'vip-7d', expiresAt, scope());
+    await flushVipStoreWrites(scope());
 
     let vipRow = await prisma.vipMembership.findUnique({ where: { userId } });
     assert.ok(vipRow);
     assert.equal(vipRow.planId, 'vip-7d');
 
-    removeMembership(userId);
-    await flushVipStoreWrites();
+    removeMembership(userId, scope());
+    await flushVipStoreWrites(scope());
     vipRow = await prisma.vipMembership.findUnique({ where: { userId } });
     assert.equal(vipRow, null);
 
@@ -53,10 +59,10 @@ test('vip/ticket/event/scum stores write through to prisma', async () => {
       channelId,
       category: 'help',
       reason: 'integration test',
-    });
-    claimTicket(channelId, 'staff-1');
-    closeTicket(channelId);
-    await flushTicketStoreWrites();
+    }, scope());
+    claimTicket(channelId, 'staff-1', scope());
+    closeTicket(channelId, scope());
+    await flushTicketStoreWrites(scope());
 
     const ticketRow = await prisma.ticketRecord.findUnique({
       where: { channelId },
@@ -70,12 +76,12 @@ test('vip/ticket/event/scum stores write through to prisma', async () => {
       name: 'Test Event',
       time: 'คืนนี้',
       reward: '1000 coins',
-    });
+    }, scope());
     eventId = ev.id;
-    joinEvent(eventId, eventUserId);
-    startEvent(eventId);
-    endEvent(eventId);
-    await flushEventStoreWrites();
+    joinEvent(eventId, eventUserId, scope());
+    startEvent(eventId, scope());
+    endEvent(eventId, scope());
+    await flushEventStoreWrites(scope());
 
     const eventRow = await prisma.guildEvent.findUnique({
       where: { id: eventId },

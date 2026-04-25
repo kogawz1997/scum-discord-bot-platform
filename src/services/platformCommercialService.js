@@ -130,6 +130,12 @@ function createPlatformCommercialService(deps) {
       }
       : null;
     await runWithOptionalTenantDbIsolation(tenantId, async (db) => {
+      let rowMetadata = {};
+      try {
+        rowMetadata = JSON.parse(row.metadataJson || '{}') || {};
+      } catch {
+        rowMetadata = {};
+      }
       billingCustomer = await ensureBillingCustomer({
         tenantId,
         email: outcome.tenantProfile?.ownerEmail || null,
@@ -140,10 +146,11 @@ function createPlatformCommercialService(deps) {
           subscriptionId: row.id,
         },
       }, db).catch(() => null);
+      const normalizedCreatedStatus = String(row.status || '').trim().toLowerCase();
       await recordSubscriptionEvent({
         tenantId,
         subscriptionId: row.id,
-        eventType: String(row.status || '').trim().toLowerCase() === 'trialing'
+        eventType: normalizedCreatedStatus === 'trialing'
           ? 'subscription.trial-created'
           : 'subscription.created',
         billingStatus: row.status,
@@ -156,6 +163,28 @@ function createPlatformCommercialService(deps) {
           renewsAt: row.renewsAt ? new Date(row.renewsAt).toISOString() : null,
         },
       }, db).catch(() => null);
+      const lifecycleEvents = [];
+      if (rowMetadata.previewMode === true || String(rowMetadata.source || '').trim() === 'public-preview-signup') {
+        lifecycleEvents.push('preview.created');
+      }
+      if (normalizedCreatedStatus === 'trialing') {
+        lifecycleEvents.push('trial.started', 'entitlement.unlocked');
+      }
+      for (const eventType of lifecycleEvents) {
+        await recordSubscriptionEvent({
+          tenantId,
+          subscriptionId: row.id,
+          eventType,
+          billingStatus: row.status,
+          actor,
+          payload: {
+            planId: row.planId,
+            billingCycle: row.billingCycle,
+            packageId: rowMetadata.packageId || null,
+            source: rowMetadata.source || null,
+          },
+        }, db).catch(() => null);
+      }
       if (fallbackInvoice) {
         invoice = await createInvoiceDraft({
           tenantId,

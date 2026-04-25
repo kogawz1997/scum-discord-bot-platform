@@ -55,12 +55,12 @@ test('subscription lifecycle status expires by date and exposes canonical billin
   assert.equal(row.lifecycleStatus, 'expired');
 });
 
-test('subscription lifecycle status maps raw suspension states to canonical suspended', () => {
+test('subscription lifecycle status maps raw suspension states to canonical past due', () => {
   const status = getSubscriptionLifecycleStatus({
     status: 'past_due',
     billingCycle: 'monthly',
     renewsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
 
-  assert.equal(status, 'suspended');
+  assert.equal(status, 'past_due');
 });

@@ -4,205 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | เข้าสู่ระบบผู้เช่า</title>
-  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260328-route-1">
-  <style>
-    .tenant-auth-stage {
-      width: min(1180px, calc(100% - 48px));
-      margin: 0 auto;
-      padding: 32px 0 40px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
-      gap: 24px;
-    }
-    .tenant-auth-panel,
-    .tenant-auth-form {
-      padding: 28px;
-      border: 1px solid rgba(191,170,112,.16);
-      border-radius: 24px;
-      background: rgba(13,20,17,.94);
-      box-shadow: 0 24px 56px rgba(0,0,0,.26);
-      display: grid;
-      gap: 18px;
-    }
-    .tenant-auth-panel h1,
-    .tenant-auth-form h2 {
-      margin: 0;
-      font-size: clamp(2rem, 2.8vw, 3rem);
-      line-height: 1.04;
-      letter-spacing: -.04em;
-    }
-    .tenant-auth-panel p,
-    .tenant-auth-form p {
-      margin: 0;
-      color: rgba(243,237,225,.74);
-      line-height: 1.68;
-    }
-    .tenant-auth-grid,
-    .tenant-auth-note-grid {
-      display: grid;
-      gap: 16px;
-    }
-    .tenant-auth-field {
-      display: grid;
-      gap: 8px;
-    }
-    .tenant-auth-field span {
-      color: rgba(243,237,225,.78);
-      font-size: .88rem;
-    }
-    .tenant-auth-input {
-      height: 46px;
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(191,170,112,.16);
-      background: rgba(255,255,255,.03);
-      color: #f3ede1;
-      font: inherit;
-    }
-    .tenant-auth-error {
-      min-height: 22px;
-      color: #d67f72;
-      font-size: .84rem;
-    }
-    .tenant-auth-chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .tenant-auth-chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(191,170,112,.18);
-      background: rgba(255,255,255,.03);
-      color: rgba(243,237,225,.9);
-      font-size: .86rem;
-      font-weight: 600;
-    }
-    .tenant-auth-visual {
-      position: relative;
-      min-height: 250px;
-      border-radius: 20px;
-      border: 1px solid rgba(191,170,112,.14);
-      background:
-        linear-gradient(120deg, rgba(8,10,8,.2), rgba(8,10,8,.68)),
-        url('/admin/assets/tenant-panel-scene.svg');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-      overflow: hidden;
-      animation: tenant-auth-float 8s ease-in-out infinite alternate;
-    }
-    .tenant-auth-visual::after {
-      content: "";
-      position: absolute;
-      inset: auto -12% -24% auto;
-      width: 220px;
-      height: 220px;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(207,177,100,.34) 0%, rgba(207,177,100,.08) 34%, transparent 72%);
-      filter: blur(10px);
-      animation: tenant-auth-glow 6.5s ease-in-out infinite;
-    }
-    .tenant-auth-note {
-      padding: 16px 18px;
-      border-radius: 18px;
-      border: 1px solid rgba(191,170,112,.14);
-      background: rgba(255,255,255,.02);
-      display: grid;
-      gap: 8px;
-    }
-    .tenant-auth-note strong {
-      font-size: 1rem;
-    }
-    @keyframes tenant-auth-float {
-      from { transform: translateY(0) scale(1.01); }
-      to { transform: translateY(-8px) scale(1.04); }
-    }
-    @keyframes tenant-auth-glow {
-      0%, 100% { transform: scale(.95); opacity: .66; }
-      50% { transform: scale(1.08); opacity: 1; }
-    }
-    @media (max-width: 920px) {
-      .tenant-auth-stage {
-        width: min(100%, calc(100% - 32px));
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <title>SCUM TH Platform — เข้าสู่ระบบผู้เช่า</title>
+  <link rel="stylesheet" href="/admin/assets/platform-design-system-v5.css?v=20260425">
 </head>
-<body class="surface-body surface-tenant">
-  <div class="surface-app">
-    <header class="surface-globalbar">
-      <div class="surface-globalbar-main">
-        <a class="surface-brand" href="/tenant/login">
-          <span class="surface-brand-mark">SCUM</span>
-          <span class="surface-brand-copy">
-            <span class="surface-brand-eyebrow">ผู้เช่า</span>
-            <strong class="surface-brand-title">เข้าสู่ระบบผู้เช่า</strong>
-            <span class="surface-brand-detail">เข้าพื้นที่ดูแลเซิร์ฟเวอร์ บอท คำสั่งซื้อ และงานประจำวันของชุมชนคุณจากหน้าหลักเดียว</span>
-          </span>
-        </a>
-      </div>
-      <div class="surface-globalbar-tools">
-        <nav class="surface-role-switch" aria-label="Surface switch">
-          <a class="surface-role-link is-active" href="/tenant/login">ผู้เช่า</a>
-          <a class="surface-role-link" href="/owner/login">เจ้าของระบบ</a>
-        </nav>
-      </div>
-    </header>
-    <main class="surface-stage">
-      <section class="tenant-auth-stage">
-        <article class="tenant-auth-panel">
-          <span class="surface-brand-eyebrow">งานประจำวันของผู้เช่า</span>
-          <h1>เข้าพื้นที่ดูแลเซิร์ฟเวอร์ได้จากหน้าเดียว</h1>
-          <p>ใช้บัญชีเจ้าของผู้เช่าหรือทีมงานที่ได้รับสิทธิ์ หลังเข้าสู่ระบบแล้วจะเข้าแผงผู้เช่าจริงที่รวม onboarding, เซิร์ฟเวอร์, บอท, คำสั่งซื้อ และงานประจำวันไว้ครบ</p>
-          <div class="tenant-auth-chip-row">
-            <span class="tenant-auth-chip">สถานะเซิร์ฟเวอร์</span>
-            <span class="tenant-auth-chip">บอทเซิร์ฟเวอร์</span>
-            <span class="tenant-auth-chip">บอทส่งของ</span>
+<body>
+  <header class="ds-topbar">
+    <div class="ds-topbar-inner">
+      <a class="ds-brand" href="/tenant/login">
+        <span class="ds-brand-mark">SCUM</span>
+        <span>
+          <span class="ds-brand-title">Tenant Admin</span>
+          <span class="ds-brand-subtitle">เข้าสู่ระบบผู้เช่า</span>
+        </span>
+      </a>
+      <nav class="ds-nav" aria-label="Surface switch">
+        <a class="ds-nav-link is-active" href="/tenant/login">ผู้เช่า</a>
+        <a class="ds-nav-link" href="/owner/login">เจ้าของระบบ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="ds-container" style="padding-block: var(--space-7)">
+    <div class="ds-grid" style="grid-template-columns: 1.1fr 1fr; gap: var(--space-6); max-width: 1080px; margin: 0 auto">
+      <article class="ds-card ds-card-elevated">
+        <span class="ds-kicker">งานประจำวันของผู้เช่า</span>
+        <h1 style="font-size: var(--fs-2xl); margin-bottom: var(--space-3)">เข้าพื้นที่ดูแลเซิร์ฟเวอร์ได้จากหน้าเดียว</h1>
+        <p class="ds-text-muted" style="margin-bottom: var(--space-5)">ใช้บัญชีเจ้าของผู้เช่าหรือทีมงานที่ได้รับสิทธิ์ หลังเข้าระบบจะเข้าแผงผู้เช่าจริงที่รวม onboarding, เซิร์ฟเวอร์, บอท, คำสั่งซื้อ และงานประจำวันไว้ครบ</p>
+
+        <div class="ds-row" style="gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-5)">
+          <span class="ds-badge">สถานะเซิร์ฟเวอร์</span>
+          <span class="ds-badge">บอทเซิร์ฟเวอร์</span>
+          <span class="ds-badge">บอทส่งของ</span>
+        </div>
+
+        <ul class="ds-stack-sm" style="list-style: none; padding: 0; margin: 0">
+          <li class="ds-row" style="gap: var(--space-3); align-items: flex-start"><span class="ds-badge ds-badge-success">✓</span><span><strong>เริ่มจากความพร้อมของระบบ</strong><br><span class="ds-text-muted">ระบบจะบอกขั้นถัดไปที่ควรทำก่อน เช่น ติดตั้งบอท ตรวจค่าตั้งเซิร์ฟเวอร์</span></span></li>
+          <li class="ds-row" style="gap: var(--space-3); align-items: flex-start"><span class="ds-badge ds-badge-success">✓</span><span><strong>เครื่องมือหลักแยกชัด</strong><br><span class="ds-text-muted">บอทเซิร์ฟเวอร์กับบอทส่งของแยกกันชัด ทั้งในหน้าใช้งานและ runtime</span></span></li>
+          <li class="ds-row" style="gap: var(--space-3); align-items: flex-start"><span class="ds-badge ds-badge-success">✓</span><span><strong>ฟีเจอร์ที่ยังไม่เปิดไม่หายไป</strong><br><span class="ds-text-muted">ระบบโชว์สิ่งที่ยังล็อกพร้อมเหตุผลและทางไปต่อ</span></span></li>
+        </ul>
+      </article>
+
+      <article class="ds-card ds-card-elevated">
+        <span class="ds-kicker">เข้าสู่ระบบ</span>
+        <h2 style="font-size: var(--fs-xl); margin-bottom: var(--space-3)">ลงชื่อเข้าใช้บัญชีผู้เช่า</h2>
+        <p class="ds-text-muted" style="margin-bottom: var(--space-5)">ใช้อีเมลของเจ้าของผู้เช่าหรือทีมงานที่ผูกกับผู้เช่านี้ กรอกอีเมลเต็ม ไม่ใช่ชื่อผู้ใช้แบบสั้น</p>
+        <form id="tenantLoginForm" class="ds-stack" novalidate>
+          <div class="ds-field">
+            <label class="ds-label" for="tenantLoginEmail">อีเมล</label>
+            <input id="tenantLoginEmail" class="ds-input" type="email" autocomplete="username" placeholder="owner@example.com" required>
           </div>
-          <div class="tenant-auth-visual"></div>
-          <div class="tenant-auth-note-grid">
-            <div class="tenant-auth-note">
-              <strong>เริ่มจากความพร้อมของระบบ</strong>
-              <p>ระบบจะบอกขั้นถัดไปที่ควรทำก่อน เช่น ติดตั้งบอทเซิร์ฟเวอร์ เชื่อมต่อบอทส่งของ และตรวจค่าตั้งเซิร์ฟเวอร์</p>
-            </div>
-            <div class="tenant-auth-note">
-              <strong>เครื่องมือหลักแยกชัด</strong>
-              <p>บอทเซิร์ฟเวอร์กับบอทส่งของยังแยกกันชัด ทั้งในหน้าใช้งานและ runtime จริง</p>
-            </div>
-            <div class="tenant-auth-note">
-              <strong>ฟีเจอร์ที่ยังไม่เปิดไม่หายไป</strong>
-              <p>ระบบจะโชว์สิ่งที่ยังล็อกอยู่พร้อมเหตุผลและทางไปต่อ ไม่ปล่อยให้เดาเอง</p>
-            </div>
+          <div class="ds-field">
+            <label class="ds-label" for="tenantLoginPassword">รหัสผ่าน</label>
+            <input id="tenantLoginPassword" class="ds-input" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
           </div>
-        </article>
-        <section class="tenant-auth-form">
-          <span class="surface-brand-eyebrow">เข้าสู่ระบบ</span>
-          <h2>ลงชื่อเข้าใช้บัญชีผู้เช่า</h2>
-          <p>ใช้อีเมลของเจ้าของผู้เช่าหรือทีมงานที่ผูกกับผู้เช่านี้ กรอกอีเมลเต็ม ไม่ใช่ชื่อผู้ใช้แบบสั้น</p>
-          <form id="tenantLoginForm" class="tenant-auth-grid" novalidate>
-            <label class="tenant-auth-field">
-              <span>อีเมล</span>
-              <input id="tenantLoginEmail" class="tenant-auth-input" type="email" autocomplete="username" placeholder="owner@example.com" required>
-            </label>
-            <label class="tenant-auth-field">
-              <span>รหัสผ่าน</span>
-              <input id="tenantLoginPassword" class="tenant-auth-input" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
-            </label>
-            <div id="tenantLoginError" class="tenant-auth-error" aria-live="polite"></div>
-            <div class="surface-tool-cluster">
-              <button id="tenantLoginSubmit" class="surface-button surface-button-primary" type="submit">เปิดแผงผู้เช่า</button>
-            </div>
-          </form>
-        </section>
-      </section>
-    </main>
-  </div>
-  <script src="/admin/assets/tenant-login-v1.js?v=20260401-tenant-login-visual-1"></script>
+          <div id="tenantLoginError" class="ds-help" style="color: var(--color-danger)" aria-live="polite"></div>
+          <button id="tenantLoginSubmit" class="ds-btn ds-btn-primary ds-btn-lg ds-btn-block" type="submit">เปิดแผงผู้เช่า</button>
+        </form>
+      </article>
+    </div>
+  </main>
+  <script src="/admin/assets/tenant-login-v1.js?v=20260425-redesign-1"></script>
 </body>
 </html>

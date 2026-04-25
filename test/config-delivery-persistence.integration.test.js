@@ -18,6 +18,7 @@ test('config + delivery non-store persistence writes through prisma', async () =
   await initDeliveryPersistenceStore?.();
 
   const nowIso = new Date().toISOString();
+  const tenantId = 'tenant-config-delivery-persistence';
 
   try {
     await prisma.botConfig.deleteMany();
@@ -41,6 +42,7 @@ test('config + delivery non-store persistence writes through prisma', async () =
     replaceDeliveryQueue([
       {
         purchaseCode: 'Q-PERSIST-1',
+        tenantId,
         userId: 'u-1',
         itemId: 'item-1',
         itemName: 'Item 1',
@@ -53,11 +55,12 @@ test('config + delivery non-store persistence writes through prisma', async () =
         createdAt: nowIso,
         updatedAt: nowIso,
       },
-    ]);
+    ], { tenantId });
 
     replaceDeliveryDeadLetters([
       {
         purchaseCode: 'Q-PERSIST-1',
+        tenantId,
         userId: 'u-1',
         itemId: 'item-1',
         itemName: 'Item 1',
@@ -67,7 +70,7 @@ test('config + delivery non-store persistence writes through prisma', async () =
         meta: { source: 'test' },
         createdAt: nowIso,
       },
-    ]);
+    ], { tenantId });
 
     await flushDeliveryPersistenceWrites();
 

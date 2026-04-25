@@ -5,12 +5,16 @@ const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const includeDirs = ['src', 'scripts', 'apps', 'test'];
 const jsFiles = [];
+const ignoredDirNames = new Set(['node_modules', 'dist', 'build', 'coverage', 'output', '.vite']);
 
 function walk(dirPath) {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
+      if (ignoredDirNames.has(entry.name)) {
+        continue;
+      }
       walk(fullPath);
       continue;
     }

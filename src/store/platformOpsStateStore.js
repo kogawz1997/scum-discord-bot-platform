@@ -1,7 +1,12 @@
 const fs = require('node:fs');
 
 const { prisma } = require('../prisma');
-const { atomicWriteJson, getFilePath, isDbPersistenceEnabled } = require('./_persist');
+const {
+  atomicWriteJson,
+  getFilePath,
+  isDbPersistenceEnabled,
+  resolveStorePersistenceMode: resolveStorePersistenceModeBase,
+} = require('./_persist');
 
 const FILE_PATH = getFilePath('platform-ops-state.json');
 const STATE_ROW_ID = 'platform-ops-state';
@@ -112,14 +117,21 @@ function getOpsStateDelegate(client = prisma) {
   return delegate;
 }
 
-function getPersistenceMode() {
-  const explicit = String(process.env.PLATFORM_OPS_STATE_STORE_MODE || '').trim().toLowerCase();
+function resolveStorePersistenceMode(explicitValue, defaultMode) {
+  if (typeof resolveStorePersistenceModeBase === 'function') {
+    return resolveStorePersistenceModeBase(explicitValue, defaultMode);
+  }
+  const explicit = String(explicitValue || '').trim().toLowerCase();
   if (explicit === 'file') return 'file';
   if (explicit === 'db') return 'db';
   if (typeof isDbPersistenceEnabled === 'function' && isDbPersistenceEnabled()) {
     return 'db';
   }
-  return 'auto';
+  return defaultMode;
+}
+
+function getPersistenceMode() {
+  return resolveStorePersistenceMode(process.env.PLATFORM_OPS_STATE_STORE_MODE, 'auto');
 }
 
 function shouldFallbackToFile(error) {

@@ -12,34 +12,44 @@ const {
   listPurchaseStatusHistory,
   listShopItems,
 } = require('../src/store/memoryStore');
-const { prisma } = require('../src/prisma');
+const { getTenantScopedPrismaClient } = require('../src/prisma');
 
 function uniqueId(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+const TEST_TENANT_ID = 'tenant-wallet-ledger-integration';
+
+function scope() {
+  return { tenantId: TEST_TENANT_ID };
+}
+
 test('wallet ledger writes immutable rows for balance mutations', async () => {
   const userId = uniqueId('ledger-user');
+  const db = getTenantScopedPrismaClient(TEST_TENANT_ID);
   try {
     await setCoins(userId, 0, {
       reason: 'test-init',
       actor: 'test-suite',
+      ...scope(),
     });
     await addCoins(userId, 100, {
       reason: 'test-add',
       actor: 'test-suite',
       reference: 'REF-ADD',
+      ...scope(),
     });
     await removeCoins(userId, 30, {
       reason: 'test-remove',
       actor: 'test-suite',
       reference: 'REF-REMOVE',
+      ...scope(),
     });
 
-    const wallet = await getWallet(userId);
+    const wallet = await getWallet(userId, scope());
     assert.equal(wallet.balance, 70);
 
-    const rows = await listWalletLedger(userId, 20);
+    const rows = await listWalletLedger(userId, 20, scope());
     assert.ok(rows.length >= 2);
     assert.equal(rows[0].reason, 'test-remove');
     assert.equal(rows[0].delta, -30);
@@ -48,29 +58,32 @@ test('wallet ledger writes immutable rows for balance mutations', async () => {
     assert.equal(rows[1].delta, 100);
     assert.equal(rows[1].balanceAfter, 100);
   } finally {
-    await prisma.walletLedger.deleteMany({ where: { userId } });
-    await prisma.userWallet.deleteMany({ where: { userId } });
+    await db.walletLedger.deleteMany({ where: { userId } });
+    await db.userWallet.deleteMany({ where: { userId } });
   }
 });
 
 test('purchase state machine enforces transitions and records history', async () => {
   const userId = uniqueId('purchase-user');
+  const db = getTenantScopedPrismaClient(TEST_TENANT_ID);
   let code = null;
   try {
-    const items = await listShopItems();
+    const items = await listShopItems(scope());
     assert.ok(items.length > 0);
     const item = items[0];
 
-    const purchase = await createPurchase(userId, item);
+    const purchase = await createPurchase(userId, item, scope());
     code = purchase.code;
 
     await setPurchaseStatusByCode(code, 'delivering', {
       actor: 'test-suite',
       reason: 'move-to-delivering',
+      ...scope(),
     });
     await setPurchaseStatusByCode(code, 'delivered', {
       actor: 'test-suite',
       reason: 'move-to-delivered',
+      ...scope(),
     });
 
     await assert.rejects(
@@ -78,21 +91,22 @@ test('purchase state machine enforces transitions and records history', async ()
         setPurchaseStatusByCode(code, 'pending', {
           actor: 'test-suite',
           reason: 'invalid-back-transition',
+          ...scope(),
         }),
       /Invalid purchase status transition/i,
     );
 
-    const history = await listPurchaseStatusHistory(code, 10);
+    const history = await listPurchaseStatusHistory(code, 10, scope());
     assert.ok(history.length >= 3);
     assert.equal(history[0].toStatus, 'delivered');
     assert.equal(history[1].toStatus, 'delivering');
     assert.equal(history[2].toStatus, 'pending');
   } finally {
     if (code) {
-      await prisma.purchaseStatusHistory.deleteMany({
+      await db.purchaseStatusHistory.deleteMany({
         where: { purchaseCode: code },
       });
-      await prisma.purchase.deleteMany({
+      await db.purchase.deleteMany({
         where: { code },
       });
     }

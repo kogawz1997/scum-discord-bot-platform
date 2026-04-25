@@ -73,6 +73,16 @@ function restoreEnv() {
   }
 }
 
+function disableServerBotRuntimeEnv() {
+  delete process.env.SCUM_SERVER_BOT_ENABLED;
+  delete process.env.SCUM_SERVER_BOT_REQUIRED;
+  delete process.env.SCUM_SERVER_BOT_HEALTH_HOST;
+  delete process.env.SCUM_SERVER_BOT_HEALTH_PORT;
+  delete process.env.SCUM_SERVER_CONFIG_ROOT;
+  delete process.env.SCUM_SERVER_SETTINGS_DIR;
+  delete process.env.SCUM_SERVER_DIR;
+}
+
 function installMock(modulePath, exportsValue) {
   delete require.cache[modulePath];
   require.cache[modulePath] = {
@@ -298,6 +308,7 @@ test('runtime supervisor marks degraded watcher and emits an alert', async (t) =
   delete process.env.SCUM_CONSOLE_AGENT_HOST;
   delete process.env.SCUM_CONSOLE_AGENT_PORT;
   delete process.env.SCUM_CONSOLE_AGENT_BASE_URL;
+  disableServerBotRuntimeEnv();
 
   const {
     collectRuntimeSupervisorSnapshot,
@@ -432,6 +443,8 @@ test('runtime supervisor uses console-agent classification reason when agent is 
   process.env.BOT_ENABLE_RESTART_SCHEDULER = 'false';
   process.env.BOT_ENABLE_RENTBIKE_SERVICE = 'false';
   process.env.BOT_ENABLE_DELIVERY_WORKER = 'false';
+  delete process.env.BOT_HEALTH_HOST;
+  delete process.env.BOT_HEALTH_PORT;
   process.env.WORKER_ENABLE_RENTBIKE = 'false';
   process.env.WORKER_ENABLE_DELIVERY = 'false';
   delete process.env.SCUM_LOG_PATH;
@@ -439,6 +452,7 @@ test('runtime supervisor uses console-agent classification reason when agent is 
   delete process.env.SCUM_WATCHER_REQUIRED;
   delete process.env.SCUM_WATCHER_HEALTH_HOST;
   delete process.env.SCUM_WATCHER_HEALTH_PORT;
+  disableServerBotRuntimeEnv();
   delete process.env.ADMIN_WEB_HOST;
   delete process.env.ADMIN_WEB_PORT;
   delete process.env.WEB_PORTAL_HOST;

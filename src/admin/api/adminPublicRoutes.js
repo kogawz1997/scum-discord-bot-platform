@@ -375,6 +375,27 @@ function createAdminPublicRoutes(deps) {
     return '';
   }
 
+  function maybeRecordPlatformApiScopeDenied(req, auth, scopeSets = [], missingScopes = []) {
+    if (typeof recordAdminSecuritySignal !== 'function') return;
+    const tenantId = String(auth?.tenant?.id || auth?.apiKey?.tenantId || '').trim() || null;
+    recordAdminSecuritySignal('platform-api-insufficient-scope', {
+      severity: 'warn',
+      suppressNotification: true,
+      actor: String(auth?.apiKey?.name || 'platform-api-key').trim() || 'platform-api-key',
+      role: 'platform-api-key',
+      ip: typeof getClientIp === 'function' ? getClientIp(req) : null,
+      path: String(req?.url || req?.pathname || '').trim() || null,
+      reason: 'insufficient-scope',
+      detail: 'Platform API key attempted to call an endpoint without one of the accepted scope sets.',
+      data: {
+        tenantId,
+        apiKeyId: String(auth?.apiKey?.id || '').trim() || null,
+        acceptedScopeSets: Array.isArray(scopeSets) ? scopeSets : [],
+        missingScopes: Array.isArray(missingScopes) ? missingScopes : [],
+      },
+    });
+  }
+
   async function ensurePlatformApiKeyAny(req, res, scopeSets = []) {
     const normalizedScopeSets = Array.isArray(scopeSets)
       ? scopeSets.filter((entry) => Array.isArray(entry) && entry.length > 0)
@@ -406,6 +427,7 @@ function createAdminPublicRoutes(deps) {
       const missingScopes = Array.from(new Set(
         failures.flatMap((entry) => Array.isArray(entry?.missingScopes) ? entry.missingScopes : []),
       ));
+      maybeRecordPlatformApiScopeDenied(req, insufficient, normalizedScopeSets, missingScopes);
       sendJson(res, 403, {
         ok: false,
         error: 'insufficient-scope',
@@ -977,10 +999,7 @@ function createAdminPublicRoutes(deps) {
         }
 
         if (req.method === 'POST' && pathname === '/platform/api/v1/agent/sync') {
-          const platformAuth = await ensurePlatformApiKeyAny(req, res, [
-            ['agent:sync'],
-            ['agent:write'],
-          ]);
+          const platformAuth = await ensurePlatformApiKey(req, res, ['agent:sync']);
           if (!platformAuth) return true;
           const body = await readJsonBody(req);
           const result = await ingestPlatformAgentSync?.({

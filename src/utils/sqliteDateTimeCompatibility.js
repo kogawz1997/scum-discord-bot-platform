@@ -199,6 +199,17 @@ function buildSqliteCompatibilitySelectList(columnNames = [], dateColumns = []) 
     .join(', ');
 }
 
+function filterExistingSqliteColumns(tableInfo = [], columnNames = []) {
+  const existing = new Set(
+    (Array.isArray(tableInfo) ? tableInfo : [])
+      .map((row) => trimText(row?.name).toLowerCase())
+      .filter(Boolean),
+  );
+  return (Array.isArray(columnNames) ? columnNames : [])
+    .map((columnName) => trimText(columnName))
+    .filter((columnName) => columnName && existing.has(columnName.toLowerCase()));
+}
+
 function ensureSqliteDateTimeSchemaCompatibility(databaseFilePath, configs = []) {
   const normalizedPath = trimText(databaseFilePath);
   if (!normalizedPath || !fs.existsSync(normalizedPath)) {
@@ -232,10 +243,13 @@ function ensureSqliteDateTimeSchemaCompatibility(databaseFilePath, configs = [])
       }
 
       const legacyTableName = `${tableName}__compat_old_${Date.now()}`;
-      const selectList = buildSqliteCompatibilitySelectList(columns, dateColumns);
+      const existingColumns = filterExistingSqliteColumns(tableInfo, columns);
+      const selectList = buildSqliteCompatibilitySelectList(existingColumns, dateColumns);
       db.exec(`ALTER TABLE ${quoteIdentifier(tableName)} RENAME TO ${quoteIdentifier(legacyTableName)};`);
       db.exec(createTableSql);
-      db.exec(`INSERT INTO ${quoteIdentifier(tableName)} (${columns.map(quoteIdentifier).join(', ')}) SELECT ${selectList} FROM ${quoteIdentifier(legacyTableName)};`);
+      if (existingColumns.length > 0) {
+        db.exec(`INSERT INTO ${quoteIdentifier(tableName)} (${existingColumns.map(quoteIdentifier).join(', ')}) SELECT ${selectList} FROM ${quoteIdentifier(legacyTableName)};`);
+      }
       db.exec(`DROP TABLE ${quoteIdentifier(legacyTableName)};`);
       for (const statement of indexSql) {
         db.exec(statement);

@@ -11,6 +11,10 @@ const rconDeliveryPath = path.resolve(__dirname, '../src/services/rconDelivery.j
 const platformServicePath = path.resolve(__dirname, '../src/services/platformService.js');
 const vipServicePath = path.resolve(__dirname, '../src/services/vipService.js');
 const prismaPath = path.resolve(__dirname, '../src/prisma.js');
+const controlPlaneRepositoryPath = path.resolve(
+  __dirname,
+  '../src/data/repositories/controlPlaneRegistryRepository.js',
+);
 
 function installMock(modulePath, exportsValue) {
   delete require.cache[modulePath];
@@ -36,6 +40,9 @@ function loadService(mocks) {
   installMock(platformServicePath, mocks.platformService);
   installMock(vipServicePath, mocks.vipService);
   installMock(prismaPath, mocks.prisma);
+  installMock(controlPlaneRepositoryPath, mocks.controlPlaneRepository || {
+    listServerDiscordLinks: () => [],
+  });
   return require(servicePath);
 }
 
@@ -132,6 +139,7 @@ test.afterEach(() => {
   clearModule(platformServicePath);
   clearModule(vipServicePath);
   clearModule(prismaPath);
+  clearModule(controlPlaneRepositoryPath);
 });
 
 test('shop service requires tenant scope in strict isolation mode for shop lookup', async () => {
@@ -174,4 +182,35 @@ test('shop service uses resolved default tenant scope for admin item writes', as
 
   assert.equal(result.ok, true);
   assert.equal(result.item.tenantId, 'tenant-shop-default');
+});
+
+test('shop service resolves tenant scope from mapped Discord guild for admin item writes', async () => {
+  const service = loadService({
+    ...createBaseMocks(),
+    prisma: {
+      resolveDefaultTenantId() {
+        return null;
+      },
+    },
+    controlPlaneRepository: {
+      listServerDiscordLinks({ guildId }) {
+        return guildId === 'guild-shop-1'
+          ? [{ tenantId: 'tenant-from-guild', guildId }]
+          : [];
+      },
+    },
+  });
+
+  const result = await service.addShopItemForAdmin({
+    id: 'item-from-guild',
+    name: 'Guild item',
+    price: 100,
+    description: 'desc',
+    kind: 'item',
+    gameItemId: 'Weapon_M1911',
+    guildId: 'guild-shop-1',
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.item.tenantId, 'tenant-from-guild');
 });

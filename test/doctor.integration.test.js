@@ -453,3 +453,36 @@ test('doctor fails when legacy runtime bootstrap is enabled under db-only postur
     /PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP must stay disabled/i,
   );
 });
+
+test('doctor fails when control-plane registry file import bootstrap is enabled under db-only posture', () => {
+  const result = runDoctor({
+    NODE_ENV: 'production',
+    DATABASE_URL: PROD_DB_URL,
+    ADMIN_WEB_HOST: '127.0.0.1',
+    ADMIN_WEB_PORT: '3200',
+    ADMIN_WEB_SECURE_COOKIE: 'true',
+    ADMIN_WEB_HSTS_ENABLED: 'true',
+    ADMIN_WEB_TRUST_PROXY: 'true',
+    ADMIN_WEB_SESSION_COOKIE_PATH: '/',
+    ADMIN_WEB_ENFORCE_ORIGIN_CHECK: 'true',
+    ADMIN_WEB_ALLOWED_ORIGINS: 'https://admin.example.com',
+    ADMIN_WEB_SSO_DISCORD_ENABLED: 'false',
+    WEB_PORTAL_BASE_URL: 'https://player.example.com',
+    WEB_PORTAL_LEGACY_ADMIN_URL: 'https://admin.example.com/admin',
+    WEB_PORTAL_DISCORD_CLIENT_ID: '1478651427088760842',
+    WEB_PORTAL_DISCORD_CLIENT_SECRET: 'portal-secret-1234567890',
+    WEB_PORTAL_SECURE_COOKIE: 'true',
+    WEB_PORTAL_ENFORCE_ORIGIN_CHECK: 'true',
+    BOT_ENABLE_RENTBIKE_SERVICE: 'false',
+    BOT_ENABLE_DELIVERY_WORKER: 'false',
+    WORKER_ENABLE_RENTBIKE: 'false',
+    WORKER_ENABLE_DELIVERY: 'false',
+    CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY: 'true',
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY must stay disabled/i,
+  );
+});

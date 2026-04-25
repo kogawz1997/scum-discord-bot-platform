@@ -119,6 +119,11 @@ function getRestartPersistenceMode(db = null) {
   return runtime.isServerEngine ? 'prisma' : 'sql';
 }
 
+function isRestartDbOnlyPosture() {
+  return ['1', 'true', 'yes', 'on'].includes(String(process.env.PERSIST_REQUIRE_DB || '').trim().toLowerCase())
+    || String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+}
+
 function normalizePlanRow(row) {
   const scheduledFor = parseDate(row?.scheduledFor);
   const healthVerifiedAt = parseDate(row?.healthVerifiedAt);
@@ -301,6 +306,38 @@ function buildRestartExecutionRequestKey(input = {}) {
   });
 }
 
+function buildRestartGovernanceAudit(input = {}, payload = {}, actor = 'system', actionType = 'server.restart.schedule', resultStatus = 'pending') {
+  const tenantId = trimText(payload.tenantId || input.tenantId, 160) || null;
+  const serverId = trimText(payload.serverId || input.serverId, 160) || null;
+  const runtimeKey = trimText(payload.agentId || payload.runtimeKey || input.runtimeKey, 200) || null;
+  const actorId = trimText(input.actorId || input.requestedBy || actor, 200)
+    || (actionType === 'server.restart.execute' ? 'system:server-bot' : 'system:automation');
+  return {
+    governance: true,
+    actionType,
+    targetType: 'server',
+    targetId: serverId,
+    tenantId,
+    serverId,
+    runtimeKey,
+    actorId,
+    actorRole: trimText(input.actorRole, 80)
+      || (actionType === 'server.restart.execute' ? 'server-bot' : 'system'),
+    reason: trimText(payload.reason || input.reason, 400) || null,
+    requestId: trimText(input.requestId || input.correlationId, 160) || null,
+    correlationId: trimText(input.correlationId || input.requestId, 160) || null,
+    jobId: trimText(input.jobId || input.planId, 160) || null,
+    resultStatus: trimText(resultStatus, 60) || 'pending',
+    beforeState: null,
+    afterState: {
+      restartMode: trimText(payload.restartMode || input.restartMode, 60) || null,
+      controlMode: trimText(payload.controlMode || input.controlMode, 60) || null,
+      delaySeconds: asInt(payload.delaySeconds ?? input.delaySeconds, 0, 0),
+      scheduledFor: parseDate(input.scheduledFor)?.toISOString?.() || null,
+    },
+  };
+}
+
 async function findReusableRestartPlan(filters = {}, db = prisma) {
   const tenantId = trimText(filters.tenantId, 160) || null;
   const serverId = trimText(filters.serverId, 160) || null;
@@ -409,12 +446,14 @@ function evaluateRestartSafety(input = {}) {
 }
 
 async function ensurePlatformRestartTables(db = prisma) {
-  await ensureSharedRestartSqliteCompatibility({
-    db,
-    prisma,
-    getRestartDelegatesOrThrow,
-    isSharedRestartPrismaClient,
-  }).catch(() => null);
+  if (!isRestartDbOnlyPosture()) {
+    await ensureSharedRestartSqliteCompatibility({
+      db,
+      prisma,
+      getRestartDelegatesOrThrow,
+      isSharedRestartPrismaClient,
+    }).catch(() => null);
+  }
   if (getRestartPersistenceMode(db) !== 'prisma') return { ok: true };
   getRestartDelegatesOrThrow(db);
   return { ok: true };
@@ -533,6 +572,13 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
   const planMetadata = {
     ...(payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {}),
     requestKey,
+    audit: buildRestartGovernanceAudit(
+      input,
+      payload,
+      actor,
+      'server.restart.schedule',
+      safety.recommendedStatus,
+    ),
   };
   if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
@@ -556,6 +602,7 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
           metadata: planMetadata,
           requestedBy: payload.requestedBy,
           safety,
+          audit: planMetadata.audit,
         })},
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
@@ -608,6 +655,7 @@ async function scheduleRestartPlan(input = {}, actor = 'system', db = prisma) {
           metadata: planMetadata,
           requestedBy: payload.requestedBy,
           safety,
+          audit: planMetadata.audit,
         }),
       },
     });
@@ -649,6 +697,7 @@ async function recordRestartExecution(input = {}, db = prisma) {
   }
   await ensurePlatformRestartTables(db);
   const requestKey = buildRestartExecutionRequestKey(input);
+  const normalizedResultStatus = trimText(input.resultStatus, 60) || 'pending';
   const existingExecution = await findReusableRestartExecution({
     planId,
     tenantId,
@@ -668,6 +717,16 @@ async function recordRestartExecution(input = {}, db = prisma) {
   const executionMetadata = {
     ...(input.metadata && typeof input.metadata === 'object' ? input.metadata : {}),
     requestKey,
+    audit: buildRestartGovernanceAudit(
+      {
+        ...input,
+        actorId: trimText(input.actorId || input.actor, 200) || 'system:server-bot',
+      },
+      input,
+      'system:server-bot',
+      'server.restart.execute',
+      normalizedResultStatus,
+    ),
   };
   if (getRestartPersistenceMode(db) !== 'prisma') {
     await db.$executeRaw`
@@ -733,7 +792,6 @@ async function recordRestartExecution(input = {}, db = prisma) {
       },
     });
   }
-  const normalizedResultStatus = trimText(input.resultStatus, 60) || 'pending';
   if (!['pending', 'running', 'processing'].includes(normalizedResultStatus)) {
     publishAdminLiveUpdate('restart-execution-result', {
       source: 'restart-orchestration',

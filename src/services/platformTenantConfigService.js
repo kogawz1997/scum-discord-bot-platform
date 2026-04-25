@@ -7,6 +7,7 @@ const {
   assertTenantDbIsolationScope,
   withTenantDbIsolation,
 } = require('../utils/tenantDbIsolation');
+const { reconcileSqliteDateColumns } = require('../utils/sqliteDateTimeCompatibility');
 
 function normalizeTenantId(value) {
   const text = String(value || '').trim();
@@ -96,7 +97,11 @@ function getTenantConfigDelegateOrThrow(client = null) {
 }
 
 function getTenantConfigPersistenceMode() {
-  const requireDb = ['1', 'true', 'yes', 'on'].includes(String(process.env.PERSIST_REQUIRE_DB || '').trim().toLowerCase());
+  const requireDb = ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.PERSIST_REQUIRE_DB || '')
+      .trim()
+      .toLowerCase(),
+  );
   if (requireDb) return 'prisma';
   const runtime = resolveDatabaseRuntime();
   if (runtime.isSqlite) {
@@ -106,16 +111,63 @@ function getTenantConfigPersistenceMode() {
     // preserve the existing API contract safely.
     return 'sql';
   }
-  return runtime.isServerEngine
-    ? 'prisma'
-    : 'sql';
+  return runtime.isServerEngine ? 'prisma' : 'sql';
+}
+
+function isTenantConfigDbOnlyPosture() {
+  return (
+    ['1', 'true', 'yes', 'on'].includes(
+      String(process.env.PERSIST_REQUIRE_DB || '')
+        .trim()
+        .toLowerCase(),
+    ) ||
+    String(process.env.NODE_ENV || '')
+      .trim()
+      .toLowerCase() === 'production'
+  );
 }
 
 function isTenantConfigDateCompatibilityError(error) {
   if (!error) return false;
-  if (String(error.code || '').trim().toUpperCase() === 'P2023') return true;
+  if (
+    String(error.code || '')
+      .trim()
+      .toUpperCase() === 'P2023'
+  )
+    return true;
   const message = String(error.message || '').toLowerCase();
-  return message.includes('created_at') || message.includes('updated_at') || message.includes('type `datetime`');
+  return (
+    message.includes('created_at') ||
+    message.includes('updated_at') ||
+    message.includes('type `datetime`')
+  );
+}
+
+async function repairTenantConfigDateColumnsForSqlite(db) {
+  const runtime = resolveDatabaseRuntime();
+  if (!runtime.isSqlite) {
+    return false;
+  }
+  if (
+    !db ||
+    typeof db.$queryRawUnsafe !== 'function' ||
+    typeof db.$executeRawUnsafe !== 'function'
+  ) {
+    return false;
+  }
+  await reconcileSqliteDateColumns(db, {
+    tableName: 'platform_tenant_configs',
+    idColumn: 'tenant_id',
+    dateColumns: ['created_at', 'updated_at'],
+  });
+  return true;
+}
+
+async function repairTenantConfigDateColumnsIfPossible(db, error) {
+  if (!isTenantConfigDateCompatibilityError(error)) {
+    return false;
+  }
+  return repairTenantConfigDateColumnsForSqlite(db);
 }
 
 async function listTenantConfigRowsViaSql(db, limit, options = {}) {
@@ -194,7 +246,7 @@ async function listTenantConfigRows(db, limit, options = {}) {
       });
       return Array.isArray(rows) ? rows.map(normalizeRow).filter(Boolean) : [];
     } catch (error) {
-      if (!isTenantConfigDateCompatibilityError(error)) {
+      if (!isTenantConfigDateCompatibilityError(error) || isTenantConfigDbOnlyPosture()) {
         throw error;
       }
     }
@@ -205,10 +257,12 @@ async function listTenantConfigRows(db, limit, options = {}) {
 async function getSharedTenantRegistryRow(tenantId) {
   const id = normalizeTenantId(tenantId);
   if (!id) return null;
-  return prisma.platformTenant.findUnique({
-    where: { id },
-    select: { id: true },
-  }).catch(() => null);
+  return prisma.platformTenant
+    .findUnique({
+      where: { id },
+      select: { id: true },
+    })
+    .catch(() => null);
 }
 
 async function getPlatformTenantConfig(tenantId) {
@@ -217,14 +271,10 @@ async function getPlatformTenantConfig(tenantId) {
   const tenant = await getSharedTenantRegistryRow(id);
   if (!tenant) return null;
   const tenantPrisma = getTenantScopedPrismaClient(id);
-  return withTenantDbIsolation(
-    tenantPrisma,
-    { tenantId: id, enforce: true },
-    async (db) => {
-      const rows = await listTenantConfigRows(db, 1, { tenantId: id });
-      return rows[0] || null;
-    },
-  );
+  return withTenantDbIsolation(tenantPrisma, { tenantId: id, enforce: true }, async (db) => {
+    const rows = await listTenantConfigRows(db, 1, { tenantId: id });
+    return rows[0] || null;
+  });
 }
 
 async function listPlatformTenantConfigs(options = {}) {
@@ -236,6 +286,7 @@ async function listPlatformTenantConfigs(options = {}) {
     env: options.env || process.env,
   });
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200) || 200));
+  const allowCompatibilityFallback = !isTenantConfigDbOnlyPosture();
   if (tenantId) {
     const tenant = await getSharedTenantRegistryRow(tenantId);
     if (!tenant) return [];
@@ -249,17 +300,25 @@ async function listPlatformTenantConfigs(options = {}) {
   }
 
   const topologyMode = getTenantDatabaseTopologyMode();
-  const sharedRows = (await listTenantConfigRows(prisma, limit).catch(() => []))
-    .map((row) => annotateTenantConfigScope(row, null));
+  const sharedRows = (
+    await listTenantConfigRows(prisma, limit).catch((error) => {
+      if (!allowCompatibilityFallback) {
+        throw error;
+      }
+      return [];
+    })
+  ).map((row) => annotateTenantConfigScope(row, null));
   if (topologyMode === 'shared') {
     return dedupeTenantConfigRows(sharedRows).slice(0, limit);
   }
 
-  const tenantRows = await prisma.platformTenant.findMany({
-    select: { id: true },
-    orderBy: { id: 'asc' },
-    take: limit,
-  }).catch(() => []);
+  const tenantRows = await prisma.platformTenant
+    .findMany({
+      select: { id: true },
+      orderBy: { id: 'asc' },
+      take: limit,
+    })
+    .catch(() => []);
 
   const aggregated = [...sharedRows];
   for (const row of tenantRows) {
@@ -269,12 +328,19 @@ async function listPlatformTenantConfigs(options = {}) {
       getTenantScopedPrismaClient(id),
       { tenantId: id, enforce: true },
       (db) => listTenantConfigRows(db, limit),
-    ).catch(() => []);
+    ).catch((error) => {
+      if (!allowCompatibilityFallback) {
+        throw error;
+      }
+      return [];
+    });
     aggregated.push(...scopedRows.map((row) => annotateTenantConfigScope(row, id)));
   }
 
   return dedupeTenantConfigRows(aggregated)
-    .sort((left, right) => String(left?.tenantId || '').localeCompare(String(right?.tenantId || '')))
+    .sort((left, right) =>
+      String(left?.tenantId || '').localeCompare(String(right?.tenantId || '')),
+    )
     .slice(0, limit);
 }
 
@@ -283,57 +349,69 @@ async function upsertPlatformTenantConfig(input = {}) {
   if (!tenantId) return { ok: false, reason: 'tenant-required' };
   const tenant = await getSharedTenantRegistryRow(tenantId);
   if (!tenant) return { ok: false, reason: 'tenant-not-found' };
-  const configPatch = input.configPatch && typeof input.configPatch === 'object' && !Array.isArray(input.configPatch)
-    ? input.configPatch
-    : {};
-  const portalEnvPatch = input.portalEnvPatch && typeof input.portalEnvPatch === 'object' && !Array.isArray(input.portalEnvPatch)
-    ? input.portalEnvPatch
-    : {};
-  const featureFlags = input.featureFlags && typeof input.featureFlags === 'object' && !Array.isArray(input.featureFlags)
-    ? input.featureFlags
-    : {};
+  const configPatch =
+    input.configPatch && typeof input.configPatch === 'object' && !Array.isArray(input.configPatch)
+      ? input.configPatch
+      : {};
+  const portalEnvPatch =
+    input.portalEnvPatch &&
+    typeof input.portalEnvPatch === 'object' &&
+    !Array.isArray(input.portalEnvPatch)
+      ? input.portalEnvPatch
+      : {};
+  const featureFlags =
+    input.featureFlags &&
+    typeof input.featureFlags === 'object' &&
+    !Array.isArray(input.featureFlags)
+      ? input.featureFlags
+      : {};
   const updatedBy = String(input.updatedBy || '').trim() || null;
   const tenantPrisma = getTenantScopedPrismaClient(tenantId);
-  await withTenantDbIsolation(
-    tenantPrisma,
-    { tenantId, enforce: true },
-    async (db) => {
-      if (getTenantConfigPersistenceMode() === 'prisma') {
-        try {
+  await withTenantDbIsolation(tenantPrisma, { tenantId, enforce: true }, async (db) => {
+    const upsertPayload = {
+      where: { tenantId },
+      create: {
+        tenantId,
+        configPatchJson: JSON.stringify(configPatch),
+        portalEnvPatchJson: JSON.stringify(portalEnvPatch),
+        featureFlagsJson: JSON.stringify(featureFlags),
+        updatedBy,
+      },
+      update: {
+        configPatchJson: JSON.stringify(configPatch),
+        portalEnvPatchJson: JSON.stringify(portalEnvPatch),
+        featureFlagsJson: JSON.stringify(featureFlags),
+        updatedBy,
+      },
+      select: { tenantId: true },
+    };
+    if (getTenantConfigPersistenceMode() === 'prisma') {
+      try {
+        const delegate = getTenantConfigDelegateOrThrow(db);
+        await delegate.upsert(upsertPayload);
+        await repairTenantConfigDateColumnsForSqlite(db);
+        return;
+      } catch (error) {
+        if (await repairTenantConfigDateColumnsIfPossible(db, error)) {
           const delegate = getTenantConfigDelegateOrThrow(db);
-          await delegate.upsert({
-            where: { tenantId },
-            create: {
-              tenantId,
-              configPatchJson: JSON.stringify(configPatch),
-              portalEnvPatchJson: JSON.stringify(portalEnvPatch),
-              featureFlagsJson: JSON.stringify(featureFlags),
-              updatedBy,
-            },
-            update: {
-              configPatchJson: JSON.stringify(configPatch),
-              portalEnvPatchJson: JSON.stringify(portalEnvPatch),
-              featureFlagsJson: JSON.stringify(featureFlags),
-              updatedBy,
-            },
-          });
+          await delegate.upsert(upsertPayload);
+          await repairTenantConfigDateColumnsForSqlite(db);
           return;
-        } catch (error) {
-          if (!isTenantConfigDateCompatibilityError(error)) {
-            throw error;
-          }
+        }
+        if (!isTenantConfigDateCompatibilityError(error) || isTenantConfigDbOnlyPosture()) {
+          throw error;
         }
       }
+    }
 
-      await upsertTenantConfigRowViaSql(db, {
-        tenantId,
-        configPatch,
-        portalEnvPatch,
-        featureFlags,
-        updatedBy,
-      });
-    },
-  );
+    await upsertTenantConfigRowViaSql(db, {
+      tenantId,
+      configPatch,
+      portalEnvPatch,
+      featureFlags,
+      updatedBy,
+    });
+  });
   return {
     ok: true,
     data: await getPlatformTenantConfig(tenantId),

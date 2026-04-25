@@ -94,6 +94,9 @@ test('admin e2e: live update stream receives admin-action after API change', asy
     channels: { fetch: async () => null },
   };
 
+  delete require.cache[ticketServicePath];
+  delete require.cache[ticketStorePath];
+  const ticketStore = freshModule(ticketStorePath);
   const { startAdminWebServer } = freshModule(adminWebServerPath);
   const server = startAdminWebServer(fakeClient);
   if (!server.listening) {
@@ -102,6 +105,7 @@ test('admin e2e: live update stream receives admin-action after API change', asy
 
   const baseUrl = `http://127.0.0.1:${port}`;
   const userAgent = 'admin-live-test';
+  const tenantId = 'tenant-live-e2e';
   const cookie = await createLoggedInSession(baseUrl, 'owner_live', 'pass_live', userAgent);
 
   const sse = await openSse(baseUrl, cookie, userAgent);
@@ -111,11 +115,28 @@ test('admin e2e: live update stream receives admin-action after API change', asy
     } catch {}
     await new Promise((resolve) => server.close(resolve));
     delete require.cache[adminWebServerPath];
+    delete require.cache[ticketServicePath];
+    delete require.cache[ticketStorePath];
   });
 
   await waitUntil(() => sse.getBuffer().includes('event: connected'));
 
-  const walletSetRes = await fetch(`${baseUrl}/admin/api/wallet/set`, {
+  const channelId = `ticket-live-e2e-${Date.now()}`;
+  if (typeof ticketStore.replaceTickets === 'function') {
+    ticketStore.replaceTickets([], 1, { tenantId });
+  }
+  ticketStore.createTicket(
+    {
+      guildId: 'guild-live-e2e',
+      userId: 'user-live-e2e',
+      channelId,
+      category: 'support',
+      reason: 'live stream integration test',
+    },
+    { tenantId },
+  );
+
+  const claimRes = await fetch(`${baseUrl}/admin/api/ticket/claim`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -123,12 +144,13 @@ test('admin e2e: live update stream receives admin-action after API change', asy
       'user-agent': userAgent,
     },
     body: JSON.stringify({
-      userId: '12345678901234567',
-      balance: 777,
+      tenantId,
+      channelId,
+      staffId: 'live-stream-test',
     }),
   });
-  const walletSetData = await walletSetRes.json().catch(() => ({}));
-  assert.equal(walletSetRes.status, 200, JSON.stringify(walletSetData));
+  const claimData = await claimRes.json().catch(() => ({}));
+  assert.equal(claimRes.status, 200, JSON.stringify(claimData));
 
   await waitUntil(() => sse.getBuffer().includes('event: admin-action'));
 });
@@ -142,21 +164,25 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
   process.env.ADMIN_WEB_TOKEN = 'token_ticket';
   process.env.ADMIN_WEB_2FA_ENABLED = 'false';
   process.env.ADMIN_WEB_SESSION_BIND_USER_AGENT = 'true';
+  const tenantId = 'tenant-ticket-e2e';
 
   delete require.cache[ticketServicePath];
   const ticketStore = freshModule(ticketStorePath);
   if (typeof ticketStore.replaceTickets === 'function') {
-    ticketStore.replaceTickets([], 1);
+    ticketStore.replaceTickets([], 1, { tenantId });
   }
 
-  const channelId = 'ticket-e2e-001';
-  ticketStore.createTicket({
-    guildId: 'guild-e2e',
-    userId: 'user-e2e',
-    channelId,
-    category: 'support',
-    reason: 'integration test',
-  });
+  const channelId = `ticket-e2e-${Date.now()}`;
+  ticketStore.createTicket(
+    {
+      guildId: 'guild-e2e',
+      userId: 'user-e2e',
+      channelId,
+      category: 'support',
+      reason: 'integration test',
+    },
+    { tenantId },
+  );
 
   const sentMessages = [];
   let deleteCalled = false;
@@ -207,6 +233,7 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
       'user-agent': userAgent,
     },
     body: JSON.stringify({
+      tenantId,
       channelId,
     }),
   });
@@ -222,6 +249,7 @@ test('admin e2e: ticket claim -> close deletes channel in full flow', async (t) 
       'user-agent': userAgent,
     },
     body: JSON.stringify({
+      tenantId,
       channelId,
     }),
   });

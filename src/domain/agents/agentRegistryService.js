@@ -38,6 +38,7 @@ function createAgentRegistryService(deps = {}) {
     revokePlatformApiKey,
     rotatePlatformApiKey,
     getPlatformTenantById,
+    recordAdminSecuritySignal,
   } = deps;
 
   const tenantApiKeyCache = new Map();
@@ -60,6 +61,42 @@ function createAgentRegistryService(deps = {}) {
     ].join('-');
   }
 
+  function parseMetadata(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  function hasRuntimeProfileSignal(input = {}) {
+    const metadata = parseMetadata(input.metadata || input.meta);
+    return Boolean(trimText(
+      input.runtimeKind
+        || input.kind
+        || input.role
+        || input.scope
+        || metadata.runtimeKind
+        || metadata.kind
+        || metadata.role
+        || metadata.agentRole
+        || metadata.scope
+        || metadata.agentScope,
+      160,
+    ));
+  }
+
+  function isSameRuntimeProfile(left = {}, right = {}) {
+    return String(left.runtimeKind || '') === String(right.runtimeKind || '')
+      && String(left.role || '') === String(right.role || '')
+      && String(left.scope || '') === String(right.scope || '');
+  }
+
   function findProvisioningTokenByRawToken(rawToken) {
     const token = trimText(rawToken, 500);
     if (!token) return null;
@@ -73,6 +110,38 @@ function createAgentRegistryService(deps = {}) {
     const tenant = await getPlatformTenantById?.(tenantId);
     if (!tenant) return { ok: false, reason: 'tenant-not-found' };
     return { ok: true, tenant };
+  }
+
+  function emitAgentGovernanceAudit(actionType, input = {}, actor = 'system', details = {}) {
+    if (typeof recordAdminSecuritySignal !== 'function') return;
+    const requestId = trimText(input.requestId || input.correlationId, 160) || null;
+    const correlationId = trimText(input.correlationId || input.requestId, 160) || null;
+    const tenantId = trimText(details.tenantId, 120) || null;
+    const serverId = trimText(details.serverId, 120) || null;
+    const targetId = trimText(details.targetId, 160) || null;
+    recordAdminSecuritySignal(actionType, {
+      actor: trimText(actor, 200) || 'system',
+      role: trimText(input.actorRole, 120) || null,
+      detail: trimText(details.detail, 500) || actionType,
+      data: {
+        governance: true,
+        actionType,
+        tenantId,
+        serverId,
+        targetType: trimText(details.targetType, 120) || 'agent',
+        targetId,
+        runtimeKey: trimText(details.runtimeKey, 200) || null,
+        actorId: trimText(actor, 200) || 'system',
+        actorRole: trimText(input.actorRole, 120) || null,
+        requestId,
+        correlationId,
+        jobId: trimText(details.jobId, 160) || null,
+        reason: trimText(input.reason || details.reason, 400) || null,
+        resultStatus: trimText(details.resultStatus, 80) || 'succeeded',
+        beforeState: details.beforeState || null,
+        afterState: details.afterState || null,
+      },
+    });
   }
 
   async function createAgentToken(input = {}, actor = 'system') {
@@ -184,6 +253,25 @@ function createAgentRegistryService(deps = {}) {
       status: 'pending',
     }, actor);
 
+    emitAgentGovernanceAudit('agent.provision.issue', input, actor, {
+      tenantId: normalized.tenantId,
+      serverId: normalized.serverId,
+      targetType: 'agent_provisioning_token',
+      targetId: tokenResult.token?.id || normalized.id,
+      runtimeKey: normalized.runtimeKey,
+      jobId: tokenResult.token?.id || null,
+      resultStatus: 'issued',
+      detail: 'Agent provisioning setup token issued',
+      afterState: {
+        agentId: normalized.agentId,
+        role: normalized.role,
+        scope: normalized.scope,
+        runtimeKind: strictProfile.runtimeKind,
+        minVersion: normalized.minimumVersion,
+        expiresAt: tokenResult.token?.expiresAt || null,
+      },
+    });
+
     return {
       ok: true,
       token: tokenResult.token,
@@ -233,6 +321,12 @@ function createAgentRegistryService(deps = {}) {
     });
     if (!strictProvisioningProfile.ok) {
       return { ok: false, reason: 'invalid-provisioning-token-runtime-boundary' };
+    }
+    if (hasRuntimeProfileSignal(input)) {
+      const requestedActivationProfile = resolveStrictAgentRoleScope(input);
+      if (!requestedActivationProfile.ok || !isSameRuntimeProfile(requestedActivationProfile, strictProvisioningProfile)) {
+        return { ok: false, reason: 'agent-activation-runtime-boundary-mismatch' };
+      }
     }
 
     const machineFingerprintHash = sha256(machineFingerprint);
@@ -344,6 +438,29 @@ function createAgentRegistryService(deps = {}) {
         revokeReason: 'superseded-after-activation',
       });
     }
+
+    emitAgentGovernanceAudit('agent.activation', input, actor, {
+      tenantId: provisioningToken.tenantId,
+      serverId: provisioningToken.serverId,
+      targetType: 'agent',
+      targetId: provisioningToken.agentId,
+      runtimeKey: trimText(input.runtimeKey, 160) || provisioningToken.runtimeKey || null,
+      jobId: provisioningToken.id || null,
+      resultStatus: 'activated',
+      detail: 'Agent activated from setup token',
+      beforeState: {
+        setupTokenId: provisioningToken.id || null,
+        setupTokenStatus: provisioningToken.status || null,
+      },
+      afterState: {
+        agentId: provisioningToken.agentId,
+        deviceId,
+        apiKeyId: credential.apiKey?.id || null,
+        credentialId: credentialResult.credential?.id || credential.apiKey?.id || null,
+        role: strictProvisioningProfile.role,
+        scope: strictProvisioningProfile.scope,
+      },
+    });
 
     return {
       ok: true,

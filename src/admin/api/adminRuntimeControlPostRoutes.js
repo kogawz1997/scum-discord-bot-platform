@@ -12,6 +12,61 @@ const ALLOWED_APPLY_MODES = new Set(['save_only', 'save_apply', 'save_restart'])
 const MAX_CONFIG_CHANGES = 500;
 const MAX_RESTART_DELAY_SECONDS = 24 * 60 * 60;
 
+function trimText(value, maxLen = 240) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.length <= maxLen ? text : text.slice(0, maxLen);
+}
+
+function getRequestId(req) {
+  return trimText(
+    req?.__adminRequestMeta?.requestId
+      || req?.headers?.['x-request-id']
+      || req?.headers?.['X-Request-ID'],
+    160,
+  ) || null;
+}
+
+function getAdminActorId(auth) {
+  return `admin-web:${trimText(auth?.user, 160) || 'unknown'}`;
+}
+
+function emitGovernanceAudit(recordAdminSecuritySignal, options = {}) {
+  if (typeof recordAdminSecuritySignal !== 'function') return;
+  const requestId = getRequestId(options.req);
+  const auth = options.auth || {};
+  const actionType = trimText(options.actionType, 120);
+  if (!actionType) return;
+  recordAdminSecuritySignal(actionType, {
+    actor: auth?.user || null,
+    role: auth?.role || null,
+    authMethod: auth?.authMethod || null,
+    sessionId: auth?.sessionId || null,
+    ip: options.ip || null,
+    path: options.pathname || options.req?.url || null,
+    detail: trimText(options.detail, 500) || actionType,
+    severity: options.severity || 'info',
+    data: {
+      governance: true,
+      actionType,
+      tenantId: trimText(options.tenantId, 160) || null,
+      serverId: trimText(options.serverId, 160) || null,
+      targetType: trimText(options.targetType, 120) || 'server',
+      targetId: trimText(options.targetId, 160) || null,
+      runtimeKey: trimText(options.runtimeKey, 200) || null,
+      actorId: getAdminActorId(auth),
+      actorRole: auth?.role || null,
+      requestId,
+      correlationId: requestId,
+      jobId: trimText(options.jobId, 160) || null,
+      reason: trimText(options.reason, 400) || null,
+      resultStatus: trimText(options.resultStatus, 80) || 'queued',
+      beforeState: options.beforeState || null,
+      afterState: options.afterState || null,
+    },
+  });
+}
+
 function sendRateLimitResponse(sendJson, res, rateLimit, message) {
   const retryAfterSec = Math.max(1, Math.ceil(Number(rateLimit?.retryAfterMs || 0) / 1000));
   sendJson(res, 429, {
@@ -98,6 +153,7 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
     createServerBotActionJob,
     consumeAdminActionRateLimit,
     getClientIp,
+    recordAdminSecuritySignal,
   } = deps;
 
   return async function handleAdminRuntimeControlPostRoute(context) {
@@ -304,11 +360,31 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         tenantId,
         serverId: serverConfigApplyMatch[1],
         applyMode,
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
+        reason: requiredString(body, 'reason') || 'config-apply',
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-apply-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: serverConfigApplyMatch[1],
+        actionType: 'server.config.apply',
+        targetType: 'server_config_job',
+        targetId: result.job?.id,
+        jobId: result.job?.id,
+        reason: requiredString(body, 'reason') || 'config-apply',
+        resultStatus: result.reused ? 'reused' : 'queued',
+        afterState: {
+          applyMode,
+          reused: result.reused === true,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -385,11 +461,34 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         serverId: serverConfigRollbackMatch[1],
         backupId: requiredString(body, 'backupId'),
         applyMode,
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
+        reason: requiredString(body, 'reason') || 'config-rollback',
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-rollback-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: serverConfigRollbackMatch[1],
+        actionType: 'server.config.rollback',
+        targetType: 'server_config_job',
+        targetId: result.job?.id,
+        jobId: result.job?.id,
+        reason: requiredString(body, 'reason') || 'config-rollback',
+        resultStatus: result.reused ? 'reused' : 'queued',
+        beforeState: {
+          backupId: requiredString(body, 'backupId'),
+        },
+        afterState: {
+          applyMode,
+          reused: result.reused === true,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -471,11 +570,32 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         serverId: serverConfigPatchMatch[1],
         changes: changesValidation.changes,
         applyMode,
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
+        reason: requiredString(body, 'reason') || 'config-save',
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'server-config-save-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: serverConfigPatchMatch[1],
+        actionType: 'server.config.save',
+        targetType: 'server_config_job',
+        targetId: result.job?.id,
+        jobId: result.job?.id,
+        reason: requiredString(body, 'reason') || 'config-save',
+        resultStatus: result.reused ? 'reused' : 'queued',
+        afterState: {
+          applyMode,
+          changeCount: changesValidation.changes.length,
+          reused: result.reused === true,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -542,6 +662,8 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         controlMode: requiredString(body, 'controlMode') || 'service',
         delaySeconds: normalizedDelaySeconds,
         reason: requiredString(body, 'reason') || 'tenant-ui-restart',
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
         announcementPlan: Array.isArray(body?.announcementPlan) ? body.announcementPlan : [],
         metadata: body?.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
           ? body.metadata
@@ -551,6 +673,26 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'restart-plan-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: serverRestartMatch[1],
+        actionType: 'server.restart.schedule',
+        targetType: 'restart_plan',
+        targetId: result.plan?.id,
+        runtimeKey: requiredString(body, 'runtimeKey'),
+        jobId: result.plan?.id,
+        reason: requiredString(body, 'reason') || 'tenant-ui-restart',
+        resultStatus: result.reused ? 'reused' : 'scheduled',
+        afterState: {
+          restartMode,
+          controlMode: requiredString(body, 'controlMode') || 'service',
+          delaySeconds: normalizedDelaySeconds,
+          scheduledFor: result.plan?.scheduledFor || null,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }
@@ -603,11 +745,32 @@ function createAdminRuntimeControlPostRouteHandler(deps) {
         runtimeKey: requiredString(body, 'runtimeKey'),
         jobType: controlAction === 'start' ? 'server_start' : 'server_stop',
         displayName: controlAction === 'start' ? 'Start server' : 'Stop server',
+        requestId: getRequestId(req),
+        actorRole: auth?.role || null,
+        reason: requiredString(body, 'reason') || `server-${controlAction}`,
       }, `admin-web:${auth?.user || 'unknown'}`);
       if (!result?.ok) {
         sendJson(res, 400, { ok: false, error: result?.reason || 'server-control-job-failed' });
         return true;
       }
+      emitGovernanceAudit(recordAdminSecuritySignal, {
+        req,
+        auth,
+        pathname,
+        tenantId,
+        serverId: serverControlMatch[1],
+        actionType: controlAction === 'start' ? 'server.start' : 'server.stop',
+        targetType: 'server_config_job',
+        targetId: result.job?.id,
+        runtimeKey: requiredString(body, 'runtimeKey'),
+        jobId: result.job?.id,
+        reason: requiredString(body, 'reason') || `server-${controlAction}`,
+        resultStatus: result.reused ? 'reused' : 'queued',
+        afterState: {
+          controlAction,
+          reused: result.reused === true,
+        },
+      });
       sendJson(res, 200, { ok: true, data: result });
       return true;
     }

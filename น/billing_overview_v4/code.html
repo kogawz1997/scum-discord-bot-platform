@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Billing Overview | SCUM CONTROL PLANE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e3e2e4",
+                        "on-surface": "#e3e2e4",
+                        "surface-bright": "#38393b",
+                        "primary-container": "#00d1ff",
+                        "primary": "#a4e6ff",
+                        "on-primary-fixed": "#001f28",
+                        "on-primary-container": "#00566a",
+                        "outline": "#859399",
+                        "surface-container": "#1f2022",
+                        "tertiary": "#ffd1ce",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-variant": "#343537",
+                        "surface-dim": "#121315",
+                        "inverse-primary": "#00677f",
+                        "error-container": "#93000a",
+                        "primary-fixed": "#b7eaff",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#004e60",
+                        "background": "#121315",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "secondary-fixed": "#ffdea8",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-tertiary": "#68000b",
+                        "on-primary": "#003543",
+                        "inverse-on-surface": "#303032",
+                        "surface": "#121315",
+                        "tertiary-container": "#ffaaa4",
+                        "on-secondary-container": "#6b4b00",
+                        "inverse-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface-container-high": "#292a2c",
+                        "outline-variant": "#3c494e",
+                        "secondary-container": "#feb700",
+                        "surface-tint": "#4cd6ff",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1b1c1e",
+                        "secondary": "#ffdb9d",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-tertiary-container": "#a10017",
+                        "on-secondary": "#412d00",
+                        "surface-container-highest": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 border-b bg-zinc-950/90 backdrop-blur-md border-zinc-800 flex justify-between items-center h-14 px-6 w-full">
+<div class="text-lg font-black text-cyan-400 tracking-widest uppercase">SCUM CONTROL PLANE</div>
+<nav class="hidden md:flex items-center gap-8 h-full">
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Platform</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Incidents</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Audit</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-zinc-500 hover:text-cyan-400 transition-all duration-150 p-1.5 rounded-lg hover:bg-zinc-900 active:scale-95 cursor-pointer">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="text-zinc-500 hover:text-cyan-400 transition-all duration-150 p-1.5 rounded-lg hover:bg-zinc-900 active:scale-95 cursor-pointer">
+<span class="material-symbols-outlined">language</span>
+</button>
+<button class="text-zinc-500 hover:text-cyan-400 transition-all duration-150 p-1.5 rounded-lg hover:bg-zinc-900 active:scale-95 cursor-pointer">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="text-zinc-500 hover:text-cyan-400 transition-all duration-150 p-1.5 rounded-lg hover:bg-zinc-900 active:scale-95 relative cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-zinc-800 ml-2">
+<img alt="Owner Profile" class="w-full h-full object-cover" data-alt="Close-up professional portrait of a tech operator in a dark tactical environment with subtle blue screen reflections on their face." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkSwZxioaanPRPEOh39Ren1UwJJVzPwWRldZINzVW4XeCEtbENEBwummWUaZ5iMjExzE7CPSbjJeI8yoe_GGOfLA8x7m4YVvMU9RlwGINLOLZOZyT3SdPIoB0jppDDcZsU-vMT4FSutxK-W0zW6S8OUkM880n-X4Sx_riR9qtl4dxvqUe4LZQ5xaxaqG_mMOiasdIXH7I5Q-2br33pFlylwkr353ljdO5uSN5M4BN0NWFK3d6l7Ib2Q-RS4thAYNvf-B03deWEs-c"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r bg-zinc-950 border-zinc-800 flex flex-col h-full overflow-y-auto scrollbar-hide py-4">
+<div class="px-6 mb-6 flex items-center gap-3">
+<div class="h-10 w-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400">
+<span class="material-symbols-outlined">terminal</span>
+</div>
+<div>
+<div class="text-xs font-black text-white leading-none">OPERATOR-01</div>
+<div class="text-[10px] text-zinc-500 font-bold tracking-widest mt-1 uppercase">ROOT ACCESS</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">supervised_user_circle</span>
+<span>Tenants</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">inventory_2</span>
+<span>Packages</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">rebase_edit</span>
+<span>Subscriptions</span>
+</a>
+<a class="bg-zinc-900 border-l-4 border-cyan-400 text-cyan-400 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">payments</span>
+<span>Billing</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">monitor_heart</span>
+<span>Runtime Health</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">developer_board</span>
+<span>Fleet</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">settings_backup_restore</span>
+<span>Config Oversight</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">shopping_cart</span>
+<span>Commerce</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">groups</span>
+<span>Community</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">fingerprint</span>
+<span>Identity</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">emergency</span>
+<span>Incidents</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">history_edu</span>
+<span>Audit</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined text-lg">security</span>
+<span>Security</span>
+</a>
+</nav>
+<div class="mt-4 px-4 pb-6">
+<button class="w-full bg-cyan-400 text-zinc-950 font-black text-[10px] tracking-[0.2em] py-3 uppercase rounded hover:bg-cyan-300 transition-colors">
+                DEPLOY UPDATE
+            </button>
+</div>
+<div class="border-t border-zinc-800 pt-4">
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-2 flex items-center gap-3 font-public-sans font-medium text-xs antialiased" href="#">
+<span class="material-symbols-outlined text-lg">biotech</span>
+<span>Diagnostics</span>
+</a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-2 flex items-center gap-3 font-public-sans font-medium text-xs antialiased" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+<span>Settings</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 pt-14 min-h-screen">
+<div class="p-8 max-w-7xl mx-auto space-y-8">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-1">
+<h1 class="text-4xl font-headline font-black tracking-tight text-white uppercase">Billing Overview</h1>
+<p class="text-zinc-400 text-sm max-w-2xl">Financial control plane for the SCUM platform. Monitor revenue streams, manage invoices, and supervise platform-wide commercial health.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-all">
+<span class="material-symbols-outlined text-lg">file_download</span>
+                        Export Ledger
+                    </button>
+<button class="flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-lg">add_card</span>
+                        New Invoice
+                    </button>
+</div>
+</div>
+<!-- Financial Pulse Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<!-- Primary Metric Card -->
+<div class="md:col-span-2 bg-surface-container-high rounded-xl p-6 border border-zinc-800 relative overflow-hidden group">
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div class="flex items-center justify-between">
+<span class="text-zinc-500 text-xs font-bold uppercase tracking-widest">Gross Revenue (MTD)</span>
+<span class="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold border border-primary/20">+12.4%</span>
+</div>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="text-4xl font-headline font-black text-white">$142,850.00</span>
+<span class="text-zinc-500 text-sm">USD</span>
+</div>
+<div class="mt-6 flex gap-4">
+<div class="flex-1 h-1.5 bg-zinc-950 rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[65%]"></div>
+</div>
+<span class="text-[10px] font-bold text-zinc-400">65% OF TARGET</span>
+</div>
+</div>
+<!-- Background Visual Element -->
+<div class="absolute -right-12 -bottom-12 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[160px]" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+</div>
+<!-- Secondary Metric Cards -->
+<div class="bg-surface-container-high rounded-xl p-6 border border-zinc-800 flex flex-col justify-between">
+<div class="flex items-center justify-between text-zinc-500">
+<span class="text-[10px] font-bold uppercase tracking-widest">Active Subs</span>
+<span class="material-symbols-outlined text-lg">rebase_edit</span>
+</div>
+<div class="mt-4">
+<div class="text-2xl font-headline font-black text-white">4,129</div>
+<div class="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider">Across 142 Tenants</div>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-6 border border-zinc-800 flex flex-col justify-between">
+<div class="flex items-center justify-between text-zinc-500">
+<span class="text-[10px] font-bold uppercase tracking-widest">Payment Risk</span>
+<span class="material-symbols-outlined text-lg text-secondary">warning</span>
+</div>
+<div class="mt-4">
+<div class="text-2xl font-headline font-black text-white">12</div>
+<div class="text-[10px] text-secondary font-bold mt-1 uppercase tracking-wider">Suspended States</div>
+</div>
+</div>
+</div>
+<!-- Main Operational Area -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Invoice List Section -->
+<div class="lg:col-span-2 space-y-4">
+<div class="flex items-center justify-between px-2">
+<h3 class="text-sm font-black uppercase tracking-widest text-zinc-400">Recent Transactions</h3>
+<div class="flex gap-2">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">search</span>
+<input class="bg-zinc-950 border-zinc-800 rounded-lg pl-9 pr-4 py-1.5 text-[10px] font-bold text-zinc-300 w-48 focus:ring-primary-container focus:border-primary-container transition-all" placeholder="FILTER BY TENANT..." type="text"/>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-zinc-950/50 text-[10px] font-black uppercase tracking-widest text-zinc-500 border-b border-zinc-800">
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Invoice ID</th>
+<th class="px-6 py-4">Tenant / Recipient</th>
+<th class="px-6 py-4">Date</th>
+<th class="px-6 py-4 text-right">Amount</th>
+<th class="px-6 py-4 text-center">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-zinc-900">
+<!-- Row 1: Paid -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(164,230,255,0.5)]"></span>
+<span class="text-[10px] font-bold text-primary uppercase">Paid</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-mono font-bold text-zinc-300 uppercase">INV-2024-0082</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-white uppercase">Titan survival group</div>
+<div class="text-[10px] text-zinc-500 mt-0.5">EU_CENTRAL_01</div>
+</td>
+<td class="px-6 py-4 text-xs text-zinc-500 font-medium italic">2 mins ago</td>
+<td class="px-6 py-4 text-right text-xs font-headline font-black text-white">$450.00</td>
+<td class="px-6 py-4">
+<div class="flex justify-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Invoice Status"><span class="material-symbols-outlined text-sm">edit_document</span></button>
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Payment Status"><span class="material-symbols-outlined text-sm">payments</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Pending -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(255,219,157,0.5)]"></span>
+<span class="text-[10px] font-bold text-secondary uppercase">Pending</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-mono font-bold text-zinc-300 uppercase">INV-2024-0081</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-white uppercase">Alpha predator squad</div>
+<div class="text-[10px] text-zinc-500 mt-0.5">US_EAST_CLUSTER</div>
+</td>
+<td class="px-6 py-4 text-xs text-zinc-500 font-medium italic">14 mins ago</td>
+<td class="px-6 py-4 text-right text-xs font-headline font-black text-white">$1,200.00</td>
+<td class="px-6 py-4">
+<div class="flex justify-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Invoice Status"><span class="material-symbols-outlined text-sm">edit_document</span></button>
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Payment Status"><span class="material-symbols-outlined text-sm">payments</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Overdue -->
+<tr class="hover:bg-zinc-900/30 transition-colors group bg-error/5">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error shadow-[0_0_8px_rgba(255,180,171,0.5)]"></span>
+<span class="text-[10px] font-bold text-error uppercase">Overdue</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-mono font-bold text-zinc-300 uppercase">INV-2024-0078</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-white uppercase">Iron curtain division</div>
+<div class="text-[10px] text-zinc-500 mt-0.5">RU_VODKA_NODE</div>
+</td>
+<td class="px-6 py-4 text-xs text-zinc-500 font-medium italic">2 days ago</td>
+<td class="px-6 py-4 text-right text-xs font-headline font-black text-white">$890.00</td>
+<td class="px-6 py-4">
+<div class="flex justify-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:text-error transition-colors" title="Update Invoice Status"><span class="material-symbols-outlined text-sm">edit_document</span></button>
+<button class="p-1.5 hover:text-error transition-colors" title="Update Payment Status"><span class="material-symbols-outlined text-sm">payments</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Paid -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(164,230,255,0.5)]"></span>
+<span class="text-[10px] font-bold text-primary uppercase">Paid</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-mono font-bold text-zinc-300 uppercase">INV-2024-0075</td>
+<td class="px-6 py-4">
+<div class="text-xs font-bold text-white uppercase">Wasteland kings</div>
+<div class="text-[10px] text-zinc-500 mt-0.5">AU_OUTBACK_PRIMARY</div>
+</td>
+<td class="px-6 py-4 text-xs text-zinc-500 font-medium italic">5 hours ago</td>
+<td class="px-6 py-4 text-right text-xs font-headline font-black text-white">$275.50</td>
+<td class="px-6 py-4">
+<div class="flex justify-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Invoice Status"><span class="material-symbols-outlined text-sm">edit_document</span></button>
+<button class="p-1.5 hover:text-cyan-400 transition-colors" title="Update Payment Status"><span class="material-symbols-outlined text-sm">payments</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="bg-zinc-950 p-4 border-t border-zinc-800 flex justify-between items-center">
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Showing 4 of 1,248 Records</span>
+<div class="flex gap-2">
+<button class="h-8 w-8 rounded border border-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-900"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="h-8 w-8 rounded border border-zinc-800 flex items-center justify-center text-zinc-300 bg-zinc-900 font-bold text-xs">1</button>
+<button class="h-8 w-8 rounded border border-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-900 font-bold text-xs">2</button>
+<button class="h-8 w-8 rounded border border-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-900 font-bold text-xs">3</button>
+<button class="h-8 w-8 rounded border border-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-900"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Rail: Contextual Insights -->
+<div class="space-y-6">
+<!-- Commercial Risk Card -->
+<div class="bg-error-container/20 border border-error/20 rounded-xl p-6 space-y-4">
+<div class="flex items-center gap-3 text-error">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">gpp_maybe</span>
+<h4 class="text-xs font-black uppercase tracking-widest">Financial Anomalies</h4>
+</div>
+<p class="text-xs text-on-error-container leading-relaxed">
+                            3 payment attempts failed in the last hour from <span class="font-bold underline uppercase">RU_VODKA_NODE</span>. Potential regional gateway connectivity issue detected.
+                        </p>
+<div class="pt-2">
+<button class="w-full bg-error text-on-error font-black text-[10px] tracking-widest py-2 rounded uppercase hover:opacity-90 transition-all">
+                                Investigate Failure
+                            </button>
+</div>
+</div>
+<!-- Subscription State Summary -->
+<div class="bg-surface-container-high border border-zinc-800 rounded-xl p-6 space-y-6">
+<h4 class="text-xs font-black uppercase tracking-widest text-zinc-400">Subscription Lifecycle</h4>
+<div class="space-y-4">
+<!-- Lifecycle Row -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-zinc-950 flex items-center justify-center text-primary border border-zinc-800">
+<span class="material-symbols-outlined text-sm">rocket_launch</span>
+</div>
+<span class="text-[10px] font-bold text-zinc-300 uppercase">New Trials</span>
+</div>
+<span class="text-xs font-headline font-black text-white">42</span>
+</div>
+<!-- Lifecycle Row -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-zinc-950 flex items-center justify-center text-secondary border border-zinc-800">
+<span class="material-symbols-outlined text-sm">sync_saved_locally</span>
+</div>
+<span class="text-[10px] font-bold text-zinc-300 uppercase">Expiring (7d)</span>
+</div>
+<span class="text-xs font-headline font-black text-white">128</span>
+</div>
+<!-- Lifecycle Row -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-zinc-950 flex items-center justify-center text-tertiary border border-zinc-800">
+<span class="material-symbols-outlined text-sm">trending_down</span>
+</div>
+<span class="text-[10px] font-bold text-zinc-300 uppercase">Churned (30d)</span>
+</div>
+<span class="text-xs font-headline font-black text-white">14</span>
+</div>
+</div>
+<div class="pt-4 border-t border-zinc-800">
+<img alt="Subscription Growth Chart" class="w-full h-24 object-cover rounded opacity-80 border border-zinc-900" data-alt="A clean, minimalist area chart showing subscription growth over time with a cyan line and soft blue gradient fill on a dark grid background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRSOUISvujPjx2uoeiMk7_8mx6rjd-gK3QcaMW6yxRGv1W_UmIntqyjULO01L3R0nuSfluKSNfyUVSuDWJ8_C0zSw7iv2aMb_v_vl-LEA5il2gRXMKWL9DrBEAc_wUAap2cUvn2R6wGqMzODW2AOjJ4Z00RMHBQ8iqdCQex8AycvqXBcdsJX3iN7dDFQAroe3iA5P85-bULaILG3pmO6-uHVkFthtZXCd5tRgTBOv6FGC0f4RKopZqLtGee8smxzgyMITN-qHTCUo"/>
+</div>
+</div>
+<!-- Platform Quick Actions -->
+<div class="grid grid-cols-2 gap-3">
+<button class="flex flex-col items-center justify-center gap-2 p-4 bg-zinc-950 border border-zinc-900 rounded-xl hover:bg-zinc-900 transition-colors group">
+<span class="material-symbols-outlined text-zinc-500 group-hover:text-cyan-400">receipt_long</span>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Statements</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-2 p-4 bg-zinc-950 border border-zinc-900 rounded-xl hover:bg-zinc-900 transition-colors group">
+<span class="material-symbols-outlined text-zinc-500 group-hover:text-cyan-400">admin_panel_settings</span>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taxes</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Global Floating Action Menu (Suppressed on this Transactional screen per logic but kept for shell integrity) -->
+<!-- Suppression logic: Suppression for FAB on Details/Transactional screens. Since this is a billing console, FAB is active for "New Invoice" -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="h-14 w-14 rounded-full bg-secondary-container text-on-secondary-container shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+</div>
+</body></html>

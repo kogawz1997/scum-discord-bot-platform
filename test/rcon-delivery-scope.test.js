@@ -47,7 +47,8 @@ function loadRconDeliveryWithMocks(mocks) {
   return require(rconDeliveryPath);
 }
 
-function buildMockSet(scopeCalls) {
+function buildMockSet(scopeCalls, options = {}) {
+  const auditCalls = Array.isArray(options.auditCalls) ? options.auditCalls : [];
   return {
     config: {
       channels: {},
@@ -74,7 +75,10 @@ function buildMockSet(scopeCalls) {
       getLinkByUserId: () => null,
     },
     deliveryAuditStore: {
-      addDeliveryAudit: () => null,
+      addDeliveryAudit: (entry) => {
+        auditCalls.push(entry);
+        return null;
+      },
       listDeliveryAudit: () => [],
     },
     deliveryEvidenceStore: {
@@ -164,6 +168,62 @@ test('delivery persistence hydration declares explicit allowGlobal for queue and
         },
       ],
     );
+  } finally {
+    clearModule(rconDeliveryPath);
+    for (const modulePath of Object.values(depPaths)) {
+      clearModule(modulePath);
+    }
+  }
+});
+
+test('purchase delivery enqueue rejects tenantless purchases before queue or audit writes', async () => {
+  const scopeCalls = [];
+  const auditCalls = [];
+  const api = loadRconDeliveryWithMocks(buildMockSet(scopeCalls, { auditCalls }));
+
+  try {
+    const result = await api.enqueuePurchaseDelivery({
+      code: 'P-TENANTLESS-ENQUEUE',
+      itemId: 'starter-pack',
+      userId: 'user-1',
+      status: 'pending',
+    });
+
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, 'tenant-scope-required');
+    assert.equal(result.errorCode, 'TENANT_MUTATION_SCOPE_REQUIRED');
+    assert.equal(api.listDeliveryQueue().length, 0);
+    assert.equal(auditCalls.length, 0);
+  } finally {
+    clearModule(rconDeliveryPath);
+    for (const modulePath of Object.values(depPaths)) {
+      clearModule(modulePath);
+    }
+  }
+});
+
+test('purchase delivery enqueue rejects mismatched purchase and context tenants before writes', async () => {
+  const scopeCalls = [];
+  const auditCalls = [];
+  const api = loadRconDeliveryWithMocks(buildMockSet(scopeCalls, { auditCalls }));
+
+  try {
+    const result = await api.enqueuePurchaseDelivery(
+      {
+        code: 'P-MISMATCHED-ENQUEUE',
+        tenantId: 'tenant-a',
+        itemId: 'starter-pack',
+        userId: 'user-1',
+        status: 'pending',
+      },
+      { tenantId: 'tenant-b' },
+    );
+
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, 'tenant-scope-mismatch');
+    assert.equal(result.errorCode, 'TENANT_MUTATION_SCOPE_MISMATCH');
+    assert.equal(api.listDeliveryQueue().length, 0);
+    assert.equal(auditCalls.length, 0);
   } finally {
     clearModule(rconDeliveryPath);
     for (const modulePath of Object.values(depPaths)) {

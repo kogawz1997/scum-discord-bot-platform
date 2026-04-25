@@ -666,13 +666,15 @@ function getSubscriptionLifecycleStatus(row) {
   const currentPeriodEnd = parseDateOrNull(row?.currentPeriodEnd || metadata.currentPeriodEnd || row?.renewsAt);
   const trialEndsAt = parseDateOrNull(row?.trialEndsAt || metadata.trialEndsAt);
   const now = Date.now();
-  if (['expired', 'canceled'].includes(rawStatus)) return 'expired';
-  if (['suspended', 'past_due', 'pending', 'paused'].includes(rawStatus)) return 'suspended';
+  if (rawStatus === 'preview') return 'preview';
+  if (['canceled', 'cancelled'].includes(rawStatus)) return 'cancelled';
+  if (rawStatus === 'expired') return 'expired';
+  if (['suspended', 'past_due', 'failed', 'pending', 'paused', 'void', 'disputed', 'inactive'].includes(rawStatus)) return 'past_due';
   if ((trialEndsAt || currentPeriodEnd) && (trialEndsAt || currentPeriodEnd).getTime() < now) {
     return 'expired';
   }
   if (rawStatus === 'trialing' || normalizeBillingCycle(metadata.billingCycle || row?.billingCycle) === 'trial') {
-    return 'trial';
+    return 'trialing';
   }
   return 'active';
 }
@@ -717,7 +719,7 @@ function isTenantRuntimeStatusAllowed(status) {
 function isSubscriptionOperational(row) {
   if (!row) return true;
   const status = getSubscriptionLifecycleStatus(row);
-  return status === 'active' || status === 'trial';
+  return status === 'active' || status === 'trialing';
 }
 
 function isLicenseOperational(row) {

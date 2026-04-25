@@ -33,7 +33,7 @@ test('admin live templates expose login and V4 shells', () => {
     /admin-login-v4\.js/,
   ]);
   const ownerLoginHtml = read(path.join('src', 'admin', 'owner-login.html'));
-  assert.doesNotMatch(ownerLoginHtml, /Ã|Â|\ufffd/);
+  assert.doesNotMatch(ownerLoginHtml, /Ãƒ|Ã‚|\ufffd/);
 
   assertLiveTemplate(path.join('src', 'admin', 'owner-console.html'), [
     /id="ownerV4AppRoot"/,
@@ -61,9 +61,11 @@ test('admin live templates expose login and V4 shells', () => {
 
 test('portal public templates expose public access chooser and marketing routes', () => {
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'landing.html'), [
-    /platform-site-v3\.css/,
-    /href="\/signup"/,
+    /platform-design-system-v5\.css/,
+    /href="\/signup(?:\?|")/,
     /href="\/pricing"/,
+    /href="\/status"/,
+    /href="\/changes"/,
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'pricing.html'), [
@@ -99,7 +101,9 @@ test('portal public templates expose public access chooser and marketing routes'
 
 test('player live templates expose player login and V4 portal shell', () => {
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'player-login.html'), [
-    /href="\/auth\/discord\/start"/,
+    /__PLAYER_OAUTH_BUTTONS__/,
+    /id="playerMagicLinkForm"/,
+    /player-auth-v1\.js/,
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'player-core.html'), [
@@ -109,7 +113,7 @@ test('player live templates expose player login and V4 portal shell', () => {
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'player.html'), [
-    /href="\/player"|href="\/player\/login"|พอร์ทัลผู้เล่นรุ่นปัจจุบัน/i,
+    /href="\/player"|href="\/player\/login"|Player Access/i,
   ]);
 
   assertLiveTemplate(path.join('apps', 'web-portal-standalone', 'public', 'dashboard.html'), [

@@ -4,173 +4,67 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>SCUM TH Platform | Admin Login</title>
-  <link rel="stylesheet" href="/admin/assets/control-plane-shell-v4.css?v=20260327-ui-3">
-  <style>
-    .auth-stage {
-      width: min(1320px, calc(100% - 48px));
-      margin: 0 auto;
-      padding: 32px 0 40px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(380px, 0.76fr);
-      gap: 24px;
-    }
-    .auth-panel,
-    .auth-form-shell {
-      padding: 28px;
-      border: 1px solid rgba(191,170,112,.16);
-      border-radius: 24px;
-      background: rgba(13,20,17,.94);
-      box-shadow: 0 24px 56px rgba(0,0,0,.26);
-      display: grid;
-      gap: 18px;
-    }
-    .auth-panel h1,
-    .auth-form-shell h2 {
-      margin: 0;
-      font-size: clamp(2rem, 2.8vw, 3rem);
-      line-height: 1.04;
-      letter-spacing: -.04em;
-    }
-    .auth-panel p,
-    .auth-form-shell p,
-    .auth-note {
-      margin: 0;
-      color: rgba(243,237,225,.74);
-      line-height: 1.68;
-    }
-    .auth-grid,
-    .auth-card-stack {
-      display: grid;
-      gap: 16px;
-    }
-    .auth-card {
-      padding: 18px;
-      border: 1px solid rgba(191,170,112,.14);
-      border-radius: 18px;
-      background: rgba(255,255,255,.02);
-      display: grid;
-      gap: 8px;
-    }
-    .auth-card strong {
-      font-size: 1rem;
-    }
-    .auth-field {
-      display: grid;
-      gap: 8px;
-    }
-    .auth-field span {
-      color: rgba(243,237,225,.78);
-      font-size: .88rem;
-    }
-    .auth-input {
-      height: 46px;
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(191,170,112,.16);
-      background: rgba(255,255,255,.03);
-      color: #f3ede1;
-      font: inherit;
-    }
-    .auth-input::placeholder {
-      color: rgba(243,237,225,.42);
-    }
-    .auth-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .auth-error {
-      min-height: 22px;
-      color: #d67f72;
-      font-size: .84rem;
-    }
-    .auth-visual {
-      min-height: 220px;
-      border-radius: 20px;
-      border: 1px solid rgba(191,170,112,.14);
-      background:
-        linear-gradient(180deg, rgba(7,10,8,.18), rgba(8,10,8,.54)),
-        url('/admin/assets/owner-panel-scene.svg');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-    }
-    @media (max-width: 980px) {
-      .auth-stage {
-        width: min(100%, calc(100% - 32px));
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <title>SCUM TH Platform — เข้าสู่ระบบผู้ดูแล</title>
+  <link rel="stylesheet" href="/admin/assets/platform-design-system-v5.css?v=20260425">
 </head>
-<body class="surface-body surface-owner">
-  <div class="surface-app">
-    <header class="surface-globalbar">
-      <div class="surface-globalbar-main">
-        <a class="surface-brand" href="/owner/login">
-          <span class="surface-brand-mark">SCUM</span>
-          <span class="surface-brand-copy">
-            <span class="surface-brand-eyebrow">Admin Access</span>
-            <strong class="surface-brand-title">เข้าสู่ระบบผู้ดูแล</strong>
-            <span class="surface-brand-detail">ใช้ระบบยืนยันตัวตนเดิมของแพลตฟอร์ม ทั้ง session, TOTP และ Discord SSO โดยไม่ลดมาตรฐานความปลอดภัย</span>
-          </span>
-        </a>
-      </div>
-      <div class="surface-globalbar-tools">
-        <nav class="surface-role-switch" aria-label="Surface switch">
-          <a class="surface-role-link is-active" href="/owner/login">Admin Login</a>
-          <a class="surface-role-link" href="/landing">Public Site</a>
-        </nav>
-      </div>
-    </header>
+<body>
+  <header class="ds-topbar">
+    <div class="ds-topbar-inner">
+      <a class="ds-brand" href="/owner/login">
+        <span class="ds-brand-mark">SCUM</span>
+        <span>
+          <span class="ds-brand-title">Admin Access</span>
+          <span class="ds-brand-subtitle">เข้าสู่ระบบผู้ดูแล</span>
+        </span>
+      </a>
+      <nav class="ds-nav" aria-label="Surface switch">
+        <a class="ds-nav-link is-active" href="/owner/login">Admin Login</a>
+        <a class="ds-nav-link" href="/landing">Public Site</a>
+      </nav>
+    </div>
+  </header>
 
-    <main class="surface-stage">
-      <section class="auth-stage">
-        <article class="auth-panel">
-          <span class="surface-brand-eyebrow">Owner + Tenant Access</span>
-          <h1>หน้าเดียวสำหรับผู้ดูแลทุกระดับ</h1>
-          <p>ล็อกอินครั้งเดียว แล้วระบบจะพาไปยังพื้นที่ที่ตรงกับสิทธิ์ของคุณโดยอัตโนมัติ เจ้าของระบบจะเข้า Owner Panel ส่วนผู้ดูแลผู้เช่าจะเข้า Tenant Panel</p>
-          <div class="auth-visual"></div>
-          <div class="auth-card-stack">
-            <div class="auth-card">
-              <strong>Owner</strong>
-              <p>ดูผู้เช่า แพ็กเกจ รายได้ ความปลอดภัย และเหตุการณ์ระดับแพลตฟอร์ม</p>
-            </div>
-            <div class="auth-card">
-              <strong>Tenant Admin</strong>
-              <p>ดูแลงานประจำวันของเซิร์ฟเวอร์ เช่น สถานะ คำสั่งซื้อ ผู้เล่น Delivery Agent และ Server Bot</p>
-            </div>
+  <main class="ds-container" style="padding-block: var(--space-7)">
+    <div class="ds-grid" style="grid-template-columns: 1.1fr 1fr; gap: var(--space-6); max-width: 1080px; margin: 0 auto">
+      <article class="ds-card ds-card-elevated">
+        <span class="ds-kicker">Owner + Tenant Access</span>
+        <h1 style="font-size: var(--fs-2xl); margin-bottom: var(--space-3)">หน้าเดียวสำหรับผู้ดูแลทุกระดับ</h1>
+        <p class="ds-text-muted" style="margin-bottom: var(--space-5)">ล็อกอินครั้งเดียว ระบบจะพาไปยังพื้นที่ที่ตรงกับสิทธิ์ของคุณโดยอัตโนมัติ — เจ้าของระบบเข้า Owner Panel, ผู้ดูแลผู้เช่าเข้า Tenant Panel</p>
+        <div class="ds-stack-sm">
+          <div class="ds-card" style="padding: var(--space-4)">
+            <strong>Owner</strong>
+            <p class="ds-text-muted" style="margin: var(--space-2) 0 0">ดูผู้เช่า แพ็กเกจ รายได้ ความปลอดภัย และเหตุการณ์ระดับแพลตฟอร์ม</p>
           </div>
-        </article>
+          <div class="ds-card" style="padding: var(--space-4)">
+            <strong>Tenant Admin</strong>
+            <p class="ds-text-muted" style="margin: var(--space-2) 0 0">ดูแลงานประจำวันของเซิร์ฟเวอร์ — สถานะ คำสั่งซื้อ ผู้เล่น Delivery Agent และ Server Bot</p>
+          </div>
+        </div>
+      </article>
 
-        <section class="auth-form-shell">
-          <span class="surface-brand-eyebrow">Sign In</span>
-          <h2>เข้าสู่ระบบ</h2>
-          <p>ถ้าเปิด 2FA ไว้ ระบบจะถามรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
-          <form id="loginForm" class="auth-grid" novalidate>
-            <label class="auth-field">
-              <span>ชื่อผู้ใช้</span>
-              <input id="usernameInput" class="auth-input" name="username" autocomplete="username" placeholder="admin" required>
-            </label>
-            <label class="auth-field">
-              <span>รหัสผ่าน</span>
-              <input id="passwordInput" class="auth-input" name="password" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
-            </label>
-            <label id="otpWrap" class="auth-field" hidden>
-              <span>รหัส 2FA</span>
-              <input id="otpInput" class="auth-input" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-            </label>
-            <div id="errorBox" class="auth-error" aria-live="polite"></div>
-            <div class="auth-actions">
-              <button id="loginSubmit" class="surface-button surface-button-primary" type="submit">เข้าสู่ระบบ</button>
-            </div>
-          </form>
-        </section>
-      </section>
-    </main>
-  </div>
-  <script src="/admin/assets/admin-login-v4.js?v=20260329-surface-login-fix"></script>
+      <article class="ds-card ds-card-elevated">
+        <span class="ds-kicker">Sign In</span>
+        <h2 style="font-size: var(--fs-xl); margin-bottom: var(--space-3)">เข้าสู่ระบบ</h2>
+        <p class="ds-text-muted" style="margin-bottom: var(--space-5)">ถ้าเปิด 2FA ไว้ ระบบจะถามรหัสยืนยันในขั้นตอนถัดไปโดยอัตโนมัติ</p>
+        <form id="loginForm" class="ds-stack" novalidate>
+          <div class="ds-field">
+            <label class="ds-label" for="usernameInput">ชื่อผู้ใช้</label>
+            <input id="usernameInput" class="ds-input" name="username" autocomplete="username" placeholder="admin" required>
+          </div>
+          <div class="ds-field">
+            <label class="ds-label" for="passwordInput">รหัสผ่าน</label>
+            <input id="passwordInput" class="ds-input" name="password" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required>
+          </div>
+          <div id="otpWrap" class="ds-field" hidden>
+            <label class="ds-label" for="otpInput">รหัส 2FA</label>
+            <input id="otpInput" class="ds-input" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+          </div>
+          <div id="errorBox" class="ds-help" style="color: var(--color-danger)" aria-live="polite"></div>
+          <button id="loginSubmit" class="ds-btn ds-btn-primary ds-btn-lg ds-btn-block" type="submit">เข้าสู่ระบบ</button>
+        </form>
+      </article>
+    </div>
+  </main>
+  <script src="/admin/assets/admin-login-v4.js?v=20260425-redesign-1"></script>
 </body>
 </html>

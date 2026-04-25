@@ -2955,6 +2955,11 @@
     return String(text || '').replace(/\s+/g, ' ').trim();
   }
 
+  function shouldSkipShellTranslation(element) {
+    if (!element || typeof element.closest !== 'function') return false;
+    return Boolean(element.closest('#ownerUnifiedTopbar, #ownerUnifiedSidebar'));
+  }
+
   // Run after initial template translation and after JS-driven re-renders.
   // This catches static labels, pills, table cells, and placeholders that were
   // injected after page load but still need to follow the chosen language.
@@ -2988,6 +2993,7 @@
     ].join(',');
 
     root.querySelectorAll(selector).forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       if (element.hasAttribute('data-i18n') || element.hasAttribute('data-i18n-placeholder') || element.hasAttribute('data-i18n-title')) {
         return;
       }
@@ -3000,6 +3006,7 @@
     });
 
     root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       if (element.hasAttribute('data-i18n-placeholder')) return;
       const placeholder = normalizeLiteral(element.getAttribute('placeholder') || '');
       if (!placeholder) return;
@@ -3012,15 +3019,19 @@
 
   function applyTranslations(root = document) {
     root.querySelectorAll('[data-i18n]').forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       element.textContent = t(element.dataset.i18n, element.textContent);
     });
     root.querySelectorAll('[data-i18n-placeholder]').forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       element.setAttribute('placeholder', t(element.dataset.i18nPlaceholder, element.getAttribute('placeholder') || ''));
     });
     root.querySelectorAll('[data-i18n-alt]').forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       element.setAttribute('alt', t(element.dataset.i18nAlt, element.getAttribute('alt') || ''));
     });
     root.querySelectorAll('[data-i18n-title]').forEach((element) => {
+      if (shouldSkipShellTranslation(element)) return;
       element.setAttribute('title', t(element.dataset.i18nTitle, element.getAttribute('title') || ''));
     });
     applyLiteralTranslations(root);

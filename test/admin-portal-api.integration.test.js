@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { once } = require('node:events');
 
-const { createPurchase, listShopItems } = require('../src/store/memoryStore');
+const { addShopItem, createPurchase, listShopItems } = require('../src/store/memoryStore');
 const { setCode, deleteCode } = require('../src/store/redeemStore');
 
 const adminWebServerPath = path.resolve(__dirname, '../src/adminWebServer.js');
@@ -20,8 +20,10 @@ function randomPort(base = 40100, span = 800) {
 test('admin portal API (token + forwarded discord id) integration flow', async (t) => {
   const port = randomPort();
   const token = 'portal_test_token_abcdefghijklmnopqrstuvwxyz';
+  const tenantId = `tenant-portal-${Date.now()}`;
   const discordId = `9${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(0, 18);
   const redeemCode = `P${Date.now()}${Math.floor(Math.random() * 1000)}`.toUpperCase();
+  const shopItemId = `portal-item-${Date.now()}`;
 
   process.env.ADMIN_WEB_HOST = '127.0.0.1';
   process.env.ADMIN_WEB_PORT = String(port);
@@ -45,13 +47,14 @@ test('admin portal API (token + forwarded discord id) integration flow', async (
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve));
     delete require.cache[adminWebServerPath];
-    deleteCode(redeemCode);
+    deleteCode(redeemCode, { tenantId });
   });
 
   const baseUrl = `http://127.0.0.1:${port}`;
   const portalHeaders = {
     'x-admin-token': token,
     'x-forwarded-discord-id': discordId,
+    'x-forwarded-tenant-id': tenantId,
     'x-forwarded-user': `portal-${discordId}`,
   };
 
@@ -76,9 +79,20 @@ test('admin portal API (token + forwarded discord id) integration flow', async (
     return { res, data };
   }
 
-  const items = await listShopItems();
+  await addShopItem(
+    shopItemId,
+    'Portal Test Item',
+    125,
+    'Tenant-scoped portal test item',
+    {
+      kind: 'item',
+      deliveryItems: [{ gameItemId: 'Weapon_M1911', quantity: 1 }],
+    },
+    { tenantId },
+  );
+  const items = await listShopItems({ tenantId });
   assert.ok(items.length > 0);
-  await createPurchase(discordId, items[0]);
+  await createPurchase(discordId, items[0], { tenantId });
 
   const dashboard = await get('/admin/api/portal/player/dashboard');
   assert.equal(dashboard.res.status, 200);
@@ -95,16 +109,16 @@ test('admin portal API (token + forwarded discord id) integration flow', async (
   assert.equal(purchases.res.status, 200);
   assert.equal(purchases.data.ok, true);
   assert.ok(Array.isArray(purchases.data.data.items));
-  assert.ok(
-    purchases.data.data.items.some(
-      (row) => String(row.userId || '') === discordId,
-    ),
-  );
+  assert.ok(purchases.data.data.items.some((row) => String(row.userId || '') === discordId));
 
-  setCode(redeemCode, {
-    type: 'coins',
-    amount: 222,
-  });
+  setCode(
+    redeemCode,
+    {
+      type: 'coins',
+      amount: 222,
+    },
+    { tenantId },
+  );
   const redeem = await post('/admin/api/portal/redeem', { code: redeemCode });
   assert.equal(redeem.res.status, 200);
   assert.equal(redeem.data.ok, true);
@@ -123,9 +137,7 @@ test('admin portal API (token + forwarded discord id) integration flow', async (
   assert.equal(bountyList.data.ok, true);
   assert.ok(Array.isArray(bountyList.data.data.items));
   assert.ok(
-    bountyList.data.data.items.some(
-      (row) => String(row.targetName || '') === 'PortalTarget',
-    ),
+    bountyList.data.data.items.some((row) => String(row.targetName || '') === 'PortalTarget'),
   );
 
   const rentbike = await post('/admin/api/portal/rentbike/request', {});

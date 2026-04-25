@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SCUM CONTROL PLANE - Subscription Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e3e2e4",
+                        "on-surface": "#e3e2e4",
+                        "surface-bright": "#38393b",
+                        "primary-container": "#00d1ff",
+                        "primary": "#a4e6ff",
+                        "on-primary-fixed": "#001f28",
+                        "on-primary-container": "#00566a",
+                        "outline": "#859399",
+                        "surface-container": "#1f2022",
+                        "tertiary": "#ffd1ce",
+                        "on-tertiary-fixed-variant": "#930014",
+                        "surface-variant": "#343537",
+                        "surface-dim": "#121315",
+                        "inverse-primary": "#00677f",
+                        "error-container": "#93000a",
+                        "primary-fixed": "#b7eaff",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#004e60",
+                        "background": "#121315",
+                        "on-secondary-fixed-variant": "#5e4200",
+                        "secondary-fixed": "#ffdea8",
+                        "on-surface-variant": "#bbc9cf",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-tertiary": "#68000b",
+                        "on-primary": "#003543",
+                        "inverse-on-surface": "#303032",
+                        "surface": "#121315",
+                        "tertiary-container": "#ffaaa4",
+                        "on-secondary-container": "#6b4b00",
+                        "inverse-surface": "#e3e2e4",
+                        "primary-fixed-dim": "#4cd6ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface-container-high": "#292a2c",
+                        "outline-variant": "#3c494e",
+                        "secondary-container": "#feb700",
+                        "surface-tint": "#4cd6ff",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1b1c1e",
+                        "secondary": "#ffdb9d",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-lowest": "#0d0e10",
+                        "on-tertiary-container": "#a10017",
+                        "on-secondary": "#412d00",
+                        "surface-container-highest": "#343537",
+                        "secondary-fixed-dim": "#ffba20",
+                        "on-secondary-fixed": "#271900"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 border-b bg-zinc-950/90 backdrop-blur-md border-zinc-800 flex justify-between items-center h-14 px-6 w-full">
+<div class="flex items-center gap-8">
+<div class="text-lg font-black text-cyan-400 tracking-widest uppercase">SCUM CONTROL PLANE</div>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Platform</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Incidents</a>
+<a class="font-public-sans tracking-tight text-sm font-semibold uppercase text-zinc-500 hover:text-zinc-300 transition-colors" href="#">Audit</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-900 transition-all duration-150">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-900 transition-all duration-150">
+<span class="material-symbols-outlined">language</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-900 transition-all duration-150">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-900 transition-all duration-150">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden">
+<img alt="Owner Profile" data-alt="Official headshot of a system operator in high-contrast dark room with subtle cyan rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoA34w3GNfw2bDo9e9N2ChoSdgqTo5Lgk-grtGwT7ZCGs4kBGnJGm8nW-JjZWgzl-MJenz6HelEcnRe3bYkQUhWE2UACXvsWqs8OlH1edUt1CievMaC0ul-3dgxNTDMtEMcosK3yeZ9RBHPRZ24YyyeCwaaSAAWWiiOti4SkCzK78Hf4xjfbv8YqSJsgJqD9nQ-ik1JEMpa6Rz528lQ0q6uvyt2gncChg8vKNHQx-c7Rc1BjS7p09kaWmAhzsfiMNc-6KYzCLehZE"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r bg-zinc-950 border-zinc-800 flex flex-col h-full overflow-y-auto scrollbar-hide py-4 z-40">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<div class="font-headline font-bold text-xs text-white">OPERATOR-01</div>
+<div class="font-headline text-[10px] text-cyan-400 tracking-widest font-black">ROOT ACCESS</div>
+</div>
+</div>
+</div>
+<nav class="flex-1">
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">dashboard</span> Overview
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">supervised_user_circle</span> Tenants
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">inventory_2</span> Packages
+            </a>
+<!-- Active Navigation -->
+<a class="bg-zinc-900 border-l-4 border-cyan-400 text-cyan-400 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rebase_edit</span> Subscriptions
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">payments</span> Billing
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">monitor_heart</span> Runtime Health
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">developer_board</span> Fleet
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">settings_backup_restore</span> Config Oversight
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">shopping_cart</span> Commerce
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">groups</span> Community
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">fingerprint</span> Identity
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">emergency</span> Incidents
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">history_edu</span> Audit
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-3 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">security</span> Security
+            </a>
+</nav>
+<div class="mt-auto px-4 py-4 space-y-1">
+<button class="w-full bg-cyan-400 text-on-primary-fixed font-black text-[10px] tracking-widest py-2 active:scale-95 transition-transform uppercase mb-4">DEPLOY UPDATE</button>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-2 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">biotech</span> Diagnostics
+            </a>
+<a class="text-zinc-500 hover:text-zinc-300 px-4 py-2 flex items-center gap-3 font-public-sans font-medium text-xs antialiased hover:bg-zinc-900/50" href="#">
+<span class="material-symbols-outlined">settings</span> Settings
+            </a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 pt-14 p-8 min-h-screen">
+<header class="flex justify-between items-end mb-8">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="text-[10px] font-black bg-cyan-400 text-on-primary-fixed px-1.5 py-0.5 tracking-tighter uppercase">Operational view</span>
+<span class="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">/owner/api/platform/subscriptions</span>
+</div>
+<h1 class="text-4xl font-headline font-black tracking-tight text-white uppercase italic">Subscription Management</h1>
+<p class="text-zinc-500 mt-1 max-w-2xl font-medium text-sm">Global oversight of tenant lifecycle, entitlement states, and billing integrity. Supervise commercial health across all platform segments.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2.5 border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold transition-all">
+<span class="material-symbols-outlined text-sm">download</span> EXPORT CSV
+                </button>
+<button class="flex items-center gap-2 px-6 py-2.5 bg-cyan-400 text-on-primary-fixed text-xs font-black tracking-widest transition-all hover:bg-cyan-300">
+<span class="material-symbols-outlined text-sm">add_circle</span> CREATE SUBSCRIPTION
+                </button>
+</div>
+</header>
+<!-- KPI Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+<div class="bg-zinc-950 border border-zinc-800 p-5 group hover:border-cyan-400/50 transition-colors">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">Active Tenants</span>
+<span class="material-symbols-outlined text-cyan-400 text-lg">supervised_user_circle</span>
+</div>
+<div class="text-3xl font-headline font-black text-white italic">412</div>
+<div class="mt-2 flex items-center gap-2 text-[10px] font-bold text-cyan-400/80">
+<span class="material-symbols-outlined text-xs">trending_up</span> +12% vs last month
+                </div>
+</div>
+<div class="bg-zinc-950 border border-zinc-800 p-5 group hover:border-secondary-container/50 transition-colors">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">Risk Exposure</span>
+<span class="material-symbols-outlined text-secondary-container text-lg">warning</span>
+</div>
+<div class="text-3xl font-headline font-black text-white italic">08</div>
+<div class="mt-2 flex items-center gap-2 text-[10px] font-bold text-secondary-container/80">
+<span class="material-symbols-outlined text-xs">history</span> Expiring within 72h
+                </div>
+</div>
+<div class="bg-zinc-950 border border-zinc-800 p-5 group hover:border-error/50 transition-colors">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">Failed Rebill</span>
+<span class="material-symbols-outlined text-error text-lg">error</span>
+</div>
+<div class="text-3xl font-headline font-black text-white italic">03</div>
+<div class="mt-2 flex items-center gap-2 text-[10px] font-bold text-error/80">
+<span class="material-symbols-outlined text-xs">payments</span> Needs Manual Review
+                </div>
+</div>
+<div class="bg-zinc-950 border border-zinc-800 p-5 group hover:border-cyan-400/50 transition-colors">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">Platform MRR</span>
+<span class="material-symbols-outlined text-cyan-400 text-lg">payments</span>
+</div>
+<div class="text-3xl font-headline font-black text-white italic">$24.8k</div>
+<div class="mt-2 flex items-center gap-2 text-[10px] font-bold text-cyan-400/80">
+<span class="material-symbols-outlined text-xs">show_chart</span> Forecast: +4.2%
+                </div>
+</div>
+</section>
+<!-- Search and Filters -->
+<section class="flex flex-col md:flex-row gap-4 mb-6">
+<div class="relative flex-1 group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-cyan-400 transition-colors">search</span>
+<input class="w-full bg-zinc-900 border-zinc-800 focus:border-cyan-400 focus:ring-0 text-white text-xs py-3 pl-12 pr-4 font-medium transition-all" placeholder="Search by Tenant ID, Steam ID, or Discord Tag..." type="text"/>
+</div>
+<div class="flex gap-2">
+<select class="bg-zinc-900 border-zinc-800 text-zinc-400 text-xs font-bold py-3 px-4 focus:ring-0 focus:border-cyan-400">
+<option>Billing State: All</option>
+<option>Active</option>
+<option>Delinquent</option>
+<option>Pending</option>
+</select>
+<select class="bg-zinc-900 border-zinc-800 text-zinc-400 text-xs font-bold py-3 px-4 focus:ring-0 focus:border-cyan-400">
+<option>Plan: All</option>
+<option>Standard</option>
+<option>Pro</option>
+<option>Enterprise</option>
+</select>
+<button class="bg-zinc-800 hover:bg-zinc-700 text-white p-3 border border-zinc-700">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+</button>
+</div>
+</section>
+<!-- Subscription Table -->
+<div class="bg-zinc-950 border border-zinc-800 overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-zinc-900/50">
+<tr>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800">Tenant Identity</th>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800">Current Plan</th>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800">Billing State</th>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800">License Status</th>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800">Renewal</th>
+<th class="px-6 py-4 text-[10px] font-black text-zinc-500 tracking-widest uppercase border-b border-zinc-800 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-zinc-800/50">
+<!-- Row 1 -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-500 group-hover:border-cyan-400/50 transition-colors">SR</div>
+<div>
+<div class="text-sm font-bold text-white tracking-tight">STALKER_REBORN</div>
+<div class="text-[10px] text-zinc-500 font-mono">T-48192-XFA</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-xs font-bold text-zinc-300">Enterprise Cluster</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 border border-cyan-400/30 bg-cyan-400/5 text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Paid: Verified</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-cyan-400 text-base" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-medium italic">Active Deployment</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-medium text-zinc-400">24 OCT 2024</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-zinc-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-500">NP</div>
+<div>
+<div class="text-sm font-bold text-white tracking-tight">NIGHTFALL_PVP</div>
+<div class="text-[10px] text-zinc-500 font-mono">T-10294-QWS</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="text-xs font-bold text-zinc-300">Standard Agent</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 border border-secondary-container/30 bg-secondary-container/5 text-[10px] font-black text-secondary-container uppercase tracking-tighter">Retrying: Fallback</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-secondary-container text-base">warning</span>
+<span class="text-xs font-medium italic">Grace Period</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-medium text-secondary-container">12 SEP 2024</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-zinc-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-500">ZD</div>
+<div>
+<div class="text-sm font-bold text-white tracking-tight">ZERO_DAY_OFFICIAL</div>
+<div class="text-[10px] text-zinc-500 font-mono">T-33491-LZX</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-xs font-bold text-zinc-300">Pro Cluster</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 border border-error/30 bg-error/5 text-[10px] font-black text-error uppercase tracking-tighter">Declined: Canceled</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-error text-base">block</span>
+<span class="text-xs font-medium italic">Suspended Control</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-medium text-error italic">EXPIRED</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-zinc-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-zinc-900/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-500">HA</div>
+<div>
+<div class="text-sm font-bold text-white tracking-tight">HARDCORE_AVALON</div>
+<div class="text-[10px] text-zinc-500 font-mono">T-92812-MNP</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-xs font-bold text-zinc-300">Enterprise Cluster</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 border border-cyan-400/30 bg-cyan-400/5 text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Paid: Verified</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-cyan-400 text-base" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-medium italic">Active Deployment</span>
+</div>
+</td>
+<td class="px-6 py-4 text-xs font-medium text-zinc-400">15 NOV 2024</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-zinc-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="p-2 text-zinc-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="bg-zinc-900/50 px-6 py-4 flex justify-between items-center border-t border-zinc-800">
+<div class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Showing 1-4 of 412 entries</div>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center border border-zinc-800 text-zinc-500 hover:bg-zinc-800 transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center border border-cyan-400 bg-cyan-400 text-on-primary-fixed text-[10px] font-black italic">1</button>
+<button class="w-8 h-8 flex items-center justify-center border border-zinc-800 text-zinc-400 hover:bg-zinc-800 transition-colors text-[10px] font-black italic">2</button>
+<button class="w-8 h-8 flex items-center justify-center border border-zinc-800 text-zinc-400 hover:bg-zinc-800 transition-colors text-[10px] font-black italic">3</button>
+<button class="w-8 h-8 flex items-center justify-center border border-zinc-800 text-zinc-500 hover:bg-zinc-800 transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Side Context Rail (Floating Simulation) -->
+<aside class="fixed right-8 top-32 w-80 space-y-4 hidden xl:block">
+<div class="bg-zinc-950 border-l-4 border-cyan-400 p-5 shadow-2xl">
+<h3 class="text-xs font-black text-white tracking-widest uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-sm">analytics</span> Insight: Revenue Drift
+                </h3>
+<div class="space-y-4">
+<div class="p-3 bg-zinc-900/50 border border-zinc-800">
+<div class="text-[10px] font-bold text-zinc-500 uppercase mb-1">Churn Risk (Predicted)</div>
+<div class="text-xl font-headline font-black text-secondary-container">4.2%</div>
+<div class="w-full bg-zinc-800 h-1 mt-2">
+<div class="bg-secondary-container h-full" style="width: 42%"></div>
+</div>
+</div>
+<p class="text-[10px] text-zinc-400 leading-relaxed">
+                        Detected anomalous billing failures for <span class="text-cyan-400">Standard Agent</span> plans in Western Europe. Investigate regional payment gateway stability.
+                    </p>
+<button class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-[10px] font-black tracking-widest uppercase transition-all">RESOLVE DISCREPANCIES</button>
+</div>
+</div>
+<div class="bg-zinc-950 border border-zinc-800 p-5">
+<h3 class="text-xs font-black text-white tracking-widest uppercase mb-4">Quick Diagnostic Logs</h3>
+<div class="space-y-3">
+<div class="flex gap-3 text-[9px] font-mono leading-tight border-b border-zinc-900 pb-2">
+<span class="text-cyan-400">[OK]</span>
+<span class="text-zinc-500">Rebill T-48192 Success</span>
+</div>
+<div class="flex gap-3 text-[9px] font-mono leading-tight border-b border-zinc-900 pb-2">
+<span class="text-secondary-container">[WRN]</span>
+<span class="text-zinc-500">Entitlement Lag: T-10294</span>
+</div>
+<div class="flex gap-3 text-[9px] font-mono leading-tight border-b border-zinc-900 pb-2">
+<span class="text-error">[ERR]</span>
+<span class="text-zinc-500">Auth Expired: T-33491</span>
+</div>
+<div class="flex gap-3 text-[9px] font-mono leading-tight">
+<span class="text-cyan-400">[OK]</span>
+<span class="text-zinc-500">API Handshake: Gateway-Alpha</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Danger Zone Prompt -->
+<div class="mt-12 p-6 border-t border-error/20 bg-error/5 flex items-center justify-between">
+<div>
+<h4 class="text-sm font-black text-error uppercase italic">System Override Threshold</h4>
+<p class="text-xs text-zinc-500 max-w-xl mt-1">Manual intervention in subscription states bypasses regional tax calculators and backend entitlement verification. All actions are logged under root audit protocols.</p>
+</div>
+<button class="px-6 py-3 border border-error/50 text-error hover:bg-error hover:text-white transition-all text-xs font-black tracking-widest uppercase">FORCE RE-SYNC ALL</button>
+</div>
+</main>
+<!-- FAB (Suppressed for focused detail screens as per rule, but present on dashboard context) -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-cyan-400 text-on-primary-fixed rounded-full shadow-2xl flex items-center justify-center group active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl group-hover:rotate-90 transition-transform">add</span>
+</button>
+</div>
+</body></html>

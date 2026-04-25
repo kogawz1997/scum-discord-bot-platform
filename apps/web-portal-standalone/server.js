@@ -9,6 +9,9 @@ const {
   isDiscordOnlyMode,
 } = require('../../src/config/discordOnlyMode');
 const { assertPortalEnv } = require('../../src/utils/env');
+const {
+  assertControlPlaneRuntimeReadiness,
+} = require('../../src/utils/controlPlaneRuntimeReadiness');
 loadMergedEnvFiles({
   basePath: path.resolve(process.cwd(), '.env'),
   overlayPath: path.join(__dirname, '.env'),
@@ -110,6 +113,9 @@ if (isDiscordOnlyMode(process.env)) {
 }
 
 assertPortalEnv(process.env);
+assertControlPlaneRuntimeReadiness({
+  env: process.env,
+});
 
 const {
   startupReady,

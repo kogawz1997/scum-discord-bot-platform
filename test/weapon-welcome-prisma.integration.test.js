@@ -10,15 +10,22 @@ const {
   revokeClaim,
   flushWelcomePackStoreWrites,
 } = require('../src/store/welcomePackStore');
-const { prisma } = require('../src/prisma');
+const { prisma, getTenantScopedPrismaClient } = require('../src/prisma');
 
 function uniqueText(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+const TEST_TENANT_ID = 'tenant-weapon-welcome-integration';
+
+function scope() {
+  return { tenantId: TEST_TENANT_ID };
+}
+
 test('weaponStats and welcomePack stores write through to prisma', async () => {
   const weapon = uniqueText('weapon');
   const userId = uniqueText('welcome-user');
+  const db = getTenantScopedPrismaClient(TEST_TENANT_ID);
 
   try {
     recordWeaponKill({
@@ -39,27 +46,27 @@ test('weaponStats and welcomePack stores write through to prisma', async () => {
     assert.equal(Number(row.longestDistance), 120);
     assert.equal(row.recordHolder, 'killer-b');
 
-    const firstClaim = claim(userId);
-    const secondClaim = claim(userId);
+    const firstClaim = claim(userId, scope());
+    const secondClaim = claim(userId, scope());
     assert.equal(firstClaim, true);
     assert.equal(secondClaim, false);
-    await flushWelcomePackStoreWrites();
+    await flushWelcomePackStoreWrites(scope());
 
-    let claimRow = await prisma.welcomeClaim.findUnique({
+    let claimRow = await db.welcomeClaim.findUnique({
       where: { userId },
     });
     assert.ok(claimRow);
 
-    const revoked = revokeClaim(userId);
+    const revoked = revokeClaim(userId, scope());
     assert.equal(revoked, true);
-    await flushWelcomePackStoreWrites();
+    await flushWelcomePackStoreWrites(scope());
 
-    claimRow = await prisma.welcomeClaim.findUnique({
+    claimRow = await db.welcomeClaim.findUnique({
       where: { userId },
     });
     assert.equal(claimRow, null);
   } finally {
     await prisma.weaponStat.deleteMany({ where: { weapon } });
-    await prisma.welcomeClaim.deleteMany({ where: { userId } });
+    await db.welcomeClaim.deleteMany({ where: { userId } });
   }
 });

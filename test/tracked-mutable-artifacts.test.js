@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const {
   classifyTrackedMutableArtifact,
   collectTrackedMutableArtifacts,
+  isGitUnavailableError,
+  listTrackedMutableArtifacts,
   normalizeRepoPath,
 } = require('../src/utils/trackedMutableArtifacts');
 
@@ -48,4 +50,42 @@ test('collectTrackedMutableArtifacts ignores normal source files', () => {
       reason: 'temporary audit/proof folders must not be tracked',
     },
   ]);
+});
+
+test('isGitUnavailableError detects missing git executable errors', () => {
+  const error = new Error('spawnSync git ENOENT');
+  error.code = 'ENOENT';
+  error.path = 'git';
+
+  assert.equal(isGitUnavailableError(error), true);
+  assert.equal(isGitUnavailableError(new Error('permission denied')), false);
+});
+
+test('listTrackedMutableArtifacts reports skipped state when git is unavailable', () => {
+  const error = new Error('spawnSync git ENOENT');
+  error.code = 'ENOENT';
+  error.path = 'git';
+
+  const result = listTrackedMutableArtifacts({
+    execFileSyncImpl() {
+      throw error;
+    },
+  });
+
+  assert.equal(Array.isArray(result), true);
+  assert.equal(result.length, 0);
+  assert.equal(result.skipped, true);
+  assert.equal(result.reason, 'git-unavailable');
+  assert.match(result.detail, /git is not available/i);
+});
+
+test('listTrackedMutableArtifacts rethrows non-git execution failures', () => {
+  assert.throws(
+    () => listTrackedMutableArtifacts({
+      execFileSyncImpl() {
+        throw new Error('unexpected git failure');
+      },
+    }),
+    /unexpected git failure/,
+  );
 });

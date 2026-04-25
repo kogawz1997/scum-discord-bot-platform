@@ -84,12 +84,16 @@ test('owner standalone surface serves owner shell and redirects tenant paths to 
   const ownerRes = createResponse();
   await runtime.handleRequest(createReq('/owner/tenants'), ownerRes);
   assert.equal(ownerRes.statusCode, 200);
-  assert.equal(ownerRes.body, '<h1>owner-shell</h1>');
+  assert.match(ownerRes.body, /SCUM Owner UI Prototype/);
+  assert.match(ownerRes.body, /<div id="root"><\/div>/);
+  assert.match(ownerRes.body, /\/assets\/index-/);
 
   const ownerLoginRes = createResponse();
   await runtime.handleRequest(createReq('/owner/login'), ownerLoginRes);
   assert.equal(ownerLoginRes.statusCode, 200);
-  assert.equal(ownerLoginRes.body, '<h1>owner-login</h1>');
+  assert.match(ownerLoginRes.body, /SCUM Owner UI Prototype/);
+  assert.match(ownerLoginRes.body, /<div id="root"><\/div>/);
+  assert.match(ownerLoginRes.body, /\/assets\/index-/);
 
   const tenantRedirectRes = createResponse();
   await runtime.handleRequest(createReq('/tenant'), tenantRedirectRes);

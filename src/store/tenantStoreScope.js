@@ -6,6 +6,7 @@ const {
 } = require('../prisma');
 const {
   assertTenantDbIsolationScope,
+  assertTenantMutationScope,
   getTenantDbIsolationRuntime,
 } = require('../utils/tenantDbIsolation');
 
@@ -35,6 +36,20 @@ function resolveTenantStoreScope(options = {}) {
     datasourceKey: resolveTenantScopedDatasourceUrl(scope.tenantId, options) || scope.tenantId,
     db: getTenantScopedPrismaClient(scope.tenantId, options),
   };
+}
+
+function assertTenantStoreMutationScope(
+  scope = {},
+  options = {},
+  operation = 'tenant store mutation',
+  entityType = 'tenant-store-record',
+) {
+  return assertTenantMutationScope({
+    tenantId: scope.tenantId || options.tenantId || options.defaultTenantId,
+    allowGlobal: options.allowGlobal === true,
+    operation,
+    entityType,
+  });
 }
 
 function normalizeServerScopeId(value) {
@@ -116,6 +131,7 @@ function resolveTenantServerStoreScope(options = {}) {
 
 module.exports = {
   resolveTenantStoreScope,
+  assertTenantStoreMutationScope,
   resolveTenantServerStoreScope,
   normalizeServerScopeId,
   buildServerScopedUserKey,

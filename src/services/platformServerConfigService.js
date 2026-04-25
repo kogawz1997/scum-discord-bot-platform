@@ -2,7 +2,7 @@
 
 const { getTenantScopedPrismaClient } = require('../prisma');
 const { withTenantDbIsolation } = require('../utils/tenantDbIsolation');
-const { createId } = require('../contracts/agent/agentContracts');
+const { createId, resolveStrictAgentRoleScope } = require('../contracts/agent/agentContracts');
 const {
   getConfigFileDefinitions,
   getConfigCategoryDefinitions,
@@ -48,6 +48,36 @@ function parseJsonObject(value, fallback = {}) {
     return fallback && typeof fallback === 'object' ? fallback : {};
   }
   return fallback && typeof fallback === 'object' ? fallback : {};
+}
+
+function hasRuntimeProfileSignal(input = {}) {
+  const metadata = input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+    ? input.metadata
+    : input.meta && typeof input.meta === 'object' && !Array.isArray(input.meta)
+      ? input.meta
+      : {};
+  return Boolean(trimText(
+    input.runtimeKind
+      || input.kind
+      || input.role
+      || input.scope
+      || metadata.runtimeKind
+      || metadata.kind
+      || metadata.role
+      || metadata.agentRole
+      || metadata.scope
+      || metadata.agentScope,
+    160,
+  ));
+}
+
+function requireServerBotRuntimeProfile(input = {}) {
+  if (!hasRuntimeProfileSignal(input)) return { ok: true };
+  const profile = resolveStrictAgentRoleScope(input);
+  if (!profile.ok || profile.role !== 'sync' || profile.scope !== 'sync_only') {
+    return { ok: false, reason: 'server-bot-runtime-required' };
+  }
+  return { ok: true, profile };
 }
 
 function parseJsonArray(value) {
@@ -487,6 +517,32 @@ function getJobRequestKey(job = {}) {
   return trimText(job?.meta?.requestKey, 4000) || '';
 }
 
+function buildConfigJobGovernanceAudit(input = {}, actor = 'admin-web', options = {}) {
+  const requestId = trimText(input.requestId || input.correlationId, 160) || null;
+  const correlationId = trimText(input.correlationId || input.requestId, 160) || null;
+  const runtimeKey = normalizeRuntimeKey(input.runtimeKey) || null;
+  const reason = trimText(input.reason || input.restartReason || options.reason, 400) || null;
+  const audit = {
+    governance: true,
+    actionType: trimText(options.actionType, 120) || 'server.config.job',
+    tenantId: normalizeTenantId(options.tenantId) || null,
+    serverId: normalizeServerId(options.serverId) || null,
+    targetType: trimText(options.targetType, 120) || 'server_config_job',
+    targetId: trimText(options.targetId || options.jobId, 160) || null,
+    runtimeKey,
+    actorId: trimText(actor, 200) || 'admin-web',
+    actorRole: trimText(input.actorRole, 120) || null,
+    reason,
+    requestId,
+    correlationId,
+    jobId: trimText(options.jobId, 160) || null,
+    resultStatus: trimText(options.resultStatus, 80) || 'queued',
+    beforeState: options.beforeState || null,
+    afterState: options.afterState || null,
+  };
+  return Object.fromEntries(Object.entries(audit).filter(([, value]) => value !== undefined));
+}
+
 function normalizeBackupRow(row) {
   if (!row) return null;
   return {
@@ -913,6 +969,8 @@ function createPlatformServerConfigService(deps = {}) {
     if (!tenantId || !serverId) {
       return { ok: false, reason: 'server-config-snapshot-invalid' };
     }
+    const runtimeProfile = requireServerBotRuntimeProfile(input);
+    if (!runtimeProfile.ok) return runtimeProfile;
     const server = await resolveServer(tenantId, serverId);
     if (!server) return { ok: false, reason: 'server-not-found' };
     const snapshot = normalizeSnapshotInput(input.snapshot || input);
@@ -1012,6 +1070,19 @@ function createPlatformServerConfigService(deps = {}) {
           meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
         }
       }
+      meta.audit = buildConfigJobGovernanceAudit(input, actor, {
+        tenantId,
+        serverId,
+        jobId,
+        actionType: 'server.config.save',
+        reason: 'config-save',
+        afterState: {
+          applyMode,
+          changeCount: changes.length,
+          requiresRestart,
+          ...(meta.restartPlanId ? { restartPlanId: meta.restartPlanId } : {}),
+        },
+      });
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -1088,6 +1159,19 @@ function createPlatformServerConfigService(deps = {}) {
           meta.restartScheduledFor = restartPlan.plan?.scheduledFor || null;
         }
       }
+      meta.audit = buildConfigJobGovernanceAudit(input, actor, {
+        tenantId,
+        serverId,
+        jobId,
+        actionType: 'server.config.apply',
+        reason: 'config-apply',
+        afterState: {
+          applyMode,
+          changeCount: 0,
+          requiresRestart: applyMode === 'save_restart',
+          ...(meta.restartPlanId ? { restartPlanId: meta.restartPlanId } : {}),
+        },
+      });
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -1170,6 +1254,22 @@ function createPlatformServerConfigService(deps = {}) {
         }
       }
       const jobId = trimText(input.jobId, 160) || createId('cfgjob');
+      rollbackMeta.audit = buildConfigJobGovernanceAudit(input, actor, {
+        tenantId,
+        serverId,
+        jobId,
+        actionType: 'server.config.rollback',
+        reason: 'config-rollback',
+        beforeState: {
+          backupId,
+        },
+        afterState: {
+          applyMode,
+          backupId,
+          requiresRestart: applyMode === 'save_restart',
+          ...(rollbackMeta.restartPlanId ? { restartPlanId: rollbackMeta.restartPlanId } : {}),
+        },
+      });
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -1239,6 +1339,23 @@ function createPlatformServerConfigService(deps = {}) {
           job: existingJob,
         };
       }
+      meta.audit = buildConfigJobGovernanceAudit(input, actor, {
+        tenantId,
+        serverId,
+        jobId,
+        actionType: jobType === 'server_start'
+          ? 'server.start'
+          : jobType === 'server_stop'
+            ? 'server.stop'
+            : `server.probe.${jobType.replace(/^probe_/, '').replace(/_/g, '-')}`,
+        targetType: 'server_config_job',
+        reason: trimText(input.reason, 240) || jobType,
+        afterState: {
+          jobType,
+          runtimeKey: normalizeRuntimeKey(input.runtimeKey) || null,
+          displayName: trimText(input.displayName, 160) || null,
+        },
+      });
       const { job: jobDelegate } = getServerConfigDelegatesOrThrow(db);
       await jobDelegate.create({
         data: {
@@ -1346,6 +1463,8 @@ function createPlatformServerConfigService(deps = {}) {
     const serverId = normalizeServerId(input.serverId);
     const runtimeKey = normalizeRuntimeKey(input.runtimeKey);
     if (!tenantId || !serverId) return { ok: false, reason: 'server-config-claim-invalid' };
+    const runtimeProfile = requireServerBotRuntimeProfile(input);
+    if (!runtimeProfile.ok) return runtimeProfile;
     return withTenantConfigDb(tenantId, async (db) => {
       await ensurePlatformServerConfigTables(db);
       const nextJob = await withServerConfigTransaction(db, async (tx) => {
@@ -1382,6 +1501,8 @@ function createPlatformServerConfigService(deps = {}) {
     const serverId = normalizeServerId(input.serverId);
     const jobId = trimText(input.jobId, 160);
     if (!tenantId || !serverId || !jobId) return { ok: false, reason: 'server-config-complete-invalid' };
+    const runtimeProfile = requireServerBotRuntimeProfile(input);
+    if (!runtimeProfile.ok) return runtimeProfile;
     const jobStatus = normalizeJobStatus(input.status, 'failed');
     const runtimeKey = normalizeRuntimeKey(input.runtimeKey);
     const result = input.result && typeof input.result === 'object' && !Array.isArray(input.result)

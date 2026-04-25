@@ -65,32 +65,43 @@ test('deriveScopesForAgent separates read/sync and execute scopes', () => {
 });
 
 test('resolveStrictAgentRoleScope enforces dedicated runtime boundaries for new provisioning flows', () => {
-  assert.deepEqual(
+  assert.equal(
     resolveStrictAgentRoleScope({
       runtimeKind: 'server-bots',
       role: 'execute',
       scope: 'execute_only',
-    }),
-    {
-      ok: true,
-      runtimeKind: 'server-bots',
+    }).ok,
+    false,
+  );
+
+  assert.equal(
+    resolveStrictAgentRoleScope({
+      runtimeKind: 'delivery-agents',
       role: 'sync',
       scope: 'sync_only',
-      legacy: false,
-    },
+    }).ok,
+    false,
+  );
+
+  assert.equal(
+    resolveStrictAgentRoleScope({
+      role: 'sync',
+      scope: 'execute_only',
+    }).ok,
+    false,
   );
 
   assert.deepEqual(
     resolveStrictAgentRoleScope({
-      runtimeKind: 'delivery-agents',
+      runtimeKind: 'server-bots',
       role: 'sync',
       scope: 'sync_only',
     }),
     {
       ok: true,
-      runtimeKind: 'delivery-agents',
-      role: 'execute',
-      scope: 'execute_only',
+      runtimeKind: 'server-bots',
+      role: 'sync',
+      scope: 'sync_only',
       legacy: false,
     },
   );

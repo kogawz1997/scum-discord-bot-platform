@@ -16,6 +16,7 @@ function createAdminAuditRoutes(deps) {
     listAuditPresetsService,
     saveAuditPresetService,
     deleteAuditPresetService,
+    listAdminSecurityEventsService,
     prisma,
     listEvents,
     getParticipants,
@@ -54,6 +55,14 @@ function createAdminAuditRoutes(deps) {
         actorMode: urlObj.searchParams.get('actorMode'),
         reference: urlObj.searchParams.get('reference'),
         referenceMode: urlObj.searchParams.get('referenceMode'),
+        actionType: urlObj.searchParams.get('actionType'),
+        targetType: urlObj.searchParams.get('targetType'),
+        targetId: urlObj.searchParams.get('targetId'),
+        serverId: urlObj.searchParams.get('serverId'),
+        runtimeKey: urlObj.searchParams.get('runtimeKey'),
+        requestId: urlObj.searchParams.get('requestId') || urlObj.searchParams.get('correlationId'),
+        correlationId: urlObj.searchParams.get('correlationId'),
+        jobId: urlObj.searchParams.get('jobId'),
         windowMs: urlObj.searchParams.get('windowMs'),
         dateFrom: urlObj.searchParams.get('dateFrom'),
         dateTo: urlObj.searchParams.get('dateTo'),
@@ -62,6 +71,7 @@ function createAdminAuditRoutes(deps) {
         cursor: urlObj.searchParams.get('cursor'),
         page: urlObj.searchParams.get('page'),
         pageSize: urlObj.searchParams.get('pageSize') || urlObj.searchParams.get('limit'),
+        listAdminSecurityEvents: listAdminSecurityEventsService,
       });
       sendJson(res, 200, {
         ok: true,
@@ -161,6 +171,14 @@ function createAdminAuditRoutes(deps) {
         actorMode: urlObj.searchParams.get('actorMode'),
         reference: urlObj.searchParams.get('reference'),
         referenceMode: urlObj.searchParams.get('referenceMode'),
+        actionType: urlObj.searchParams.get('actionType'),
+        targetType: urlObj.searchParams.get('targetType'),
+        targetId: urlObj.searchParams.get('targetId'),
+        serverId: urlObj.searchParams.get('serverId'),
+        runtimeKey: urlObj.searchParams.get('runtimeKey'),
+        requestId: urlObj.searchParams.get('requestId') || urlObj.searchParams.get('correlationId'),
+        correlationId: urlObj.searchParams.get('correlationId'),
+        jobId: urlObj.searchParams.get('jobId'),
         windowMs: urlObj.searchParams.get('windowMs'),
         dateFrom: urlObj.searchParams.get('dateFrom'),
         dateTo: urlObj.searchParams.get('dateTo'),
@@ -168,6 +186,7 @@ function createAdminAuditRoutes(deps) {
         sortOrder: urlObj.searchParams.get('sortOrder'),
         exportAll: true,
         pageSize: 5000,
+        listAdminSecurityEvents: listAdminSecurityEventsService,
       });
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       if (format === 'csv') {

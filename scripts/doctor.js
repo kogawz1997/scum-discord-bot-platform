@@ -6,6 +6,7 @@ const { loadMergedEnvFiles } = require('../src/utils/loadEnvFiles');
 const { validateCommandTemplate } = require('../src/utils/commandTemplate');
 const { getAdminSsoRoleMappingSummary } = require('../src/utils/adminSsoRoleMapping');
 const { resolveDatabaseRuntime } = require('../src/utils/dbEngine');
+const { getPrismaRuntimeProfile } = require('../src/prisma');
 const { listTrackedMutableArtifacts } = require('../src/utils/trackedMutableArtifacts');
 const {
   CONTROL_PLANE_REGISTRY_HIGH_CHURN_FILE_MIRROR_SLICES,
@@ -29,6 +30,10 @@ loadMergedEnvFiles({
   basePath: ROOT_ENV_PATH,
   overlayPath: fs.existsSync(PORTAL_ENV_PATH) ? PORTAL_ENV_PATH : null,
 });
+
+if (!String(process.env.CONTROL_PLANE_REGISTRY_AUTO_INIT || '').trim()) {
+  process.env.CONTROL_PLANE_REGISTRY_AUTO_INIT = 'false';
+}
 
 const args = new Set(process.argv.slice(2));
 const asJson = args.has('--json');
@@ -167,6 +172,44 @@ function addDatabaseDeploymentChecks() {
   ) {
     throw new Error(
       `TENANT_DB_TOPOLOGY_MODE=${topologyMode} requires PostgreSQL DATABASE_URL`,
+    );
+  }
+}
+
+function readSchemaProvider(schemaPath) {
+  const text = fs.readFileSync(schemaPath, 'utf8');
+  const match = text.match(/datasource\s+db\s*\{[\s\S]*?provider\s*=\s*"([^"]+)"/m);
+  return String(match?.[1] || '').trim().toLowerCase();
+}
+
+function addPrismaRuntimeClientChecks() {
+  const profile = getPrismaRuntimeProfile();
+  if (profile.runtimeEngine === 'unsupported') {
+    throw new Error(`Unsupported DATABASE_URL engine: ${profile.runtimeDatabaseUrl}`);
+  }
+
+  if (!profile.usesProviderRenderedSchema) {
+    return;
+  }
+
+  if (!profile.clientModulePath) {
+    throw new Error(
+      `Prisma runtime uses ${profile.runtimeProvider}, but no generated provider-specific client was found; run npm run db:generate:${profile.runtimeProvider}`,
+    );
+  }
+
+  const clientEntry = path.join(profile.clientModulePath, 'index.js');
+  const clientSchema = path.join(profile.clientModulePath, 'schema.prisma');
+  if (!fs.existsSync(clientEntry) || !fs.existsSync(clientSchema)) {
+    throw new Error(
+      `Prisma generated client for ${profile.runtimeProvider} is incomplete at ${profile.clientModulePath}; run npm run db:generate:${profile.runtimeProvider}`,
+    );
+  }
+
+  const clientProvider = readSchemaProvider(clientSchema);
+  if (clientProvider !== profile.runtimeProvider) {
+    throw new Error(
+      `Prisma generated client provider (${clientProvider || 'unknown'}) does not match runtime provider (${profile.runtimeProvider})`,
     );
   }
 }
@@ -719,6 +762,7 @@ function addPlatformPersistenceChecks() {
     'ADMIN_WEB_RUNTIME_BOOTSTRAP',
     'PLATFORM_IDENTITY_RUNTIME_BOOTSTRAP',
     'PLATFORM_RAID_RUNTIME_BOOTSTRAP',
+    'CONTROL_PLANE_REGISTRY_IMPORT_FILE_ON_EMPTY',
   ];
 
   const requiredDbModeKeys = [
@@ -768,6 +812,14 @@ function addPlatformPersistenceChecks() {
       throw new Error(`${envKey} must stay disabled when PERSIST_REQUIRE_DB=true`);
     }
   }
+
+  const {
+    assertControlPlaneRegistryPersistenceReady,
+  } = require('../src/data/repositories/controlPlaneRegistryRepository');
+
+  assertControlPlaneRegistryPersistenceReady({
+    requireDb: true,
+  });
 }
 
 runCheck('load dotenv', () => {
@@ -812,6 +864,10 @@ runCheck('DATABASE_URL format', () => {
       );
     }
   }
+});
+
+runCheck('Prisma runtime provider/client readiness', () => {
+  addPrismaRuntimeClientChecks();
 });
 
 runCheck('database deployment posture', () => {
