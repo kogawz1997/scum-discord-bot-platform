@@ -1,5 +1,7 @@
 'use strict';
 
+require('dotenv').config();
+
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -18,7 +20,7 @@ function ensureDir(dirPath) {
 }
 
 function runPrismaMigrateDeploy() {
-  return spawnSync(process.execPath, ['scripts/prisma-with-provider.js', 'migrate', 'deploy'], {
+  return spawnSync(process.execPath, ['scripts/db-migrate-deploy.js'], {
     cwd: process.cwd(),
     stdio: 'inherit',
     shell: false,
